@@ -180,10 +180,25 @@ log "migrations: $applied applied / $journal in the image journal"
 
 # ---- 4. switch containers (ordered, FB-R4-OPS-ARC-31-01) + smoke ----
 # One `dc up` per group: compose would otherwise replace api and worker in parallel (web already waits for a healthy
-# api through depends_on). The worker has no healthcheck, so `--wait` returns as soon as it runs: worker_stays_up
-# checks it is still running a moment later, so a worker that dies at start stops the deploy before api changes.
+# api through depends_on). The worker has no healthcheck, so `--wait` returns as soon as it runs: worker_ok checks a
+# moment later, so a worker that dies at start stops the deploy before api changes.
+# FB-R4-ARC-OPS-P402-01: every service has `restart: unless-stopped`, so a worker in a crash loop is restarted by
+# Docker and is often "running" at the moment one looks. worker_ok therefore reads the container's RestartCount: a
+# container compose (re)created starts at 0; one it left as is keeps its count, read just before the `up`. Running and
+# the count unchanged since the switch = ok; the smoke step checks the SAME container again 5 s later.
 # No extra log line here: the INV command sheets count the "[deploy …]" lines of a successful run (6).
-worker_stays_up() { sleep 3; [ -n "$(dc ps --status running --quiet worker)" ]; }
+worker_cid() { dc ps --all --quiet worker 2>/dev/null | head -n 1 || true; }
+worker_state() { [ -z "$1" ] || docker inspect --format '{{.State.Running}} {{.RestartCount}}' "$1" 2>/dev/null || true; }
+w_cid="" w_base=0 w_problem=""
+worker_ok() { # 0 = the worker container of the switch runs and has not restarted since; else w_problem says why
+  local cid st n
+  cid=$(worker_cid); st=$(worker_state "$cid"); n=${st#* }
+  if [ -z "$cid" ] || [ -z "$st" ]; then w_problem="worker is not running (no container)"; return 1; fi
+  if [ "$cid" != "$w_cid" ]; then w_problem="worker container was replaced after the switch"; return 1; fi
+  case "$st" in "true "*) ;; *) w_problem="worker is not running"; return 1 ;; esac
+  [[ "$n" =~ ^[0-9]+$ ]] || { w_problem="worker restart count unreadable ($st)"; return 1; }
+  [ "$n" -eq "$w_base" ] || { w_problem="worker restarted $((n - w_base)) time(s) (crash loop?) – see dc logs worker"; return 1; }
+}
 restore_previous() {
   if [ -n "$prev" ] && [ "$prev" != "$tag" ] && [ "$rollback" -eq 0 ]; then
     log "putting previous tag $prev back (api + web, then worker)"
@@ -205,8 +220,13 @@ fail() {
 }
 switch_worker() {
   step switch-worker
+  local pre_cid pre_n
+  pre_cid=$(worker_cid); pre_n=$(worker_state "$pre_cid"); pre_n=${pre_n#* }
   dc up --detach --wait --wait-timeout 240 "$@" worker || fail "worker did not start"
-  worker_stays_up || fail "worker is not running after the switch"
+  w_cid=$(worker_cid) w_base=0
+  if [ -n "$w_cid" ] && [ "$w_cid" = "$pre_cid" ] && [[ "$pre_n" =~ ^[0-9]+$ ]]; then w_base=$pre_n; fi  # left as is
+  sleep 3
+  worker_ok || fail "$w_problem after the switch"
 }
 switch_api() {
   step switch-api
@@ -230,7 +250,7 @@ case ",$cfg," in *,idle_in_transaction_session_timeout=30s,*) ;; *) fail "ottimo
 case ",$cfg," in *,statement_timeout=15s,*) ;; *) fail "ottimo_app statement_timeout missing ($cfg)" ;; esac
 
 sleep 5
-[ -n "$(dc ps --status running --quiet worker)" ] || fail "worker is not running"
+worker_ok || fail "$w_problem"
 
 # SEC C2: the blob volume is mounted in api + worker and NOT in web (checked on the running containers).
 # shellcheck disable=SC2016

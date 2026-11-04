@@ -24,6 +24,11 @@
 #   (k) normal deploy: `up … worker` on the new tag, THEN `up … api web`; `--remove-orphans` on the first `up` only;
 #   (l) normal deploy, the new worker dies right after start → FAIL before api/web change; the previous tag comes
 #       back in the rollback order (api + web, then worker), step file = switch-worker;
+#   (l2) FB-R4-ARC-OPS-P402-01: the new worker dies after 1.5 s and Docker restarts it (`restart: unless-stopped`):
+#       "running" at the check but RestartCount 1 → FAIL at switch-worker, api/web never on the new tag, previous back;
+#   (l3) the worker passes the switch check but restarts before the smoke check → FAIL at smoke, previous back;
+#   (l4) compose leaves the worker container as is (same id) with an older RestartCount 4 → no false FAIL (the count
+#       is compared with the value read before the `up`);
 #   (m) normal deploy, the new api/web never become healthy → previous api + web back first, then previous worker;
 #   (n) normal deploy fails and the previous api/web do not come back either → the previous (older) worker is NOT
 #       started while the newer api may still answer;
@@ -81,7 +86,9 @@ ENV
 
 # ---- stubs ----
 # bin/dc: every call is logged with the IMAGE_TAG it would use. STUB_APPLIED / STUB_JOURNAL = migration counts,
-# STUB_WORKER_DOWN=1 = the worker is not running after the switch; STUB_PULL_FAIL=1 = the registry pull fails
+# STUB_WORKER_DOWN=1 = the worker is not running after the switch; STUB_WORKER_KEEP=1 = `up … worker` keeps the
+# running container (same id), else each `up … worker` creates a new one (cid-worker-<n>, id kept in $STUB_STATE);
+# STUB_PULL_FAIL=1 = the registry pull fails
 # (deploy.sh stops through `set -e`, without a FAIL line); STUB_UP_FAIL="<tag>/api <tag>/worker …" = that `dc up`
 # group (api = "api web", worker = "worker") does not become healthy on that tag.
 cat > "$home/infra/server/bin/dc" <<'DC'
@@ -97,7 +104,11 @@ if [[ "$a" == *" up --detach "* ]] && [ -n "${STUB_UP_FAIL:-}" ]; then
   case "$a" in *" api web ") grp=api ;; *" worker ") grp=worker ;; esac
   case " $STUB_UP_FAIL " in *" ${IMAGE_TAG:-}/$grp "*) echo "container ottimo-$grp is unhealthy" >&2; exit 1 ;; esac
 fi
+if [[ "$a" == *" up --detach "*" worker " ]] && [ "${STUB_WORKER_KEEP:-0}" != 1 ]; then
+  n=$(cat "$STUB_STATE/worker_n" 2>/dev/null || echo 0); echo $((n + 1)) > "$STUB_STATE/worker_n"
+fi
 case "$a" in
+  *" ps --all --quiet worker "*) echo "cid-worker-$(cat "$STUB_STATE/worker_n" 2>/dev/null || echo 0)" ;;
   *" config --format json "*) echo '{"secrets":{"booking_request_chat_webhook":{"file":"/dev/null"}}}' ;;
   *" --entrypoint node migrate "*) printf '%s' "${STUB_JOURNAL:-39}" ;;
   *" exec -T postgres sh -c "*)
@@ -107,13 +118,15 @@ case "$a" in
       *rolconfig*) echo 'idle_in_transaction_session_timeout=30s,statement_timeout=15s' ;;
     esac ;;
   *" exec -T api wget "*) echo '{"status":"ok"}' ;;
-  *" ps --status running --quiet worker "*) [ "${STUB_WORKER_DOWN:-0}" = 1 ] || echo cid-worker ;;
   *" ps -q "*) echo "cid-${*: -1}" ;;
   *" logs --no-color --since "*) echo '{"request":{"uri":"/g/[redacted]"}}' ;;
 esac
 exit 0
 DC
-# docker: the registry digests come from STUB_REGISTRY (file "api=…\nweb=…" per tag).
+# docker: the registry digests come from STUB_REGISTRY (file "api=…\nweb=…" per tag). Worker state (`{{.State.Running}}
+# {{.RestartCount}}`): cid-worker-0 = the container running before the deploy, RestartCount STUB_WORKER_OLD_RESTARTS
+# (default 0); a container created by the deploy is not running when STUB_WORKER_DOWN=1, and its RestartCount is read
+# from STUB_WORKER_RESTARTS – "0 1" = 0 at the first read, 1 from the second on (the last value stays).
 cat > "$stubs/docker" <<'DK'
 #!/usr/bin/env bash
 echo "docker $*" >> "$STUB_CALLS"
@@ -125,6 +138,14 @@ case "$1 $2" in
   "network inspect") echo '[]' ;;
   "image prune") ;;
   inspect*)
+    if [[ "$*" == *RestartCount* ]]; then
+      if [ "${*: -1}" = cid-worker-0 ]; then echo "true ${STUB_WORKER_OLD_RESTARTS:-0}"; exit 0; fi
+      read -r -a seq <<<"${STUB_WORKER_RESTARTS:-0}"
+      i=$(cat "$STUB_STATE/rc_reads" 2>/dev/null || echo 0); echo $((i + 1)) > "$STUB_STATE/rc_reads"
+      [ "$i" -lt "${#seq[@]}" ] || i=$((${#seq[@]} - 1))
+      if [ "${STUB_WORKER_DOWN:-0}" = 1 ]; then echo "false ${seq[$i]}"; else echo "true ${seq[$i]}"; fi
+      exit 0
+    fi
     case "${*: -1}" in cid-api|cid-worker) echo 'volume:ottimo-prod_blobdata:/var/lib/ottimo/blobs ' ;; *) echo 'bind:/srv:/srv ' ;; esac ;;
 esac
 exit 0
@@ -164,10 +185,11 @@ reset_state() {
   printf 'api=%s\nweb=%s\n' "$A_OLD" "$W_OLD" > "$home/state/digests/$OLD"
   printf 'api=%s\nweb=%s\n' "$A_NEW" "$W_NEW" > "$home/state/digests/$NEW"
   : > "$calls"
+  rm -rf "$work/stubstate"; mkdir -p "$work/stubstate"
 }
 run() { # command…  → out, rc (as on the VPS: no OTTIMO_HOME, the marker decides)
   rc=0
-  out=$(env -u OTTIMO_HOME PATH="$stubs:$PATH" STUB_CALLS="$calls" STUB_REGISTRY="$registry" "$@" 2>&1) || rc=$?
+  out=$(env -u OTTIMO_HOME PATH="$stubs:$PATH" STUB_CALLS="$calls" STUB_STATE="$work/stubstate" STUB_REGISTRY="$registry" "$@" 2>&1) || rc=$?
 }
 rb="$home/infra/server/bin/rollback.sh"
 switched() { grep -qE -- " up --detach --wait --wait-timeout 240 (--remove-orphans )?(api web|worker)\$" "$calls"; }
@@ -278,12 +300,17 @@ if [ "$rc" -eq 0 ] && grep -q "OK: $NEW is live" <<<"$out" && [ "$(ups)" = "$NEW
   ok "(k) deploy switch order: 'worker' then 'api web' ($NEW), still 6 [deploy] lines for the INV sheets"
 else ko "(k) rc=$rc ups=$(ups): $out"; fi
 # the worker must be up (and checked) before api/web are touched: the running check sits between the two `up` calls
-wk=$(grep -n " up --detach --wait --wait-timeout 240 --remove-orphans worker\$" "$calls" | head -n 1 | cut -d: -f1)
-ck=$(grep -n " ps --status running --quiet worker\$" "$calls" | head -n 1 | cut -d: -f1)
-ap=$(grep -n " up --detach --wait --wait-timeout 240 api web\$" "$calls" | head -n 1 | cut -d: -f1)
+wk=$(grep -n " up --detach --wait --wait-timeout 240 --remove-orphans worker\$" "$calls" | head -n 1 | cut -d: -f1 || true)
+ck=$(grep -n "^docker inspect .*RestartCount}} cid-worker-[1-9]" "$calls" | head -n 1 | cut -d: -f1 || true)
+ap=$(grep -n " up --detach --wait --wait-timeout 240 api web\$" "$calls" | head -n 1 | cut -d: -f1 || true)
 if [ -n "$wk" ] && [ -n "$ck" ] && [ -n "$ap" ] && [ "$wk" -lt "$ck" ] && [ "$ck" -lt "$ap" ]; then
-  ok "(k) worker running check (line $ck) between 'up worker' (line $wk) and 'up api web' (line $ap)"
-else ko "(k) call lines: up worker=$wk, ps worker=$ck, up api web=$ap"; fi
+  ok "(k) worker RestartCount check of the new container (line $ck) between 'up worker' (line $wk) and 'up api web' (line $ap)"
+else ko "(k) call lines: up worker=$wk, inspect worker=$ck, up api web=$ap"; fi
+# the smoke step reads the same (new) container again: two reads of cid-worker-1, none of another new container
+if [ "$(grep -c "^docker inspect .*RestartCount}} cid-worker-1\$" "$calls")" = 2 ] \
+  && ! grep -q "^docker inspect .*RestartCount}} cid-worker-[2-9]" "$calls"; then
+  ok "(k) smoke re-checks the same worker container (2 RestartCount reads of cid-worker-1)"
+else ko "(k) RestartCount reads: $(grep 'RestartCount' "$calls" | tr '\n' ';')"; fi
 
 # ---------- (l) new worker dies at start → FAIL before api/web change, previous back in rollback order ----------
 reset_deploy_state
@@ -297,6 +324,35 @@ if [ "$rc" -ne 0 ] && grep -q 'FAIL: worker is not running after the switch' <<<
   && [ "$(cat "$work/step")" = switch-worker ] && [ "$(cat "$home/state/current_tag")" = "$OLD" ]; then
   ok "(l) new worker down → FAIL at step switch-worker, api/web never on $NEW, $OLD api + web then worker put back"
 else ko "(l) rc=$rc step=$(cat "$work/step" 2>/dev/null) ups=$(ups): $out"; fi
+
+# restore order of the previous tag (timeout 180) as "api web;worker;"
+restored() { sed -nE "s/^dc\[IMAGE_TAG=$OLD\] up --detach --wait --wait-timeout 180 (api web|worker)\$/\1/p" "$calls" | tr '\n' ';'; }
+
+# ---------- (l2) new worker dies after 1.5 s, Docker restarts it: "running" but RestartCount 1 ----------
+reset_deploy_state
+STUB_WORKER_RESTARTS=1 deploy_new
+if [ "$rc" -ne 0 ] && grep -q 'FAIL: worker restarted 1 time(s) (crash loop?) – see dc logs worker after the switch' <<<"$out" \
+  && ! grep -q "dc\[IMAGE_TAG=$NEW\] up .* api web\$" "$calls" && [ "$(ups)" = "$NEW worker;" ] \
+  && [ "$(restored)" = "api web;worker;" ] \
+  && [ "$(cat "$work/step")" = switch-worker ] && [ "$(cat "$home/state/current_tag")" = "$OLD" ]; then
+  ok "(l2) worker restarted once by Docker (running at the check) → FAIL at switch-worker, api/web never on $NEW, $OLD back"
+else ko "(l2) rc=$rc step=$(cat "$work/step" 2>/dev/null) ups=$(ups) restore=$(restored): $out"; fi
+
+# ---------- (l3) worker restarts after the switch check, before the smoke check ----------
+reset_deploy_state
+STUB_WORKER_RESTARTS="0 1" deploy_new
+if [ "$rc" -ne 0 ] && grep -q 'FAIL: worker restarted 1 time(s)' <<<"$out" && ! grep -q 'after the switch' <<<"$out" \
+  && [ "$(ups)" = "$NEW worker;$NEW api web;" ] && [ "$(restored)" = "api web;worker;" ] \
+  && [ "$(cat "$work/step")" = smoke ] && [ "$(cat "$home/state/current_tag")" = "$OLD" ]; then
+  ok "(l3) worker restarted between the switch and smoke → FAIL at smoke, $OLD put back as 'api web' then 'worker'"
+else ko "(l3) rc=$rc step=$(cat "$work/step" 2>/dev/null) ups=$(ups) restore=$(restored): $out"; fi
+
+# ---------- (l4) worker container left as is, older RestartCount 4 → no false FAIL ----------
+reset_deploy_state
+STUB_WORKER_KEEP=1 STUB_WORKER_OLD_RESTARTS=4 deploy_new
+if [ "$rc" -eq 0 ] && grep -q "OK: $NEW is live" <<<"$out" && [ "$(grep -c '^\[deploy ' <<<"$out")" = 6 ]; then
+  ok "(l4) same worker container with RestartCount 4 before the up and after → accepted (no false FAIL)"
+else ko "(l4) rc=$rc: $out"; fi
 
 # ---------- (m) new api/web unhealthy → previous api + web, then previous worker ----------
 reset_deploy_state
@@ -330,7 +386,7 @@ if [ -r "$sheet" ]; then
   r4=$(grep -F 'rollback.sh sha-8b3aec89486f 2>&1' "$sheet" | grep -F 'ssh -t' | head -n 1)
   r4=${r4#*\'}; r4=${r4%\'}
   r4=${r4//sudo -u ottimo \/opt\/ottimo-prod\/infra\/server\/bin\/rollback.sh/$rb}
-  r4run() { rc=0; out=$(env -u OTTIMO_HOME PATH="$stubs:$PATH" STUB_CALLS="$calls" STUB_REGISTRY="$registry" bash -c "$r4" 2>&1) || rc=$?; }
+  r4run() { rc=0; out=$(env -u OTTIMO_HOME PATH="$stubs:$PATH" STUB_CALLS="$calls" STUB_STATE="$work/stubstate" STUB_REGISTRY="$registry" bash -c "$r4" 2>&1) || rc=$?; }
   if [[ "$r4" == *"$rb sha-8b3aec89486f"* ]] && [[ "$r4" == *'MA THOAT: $?'* ]]; then ok "(i) R4 read from the INV sheet"
   else ko "(i) R4 not found / not rewritten: $r4"; fi
   reset_state
