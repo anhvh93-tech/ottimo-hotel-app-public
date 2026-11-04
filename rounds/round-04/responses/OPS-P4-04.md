@@ -238,3 +238,55 @@ Chi tiết việc 3 (`db_triggers`, hàm PN-01):
 | `check-compose.sh`, `check-confidential-paths.sh` | OK / ok |
 | Postgres 17-alpine tạm (đã dừng, `--rm`) | md5 thân 0090/0095 và câu `db_triggers` mới chạy đúng bằng vai chỉ đọc ở 4 trạng thái |
 | Quét phần chênh | Không khóa, mật khẩu, IP, email thật. md5 là băm của mã nguồn hàm công khai trong repo, không phải bí mật |
+
+## r1.3 (ORC 04/11: ARC `FB-R4-ARC-OPS-P404-16`, Minor, làm trước khi cắt `SHA_V104`)
+
+- SEC và ARC đều ĐẠT ở `52069ce1`. r1.3 không đụng đường dẫn SEC nào: `git diff 52069ce1 <đầu r1.3>` trên `.github`, `deploy.sh`, `rollback.sh`, `requeue-email-changed.sh`, `02-roles.sh`, `docker-compose.prod.yml` và `check-confidential-paths.sh` **rỗng**.
+- Không rebase. `main` có commit mới (PR #51, tài liệu BA), nhưng ORC dặn không force nếu không cần, nên đẩy thường.
+
+| Việc | Đã làm | Tệp |
+|---|---|---|
+| (a) Test ngưỡng `PN_0095_APPLIED_AT` theo journal | Xem chi tiết dưới bảng | `product/infra/ci/test-ops-check.sh` |
+| (b) Dòng kiểm lúc cắt / S0 | Bảng 0.1 thêm dòng "PR-H (P4-13, 0095) trong `SHA_V104`; `PN_0095_APPLIED_AT` khớp journal" (lệnh `git show`, cách nhanh bằng test, **dừng** nếu lệch). S0 trỏ tới dòng đó. "Việc còn lại" #25 thêm ý này | runbook 0.1, 5.0 S0, #25; README 13.8 (số kiểm) |
+| Cách bền hơn (chọn thân hàm theo `hash` dòng 0095 trong `__drizzle_migrations`) | Dời v1.0.5, theo ARC | – |
+
+Chi tiết (a). Hàm `pn_threshold_check` chỉ đọc tệp trong repo (`meta/_journal.json`, thư mục migration) và không cần DB:
+- Có tệp `0095_*.sql`:
+  - journal phải có mục `tag` bắt đầu bằng `0095_`, và `idx + 1 = PN_0095_APPLIED_AT`, nếu không thì `FAIL stale …`;
+  - journal không có mục đó → `FAIL … file present but not in _journal.json`.
+- Không có tệp 0095:
+  - journal vẫn có mục `0095_` → `FAIL`;
+  - journal đã có ≥ `PN_0095_APPLIED_AT` mục → `FAIL stale …` (idx 71 bị migration khác lấy);
+  - còn lại → `skip`.
+
+Trên `main` hiện tại journal có 69 mục, nên test ra `skip`.
+
+Bộ tự test trên cây giả (5 ca, chạy mỗi lượt) đổi ngưỡng và đổi vị trí của 0095:
+
+| Ca | Kết quả |
+|---|---|
+| ngưỡng 72, 0095 ở idx 71 | `ok` |
+| ngưỡng 73, 0095 ở idx 71 | `FAIL` |
+| ngưỡng 71, 0095 ở idx 71 | `FAIL` |
+| 0095 bị đẩy xuống idx 72 | `FAIL` |
+| có tệp 0095, journal không có mục | `FAIL` |
+| không có 0095, journal đã 72 mục | `FAIL` |
+| không có 0095, journal 69 mục | `skip` |
+
+Đã thử thêm trên cây thật:
+
+| Thử | Kết quả |
+|---|---|
+| Đặt tệp 0095 và `_journal.json` của `v104/be-pn01` @ `3c2b17bb` vào cây | `ok   PN_0095_APPLIED_AT=72 = journal idx 71 (0095_privacy_notice_append_only_whole_row) + 1`, 206 passed |
+| Thử đột biến: đổi hằng trong `ops-check.sh` thành 73 | `FAIL stale PN_0095_APPLIED_AT=73 …`, đỏ |
+| Journal có 0095 mà thiếu tệp | `FAIL`, đỏ |
+
+Sau mỗi lần thử đã trả cây về nguyên trạng.
+
+### Kiểm lại r1.3
+
+| Kiểm | Kết quả |
+|---|---|
+| shellcheck 0.10.0 `-x -S warning`, đủ danh sách CI | sạch (rc 0) |
+| `test-ops-check.sh` (Mac và `ubuntu:24.04`) | 204 passed, 0 failed (206 khi có tệp 0095 và mục journal của nó) |
+| `rollback` / `requeue-email-changed` / `ops-check-cwd` / `ops-check-price` / `mail-test-send` / `test-confidential-paths` | 38 / 69 / 14 / 17 / 37 / 6 passed, 0 failed |

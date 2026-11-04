@@ -386,6 +386,53 @@ done
 later=$(grep -l 'FUNCTION[[:space:]]\+privacy_notice_version_append_only' "$mig"/*.sql 2>/dev/null | grep -vE '/(0090|0095)_' || true)
 if [ -z "$later" ]; then pass=$((pass + 1)); echo "ok   no migration besides 0090/0095 redefines privacy_notice_version_append_only()"
 else fail=$((fail + 1)); echo "FAIL $later redefines privacy_notice_version_append_only(): add its md5 to ops-check db_triggers"; fi
+# ARC FB-R4-ARC-OPS-P404-16: PN_0095_APPLIED_AT (rows of __drizzle_migrations once 0095 is applied) must follow the
+# journal. With the 0095 file: its journal entry must exist and idx + 1 = the constant. Without it: the journal must
+# not have reached the constant yet (another migration took idx 71 → stale threshold, false FAIL at K3/K5).
+# Reads repo files only (no DB). pn_threshold_check <journal> <migrations dir> <threshold> → prints one verdict line.
+pn_threshold_check() {
+  local journal="$1" dir="$2" thr="$3" entries row idx tag
+  [ -f "$journal" ] || { echo "FAIL journal missing: $journal"; return; }
+  entries=$(awk '{ if (match($0, /"idx":[[:space:]]*[0-9]+/)) { v = substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", v); i = v }
+    if (match($0, /"tag":[[:space:]]*"[^"]*"/)) { t = substr($0, RSTART, RLENGTH); sub(/^"tag":[[:space:]]*"/, "", t); sub(/"$/, "", t); print i " " t } }' "$journal")
+  row=$(grep -E '^[0-9]+ 0095_' <<<"$entries" || true)
+  if ls "$dir"/0095_*.sql >/dev/null 2>&1; then
+    [ -n "$row" ] || { echo "FAIL migration 0095 file present but not in _journal.json"; return; }
+    idx=${row%% *}; tag=${row#* }
+    if [ $((idx + 1)) -eq "$thr" ]; then echo "ok   PN_0095_APPLIED_AT=$thr = journal idx $idx ($tag) + 1"
+    else echo "FAIL stale PN_0095_APPLIED_AT=$thr: journal has $tag at idx $idx (want $((idx + 1)))"; fi
+  elif [ -n "$row" ]; then
+    echo "FAIL _journal.json lists ${row#* } but the 0095 migration file is missing"
+  elif [ "$(grep -c . <<<"$entries")" -ge "$thr" ]; then
+    echo "FAIL stale PN_0095_APPLIED_AT=$thr: journal already has $(grep -c . <<<"$entries") entries without 0095"
+  else
+    echo "skip PN_0095_APPLIED_AT=$thr: 0095 not on this tree yet ($(grep -c . <<<"$entries") journal entries)"
+  fi
+}
+thr=$(sed -n 's/^PN_0095_APPLIED_AT=\([0-9][0-9]*\).*/\1/p' "$src")
+verdict=$(pn_threshold_check "$mig/meta/_journal.json" "$mig" "$thr")
+echo "$verdict"
+case "$verdict" in ok*) pass=$((pass + 1)) ;; skip*) ;; *) fail=$((fail + 1)) ;; esac
+# Self-test of the check on a synthetic tree (mutation: a wrong threshold, a missing entry, a stale threshold).
+jt="$T/journal-test"; mkdir -p "$jt/m/meta"
+mkj() { { echo '{"entries": ['; local i; for i in $(seq 0 $(($1 - 1))); do
+  local t="00${i}_x"; [ "$i" = "${2:-}" ] && t="0095_privacy_notice_append_only_whole_row"
+  printf '  {"idx": %s, "version": "7", "tag": "%s", "breakpoints": true}%s\n' "$i" "$t" "$([ "$i" -lt $(($1 - 1)) ] && echo ,)"; done
+  echo ']}'; } > "$jt/m/meta/_journal.json"; }
+rm -f "$jt/m"/0095_*.sql; mkj 72 71; : > "$jt/m/0095_privacy_notice_append_only_whole_row.sql"
+for c in "72:^ok   PN_0095_APPLIED_AT=72 = journal idx 71" "73:^FAIL stale PN_0095_APPLIED_AT=73: journal has 0095_privacy_notice_append_only_whole_row at idx 71 \(want 72\)" \
+         "71:^FAIL stale PN_0095_APPLIED_AT=71"; do
+  got=$(pn_threshold_check "$jt/m/meta/_journal.json" "$jt/m" "${c%%:*}")
+  if grep -Eq "${c#*:}" <<<"$got"; then pass=$((pass + 1)); echo "ok   threshold self-test ${c%%:*}: $got"; else fail=$((fail + 1)); echo "FAIL threshold self-test ${c%%:*}: $got"; fi
+done
+mkj 73 72; got=$(pn_threshold_check "$jt/m/meta/_journal.json" "$jt/m" 72)   # 0095 pushed to idx 72
+if grep -q '^FAIL stale PN_0095_APPLIED_AT=72: .* at idx 72 (want 73)' <<<"$got"; then pass=$((pass + 1)); echo "ok   threshold self-test: 0095 moved to idx 72 -> FAIL"; else fail=$((fail + 1)); echo "FAIL threshold self-test moved: $got"; fi
+mkj 72; got=$(pn_threshold_check "$jt/m/meta/_journal.json" "$jt/m" 72)       # file present, journal without it
+if grep -q '^FAIL migration 0095 file present but not in _journal.json' <<<"$got"; then pass=$((pass + 1)); echo "ok   threshold self-test: 0095 file without journal entry -> FAIL"; else fail=$((fail + 1)); echo "FAIL threshold self-test no-entry: $got"; fi
+rm -f "$jt/m"/0095_*.sql; got=$(pn_threshold_check "$jt/m/meta/_journal.json" "$jt/m" 72)   # no 0095, journal reached 72
+if grep -q '^FAIL stale PN_0095_APPLIED_AT=72: journal already has 72 entries without 0095' <<<"$got"; then pass=$((pass + 1)); echo "ok   threshold self-test: idx 71 taken by another migration -> FAIL"; else fail=$((fail + 1)); echo "FAIL threshold self-test taken: $got"; fi
+mkj 69; got=$(pn_threshold_check "$jt/m/meta/_journal.json" "$jt/m" 72)
+if grep -q '^skip ' <<<"$got"; then pass=$((pass + 1)); echo "ok   threshold self-test: 0095 not yet, 69 entries -> skip"; else fail=$((fail + 1)); echo "FAIL threshold self-test skip: $got"; fi
 env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_OUT='app|t,f,f,f,f' bash "$T/bin/ops-check.sh" db_triggers >/dev/null 2>&1 || true
 sql=$(tr -s ' \n' ' ' < "$T/home/last.sql")
 for want in "to_regclass('public.privacy_notice_version') IS NOT NULL AS has_pnv" \
