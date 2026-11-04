@@ -217,9 +217,64 @@ export function checkoutInstant(
 - Chú thích trong `dates.ts` và đầu tệp test đang tả quy tắc DOM và câu "04:30 lúc 06:10 → ngày đi (PR #68)". Phải sửa theo mục 1. Ghi rõ ca #68 không giữ được khi B18 chỉ gửi `checkoutTime` (mục 2).
 - Sau khi sửa, ARC chạy lại `bug-r4-050-fea` và các test trả phòng, rồi rà nhanh trong tệp này.
 
+## 7. Review PR #86 – lượt 2 @ `45d2cfed` (một lần đẩy thường trên `9010e65f`)
+
+Đọc `git diff 585cf0ba 45d2cfed` (3 tệp). ARC chạy trong worktree tạm, đã xóa khi xong.
+
+### Phán quyết: **ĐẠT CÓ ĐK**
+
+Đã đúng:
+- **Hàm `checkoutInstant` trùng từng dòng với đề xuất mục 6**:
+  - nhận `(hhmm, businessDay, stayDeparture, rollover, offset)`;
+  - `hhmm < R` → ngày nghiệp vụ + 1;
+  - ngoài `[stayDeparture 00:00, stayDeparture+1 R)` → `undefined`.
+- Hai chỗ gọi dùng `today` của `useBusinessDay()`. Mốc đổi ngày lấy từ `property.businessDayRollover`.
+  - Lệnh dò giá truyền `r.stayDepartureDate ?? r.departureDate`.
+  - `PaymentPanel` truyền `stayDeparture`, đúng biến của dòng 612.
+  - `today` và `rollover` đã vào danh sách phụ thuộc của `useEffect` dò giá.
+- B18 vẫn chỉ gửi `checkoutTime`. Không có khóa chữ mới.
+- Chú thích trong `dates.ts` đã ghi đúng ca #68 (không giữ được khi B18 chỉ gửi `checkoutTime`) và hướng v1.0.5.
+- 12 ca unit U1–U12 có đủ, đúng mong đợi bảng mục 6. U11 khẳng định thêm: biên theo ngày đi của đơn gốc thì ra `undefined`.
+  - Thêm 2 ca trang: VietQR gửi `today T00:20` khi giờ điền sẵn là 00:20, và `today T00:25` khi gõ 00:25. Không có B18.
+- Thẻ **FB-R4-ARC-FE-PR86-01: Fixed @ `45d2cfed`**.
+
+**Điều kiện (một)**: lệnh dò giá đêm thêm (BUG-R4-050 (b)) chưa có test.
+- ARC đổi riêng chỗ gọi của lệnh dò giá về mã cũ (`${r.departureDate}T${hhmm}`). Kết quả: `bug-r4-050-fea` cùng 3 tệp test có dò giá vẫn **39/39 xanh**.
+- Chỉ nhánh VietQR được canh (đột biến M1 làm đỏ 2 ca trang).
+- Một trong hai cách đóng điều kiện:
+  - FE thêm một ca trang. Lúc 00:20 hôm sau ngày đi, gõ giá đêm thêm khác giá gợi ý; lệnh `createVietQr` dò giá phải gửi `checkoutAt` = `today T00:20` cùng `extraNightRateVnd`. Khoảng 15 dòng, theo khuôn ca trang sẵn có. Hoặc:
+  - ORC ghi RG-31 (b) là ca **phải đạt** ở bước Kiểm thử trước phát hành.
+- ARC nghiêng về cách đầu, vì test ở CI giữ lâu hơn một lần chạy E2E.
+- Thẻ FB-R4-ARC-FE-PR86-02 dưới đây.
+
+### FB-R4-ARC-FE-PR86-02
+- Mức độ: Minor
+- Vị trí: `bug-r4-050-fea.test.tsx`; `CheckOutPage.tsx` lệnh dò giá (dòng 508–517).
+- Vấn đề: quay lệnh dò giá về mã cũ thì mọi test vẫn xanh. Nửa (b) của BUG-R4-050 (sửa giá đêm thêm sau 24:00) chưa có chốt chặn tự động.
+- Vì sao quan trọng: lần sửa sau ở lệnh dò giá có thể làm lại lỗi "Chưa tính được số cần thu theo giá này", và Bill hiện sai số mà CI không báo.
+- Đề xuất sửa: thêm 1 ca trang như điều kiện trên. Hoặc ORC ghi RG-31 (b) là ca phải đạt.
+- Trạng thái: Open
+
+### Kiểm lại bằng chạy thật
+
+| Lần chạy | Kết quả |
+|---|---|
+| 19 tệp test có trang Trả phòng (gồm `bug-r4-050-fea`) @ `45d2cfed` | **208 passed (208)** |
+| M1: chỗ gọi của `PaymentPanel` về mã cũ | 2 failed / 12 passed – 2 ca trang đỏ |
+| M2: chỗ gọi của lệnh dò giá về mã cũ | 39/39 xanh (`bug-r4-050-fea` + 3 tệp có dò giá) – thẻ PR86-02 |
+| `tsc --noEmit` (admin-web) | sạch |
+| `git merge-tree origin/main 45d2cfed` (`main` `b551842a`) | sạch |
+| `gh pr checks 86` (run 41922956913) | 6 job xanh. `format · lint · audit · test · build` và landing đang chạy |
+
+- FE báo 253/253 trên bộ test Trả phòng. Con số đó tính trên nhóm tệp FE chọn.
+- ARC chọn 19 tệp có `check-out` hoặc `CheckOutPage`, được 208/208. Hai con số đo hai nhóm khác nhau, không mâu thuẫn.
+
+**Gộp #86** khi job `format · lint · audit · test · build` của run 41922956913 xanh và điều kiện PR86-02 đã đóng theo một trong hai cách.
+
 ## Dòng đề nghị ghi vào `01-decisions/decision-log.md` (ORC ghi)
 
 | Ngày | Round | Quyết định | Người quyết | Lý do |
 |---|---|---|---|---|
 | 2026-11-05 | 4 | BUG-R4-050 v1.0.4 chỉ sửa FE: thời điểm cho dò giá/VietQR = giờ gõ trên trục ngày nghiệp vụ của lúc bấm (`hhmm < rollover` → ngày nghiệp vụ + 1), bỏ trống khi ngoài `[ngày đi 00:00, ngày đi+1 mốc)`; B18 giữ `checkoutTime`. Quy tắc DOM (muộn nhất ≤ lúc bấm, + dung sai) dùng ở v1.0.5 khi Desk gửi một `checkoutAt` cho cả ba lệnh. `createVietQr` không thêm `checkoutTime`. Ghi lùi giờ qua API: v1.0.5 | ARC | Máy chủ đọc `checkoutTime` theo trục ngày nghiệp vụ; quy tắc DOM lệch ở ca 04:30 lúc 06:10 và 00:05 lúc 23:55. Ca dò: Desk gõ 04:30 lúc 06:10 → B18 422 `TIME_AFTER_ACTION`, với `checkoutAt` → 200, nên cách làm tạm BUG-R4-036 phải đổi |
 | 2026-11-05 | 4 | #86 @ `9010e65f` KHÔNG ĐẠT (FB-R4-ARC-FE-PR86-01 Major): `checkoutInstant` theo ngày nghiệp vụ của lúc bấm, biên theo `stayDepartureDate`, 12 ca unit theo mục 6; ca "gõ 00:25 lúc 00:20" ra `D+1T00:25` theo đúng quy tắc này, không cần quy tắc riêng | ARC | Hàm ở `9010e65f` theo "muộn nhất ≤ now" nên sớm 24 giờ khi gõ trước giờ thật qua nửa đêm, và lệch với bản tóm tắt/B18 ở ca 04:30 lúc 06:10 |
+| 2026-11-05 | 4 | #86 lượt 2 @ `45d2cfed` ĐẠT CÓ ĐK: `checkoutInstant` đúng quy tắc ARC (FB-R4-ARC-FE-PR86-01 đóng). Điều kiện FB-R4-ARC-FE-PR86-02 (Minor): thêm 1 ca trang cho lệnh dò giá đêm thêm sau 24:00, hoặc RG-31 (b) phải đạt trước phát hành. Gộp khi CI run 41922956913 xanh | ARC | Hàm trùng từng dòng; U1–U12 + 2 ca trang; 208/208 test Trả phòng; đổi chỗ gọi VietQR thì đỏ, đổi chỗ gọi dò giá thì vẫn xanh |
