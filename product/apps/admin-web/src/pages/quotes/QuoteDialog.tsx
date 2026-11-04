@@ -150,6 +150,8 @@ export function QuoteDialog({
   const [text, setText] = useState('');
   const [holdHours, setHoldHours] = useState(rules.holdHoursDefault);
   const [held, setHeld] = useState<Reservation | null>(null);
+  /** BUG-R2-216: the VietQR card is on screen (it carries the amount and the transfer content itself). */
+  const [holdQr, setHoldQr] = useState(false);
   const keys = useRef({ save: newIdempotencyKey(), hold: newIdempotencyKey() });
   const mgr = roles.some((r) => r === 'owner' || r === 'manager');
   const [extendReason, setExtendReason] = useState('');
@@ -770,19 +772,25 @@ export function QuoteDialog({
             >
               {t(ctv ? 'sale.hold_next_ctv' : 'sale.hold_next', { hours: rules.holdWarnHours })}
             </Alert>
-            {/* S4-28 (US-084 AC4): deposit BR-305 + VietQR whose transfer content is the booking code. */}
+            {/* S4-28 (US-084 AC4): deposit BR-305 + VietQR whose transfer content is the booking code.
+                BUG-R2-216: the VietQR card already says the amount and the transfer content – the summary is for
+                the collaborator (no QR), or while the QR is not there (being created, failed, not configured). */}
             <div className="card p-12 stack">
-              <div className="li-s">{t('sale.deposit_due_short')}</div>
-              <div className="price-big">
-                {vnd(held.depositRequiredVnd ?? saved.depositVnd ?? 0)} {t('common.vnd_unit')}
-              </div>
-              <div className="li-s">
-                {monoArgs(t, 'pay.qr_note', { ref: held.code.replace(/-/g, '') }, ['ref'])}
-              </div>
+              {ctv || !holdQr ? (
+                <>
+                  <div className="li-s">{t('sale.deposit_due_short')}</div>
+                  <div className="price-big">
+                    {vnd(held.depositRequiredVnd ?? saved.depositVnd ?? 0)} {t('common.vnd_unit')}
+                  </div>
+                  <div className="li-s">
+                    {monoArgs(t, 'pay.qr_note', { ref: held.code.replace(/-/g, '') }, ['ref'])}
+                  </div>
+                </>
+              ) : null}
               {ctv ? (
                 <p className="li-s">{t('sale.qr_after_ctv')}</p>
               ) : (
-                <DepositQr reservation={held} auto />
+                <DepositQr reservation={held} auto onQr={() => setHoldQr(true)} />
               )}
             </div>
             <LangNote locale={guestLocale} block />
@@ -790,29 +798,37 @@ export function QuoteDialog({
         ) : (
           <>
             {arrivesToday ? (
+              // BUG-R2-219 (BR-302): no hold for a same-day arrival – only the hand-over to the desk (collect and
+              // book). No hold length, no deadline (already past after the cut-off), no "QR after the hold".
               <Alert tone="info" role="alert" title={t('error.HOLD_NOT_ALLOWED_TODAY')}>
                 {t('sale.today_handoff')}
               </Alert>
-            ) : null}
-            <div className="field">
-              <span className="lbl" id="h-hrs">
-                {t('sale.hold_for')}
-              </span>
-              <Seg
-                labelledBy="h-hrs"
-                value={String(holdHours)}
-                onChange={(v) => setHoldHours(Number(v))}
-                options={rules.holdHoursOptions.map((h) => ({ value: String(h), label: `${h} h` }))}
-              />
-              <span className="help">{t('sale.hold_until', { time: holdUntil })}</span>
-            </div>
-            <div className="card p-12 mb-12">
-              <div className="li-s">{t('sale.deposit_due_short')}</div>
-              <div className="price-big">
-                {vnd(saved.depositVnd ?? 0)} {t('common.vnd_unit')}
-              </div>
-              <div className="li-s">{t(ctv ? 'sale.qr_after_ctv' : 'sale.qr_after')}</div>
-            </div>
+            ) : (
+              <>
+                <div className="field">
+                  <span className="lbl" id="h-hrs">
+                    {t('sale.hold_for')}
+                  </span>
+                  <Seg
+                    labelledBy="h-hrs"
+                    value={String(holdHours)}
+                    onChange={(v) => setHoldHours(Number(v))}
+                    options={rules.holdHoursOptions.map((h) => ({
+                      value: String(h),
+                      label: `${h} h`,
+                    }))}
+                  />
+                  <span className="help">{t('sale.hold_until', { time: holdUntil })}</span>
+                </div>
+                <div className="card p-12 mb-12">
+                  <div className="li-s">{t('sale.deposit_due_short')}</div>
+                  <div className="price-big">
+                    {vnd(saved.depositVnd ?? 0)} {t('common.vnd_unit')}
+                  </div>
+                  <div className="li-s">{t(ctv ? 'sale.qr_after_ctv' : 'sale.qr_after')}</div>
+                </div>
+              </>
+            )}
             <LangNote locale={guestLocale} block />
           </>
         )
