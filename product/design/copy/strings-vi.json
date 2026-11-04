@@ -3389,6 +3389,7 @@
   "users.reset_2fa_confirm": "Người này sẽ bị đăng xuất trên mọi máy và mã khôi phục cũ hết hiệu lực. Ở lần đăng nhập tới, người này thêm lại OTTIMO vào ứng dụng xác thực trên điện thoại.",
   "users.reset_2fa_reason": "Lý do đặt lại (ví dụ: mất điện thoại)",
   "users.reset_2fa_done": "Đã đặt lại xác thực 2 bước cho {name}.",
+  "users.reset_2fa_stale": "Đã có người đổi xác thực 2 bước của {name} trước bạn – hiện không còn bật, nên không cần đặt lại. Danh sách đã được tải lại.",
   "reauth.s2_failed_password": "Mật khẩu chưa đúng. Kiểm tra lại rồi thử lại.",
   "audit.reason.overpayment": "Hoàn tiền khách trả thừa",
   "audit.reason.early_departure": "Hoàn khi trả sớm",
