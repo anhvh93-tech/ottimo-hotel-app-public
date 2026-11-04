@@ -1726,7 +1726,7 @@ Luôn nhớ:
 **Menu:** **Báo giá & giữ chỗ** (tab **Căn trống**, **Báo giá**), **Đơn của tôi**, **Khách của tôi**. Sale nội bộ có thêm **Yêu cầu từ website**.
 
 **Báo giá và giữ chỗ:** làm như mục 2.4 bước Báo giá và Giữ chỗ.
-- Báo giá hiện **Bạn nhận (…% tiền phòng)** (CTV 8 %, sale 3 %).
+- Báo giá hiện **Bạn nhận (…% tiền phòng)** theo tỷ lệ chủ đầu tư cài.
 - Tin có số tiền hoặc mã VietQR: chỉ gửi mã **Desk tạo cho đúng đơn**, kèm câu chống giả danh ở mục 2.4. Không gửi ảnh QR cũ, không gõ số tài khoản bằng tay.
 - Giữ chỗ của mình: khung đơn có **Hủy giữ chỗ** và **Gia hạn giữ chỗ (1 lần)**.
 - Báo giá hết hiệu lực (3 ngày): **Gửi quản lý gia hạn**, hoặc **Lập báo giá mới**.
