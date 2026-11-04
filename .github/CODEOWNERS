@@ -5,6 +5,9 @@
 #   (b) ORC before merging: `git diff --name-only <base>...<head>` against the SEC lines below. Any match needs a
 #       rounds/<round>/reviews/SEC-on-*.md that names the reviewed head commit (or a head that differs only in
 #       non-SEC files), concludes ĐẠT / ĐẠT CÓ ĐK, with every Blocker/Major closed. The merge commit names that file.
+#   (c) ORC, same step: a NEW migration that disables a trigger or changes grants needs that SEC file too, although
+#       migrations have no line here (the rule of 0094 and PN-01; SEC FB-R4-SEC-OPS-P403-01). Check:
+#         git diff <base>...<head> -- '**/migrations/*.sql' | grep -E '^\+.*(DISABLE TRIGGER|GRANT|REVOKE)'
 # Revisit "Require review from Code Owners" once the repo has a second account (CI machine, operator).
 # Last matching pattern wins: keep the specific lines below the general ones.
 
@@ -24,3 +27,15 @@
 # OPS + SEC – the pull request template (the SEC checkbox) and who owns what (this file).
 /.github/pull_request_template.md @anhvh93-tech
 /.github/CODEOWNERS @anhvh93-tech
+
+# SEC (+ OPS owns the code) – the CI gates: gitleaks and its allowlist, confidential-paths (G2), the pinned tests.
+# Editing a workflow or adding one allowlist line can switch a gate off (ARC/SEC FB-R4-*-OPS-P403-01).
+/.github/workflows/ @anhvh93-tech
+/.github/gitleaks.toml @anhvh93-tech
+# SEC (+ OPS) – the ignore list keeps INV's internal pricing/commission tables out of git (SEC-on-commission-numbers G1).
+/.gitignore @anhvh93-tech
+# SEC (+ OPS) – database role limits of ottimo_app (SEC H3) and the read-only / requeue roles (P4-04).
+/product/infra/postgres/init/02-roles.sh @anhvh93-tech
+# SEC (+ OPS, INT for the .mjs) – the path of the test recipient address (stdin only; SEC PR30-04/05/10).
+/product/infra/server/bin/mail-test.sh @anhvh93-tech
+/product/infra/server/mail-test.mjs @anhvh93-tech

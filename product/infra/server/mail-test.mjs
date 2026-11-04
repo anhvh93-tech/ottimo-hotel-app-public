@@ -12,6 +12,9 @@
 // so nobody types `-e MAIL_TEST_TO=<address>` by habit. sudo I/O logging must still stay off (it would record the
 // stdin – SEC PR30-04), and a one-off container left by a killed client is still removed (runbook K8, PR30-05).
 // MAIL_TEST_VERIFY_ONLY=1: connect + EHLO + STARTTLS only (transport.verify), nothing is sent, stdin is not read.
+// Order of the checks (ARC FB-R4-ARC-OPS-P403-03): MAIL_TEST_TO refused → the stdin address (send only) → EMAIL_PROVIDER.
+// So `--send` on staging (EMAIL_PROVIDER=mock) proves stdin reaches node without sending anything: an empty line gives
+// "address on stdin is missing or invalid", a valid …@example.test line gives "EMAIL_PROVIDER is not smtp".
 // Prints ONE line: "mail-test: verified" | "mail-test: sent" | "mail-test: failed (<code>)" – never an address,
 // never provider text (mapSmtpError). Exit 0 on success, 1 on failure, 2 on bad input.
 import { createRequire } from 'node:module';
@@ -32,7 +35,6 @@ const out = (s, code) => {
 };
 
 const env = resolveFileSecrets(process.env);
-if ((env.EMAIL_PROVIDER ?? '').trim() !== 'smtp') out('failed (EMAIL_PROVIDER is not smtp)', 2);
 const verifyOnly = (env.MAIL_TEST_VERIFY_ONLY ?? '') === '1';
 if (process.env.MAIL_TEST_TO !== undefined) out('failed (MAIL_TEST_TO must not be set - the address is read from stdin)', 2);
 
@@ -52,6 +54,7 @@ const firstStdinLine = async () => {
 // it are trimmed here, before the check. Inner whitespace stays and is refused by the rule.
 const to = verifyOnly ? '' : (await firstStdinLine()).replace(/[\r\n]+$/, '').trim();
 if (!verifyOnly && !isEmailAddress(to)) out('failed (address on stdin is missing or invalid)', 2);
+if ((env.EMAIL_PROVIDER ?? '').trim() !== 'smtp') out('failed (EMAIL_PROVIDER is not smtp)', 2);
 
 // Same credential lookup as services/api/src/jobs/email-adapter.ts (relay with defaults needs no EMAIL_SMTP_* var).
 const hasSmtpVars = Object.entries(env).some(

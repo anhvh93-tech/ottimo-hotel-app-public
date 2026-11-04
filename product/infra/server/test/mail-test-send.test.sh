@@ -175,6 +175,19 @@ NOTIF
   mjs_run "$addr\n" EMAIL_PROVIDER=mock
   if [ "$rc" = 2 ] && [ "$out" = 'mail-test: failed (EMAIL_PROVIDER is not smtp)' ]; then
     ok "M8 EMAIL_PROVIDER not smtp → failed"; else ko "M8 rc=$rc: $out"; fi
+  # M10 (ARC FB-R4-ARC-OPS-P403-03, runbook 5.0 S14): on a mock stack the stdin line is checked BEFORE the provider,
+  # so two --send runs with different stdin give two different answers – proof that stdin reaches node, nothing sent.
+  mjs_run "\n" EMAIL_PROVIDER=mock
+  m10a="$rc $out"
+  mjs_run "$addr\n" EMAIL_PROVIDER=mock
+  m10b="$rc $out"
+  if [ "$m10a" = '2 mail-test: failed (address on stdin is missing or invalid)' ] \
+    && [ "$m10b" = '2 mail-test: failed (EMAIL_PROVIDER is not smtp)' ] && [ ! -s "$sent" ]; then
+    ok "M10 mock provider: empty stdin line → 'address … invalid', valid line → 'EMAIL_PROVIDER is not smtp' (stdin proven)"
+  else ko "M10 empty=[$m10a] valid=[$m10b]"; fi
+  mjs_run "" EMAIL_PROVIDER=mock MAIL_TEST_VERIFY_ONLY=1
+  if [ "$rc" = 2 ] && [ "$out" = 'mail-test: failed (EMAIL_PROVIDER is not smtp)' ] && [ ! -s "$sent" ]; then
+    ok "M10b --verify-only on a mock stack → 'EMAIL_PROVIDER is not smtp', nothing verified"; else ko "M10b rc=$rc: $out"; fi
   # the only code line naming MAIL_TEST_TO is the refusal (comments left out)
   if [ -z "$(grep -v '^ *//' "$mjs" | grep 'MAIL_TEST_TO' | grep -v 'process.env.MAIL_TEST_TO !== undefined) out(')" ]; then
     ok "M9 mail-test.mjs never reads the address from the environment"
