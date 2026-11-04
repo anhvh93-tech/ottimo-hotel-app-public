@@ -296,9 +296,10 @@ OTTIMO gửi thư báo tới địa chỉ này khi có việc quan trọng với
 Theo quyết định của chủ đầu tư ngày 26/10:
 - **Giá đêm niêm yết** và **Giá tháng** nhập **riêng**, độc lập. Đổi giá này không đổi giá kia.
 - Giá đêm là giá **đêm ngày thường, kênh Trực tiếp, cho định mức của căn, đã gồm VAT**, bội số 1.000 đ.
-- Desk **tự cộng** đêm thứ Sáu, thứ Bảy **+15 %** và **ngày đặc biệt +30 %**. Anh/chị **không** nhập giá cuối tuần riêng.
-- Ngày đặc biệt (+30 %, tối thiểu 2 đêm, không hoàn cọc khi hủy) đang cài: đêm 24/12/2026–01/01/2027 · Tết Nguyên đán đêm 05–10/02/2027 · Giỗ Tổ Hùng Vương đêm 16/4/2027 · đêm 30/4 và 1/5/2027 · đêm 1/9 và 2/9/2027. Danh sách đầy đủ ở **Tham số quy tắc**. Chủ đầu tư thêm ngày thì Desk tự áp.
-- Đơn ≥ 7 đêm Desk tự giảm 10 %, ≥ 14 đêm giảm 15 % (kênh Trực tiếp, CTV).
+- **Một giá mọi đêm**, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá): ở **Tham số quy tắc**, tab **Khác**, `weekend_uplift_pct` và `special_uplift_pct` đều là 0. Anh/chị **không** nhập giá cuối tuần riêng. Muốn tăng giá Noel – Tết: báo đội trước 15/12 để đổi Desk và OTA cùng lúc. Kiểm nhanh: báo giá thử một Studio (101–203), **ngày đến thứ Sáu, 2 đêm**, 2 người lớn. Phải ra **1.600.000** (2 × 800.000). Ra 1.840.000 là `weekend_uplift_pct` chưa về 0. Ra số khác là giá căn chưa đổi (**Đổi giá một căn** bên dưới).
+- Ngày đặc biệt (không tăng giá; vẫn ở tối thiểu 2 đêm, không hoàn cọc khi hủy) đang cài: đêm 24/12/2026–01/01/2027 · Tết Nguyên đán đêm 05–10/02/2027 · Giỗ Tổ Hùng Vương đêm 16/4/2027 · đêm 30/4 và 1/5/2027 · đêm 1/9 và 2/9/2027. Danh sách đầy đủ ở **Tham số quy tắc**. Chủ đầu tư thêm ngày thì Desk tự áp.
+- **Không giảm theo số đêm** (bảng giá 01/11, từ ngày chủ đầu tư chuyển giá): ở tab **Khác**, `los_discount` là `[]`. Kiểm: báo giá căn 401, 7 đêm từ thứ Hai, 5 người lớn: phải ra **10.150.000**, không có dòng "Đã giảm …% vì ở từ 7 đêm".
+- **Phụ thu trẻ 6–11 tuổi** (ESC-045, cùng ngày chuyển giá): **Tham số quy tắc** → tab **Số người & phụ thu** → **Phụ thu trẻ 6–11 tuổi vượt định mức (mỗi đêm)** = 150.000. Kiểm nhanh: báo giá thêm 1 trẻ 6–11 tuổi vượt định mức, phụ thu phải là 150.000 mỗi đêm.
 
 **Đổi giá một căn:**
 1. **Quản trị → Danh mục căn**. Bảng có cột **Giá tháng**, **Giá đêm niêm yết**, **Bán**.
@@ -766,7 +767,7 @@ Tin có số tiền hoặc mã VietQR: chỉ gửi mã **Desk vừa tạo cho đ
 **Báo giá:**
 1. **Khách & bán → Báo giá & giữ chỗ**, tab **Căn trống**.
 2. Nhập **Ngày đến**, **Số đêm**, **Người lớn (từ 12 tuổi)**, trẻ em.
-3. Chọn căn trong danh sách căn trống. Desk mở **Báo giá**: số đêm thường, số đêm thứ Sáu/thứ Bảy, giảm theo số đêm, phụ thu người, **Tổng tiền đơn**, **Cọc để giữ phòng** (30 % tiền phòng). Chọn **Khách đứng tên** ngay trong hộp này (tìm, hoặc **Tạo nhanh khách**).
+3. Chọn căn trong danh sách căn trống. Desk mở **Báo giá**: số đêm thường, số đêm thứ Sáu/thứ Bảy, phụ thu người, **Tổng tiền đơn**, **Cọc để giữ phòng** (30 % tiền phòng). Chọn **Khách đứng tên** ngay trong hộp này (tìm, hoặc **Tạo nhanh khách**).
 4. Bấm **Lưu báo giá**. Chọn **Ngôn ngữ gửi khách** (Tiếng Việt, English, Русский), bấm **Sao chép gửi Zalo**, dán vào tin nhắn riêng với khách.
 5. Báo giá giữ giá **3 ngày**. Hết hạn thì **Lập báo giá mới**.
 
@@ -860,7 +861,7 @@ Lưu ý:
 5. **Khách đứng tên**: gõ tên, SĐT, email hoặc mã khách để tìm. Chưa có thì **Tạo nhanh khách "…"** → hộp **Hồ sơ khách mới**: Họ và tên, **Số điện thoại / Zalo** (cần ít nhất SĐT hoặc email), Quốc tịch, Ngôn ngữ giao tiếp.
 6. Kênh Trực tiếp và CTV **bắt buộc có số điện thoại**. Ô **Số điện thoại / Zalo** trên form đặt phòng chỉ hiện khi hồ sơ khách chưa có số. **Email** không bắt buộc.
 7. **Giờ đến dự kiến** (nếu khách báo).
-8. **Giá mỗi đêm**: Desk điền theo lịch giá (**Nguồn giá** ghi rõ). Chỉ sửa khi đã chốt giá khác với khách, trong khoảng **sàn–trần** (giá thấp nhất và cao nhất được phép nhập). **Luôn nhập giá trước giảm dài ngày.** Đơn từ 7 đêm Desk tự giảm 10 % (từ 14 đêm 15 %) trên số anh/chị nhập. Ví dụ đã báo khách căn 202, 7 đêm 9–16/11 là 5.205.000 đ: để nguyên giá lịch. Gõ giá đã giảm 713.000 thì Desk giảm tiếp còn 642.000 đ/đêm, đơn thiếu 519.000 đ. Đơn **Nội bộ**: xem bước 4.
+8. **Giá mỗi đêm**: Desk điền theo lịch giá (**Nguồn giá** ghi rõ). Chỉ sửa khi đã chốt giá khác với khách, trong khoảng **sàn–trần** (giá thấp nhất và cao nhất được phép nhập). Từ ngày chủ đầu tư chuyển giá, Desk không giảm theo số đêm: gõ đúng giá đã chốt với khách. Ô giá còn ghi "trước giảm theo số đêm" là chữ cũ. Đơn từ 7 đêm mà Desk hiện dòng "Đã giảm …% vì ở từ 7 đêm": dừng, báo quản lý. Đơn **Nội bộ**: xem bước 4.
    - **Giá đã gõ khi đổi thông tin khác trên hộp (từ v1.0.4):**
      - Desk **giữ** giá đã gõ khi đổi số khách, đổi ngày (các đêm còn trong khoảng), đổi giữa **Trực tiếp** và **CTV**, đổi sang căn **cùng nhóm căn**, hoặc đổi căn của đơn **OTA** / **Nội bộ**.
      - Desk **xóa** giá đã gõ khi đổi kênh sang hoặc rời **OTA** / **Nội bộ**, và khi đổi căn của đơn **Trực tiếp** / **CTV** sang căn **nhóm khác**. Desk báo "Đã xóa giá đã gõ vì đổi kênh." hoặc "Đã xóa giá đã gõ vì căn … thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn." Đổi nhóm căn thì Desk tính lại theo lịch giá căn mới; muốn giữ ưu đãi cho khách thì gõ lại, trong sàn–trần của nhóm mới.
@@ -872,7 +873,7 @@ Lưu ý:
    - **Giá thỏa thuận (đã gõ ở bước 8), khách chưa chuyển cọc** (áp dụng ngay, tới v1.0.5). Tới v1.0.3, **Giữ chỗ đến …** bỏ giá đã gõ mà không báo. Từ v1.0.4, còn giá đã gõ thì Desk khóa nút này và báo "Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio." Giữ chỗ luôn tính cọc 30 % theo giá niêm yết.
      - **Khách chuyển ngay, trong vài phút:** không giữ chỗ. Tiền về thì **Tạo đơn** với giá đã gõ, cọc 30 % theo giá thỏa thuận.
      - **Phải giữ căn lâu hơn:** xóa các ô giá đã gõ (từ v1.0.4, xóa hết thì nút mở lại), rồi bấm **Giữ chỗ đến …** theo giá niêm yết. Ghi sổ giao ca "OTM-…: giá thỏa thuận … đ/đêm". Báo khách **đúng số cọc Desk hiện** ở giữ chỗ, và nói rõ phần chênh được trừ vào tiền còn lại khi nhận phòng. Không báo cọc theo giá thỏa thuận: số đó thấp hơn mức Desk đòi, nên không **Xác nhận đã nhận cọc** được. Ví dụ: Studio niêm yết 800.000, thỏa thuận 700.000, 2 đêm: cọc giữ chỗ là 500.000; theo giá thỏa thuận chỉ 400.000.
-     - **Tiền về:** **Xác nhận đã nhận cọc** như thường (mục 2.4). Ngay sau đó: khung đơn → **Folio & điều chỉnh** → từng dòng tiền phòng → **Điều chỉnh** → **Giá đêm mới (trước giảm theo số đêm)** là giá thỏa thuận; **Lý do điều chỉnh** "Giá thỏa thuận lúc đặt". Đơn từ 7 đêm thì gõ giá trước giảm. Kiểm **Folio**: tiền phòng bằng tổng thỏa thuận; **Còn phải thu** bằng tổng thỏa thuận trừ cọc đã nhận. Giá thỏa thuận dưới sàn thì không dùng cách này: làm giảm giá đặc biệt có duyệt (mục 2.12, **Miễn phí, giảm giá**).
+     - **Tiền về:** **Xác nhận đã nhận cọc** như thường (mục 2.4). Ngay sau đó: khung đơn → **Folio & điều chỉnh** → từng dòng tiền phòng → **Điều chỉnh** → **Giá đêm mới (trước giảm theo số đêm)** là giá thỏa thuận; **Lý do điều chỉnh** "Giá thỏa thuận lúc đặt". Từ ngày chủ đầu tư chuyển giá không còn giảm theo số đêm: chữ "trước giảm theo số đêm" trên ô là chữ cũ, gõ đúng giá thỏa thuận. Kiểm **Folio**: tiền phòng bằng tổng thỏa thuận; **Còn phải thu** bằng tổng thỏa thuận trừ cọc đã nhận. Giá thỏa thuận dưới sàn thì không dùng cách này: làm giảm giá đặc biệt có duyệt (mục 2.12, **Miễn phí, giảm giá**).
      - **Không** giữ chỗ theo giá niêm yết rồi, khi tiền về, tạo một đơn mới: phải hủy giữ chỗ trước, căn bị bỏ trống và ca khác hoặc website có thể bán mất.
      - **Khách hủy sau khi đã cọc theo giá niêm yết:** phí hủy tính trên cọc đã nhận. Phần cọc vượt mức theo giá thỏa thuận (100.000 ở ví dụ trên) hoàn đủ, quản lý duyệt.
 <!-- QA lượt sau (M24): khách đến hôm nay chưa trả (không có nút Giữ chỗ) – xóa số ở ô Số tiền đã nhận rồi Tạo đơn có được không, đơn ở trạng thái nào. -->
@@ -883,7 +884,7 @@ Desk chặn và giải thích khi:
 - **Đặt trùng** căn và đêm đã có đơn. Desk gợi ý **Căn trống cùng nhóm**.
 - Ngày đến thứ Sáu, thứ Bảy hoặc ngày đặc biệt mà chỉ ở 1 đêm: "Ngày này cần ở tối thiểu 2 đêm". Ngoại lệ đêm lẻ giữa hai đơn: Desk gợi ý **Dùng căn … (đêm lẻ)**.
 - Vượt sức chứa căn.
-- Từ **28 đêm** trở lên: Desk mở **… đêm là thuê dài hạn** → **Tạo đơn dài hạn nhập tay** (mục 2.7).
+- Từ **30 đêm** trở lên (từ ngày chủ đầu tư chuyển giá): Desk mở **… đêm là thuê dài hạn** → **Tạo đơn dài hạn nhập tay** (mục 2.7). Câu Desk "Từ 28 đêm …" là chữ cũ, số đúng là 30: đơn 28–29 đêm vẫn là đơn ngắn ngày.
 - Đặt khi mất mạng: Desk giữ **nháp** trên máy, tạo đơn khi có mạng.
 
 > **Lỗi nhỏ đã biết (v1.0.3 hoặc v1.0.4):** sau **Tạo nhanh khách**, ô **Khách đứng tên** đôi khi vẫn đỏ tới lần bấm sau. Bấm lại vào ô là hết.
@@ -929,7 +930,7 @@ Desk chặn và giải thích khi:
 <!-- BUG-R3-019 (P1) Closed 28/10 trên rc.4 (qa3-rc1.md 17.2): bỏ khung "Lỗi đang sửa" theo chú thích BA. Q4 (17.2): folio đơn dài hạn nhập tay 0 dòng, tiền thuê và ký quỹ ghi ngoài app – khớp khung "Tạm ở" dưới đây. -->
 
 1. **Sơ đồ phòng** hoặc **Đơn đặt phòng** → **Đơn dài hạn nhập tay**.
-2. **Căn**, **Ngày vào**, **Ngày ra (theo HĐ)**. Desk hiện số tháng và số đêm. Dưới 28 đêm: Desk đề nghị tạo đơn ngắn ngày.
+2. **Căn**, **Ngày vào**, **Ngày ra (theo HĐ)**. Desk hiện số tháng và số đêm. Dưới **30 đêm** (từ ngày chủ đầu tư chuyển giá): Desk đề nghị tạo đơn ngắn ngày.
 3. **Khách đứng tên**, **Số điện thoại / Zalo**, **Nguồn** (Zalo / điện thoại, Website, Khách vãng lai, Khách quay lại).
 4. **Tiền thuê mỗi tháng (theo HĐ)**: gõ đúng số trên hợp đồng giấy.
 5. **Ký quỹ đang giữ (ngoài app)**: chỉ để ghi nhớ, không tạo giao dịch.
@@ -1022,16 +1023,17 @@ Trang khách tiếng Anh dẫn, có tiếng Việt. Trong lúc ở, khách xem n
 
 ### 2.10 Nhận phòng
 
-**Giờ nhận phòng (từ 26/10):**
+**Giờ nhận phòng** (từ ngày chủ đầu tư chuyển giá, bảng giá 01/11):
 
 | Khách vào căn lúc | Desk tính |
 |---|---|
-| Từ **12:00** (căn đã sạch hoặc đã kiểm – `VC`/`VI`) | **Không phụ thu** |
-| **10:00–11:59** | Phụ thu **30 %** giá đêm đầu |
+| Từ **11:00** (căn đã sạch hoặc đã kiểm – `VC`/`VI`) | **Không phụ thu** |
+| **10:00–10:59** | Phụ thu **30 %** giá đêm đầu |
 | **06:00–09:59** | Phụ thu **50 %** giá đêm đầu |
 | Trước **06:00** | Không phải phụ thu: Desk **thêm đêm trước** (tiền phòng 1 đêm) |
 
-- Câu nói với khách: "Check-in is from 12:00. Your room is always ready by 14:00." / "Nhận phòng từ 12:00. Phòng luôn sẵn sàng lúc 14:00." **Không** hứa "phòng sẵn sàng từ 12:00".
+- Ví dụ Studio 800.000: nhận 11:00 → 0; 10:30 → 240.000; 08:00 → 400.000. Sau ngày chuyển giá Desk còn tính phụ thu cho giờ 11:00–11:59: báo quản lý.
+- Câu nói với khách: "Check-in is from 12:00. Your room is always ready by 14:00." / "Nhận phòng từ 12:00. Phòng luôn sẵn sàng lúc 14:00." **Không** hứa "phòng sẵn sàng từ 12:00". Không phụ thu từ 11:00 là việc lễ tân làm khi căn đã sẵn sàng, không hứa trước với khách.
 - Khách tới 12:00–14:00 mà căn chưa xong: giữ hành lý, mời chờ ở sảnh hoặc đi dạo, hẹn giờ. Không phụ thu, không giảm giá. Gửi hành lý không tính phụ thu.
 - Quá 14:00 vẫn chưa xong: báo lễ tân trưởng hoặc quản lý đổi căn sẵn sàng hoặc nâng hạng.
 - Đơn OTA: phụ thu nhận sớm/trả muộn tính trên giá Trực tiếp hiện hành của đêm đó, **chỉ khi chủ đầu tư đã đăng giờ nhận/trả và mức phụ thu trong nội quy của kênh đó** (xem khung bên dưới).
@@ -1147,13 +1149,13 @@ Hồ sơ sắp hạn và quá hạn hiện ở **Cần chú ý** và cột **H�
 
 > **Lỗi nhỏ đã biết (sửa ở v1.0.4):** câu "Phí phạt không tính vào doanh thu phòng" hiện cả khi chọn giặt ủi. Giặt ủi không phải phí phạt; cứ thêm như thường.
 
-**Thêm người đi cùng:** khung đơn → mục **Người ở** → **Thêm người đi cùng** → chọn **Người lớn đi cùng** hoặc **Trẻ em** (trẻ chỉ cần **Năm sinh**). Ô chọn người hiện nhãn "Khách đứng tên" – nhãn nhầm, đang sửa; chọn đúng người đi cùng. Vượt định mức: Desk hiện phụ thu người (người lớn 150.000 đ/đêm, trẻ 6–11 tuổi 100.000 đ/đêm, dưới 6 tuổi miễn) → báo khách → tích **Ghi phụ thu … vào folio – tôi đã báo khách** → **Thêm vào đơn**. Nhớ báo buồng phòng chuẩn bị bộ đồ dùng thêm (Desk tự tạo việc).
+**Thêm người đi cùng:** khung đơn → mục **Người ở** → **Thêm người đi cùng** → chọn **Người lớn đi cùng** hoặc **Trẻ em** (trẻ chỉ cần **Năm sinh**). Ô chọn người hiện nhãn "Khách đứng tên" – nhãn nhầm, đang sửa; chọn đúng người đi cùng. Vượt định mức: Desk hiện phụ thu người (từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn; Desk hiện 100.000 cho trẻ 6–11 tuổi thì báo quản lý, không tự sửa) → báo khách → tích **Ghi phụ thu … vào folio – tôi đã báo khách** → **Thêm vào đơn**. Nhớ báo buồng phòng chuẩn bị bộ đồ dùng thêm (Desk tự tạo việc).
 
 [ẢNH: C2-24-Thêm người đi cùng]
 
 **Gia hạn:**
 1. Khung đơn → **Gia hạn**. Chọn số đêm **Ở thêm** (chỉ đêm còn **Trống**; tối đa 7 đêm liên tiếp).
-2. Desk tính tiền, áp lại giảm theo số đêm nếu tổng đủ 7 hoặc 14 đêm. Sửa giá đêm thêm thì cũng nhập **giá trước giảm**.
+2. Desk tính tiền. Từ ngày chủ đầu tư chuyển giá không còn giảm theo số đêm: sửa giá đêm thêm thì gõ đúng giá đã chốt với khách.
 3. Đơn OTA: phần gia hạn thành đơn con kênh Trực tiếp, chung phiếu thanh toán.
 4. Bấm **Gia hạn … đêm · …**. Nhớ kéo dài hiệu lực mã cửa trên app khóa. Khách nước ngoài: cập nhật khai báo trong ngày. Trừ đơn quá ngày đi mà khách đã đi (mục 2.14, **Đơn quá ngày đi**, trường hợp (b)): không kéo dài mã, không khai ngày gia hạn lên cổng.
 5. Desk chưa có ô thu tiền khi gia hạn và chưa có nút ghi thu giữa kỳ ở. Ghi vào sổ giao ca: mã đơn, số đêm gia hạn, số tiền. Thu ở bước **Bill & thu tiền** khi trả phòng. Khách gia hạn dài hoặc chưa trả các đêm trước: báo quản lý.
@@ -1232,11 +1234,11 @@ Hồ sơ sắp hạn và quá hạn hiện ở **Cần chú ý** và cột **H�
 
 **Giờ trả phòng 12:00.** Hôm trước và sáng ngày đi, lễ tân nhắn khách xác nhận giờ trả (nhắn tay ở v1.0), ghi kết quả bằng **Xác nhận giờ trả** (mục 2.12). Chỉ nhắn trong **08:00–21:00**; tối hôm trước nhắn trước 21:00. Căn có khách đến hôm nay: không mời trả muộn trong tin.
 
-1. **Hôm nay → Khách đi → Trả phòng** (hoặc khung đơn → **Trả phòng**). Desk mở **Trả phòng · Căn … · …**.
+1. **Hôm nay → Khách đi → Trả phòng** (hoặc khung đơn → **Trả phòng**). Desk mở **Trả phòng · Căn … · …**. Khách đã đổi căn giữa kỳ: **trước khi bấm**, mở **Folio** kiểm trùng minibar căn cũ (gạch **Kiểm trùng** dưới **Bước 1 – Minibar**).
 2. **Bước 1 – Minibar.** Nhập số **Còn lại / chuẩn** từng món theo số buồng phòng đếm (mục 3.7). Không dùng gì: **Không dùng gì – tủ đủ**. Buồng phòng chưa báo số: hỏi khách đã dùng gì, nhập theo lời khách, ghi chú "chưa đếm". **Không** bấm **Không dùng gì – tủ đủ** khi chưa có số. Xem **Tổng minibar**. Bấm **Tiếp tục: Phụ phí**.
    - **Khách đã đổi căn giữa kỳ, có 2 tủ minibar – từ v1.0.4:**
      - Bước **Minibar** có dòng **Tủ minibar cần đếm**, mỗi tủ một nút: **Căn … (đã chuyển đi)** đứng trước, **Căn … (đang ở)** đứng sau. Desk mở sẵn tủ căn cũ: **nhập số còn lại đã ghi lúc đổi phòng** (sổ giao ca). **Không** đếm lại tủ căn cũ lúc trả phòng: tủ đó đã dọn, đã bổ sung, có thể đã có khách khác. Sổ giao ca không có số: hỏi buồng phòng. Vẫn không có: hỏi khách đã dùng gì ở căn cũ, nhập theo lời khách, ghi chú "chưa đếm", báo quản lý. Tủ căn đang ở: đếm như thường.
-     - **Kiểm trùng, trước khi bấm Trả phòng:** mở **Folio** của đơn. Có dòng **Thêm phát sinh** ghi minibar căn cũ lúc đổi phòng (cách cũ, thường là **Đồ ăn uống**): **Bỏ cả dòng** đó (**Folio & điều chỉnh** → dòng đó → **Điều chỉnh** → **Bỏ cả dòng**), **Lý do điều chỉnh** "Trùng minibar tủ căn cũ", rồi vẫn nhập số tủ căn cũ ở bước **Minibar**. Trang **Trả phòng** không có nút sửa dòng folio. Lễ tân trở lên bỏ được khi chưa hoàn tất trả phòng. Desk không cho bỏ thì báo quản lý.
+     - **Kiểm trùng, trước khi bấm Trả phòng:** mở **Folio** của đơn. Có dòng **Thêm phát sinh** ghi minibar căn cũ lúc đổi phòng (cách cũ, thường là **Đồ ăn uống**): **Bỏ cả dòng** đó (**Folio & điều chỉnh** → dòng đó → **Điều chỉnh** → **Bỏ cả dòng**), **Lý do điều chỉnh** "Trùng minibar tủ căn cũ" → **Ghi điều chỉnh**, rồi vẫn nhập số tủ căn cũ ở bước **Minibar**. Trang **Trả phòng** không có nút sửa dòng folio. Lễ tân trở lên bỏ được khi chưa hoàn tất trả phòng. Desk không cho bỏ thì báo quản lý. **Chỉ** bỏ dòng **Thêm phát sinh** ghi minibar căn cũ lúc đổi phòng: ghi chú của dòng hoặc sổ giao ca cho thấy đúng tủ căn cũ, cùng số tiền. **Không** dùng **Bỏ cả dòng** để miễn hay giảm cho khách: miễn, giảm luôn làm theo mục 2.12, **Miễn phí, giảm giá**. Ghi sổ giao ca: mã đơn, dòng đã bỏ, số tiền, số tủ căn cũ đã nhập. Quản lý xem lại các lần bỏ dòng này.
      - Nút chính ghi tủ kế tiếp, ví dụ **Tiếp tục: Tủ căn 202**. Bấm thì Desk báo "Đã lưu số đếm tủ căn …" và mở tủ còn lại; dòng **Tủ minibar đang đếm** ghi tên tủ trên màn. Tủ đã đếm không hiện lại. Ở tủ cuối, nút là **Tiếp tục: Phụ phí**.
      - Desk hiện **Tủ căn … cần đếm lại** (khách vào lại căn, gia hạn, tủ được bổ sung sau lần đếm trước, hoặc lần đếm trước không phải hôm nay): tủ căn đang ở thì đếm số còn lại trong tủ bây giờ; tủ căn cũ thì nhập số đã ghi lúc đổi phòng. Món đã tính trước đó không bị tính trùng.
      - Bấm hoàn tất mà Desk báo "Chưa kiểm minibar. Làm bước 1 trước khi hoàn tất.": Desk tự về bước **Minibar**, mở tủ còn thiếu. Đếm tủ đó rồi đi tiếp.
@@ -1308,12 +1310,12 @@ Hồ sơ sắp hạn và quá hạn hiện ở **Cần chú ý** và cột **H�
 1. Khách báo rời sớm: ghi ngay **sổ giao ca** "OTM-…: khách báo rời ngày dd/mm lúc hh:mm, báo qua (Zalo/điện thoại/tại quầy)".
 2. Mở đơn → **Trả sớm** → bước **Ngày rời và giờ báo**: **Ngày rời mới**; **Khách báo lúc** (Desk điền lúc mở hộp – sửa đúng giờ khách đã báo; báo sớm hơn thì ghi **Bằng chứng giờ báo**); đơn OTA nhập **Số OTA giữ lại** theo extranet. Bấm **Xem trước số tiền**.
    - **Trả sớm lúc 00:00–05:59** (áp dụng ngay; Desk chưa chặn, sửa ở v1.0.5): ô **Ngày rời mới** đặt sẵn **ngày hôm trước**, vì tới 06:00 Desk vẫn tính là ngày cũ. Đêm vừa qua là đêm khách **đã ở**, không phải đêm bỏ. Đổi **Ngày rời mới** thành **ngày lịch hôm nay** rồi mới bấm **Xem trước số tiền**. Số ngày báo trước vẫn đếm theo quy tắc thường: ví dụ khách báo 04:30 ngày 03/11, rời 03/11 là báo trước 1 ngày. Bước **Kết quả** sẽ không có **Trả phòng ngay** (Desk ghi "Khách trả phòng ngày … như thường lệ").
-   - **Khách đi trước 06:00** (áp dụng ngay, cả khi rời đúng ngày đi ghi trên đơn): nút **Trả phòng** (khung đơn, trang **Hôm nay**) chỉ hiện **từ 06:00**. Lúc khách đi: đóng hộp; thu thẻ, chìa khóa, xóa mã cửa; đếm minibar nếu kịp. Xem **Còn phải thu** ở khung đơn, cộng minibar vừa đếm, rồi **thu ngay trước khi khách đi**: tiền mặt (cất két, để riêng) hoặc thẻ qua máy POS (giữ phiếu POS), như mục 2.13. Lúc này Desk chưa ghi được khoản thu và chưa có mã VietQR. Khách chỉ chuyển khoản được: ghi sổ giao ca số còn thu, đầu ca sáng báo quản lý. Báo khách số sẽ hoàn (nếu có) như mục 2.14. Ghi sổ giao ca "OTM-… khách rời hh:mm, đã thu … bằng …, chờ Trả phòng lúc 06:00". **Không** bấm **Trả sớm** lần nữa, không gọi quản lý chỉ vì chưa có nút. **Từ 06:00** (hoặc đầu ca sáng): khung đơn → **Trả phòng**, ở bước **Phụ phí** ghi **Giờ trả phòng thực tế** đúng giờ khách đi (ví dụ 04:30). Desk không phụ thu, không thêm đêm cho giờ này. Ở bước **Bill & thu tiền**, ghi khoản đã thu lúc khách đi theo đúng cách đã thu: tiền mặt thì nhập số tiền ở **Tiền khách đưa**; thẻ thì nhập **Mã chuẩn chi trên phiếu POS**. Giờ 04:30 sớm hơn lúc bấm nên khi bấm hoàn tất (**Đã thu … – hoàn tất** hoặc **Hoàn tất trả phòng**), Desk đưa lại bước **Phụ phí** và bắt buộc ô **Ghi chú giờ trả (vì sao ghi bù)**. Đây không phải lỗi: ghi "Khách rời 04:30, trả phòng trên Desk lúc 06:xx", rồi bấm hoàn tất lần nữa. Khách rời đúng ngày đi ghi trên đơn: không dùng **Trả sớm**, làm **Trả phòng** từ 06:00 như trên.
+   - **Khách đi trước 06:00** (áp dụng ngay, cả khi rời đúng ngày đi ghi trên đơn): nút **Trả phòng** (khung đơn, trang **Hôm nay**) chỉ hiện **từ 06:00**. Lúc khách đi: đóng hộp; thu thẻ, chìa khóa, xóa mã cửa; đếm minibar nếu kịp. Xem **Còn phải thu** ở khung đơn, cộng minibar vừa đếm, rồi **thu ngay trước khi khách đi**: tiền mặt (cất két, để riêng) hoặc thẻ qua máy POS (giữ phiếu POS), như mục 2.13. Lúc này Desk chưa ghi được khoản thu và chưa có mã VietQR. Khách chỉ chuyển khoản được: ghi sổ giao ca số còn thu, đầu ca sáng báo quản lý. Báo khách số sẽ hoàn (nếu có) như mục 2.14. Ghi sổ giao ca "OTM-… khách rời hh:mm, đã thu … bằng …, chờ Trả phòng lúc 06:00". **Không** bấm **Trả sớm** lần nữa, không gọi quản lý chỉ vì chưa có nút. **Từ 06:00** (hoặc đầu ca sáng, **trước 12:00**): khung đơn → **Trả phòng**. Ở bước **Phụ phí**, **để nguyên giờ Desk điền sẵn** ở ô **Giờ trả phòng thực tế** (giờ hiện tại). **Không** gõ giờ trước 06:00 (ví dụ 04:30): Desk sẽ hiện hộp thêm đêm rồi báo giờ sai, không hoàn tất được (lỗi đã biết, đang sửa). Trả phòng trước 12:00 thì Desk không phụ thu, không thêm đêm, nên số tiền vẫn đúng. Ở bước **Bill & thu tiền**, ghi khoản đã thu lúc khách đi theo đúng cách đã thu: tiền mặt thì nhập số tiền ở **Tiền khách đưa**; thẻ thì nhập **Mã chuẩn chi trên phiếu POS**. Giờ khách rời thật ghi ở sổ giao ca, không ở Desk: hoàn tất xong, ghi tiếp "OTM-… Trả phòng trên Desk lúc 06:xx, khách rời thật hh:mm". Khách rời đúng ngày đi ghi trên đơn: không dùng **Trả sớm**, làm **Trả phòng** từ 06:00 như trên.
 3. Bước **Xem trước**: đọc theo nhánh dưới đây, báo khách, tích ô "Đã báo khách…", bấm **Xác nhận trả sớm**.
 4. Bước **Kết quả**: ngày rời là hôm nay thì **Trả phòng ngay** (mục 2.14); ngày sau thì nút **Trả phòng** hiện vào ngày đó.
 5. Ngoài Desk: rút hiệu lực mã cửa về giờ trả ngày rời, xóa mã khi khách trả phòng; thu thẻ, đếm minibar, kiểm hư hỏng (**Thêm phát sinh**); khách nước ngoài cập nhật ngày đi trên cổng khai báo trong ngày rời; mở lại các đêm khách bỏ trên extranet mọi kênh đang đóng căn này (Desk ghi dòng này cho mọi đơn; đơn OTA kiểm cả kênh của đơn), chỉ người chủ đầu tư giao mới mở; buồng phòng: hủy việc dọn các ngày sau còn lại, tạo **Dọn trả phòng** ngày rời nếu chưa có (mục 2.19).
 
-**Nhánh ngắn ngày:** Desk tính theo chính sách – đơn Trực tiếp/CTV báo trước từ 1 ngày hoàn 50 % tiền phòng các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %), báo trong ngày rời không hoàn, đơn OTA theo kênh. Desk ghi **Phí trả phòng sớm** vào folio và tạo **một** yêu cầu hoàn cho phần trả sớm; lễ tân **Nhập nơi nhận hoàn** (mục 2.17), quản lý/chủ đầu tư khác người tạo duyệt. Trả phòng sau đó **không tạo lại** khoản này. Folio còn tiền khách trả thừa **khác** (ví dụ đêm đã thu rồi được FOC): bước **Bill & thu tiền** hỏi cách xử lý **đúng phần đó**; chọn hoàn thì có **thêm một** đề nghị hoàn, không trùng (mục 2.14 bước 6). Người duyệt đối chiếu theo mục 1.8 trước khi từ chối. Nếu Desk tự đóng yêu cầu **Trả sớm** (có thể xảy ra cả khi đã duyệt mà chưa chi, thường do phát sinh mới như minibar) và tạo yêu cầu thay thế: yêu cầu thay thế không mang nơi nhận của yêu cầu cũ, kiểm **Cách hoàn**, trống (—) thì người tạo nhập lại (mục 1.8 bước 4, cách nhận ra yêu cầu thay thế). **Áp dụng từ v1.0.4:** ở **Trả phòng** (bước **Bill & thu tiền** và màn kết quả), dưới **Còn phải thu**, Desk hiện "Đang chờ hoàn cho khách {số tiền} (yêu cầu từ Trả sớm)." Dòng này chỉ để báo, không chặn **Hoàn tất**. **Giới hạn đã biết của v1.0.4:** lễ tân và lễ tân trưởng chỉ thấy yêu cầu hoàn chờ duyệt do **chính mình** tạo. Yêu cầu do người khác tạo (ví dụ ca trước bấm **Trả sớm**) mà còn chờ duyệt thì **không hiện**, cả ở dòng này lẫn ở **Nhật ký tiền → Hoàn tiền**. Yêu cầu đã được quản lý duyệt thì vẫn thấy như thường. Khách đã Trả sớm mà không thấy dòng, hoặc không chắc: **hỏi quản lý (hoặc chủ đầu tư) trước khi báo khách** số tiền hoàn. Không báo khách "không có khoản hoàn". v1.0.5 (chưa có ngày): trang **Trả phòng** và folio hiện **tổng số đang chờ hoàn** của đơn, kể cả yêu cầu do người khác tạo (chỉ số tiền). Tab **Hoàn tiền** giữ phạm vi như hiện nay. Ví dụ: căn 202 từ 9/11 đến 16/11, 5.205.000 đ, báo 12/11 rời 14/11 → hoàn **767.000 đ**, phí **766.000 đ**.
+**Nhánh ngắn ngày:** Desk tính theo chính sách – đơn Trực tiếp/CTV báo trước từ 1 ngày hoàn 50 % tiền phòng các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %), báo trong ngày rời không hoàn, đơn OTA theo kênh. Desk ghi **Phí trả phòng sớm** vào folio và tạo **một** yêu cầu hoàn cho phần trả sớm; lễ tân **Nhập nơi nhận hoàn** (mục 2.17), quản lý/chủ đầu tư khác người tạo duyệt. Trả phòng sau đó **không tạo lại** khoản này. Folio còn tiền khách trả thừa **khác** (ví dụ đêm đã thu rồi được FOC): bước **Bill & thu tiền** hỏi cách xử lý **đúng phần đó**; chọn hoàn thì có **thêm một** đề nghị hoàn, không trùng (mục 2.14 bước 6). Người duyệt đối chiếu theo mục 1.8 trước khi từ chối. Nếu Desk tự đóng yêu cầu **Trả sớm** (có thể xảy ra cả khi đã duyệt mà chưa chi, thường do phát sinh mới như minibar) và tạo yêu cầu thay thế: yêu cầu thay thế không mang nơi nhận của yêu cầu cũ, kiểm **Cách hoàn**, trống (—) thì người tạo nhập lại (mục 1.8 bước 4, cách nhận ra yêu cầu thay thế). **Áp dụng từ v1.0.4:** ở **Trả phòng** (bước **Bill & thu tiền** và màn kết quả), dưới **Còn phải thu**, Desk hiện "Đang chờ hoàn cho khách {số tiền} (yêu cầu từ Trả sớm)." Dòng này chỉ để báo, không chặn **Hoàn tất**. **Giới hạn đã biết của v1.0.4:** lễ tân và lễ tân trưởng chỉ thấy yêu cầu hoàn chờ duyệt do **chính mình** tạo. Yêu cầu do người khác tạo (ví dụ ca trước bấm **Trả sớm**) mà còn chờ duyệt thì **không hiện**, cả ở dòng này lẫn ở **Nhật ký tiền → Hoàn tiền**. Yêu cầu đã được quản lý duyệt thì vẫn thấy như thường. Khách đã Trả sớm mà không thấy dòng, hoặc không chắc: **hỏi quản lý (hoặc chủ đầu tư) trước khi báo khách** số tiền hoàn. Không báo khách "không có khoản hoàn". v1.0.5 (chưa có ngày): trang **Trả phòng** và folio hiện **tổng số đang chờ hoàn** của đơn, kể cả yêu cầu do người khác tạo (chỉ số tiền). Tab **Hoàn tiền** giữ phạm vi như hiện nay. Ví dụ (từ ngày chủ đầu tư chuyển giá): căn 202 từ 9/11 đến 16/11, 7 × 800.000 = 5.600.000 đ, báo 12/11 rời 14/11 → hai đêm bỏ 1.600.000 đ → hoàn **800.000 đ**, phí **800.000 đ**.
 
 **Nhánh HĐ thuê tháng** (đơn dài hạn nhập tay, rời **trước ngày kết thúc ghi trên HĐ giấy** – không dựa vào **Ngày ra** trên Desk nếu đơn đã gia hạn): Desk không tính tiền, chỉ hiện khung **Trả trước hạn hợp đồng thuê tháng** theo thứ tự: câu kiểm "Desk chưa biết tiền thuê đã thu tới đâu. Kiểm kỳ thu cuối và hỏi quản lý rồi mới báo khách." → đã thu đủ "Đã thu tiền thuê tới hết HĐ: không vi phạm. Quyết toán ký quỹ như trả phòng đúng hạn HĐ: trừ điện nước, dọn lẻ, hư hỏng còn nợ, hoàn phần còn lại trong 7 ngày làm việc. Không hoàn các ngày không ở." → chưa thu đủ "Chưa thu đủ tiền thuê tới hết HĐ: vi phạm HĐ. Khách mất toàn bộ ký quỹ (giữ ngoài app), không truy thu giảm giá kỳ hạn." (có số ký quỹ thì câu ghi kèm số), lồng dưới: "Vẫn thu điện nước, dọn lẻ, hư hỏng còn nợ, không trừ vào ký quỹ. Tiền thuê và phí dịch vụ đã thu cho tháng lịch chưa bắt đầu thì hoàn, tháng đang ở thì không (làm ngoài app)."; ô tích **Đã báo khách về ký quỹ và các khoản còn thu, còn hoàn**. Bước **Kết quả** thay câu kiểm bằng "Ký quỹ và tiền thuê xử lý ngoài app, theo nhánh đã báo khách." Khung có thể không hiện số ký quỹ; số đúng theo HĐ giấy và sổ kế toán.
 1. Kiểm ngày kết thúc HĐ (HĐ giấy, bảng kỳ thu).
@@ -1719,7 +1721,7 @@ Luôn nhớ:
 - Nội dung chuyển khoản luôn là **mã đơn**. CTV không gửi mã VietQR và không xác nhận cọc.
 - Không hứa giá, khuyến mãi hay chính sách hủy khác với Desk.
 - Không chụp, không xin ảnh giấy tờ của khách. Lễ tân lo giấy tờ khi khách đến.
-- Khách ở từ 28 đêm, khách đến hôm nay: nhắn lễ tân.
+- Khách ở từ 30 đêm, khách đến hôm nay: nhắn lễ tân.
 
 **Menu:** **Báo giá & giữ chỗ** (tab **Căn trống**, **Báo giá**), **Đơn của tôi**, **Khách của tôi**. Sale nội bộ có thêm **Yêu cầu từ website**.
 
@@ -1729,7 +1731,7 @@ Luôn nhớ:
 - Giữ chỗ của mình: khung đơn có **Hủy giữ chỗ** và **Gia hạn giữ chỗ (1 lần)**.
 - Báo giá hết hiệu lực (3 ngày): **Gửi quản lý gia hạn**, hoặc **Lập báo giá mới**.
 - Số giữ chỗ mở cùng lúc: CTV tối đa 3, sale tối đa 5.
-- Khách ở từ 28 đêm: hợp đồng dài hạn vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay.
+- Khách ở từ 30 đêm: hợp đồng dài hạn vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay.
 - Khách đến **hôm nay**: nhắn lễ tân tạo đơn đã thu cho khách.
 
 [ẢNH: C4-06-Báo giá trên điện thoại]
@@ -1842,28 +1844,28 @@ Luôn nhớ:
 | +12 giờ từ giờ nhận | Hạn khai báo khách nước ngoài |
 | +24 giờ từ trả phòng | Hạn ghi phát sinh sau trả phòng; hạn quản lý xem lại phụ thu bằng giá 1 đêm |
 
-### 5.2 Bảng tiền và quy tắc (tham số ngày 27/10/2026)
+### 5.2 Bảng tiền và quy tắc (tham số ngày 27/10/2026; giá, giảm theo số đêm, dài hạn, nhận sớm và phụ thu người theo bảng giá 01/11 và ESC-045, từ ngày chủ đầu tư chuyển giá)
 
 | Mục | Giá trị |
 |---|---|
-| Phụ thu nhận sớm | 06:00–09:59: 50 % · 10:00–11:59: 30 % giá đêm đầu · từ 12:00: 0 · trước 06:00: thêm 1 đêm |
+| Phụ thu nhận sớm | 06:00–09:59: 50 % · 10:00–10:59: 30 % giá đêm đầu · từ 11:00: 0 · trước 06:00: thêm 1 đêm |
 | Phụ thu trả muộn | đến 12:30 (không có khách đến): 0 · đến 15:00: 30 % · đến 18:00: 50 % giá đêm cuối · sau 18:00: thêm 1 đêm hoặc bằng giá 1 đêm |
-| Cuối tuần, ngày đặc biệt | Thứ Sáu, thứ Bảy +15 % · ngày đặc biệt +30 % (mọi kênh): đêm 24/12/2026–01/01/2027, Tết đêm 05–10/02/2027, Giỗ Tổ đêm 16/4/2027, đêm 30/4 và 1/5/2027, đêm 1/9 và 2/9/2027 |
+| Cuối tuần, ngày đặc biệt | Một giá mọi đêm, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá; mọi kênh). Báo giá thử một Studio, ngày đến thứ Sáu, 2 đêm, 2 người lớn: phải ra 1.600.000. Ra số khác: dừng, báo quản lý, không tự sửa giá. Tới v1.0.3, đêm thứ Sáu, thứ Bảy cột **Nguồn giá** vẫn ghi "Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104)": nhãn cũ, đọc số trong ô giá. Từ v1.0.4 không còn nhãn này. Ngày đặc biệt (vẫn ở tối thiểu 2 đêm, không hoàn cọc khi hủy): đêm 24/12/2026–01/01/2027, Tết đêm 05–10/02/2027, Giỗ Tổ đêm 16/4/2027, đêm 30/4 và 1/5/2027, đêm 1/9 và 2/9/2027 |
 | Tối thiểu số đêm | 2 đêm khi ngày đến là thứ Sáu, thứ Bảy, ngày đặc biệt |
-| Giảm theo số đêm | ≥ 7 đêm 10 % · ≥ 14 đêm 15 % (Trực tiếp, CTV) · ≥ 28 đêm là dài hạn |
+| Giảm theo số đêm | Không giảm theo số đêm · từ **30 đêm** là thuê tháng (hợp đồng) |
 | Cọc ngắn ngày | 30 % tiền phòng · đơn Trực tiếp thu đủ khi nhận phòng |
 | Giữ chỗ | 12/24/48 giờ (mặc định 24), không quá 12:00 ngày đến, gia hạn 1 lần tối đa 24 giờ · báo giá giữ giá 3 ngày |
 | Hủy (Trực tiếp, CTV) | Báo trước ≥ 7 ngày hoàn 100 % cọc · 3–6 ngày 50 % · < 3 ngày không hoàn · có đêm ngày đặc biệt: không hoàn · bất khả kháng: dời ngày trong 3 tháng |
 | Trả phòng sớm | Báo trước từ 1 ngày: hoàn 50 % tiền các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %) · báo trong ngày rời: không hoàn |
-| Phụ thu người vượt định mức | Người lớn (từ 12 tuổi) 150.000 đ/đêm · trẻ 6–11 tuổi 100.000 đ/đêm · dưới 6 tuổi miễn |
+| Phụ thu người vượt định mức | Từ 6 tuổi trở lên 150.000 đ/đêm (trẻ 6–11 tuổi tính như người lớn, ESC-045) · dưới 6 tuổi miễn |
 | Dịch vụ, phí | Dọn phòng lẻ 100.000 đ · giặt ủi 30.000 đ/kg (tạm) · khử mùi thuốc lá 500.000 đ · mất/hỏng thẻ 200.000 đ/thẻ (tối đa 2 thẻ/đơn) |
 | Khách dài hạn | Điện theo đơn giá trên hợp đồng (mức 5.000 đ/kWh chờ kế toán xác nhận) · nước 100.000 đ/người/tháng theo ngày ở (tính tay ở v1.0) |
 | Hạn mức miễn phí | Lễ tân tự miễn minibar ≤ 100.000 đ/lần, ≤ 500.000 đ/tháng · lễ tân trưởng ≤ 300.000 đ/lần, ≤ 1.500.000 đ/tháng · quản lý ≤ giá 1 đêm/lần · chủ đầu tư không giới hạn |
 | Công nợ | Hạn mặc định 3 ngày |
 | Giá | Đã gồm VAT 8 % |
 
-Tỷ lệ phụ thu nhận sớm đang chờ chủ đầu tư xác nhận lần cuối; đổi thì Desk tự áp, sổ tay cập nhật sau.
-<!-- ESC-035 chờ INV. -->
+Nhận sớm từ 11:00 không phụ thu (bảng giá 01/11) áp dụng từ ngày chủ đầu tư chuyển giá. Sau ngày đó Desk còn tính phụ thu cho giờ 11:00–11:59: báo quản lý.
+<!-- ESC-035 đã chốt; BR-411 v0.5.0 (bảng giá INV 01/11). BR-107, BR-108 v0.5.0/v0.5.1. -->
 
 ### 5.3 Bảng quyền theo vai (rút gọn)
 
@@ -2014,6 +2016,8 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 <!-- BUG-R3-021 (phần Desk), 023 (phần lọc), 024…031, 032, 041, 042, 043, 044, 045, FB-R3-ARC-BEB-WA-04 (bug-list.md). BUG-R4-026 (P3, đề xuất QA 04/11 – rounds/round-04/qa/v1.0.2-dk10-b18.md mục 9.6, ORC cấp số khi gộp; đích v1.0.4): dòng "Yêu cầu hoàn thay thế". Theo ORC: ghi "đang sửa", không hứa ngày. Bản 1.3 bỏ dòng 019, 020, 022 (Closed ở rc.4). -->
 
 ### 5.7 Lịch sử sổ tay
+
+**Sửa 05/11/2026, chưa đánh số bản** (BA; ESC-045 câu 1 và 3, DOM #72 thẻ 06): một giá mọi đêm, không còn +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt – mục 1.3, 5.2; phụ thu người vượt định mức từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn – mục 1.3, 2.12, 5.2. Cùng lần chuyển giá (bảng giá 01/11; DOM #85 thẻ 01–03, UXD #85 thẻ 02–03): không giảm theo số đêm – mục 1.3, 2.4, 2.5 bước 4 và 8, 2.12, 5.2; dài hạn từ 30 đêm – mục 2.5, 2.7, 4.2, 5.2; nhận sớm không phụ thu từ 11:00, câu nói với khách giữ 12:00 – mục 2.10, 5.2; ví dụ trả sớm 5.600.000 → hoàn 800.000 – mục 2.14a; câu kiểm "ngày đến thứ Sáu, 2 đêm = 1.600.000" thay câu 1 đêm bị chặn tối thiểu 2 đêm. Áp dụng từ ngày chủ đầu tư chuyển giá. Áp dụng ngay (ARC BUG-R4-050 mục 2): khách đi trước 06:00 thì từ 06:00 làm **Trả phòng** với giờ Desk điền sẵn, không gõ giờ trước 06:00, giờ rời thật ghi sổ giao ca – mục 2.14a. Sau khi gộp #72: khách đổi căn giữa kỳ thì kiểm trùng minibar căn cũ trước khi bấm **Trả phòng**, có **Ghi điều chỉnh**; **Bỏ cả dòng** chỉ cho dòng minibar căn cũ bị ghi trùng, ghi sổ giao ca – mục 2.14 (UXD #72 thẻ 10, SEC #72 thẻ 05). Số bản ghi cùng lần gộp PR #69.
 
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|
