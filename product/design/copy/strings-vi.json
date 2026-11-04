@@ -955,7 +955,7 @@
   "rooms.footnote": "Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006).",
   "rooms.inc": "Tăng",
   "rooms.name": "Tên căn",
-  "rooms.night_auto": "Đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt do lịch giá cộng thêm.",
+  "rooms.night_auto": "Giá mỗi đêm, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt chỉ cộng thêm khi Tham số quy tắc có mức tăng.",
   "rooms.ooo_until": "Khóa sửa chữa đến {date}",
   "rooms.price": "Giá niêm yết",
   "rooms.public_type": "Hạng phòng công khai",

@@ -955,7 +955,7 @@
   "rooms.footnote": "Monthly and nightly prices are entered separately (BR-101). Price changes have an effective date; existing bookings and quotes keep the old price (BR-006).",
   "rooms.inc": "Increase",
   "rooms.name": "Room name",
-  "rooms.night_auto": "Weekday night, Direct channel, VAT included. The rate calendar adds weekend and special-date increases.",
+  "rooms.night_auto": "Nightly rate, Direct channel, VAT included. Weekends and special dates add more only if Rule parameters set an uplift.",
   "rooms.ooo_until": "Blocked for repair until {date}",
   "rooms.price": "List price",
   "rooms.public_type": "Public room type",
