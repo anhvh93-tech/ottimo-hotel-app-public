@@ -1,0 +1,292 @@
+/**
+ * v1.0.4 P4-10 `v104/be-holds` (BE-B) on PostgreSQL – the cases of rounds/round-03/qa/bug-list.md:
+ * - BUG-R3-042 (P1): an overdue hold that received money is topped up and confirmed by FD+ (200, `confirmed`, check-in
+ *   offered on the arrival day); a sale gets HOLD_EXPIRED; an unpaid overdue hold: `receivedAt` before the deadline →
+ *   200, after → HOLD_EXPIRED, and B4 is not offered; MGR accepts the shortfall after the deadline (BR-303 (2));
+ * - BUG-R3-041 (DOM A.5): J1 writes inbox rows (`staff_notification`) to the right people, once;
+ * - ĐX-R3-QA-01 AC1–AC3: "Cần chú ý" hold_overdue (FD+, any arrival date) and hold_overdue_cap (MGR/OWN from 12:00);
+ * - FB-R3-ARC-BEB-WA-04: in a process that loads ONLY the worker, J1 cancels an overdue hold carrying a FOC request
+ *   still waiting (request auto-cancelled, its pending line rejected, creator told) instead of failing every tick.
+ * Fake clock (FixedClock moved by the test – the api; a fixed `now` per worker run) and FAKE data only.
+ */
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { JobRunner } from '../../src/jobs/job-runner';
+import { HOLD_EXPIRY_JOB_KEY } from '../../src/jobs/reservation-jobs';
+import { ReservationsService } from '../../src/modules/reservations/internal/reservations.service';
+import { HAS_DB } from '../helpers/tenant';
+import { inWorkerProcess } from '../helpers/worker-process';
+import { type Fx, startFixture } from './s438-r8/fixture';
+
+type Item = { kind: string; reservationIds?: string[]; severity: string; params?: unknown };
+
+describe.skipIf(!HAS_DB)(
+  'v1.0.4 P4-10 – holds past their deadline (BUG-R3-042/041, ĐX-R3-QA-01, WA-04)',
+  () => {
+    let x: Fx;
+    beforeAll(async () => {
+      x = await startFixture();
+    });
+    afterAll(async () => {
+      await x?.close();
+    });
+
+    const hold = async (
+      room: string,
+      who: 'fd' | 'sal' | 'ctv',
+      arrival: string,
+      departure: string,
+    ) => {
+      const svc = x.fa.app.get(ReservationsService);
+      const role = { fd: 'front_desk', sal: 'sales_staff', ctv: 'collaborator' }[who];
+      const user = x.t.users[who]!.id;
+      return x.db.withContext({ ...x.t.ctx(), userId: user, actorType: 'user' }, async (tx) => {
+        const ctx = await svc.context(tx, { userId: user, roles: [role] });
+        return svc.createHold(tx, ctx, {
+          roomId: x.ids.rooms[room]!,
+          channelId: x.ids.channels.direct!,
+          arrivalDate: arrival,
+          departureDate: departure,
+          adults: 2,
+          children6to11: 0,
+          childrenUnder6: 0,
+          bookerGuestId: x.guest,
+          holdHours: 24,
+        });
+      });
+    };
+    const deposit = (id: string, body: Record<string, unknown>, who = 'fd') =>
+      x.act(id, 'confirm-deposit', body, who);
+    const cash = (amountVnd: number, receivedAt?: string) => ({
+      payment: {
+        type: 'deposit',
+        method: 'cash',
+        amountVnd,
+        ...(receivedAt ? { receivedAt } : {}),
+      },
+    });
+    const actionsOf = async (id: string, who = 'fd') =>
+      (
+        (await x.c[who]!.get(x.url(`/reservations/${id}`))).json().allowedActions as Array<{
+          action: string;
+        }>
+      ).map((a) => a.action);
+    const j1 = () =>
+      x.fa.app.get(JobRunner).runOnce(HOLD_EXPIRY_JOB_KEY, {
+        propertyId: x.t.propertyIds[0]!,
+        organizationId: x.t.organizationId,
+        timezone: 'Asia/Ho_Chi_Minh',
+      });
+    const inbox = async (refId: string, kind: string) =>
+      (
+        await x.q(
+          `SELECT user_id FROM staff_notification WHERE ref_id = $1 AND kind = $2 ORDER BY user_id`,
+          [refId, kind],
+        )
+      ).map((r) => r.user_id as string);
+    const users = (...who: string[]) => who.map((w) => x.t.users[w]!.id).sort();
+    const attention = async (who: string) => {
+      const res = await x.c[who]!.get(x.url('/attention'));
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json().data as Item[];
+    };
+
+    // Shared timeline: holds made 01/11 10:00 (deadline 02/11 10:00), arrival 04/11.
+    let paidSal: { id: string; code: string };
+    let paidFd: { id: string };
+    let unpaidEarly: { id: string };
+    let unpaidLate: { id: string };
+    let unpaidCtv: { id: string };
+
+    it('setup: three holds with money received, three without; J1 keeps the paid ones', async () => {
+      await x.at('2026-11-01T10:00:00+07:00');
+      paidSal = await hold('101', 'sal', '2026-11-04', '2026-11-07');
+      paidFd = await hold('102', 'fd', '2026-11-04', '2026-11-07');
+      unpaidEarly = await hold('103', 'fd', '2026-11-04', '2026-11-06');
+      unpaidLate = await hold('201', 'fd', '2026-11-04', '2026-11-06');
+      unpaidCtv = await hold('202', 'ctv', '2026-11-04', '2026-11-06');
+      for (const h of [paidSal, paidFd]) {
+        const part = await deposit(h.id, cash(200_000));
+        expect(part.statusCode, part.body).toBe(200);
+        expect(part.json()).toMatchObject({ status: 'hold', depositPaidVnd: 200_000 });
+      }
+    }, 120_000);
+
+    it('BUG-R3-042: unpaid overdue hold – money dated before the deadline confirms (200), after → HOLD_EXPIRED; B4 not offered', async () => {
+      // Past the deadline, before J1 ran (it would cancel them).
+      await x.at('2026-11-02T10:00:30+07:00');
+      expect(await actionsOf(unpaidEarly.id)).not.toContain('confirm-deposit');
+      const need = (await x.get(unpaidEarly.id)).depositRequiredVnd as number;
+      const early = await deposit(unpaidEarly.id, cash(need, '2026-11-02T09:50:00+07:00'));
+      expect(early.statusCode, early.body).toBe(200);
+      expect(early.json().status).toBe('confirmed');
+      const late = await deposit(unpaidLate.id, cash(need, '2026-11-02T10:00:10+07:00'));
+      expect(late.statusCode, late.body).toBe(409);
+      expect(late.json()).toMatchObject({ code: 'HOLD_EXPIRED' });
+      // Nothing written by the refusal.
+      expect((await x.get(unpaidLate.id)).depositPaidVnd).toBe(0);
+    }, 120_000);
+
+    it('BUG-R3-041 + DOM A.5: J1 – inbox rows to the right people, once; unpaid hold cancelled, creator told', async () => {
+      await x.at('2026-11-02T10:01:00+07:00');
+      const r1 = await j1();
+      expect(r1.stats).toMatchObject({ keptPaid: 2, expired: 2, failed: 0 });
+      await j1(); // a second tick tells nobody again
+      // Creator (sale) + FD/FDL/MGR; never OWN, never the CTV.
+      expect(await inbox(paidSal.id, 'hold_overdue_with_deposit')).toEqual(
+        users('sal', 'fd', 'lead', 'mgr', 'mgr2'),
+      );
+      expect(await inbox(paidFd.id, 'hold_overdue_with_deposit')).toEqual(
+        users('fd', 'lead', 'mgr', 'mgr2'),
+      );
+      expect(await inbox(paidSal.id, 'hold_overdue_cap')).toEqual([]);
+      expect(await inbox(unpaidCtv.id, 'hold_expired')).toEqual(users('ctv'));
+      expect(await inbox(unpaidLate.id, 'hold_expired')).toEqual(users('fd'));
+      const [st] = await x.q(`SELECT status FROM reservation WHERE id = $1`, [unpaidCtv.id]);
+      expect(st).toEqual({ status: 'cancelled' });
+      // The push row is still there (same kind/payload/dedupe key as v1.0.3) – one per notice.
+      const pushes = await x.q(
+        `SELECT payload->>'kind' AS kind, count(*)::int AS n FROM outbox_message
+        WHERE topic = 'staff.push' AND payload->>'refId' = $1 GROUP BY 1`,
+        [paidSal.id],
+      );
+      expect(pushes).toEqual([{ kind: 'hold_overdue_with_deposit', n: 1 }]);
+    }, 120_000);
+
+    it('ĐX-R3-QA-01 AC1: "Cần chú ý" hold_overdue for FD+ (critical), none for SAL; no cap before 12:00', async () => {
+      const fd = await attention('fd');
+      const item = fd.find((i) => i.kind === 'hold_overdue');
+      expect(item).toMatchObject({ severity: 'critical', params: { count: 2 } });
+      expect([...(item!.reservationIds ?? [])].sort()).toEqual([paidSal.id, paidFd.id].sort());
+      expect(fd.find((i) => i.kind === 'hold_overdue_cap')).toBeUndefined();
+      expect((await attention('mgr')).find((i) => i.kind === 'hold_overdue_cap')).toBeUndefined();
+    }, 120_000);
+
+    it('BUG-R3-042: a sale gets HOLD_EXPIRED on its own paid overdue hold and is not offered B4; FD is', async () => {
+      await x.at('2026-11-03T15:00:00+07:00');
+      expect(await actionsOf(paidSal.id, 'sal')).not.toContain('confirm-deposit');
+      const sal = await deposit(paidSal.id, cash(100_000), 'sal');
+      expect(sal.statusCode, sal.body).toBe(409);
+      expect(sal.json()).toMatchObject({ code: 'HOLD_EXPIRED' });
+      expect(await actionsOf(paidSal.id)).toContain('confirm-deposit');
+    }, 120_000);
+
+    it('12:00 of the arrival day: hold_overdue_cap to MGR/OWN (inbox once + "Cần chú ý"), FD/FDL do not see it', async () => {
+      await x.at('2026-11-04T12:00:00+07:00');
+      await j1();
+      await j1();
+      expect(await inbox(paidSal.id, 'hold_overdue_cap')).toEqual(users('mgr', 'mgr2', 'owner'));
+      const own = (await attention('owner')).find((i) => i.kind === 'hold_overdue_cap');
+      expect(own).toMatchObject({ severity: 'critical', params: { count: 2 } });
+      expect((await attention('mgr')).some((i) => i.kind === 'hold_overdue_cap')).toBe(true);
+      for (const who of ['fd', 'lead']) {
+        expect(
+          (await attention(who)).some((i) => i.kind === 'hold_overdue_cap'),
+          who,
+        ).toBe(false);
+      }
+    }, 120_000);
+
+    it('BUG-R3-042 (bug-list case): FD tops up after the deadline → 200 `confirmed`, Nhận phòng offered on the arrival day; AC3: the item drops', async () => {
+      const before = await x.get(paidFd.id);
+      const rest = (before.depositRequiredVnd as number) - (before.depositPaidVnd as number);
+      expect(rest).toBeGreaterThan(0);
+      const res = await deposit(paidFd.id, cash(rest));
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json()).toMatchObject({ status: 'confirmed' });
+      expect(await actionsOf(paidFd.id)).toContain('check-in');
+      const item = (await attention('fd')).find((i) => i.kind === 'hold_overdue');
+      expect(item?.reservationIds).toEqual([paidSal.id]);
+    }, 120_000);
+
+    it('BR-303 (2) after the deadline: MGR accepts the shortfall on the money already received (B-29)', async () => {
+      const [p] = await x.q(
+        `SELECT p.id FROM payment p JOIN reservation r ON r.folio_id = p.folio_id
+        WHERE r.id = $1 AND p.type = 'deposit' AND p.status = 'succeeded'`,
+        [paidSal.id],
+      );
+      const res = await deposit(
+        paidSal.id,
+        { existingPaymentId: p!.id, acceptShortfallReason: 'Khách trả phần còn lại khi đến' },
+        'mgr',
+      );
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json()).toMatchObject({ status: 'confirmed' });
+      // AC3: no overdue hold left → no item.
+      const left = await attention('owner');
+      expect(left.some((i) => i.kind === 'hold_overdue' || i.kind === 'hold_overdue_cap')).toBe(
+        false,
+      );
+    }, 120_000);
+
+    it('WA-04 (worker-only process): an overdue hold with a FOC request waiting is cancelled with its request', async () => {
+      await x.at('2026-11-10T10:00:00+07:00');
+      const h = await hold('301', 'fd', '2026-12-01', '2026-12-03');
+      const { folioId } = await x.get(h.id);
+      const add = await x.c.fd!.send('POST', x.url(`/folios/${folioId}/lines`), {
+        category: 'fnb',
+        description: 'Nước uống',
+        quantity: 1,
+        unitPriceVnd: 300_000,
+        serviceDate: '2026-12-01',
+      });
+      expect(add.statusCode, add.body).toBe(201);
+      const line = (add.json().lines as Array<{ id: string; category: string }>).find(
+        (l) => l.category === 'fnb',
+      )!;
+      const foc = await x.c.fd!.send('POST', x.url(`/folios/${folioId}/lines/${line.id}/foc`), {
+        kind: 'foc',
+        amountVnd: 300_000,
+        reasonCode: 'service_recovery',
+      });
+      expect(foc.statusCode, foc.body).toBe(201);
+      expect(foc.json().status).toBe('pending');
+
+      const run = await inWorkerProcess<{
+        ok: boolean;
+        stats?: Record<string, number>;
+        error?: string;
+        errors: string[];
+        moduleFiles: string[];
+      }>({
+        cmd: 'run-job',
+        key: 'hold.expire',
+        propertyId: x.t.propertyIds[0],
+        now: new Date('2026-11-11T10:01:00+07:00').toISOString(),
+      });
+      expect(run.moduleFiles).toEqual([]);
+      expect(run.error, run.error).toBeUndefined();
+      expect(run.errors, run.errors.join('\n')).toEqual([]);
+      expect(run.stats).toMatchObject({ expired: 1, failed: 0 });
+      const [res] = await x.q(`SELECT status, cancel_reason_code FROM reservation WHERE id = $1`, [
+        h.id,
+      ]);
+      expect(res).toEqual({ status: 'cancelled', cancel_reason_code: 'hold_expired' });
+      const [req] = await x.q(
+        `SELECT status, auto_cancel_reason FROM approval_request WHERE id = $1`,
+        [foc.json().id],
+      );
+      expect(req).toEqual({ status: 'cancelled', auto_cancel_reason: 'reservation_cancelled' });
+      const pending = await x.q(
+        `SELECT count(*)::int AS n FROM folio_line WHERE folio_id = $1 AND line_state = 'pending_approval'`,
+        [folioId],
+      );
+      expect(pending).toEqual([{ n: 0 }]);
+      // The worker writes the inbox row too (BUG-R3-041 in the worker composition).
+      expect(await inbox(h.id, 'hold_expired')).toEqual(users('fd'));
+    }, 240_000);
+
+    it('DOM P4-20 §0: hold_expired whose creator is no longer active in the property → FD and FDL instead, once', async () => {
+      await x.at('2026-11-12T10:00:00+07:00');
+      const h = await hold('302', 'ctv', '2026-12-10', '2026-12-12');
+      // The CTV leaves before the hold expires (role revoked) – nobody of creator/closer is active here any more.
+      await x.q(
+        `UPDATE user_property_role SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL`,
+        [x.t.users.ctv!.id, new Date('2026-11-12T12:00:00+07:00')],
+      );
+      await x.at('2026-11-13T10:01:00+07:00');
+      expect((await j1()).stats).toMatchObject({ expired: 1, failed: 0 });
+      await j1();
+      expect(await inbox(h.id, 'hold_expired')).toEqual(users('fd', 'lead'));
+    }, 120_000);
+  },
+);

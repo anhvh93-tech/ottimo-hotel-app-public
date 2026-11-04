@@ -15,6 +15,7 @@ import { ProblemError, problem } from '../../../shared/problem';
 import { assertNoCardNumber, containsCardNumber } from '../../../shared/validation';
 import { type LocalDate, type LocalTime, addDays, atLocal } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
+import { EventsService } from '../../events/public/events.service';
 import { ApprovalService, type ApprovalRow } from '../../approvals/public/approval.service';
 import { attachEmailIfEmpty } from '../../guests/public/guest-contact';
 import { normalizeEmail } from '../../guests/public/normalize';
@@ -51,6 +52,7 @@ import {
   WEBSITE_REQUEST_PORT,
   type WebsiteRequestPortContract,
 } from '../../public-site/public/website-request.port';
+import { notifyHoldOnce } from './hold-notices';
 import { LEASE_RATE_SOURCE, syncLeaseNights } from './lease-nights';
 import { MoneyBridge } from './money-bridge';
 import { type BookingMovePlan, MovePlanner, moveCauseOf } from './move-planner';
@@ -336,6 +338,9 @@ export class ReservationsService {
     @Optional()
     @Inject(WEBSITE_REQUEST_PORT)
     private readonly websiteRequests?: WebsiteRequestPortContract,
+    // v1.0.4 P4-10 (BUG-R3-041): J1 notices go to the staff inbox + SSE (hold-notices.ts). Global EventsModule in
+    // the api; the worker composition passes its own instance (public/worker-jobs.ts).
+    @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
   /** ONE calculation of a room move – B7/B7a/B8 here, B14 through the stay port (ARC 10.4, S4-04/05/07/21). */
@@ -444,6 +449,7 @@ export class ReservationsService {
       today: ctx.today,
       holdExpired: !!row.hold_expires_at && row.hold_expires_at.getTime() <= ctx.now.getTime(),
       holdExtendedCount: row.hold_extended_count,
+      depositPaidVnd,
       own: isOwn(ctx.actor, row),
       noShowMarkable: markAt !== null && ctx.now.getTime() >= markAt.getTime(),
       restoreWithinRules,
@@ -4620,8 +4626,10 @@ export class ReservationsService {
    * J1 (`hold.expire`, B6) for the property in context. Exactly once per hold: a batch is taken with
    * FOR UPDATE SKIP LOCKED and re-checked under the lock, so concurrent or repeated runs never cancel twice.
    * Each hold runs in its own SAVEPOINT – one bad row is reported in `failures` and the others still expire
-   * (FB-R2-SEC-BE-24). A hold with money received (DOM D-9, US-085 AC4) is never auto-cancelled: red push to
-   * its sale + FD/FDL once, and to the manager once the BR-302 cap (12:00 on arrival day) has passed.
+   * (FB-R2-SEC-BE-24). A hold with money received (DOM D-9, US-085 AC4) is never auto-cancelled: its creator/closer +
+   * FD/FDL/MGR are told once (`hold_overdue_with_deposit`), MGR/OWN once the BR-302 cap (12:00 on arrival day) has
+   * passed (`hold_overdue_cap`); a cancelled hold tells its creator/closer (`hold_expired`) – inbox + SSE, DOM A.5,
+   * v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until check-in (BUG-R3-042).
    */
   async expireHolds(
     tx: Tx,
@@ -4672,30 +4680,33 @@ export class ReservationsService {
       return 'skipped';
     const recipients = [row.created_by, row.closer_user_id].filter((u): u is string => !!u);
     if ((await this.money.depositPaid(tx, row)) > 0) {
-      // DOM D-9: money received → not cancelled; the people in charge must act (B4 / MGR accepts / B5 refund).
-      await outboxStaffPush(
+      // DOM D-9 / BR-303: money received → not cancelled; the people in charge act until check-in (B4 with more
+      // money – BUG-R3-042, MGR accepts the shortfall, or B5 + refund). Told once (inbox + SSE – BUG-R3-041, A.5);
+      // "Cần chú ý" hold_overdue / hold_overdue_cap is computed (frontdesk attention-sources) while it stays `hold`.
+      await notifyHoldOnce(
         tx,
+        this.events,
         {
           kind: 'hold_overdue_with_deposit',
-          roles: ['front_desk', 'front_desk_lead'],
-          userIds: [...new Set(recipients)],
-          refType: 'reservation',
-          refId: id,
-          refCode: row.code,
+          people: recipients,
+          reservationId: id,
+          code: row.code,
+          dedupeKey: `hold_overdue_partial:${id}:${row.hold_expires_at.toISOString()}`,
         },
-        `hold_overdue_partial:${id}:${row.hold_expires_at.toISOString()}`,
+        now,
       );
       if (now.getTime() >= atLocal(row.arrival_date, latest, tz).getTime()) {
-        await outboxStaffPush(
+        await notifyHoldOnce(
           tx,
+          this.events,
           {
             kind: 'hold_overdue_cap',
-            roles: ['manager'],
-            refType: 'reservation',
-            refId: id,
-            refCode: row.code,
+            people: recipients,
+            reservationId: id,
+            code: row.code,
+            dedupeKey: `hold_overdue_cap:${id}`,
           },
-          `hold_overdue_cap:${id}`,
+          now,
         );
       }
       return 'kept_paid';
@@ -4736,20 +4747,19 @@ export class ReservationsService {
       segs.map((s) => ({ roomId: s.room_id, from: s.from_date, to: s.to_date })),
       'hold.expired',
     );
-    if (recipients.length) {
-      await outboxStaffPush(
-        tx,
-        {
-          kind: 'hold_expired',
-          roles: [],
-          userIds: [...new Set(recipients)],
-          refType: 'reservation',
-          refId: id,
-          refCode: row.code,
-        },
-        `hold_expired:${id}`,
-      );
-    }
+    // DOM A.5: creator + closer only (a CTV tells the guest); inbox, no "Cần chú ý".
+    await notifyHoldOnce(
+      tx,
+      this.events,
+      {
+        kind: 'hold_expired',
+        people: recipients,
+        reservationId: id,
+        code: row.code,
+        dedupeKey: `hold_expired:${id}`,
+      },
+      now,
+    );
     const after = await loadReservation(tx, id, system);
     await this.money.voided(
       tx,

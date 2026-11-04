@@ -1,7 +1,8 @@
 /**
  * "Cần chú ý" items computed from booking/inventory/housekeeping state (erd BE-ARC-06 – not stored):
  * capacity_conflict (A-20), overbooking (BR-312), no_show_call / no_show_mark (BR-311), hold_expiring
- * (BR-303 `hold_expiry_reminder_hours`), extra_guest_kit_overdue (BR-812), room_ooo (SM-02), checkout_debt (BR-525).
+ * (BR-303 `hold_expiry_reminder_hours`), hold_overdue / hold_overdue_cap (v1.0.4 – ĐX-R3-QA-01), extra_guest_kit_overdue
+ * (BR-812), room_ooo (SM-02), checkout_debt (BR-525).
  * Codes, counts, booking ids and room numbers only (SEC J). `count` is the full count (`count(*) OVER ()` –
  * ARC-BE-S3-23.4); the id/room lists are capped at LIST_CAP. Child bookings (B9a / OTA extension) are never
  * arrivals of their own (ARC B-1 #5 b).
@@ -139,6 +140,57 @@ async function holdsExpiring(tx: Tx, ctx: AttentionSourceContext): Promise<Atten
   ];
 }
 
+/**
+ * v1.0.4 P4-10 – ĐX-R3-QA-01 (DOM A.3a V5, A.5; BA M13-02): holds PAST their deadline and still `hold`, every arrival
+ * date (a hold with money received is kept by J1 until someone acts – BR-303; one with nothing received only stays when
+ * J1 could not cancel it). Computed, so the item lives exactly while the booking is `hold` and nobody can close it
+ * with "Đã xử lý" (only event items are resolvable); it is gone on the next read once the hold is confirmed or
+ * cancelled. Two items:
+ * - `hold_overdue` (critical, FD+): all of them – `dueAt` = the oldest deadline;
+ * - `hold_overdue_cap` (critical, MGR/OWN – attentionAudience): those whose arrival day has reached
+ *   `hold_latest_time_on_arrival` (12:00, BR-302/303 trần) – `dueAt` = the earliest such cap.
+ * Instants compare with the injected clock (`ctx.now`), never SQL now() (ADR-008).
+ */
+export async function holdsOverdue(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> {
+  const latest = await ctx.param<LocalTime>('hold_latest_time_on_arrival');
+  const { rows } = await tx.query<{
+    id: string;
+    code: string;
+    hold_expires_at: Date;
+    cap_at: Date | null;
+  }>(
+    `SELECT id, code, hold_expires_at,
+            CASE WHEN $2::text IS NULL THEN NULL
+                 ELSE (arrival_date + $2::time) AT TIME ZONE $3 END AS cap_at
+       FROM reservation
+      WHERE status = 'hold' AND hold_expires_at <= $1
+      ORDER BY hold_expires_at, id`,
+    [ctx.now, latest ?? null, ctx.tz],
+  );
+  const first = rows[0];
+  if (!first) return [];
+  const item = (
+    kind: 'hold_overdue' | 'hold_overdue_cap',
+    list: typeof rows,
+    dueAt: Date,
+  ): AttentionItem => ({
+    kind,
+    source: 'computed',
+    severity: 'critical',
+    count: list.length,
+    dueAt: ctx.iso(dueAt),
+    reservationIds: list.slice(0, LIST_CAP).map((r) => r.id),
+    ...(list.length === 1 ? { refCode: list[0]!.code } : {}),
+    params: { count: list.length },
+  });
+  const out = [item('hold_overdue', rows, first.hold_expires_at)];
+  const capped = rows
+    .filter((r) => r.cap_at !== null && r.cap_at.getTime() <= ctx.now.getTime())
+    .sort((a, b) => (a.cap_at as Date).getTime() - (b.cap_at as Date).getTime());
+  if (capped.length > 0) out.push(item('hold_overdue_cap', capped, capped[0]!.cap_at as Date));
+  return out;
+}
+
 async function kitsOverdue(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> {
   const { rows } = await tx.query<{ reservation_id: string; room_no: string; total: number }>(
     `SELECT t.reservation_id, rm.room_no, count(*) OVER ()::int AS total
@@ -240,6 +292,7 @@ export const FRONTDESK_ATTENTION_SOURCES: AttentionSource[] = [
   (tx) => overbooking(tx),
   noShows,
   holdsExpiring,
+  holdsOverdue,
   kitsOverdue,
   roomsOoo,
 ];
