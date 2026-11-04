@@ -143,6 +143,14 @@ const GARDEN = '[data-gallery-open="gal-standard-studio-garden-view"]';
 /** Photos per room type = ROOM_GALLERIES in landing-web src/content/gallery.ts (UXD FB-R3-UXD-FE-05, pending INV). */
 const GARDEN_N = 7;
 const SIGNATURE_N = 6;
+/** "n photos" of each language (content/<lang>.ts gallery.open). */
+const PHOTOS: Record<Lang, (n: number) => string> = {
+  en: (n) => `${n} photos`,
+  vi: (n) => `${n} ảnh`,
+  ko: (n) => `사진 ${n}장`,
+  zh: (n) => `${n} 张图片`,
+  ru: (n) => `${n} фото`,
+};
 
 for (const lang of Object.keys(PAGES) as Lang[]) {
   for (const width of [375, 1280]) {
@@ -162,9 +170,9 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       // one button per room type, the number of photos in its text
       await expect(page.locator('.gal-open')).toHaveCount(4);
       const open = page.locator(GARDEN);
-      await expect(open).toHaveText(lang === 'en' ? `${GARDEN_N} photos` : `${GARDEN_N} ảnh`);
+      await expect(open).toHaveText(PHOTOS[lang](GARDEN_N));
       await expect(page.locator('[data-gallery-open="gal-signature-two-bedrooms"]')).toHaveText(
-        lang === 'en' ? `${SIGNATURE_N} photos` : `${SIGNATURE_N} ảnh`,
+        PHOTOS[lang](SIGNATURE_N),
       );
       await open.scrollIntoViewIfNeeded();
       await open.click();
@@ -194,7 +202,13 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       await page.keyboard.press('ArrowRight');
       await expect(count).toHaveText(`2 / ${GARDEN_N}`);
       await expect(dialog.locator('[data-lb-count-sr]')).toHaveText(
-        lang === 'en' ? `Photo 2 of ${GARDEN_N}` : `Ảnh 2 trên ${GARDEN_N}`,
+        {
+          en: `Photo 2 of ${GARDEN_N}`,
+          vi: `Ảnh 2 trên ${GARDEN_N}`,
+          ko: `${GARDEN_N}장 중 2번째 사진`,
+          zh: `第 2 张，共 ${GARDEN_N} 张`,
+          ru: `Фото 2 из ${GARDEN_N}`,
+        }[lang],
       );
       await page.keyboard.press('End');
       await expect(count).toHaveText(`${GARDEN_N} / ${GARDEN_N}`);

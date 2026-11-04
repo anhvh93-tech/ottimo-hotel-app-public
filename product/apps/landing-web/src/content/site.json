@@ -37,7 +37,7 @@
     "promiseCallNowMinutes": 60,
     "promiseNextMorningBy": "09:00",
     "windowDays": 365,
-    "shortMaxNights": 27,
+    "shortMaxNights": 29,
     "depositPercent": 30
   },
   "paymentReceivingAccountHolder": "",

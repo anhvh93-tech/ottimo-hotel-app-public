@@ -6,6 +6,8 @@
 # Images only: the database is NOT rolled back (forward-only migrations, "expand first, contract later"), so the older
 # image must run on the newer schema – deploy.sh --rollback accepts a database ahead of the image's journal.
 # Production: the digests recorded when <tag> was deployed (state/digests/<tag>) are checked again after the pull.
+# Order (FB-R4-OPS-ARC-31-01): deploy.sh --rollback puts api + web on <tag> first, then the worker – the reverse of a
+# deploy (worker, then api + web) – so the newer api stops writing jobs before the older worker starts.
 # Landing: deploy-landing.sh --rollback.
 set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
