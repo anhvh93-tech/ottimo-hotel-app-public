@@ -59,7 +59,7 @@ Quy tắc giữ nhãn: nếu trước khi đăng có đổi **bất kỳ** câu 
   3. `env.production.example` dòng 117 và README dòng 408: "older than 2026-10-31" → "older than 2026-11-04 (the first published notice naming Google Chat)".
   4. ARC sửa câu P4 trong biên bản (mục 7).
   - Nếu ORC đổi ý và đăng `2026-10-31` riêng trước LP-v2 thì giữ hằng như cũ; thẻ này khi đó Rejected với lý do đó.
-- Trạng thái: Open
+- Trạng thái: Open → **Closed** (SEC xác nhận 04/11, mục 8: `2760744b` + test chống so chữ `4fe85e19`)
 
 ### FB-R4-SEC-LPV2M-02
 - Mức độ: Minor
@@ -67,7 +67,7 @@ Quy tắc giữ nhãn: nếu trước khi đăng có đổi **bất kỳ** câu 
 - Vấn đề: nhãn tạm vẫn còn (FB-R4-SEC-FE-02, ARC LPV2M-02). Nay SEC đã chốt.
 - Vì sao quan trọng: nhãn là thứ khách đồng ý, và cũng là khóa băm khi đăng. Lọt nhãn tạm lên production thì phải đăng version mới.
 - Đề xuất sửa (FE-B): `VERSION = '2026-11-04'`. Thay khối chú thích "TEMPORARY LABEL…" bằng "Version 2026-11-04 (SEC SEC-on-lp-v2-main.md mục 2): en/vi = `2026-10-31` text (PR #21, lawyer-reviewed) – never published on its own (P4); ko/zh/ru Δ5 = notice-final 7." Đổi 3 chỗ test. Chạy lại `check:dist`, `privacy.test`, `pages.spec`, landing Playwright. Ghi sha256 5 trang dựng mới vào báo cáo để OPS so khi đăng. Khi xong, FB-R4-SEC-FE-02 và ARC LPV2M-02 cùng Done.
-- Trạng thái: Open
+- Trạng thái: Open → **Closed** (SEC xác nhận 04/11, mục 8: `ef2eb4ef`, chú thích `aad14baa`)
 
 ### FB-R4-SEC-LPV2M-03
 - Mức độ: Minor
@@ -75,21 +75,21 @@ Quy tắc giữ nhãn: nếu trước khi đăng có đổi **bất kỳ** câu 
 - Vấn đề: runbook vẫn giả định `2026-10-31` đã được đăng trước. Theo P4 mới, production đang ở `2026-10-24` (landing-v1.1.x), và LP-v2 sẽ thay `2026-10-24` en/vi trực tiếp. Khi quay lui trong 7 ngày, trang sẽ in `2026-10-24`, không phải `2026-10-31`.
 - Vì sao quan trọng: người chạy runbook đối chiếu sai dòng "superseded" hoặc sai version của trang quay lui, rồi dừng giữa chừng lúc proxy form đang mở.
 - Đề xuất sửa (OPS): viết lại bước 0, (c) và quay lui theo trạng thái thật: hiệu lực hiện tại là `2026-10-24` en/vi; sau `--apply` thấy `OK: version 2026-11-04 published (en vi ko zh ru)` và `supersede version 2026-10-24 (en)`, `(vi)`. Thêm vào runbook phát hành LP-v2 các điều kiện P1–P6 của `notice-2026-10-31-final.md` mục 5, nay áp cho lượt đăng LP-v2 (P1 K1 đã đạt 03/11; P5 đổi thành "hằng = `2026-11-04` trên bản api đang chạy").
-- Trạng thái: Open
+- Trạng thái: Open → **Closed** (SEC xác nhận 04/11, mục 8: README 12.3 `917a39cf` + `aad14baa`, runbook r1.1 bảng P0)
 
 ### FB-R4-SEC-LPV2M-04
 - Mức độ: Suggestion
 - Vị trí: `rounds/round-04/outputs/ARC/lp-v2-main-merge.md` mục 4 bước 2
 - Vấn đề: dữ liệu giả gọi là "hình dạng production" có `2026-10-31` en/vi/ru đang hiệu lực. Production thật chỉ có `2026-10-24` en/vi. Kết luận về 0092 không đổi (0092 không đụng các dòng thông báo), nhưng mô tả này góp phần làm câu P4 sai ở thẻ 01.
 - Đề xuất sửa: ghi chú lại trong biên bản. Lượt diễn tập trên staging dùng đúng trạng thái `2026-10-24`.
-- Trạng thái: Open
+- Trạng thái: Open → **Closed** (SEC xác nhận 04/11, mục 8: ghi chú ARC biên bản mục 4 bước 2)
 
 ### FB-R4-SEC-LPV2M-05
 - Mức độ: Suggestion
 - Vị trí: `price-estimate.service.ts` `parseEstimateQuery` → `date()`; cùng mẫu với `assertLocalDate` (`shared/time.ts`) và kiểm `arrival` của form (`public-booking.service.ts`)
 - Vấn đề: `Date.parse('2026-02-31T00:00:00Z')` trong V8 trả ngày 03/03 chứ không phải NaN, nên `2026-02-31` qua được kiểm và được tính như một ngày thật. Câu trả lời lại in lại chuỗi gốc. Không lộ dữ liệu và không sai tiền có hại (khách chỉ nhận một con số "ước tính" cho ngày không tồn tại). Lỗi này có từ trước, không do LP-v2 sinh ra.
 - Đề xuất sửa: trong `assertLocalDate`, thêm phép so khứ hồi (dựng lại `YYYY-MM-DD` từ `Date` rồi so bằng chuỗi gốc) và dùng hàm này cho cả route giá và form. Làm ở v1.0.x, không chặn.
-- Trạng thái: Open
+- Trạng thái: Open → **Closed một phần** (SEC xác nhận 04/11, mục 8: route công khai dùng `isCalendarDate` ở `2760744b`; `assertLocalDate` dời v1.0.x – chấp nhận)
 
 ## 4. Điều kiện trước khi đăng thông báo `2026-11-04` trên production (SEC kiểm)
 
@@ -121,3 +121,84 @@ Quy tắc giữ nhãn: nếu trước khi đăng có đổi **bất kỳ** câu 
 - ARC: gộp `website-request-rules.ts` bằng cách lấy bộ dò chung mạnh hơn của `main` thay vì giữ bản riêng của LP-v2, nên form và Chat chỉ còn một nguồn nhận diện số giấy tờ/thẻ.
 - ARC/OPS: `deploy-landing.sh` hợp hai bộ quy tắc mà vẫn giữ fail-closed của v1.0.3 khi `--rollback` lúc proxy mở, có ca test 16c mới; `ops-check` phát hiện và sửa `$compose_err` → `$cmd_err` (nếu không thì `set -u` làm script chết lặng lẽ).
 - FE-B/ARC: Δ5 ko/zh/ru chép bằng script, kèm test giữ chữ cuối cho 5 ngôn ngữ; so với `lp-v2` chỉ đổi đúng 3 dòng.
+
+## 8. Xác nhận đóng thẻ + runbook r1.1 (04/11)
+
+- Người review: SEC | Round 4 – gói LP-v2 – Bước: **Review (xác nhận đóng thẻ)** | 04/11/2026. Việc giao: G3 (phần SEC) và T1 (phần SEC) của `rounds/round-04/qc/lp-v2-merge-gate.md`.
+- Phạm vi: `origin/lp-v2-main` @ `4fe85e19`. Đọc diff `ef2eb4ef` (FE-B), `2760744b` + `4fe85e19` (BE), `917a39cf` + `aad14baa` (OPS), biên bản ARC trên nhánh. Chỉ `git show`/`git diff`; không checkout, không sửa nhánh, không chạy test hay đột biến (việc của QA ở G2(a)). Không có bí mật, IP, digest đầy đủ hay dữ liệu khách trong mục này.
+- Rà nhanh diff `917a39cf..origin/lp-v2-main` (6 tệp): không có khóa, webhook thật, digest `sha256:` đầy đủ, chuỗi 64 hex hay IP (chỉ `127.0.0.1` trong ghi chú máy kiểm của BE). gitleaks cho 3 commit này vẫn dựa vào CI PR (G1).
+
+### 8.1 Đóng thẻ
+
+| Thẻ | Bằng chứng | Kết luận |
+|---|---|---|
+| LPV2M-01 (Major) | `chat-message.ts` dòng 42: `CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04'`. SQL cổng giữ nguyên: `min(published_at) … WHERE version = $2` (hằng) và `published_at` của đúng (version, locale) của yêu cầu; `effectiveLevel` chặn khi `min_at` hoặc `req_at` NULL hoặc `req_at < min_at`. Không có phép so chữ `consent_version`. Chú thích nêu rõ `2026-10-31` không đăng riêng. Đủ 3 ca SEC đòi ở `gchat-notify`: (a) chỉ `2026-10-24` + `2026-11-04` → en và ko nhận C, `2026-10-24` nhận A; (b) `2026-10-31` đăng trước `2026-11-04` → A; (c) `2026-11-04` chưa đăng → A cho mọi yêu cầu. `env.production.example` và README 13.4 đã ghi "older than 2026-11-04 (the first published notice naming Google Chat)". ARC đã sửa câu P4 trong biên bản (mục 7) | **Closed** |
+| LPV2M-02 (Minor) | `privacy.ts` dòng 60: `VERSION = '2026-11-04'`; khối "TEMPORARY LABEL" đã thay bằng chú thích đúng ý SEC; 3 chỗ test (`price-estimate.test.ts`, `form-live.landing.spec.ts`, `lp-v2.landing.spec.ts`) đổi sang `2026-11-04`. Không còn nhãn `2026-11-01` làm `consentVersion` trong mã chạy | **Closed**. Kéo theo FB-R4-SEC-FE-02 và ARC LPV2M-02 Done. Ghi nhận nhỏ: 3 ví dụ `consentVersion: '2026-11-01'` trong `openapi.yaml` (dòng ~9188–9219) chỉ là ví dụ tài liệu, ARC đổi ở lần chạm hợp đồng kế tiếp, không chặn |
+| LPV2M-03 (Minor) | README 12.3 viết lại theo trạng thái thật: hiệu lực `2026-10-24` en/vi; bước (c) thấy `supersede version 2026-10-24 (en)`, `(vi)` rồi `OK: version 2026-11-04 published (en vi ko zh ru)`; quay lui landing in `2026-10-24`, mốc 7 ngày tính từ giờ `--apply`. Chú thích `publish-privacy-notice.sql` dòng 136–137 đúng. Runbook r1.1 có bảng D1–D7 và P1–P6 (P5 = hằng bằng nhãn đăng) | **Closed** |
+| LPV2M-04 (Suggestion) | Biên bản ARC mục 4 bước 2 có ghi chú 04/11: dữ liệu giả không giống production, diễn tập staging dùng trạng thái `2026-10-24` | **Closed** |
+| LPV2M-05 (Suggestion) | `isCalendarDate` (dựng lại ngày rồi so chuỗi) dùng cho route giá và cả `arrival`, `departure` của form (trước đây `departure` chỉ kiểm regex); có test. `assertLocalDate` để v1.0.x vì đổi ở đó sẽ biến ngày sai thành 500 trên API nội bộ | **Closed một phần**, phần còn lại chấp nhận dời v1.0.x |
+
+### 8.2 Ca test BUG-R4-027 có đúng ý cổng ★2 không
+
+**Có.** Ý của ★2 (thẻ 01, "bẫy ngược"): cổng đọc `published_at` của dòng mang nhãn bằng hằng, không so chữ version. Các ca mới kiểm đúng ý đó từ hai phía:
+- `gchat-units` (4 ca, giả `min_at`/`req_at`): `2026-12-01` đăng **trước** hằng → A; `2026-11-04.1` và `2026-11-05` đã đăng, hằng chưa đăng (`min_at` NULL) → A; `2026-11-03` đăng **sau** hằng → C. Mỗi ca cho đáp án ngược nếu `effectiveLevel` bị "sửa" thành so chuỗi (`<` hay `>=`), nên đột biến ở mã TypeScript bị bắt. Ca A còn kiểm tin không chứa chữ của khách.
+- `gchat-notify` (Postgres thật): đăng `2026-11-04.1` (5 ngôn ngữ) và `2026-11-05`, không đăng `2026-11-04`, mức C → cả 3 tin mức A, `levelCapped` 3, không có tên khách hay ngày đến. Ca này bắt đột biến ở SQL (`version >= $2`), thứ mà ca đơn vị không thấy vì ca đơn vị giả kết quả SQL.
+- Ca "đăng cùng giao dịch" (`req_at = min_at`) vẫn ra C ở ca "after 2026-11-04 is published", nên đột biến `<=` cũng bị bắt.
+- Gợi ý (không chặn, v1.0.x): thêm một khẳng định ở `gchat-units` rằng tham số `$2` của câu cổng đúng bằng hằng và `$3`/`$4` là `consent_version`/`locale` của yêu cầu. Hiện việc dùng sai tham số chỉ bị ca tích hợp bắt gián tiếp (ca "old-notice request stays A").
+- SEC không tự chạy lại đột biến. Kết quả "5 đỏ + ca tích hợp đỏ" là của BE; QA chạy lại ở G2(a).
+
+### 8.3 Kết luận G3 (phần SEC)
+
+**ĐÓNG.** LPV2M-01, 02, 03 Closed; 04 Closed; 05 Closed một phần (phần còn lại dời có lý do). Ca test BUG-R4-027 đúng ý ★2. Phần ARC của G3 (đọc `2760744b`/`4fe85e19`) không thuộc SEC.
+
+### 8.4 Runbook `lp-v2-release-runbook.md` r1.1 – T1 (phần SEC)
+
+**Trả lời Q1 (SEC):** bảng P0 đủ và đúng nghĩa mục 4: đủ 7 dòng D1–D7 và 6 dòng P1–P6, cột "Ai" đúng, D7 không chặn phát hành mà chỉ chặn việc đặt mức C, K8 kiểm worker vẫn mức A. Chỉ có một chỗ sai chữ ở D1 (thẻ RB-01). Về D3: SEC **chấp nhận** "INV xác nhận trong chat ngày đăng" cho P3/P4, như lượt v1.0.1, với 3 điều kiện:
+1. ORC ghi vào decision-log **trước P10**: giờ xác nhận; P3 = "phòng Chat thật chỉ có các vai OWN/MGR/FDL/FD, N thành viên, không SAL/CTV"; P4 = mục sổ tay WR8 do BA chỉ ra (đường dẫn + mục) và "lịch OWN có ngày xóa phòng Chat hằng năm". Không ghi tên, email hay số điện thoại thành viên.
+2. "Ngày đăng" là ngày chạy P10. P10 trễ sang ngày khác thì phải xác nhận lại.
+3. Thiếu một xác nhận thì ô đó là `CHUA`, và theo P0 phải dừng.
+
+**Ý kiến SEC cho Q2, Q3 (ARC quyết):**
+- Q2: SEC ủng hộ **giữ** bước quay landing trước khi lùi app. Về dữ liệu thì không có rủi ro lộ dữ liệu: v1.0.3 neo cổng Chat ở `2026-10-31` (chưa đăng), nên mọi tin về mức A. Nhưng nếu để landing LP-v2 đứng trước api v1.0.3, khách ko/zh sẽ điền xong dữ liệu cá nhân rồi bị từ chối. Thứ tự hiện tại thì hỏng sạch hơn: không có form ko/zh để điền.
+- Q3: về phía SEC, `LIKE` là đủ. Mục đích là chứng minh CHECK có `ko`/`zh`. CHECK bị mất thì thiếu dòng, nên vẫn lộ ra. SEC không cần so nguyên văn.
+
+**Thẻ runbook (OPS):**
+
+### FB-R4-SEC-OPS-LPV2RB-01
+- Mức độ: Minor
+- Vị trí: runbook r1.1 mục 4 P0, bảng D1–D7, dòng D1, cột "Bước kiểm trong runbook" ("0.2 bước 3 (hai số `1`), lượt CI PR")
+- Vấn đề: r1.1 đã bỏ hai lệnh grep in `1` ở 0.2 bước 3 (thay bằng `CHKV`). Cột này giờ trỏ vào một kết quả không còn tồn tại, nên người điền D1 không biết dựa vào đâu.
+- Vì sao quan trọng: D1 là ô chặn. Căn cứ mơ hồ thì dễ điền `CO` sai.
+- Đề xuất sửa: "Thẻ 01–03 Closed: `SEC-on-lp-v2-main.md` mục 8.1. CI PR: số run + `headSha` = đầu PR (QC G1) trong decision-log."
+- Trạng thái: Open
+
+### FB-R4-SEC-OPS-LPV2RB-02
+- Mức độ: Minor
+- Vị trí: runbook r1.1 dòng "Sửa r1.1", mục 0 "Nhãn thông báo", 0.1 `⟨NOTICE_V⟩`, `CHKV`, 5.2 bước 4(a); README 12.3 (gạch đầu dòng "Đổi nhãn thì phải đổi cả hằng…"); chú thích `privacy.ts` dòng 58–59
+- Vấn đề: quy tắc "đổi nhãn thì đổi hằng, `CHKV` đòi hằng = nhãn đăng" chỉ đúng **trước lần đăng đầu tiên** của một thông báo nêu Google Chat (lượt LP-v2 này). Cổng so theo `published_at`, nên khi `2026-11-04` đã đăng, một nhãn sau đó (`2026-11-04.1`) đăng muộn hơn sẽ tự qua cổng mà không cần đổi hằng. Nếu cứ làm theo quy tắc mà đổi hằng thành `2026-11-04.1`, mọi yêu cầu đã gửi theo `2026-11-04` (đã nêu Chat) sẽ bị hạ xuống A. Ngoài ra, ở 5.2 bước 4(a) (lên lại LP-v2 với nhãn mới sau khi quay lui), `CHKV` sẽ in `KHONG` và chặn việc đăng, hoặc buộc đội Release api không cần thiết. Lỗi này vẫn fail-closed, không lộ dữ liệu.
+- Vì sao quan trọng: mỗi lần đổi chữ thông báo sau này sẽ tốn thêm một lần Release api, và đường quay lui 5.2(a) bị chặn ngoài ý muốn đúng lúc đang có sự cố.
+- Đề xuất sửa:
+  - Runbook r2 (chỉ `rounds/`, không đổi đầu PR): ghi rõ "hằng = nhãn đăng **chỉ** khi trên DB đích chưa có dòng nào của hằng (lần đăng đầu nêu Google Chat)". Khi DB đã có dòng `2026-11-04` (K4), `CHKV` cho lượt đó so `CHAT_CONST = 2026-11-04` và `LANDING_VERSION = ⟨NOTICE_V⟩`, kèm điều kiện `⟨NOTICE_V⟩` > `2026-11-04`. SEC vẫn xem chữ mới (GCHAT-03: chữ mới bỏ Google Chat khỏi bên nhận thì hạ mức trước khi đăng). Sửa 5.2 bước 4(a) theo đó.
+  - README 12.3 và chú thích `privacy.ts`: dùng cùng cách nói, sửa ở lần chạm tệp kế tiếp (v1.0.4) để không đổi đầu PR (G1/G2).
+- Trạng thái: Open
+
+### FB-R4-SEC-OPS-LPV2RB-03
+- Mức độ: Minor
+- Vị trí: runbook r1.1 P10 bước 0 (`RA` = "tag app đang chạy"), D2
+- Vấn đề: `CHKV` đọc mã ở một ref git do ORC gõ tay. D2 thì hỏi về **bản api đang chạy**. Chưa có bước nối ref đó với `state/current_tag` của production. Ở đường phụ 1.2, hoặc khi có hotfix chen vào giữa, ORC có thể gõ nhầm tag.
+- Vì sao quan trọng: D2 có thể ra `CO` cho một tag không phải bản đang chạy. Hậu quả vẫn fail-closed (Chat giữ mức A), nhưng D2 khi đó không còn là bằng chứng thật.
+- Đề xuất sửa: thêm vào P10 bước 0 phép so `sha-$(git rev-parse --short=12 "$RA^{commit}")` với `current=` ở K1, đọc trong cùng phiên. Lệch thì `KHONG`. Làm tương tự ở P4, so `RA` với `⟨TAG_L⟩`.
+- Trạng thái: Open
+
+### FB-R4-SEC-OPS-LPV2RB-04
+- Mức độ: Suggestion
+- Vị trí: runbook r1.1 bảng P1–P6 dòng P1 (đã điền sẵn `CO`); bảng staging S0
+- Vấn đề: (a) K1 đạt ngày 03/11 chỉ còn giá trị khi phòng Chat và webhook không đổi (README 13.5). (b) S6 gửi nhiều yêu cầu thử trên staging, mỗi yêu cầu tạo một tin Chat. Quy tắc README là staging chỉ nối phòng THỬ hoặc để rỗng.
+- Đề xuất sửa: (a) P1 ghi "CO nếu phòng Chat/webhook không đổi từ 03/11, nếu đổi thì `CHUA` và làm lại K1". (b) S0 thêm một dòng: ORC xác nhận webhook staging là phòng thử hoặc rỗng (chỉ hỏi có/không, không in URL).
+- Trạng thái: Open
+
+**Kết luận T1 (phần SEC): ĐẠT CÓ ĐIỀU KIỆN.** **Không có điểm phải sửa trước staging.** 0.2 bước 5 và S0–S8 chạy được với r1.1, vì `CHKV` đúng cho lần đăng đầu, và staging chưa có dòng `2026-11-04`, việc này S0 có kiểm. Trước P0 production, OPS ra r2 sửa RB-01, RB-02 (phần runbook) và RB-03. RB-04 tùy OPS. Phần README/`privacy.ts` của RB-02 sửa ở v1.0.4, không chặn. Khi r2 có, OPS sửa dòng "Trạng thái" của runbook thành "SEC đã đọc 04/11", và SEC chỉ cần đọc phần thay đổi.
+
+### 8.5 Dòng decision-log đề xuất (ORC ghi)
+
+| 2026-11-04 | 4 | **SEC – xác nhận đóng thẻ `lp-v2-main` (G3 phần SEC: ĐÓNG) + đọc runbook LP-v2 r1.1 (T1 phần SEC: ĐẠT CÓ ĐIỀU KIỆN)** (`rounds/round-04/reviews/SEC-on-lp-v2-main.md` mục 8). LPV2M-01 (hằng Chat `2026-11-04`, cổng theo `published_at`, 3 ca a/b/c), 02 (`VERSION` + 3 test), 03 (README 12.3 + runbook P0), 04 Closed; 05 Closed một phần (`assertLocalDate` v1.0.x). Ca BUG-R4-027 đúng ý ★2 (ca đơn vị bắt so chuỗi, ca tích hợp bắt `version >= $2`). Runbook: Q1 bảng P0 đủ; D3 chấp nhận INV xác nhận P3/P4 trong chat ngày đăng, ghi decision-log trước P10, không tên/email. Không có điểm phải sửa trước staging; r2 trước P0 production sửa RB-01 (D1 trỏ sai), RB-02 (quy tắc "đổi nhãn → đổi hằng" chỉ áp cho lần đăng đầu nêu Chat), RB-03 (nối ref `CHKV` với `current_tag`) | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật, chữ/nhãn thông báo) |
