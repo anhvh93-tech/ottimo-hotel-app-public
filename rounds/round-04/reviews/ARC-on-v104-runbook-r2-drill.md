@@ -161,7 +161,7 @@ Chữ `leaseEndDate` vẫn còn ở vài câu văn mô tả khóa DB. Không câ
   - Khi nói về DB, viết "khóa `lease_end_date` trong `manual_long_stay` (API: `manualLongStay.leaseEndDate`)". Giữ `leaseEndDate` khi nói về API, giao diện hay S12.
   - Ô 1.3 dòng 0094: "Stack dùng một lần có `CLOCK_MODE=mutable` lùi về quá khứ: xem 5.0".
   - Làm trước P0, cùng lượt ORC commit biên bản.
-- Trạng thái: Open
+- Trạng thái: **Đã sửa** (ORC 05/11, runbook `:32`, `:98`, K9 `:528-534`, `:654`, `:675`, `:711`)
 
 ### FB-R4-ARC-OPS-RB2-03
 - Mức độ: Minor
