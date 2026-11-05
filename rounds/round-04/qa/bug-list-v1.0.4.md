@@ -16,7 +16,7 @@
   - ~~BUG-R4-036~~ **đã hạ P2 lúc 05/11 08:00** (ORC): #66 gộp `main` @ `0d11db20`, đủ điều kiện ghi dưới. Trước đó: nâng từ P2 lúc 05/11 05:30 (QA2) theo điều kiện ghi ở mục lỗi: cách làm tạm trong sổ tay (CO-05) không chạy trên Desk. Từ 05/11 06:00, CO-05 bản 0.15 đạt trên `main`. Hạ lại P2 khi #66 gộp (#85 đã gộp `main` `0dd3fcb3`; câu ở #66 @ `99d103a0` khớp, QA2 05/11 07:15). ORC hạ, không cần QA chạy lại;
   - BUG-R4-039, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, nên đang ở production;
   - BUG-R4-042, QA2 thêm 05/11. Lỗi có từ v1.0.1, đang ở production. Từ 05/11 02:00: **đã gộp `main` @ `3e6a762b`, chờ staging** (QA3 đạt ở `054d40c0`). 05/11 02:50: hồi quy trên #83 @ `e411cb22` đạt;
-  - BUG-R4-053, QA thêm 05/11 15:10 từ S16 của diễn tập 5.0 trên staging (ORC chạy thay QA). Lỗi mới của v1.0.4 (P4-42), không có ở production. **P1 đề xuất, SEC chốt mức cuối.** Mới.
+  - BUG-R4-053, QA thêm 05/11 15:10 từ S16 của diễn tập 5.0 trên staging (ORC chạy thay QA). Lỗi mới của v1.0.4 (P4-42), không có ở production. **P1** (SEC chốt, `SEC-on-ru-notice-locale-drill.md` mục 1). Từ 05/11 15:45: **đã sửa trong PR #91, chờ review + RG-35**.
   - Lượt local 1 lúc 19:00 chưa có lỗi P0/P1 nào.
 - Cập nhật 04/11 19:30 (QA, bước Phản hồi & sửa): BUG-R4-033/034 đã sửa ở PR #62, chờ merge. BUG-R2-216: mục "Mong đợi" sửa theo UXD. BUG-R2-216/219: PR #60 (UXD đạt) chưa vào `main`, nên chưa chạy lại HD-01/02.
 - Cập nhật 04/11 19:45 (QA, bước Kiểm thử, chạy lại):
@@ -328,6 +328,14 @@
   - K11 (d) của S16 lệch hàng "Đúng là" của runbook (dòng 588) ở `online_checkin`. Phần `consent_record` đúng. K11 (c) đã đạt (QA plan 14.6).
   - QA đọc mã `0d11db20` để xác nhận gốc. QA chưa tự chạy lại (không đăng nhập staging).
   - Đề xuất ca hồi quy mới RG-35 (QA plan mục 14, ghi chú S16 sau 14.6).
+- Cập nhật 05/11 15:45 (QA thứ hai, bước Review + Kiểm thử bản sửa BUG-R4-053, `rounds/round-04/reviews/QA-on-pr91.md`):
+  - **BUG-R4-053: đã sửa trong PR #91, chờ review + RG-35.** SEC chốt **P1**.
+  - QA chạy lại ở head `19c9a2e7`, trong worktree tách rời, Postgres 17 tạm, `--retry=0`:
+    - 3 tệp (`bug-r4-053-notice-locale`, `integration/bug-r4-053-ru-notice-locale`, `integration/guest-portal`): **24/24 đạt**, 4 lượt liên tiếp;
+    - trên mã chưa sửa: 1 đỏ (ca (a)) / 15.
+  - Head mới `9216394f` chỉ thêm 1 dòng `turbo.json`, theo thẻ ARC FB-R4-ARC-BE-PR91-01 (QA ghi cùng chỗ: FB-R4-QA-BE-PR91-01). QA đã kiểm hash turbo ở head này.
+  - Kết luận review: **ĐẠT** ở `9216394f`.
+  - Test case bản 0.19 thêm **RG-35** (S16' trên R-PV2 `OTM-00398`). Đóng lỗi khi RG-35 đạt trên staging với `TAG12` r3.
 
 ## Tóm tắt
 
@@ -357,7 +365,7 @@
 | BUG-R4-050 | P2 | Trả phòng (H16) sau 24:00 của ngày đi (giờ 00:00–05:59, ngày làm việc vẫn là ngày đi): Desk dựng `checkoutAt` cho VietQR bằng ngày đi của đơn + giờ gõ (`CheckOutPage.tsx` 509–511, 1788–1790), sớm hơn thật 24 giờ. Máy chủ hiểu là cửa sổ sau nửa đêm của ngày đi, trần QR 0 đ. **VietQR bị từ chối** ("Số tiền lớn hơn số còn phải thu"). **Giá đêm thêm đã sửa không tính lại được**: Bill hiện số theo giá gợi ý, Hoàn tất 422 tới khi gõ lại. Không sai tiền: B18 của Desk gửi `checkoutTime`, đêm thêm vẫn tính đúng BR-416. Có ở v1.0.3 (theo mã) | FE-A (+ ARC xem quy tắc chọn ngày; BA câu sổ tay tạm) | **Đã gộp `main` `5b785535` (#86, 05/11), đạt trên `main`** (QA2 05/11 06:00: RG-31 (a)–(g) trên `f670d99b` + #87). Ca này cần đồng hồ giả, nên không có ca STG. Chờ phát hành v1.0.4 để đóng. Trước đó: Đã sửa (head `45d2cfed`, QA2 ĐẠT 05/11 05:30). Unit U1–U12 của ARC 19/19. E2E Desk 8 ca, gồm RG-31 (b) giá đêm thêm đã sửa. Hồi quy desk-clock 23/23, clock 71 đạt. Head `9010e65f`: dừng, ARC KHÔNG ĐẠT. Trước đó: Mới (QA2 05/11 05:00, ca DOM nhờ ở review #72) |
 | BUG-R4-051 | P2 | Trả phòng (H16): giờ gõ trước mốc 06:00 mà bấm sau mốc bị đọc là **sáng hôm sau**. Lý do: Desk chỉ gửi `checkoutTime` cho bản tóm tắt và B18, và máy chủ đọc theo trục ngày làm việc của lúc bấm. Ví dụ: 04:30 gõ lúc 06:10 ngày đi thì Desk hiện đêm thêm và "Còn phải thu 792.000 đ", rồi B18 422 `TIME_AFTER_ACTION`. Desk không ghi lùi được giờ khách rời trong cửa sổ sau nửa đêm. Không sai tiền (B18 từ chối). Từ #86, VietQR nhận số 792.000 cho ca này. Có ở v1.0.3 (theo mã) | FE-A (+ ARC) | Mới (QA2 05/11 05:30). Đề xuất dời v1.0.5: Desk gửi một `checkoutAt` cho bản tóm tắt, VietQR và B18 (ARC mục 2). Cách làm tạm v1.0.4 ở BUG-R4-036 |
 | BUG-R4-052 | P3 | Trả phòng (H16), bước Bill: "Tổng cộng" (`CheckOutPage.tsx` 1753, `totalVnd` của bản tóm tắt) không gồm đêm thêm sắp ghi. Folio ngay dưới có dòng đêm thêm, và "Còn phải thu" có tính, nên ba con số không khớp nhau. Không sai tiền. Có ở v1.0.3 (theo mã) | FE-A (+ UXD nhãn) | Mới (QA2 05/11 05:30). Đề xuất dời v1.0.5. Không chặn #86 |
-| BUG-R4-053 | **P1** (QA đề xuất; SEC chốt mức cuối) | Trang khách `ru`, bước thông báo: bấm "đã đọc" `privacy-2026-10-v2` ghi `online_checkin.notice_locale = en`, trong khi trang hiện bản RU đã ký và `consent_record` của cùng lượt ghi `ru`. Gốc: `guest-portal.service.ts:47` `APPROVED_NOTICE_LOCALES = ['vi','en']`, dòng 491 đổi `ru` thành `en`; chưa đổi khi P4-42 bỏ `RU_UNREVIEWED_LEGAL`. Test BE `guest-portal.test.ts:563` còn khóa kết quả `en`. Thấy ở S16 diễn tập 5.0 (staging `sha-0d11db201343`). Không sai tiền. Lỗi mới của v1.0.4, không có ở production | BE (+ SEC quy tắc, ARC đường phát hành) | Mới (ORC chạy thay QA 05/11 15:01–15:04; QA ghi 15:10). PR nhánh `v104/fix-ru-notice-locale`. K11 (d) lệch thì runbook đòi báo SEC + MOB, không sửa dữ liệu; ở N6 thì dừng check-in online. Ca hồi quy RG-35 (đề xuất) |
+| BUG-R4-053 | **P1** (QA đề xuất; SEC chốt P1, `SEC-on-ru-notice-locale-drill.md` mục 1) | Trang khách `ru`, bước thông báo: bấm "đã đọc" `privacy-2026-10-v2` ghi `online_checkin.notice_locale = en`, trong khi trang hiện bản RU đã ký và `consent_record` của cùng lượt ghi `ru`. Gốc: `guest-portal.service.ts:47` `APPROVED_NOTICE_LOCALES = ['vi','en']`, dòng 491 đổi `ru` thành `en`; chưa đổi khi P4-42 bỏ `RU_UNREVIEWED_LEGAL`. Test BE `guest-portal.test.ts:563` còn khóa kết quả `en`. Thấy ở S16 diễn tập 5.0 (staging `sha-0d11db201343`). Không sai tiền. Lỗi mới của v1.0.4, không có ở production | BE (+ SEC quy tắc, ARC đường phát hành) | **Đã sửa trong PR #91, chờ review + RG-35** (05/11 15:45). PR #91 head `9216394f`, chưa gộp; QA review ĐẠT (`QA-on-pr91.md`, test chạy ở `19c9a2e7`: 24/24 × 4 lượt). Đóng khi RG-35 (test case 0.19) đạt trên staging với `TAG12` r3. Trước đó: Mới (ORC chạy thay QA 05/11 15:01–15:04; QA ghi 15:10). K11 (d) lệch thì runbook đòi báo SEC + MOB, không sửa dữ liệu; ở N6 thì dừng check-in online |
 | BUG-R2-216 | P3 | Thấy lại: hộp "Giữ chỗ" sau khi tạo in 2 lần số cọc và nội dung chuyển khoản | FE-B + UXD | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-01 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 | BUG-R2-219 | P3 | Thấy lại: hộp "Giữ chỗ" khi khách đến hôm nay vẫn hiện bộ chọn 12/24/48 h và mốc hạn đã qua | FE-B + UXD (chữ) | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-02 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 
@@ -1972,7 +1980,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Trạng thái:** Mới (QA2 05/11 05:30). Đề xuất dời v1.0.5. Không chặn #86.
 
 ### BUG-R4-053 – Trang khách RU: bấm "đã đọc" thông báo v2 ghi `online_checkin.notice_locale = en` thay vì `ru`
-- **Mức:** P1 (QA đề xuất 05/11 15:10). SEC chốt mức cuối ở `rounds/round-04/reviews/SEC-on-ru-notice-locale-drill.md` (lúc QA ghi chưa có tệp).
+- **Mức:** P1 (QA đề xuất 05/11 15:10). SEC chốt **P1** ở `rounds/round-04/reviews/SEC-on-ru-notice-locale-drill.md` mục 1 (rủi ro bảo mật Medium; còn Low nếu giữ T1–T4).
   - Không sai tiền, không lộ dữ liệu.
   - Nhưng bằng chứng đọc thông báo (dữ liệu cá nhân) ghi sai ngôn ngữ khách đã đọc: trang hiện bản RU đã ký, máy chủ ghi `en`. Hai bảng của cùng một lượt lệch nhau (`consent_record` ghi `ru`, `online_checkin` ghi `en`).
   - Runbook: K11 (d) không khớp hàng "Đúng là" (dòng 588) thì báo SEC + MOB ngay, không sửa dữ liệu (dòng 591). Ở N6 (dòng 603), lệch thì check-in online dừng tới khi SEC + MOB sửa. Phát hành như hiện tại thì khách RU đầu tiên làm check-in online trên production sẽ ghi `en`.
@@ -2015,10 +2023,21 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Test chống tái phát:**
   - BE integration: đổi ca `guest-portal.test.ts:563` thành `ru` → `ru` với v2. Nếu SEC giữ luật "chưa duyệt thì `en`", thêm một ca ngôn ngữ chưa duyệt (ví dụ v1 + `ru`) → `en`.
   - BE integration: một lượt `ru` đủ bước (đọc thông báo rồi đồng ý). Kiểm `online_checkin.notice_locale` và `consent_record.locale` cùng là `ru`.
-  - STG: **RG-35 (đề xuất)**, chạy sau khi bản sửa lên staging. Lặp các bước trên một đơn thử mới chưa đọc thông báo (khách giả), vì R-PV1 đã đọc. K11 (d) tính từ giờ lên bản sửa phải có `privacy-2026-10-v2|ru|1` ở `online_checkin` và `privacy-2026-10-v2|ru|guest_app|1` ở `consent_record`, không có dòng `en` mới. QA thêm RG-35 vào test case và traceability ở lần cập nhật kế tiếp.
+  - STG: **RG-35**, chạy sau khi bản sửa lên staging. Lặp các bước trên một đơn thử mới chưa đọc thông báo (khách giả), vì R-PV1 đã đọc. K11 (d) tính từ giờ lên bản sửa phải có `privacy-2026-10-v2|ru|1` ở `online_checkin` và `privacy-2026-10-v2|ru|guest_app|1` ở `consent_record`, không có dòng `en` mới. **Đã thêm** ở test case bản 0.19 (TC-V104-RG-35, đơn R-PV2 `OTM-00398`; ý (b) vi/en bằng đơn khác nếu có) và ở `v1.0.4-traceability.md`.
+  - BE đã làm hai ca integration ở trên trong PR #91: `test/integration/bug-r4-053-ru-notice-locale.test.ts` (a)–(d), và ca `guest-portal.test.ts:563` thành ca (c). BE thêm test canh G-RU (`test/bug-r4-053-notice-locale.test.ts`).
 - **Bằng chứng:** ORC chạy và gửi QA giờ, mã trạng thái và số đếm K11 (d). Số đếm thuộc ô S16 của `rounds/round-04/outputs/OPS/v1.0.4-staging-drill.md`. Không có ảnh, link khách hay phản hồi API trong repo. QA chưa tự chạy (không đăng nhập staging, plan 14.1); QA đọc mã để xác nhận gốc.
-- **Vai chịu trách nhiệm:** BE (PR nhánh `v104/fix-ru-notice-locale`; lúc QA ghi, nhánh chưa có commit so với `main`). SEC (quy tắc ngôn ngữ của bằng chứng, chốt mức). ARC (đường phát hành). MOB đọc lại; phía client không cần đổi.
-- **Trạng thái:** Mới (ORC chạy thay QA 05/11 15:01–15:04; QA ghi 05/11 15:10). S16: K11 (c) đạt (QA plan 14.6), K11 (d) lệch ở `online_checkin`.
+- **Vai chịu trách nhiệm:** BE (PR #91, nhánh `v104/fix-ru-notice-locale`). SEC (quy tắc ngôn ngữ của bằng chứng, chốt mức). ARC (đường phát hành A: cắt lại v1.0.4). MOB đọc lại; phía client không cần đổi.
+- **Trạng thái:** **Đã sửa trong PR #91, chờ review + RG-35** (QA thứ hai, 05/11 15:45).
+  - PR #91 vào `main`, chưa gộp. Head đầu `19c9a2e7`: sửa `guest-portal.service.ts` và 3 tệp test. Head hiện tại `9216394f`: thêm 1 dòng `apps/guest-web/src/app/i18n.tsx` vào `test.inputs` của `product/services/api/turbo.json` (thẻ ARC FB-R4-ARC-BE-PR91-01 = thẻ QA FB-R4-QA-BE-PR91-01).
+  - Quy tắc mới (SEC mục 4): `notice_locale` = ngôn ngữ phiên nếu thuộc danh sách đã duyệt của phiên bản hiện hành, không thì `en`. Danh sách: v1 vi/en; v2 vi/en/ru; phiên bản lạ vi/en.
+  - **Xác minh bản sửa (QA, 05/11 15:30–15:44, không đăng nhập staging):**
+    - Worktree tách rời `19c9a2e7`, Postgres 17 tạm (digest của `ci.yml`), 72 migration, `--retry=0`. Ba tệp `bug-r4-053-notice-locale` (9), `integration/bug-r4-053-ru-notice-locale` (4), `integration/guest-portal` (11): **24/24 đạt**, chạy 4 lượt liên tiếp, 0 flaky.
+    - Thay `guest-portal.service.ts` bằng bản `0d11db20`: 2 tệp tích hợp ra **1 đỏ / 15**. Ca đỏ là (a): nhận `en`, mong `ru`. Thêm lại `gw.notice_body` vào `RU_UNREVIEWED_LEGAL`: G-RU đỏ. Đã trả các tệp về như cũ.
+    - CI run `41993899061` (head `19c9a2e7`): `@ottimo/api:test` cache miss, 4165 ca đạt / 19 bỏ qua / 1 todo; 3 tệp trên có trong log.
+    - Head `9216394f`: turbo `--dry=json` cho thấy sửa `i18n.tsx` thì hash `@ottimo/api#test` đổi (`5f33deed57ba2d24` → `10ff32ad8b7643e2`). Ở `19c9a2e7`, hash này không đổi. CI của `9216394f` (run `41995698312`) lúc 15:42 còn chờ job test.
+    - Container và worktree đã dọn.
+  - **Còn lại:** ORC gộp #91 sau ARC + SEC + QA review và CI xanh. Rồi cắt lại `TAG12` r3, lên staging, chạy **RG-35** (S16'). RG-35 đạt thì QA đóng lỗi. RG-35 ra `en` thì mở lại (P1), báo SEC + MOB, không sửa dữ liệu.
+  - Trước đó: Mới (ORC chạy thay QA 05/11 15:01–15:04; QA ghi 05/11 15:10). S16: K11 (c) đạt (QA plan 14.6), K11 (d) lệch ở `online_checkin`.
   - Ghi chú về độ phủ test:
     - Test MOB (`flow.test.tsx:497`, chạy trên mock) chỉ kiểm phía client gửi `locale: 'ru'` vào lượt đồng ý.
     - Test BE duy nhất đọc `online_checkin.notice_locale` cho `ru` (`guest-portal.test.ts:563`) lại khóa kết quả cũ `en`.

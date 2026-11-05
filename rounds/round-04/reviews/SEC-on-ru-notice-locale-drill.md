@@ -10,6 +10,22 @@
   - decision-log dòng 507, 528, 536 (17/10), 1149 và 1161 (04/11).
 - SEC không chạy gì trên staging hay production. Tệp này không có dữ liệu khách và không có giá trị link hay token.
 
+> **Cập nhật 05/11 chiều – ARC chọn đường A (cắt lại v1.0.4 có bản sửa).** Xem `ARC-on-s16-release-path.md`. SEC đã review PR #91: **ĐẠT CÓ ĐK** (`SEC-on-pr91.md`). `0d11db20` không lên production.
+>
+> **Với đường A:**
+> - Điều kiện T1–T4 (mục 2.1), pha A/B và N6a/N6b (mục 3) **không áp dụng**.
+> - N1–N6 giữ như runbook, tính từ `⟨RELEASE_AT⟩`. N5 làm ngay ngày Release, sau N4, như runbook.
+> - K11 (e) **không bắt buộc**. Production không chạy mã lỗi ngày nào, nên việc đếm link còn sống trước N3 không còn mục đích.
+> - Thay cho T4: S16' (RG-35) trên staging, `TAG12` r3. Dùng một đơn thử mới, tính từ `up_at` r3. Kết quả phải ra:
+>   - `online_checkin`: `privacy-2026-10-v2|ru|1`;
+>   - `consent_record`: `privacy-2026-10-v2|ru|guest_app|1`.
+> - SEC dùng kết quả S16' cho N4. Dòng 15:01 trên `CUT_R2` không tính.
+> - Thẻ FB-R4-SEC-OPS-RU-NL-03 **không áp dụng**: OPS không phải sửa runbook theo thẻ này.
+> - Mục 4 (quy tắc ghi) và mục 5 (dòng đã ghi sai) vẫn giữ nguyên.
+> - SEC đóng FB-R4-SEC-BE-RU-NL-01 khi đủ ĐK1–ĐK2 của `SEC-on-pr91.md`.
+>
+> **Nếu ORC chuyển sang B:** mốc là 06/11 10:15, khi bản mới chưa lên staging với C1–C9 và S16' đạt. Lúc đó mục 0–3 và thẻ NL-03 áp dụng lại nguyên văn, bản sửa thành v1.0.4.1.
+
 ---
 
 ## 0. Kết luận

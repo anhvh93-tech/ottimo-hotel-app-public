@@ -153,6 +153,7 @@ SLOTS_SRC = [
     ("RG-23", "05/11 16:20 (giữ chỗ 12 giờ, hạn 06/11 04:20)"),
     ("RG-33", "05/11 19:30–20:00"),
     ("RG-34", "06/11 08:40–09:30 (C7, giờ thật)"),
+    ("RG-35", "Sau khi `TAG12` r3 lên staging (S16' của 5.0 r3), trước 06/11 10:15"),
 ]
 SLOTS: dict[str, str] = {}
 for spec, slot in SLOTS_SRC:
@@ -269,6 +270,8 @@ def read_prs():
 
 
 BUG_NOTE = {"BUG-R4-036": "Hạ P2 khi #66 gộp (decision-log 05/11); sửa mã dời v1.0.5"}
+# Fix in an open (not merged) PR: shown in table B when no merged PR names the bug.
+OPEN_PR = {"BUG-R4-053": "#91 `9216394f` (chưa gộp)"}
 
 
 def first_status(status: str) -> str:
@@ -323,7 +326,8 @@ def main() -> int:
     else:
         w(f"- Mã sản phẩm không đổi sau `{CODE_CUT}` (#87): `git diff {CODE_CUT} {head} -- product` chỉ có "
           f"{len(code_diff)} tệp trong `product/docs/` hoặc `product/design/`. Kết quả UNIT/E2E trên `main` từ `{CODE_CUT}` dùng được cho `SHA_V104`.")
-    w("- Ma trận chuẩn theo câu chuyện/AC (`product/docs/qa/traceability.md`, `gen_traceability.py --strict`) sinh lại cùng PR này; tóm tắt ở mục E.")
+    w("- Ma trận chuẩn theo câu chuyện/AC (`product/docs/qa/traceability.md`, `gen_traceability.py --strict`) "
+      + ("đã sinh lại và gộp ở PR #90" if 90 in prs else "sinh lại cùng PR này") + "; tóm tắt ở mục E.")
     w("- Sinh lại: `python3 rounds/round-04/qa/tools/gen_v104_traceability.py --check` ở gốc repo. Không sửa tay tệp này.")
     w("")
 
@@ -359,7 +363,7 @@ def main() -> int:
         lr = f"{cnt['ok']} / {cnt['part']} / {cnt['wait']} / {cnt['red']} / {cnt['na']}" + (f" (+{cnt['new']} ca thêm sau lượt 1)" if cnt["new"] else "")
         w(f"| {sec}. {short(title.split(' – ')[0], 60)} | {', '.join(pk) or '–'} | {pr_ref(nums)} | {len(ids)} | {stg} | {lr} |")
     w("")
-    w("Lượt 1 đếm theo `v1.0.4-local-run-1.md` (04/11, 172 ca). Ca thêm sau lượt 1 (bản 0.2–0.18) có kết quả ở cột \"Khi\" của test case và ở mục lỗi tương ứng; xem bảng D.")
+    w("Lượt 1 đếm theo `v1.0.4-local-run-1.md` (04/11, 172 ca). Ca thêm sau lượt 1 (bản 0.2–0.19) có kết quả ở cột \"Khi\" của test case và ở mục lỗi tương ứng; xem bảng D.")
     w("")
 
     # PR list
@@ -389,7 +393,8 @@ def main() -> int:
         deferred = "v1.0.5" in b["status"]
         if not cs and not deferred and bid not in ("BUG-R4-029", "BUG-R4-030", "BUG-R4-031", "BUG-R4-033", "BUG-R4-034"):
             problems.append(f"{bid}: no regression case")
-        w(f"| {bid} | {sev} | {pr_ref(bug_prs.get(bid, []))} | {', '.join(cs) or ('– (dời v1.0.5)' if deferred else '– (CI/bộ test)')} | {st} | {short('; '.join(slots), 120) or '–'} |")
+        prs_col = pr_ref(bug_prs[bid]) if bug_prs.get(bid) else OPEN_PR.get(bid, "–")
+        w(f"| {bid} | {sev} | {prs_col} | {', '.join(cs) or ('– (dời v1.0.5)' if deferred else '– (CI/bộ test)')} | {st} | {short('; '.join(slots), 120) or '–'} |")
     w("")
     w("Lỗi CI/bộ test (029–031, 033, 034) không có ca riêng: bằng chứng là job CI không cache và E2E đủ bộ (RG-04).")
     w("")
@@ -401,11 +406,14 @@ def main() -> int:
     w("|---|---|")
     p01 = [(bid, b) for bid, b in bugs.items() if re.match(r"\*{0,2}P[01]\b", b["sev"])]
     still_open = [bid for bid, b in p01 if not b["status"].startswith("**")]
-    merged = [bid for bid, b in p01 if bid not in still_open]
+    # Bold status = fixed. Merged only when the bold part says so ("gộp"); otherwise the fix is in an open PR.
+    unmerged = [bid for bid, b in p01 if bid not in still_open and "gộp" not in b["status"][2:].split("**", 1)[0].lower()]
+    merged = [bid for bid, b in p01 if bid not in still_open and bid not in unmerged]
     for cond, ref in QC74:
         if cond == "Không P0/P1 mở":
             ref = (f"Mở lúc sinh: {', '.join(still_open) or 'không'}"
                    + (f" ({BUG_NOTE[still_open[0]]})" if len(still_open) == 1 and still_open[0] in BUG_NOTE else "")
+                   + (f". Đã sửa, chưa gộp: {', '.join(unmerged)}" if unmerged else "")
                    + f". Đã gộp, chờ xác nhận STG: {', '.join(merged)}")
         w(f"| {cond} | {ref} |")
     w("")
@@ -437,7 +445,10 @@ def main() -> int:
     w("")
     last = git("log", "-1", "--format=%h %ad", "--date=short", "HEAD", "--", "product/docs/qa/traceability.md").strip()
     w("Sinh lại bằng `python3 product/tests/tools/gen_traceability.py --strict` (như job CI `traceability`, thoát 0) trên cùng `main`. "
-      f"Bản trong repo trước PR này là `{last}` (Round 2), nên diff gồm mọi thay đổi từ đó (v1.0.1–v1.0.4, LP-v2). Ba điểm QA ghi để QC biết, không chặn:")
+      + (f"Bản trong repo là `{last}` (PR #90). Bản trước đó là `e3f98d17 2026-10-21` (Round 2), nên PR #90 gồm mọi thay đổi từ đó "
+         if 90 in prs else
+         f"Bản trong repo trước PR này là `{last}` (Round 2), nên diff gồm mọi thay đổi từ đó ")
+      + "(v1.0.1–v1.0.4, LP-v2). Ba điểm QA ghi để QC biết, không chặn:")
     w("")
     w("- **1 thuộc tính lệch:** `User.email` (D27) có `x-visible-to: [owner]`, còn hàng D27 của `rbac-matrix.md` ghi `manager` \"Đầy\". "
       "Lệch có từ OpenAPI 0.3.10 (BUG-R3-032, commit `c7a9e43c`), không do v1.0.4. Hợp đồng **hẹp hơn** ma trận (chỉ OWN xem email nhân viên, đúng ghi chú 45 của ma trận), không lộ dữ liệu. "
