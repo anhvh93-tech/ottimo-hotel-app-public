@@ -13,7 +13,7 @@
   - BUG-R4-048, QA3 thêm 05/11 02:30 theo thẻ ARC FB-R4-ARC-FE-PR83-01. Lỗi do #83 sinh ra, chỉ có trên nhánh `v104/fe-minibar-followup` @ `19cfa3f7`. Chưa vào `main`, không có ở production. ARC ghi Major; QA chốt **P0** theo luật lỗi tiền. Từ 05/11 02:50: **đã sửa – chờ gộp #83** (QA3 đạt ở head `e411cb22`), không còn chặn #83.
 - Có **bốn lỗi P1**:
   - BUG-R4-035, thêm 04/11 tối;
-  - BUG-R4-036, nâng từ P2 lúc 05/11 05:30 (QA2) theo điều kiện ghi ở mục lỗi: cách làm tạm trong sổ tay (CO-05) không chạy trên Desk. Từ 05/11 06:00, CO-05 bản 0.15 đạt trên `main`. Hạ lại P2 khi #85 và #66 gộp (ORC hạ, không cần QA chạy lại);
+  - BUG-R4-036, nâng từ P2 lúc 05/11 05:30 (QA2) theo điều kiện ghi ở mục lỗi: cách làm tạm trong sổ tay (CO-05) không chạy trên Desk. Từ 05/11 06:00, CO-05 bản 0.15 đạt trên `main`. Hạ lại P2 khi #66 gộp (#85 đã gộp `main` `0dd3fcb3`; câu ở #66 @ `99d103a0` khớp, QA2 05/11 07:15). ORC hạ, không cần QA chạy lại;
   - BUG-R4-039, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, nên đang ở production;
   - BUG-R4-042, QA2 thêm 05/11. Lỗi có từ v1.0.1, đang ở production. Từ 05/11 02:00: **đã gộp `main` @ `3e6a762b`, chờ staging** (QA3 đạt ở `054d40c0`). 05/11 02:50: hồi quy trên #83 @ `e411cb22` đạt.
   - Lượt local 1 lúc 19:00 chưa có lỗi P0/P1 nào.
@@ -307,24 +307,39 @@
     - QA2 đọc câu cách làm tạm ở #85 (`v104/ba-esc045-prices` @ `f9302d82`) và #66 (`v104/po-release-notes` @ `8f2557f7`). Các bước trong câu khớp các bước đã chạy.
     - Như vậy BUG-R4-036 chỉ còn chờ #85 và #66 gộp để hạ P2. CO-05 vẫn chạy lại trên STG 07/11; nếu đỏ thì nâng lại P1.
   - Test case bản 0.16: ghi kết quả RG-31, CO-05; thêm RG-33 (#87), tổng 201 → 202.
+- Cập nhật 05/11 07:15 (QA2, bước Review, góc QA, #66 `v104/po-release-notes` @ `99d103a0`, so với `main` `2268b139`):
+  - **Câu cách làm tạm và câu "đã sửa" ở #66 khớp các lượt QA đã chạy.**
+    - BUG-R4-036 (mục "Khách đi trước 06:00"): các bước khớp CO-05 bản 0.15 (06:05, 06:10, 11:55).
+    - BUG-R4-050 (#86): khớp RG-31 trên `main`.
+    - BUG-R4-051, BUG-R4-052: ghi là giới hạn đã biết, sửa ở v1.0.5.
+    - Trả sớm báo trong ngày rời có phụ thu người: khớp BR-428, ghi "QA kiểm lại trên staging 07/11" (RG-34 chưa chạy).
+    - Các lỗi ghi "đã sửa" đều đã gộp `main`: 029–031 (#61 `6800cc45`), 032 (#63 `c2506a53`), 033/034 (#62 `b2a8b2a8`), 035 (#67), 037 (#70), 038 (#71), 039 (#74, #77 `c9af9f4c`), 041 (#75 `ebca5a95`), 042, 044, 045–049, 050.
+  - **BUG-R4-036:** #85 đã gộp (`0dd3fcb3`). Câu ở #66 đủ điều kiện, nên **hạ P2 khi #66 gộp**. ORC hạ, không cần QA chạy lại.
+  - **Hai điểm còn lại, không chặn #66:**
+    - (a) Nhánh "Quá 12:00 mới làm được: gõ 12:00, Desk đòi Ghi chú giờ trả, không phụ thu" (DOM-PR85-04) có ở sổ tay `main` và ở #66, nhưng QA chưa chạy. Đọc mã trên `main` thì nhánh đúng:
+      - `lateCheckoutSurcharge`: giờ ≤ giờ trả chuẩn (BR-401, 12:00) thì 0 đ;
+      - `checkTypedTime`: giờ sớm hơn lúc bấm quá 30 phút thì đòi `checkoutTimeNote`, và không có trần ghi lùi.
+      - Test case bản 0.18 thêm CO-05 (b) trên STG 07/11 12:35–13:00.
+    - (b) Dòng BUG-R4-050 cho bản đang chạy nên thêm "thu theo giá gợi ý, không sửa giá đêm thêm" (PO quyết).
+  - Bảng tóm tắt: sửa trạng thái 029–034, 039, 041 theo các lần gộp ở trên.
 
 ## Tóm tắt
 
 | Mã | Mức | Chỗ | Vai sửa | Trạng thái |
 |---|---|---|---|---|
-| BUG-R4-029 | P2 | CI `build-test` xanh giả: turbo phát lại kết quả cũ của `api-client`, `integrations`; 5 ca `production-bootstrap` luôn bị bỏ qua | OPS (+ ARC duyệt) | **Đã sửa – chờ gộp #61** (head `d0b8fd58`; CI job `126574160088`: mọi task test cache miss, `production-bootstrap` 11/11 không bỏ qua) |
-| BUG-R4-030 | P3 | `api-client` `src/generated/openapi.ts` lệch `openapi.yaml` (thiếu mô tả 0.3.12 của P4-16); test drift đỏ khi chạy không cache | BE-C (+ ARC) | **Đã sửa – chờ gộp #61** (sinh lại client; `api-client` 37/37 cache miss trên CI) |
-| BUG-R4-031 | P3 | `integrations` test đối chiếu luật email với `ops-check.sh` đỏ từ P4-04: bóc phải chữ `$EMAIL_RULE_RE` | OPS + INT | **Đã sửa – chờ gộp #61** (test đọc giá trị `EMAIL_RULE_RE`; `integrations` 296/296 cache miss trên CI) |
-| BUG-R4-032 | P2 | Sổ tay v1.0.4 chưa có đường **Đặt lại xác thực 2 bước**; hàng "mất điện thoại" vẫn dạy Khóa + tạo tài khoản mới (MN-02) | BA (+ SEC đọc câu) | Mới |
-| BUG-R4-033 | P3 | Bộ test: S1-SEC-16 (API) flaky khi chạy song song – 429 của giới hạn đăng nhập theo IP | QA | Đã sửa, chờ merge (PR #62) |
-| BUG-R4-034 | P3 | Bộ test: TC-L2-033 flaky – ca song song khóa OOO cùng đêm của căn 401 | QA | Đã sửa, chờ merge (PR #62) |
+| BUG-R4-029 | P2 | CI `build-test` xanh giả: turbo phát lại kết quả cũ của `api-client`, `integrations`; 5 ca `production-bootstrap` luôn bị bỏ qua | OPS (+ ARC duyệt) | **Đã gộp `main` `6800cc45` (#61)** – trước đó: Đã sửa (head `d0b8fd58`; CI job `126574160088`: mọi task test cache miss, `production-bootstrap` 11/11 không bỏ qua) |
+| BUG-R4-030 | P3 | `api-client` `src/generated/openapi.ts` lệch `openapi.yaml` (thiếu mô tả 0.3.12 của P4-16); test drift đỏ khi chạy không cache | BE-C (+ ARC) | **Đã gộp `main` `6800cc45` (#61)** – trước đó: Đã sửa (sinh lại client; `api-client` 37/37 cache miss trên CI) |
+| BUG-R4-031 | P3 | `integrations` test đối chiếu luật email với `ops-check.sh` đỏ từ P4-04: bóc phải chữ `$EMAIL_RULE_RE` | OPS + INT | **Đã gộp `main` `6800cc45` (#61)** – trước đó: Đã sửa (test đọc giá trị `EMAIL_RULE_RE`; `integrations` 296/296 cache miss trên CI) |
+| BUG-R4-032 | P2 | Sổ tay v1.0.4 chưa có đường **Đặt lại xác thực 2 bước**; hàng "mất điện thoại" vẫn dạy Khóa + tạo tài khoản mới (MN-02) | BA (+ SEC đọc câu) | **Đã gộp `main` `c2506a53` (#63)**. QA2 05/11 đọc trên `main`: có đường **Đặt lại xác thực 2 bước** (`01` 1.7 hàng 175–176 và 1.9; `00`, `02`–`05`). Câu "không bật đăng nhập 2 bước ở v1.0.x" còn ở `01` dòng 228: QC 7.4 chốt như đã ghi. Chờ MN-02 |
+| BUG-R4-033 | P3 | Bộ test: S1-SEC-16 (API) flaky khi chạy song song – 429 của giới hạn đăng nhập theo IP | QA | **Đã gộp `main` `b2a8b2a8` (#62)** – trước đó: Đã sửa, chờ merge |
+| BUG-R4-034 | P3 | Bộ test: TC-L2-033 flaky – ca song song khóa OOO cùng đêm của căn 401 | QA | **Đã gộp `main` `b2a8b2a8` (#62)** – trước đó: Đã sửa, chờ merge |
 | BUG-R4-035 | **P1** | Trả phòng (H16): số điền sẵn của tủ minibar chỉ được gán trong `useEffect` sau khi `minibar-standard` tải xong. Bấm **Tiếp tục** đúng khoảng hở thì Desk gửi "tủ đầy" và đảo dòng minibar đã tính (sai tiền). Bấm lúc đang tải thì sang bước sau mà không đếm tủ | FE-A | **Đã sửa – đã gộp #67** (`main` @ `217afac0`, head `ceda9278`). QA2 05/11: gỡ từng phần sửa thì đúng ca đỏ, 3/3 lượt. Tải 12 × 10 không có lỗi assert do mã sản phẩm. Desk thật 2 ca đạt. Chờ STG (RG-18) |
-| BUG-R4-036 | **P1** (nâng từ P2 lúc 05/11 05:30, CO-05 đỏ) | 00:00–05:59: khung đơn và trang Hôm nay không có nút **Trả phòng** cho khách rời trong cửa sổ sau nửa đêm (`allowed-actions.ts:115` so ngày nghiệp vụ; Hôm nay chỉ lấy khách đi của ngày nghiệp vụ). Máy chủ B18 vẫn nhận cửa sổ này. Cách làm tạm trong sổ tay (từ 06:00 gõ giờ thực tế 04:30) **không chạy trên Desk**: B18 422 `TIME_AFTER_ACTION` (BUG-R4-051) | BE (+ FE nếu cần); DOM/BA (sổ tay, release notes), ORC chốt | Mở – **P1**. 05/11 06:00: CO-05 bản 0.15 **đạt** trên `main` `f670d99b` + #87 (QA2): 06:05, 06:10, 11:55, giờ Desk điền sẵn, tiền đúng. Câu ở #85 @ `f9302d82` và #66 @ `8f2557f7` khớp các bước đã chạy. **Hạ P2 khi #85 và #66 gộp** (ORC hạ, không cần QA chạy lại; CO-05 chạy lại trên STG 07/11). Trước đó: P1 tới khi sổ tay và release notes dùng cách làm tạm mới (ARC `ARC-on-v104-bug050-rule.md` mục 2: từ 06:00 giữ giờ Desk điền sẵn, giờ thật ghi sổ giao ca) và CO-05 bản 0.15 đạt. Sau đó hạ P2, dời v1.0.5 có kế hoạch. QA2 05/11 05:30: cách làm tạm mới đạt trên stack (`585cf0ba`, `45d2cfed`), tiền đúng |
+| BUG-R4-036 | **P1** (nâng từ P2 lúc 05/11 05:30, CO-05 đỏ) | 00:00–05:59: khung đơn và trang Hôm nay không có nút **Trả phòng** cho khách rời trong cửa sổ sau nửa đêm (`allowed-actions.ts:115` so ngày nghiệp vụ; Hôm nay chỉ lấy khách đi của ngày nghiệp vụ). Máy chủ B18 vẫn nhận cửa sổ này. Cách làm tạm trong sổ tay (từ 06:00 gõ giờ thực tế 04:30) **không chạy trên Desk**: B18 422 `TIME_AFTER_ACTION` (BUG-R4-051) | BE (+ FE nếu cần); DOM/BA (sổ tay, release notes), ORC chốt | Mở – **P1**. 05/11 07:15 (QA2, review #66 @ `99d103a0`): #85 đã gộp `main` `0dd3fcb3`; câu ở #66 khớp CO-05 bản 0.15, nên **hạ P2 khi #66 gộp**. Nhánh "Quá 12:00: gõ 12:00, ghi chú giờ trả, không phụ thu" (DOM-PR85-04) QA chưa chạy; đọc mã thì đúng; CO-05 (b) trên STG 07/11. 05/11 06:00: CO-05 bản 0.15 **đạt** trên `main` `f670d99b` + #87 (QA2): 06:05, 06:10, 11:55, giờ Desk điền sẵn, tiền đúng. Câu ở #85 @ `f9302d82` và #66 @ `8f2557f7` khớp các bước đã chạy. **Hạ P2 khi #85 và #66 gộp** (ORC hạ, không cần QA chạy lại; CO-05 chạy lại trên STG 07/11). Trước đó: P1 tới khi sổ tay và release notes dùng cách làm tạm mới (ARC `ARC-on-v104-bug050-rule.md` mục 2: từ 06:00 giữ giờ Desk điền sẵn, giờ thật ghi sổ giao ca) và CO-05 bản 0.15 đạt. Sau đó hạ P2, dời v1.0.5 có kế hoạch. QA2 05/11 05:30: cách làm tạm mới đạt trên stack (`585cf0ba`, `45d2cfed`), tiền đúng |
 | BUG-R4-037 | **P0** | Đặt phòng mới (H09): giá mỗi đêm do bản xem giá kênh **Trực tiếp** điền sẵn vẫn nằm trong ô sau khi chuyển sang **OTA** / **Nội bộ**. Nếu mọi đêm có số, Desk gửi số đó làm giá của đơn (`edited:false`). Nếu chỉ một phần đêm có số, Desk chặn với câu "Nhập giá mỗi đêm" gây hiểu nhầm. Đây là gốc của 2 test flaky A-20 và US-139. Có từ trước v1.0.1, đang ở production | FE (BookingDialog) | **Đã sửa – đã gộp vào `main` @ `d0ea6dc2`, đạt local** (#70 head cuối `98d8a3ad`, cùng #73). QA chạy lại trên `main` 05/11 00:35: 3 ca tái hiện xanh, tệp test của FE 28/28. Tải 24 × 40: 2 lượt trên `main` với giới hạn mặc định 15 s. Lượt 1: 1/120 đỏ, chỉ là quá giờ của bộ chạy lúc tải 67–81, không có lỗi assert. Lượt 2: 0/120 đỏ ở tải 36–144. Desk thật trên stack: hai câu `rates_cleared_channel`, `rates_cleared_room_group` hiện đúng lúc; RG-13 theo #73 đạt. Chờ STG RG-07…RG-11, RG-13, RG-17. Còn hotfix production: ORC quyết |
 | BUG-R4-038 | **P0** | Gia hạn (B13), đêm B9a, đêm thêm ở B18 của đơn **Nội bộ** lấy giá lịch Trực tiếp thay vì 0 đ, vì `addedNightRate` thiếu nhánh `internal`. Folio của đơn miễn phí hiện **Còn phải thu** sai, doanh thu và ADR bị cộng thêm. Desk không đưa về 0 được | BE (+ ARC) | **Đã gộp `main` @ `2c8cd8cf` (#71, 05/11, ORC) – chờ staging**. Trước đó: Đã sửa – chờ gộp #71 (đạt ở head `7557e485`. Phần đổi ở head `02c34bc9`: tệp test BE 11/11; CI đỏ chỉ ở 2 ca "Hôm nay" của `v104-holds-feb`, PR #76 sửa). Stack local: 9/9 ca API đạt. B13, B9a, B18 Nội bộ đều 0 đ `complimentary`, folio không còn phải thu. Đối chứng Trực tiếp không đổi. A31: MGR đưa về 0 được khi có lý do; FD và FDL nhận 403. Q5a sau bản sửa: `TOTAL` 0. Hồi quy clock: 76 đạt, 0 đỏ |
-| BUG-R4-039 | **P1** | Nhận phòng (B9): máy chủ cho lễ tân trưởng trở lên xác nhận ngoại lệ `room_ready` với **mọi** trạng thái buồng trừ `OOO` (`checkin.service.ts` 359–361, 588). Vì vậy nhận được đơn thứ hai vào căn còn đơn **Đang ở** (`OC`/`OD`): căn có 2 lượt Đang ở, và khi khách cũ trả phòng thì căn về `VD` dù khách mới đang ở. Trái BR-402 (1), chỉ cho ngoại lệ với `VD`/`CL`. Có từ `bad6f599` (16/10), đang ở production | BE-A (+ ARC; FE/UXD cho câu chặn) | **Máy chủ đã gộp `main` @ `2f535924` (#74). Desk: QA2 ĐẠT ở #77 @ `055e92d5` (05/11 03:00), chờ gộp #77, rồi staging.** Desk: câu chặn theo `cause` đúng cho 4 vai, không có lối ngoại lệ hay POST; `VD`/`CL` giữ ngoại lệ; API cũ đọc theo DOM lượt 5 (RG-30). Trước đó: Đã sửa – chờ gộp #74 (head `0950313e`, ARC C1–C3). QA2 05/11 01:05, API trên stack local, 3/3 lượt: lượt quá ngày đi + `CL` không còn ngoại lệ; `cause`/`heldByReservationCode` đúng. Đối chứng `9646029d`: lễ tân trưởng nhận được, căn 2 lượt Đang ở. Lượt trước ở `9646029d`: C1–C5 đạt. Căn `OC`/`OD`: 409 với 5 lối, không tạo yêu cầu duyệt. `VD`/`CL` vẫn cho ngoại lệ. Căn còn khách mà trạng thái bị sửa tay sang `VD` vẫn bị chặn. Đối chứng `main` chưa có #74: C1, C2, C5 đỏ. Phần Desk chưa kiểm (RG-14) |
+| BUG-R4-039 | **P1** | Nhận phòng (B9): máy chủ cho lễ tân trưởng trở lên xác nhận ngoại lệ `room_ready` với **mọi** trạng thái buồng trừ `OOO` (`checkin.service.ts` 359–361, 588). Vì vậy nhận được đơn thứ hai vào căn còn đơn **Đang ở** (`OC`/`OD`): căn có 2 lượt Đang ở, và khi khách cũ trả phòng thì căn về `VD` dù khách mới đang ở. Trái BR-402 (1), chỉ cho ngoại lệ với `VD`/`CL`. Có từ `bad6f599` (16/10), đang ở production | BE-A (+ ARC; FE/UXD cho câu chặn) | **Máy chủ đã gộp `main` @ `2f535924` (#74). Desk: QA2 ĐẠT ở #77 @ `055e92d5` (05/11 03:00), đã gộp `main` `c9af9f4c` (#77), chờ staging.** Desk: câu chặn theo `cause` đúng cho 4 vai, không có lối ngoại lệ hay POST; `VD`/`CL` giữ ngoại lệ; API cũ đọc theo DOM lượt 5 (RG-30). Trước đó: Đã sửa – chờ gộp #74 (head `0950313e`, ARC C1–C3). QA2 05/11 01:05, API trên stack local, 3/3 lượt: lượt quá ngày đi + `CL` không còn ngoại lệ; `cause`/`heldByReservationCode` đúng. Đối chứng `9646029d`: lễ tân trưởng nhận được, căn 2 lượt Đang ở. Lượt trước ở `9646029d`: C1–C5 đạt. Căn `OC`/`OD`: 409 với 5 lối, không tạo yêu cầu duyệt. `VD`/`CL` vẫn cho ngoại lệ. Căn còn khách mà trạng thái bị sửa tay sang `VD` vẫn bị chặn. Đối chứng `main` chưa có #74: C1, C2, C5 đỏ. Phần Desk chưa kiểm (RG-14) |
 | BUG-R4-040 | P3 | Đặt phòng mới (H09): giá Trực tiếp / CTV ngoài sàn–trần cứng (BR-105). Máy chủ trả Problem `RATE_OUT_OF_RANGE` chỉ có `dates`, không có `min`/`max`/`group`. Desk hiện câu chung `error.RATE_OUT_OF_RANGE` với nguyên chữ: "Giá phải từ {min} đến {max} (giá sàn – trần nhóm {group})." Câu nằm ở đầu hộp, ngoài khung nhìn khi bấm **Tạo đơn**. Có từ trước v1.0.1 | BE (thêm `min`/`max`/`group` hoặc trả theo đêm) + FE (nhánh `RATE_OUT_OF_RANGE`, đặt dưới bảng giá) + UXD | Mới – dời v1.0.5 có kế hoạch (ORC, thẻ UXD PR70-06). Không chặn #70 |
-| BUG-R4-041 | **P2** (hạ từ P0 lúc 05/11 01:00, khóa tạm #75 đạt) | Đặt phòng mới (H09), nút **Giữ chỗ đến …**: `hold()` gọi `saveQuote` không kèm giá đêm (hợp đồng `QuoteInput` không có `nightlyRates`). Giá lễ tân đã gõ bị bỏ mà không báo: giữ chỗ, cọc 30 % và VietQR tính theo giá niêm yết. Khi đơn được xác nhận, giá đơn cao hơn giá đã thỏa thuận. Có từ trước v1.0.1, đang ở production | FE (khóa tạm v1.0.4) + ARC/BE (Q1 nhận giá thỏa thuận, v1.0.5) + UXD (câu) + BA (sổ tay 2.5 bước 10) | **Đã sửa – chờ gộp #75** (head `e71ab25f`). Có giá đã gõ thì nút **Giữ chỗ** khóa (`aria-disabled`) và có câu. Bấm chuột, Enter, Space đều không tạo giữ chỗ. Xóa giá đã gõ thì giữ chỗ theo giá niêm yết 1.500.000. Phần giữ chỗ theo giá thỏa thuận dời v1.0.5. Hotfix production và cách làm tạm gửi INV: ORC quyết |
+| BUG-R4-041 | **P2** (hạ từ P0 lúc 05/11 01:00, khóa tạm #75 đạt) | Đặt phòng mới (H09), nút **Giữ chỗ đến …**: `hold()` gọi `saveQuote` không kèm giá đêm (hợp đồng `QuoteInput` không có `nightlyRates`). Giá lễ tân đã gõ bị bỏ mà không báo: giữ chỗ, cọc 30 % và VietQR tính theo giá niêm yết. Khi đơn được xác nhận, giá đơn cao hơn giá đã thỏa thuận. Có từ trước v1.0.1, đang ở production | FE (khóa tạm v1.0.4) + ARC/BE (Q1 nhận giá thỏa thuận, v1.0.5) + UXD (câu) + BA (sổ tay 2.5 bước 10) | **Đã gộp `main` `ebca5a95` (#75)** – trước đó: Đã sửa – chờ gộp #75 (head `e71ab25f`). Có giá đã gõ thì nút **Giữ chỗ** khóa (`aria-disabled`) và có câu. Bấm chuột, Enter, Space đều không tạo giữ chỗ. Xóa giá đã gõ thì giữ chỗ theo giá niêm yết 1.500.000. Phần giữ chỗ theo giá thỏa thuận dời v1.0.5. Hotfix production và cách làm tạm gửi INV: ORC quyết |
 | BUG-R4-042 | **P1** | Trả phòng (H16), lượt có B14 giữa kỳ và còn 2 tủ phải đếm. `nextCabinet` tìm tủ kế tiếp trong `toCount` của lần render lúc bấm. Nếu bản tóm tắt tải lại sau lần đếm tủ đầu chưa về khi lễ tân đếm xong tủ thứ hai, Desk quay lại tủ đầu (đã đếm) và đứng ở bước ①. Khi bản tóm tắt về, bảng của tủ đó không còn ghi tên tủ, còn tiêu đề vẫn ghi căn đang ở. Bấm "Không dùng gì – tủ đủ" rồi **Tiếp tục** thì dòng minibar đã tính bị đảo (sai tiền). Có từ v1.0.1 (S4-38), đang ở production | FE-A (+ ARC xem; UXD nhãn tủ) | **Đã gộp `main` @ `3e6a762b`, chờ staging** (#81 head `054d40c0`, QA3 đạt 05/11 01:30). Unit FE 5/5 và 5 ca QA; E2E giữ bản tóm tắt R1 5/5, R2 4/4 lượt; đối chứng mã cũ đỏ (folio minibar về 0). Còn: RG-21 E2E trên `main`, STG. Hồi quy trên #83 @ `e411cb22` đạt (QA3 05/11 02:50) |
 | BUG-R4-043 | P2 | Dữ liệu chỉ số: cờ `is_complimentary` của đêm và đơn đi theo kênh, không theo tiền. Đêm "Nội bộ có thu" (> 0 đ) mang `true`. A31 đổi giá mà không tính lại cờ; giảm giá thì có tính lại. Khi có báo cáo, ADR K-04 và số đêm miễn phí K-02 sẽ sai. Không sai tiền; ở v1.0.x chưa màn nào đọc cờ | BE (+ OPS tính lại dữ liệu; DATA Q-05, BA EP02, ARC `erd.md`, DOM BR-904) | Mới – dời v1.0.5 có kế hoạch. Sửa mã và tính lại dữ liệu trước báo cáo ADR đầu tiên. Tới lúc đó DATA tính đêm miễn phí bằng `room_revenue_vnd = 0` |
 | BUG-R4-044 | P2 | Gia hạn giữ chỗ (B3, `ExtendHoldDialog`): giờ của hạn theo giờ VN, nhưng ngày lấy theo UTC. Vì vậy hạn rơi vào 00:00–06:59 hiện **sớm một ngày** ở nút "Gia hạn đến …" và ở thông báo sau khi gia hạn. Lễ tân báo khách sai hạn. Không sai tiền | FE | **Đã gộp `main` @ `3e6a762b`, chờ staging** (#80 `796a0cee`). 12 ca giờ giả (02:00, 06:30, 14:00, 23:30) ở múi giờ VN và UTC đều đạt; trên mã cũ thì 8 ca đỏ. Còn: RG-23 trên STG 07/11 |
@@ -370,7 +385,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
   - Log CI: `gh run view 41819582803 --log` (job build-test), dòng "cache hit" của 2 gói và dòng `production-bootstrap.test.ts (11 tests | 5 skipped)`.
   - Log máy QA (scratchpad, không commit): `qa104/unit/test.clean.log` (integrations 294/295, api-client 36/37).
 - **Vai chịu trách nhiệm:** OPS (cấu hình turbo/CI). ARC duyệt danh sách đầu vào.
-- **Trạng thái:** **Đã sửa – chờ gộp #61** (QA xác nhận 04/11 khuya). PR #61 nhánh `v104/ci-turbo-inputs`, head `d0b8fd58`.
+- **Trạng thái:** **Đã gộp `main` `6800cc45` (#61)** – trước đó: Đã sửa – chờ gộp #61 (QA xác nhận 04/11 khuya). PR #61 nhánh `v104/ci-turbo-inputs`, head `d0b8fd58`.
   - Cách sửa (báo cáo OPS `rounds/round-04/outputs/OPS/v1.0.4-ci-turbo-inputs.md` trên nhánh): mỗi gói có `turbo.json` riêng, khai đầu vào test ngoài gói qua `$TURBO_ROOT$` (gồm `openapi.yaml`, `ops-check.sh`); thêm `BOOTSTRAP_*` vào `test.env`; thêm `tsconfig.base.json` vào `globalDependencies`.
   - Bằng chứng: log job `126574160088` "format · lint · audit · test · build" (run `41828458647`, head `4f972805`, lượt 2, xanh). Lệnh: `gh run view --job 126574160088 --log`.
     - Mọi task test là **cache miss**: `api-client` 37/37, `integrations` 296/296, `api` 4125 đạt / 19 bỏ qua / 1 todo, `admin-web` 874, `mobile` 162, `guest-web` 89.
@@ -393,7 +408,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Đề xuất sửa:** `pnpm --filter @ottimo/api-client gen`, commit tệp sinh, kèm sửa BUG-R4-029 (a) để lần sau CI tự bắt.
 - **Bằng chứng:** log `qa104/unit/test.clean.log` (scratchpad) dòng `src/generated.test.ts (1 test | 1 failed)`. Bản sinh lại tạm đã xóa lúc dọn; tái hiện bằng bước 2.
 - **Vai chịu trách nhiệm:** BE-C (chủ P4-16). ARC (chủ hợp đồng) xác nhận.
-- **Trạng thái:** **Đã sửa – chờ gộp #61** (QA xác nhận 04/11 khuya).
+- **Trạng thái:** **Đã gộp `main` `6800cc45` (#61)** – trước đó: Đã sửa – chờ gộp #61 (QA xác nhận 04/11 khuya).
   - PR #61 sinh lại `src/generated/openapi.ts` (thêm đúng 3 dòng mô tả 0.3.12).
   - Job `126574160088`: `@ottimo/api-client:test` cache miss, 37/37 đạt (gồm `src/generated.test.ts`).
   - Đầu vào test đã có `openapi.yaml` (BUG-R4-029 (a)), nên lần lệch sau CI sẽ tự bắt.
@@ -411,7 +426,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Đề xuất sửa:** sửa test cho đọc dòng `EMAIL_RULE_RE='…'` khi gặp `$EMAIL_RULE_RE`. Kèm sửa BUG-R4-029 (b).
 - **Bằng chứng:** log `qa104/unit/test.clean.log` dòng `notification/email-address.test.ts (39 tests | 1 failed)`. Bản chép tạm đã thay hằng (đã xóa): 39/39.
 - **Vai chịu trách nhiệm:** OPS (P4-04 đổi `ops-check.sh`) sửa test cùng INT (chủ bộ test `notification`).
-- **Trạng thái:** **Đã sửa – chờ gộp #61** (QA xác nhận 04/11 khuya).
+- **Trạng thái:** **Đã gộp `main` `6800cc45` (#61)** – trước đó: Đã sửa – chờ gộp #61 (QA xác nhận 04/11 khuya).
   - PR #61 sửa test: khi câu SQL dùng `$EMAIL_RULE_RE`, test đọc giá trị thật của hằng `EMAIL_RULE_RE` trong `ops-check.sh`. Thêm 1 ca, nên tổng là 296 ca.
   - Job `126574160088`: `@ottimo/integrations:test` cache miss, 296/296 đạt.
   - Đầu vào test đã có `ops-check.sh` (BUG-R4-029 (b)).
@@ -431,7 +446,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Mong đợi (MN-02):** có đường **Đặt lại xác thực 2 bước** cho chủ đầu tư, kèm luật gặp tận mặt của SEC. Đường này thay bước "Khóa + tạo tài khoản mới" ở 2 hàng mất điện thoại, áp dụng từ v1.0.4. Câu "chưa bật 2 bước" được gỡ hoặc được QC chấp nhận ở dạng hộp.
 - **Bằng chứng:** grep ở bước 1 (0 kết quả); trích dòng 175–176, 199, 227, 237 của `01-chu-dau-tu-quan-ly.md`.
 - **Vai chịu trách nhiệm:** BA (sổ tay). SEC đọc lại câu "gặp tận mặt", UXD dựng lại HTML (MN-01).
-- **Trạng thái:** Mới.
+- **Trạng thái:** **Đã gộp `main` `c2506a53` (#63)**. QA2 05/11 07:15 đọc trên `main`: có đường **Đặt lại xác thực 2 bước** (`01` 1.7 hàng 175–176 và 1.9; `00`, `02`–`05`). Câu "không bật đăng nhập 2 bước ở v1.0.x" còn ở `01` dòng 228: QC 7.4 chốt. Còn: MN-02. Trước đó: Mới.
 
 ### BUG-R4-033 – Bộ test: S1-SEC-16 (API) flaky khi chạy song song – 429 của giới hạn đăng nhập theo IP
 - **Mức:** P3 (bộ test). Sản phẩm đúng: giới hạn SR-RL-01 `loginPerIp` 20 lần / 15 phút làm đúng việc.
@@ -446,7 +461,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Đề xuất sửa (QA):** `loginMfa`/ca S1-SEC-16 gặp 429 ở bước đăng nhập thì gọi điểm test xóa bộ đếm (như các ca `limits`), hoặc đưa ca vào project tuần tự sau `api`. Không nới giới hạn của sản phẩm.
 - **Bằng chứng:** `qa104/e2e-full/report.json` (status `flaky`, lỗi lần 1), `qa104/e2e-sec16-1..3/` (scratchpad). Trace lần đỏ đã xóa vì có thân yêu cầu đăng nhập.
 - **Vai chịu trách nhiệm:** QA.
-- **Trạng thái:** Đã sửa, chờ merge. PR #62 (nhánh `v104/qa-flaky-fixes`, head `9fb9cef3`).
+- **Trạng thái:** **Đã gộp `main` `b2a8b2a8` (#62)** – trước đó: Đã sửa, chờ merge. PR #62 (nhánh `v104/qa-flaky-fixes`, head `9fb9cef3`).
   - Cách sửa: `loginMfa()` gặp 429 `RATE_LIMITED` thì gọi `POST /__test__/rate-limits/reset` (`resetRateLimits`, giống `login()`) rồi gửi lại đúng body đó **một** lần. Limiter chạy trước khi đọc token và mã, nên lần 429 không tiêu gì. Khóa tài khoản `qa.e2e.*` không bị reset, nên khóa thật của SR-AUTH-04 vẫn làm ca đỏ. Giới hạn của sản phẩm giữ nguyên.
   - Chạy lại (stack `ottimo-qaflaky`, `--retries=0`), kèm một vòng đăng nhập sai liên tục để làm đầy cửa sổ IP:
     - bản cũ: **0/2**;
@@ -463,7 +478,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Mong đợi:** ca tự chọn lại khoảng đêm khi gặp `ROOM_BLOCKED`, như vòng thử `WindowTakenError` đã làm cho đơn đặt. Hoặc mỗi ca khóa dùng một căn riêng.
 - **Bằng chứng:** `qa104/e2e-full/report.json` (status `flaky`).
 - **Vai chịu trách nhiệm:** QA.
-- **Trạng thái:** Đã sửa, chờ merge. PR #62 (head `9fb9cef3`).
+- **Trạng thái:** **Đã gộp `main` `b2a8b2a8` (#62)** – trước đó: Đã sửa, chờ merge. PR #62 (head `9fb9cef3`).
   - Phạm vi mở rộng: chạy 40 lần đã lộ cùng lỗi ở TC-L2-030, nên cả 4 ca khóa của tệp đều được sửa.
   - Cách sửa:
     - Thêm `blockOnFreeWindow()`: nếu `createRoomBlock` trả 409 `ROOM_BLOCKED` hoặc `ROOM_UNAVAILABLE`, chọn khoảng trống khác, tối đa 4 lần, có ghi log. Mọi mã khác vẫn làm ca đỏ.
@@ -633,13 +648,19 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
     - #66 `v104/po-release-notes` @ `8f2557f7`: mục "Khách đi trước 06:00".
     - Cả hai dạy: từ 06:00, trước 12:00, để nguyên giờ Desk điền sẵn; không gõ giờ trước 06:00; nếu lỡ gõ thì không thu theo số đó, không tạo VietQR, làm lại; giờ thật ghi sổ giao ca. Khớp các bước QA2 đã chạy. QA2 chỉ so các bước, không review câu chữ (việc của DOM/UXD).
   - Bằng chứng (scratchpad, không commit, dữ liệu giả): `qa2-m87-out/e2e-rg/data.txt` (T4, T5), `zz-qa2-m87.spec.ts.bak`.
+- **Review câu #66 @ `99d103a0` (QA2 05/11 07:15):**
+  - Mục "Khách đi trước 06:00" của #66 vẫn khớp các bước của CO-05 bản 0.15. #85 đã gộp `main` `0dd3fcb3`. Điều kiện hạ P2 về câu đã đủ khi #66 gộp.
+  - Nhánh "Quá 12:00 mới làm được" (DOM-PR85-04) có ở sổ tay `main` (`02` 11.5.1) và #66: gõ 12:00, Desk đòi **Ghi chú giờ trả (vì sao ghi bù)**, không phụ thu. QA chưa chạy. Đọc mã trên `main`:
+    - `lateCheckoutSurcharge` (`stay-rules.ts`) trả 0 đ khi giờ ≤ giờ trả chuẩn (BR-401, 12:00);
+    - `checkTypedTime` (`stay-support.ts`): giờ sớm hơn lúc bấm quá `manual_time_tolerance_minutes` (30) thì đòi `checkoutTimeNote`, không có trần ghi lùi.
+    - Như vậy theo mã nhánh này đúng. Chạy CO-05 (b) trên STG 07/11 12:35–13:00 (test case bản 0.18).
 - **Đề xuất sửa (v1.0.5):**
   - BE: thêm cửa sổ sau nửa đêm vào `allowedActions` (`check_out` khi `postMidnight(now)` với ngày đi của lượt), cùng một hàm với `checkout.service.ts`, để hai bên không lệch.
   - FE: xem trang Hôm nay có cần xin thêm danh sách khách đi của ngày lịch trong cửa sổ không. `stay-actions.ts` 43–45 đã tính cửa sổ, nhưng trang không bao giờ xin danh sách đó.
   - QA thêm ca E2E đồng hồ ảo lúc 04:30: có nút, B18 200, phụ thu 0.
 - **Bằng chứng:** các dòng mã nêu trên ở `58183764`; mục 2 của review DOM. Không có ảnh.
 - **Vai chịu trách nhiệm:** BE (`allowedActions`). FE xem trang Hôm nay. DOM/BA đổi câu cách làm tạm trong sổ tay và release notes theo ARC mục 2; UXD đọc câu; ORC chốt.
-- **Trạng thái:** Mở – **P1** từ 05/11 05:30. 05/11 06:00: CO-05 bản 0.15 đạt trên `main`; câu ở #85 và #66 khớp. **Hạ P2 khi #85 và #66 gộp** (ORC hạ). CO-05 chạy lại trên STG 07/11; đỏ thì nâng lại P1. Trước đó: hạ P2 khi sổ tay và release notes có cách làm tạm mới và CO-05 bản 0.15 đạt. Sau đó dời v1.0.5 có kế hoạch như cũ. Sửa thật đi cùng BUG-R4-051 ở v1.0.5. Trước đó: Mới – dời v1.0.5 có kế hoạch (04/11).
+- **Trạng thái:** Mở – **P1** từ 05/11 05:30. 05/11 07:15: #85 đã gộp `0dd3fcb3`; câu ở #66 @ `99d103a0` khớp. **Hạ P2 khi #66 gộp** (ORC hạ). Nhánh "Quá 12:00" chạy ở CO-05 (b) trên STG. 05/11 06:00: CO-05 bản 0.15 đạt trên `main`; câu ở #85 và #66 khớp. CO-05 chạy lại trên STG 07/11; đỏ thì nâng lại P1. Trước đó: hạ P2 khi sổ tay và release notes có cách làm tạm mới và CO-05 bản 0.15 đạt. Sau đó dời v1.0.5 có kế hoạch như cũ. Sửa thật đi cùng BUG-R4-051 ở v1.0.5. Trước đó: Mới – dời v1.0.5 có kế hoạch (04/11).
 
 ### BUG-R4-037 – Đặt phòng mới: giá mỗi đêm của bản xem giá kênh Trực tiếp vẫn còn sau khi chuyển sang OTA / Nội bộ
 - **Mức:** **P0** (QA chốt 04/11 khuya).
@@ -1099,7 +1120,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
     - trên STG: RG-14 và RG-30, nếu có cặp đơn phù hợp.
   - **Kết luận: ĐẠT** phía Desk ở `055e92d5`. Không có lỗi chặn #77. BUG-R4-049 (P3) có từ trước, không do #77.
   - Bằng chứng (scratchpad, không commit, dữ liệu giả): `qa2-pr77-out/e2e-t2/data.txt`, `e2e-api`, `e2e-clock`, `e2e-uiclock`, `e2e-ui`, `e2e-uiclock2`, `e2e-ui2`, `vitest-all.log`, `vitest-checkin2.log`, `tsc.log`, bản sao test tạm `zz-qa2-pr77.spec.ts.bak`.
-- **Trạng thái:** **Máy chủ đã gộp `main` @ `2f535924` (#74). Desk: QA2 ĐẠT ở #77 @ `055e92d5`, chờ gộp #77, rồi staging (RG-14, RG-24, RG-25, RG-30).**
+- **Trạng thái:** **Máy chủ đã gộp `main` @ `2f535924` (#74). Desk: QA2 ĐẠT ở #77 @ `055e92d5`, đã gộp `main` `c9af9f4c` (#77), chờ staging (RG-14, RG-24, RG-25, RG-30).**
   - Trước đó: Đã sửa – chờ gộp #74 (QA2 05/11, đạt local; xác minh lại ở `0950313e` đạt).
   - Trước đó nữa: Mới – ORC quyết chặn ở máy chủ trong v1.0.4, BE sửa trên nhánh `v104/fix-checkin-occupied-exception`.
   - P1 còn mở thì QC không qua (`test-strategy.md` mục 8). Nếu không kịp bản cắt 06/11 18:00, ORC phân xử, và theo protocol mục 8 cần ESC.
@@ -1233,7 +1254,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
   - **CI #75 @ `e71ab25f`:** job test đỏ ở cùng 2 ca "Hôm nay" của `v104-holds-feb` như #71 (ngày UTC, PR #76 sửa). Không có ca nào của #75 đỏ.
   - Spec tạm `zz-qa75.spec.ts` (không commit) và ảnh `qa75/data-e7.txt.*.png` để ở scratchpad. Dữ liệu giả.
 - **Vai chịu trách nhiệm:** FE (khóa tạm), UXD (câu), ARC/BE (hợp đồng Q1, v1.0.5), BA (sổ tay). ORC quyết hotfix production và việc gửi cách làm tạm cho INV. Đây là việc về tiền với khách.
-- **Trạng thái:** **Đã sửa – chờ gộp #75** (QA xác nhận 05/11 01:00 ở head `e71ab25f`). Mức hạ **P2**.
+- **Trạng thái:** **Đã gộp `main` `ebca5a95` (#75)** – trước đó: Đã sửa – chờ gộp #75 (QA xác nhận 05/11 01:00 ở head `e71ab25f`). Mức hạ **P2**.
   - Trước đó: Mới, P0, chờ PR `v104/fe-hold-typed-rate-lock`.
   - Phần còn lại (giữ chỗ nhận giá thỏa thuận, hợp đồng Q1) dời v1.0.5 có kế hoạch, theo thẻ ARC-05.
   - Nếu #75 có commit mới, QA chạy lại phần đổi. Nếu #75 không vào bản cắt 06/11 18:00, lỗi trở lại P0.
