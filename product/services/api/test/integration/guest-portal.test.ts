@@ -560,7 +560,10 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
     expect(over.headers['retry-after']).toBeDefined();
   });
 
-  it('SEC decision (a): the notice evidence names the language really shown (ru → en)', async () => {
+  // BUG-R4-053 (SEC-on-ru-notice-locale-drill 4): the reviewed languages go by notice version. This tenant is on
+  // the default privacy-2026-10-v1, whose RU page showed the EN text → `en` (case (c)). ru + v2 → ru, vi/en and an
+  // unknown version: test/integration/bug-r4-053-ru-notice-locale.test.ts.
+  it('BUG-R4-053 (c): the notice evidence names the language really shown (ru + privacy-2026-10-v1 → en)', async () => {
     const { reservationId } = await seedStay(db, t, ids, { adults: 1 });
     const sid = await session(reservationId);
     expect(
