@@ -6,17 +6,197 @@ Từ 01/11/2026 bản vá đi theo **đợt**: đợt nào xong trước thì l�
 
 - **v1.0.1** – tin Google Chat. Đã phát hành 03/11.
 - **v1.0.2** – trả phòng sớm, giá hẹn theo ngày. Đã phát hành 03/11.
-- **v1.0.3** – email nhận thông báo bảo mật. Chờ phát hành, hạn chậm nhất 09/11.
-- **v1.0.4** – giữ chỗ quá hạn, ngày kết thúc HĐ khi gia hạn, giá hẹn của căn mới, thông báo xử lý dữ liệu bản 2 và mở lại check-in online. Dự kiến 08/11, chậm nhất 10/11.
+- **v1.0.3** – email nhận thông báo bảo mật. Đã phát hành 04/11.
+- **v1.0.4** – giữ chỗ quá hạn, đăng nhập 2 bước trên app nhân viên, đặt lại xác thực 2 bước, ngày kết thúc HĐ khi gia hạn, giá hẹn của căn mới, thông báo xử lý dữ liệu bản 2, các lỗi tiền ở đặt phòng, nhận phòng, trả phòng. Cắt bản 06/11 18:00, dự kiến lên 08/11, chậm nhất 10/11.
 
 PO chốt phạm vi v1.0.3 ngày 03/11 (`rounds/round-04/plan-v1.0.3.md`): v1.0.3 chỉ sửa thư báo bảo mật để chắc kịp hạn 09/11. Các bảng "Chưa có" bên dưới đã ghi theo số mới (cập nhật 04/11).
 
 ---
 
+## v1.0.4 – Giữ chỗ quá hạn, đăng nhập 2 bước trên app nhân viên, các lỗi tiền ở quầy
+
+- Trạng thái: **ĐANG HOÀN TẤT – chưa cắt bản.** Đã gộp vào `main` (04/11 và 05/11): website mới LP-v2 phần máy chủ và Desk (#34, khách chưa thấy gì – xem **Giới hạn đã biết**), hợp đồng dữ liệu 0.3.12 (#35), nút **Hủy lịch** (#37), 23 PR #38–#60, rồi #61–#65, #67, #68, #70–#89 (trừ #69; trong đó #63, #68, #72, #85, #88, #89 là tài liệu). Mọi việc đã hẹn cho v1.0.4 đã ở `main`; còn bản ghi chép này (#66). #69 gộp sau khi v1.0.4 lên production. Mỗi PR qua duyệt chéo và kiểm tự động trước khi gộp. Lịch: cắt bản **06/11 18:00** → QA trên staging **07/11** → cổng QC rút gọn **08/11 sáng** → production dự kiến **08/11 chiều**, chậm nhất **10/11**. Anh/chị đã đồng ý trước việc gộp, staging và production (04/11). Đội báo lại anh/chị sau mỗi bước.
+- Ngày phát hành: (điền khi Release)
+- Áp dụng từ khi anh/chị báo "v1.0.4 đã lên". Tới lúc đó làm như v1.0.3: theo các khối "tới v1.0.3" của sổ tay (đổi kênh, giá đơn OTA và Nội bộ, Giữ chỗ khi có giá thỏa thuận, nhận phòng vào căn còn khách, minibar hai tủ) và các cách làm ghi **áp dụng ngay** ở mục **Giới hạn đã biết và cách làm ở quầy**.
+- Hướng dẫn: sổ tay bản nội dung **1.13** và bộ hướng dẫn theo bộ phận bản **1.11** (đã có trên `main`), cộng phần sửa ngày 05/11 của #72: nhận phòng vào căn còn khách, minibar hai tủ và đổi phòng, đơn quá ngày đi, giá đơn Nội bộ. #85 thêm phần giá theo bảng 01/11 và cách trả phòng cho khách đi trước 06:00. #89 sửa các chỗ nhỏ sau #85: khách đi trước 06:00 mà quá 12:00 mới trả phòng, khách báo trả sớm trong ngày rời, bỏ tỷ lệ hoa hồng khỏi sổ tay. Số bản mới (**1.14 / 1.12**) ghi khi #69 gộp, sau khi v1.0.4 đã lên production. Các mục: `00` mục 2.1, 4; `01` mục 1.6a–1.9, 4, 7.3, 9.1, 9.2, 14.1; `02` mục 1.6, 1.7, 1.8, 5.1, 7.1, 7.2, 7.4, 9.3, 11.1, 11.5, 14.2, 14.3, 16, 17.5, 20.2; `03` mục 1.5, 1.6, 7; `04` mục 1.5; `05` mục 1.2, 1.6, 3; sổ tay mục 0.3a, 0.4, 1.3, 1.5, 1.8, 2.5, 2.10, 2.12, 2.14, 2.14a, 2.21, 3.1, 5.0, 5.2, 5.6. Phần giữ chỗ quá hạn (sổ tay 2.4) viết lại sau khi QA kiểm trên staging. Tới lúc đó, gặp giữ chỗ có cọc quá hạn thì làm theo bảng **Giữ chỗ và cọc** dưới đây, không theo các bước "Desk từ chối" của 2.4.
+
+### Có trong bản này
+
+**Giữ chỗ và cọc**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Giữ chỗ có cọc mà quá hạn: không còn bị khóa** | Đơn đã nhận một phần cọc thì không tự hủy, căn vẫn giữ. Khung đơn ghi "Quá hạn giữ chỗ lúc … Đã nhận …/… nên đơn chưa hủy, căn vẫn giữ." Lễ tân trở lên thu nốt cọc và **Xác nhận đã nhận cọc** được tới khi nhận phòng. Ô mới **Giờ nhận tiền**: ghi lùi được, không ghi giờ sau bây giờ. Giữ chỗ **chưa** cọc vẫn chỉ xác nhận được khi tiền về trước hạn. Sale, CTV không ghi tiền vào giữ chỗ đã quá hạn: chuyển lễ tân | BUG-R3-042 (P1), SEC HOLDS-01 |
+| **Chấp nhận cọc thiếu** | Chủ đầu tư và quản lý tích **Chấp nhận cọc thiếu (phần còn lại thu khi nhận phòng)**, ghi lý do (ít nhất 3 ký tự). Đơn thành **Đã xác nhận**, phần còn lại thu lúc nhận phòng. Vai khác không thấy ô này | BUG-R3-043, BR-303 |
+| **Báo giữ chỗ quá hạn** | **Trên Desk:** lễ tân trở lên thấy mục giữ chỗ quá hạn ở **Cần chú ý** tới khi đơn được xử lý; quản lý và chủ đầu tư thấy thêm mục "còn chờ cọc sau 12:00 ngày đến – quản lý quyết". Trang **Hôm nay** có khối **Giữ chỗ chờ cọc (n)**. **Trên app nhân viên**, hộp **Thông báo** có tin cho 3 trường hợp, không ghi tên khách: "Giữ chỗ có cọc đã quá hạn – căn vẫn giữ" (người tạo, người chốt, lễ tân, lễ tân trưởng, quản lý); "Giữ chỗ chưa cọc đã hết hạn và tự hủy" (người tạo, người chốt; không còn ai thì lễ tân và lễ tân trưởng); "Giữ chỗ còn chờ cọc sau mốc giờ ngày đến – quản lý quyết" (quản lý, chủ đầu tư). **Sale, CTV chỉ dùng Desk nên không nhận các tin này**: tiếp tục mở **Đơn của tôi** đầu ngày và xử lý khi Desk nhắc **Giữ chỗ sắp hết hạn** (`05` mục 2), như hiện nay | BUG-R3-041, DOM A.5 |
+| **Hủy giữ chỗ** | Hộp hủy giữ chỗ có cọc ghi trước "Không thu phí. Sẽ tạo yêu cầu hoàn … – cần quản lý duyệt." Hủy với lý do **Khác (ghi rõ)** làm được (trước đây nút hủy bị khóa). Giữ chỗ chưa cọc có yêu cầu giảm giá hoặc FOC đang chờ cũng tự hủy khi hết hạn, yêu cầu đó hủy theo. Đơn giữ chỗ không còn nút tạo link check-in | BUG-R3-044, 046, 047 |
+| **Hộp Giữ chỗ sau khi tạo** | Số cọc và nội dung chuyển khoản in một lần. Khách đến hôm nay: không hiện bộ chọn 12/24/48 giờ và mốc hạn đã qua | BUG-R2-216, 219 (#60) |
+| **Giữ chỗ khi có giá đã gõ** | Nút **Giữ chỗ đến …** khóa, kèm câu: "Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio." Trước đây giữ chỗ bỏ giá đã gõ mà không báo, cọc tính theo giá niêm yết. Giữ chỗ theo đúng giá thỏa thuận: v1.0.5 | BUG-R4-041 (#75) |
+| **Gia hạn giữ chỗ** | Hạn rơi vào 00:00–06:59 hiện đúng ngày ở nút "Gia hạn đến …" và ở câu báo sau khi gia hạn. Trước đây sớm một ngày | BUG-R4-044 (#80) |
+
+**Đặt phòng**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Giá đã gõ khi đổi kênh, đổi căn** | Đổi kênh sang hoặc khỏi **OTA**, **Nội bộ**: Desk xóa giá đã gõ và báo "Đã xóa giá đã gõ vì đổi kênh." Đổi căn Trực tiếp, CTV sang nhóm căn khác: Desk cũng xóa và báo. Đổi số khách, đổi ngày, đổi căn cùng nhóm: giá đã gõ giữ nguyên. Trước đây giá Trực tiếp có thể ở lại trong đơn OTA hoặc Nội bộ mà không báo | BUG-R4-037 (P0, #70) |
+| **Đơn OTA để trống giá** | Desk lấy giá đêm niêm yết của căn cho từng đêm. Không cần nhập `ota_base_rate`. Đã có dòng này thì dòng này được ưu tiên: đổi cùng lúc với bảng giá | #73, BR-103 |
+| **Đơn Nội bộ: giá cho mọi đêm, hoặc để trống hết** | Gõ giá cho một phần số đêm thì Desk chặn, không tạo đơn: "Đơn Nội bộ: nhập giá cho mọi đêm, hoặc để trống hết nếu miễn phí cả đơn." Gõ 0 vào ô thì Desk báo "Miễn phí: để trống ô. Có thu: nhập giá lớn hơn 0." Trước đây đơn lưu 0 đ cho mọi đêm mà không báo | BUG-R4-046 (P0, #82), BR-105 |
+| **Cột Nguồn giá** | Ô có số đã gõ ghi **Giá đã gõ**, ô trống ghi "–", ô Desk điền ghi **Giá niêm yết**. Không còn nhãn "+15%" theo thứ trong tuần. Trong lúc chờ bản xem giá, các ô tiền của bảng tổng hiện "–" | #82 |
+
+**Nhận phòng**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Không nhận phòng vào căn còn khách** | Căn còn khách của đơn trước (`OC`, `OD`) hoặc còn đơn khác đang ở: Desk chặn với mọi vai, không có ô lý do, không xin duyệt. Câu báo nêu căn, mã đơn đang giữ căn và cách làm: trả phòng đơn đó trước, mời khách chờ, hoặc đổi đơn sang căn trống. Căn vẫn hiện có khách mà không còn đơn nào đang ở: đổi căn và báo quản lý sửa trạng thái. Ngoại lệ "buồng chưa sẵn sàng" của lễ tân trưởng chỉ còn cho căn `VD`, `CL` | BUG-R4-039 (#74, #77, #79), BR-402 |
+| **Đơn chưa gán căn** | Màn nhận phòng không còn in trạng thái buồng và sức chứa không có thật. Dòng "Đơn đã được gán căn" nói nguyên nhân | BUG-R4-049 (#84) |
+
+**Trả phòng, minibar, đơn Nội bộ**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Đếm minibar khi trả phòng** | Nút **Tiếp tục** chờ Desk đọc xong số trong tủ, không còn gửi "tủ đầy" khi bấm quá nhanh. Khách có hai tủ (đổi căn giữa kỳ): Desk nhớ tủ đã đếm, không quay lại tủ đó; màn đếm ghi tên tủ; nút chính ghi "Tiếp tục: Tủ căn …"; lưu xong báo "Đã lưu số đếm tủ căn …." Máy chủ đòi đếm lại một tủ (tủ vừa bổ sung, vừa gia hạn) thì Desk đưa về bước **Minibar** đúng tủ đó. **Quay lại** rồi bấm **Tiếp tục** không còn báo nhầm "Tủ vừa được bổ sung…". Số lễ tân vừa gõ không bị đặt lại. Trước đây có lúc dòng minibar đã tính bị đảo mất. Tới khi lên: chờ bảng tủ hiện đủ số rồi mới bấm **Tiếp tục**, xem bill có khoản minibar của mọi tủ trước khi thu tiền (sổ tay 2.14) | BUG-R4-035 (P1, #67), BUG-R4-042 (P1, #81), BUG-R4-045, 047, 048 (#83; 048 chỉ có trên bản nháp, chưa từng lên) |
+| **Đêm thêm của đơn Nội bộ** | Gia hạn và đêm thêm lúc nhận phòng, trả phòng của đơn Nội bộ mặc định 0 đ; có thu thì gõ giá lớn hơn 0. Phụ thu trả muộn, nhận sớm tính theo giá đêm của chính đơn (đêm 0 đ thì không phụ thu). Quản lý, chủ đầu tư sửa được đêm Nội bộ về 0 ở **Folio** (ghi lý do). Trước đây đêm thêm lấy giá Trực tiếp | BUG-R4-038 (P0, #71), BR-421 |
+| **Đang chờ hoàn ở trang Trả phòng** | Bước **Bill** và màn **Kết quả** có dòng "Đang chờ hoàn cho khách … (yêu cầu từ Trả sớm)." Mở **Trả phòng** trước ngày đi thì Desk chỉ sang **Trả sớm** | P4-32, BUG-R3-024 (#64) |
+| **Trả phòng sau 24:00 của ngày đi** | Trả phòng lúc 00:00–05:59 sáng hôm sau ngày đi: mã VietQR nhận đúng số **Còn phải thu**, giá đêm thêm đã sửa được tính lại. Trước đây VietQR bị từ chối ("Số tiền lớn hơn số còn phải thu") và Bill hiện giá gợi ý. Tới khi lên, kể cả trên bản đang chạy: ca này thu tiền mặt hoặc thẻ qua máy POS, thu theo giá gợi ý, không sửa giá đêm thêm | BUG-R4-050 (P2, #86) |
+
+**Tài khoản và đăng nhập 2 bước**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Đặt lại xác thực 2 bước** cho người khác | Chủ đầu tư, **Người dùng & vai → Khác…**. Người mất cả điện thoại lẫn mã khôi phục **giữ tài khoản cũ**. Chủ đầu tư gặp tận mặt, ghi lý do, xác nhận bằng mật khẩu và mã. Desk đăng xuất người đó trên mọi máy, mã khôi phục cũ hết hiệu lực, mật khẩu giữ nguyên, thư "Security notice: 2-step verification was reset" tới người đó và mọi chủ đầu tư (thư này anh/chị biết trước, không cần làm gì). Quản lý và lễ tân trưởng bật lại 2 bước ngay buổi đó. Thay cách khóa tài khoản rồi tạo tài khoản mới. Hướng dẫn từng bước: sổ tay mục 1.5, `01` 1.9 | BUG-R4-020, BUG-R4-032 (#63) |
+| **Đặt lại 2 bước đã có người làm trước** | Desk báo "Đã có người đổi xác thực 2 bước của {tên} trước bạn – hiện không còn bật, nên không cần đặt lại. Danh sách đã được tải lại." | #65 |
+| **Menu Khác…** ở **Người dùng & vai** | Cột **Thao tác** còn **Sửa vai** và **Khác…** (tài khoản đã khóa có thêm **Mở khóa**). **Đặt lại mật khẩu**, **Khóa tài khoản** nằm trong **Khác…**. Cột Email không còn ngắt giữa địa chỉ. Hộp xác nhận chỉ có ô mật khẩu báo đúng khi sai mật khẩu | BUG-R4-020, 023, 024 |
+| **App nhân viên đăng nhập được bằng 2 bước** | Sau mật khẩu, app hỏi **mã 6 số** hoặc mã khôi phục. Mật khẩu tạm đổi ngay trên app. Bật 2 bước vẫn làm trên Desk; app chỉ đường sang Desk khi cần. Người trực (vai quản lý) vào được app. Lời dặn "không bật 2 bước ở v1.0.x" **hết hiệu lực** | ARC-RN103-02, BUG-R3-052 |
+| **Ai bật 2 bước** | Chủ đầu tư, quản lý: bắt buộc, Desk ép. Các vai khác theo mặc định đội chọn, anh/chị đổi được (báo đội): lễ tân trưởng bắt buộc (Desk chưa ép, dự kiến v1.0.5, nên anh/chị nhìn tận mắt người đó đã bật rồi mới giao việc); buồng phòng, bảo trì tùy chọn; sale nội bộ, CTV không bắt buộc, nên bật | DOM B.1; PO |
+| **Người trực kiểm căn trên app nhân viên** (mặc định đội chọn, anh/chị đổi được) | Từ bản này người trực kiểm căn trên app, khoảng 1–2 phút mỗi căn. Giữ mốc 11:00 và 14:00. Nhận khách vào căn đã kiểm; căn còn chờ kiểm lúc khách tới thì kiểm trên app ngay, hoặc làm như nhận phòng khi buồng chưa sẵn sàng. App không vào được thì kiểm bằng mắt rồi chỉ bấm **Làm xong** như cũ (`02` mục 13.2a), ghi sổ giao ca | DOM B.2 |
+| **Email nhận thông báo bảo mật** | Desk chặn thêm `booking@` (cùng `info@`), kể cả dạng `info+…@`. Gmail dùng cho OTA và hộp thư quầy vẫn phải tự tránh. Email của mỗi người đổi được tối đa 5 lần trong 24 giờ, kể cả khi chủ đầu tư đổi hộ. Xóa email lúc nào cũng làm được, nhưng lần xóa vẫn được tính. Các thư bảo mật cùng một bố cục, có dòng thời điểm. Tiêu đề mới: "Security notice: 2-step verification was reset" và "Security notice: receiving account update" (cả thư hủy lịch đổi tài khoản nhận). Ai lọc thư theo tiêu đề cũ thì sửa bộ lọc | EM-09, M18-01, CPY |
+
+**Tiền, giá, tham số**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Yêu cầu hoàn thay thế giữ nơi nhận** | Desk gộp các yêu cầu hoàn còn mở thành một yêu cầu thay thế thì giữ nơi nhận, nếu các yêu cầu cũ chỉ có một nơi nhận do một người nhập. Vẫn kiểm **Cách hoàn** trước khi duyệt; người nhập nơi nhận không tự duyệt. Hai nơi nhận khác nhau hoặc hai người nhập: nhập lại | DOM-BA-025-02 |
+| **Chữ ở màn tiền** | **Nhật ký thao tác tiền**, **Cần duyệt**, **Hoàn tiền** ghi "Hoàn tiền khách trả thừa", "Hoàn khi trả sớm" thay cho mã `overpayment`. Hàng chờ duyệt hoàn ghi "Số có thể giảm khi duyệt…". Folio đơn đang ở chỉ còn một dòng **Còn phải thu**. Thông báo chi hoàn hết dấu trừ thừa. Folio đã khóa không hiện **Điều chỉnh**, **Thêm phát sinh**; câu báo nói rõ cả quản lý cũng không sửa được | BUG-R4-026, BUG-R2-103, 097, BUG-R3-045 |
+| **Trả sớm – đơn HĐ thuê tháng đã gia hạn** | Desk giữ ngày kết thúc HĐ khi gia hạn, nên hộp **Trả sớm** chọn đúng nhánh: khách rời trong phần gia hạn không bị coi là trả trước hạn HĐ, không còn khung ký quỹ; tiền các ngày gia hạn và ký quỹ vẫn làm ngoài app như cũ (Desk không có dòng tiền cho phần gia hạn của đơn HĐ). Nhánh "đã thu tiền thuê tới hết HĐ" ghi thêm phát sinh chưa thu (minibar, dọn lẻ). Bước **Xem trước** bỏ câu sai "Trả phòng sau đó không tạo thêm yêu cầu." Không cần ghi "HĐ kết thúc…" vào sổ giao ca trước khi bấm **Gia hạn** nữa; bảng kỳ thu vẫn giữ cột ngày kết thúc HĐ (sổ tay 2.12 bước 6, 2.14a) | FB-R4-DOM-FE-A-01, BUG-R4-025 |
+| **Giá hẹn của căn mới** | Desk không cho hủy dòng giá đầu tiên của căn mới (trước đây hủy được và căn không báo giá được tới ngày của dòng sau) | BUG-R4-015 |
+| **Hủy lịch tham số** | Hộp sửa tham số ở **Tham số quy tắc** có nút **Hủy lịch** cho dòng hẹn chưa áp dụng. Dòng hẹn áp dụng từ 06:00 ngày đó, nên trước 06:00 vẫn hủy được. Dòng đã bắt đầu áp dụng thì không hủy được: lưu giá trị mới. Tài khoản nhận chuyển khoản giữ cách hủy riêng | P4-34 |
+| **Vai chỉ Bảo trì trên Desk** | Tạo được **Phiếu sửa mới** và **Khóa phòng có kế hoạch**: ô **Căn** có danh sách căn | BUG-R3-053 |
+| **Chữ dưới ô giá đêm ở trang Căn** | "Mọi đêm, kênh Trực tiếp, đã gồm VAT. Mức tăng cuối tuần, ngày đặc biệt (nếu có) ở Tham số quy tắc." thay câu cũ "…Cuối tuần, ngày đặc biệt do lịch giá cộng thêm." | ESC-045 (#87) |
+
+**Khách và giấy tờ**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Thông báo xử lý dữ liệu bản 2** | Trang khách có thông báo bản 2 bằng tiếng Việt, Anh, Nga. Tờ **Your ID details** bản v2 ở quầy (chân tờ "OTTIMO · ID notice · v2 · 11/2026"), tờ A4 EN/RU cho khách đọc tiếng Nga. Tham số `privacy_notice_version` chỉ nhận `privacy-2026-10-v2`; giá trị khác thì Desk báo "Giá trị này nằm ngoài khoảng cho phép…" và không lưu gì | V3-08, P4-16 |
+| **Check-in online: chưa mở lại ngay** | Sau khi lên, trang khách đưa khách tới quầy cho tới khi đổi xong sang bản 2 (mục **Việc anh/chị làm sau khi lên**, bước 2). Đội bảo mật kiểm xong, đội báo "mở lại" thì lễ tân mới gửi link | SEC 6.4, runbook N1–N5 |
+
+**Sổ tay và tài liệu (gộp 05/11)**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Sổ tay theo bảng giá 01/11** | Một giá mọi đêm, trẻ từ 6 tuổi 150.000 đ/đêm, không giảm theo số đêm, dài hạn từ 30 đêm, nhận sớm không phụ thu từ 11:00. Mỗi câu ghi "từ ngày chủ đầu tư chuyển giá" và có báo giá thử. Cách trả phòng cho khách đi trước 06:00 như mục **Giới hạn đã biết và cách làm ở quầy**. Minibar căn cũ bị ghi trùng: chỉ dòng trùng đó mới **Bỏ cả dòng**, ghi sổ giao ca | ESC-045 (#85) |
+| **Sổ tay: các chỗ nhỏ sau #85** | Khách đi trước 06:00 mà quá 12:00 mới trả phòng; khách báo trả sớm trong ngày rời (phụ thu người các đêm bỏ vẫn hoàn); sổ tay không còn ghi tỷ lệ hoa hồng, Desk tự điền theo tỷ lệ chủ đầu tư cài | DOM-PR85-04, DOM-PR89-01, SEC-PR85-01 (#89) |
+| **Tài liệu thiết kế trang Căn** | Bản thiết kế và hướng dẫn chữ dùng câu mới dưới ô giá đêm, khớp Desk | #88 |
+
+### Việc cần anh/chị trước khi lên
+
+1. **Cho phép lượt kiểm chỉ đọc trên production** (đội đã hỏi, đang chờ anh/chị). Đây là điều kiện trước khi lên. Đội đếm các lần đã nhận phòng vào căn còn khách (BUG-R4-039), và cùng lượt đếm các đơn có thể bị giá sai do BUG-R4-037, 038, 046. Chỉ đọc, không sửa dữ liệu; repo chỉ ghi số lượng. Có đơn bị ảnh hưởng thì đội báo anh/chị và sửa qua Desk.
+2. **Chuyển giá theo bảng 01/11**, nếu chưa làm. Làm theo hướng dẫn chuyển giá (`rounds/round-04/outputs/DOM/inv-price-switch-guide.md`, bước B1–B11, khoảng 30–40 phút, trên máy tính, tài khoản chủ đầu tư). Việc này đi theo **Tham số quy tắc**, không theo bản phần mềm.
+3. **Kiểm giá**, dù đã chuyển hay chưa. Báo giá thử một Studio, ngày đến thứ Sáu, 2 đêm, 2 người lớn: ra **1.600.000** là mức tăng đã về 0; ra **1.840.000** là +15 % cuối tuần vẫn bật. Ra số khác: giá căn chưa đổi đúng ở phần A, dừng và nhắn đội. Chọn thứ Sáu chưa qua mà còn Studio trống. Rồi chạy đủ 4 báo giá thử ở phần C của hướng dẫn chuyển giá (ngày thử 13/11–17/11; không lưu báo giá). Nhắn đội "Desk đã chuyển giá, 4 báo giá thử đúng", hoặc số nào sai. Không gửi tỷ lệ hoa hồng cho đội.
+
+### Việc anh/chị làm sau khi lên
+
+1. Nhắn đội "v1.0.4 đã lên" sau khi đội báo xong lượt kiểm. Đội gộp #69 ngay sau đó: sổ tay lên 1.14, bộ hướng dẫn lên 1.12, gỡ lời dặn "không bật 2 bước ở v1.0.x". Từ lúc đó nhân viên làm theo bản mới nhất.
+2. **Ngày thay tờ v2** (cùng người trực, khung 09:00–11:00, sớm nhất là sáng hôm sau ngày lên, theo `00` mục 4): thay tờ **Your ID details** ở quầy, rồi trong 15 phút đặt `privacy_notice_version` = `privacy-2026-10-v2` ở **Tham số quy tắc → Khác**, kiểm **Lịch sử thay đổi**, nhắn "Đã đặt v2". Đội bảo mật kiểm, rồi đội báo "mở lại" check-in online.
+3. Người trực đăng nhập app nhân viên bằng mật khẩu và mã 6 số, kiểm căn trên app từ hôm đó.
+4. Khi có lễ tân trưởng mới: ngồi cùng người đó bật 2 bước trên Desk ngay buổi đầu, nhìn tận mắt đã bật rồi mới giao việc (`01` mục 1.9 bước 8).
+5. **Giữ** lượt rà 3 mốc giữ chỗ mỗi ngày (cách rà ở sổ tay 2.4). Gặp giữ chỗ có cọc quá hạn thì xử lý theo bảng **Giữ chỗ và cọc** ở trên, không theo các bước "Desk từ chối" của 2.4. Đội báo bỏ lượt rà khi tin giữ chỗ quá hạn đã chạy đúng trên production. Lượt kiểm B1–B6 giữ tới khi đội bảo mật báo bỏ.
+
+### Thay đổi cấu trúc dữ liệu (đọc trước khi duyệt Release)
+
+- Bản này có 4 thay đổi, đều **chỉ thêm, không sửa hay xóa dữ liệu cũ**: **0092** (ngôn ngữ và giá ước tính của website mới; khóa hiện giá mặc định tắt), **0093** (2 loại tin mới về giữ chỗ quá hạn), **0094** (chặn xóa dòng giá đã hoặc đang áp dụng), **0095** (chặn chặt hơn việc sửa, xóa bản thông báo quyền riêng tư đã đăng). Các bản sửa gộp ngày 05/11 không thêm thay đổi dữ liệu nào.
+- Desk lỗi nặng sau khi lên: đội lùi **phần mềm** về v1.0.3, dữ liệu giữ nguyên (diễn tập trên staging trước QC). Trong lúc lùi:
+  - giữ chỗ có cọc quá hạn lại bị khóa, tin giữ chỗ quá hạn và mục **Cần chú ý** mới không còn: lượt rà 3 mốc là cách duy nhất, làm theo sổ tay 2.4;
+  - app nhân viên mất bước nhập mã, người đã bật 2 bước chỉ vào được Desk. Người trực (vai quản lý) không vào được app: kiểm căn bằng mắt rồi bấm **Làm xong** (`02` mục 13.2a), ghi sổ giao ca;
+  - không có nút **Đặt lại xác thực 2 bước**;
+  - Trả sớm của đơn HĐ đã gia hạn lại hiện khung "Trả trước hạn hợp đồng thuê tháng": làm theo khung lỗi ở sổ tay 2.14a (ký quỹ theo nhánh đã thu đủ, hỏi quản lý), lấy ngày kết thúc HĐ ở bảng kỳ thu;
+  - dòng giá đầu tiên của căn mới lại hủy được: không hủy dòng giá của căn mới trong lúc lùi;
+  - các lỗi ở nhóm **Đặt phòng**, **Nhận phòng**, **Trả phòng, minibar, đơn Nội bộ** và nút **Giữ chỗ** quay lại: làm theo các khối "tới v1.0.3" trong sổ tay (2.5, 2.10, 2.12, 2.14). Đổi kênh thì xóa trống mọi ô giá trước **Tạo đơn**; đơn OTA gõ đủ giá mọi đêm; đơn Nội bộ gõ đủ hoặc để trống hết, ở thêm thì không bấm **Gia hạn**; giá thỏa thuận thì không bấm **Giữ chỗ**; không xác nhận ngoại lệ nhận phòng cho căn còn khách; minibar hai tủ theo cách tạm ở sổ tay 2.14;
+  - giới hạn đổi email tắt; trang khách vẫn đưa khách tới quầy.
+- Khôi phục dữ liệu từ bản sao lưu chỉ làm khi dữ liệu hỏng và anh/chị quyết. Đội sao lưu ngay trước khi lên.
+- Cách tính tiền phòng, cọc, folio so với v1.0.3 chỉ đổi ở các chỗ ghi trong bảng trên: đơn OTA để trống giá lấy giá niêm yết; đêm thêm của đơn Nội bộ 0 đ, phụ thu theo giá đêm của chính đơn; đơn Nội bộ gõ một phần số đêm bị chặn; các dòng giữ chỗ, yêu cầu hoàn và khung ký quỹ khi **Trả sớm đơn HĐ đã gia hạn**. Với đơn HĐ đã gia hạn mà khách rời trong phần gia hạn, Desk không còn hiện khung ký quỹ trả trước hạn HĐ. Desk không có dòng tiền cho các ngày gia hạn của đơn HĐ, nên không tự tính hoàn hay phí cho phần này: ký quỹ và tiền các ngày gia hạn vẫn làm ngoài app như cũ.
+- Mức giá (tăng cuối tuần, ngày đặc biệt, giảm theo số đêm, phụ thu trẻ, nhận sớm, ngưỡng dài hạn) đi theo **Tham số quy tắc**, không đổi khi lên hay lùi phần mềm.
+
+### Giới hạn đã biết và cách làm ở quầy
+
+- **Khách đi trước 06:00** (BUG-R4-036, P1; **áp dụng ngay**, cả trên bản đang chạy). Nút **Trả phòng** chỉ hiện từ 06:00.
+  - Lúc khách đi: thu thẻ, chìa khóa, xóa mã cửa, đếm minibar nếu kịp. Xem **Còn phải thu** ở khung đơn, cộng minibar vừa đếm, thu ngay bằng tiền mặt hoặc thẻ qua máy POS. Khách chỉ chuyển khoản được: ghi sổ giao ca số còn thu, đầu ca sáng báo quản lý. Ghi sổ giao ca giờ khách rời thật và khoản đã thu. Không bấm **Trả sớm** (trước 06:00 Desk vẫn tính là ngày hôm trước).
+  - **Từ 06:00, trước 12:00:** khung đơn → **Trả phòng**. Ở bước **Phụ phí**, **để nguyên giờ Desk điền sẵn** ở ô **Giờ trả phòng thực tế**. Trước 12:00 Desk không phụ thu, không thêm đêm, nên tiền đúng. Ở bước **Bill & thu tiền**, ghi khoản đã thu lúc khách đi. Hoàn tất xong, ghi sổ giao ca "Trả phòng trên Desk lúc 06:xx, khách rời thật hh:mm".
+  - **Quá 12:00 mới làm được:** gõ **12:00** ở **Giờ trả phòng thực tế**. Desk đòi **Ghi chú giờ trả (vì sao ghi bù)** thì ghi giờ rời thật, ví dụ "Khách rời hh:mm, trả phòng trên Desk lúc hh:mm", rồi hoàn tất lại. Không phụ thu (DOM-PR85-04).
+  - **Không gõ giờ trước 06:00** (ví dụ 04:30). Desk sẽ hiện hộp đêm thêm và **Còn phải thu** sai, rồi báo "Giờ này muộn hơn hiện tại…" và không hoàn tất. Lỡ gõ: không thu theo số đó, không tạo mã VietQR, làm lại với giờ Desk điền sẵn. Cách làm cũ (từ 06:00 gõ giờ khách đi thật) **bỏ**.
+  - Desk ghi được giờ khách rời thật ở v1.0.5 (BUG-R4-051). Hướng dẫn: sổ tay 2.14a bước 2, `02` 11.5.1 (#85, #89).
+- **Trả sớm lúc 00:00–05:59:** ô **Ngày rời mới** đặt sẵn ngày hôm trước (Desk chưa sang ngày mới). Đổi thành **ngày lịch hôm nay** rồi mới bấm **Xem trước**. Khách rời đúng ngày đi ghi trên đơn: không dùng **Trả sớm**, làm **Trả phòng** từ 06:00 như dòng trên. Áp dụng ngay; sửa ở v1.0.5.
+- **Trả sớm, khách báo trong ngày rời** (đơn Trực tiếp/CTV; áp dụng ngay, đúng cách Desk đang tính; QA kiểm lại trên staging 07/11). Không hoàn tiền phòng các đêm bỏ. Phụ thu người khách đã trả cho các đêm bỏ vẫn hoàn **100 %**: Desk tạo **một** yêu cầu hoàn cho phần đó, lễ tân **Nhập nơi nhận hoàn** như thường (`02` mục 12.2), trên máy đã cấp quyền. Các đêm bỏ không có phụ thu người đã trả: Desk ghi "Không có khoản hoàn.", không có yêu cầu hoàn. Dòng phí trên bill: "Phí trả phòng sớm (báo trước 0 ngày)". Báo trước từ 1 ngày thì vẫn hoàn 50 % tiền phòng các đêm chưa ở. Hướng dẫn: sổ tay 2.14a, 5.2; `02` 11.5.2; `01` 7.3 (#89).
+- **Bước Bill: Tổng cộng chưa gồm đêm thêm sắp ghi** (BUG-R4-052, P3, sửa ở v1.0.5). Dòng đêm thêm có ở Folio ngay dưới. **Còn phải thu** vẫn đúng: thu theo **Còn phải thu**, giải thích cho khách theo các dòng Folio. Bản đang chạy cũng vậy.
+- **Đơn Nội bộ** (BR-105). Chỉ tạo khi chủ đầu tư hoặc quản lý đã đồng ý; **Ghi chú nội bộ** ghi người cho, lý do, số đêm miễn phí. Desk chưa chặn theo vai.
+  - Giá mỗi đêm: có thu thì gõ **mọi** đêm; miễn phí cả đơn thì để trống **mọi** đêm. Áp dụng ngay: bản đang chạy chưa chặn, gõ một phần thì đơn thành 0 đ mà không báo.
+  - Đơn có cả đêm thu và đêm miễn phí: gõ mọi đêm, rồi quản lý hoặc chủ đầu tư sửa đêm miễn phí về 0 ở **Folio** **trước khi nhận phòng** (sửa về 0 làm được từ v1.0.4; tới khi lên, hỏi quản lý trước khi tạo đơn loại này). Không dùng FOC hay giảm giá đặc biệt 100 %.
+  - Tới lúc nhận phòng mà chưa sửa: chưa thu, gọi quản lý sửa (làm được từ xa trên Desk). Không liên lạc được: thu đủ số Desk đòi, ghi sổ giao ca; phần dư hoàn như tiền khách trả thừa khi trả phòng. Hướng dẫn: sổ tay 2.5, `02` 5.1.
+- **Minibar khi đổi phòng** (áp dụng ngay). **Không** ghi minibar căn cũ bằng **Thêm phát sinh**. Buồng phòng đếm tủ căn cũ ngay, trước khi dọn; lễ tân ghi số còn lại từng món vào sổ giao ca. Lúc trả phòng, nhập số đó cho tủ căn cũ ở bước **Minibar**, không đếm lại tủ căn cũ. Đơn đã lỡ có dòng **Thêm phát sinh** minibar căn cũ: trước khi bấm **Trả phòng**, **Bỏ cả dòng** đó (chỉ dòng trùng này) với lý do "Trùng minibar tủ căn cũ", ghi sổ giao ca mã đơn, số tiền. Không dùng **Bỏ cả dòng** để miễn hay giảm cho khách. Quản lý xem lại các lần bỏ dòng này. Hướng dẫn: sổ tay 2.12, 2.14; `02` mục 11.1; `03` mục 7.
+- **Giá theo bảng 01/11 (ESC-045, #85).** Bỏ mức tăng +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt; trẻ 6–11 tuổi vượt định mức 150.000 đ/đêm như người lớn, dưới 6 tuổi miễn; bỏ giảm 10 %/15 % theo số đêm; thuê dài hạn từ 30 đêm; nhận phòng sớm từ 11:00 không phụ thu.
+  - Các mức này **chỉ đúng sau khi anh/chị chuyển tham số trên production** (mục **Việc cần anh/chị trước khi lên**, bước 2 và 3). **Đội chưa nhận được xác nhận anh/chị đã chuyển.**
+  - Lễ tân kiểm một lần ở ca đầu tiên sau khi lên, và sau mỗi lần chủ đầu tư báo đã đổi giá: báo giá thử một Studio, ngày đến thứ Sáu, 2 đêm, 2 người lớn phải ra 1.600.000. Ra 1.840.000 hoặc số khác: dừng, báo quản lý, không tự sửa giá.
+  - Câu nói với khách giữ "Check-in is from 12:00." Không hứa trước nhận phòng từ 11:00.
+  - Chữ trên Desk còn vài chỗ theo mức cũ ("Từ 28 đêm…", "trước giảm theo số đêm"): đọc số theo sổ tay. Sửa ở v1.0.5.
+- **Đơn quá ngày đi mà vẫn Đang ở** (áp dụng ngay): Desk không có nút **Trả phòng** cho đơn này. **Gia hạn** tới hôm nay rồi **Trả phòng**. Khách ở thật thì thu đêm thêm. Quên bấm (khách đã đi): giảm giá đặc biệt 100 % cho đêm thêm (quản lý duyệt tới 1 đêm, từ 2 đêm chủ đầu tư), xóa mã cửa ngay, khai báo lưu trú ghi ngày rời thật, ghi sổ giao ca. Chờ duyệt xong mới **Trả phòng** được. Ghi trễ ngày đi trên cổng: hỏi quản lý trước khi gửi. Hướng dẫn: sổ tay 2.14, `02` 11.1.
+- **Căn vẫn hiện có khách sau khi đơn trước đã trả phòng:** Desk chưa có nút đổi trạng thái căn. Xếp khách sang căn trống khác (cùng hạng hoặc nâng hạng, OTTIMO chịu phần chênh), báo quản lý để đội sửa trạng thái. Không dùng khóa sửa chữa (OOO). Hướng dẫn: sổ tay 2.10, `02` 7.4.
+- **Giá ngoài sàn–trần:** câu báo ở đầu hộp **Đặt phòng mới** còn hiện chữ `{min}`, `{max}` (BUG-R4-040, P3). Desk vẫn chặn đúng. Bấm **Tạo đơn** mà không thấy gì: kéo lên đầu hộp đọc câu báo, hỏi quản lý khoảng sàn–trần. Sửa ở v1.0.5.
+- **Lễ tân và lễ tân trưởng không thấy yêu cầu hoàn còn chờ duyệt do người khác tạo** (Trả sớm, hủy giữ chỗ có cọc, tiền khách trả thừa), cả ở dòng "Đang chờ hoàn" của trang Trả phòng lẫn ở **Nhật ký tiền → Hoàn tiền**. Yêu cầu đã được quản lý duyệt thì vẫn thấy như thường. Đơn có Trả sớm hoặc hủy có cọc mà anh/chị không phải người bấm, hoặc khách hỏi tiền hoàn mà Desk không hiện: **hỏi quản lý hoặc chủ đầu tư** trước khi báo khách số tiền. Không báo khách "không có khoản hoàn". v1.0.5 (chưa có ngày): trang Trả phòng và folio hiện **tổng số đang chờ hoàn** của đơn, kể cả yêu cầu do người khác tạo. Tab **Hoàn tiền** giữ phạm vi như hiện nay; đây là phân quyền có chủ ý. Hướng dẫn: sổ tay 2.14, 2.14a; `02` 11.1, 11.5; `01` 7.3.
+- **Lễ tân trưởng bắt buộc 2 bước** nhưng Desk chưa tự ép (dự kiến v1.0.5). Anh/chị kiểm lúc tạo tài khoản (Việc làm sau khi lên, bước 4).
+- **Desk chưa có màn xem nhật ký bảo mật** (ai đặt lại 2 bước, cho ai, lý do). Cần tra thì nhắn Điều phối viên tên đăng nhập, không kèm lý do.
+- **Check-in online** vẫn dừng với khách thật tới khi đội báo "mở lại" (bước 2 ở trên).
+- **Chữ đơn cách cho tiếng Nga** (BUG-R4-017, P3): ô mã và Wi-Fi hiện chữ Nga bằng font dự phòng. Sửa ở v1.0.5.
+- **Website mới (LP-v2):** mã máy chủ và Desk có trong bản này nhưng khách chưa thấy gì: website chưa hiện giá, chỉ tiếng Anh và tiếng Việt, trang landing giữ bản đang chạy. Khách thấy khi đội đưa landing mới lên và anh/chị bật hiện giá.
+
+### Chưa có trong bản này
+
+| Tính năng | Dự kiến |
+|---|---|
+| Desk tự ép lễ tân trưởng bật 2 bước | **v1.0.5** |
+| Trang Trả phòng và folio hiện tổng số đang chờ hoàn của đơn, kể cả yêu cầu do người khác tạo | **v1.0.5** |
+| Trả sớm trong 00:00–05:59: Desk đặt sẵn **Ngày rời mới** theo ngày lịch, máy chủ chặn ngày hôm trước | **v1.0.5** |
+| Nút **Trả phòng** từ 00:00 cho khách đi đúng ngày (BUG-R4-036) | **v1.0.5** |
+| Desk ghi được giờ khách rời thật trước 06:00 khi trả phòng sau 06:00; bản tóm tắt, VietQR và Trả phòng dùng chung một thời điểm (BUG-R4-051) | **v1.0.5** |
+| Bước Bill: **Tổng cộng** gồm đêm thêm sắp ghi (BUG-R4-052) | **v1.0.5** |
+| Dòng phí khi khách báo trả sớm trong ngày rời ghi "Phí trả phòng sớm (báo trong ngày rời)" / "Early departure fee (same-day notice)" thay "báo trước 0 ngày"; chỉ đổi chữ (FB-R4-DOM-UXD-PR89-02) | **v1.0.5** |
+| Giữ chỗ theo đúng giá thỏa thuận (giá đã gõ) | **v1.0.5** |
+| **Trả phòng** nhận đơn quá ngày đi với ngày rời thật; nút **Cần dọn** ở Desk và app nhân viên | **v1.0.5** |
+| Câu báo giá ngoài sàn–trần có số thật (BUG-R4-040) | **v1.0.5** |
+| Chữ Desk theo bảng giá 01/11 ("28 đêm", "trước giảm theo số đêm", nhãn tham số mức tăng) | **v1.0.5** |
+| Đêm Nội bộ có thu được tính đúng trong chỉ số giá phòng bình quân (BUG-R4-043) | **v1.0.5**, trước báo cáo đầu tiên |
+| Desk chặn hoặc gửi duyệt đơn Nội bộ theo vai | Chưa xếp |
+| Màn xem nhật ký bảo mật trên Desk | Chưa xếp |
+| Hoa hồng nhập theo bảng nội bộ trên Desk, không có số mặc định trong mã | Hotfix H2, hạn 01/12 |
+| Các việc khác trong bảng "Chưa có" của v1.0.3, v1.0.2 và v1.0.0 | Theo đích ghi ở bảng đó |
+
+### Ghi chú kỹ thuật (không đổi giao diện)
+
+- Lên bản theo thứ tự mới: chạy cập nhật dữ liệu → worker → api và web; lùi bản theo thứ tự ngược. Lượt kiểm hằng ngày kiểm thêm lớp chặn sửa, xóa bản thông báo quyền riêng tư và dùng tài khoản chỉ đọc.
+- Bộ dò số thẻ và số giấy tờ dùng chung một bản ở mọi nơi. Nhật ký máy chủ không ghi lỗi kèm chữ khách viết.
+- Kiểm tự động chặn tệp bảng giá nội bộ khỏi repo. Mẫu mô tả PR nhắc không ghi tỷ lệ hay tiền hoa hồng.
+- Kiểm tự động không còn dùng lại kết quả cũ, mọi lượt chạy test thật (#61, BUG-R4-029/030/031). Bốn ca test phụ thuộc giờ hoặc chạy song song được sửa (#62, #76).
+- Công cụ dựng Desk demo và lượt smoke trên máy chạy lại được (#78). Chỉ chạy trên máy, không đụng staging hay production.
+- Sổ tay HTML nhúng sẵn font OTTIMO, mở khi mất mạng vẫn đúng chữ. Bản HTML phát hành sinh lại từ sổ tay mới nhất.
+- Hợp đồng dữ liệu OpenAPI 0.3.12, thêm mô tả cho đêm thêm của đơn Nội bộ và lý do chặn nhận phòng; không nâng số bản.
+- Đội bảo mật rà cảnh báo thư viện trước cắt bản: v1.0.4 không nâng gói nào; gói gửi thư nâng ở v1.0.5.
+- Sổ tay và 6 hướng dẫn không còn ghi tỷ lệ hoa hồng (#89); Desk điền tỷ lệ theo Tham số quy tắc. Bản HTML sổ tay không lưu trong repo; bản dựng trước #89 còn câu có tỷ lệ cũ, nên UXD dựng lại từ sổ tay mới trước khi gửi ai.
+
+---
+
 ## v1.0.3 – Email nhận thông báo bảo mật
 
-- Trạng thái: **CHỜ PHÁT HÀNH.** Cổng QC rút gọn: **ĐẠT CÓ ĐIỀU KIỆN** (`rounds/round-04/qc/v1.0.3-gate.md`); quyết định có hiệu lực khi đội làm xong các điều kiện trước Release. Bản lên production là đúng bản đã chạy thử trên staging (commit `da6d6f3d`). Anh/chị duyệt Release như v1.0.1 và v1.0.2.
-- Ngày phát hành: (điền khi Release)
+- Trạng thái: **ĐÃ PHÁT HÀNH – tag `v1.0.3` trên commit `da6d6f3d`**, production chạy từ **04/11/2026 07:12**. Cổng QC rút gọn: **ĐẠT CÓ ĐIỀU KIỆN** (`rounds/round-04/qc/v1.0.3-gate.md`). Anh/chị duyệt "Phát hành ngay" (04/11), chấp nhận phát hành trước lượt kiểm trả sớm giờ thật sáng 05/11 trên staging; lượt đó ra lỗi tiền thì đội làm bản vá v1.0.3.x. Đội sao lưu ngay trước khi lên; lượt kiểm sau khi lên chạy đủ K1–K9.
+- Ngày phát hành: 04/11/2026
 - Bản này sửa **BUG-R3-032** (P1): thư "Security notice" chưa tới ai. Hạn sửa chậm nhất **09/11** (ESC-040).
 - Áp dụng từ khi anh/chị báo "v1.0.3 đã lên". Hướng dẫn: bộ hướng dẫn theo bộ phận bản 1.7 (áp dụng khi v1.0.3 lên) – chủ đầu tư và quản lý `01` mục 1.6a, 1.7, 1.9, 2.2, 10.1, 10.2, 15.1; lễ tân `02` mục 1.3, 1.5, 1.6, 1.8; buồng phòng `03` mục 1.6; bảo trì `04` mục 1.5; sale, CTV `05` mục 1.5. Sổ tay gốc bản nội dung 1.9 – mục 0.2, 0.3a (email của mình), 0.4, 0.5, 1.1, 1.5 (chủ đầu tư sửa email cho nhân viên), 1.7, 1.16 (thứ tự ngày lên bản), 3.1, 3.6, 4.1, 5.0.
 
