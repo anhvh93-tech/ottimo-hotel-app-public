@@ -11,11 +11,12 @@
   - BUG-R4-041, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, đang ở production. QA chốt P0 khi chưa có khóa tạm. Từ 05/11 01:00: **đã sửa – chờ gộp #75**, khóa tạm đạt, **hạ P2**.
   - BUG-R4-046, QA3 thêm 05/11 01:30 theo thẻ ARC FB-R4-ARC-FE-PR82-01. Lỗi có từ trước v1.0.1, đang ở production. ARC đề xuất P2, QA chốt **P0** theo luật lỗi tiền. Từ 05/11 02:00: **đã sửa – chờ gộp #82** (QA3 đạt ở `0e48686c`).
   - BUG-R4-048, QA3 thêm 05/11 02:30 theo thẻ ARC FB-R4-ARC-FE-PR83-01. Lỗi do #83 sinh ra, chỉ có trên nhánh `v104/fe-minibar-followup` @ `19cfa3f7`. Chưa vào `main`, không có ở production. ARC ghi Major; QA chốt **P0** theo luật lỗi tiền. Từ 05/11 02:50: **đã sửa – chờ gộp #83** (QA3 đạt ở head `e411cb22`), không còn chặn #83.
-- Có **ba lỗi P1** (BUG-R4-036 đã hạ P2 lúc 05/11 08:00, xem dòng dưới):
+- Có **bốn lỗi P1** (BUG-R4-036 đã hạ P2 lúc 05/11 08:00, xem dòng dưới; BUG-R4-053 thêm 05/11 15:10):
   - BUG-R4-035, thêm 04/11 tối;
   - ~~BUG-R4-036~~ **đã hạ P2 lúc 05/11 08:00** (ORC): #66 gộp `main` @ `0d11db20`, đủ điều kiện ghi dưới. Trước đó: nâng từ P2 lúc 05/11 05:30 (QA2) theo điều kiện ghi ở mục lỗi: cách làm tạm trong sổ tay (CO-05) không chạy trên Desk. Từ 05/11 06:00, CO-05 bản 0.15 đạt trên `main`. Hạ lại P2 khi #66 gộp (#85 đã gộp `main` `0dd3fcb3`; câu ở #66 @ `99d103a0` khớp, QA2 05/11 07:15). ORC hạ, không cần QA chạy lại;
   - BUG-R4-039, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, nên đang ở production;
-  - BUG-R4-042, QA2 thêm 05/11. Lỗi có từ v1.0.1, đang ở production. Từ 05/11 02:00: **đã gộp `main` @ `3e6a762b`, chờ staging** (QA3 đạt ở `054d40c0`). 05/11 02:50: hồi quy trên #83 @ `e411cb22` đạt.
+  - BUG-R4-042, QA2 thêm 05/11. Lỗi có từ v1.0.1, đang ở production. Từ 05/11 02:00: **đã gộp `main` @ `3e6a762b`, chờ staging** (QA3 đạt ở `054d40c0`). 05/11 02:50: hồi quy trên #83 @ `e411cb22` đạt;
+  - BUG-R4-053, QA thêm 05/11 15:10 từ S16 của diễn tập 5.0 trên staging (ORC chạy thay QA). Lỗi mới của v1.0.4 (P4-42), không có ở production. **P1 đề xuất, SEC chốt mức cuối.** Mới.
   - Lượt local 1 lúc 19:00 chưa có lỗi P0/P1 nào.
 - Cập nhật 04/11 19:30 (QA, bước Phản hồi & sửa): BUG-R4-033/034 đã sửa ở PR #62, chờ merge. BUG-R2-216: mục "Mong đợi" sửa theo UXD. BUG-R2-216/219: PR #60 (UXD đạt) chưa vào `main`, nên chưa chạy lại HD-01/02.
 - Cập nhật 04/11 19:45 (QA, bước Kiểm thử, chạy lại):
@@ -322,6 +323,11 @@
       - Test case bản 0.18 thêm CO-05 (b) trên STG 07/11 12:35–13:00.
     - (b) Dòng BUG-R4-050 cho bản đang chạy nên thêm "thu theo giá gợi ý, không sửa giá đêm thêm" (PO quyết).
   - Bảng tóm tắt: sửa trạng thái 029–034, 039, 041 theo các lần gộp ở trên.
+- Cập nhật 05/11 15:10 (QA, bước Kiểm thử, diễn tập 5.0 trên staging v1.0.4 `sha-0d11db201343`, S16 sau lên lại 15:00:30). ORC chạy phần cần đăng nhập thay QA (QA plan 14.1), qua API của trang khách (biên bản diễn tập mục 4 ý 4):
+  - **Thêm BUG-R4-053 (P1 đề xuất).** Trang khách `ru`: bấm "đã đọc" thông báo `privacy-2026-10-v2` ghi `online_checkin.notice_locale = en`, trong khi `consent_record` của cùng lượt ghi `ru`.
+  - K11 (d) của S16 lệch hàng "Đúng là" của runbook (dòng 588) ở `online_checkin`. Phần `consent_record` đúng. K11 (c) đã đạt (QA plan 14.6).
+  - QA đọc mã `0d11db20` để xác nhận gốc. QA chưa tự chạy lại (không đăng nhập staging).
+  - Đề xuất ca hồi quy mới RG-35 (QA plan mục 14, ghi chú S16 sau 14.6).
 
 ## Tóm tắt
 
@@ -351,6 +357,7 @@
 | BUG-R4-050 | P2 | Trả phòng (H16) sau 24:00 của ngày đi (giờ 00:00–05:59, ngày làm việc vẫn là ngày đi): Desk dựng `checkoutAt` cho VietQR bằng ngày đi của đơn + giờ gõ (`CheckOutPage.tsx` 509–511, 1788–1790), sớm hơn thật 24 giờ. Máy chủ hiểu là cửa sổ sau nửa đêm của ngày đi, trần QR 0 đ. **VietQR bị từ chối** ("Số tiền lớn hơn số còn phải thu"). **Giá đêm thêm đã sửa không tính lại được**: Bill hiện số theo giá gợi ý, Hoàn tất 422 tới khi gõ lại. Không sai tiền: B18 của Desk gửi `checkoutTime`, đêm thêm vẫn tính đúng BR-416. Có ở v1.0.3 (theo mã) | FE-A (+ ARC xem quy tắc chọn ngày; BA câu sổ tay tạm) | **Đã gộp `main` `5b785535` (#86, 05/11), đạt trên `main`** (QA2 05/11 06:00: RG-31 (a)–(g) trên `f670d99b` + #87). Ca này cần đồng hồ giả, nên không có ca STG. Chờ phát hành v1.0.4 để đóng. Trước đó: Đã sửa (head `45d2cfed`, QA2 ĐẠT 05/11 05:30). Unit U1–U12 của ARC 19/19. E2E Desk 8 ca, gồm RG-31 (b) giá đêm thêm đã sửa. Hồi quy desk-clock 23/23, clock 71 đạt. Head `9010e65f`: dừng, ARC KHÔNG ĐẠT. Trước đó: Mới (QA2 05/11 05:00, ca DOM nhờ ở review #72) |
 | BUG-R4-051 | P2 | Trả phòng (H16): giờ gõ trước mốc 06:00 mà bấm sau mốc bị đọc là **sáng hôm sau**. Lý do: Desk chỉ gửi `checkoutTime` cho bản tóm tắt và B18, và máy chủ đọc theo trục ngày làm việc của lúc bấm. Ví dụ: 04:30 gõ lúc 06:10 ngày đi thì Desk hiện đêm thêm và "Còn phải thu 792.000 đ", rồi B18 422 `TIME_AFTER_ACTION`. Desk không ghi lùi được giờ khách rời trong cửa sổ sau nửa đêm. Không sai tiền (B18 từ chối). Từ #86, VietQR nhận số 792.000 cho ca này. Có ở v1.0.3 (theo mã) | FE-A (+ ARC) | Mới (QA2 05/11 05:30). Đề xuất dời v1.0.5: Desk gửi một `checkoutAt` cho bản tóm tắt, VietQR và B18 (ARC mục 2). Cách làm tạm v1.0.4 ở BUG-R4-036 |
 | BUG-R4-052 | P3 | Trả phòng (H16), bước Bill: "Tổng cộng" (`CheckOutPage.tsx` 1753, `totalVnd` của bản tóm tắt) không gồm đêm thêm sắp ghi. Folio ngay dưới có dòng đêm thêm, và "Còn phải thu" có tính, nên ba con số không khớp nhau. Không sai tiền. Có ở v1.0.3 (theo mã) | FE-A (+ UXD nhãn) | Mới (QA2 05/11 05:30). Đề xuất dời v1.0.5. Không chặn #86 |
+| BUG-R4-053 | **P1** (QA đề xuất; SEC chốt mức cuối) | Trang khách `ru`, bước thông báo: bấm "đã đọc" `privacy-2026-10-v2` ghi `online_checkin.notice_locale = en`, trong khi trang hiện bản RU đã ký và `consent_record` của cùng lượt ghi `ru`. Gốc: `guest-portal.service.ts:47` `APPROVED_NOTICE_LOCALES = ['vi','en']`, dòng 491 đổi `ru` thành `en`; chưa đổi khi P4-42 bỏ `RU_UNREVIEWED_LEGAL`. Test BE `guest-portal.test.ts:563` còn khóa kết quả `en`. Thấy ở S16 diễn tập 5.0 (staging `sha-0d11db201343`). Không sai tiền. Lỗi mới của v1.0.4, không có ở production | BE (+ SEC quy tắc, ARC đường phát hành) | Mới (ORC chạy thay QA 05/11 15:01–15:04; QA ghi 15:10). PR nhánh `v104/fix-ru-notice-locale`. K11 (d) lệch thì runbook đòi báo SEC + MOB, không sửa dữ liệu; ở N6 thì dừng check-in online. Ca hồi quy RG-35 (đề xuất) |
 | BUG-R2-216 | P3 | Thấy lại: hộp "Giữ chỗ" sau khi tạo in 2 lần số cọc và nội dung chuyển khoản | FE-B + UXD | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-01 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 | BUG-R2-219 | P3 | Thấy lại: hộp "Giữ chỗ" khi khách đến hôm nay vẫn hiện bộ chọn 12/24/48 h và mốc hạn đã qua | FE-B + UXD (chữ) | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-02 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 
@@ -1963,6 +1970,59 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Đề xuất sửa:** FE cộng đêm thêm và phụ thu đang chọn vào số hiển thị, hoặc máy chủ trả thêm tổng dự kiến trong bản tóm tắt. UXD xem nhãn.
 - **Vai chịu trách nhiệm:** FE-A (+ UXD nhãn; ARC nếu thêm trường).
 - **Trạng thái:** Mới (QA2 05/11 05:30). Đề xuất dời v1.0.5. Không chặn #86.
+
+### BUG-R4-053 – Trang khách RU: bấm "đã đọc" thông báo v2 ghi `online_checkin.notice_locale = en` thay vì `ru`
+- **Mức:** P1 (QA đề xuất 05/11 15:10). SEC chốt mức cuối ở `rounds/round-04/reviews/SEC-on-ru-notice-locale-drill.md` (lúc QA ghi chưa có tệp).
+  - Không sai tiền, không lộ dữ liệu.
+  - Nhưng bằng chứng đọc thông báo (dữ liệu cá nhân) ghi sai ngôn ngữ khách đã đọc: trang hiện bản RU đã ký, máy chủ ghi `en`. Hai bảng của cùng một lượt lệch nhau (`consent_record` ghi `ru`, `online_checkin` ghi `en`).
+  - Runbook: K11 (d) không khớp hàng "Đúng là" (dòng 588) thì báo SEC + MOB ngay, không sửa dữ liệu (dòng 591). Ở N6 (dòng 603), lệch thì check-in online dừng tới khi SEC + MOB sửa. Phát hành như hiện tại thì khách RU đầu tiên làm check-in online trên production sẽ ghi `en`.
+- **Môi trường:** staging, v1.0.4 `sha-0d11db201343` (`SHA_V104` `0d11db20`), sau lên lại 05/11 15:00:30, bước S16 của diễn tập 5.0. `CLOCK_MODE=system`.
+  - ORC chạy thay QA (QA plan 14.1), qua đúng các API trang khách gọi, không qua trình duyệt (biên bản diễn tập mục 4 ý 4).
+  - Đơn thử R-PV1 = `OTM-00386` (khách giả, tạo ở D4).
+- **Liên quan:**
+  - `rounds/round-04/outputs/OPS/v1.0.4-release-runbook.md` dòng 588 (K11 (d): trang ru ghi `ru`, R-CON-02), dòng 591, N6 dòng 603;
+  - `01-decisions/decision-log.md` dòng 507 (SEC 2026-10-17: bằng chứng ghi ngôn ngữ thực hiển thị; bỏ khóa khỏi `RU_UNREVIEWED_LEGAL` khi UXD + SEC ký bản RU và tăng `privacy_notice_version`);
+  - `rounds/round-04/reviews/SEC-on-privacy-v2-ru.md` mục 4 điều kiện 4 (lượt đồng ý thử ở `ru` ghi `notice_locale = ru` và `privacy-2026-10-v2`);
+  - `rounds/round-04/outputs/MOB/v1.0.4-P4-42.md` dòng 17 (`RU_UNREVIEWED_LEGAL` trống; trang RU ghi `ru`);
+  - `product/services/api/src/modules/guest-portal/internal/guest-portal.service.ts` dòng 47, 489–491;
+  - `product/services/api/test/integration/guest-portal.test.ts` dòng 563; `product/apps/guest-web/src/__tests__/flow.test.tsx` dòng 497;
+  - QA plan lượt 2 mục 4 (S16), 14.6 và ghi chú S16; TC-V104-PV-03 (= K11 (d) ở S16).
+- **Các bước tái hiện** (ORC, 05/11, giờ VN, qua API trang khách):
+  1. Mở link check-in online của R-PV1 (`POST /v1/guest/sessions`). Link chỉ ở scratchpad của ORC.
+  2. Đổi ngôn ngữ vi → en → ru (`PUT /v1/guest/locale`, mỗi lần 204).
+  3. Ở `ru`, bấm "đã đọc" thông báo `privacy-2026-10-v2` lúc 15:01:23 → 200, `noticeAccepted` true.
+  4. Gửi một lượt đồng ý thử trên `ru` (P02B, từ chối giữ ảnh) lúc 15:04:28 → 201.
+  5. K11 (d) tính từ giờ lên lại (15:00:30), chỉ đếm.
+- **Thực tế:**
+  - `consent_record`: `privacy-2026-10-v2 | ru | guest_app | 1` – đúng.
+  - `online_checkin`: `privacy-2026-10-v2 | en | 1` – **sai**.
+  - Gốc (QA đọc mã `0d11db20`):
+    - `guest-portal.service.ts:47` `APPROVED_NOTICE_LOCALES = ['vi', 'en']`. Dòng 491 ghi `notice_locale` bằng ngôn ngữ của phiên nếu có trong danh sách, không thì `en`. Phiên `ru` thành `en`.
+    - Luật này theo quyết định SEC (a) 17/10, lúc trang RU còn hiện văn bản pháp lý bằng EN (`RU_UNREVIEWED_LEGAL`, chú thích dòng 489–490).
+    - P4-42 đã làm trống `RU_UNREVIEWED_LEGAL` ở guest-web, nên trang RU nay hiện bản RU đã ký. Máy chủ chưa đổi theo.
+    - Lượt đồng ý ghi đúng `ru`, vì trang khách tự gửi `locale` trong lệnh đồng ý.
+    - Test BE `guest-portal.test.ts:563` ("SEC decision (a) … (ru → en)") vẫn đòi `en`, nên CI xanh với lỗi này.
+- **Mong đợi:** ở trang `ru` với `privacy-2026-10-v2`, `online_checkin.notice_locale = ru`, khớp `consent_record.locale` của cùng lượt (runbook dòng 588 và N6 dòng 603; decision-log dòng 507; SEC mục 4 điều kiện 4; MOB P4-42 dòng 17). `vi`, `en` giữ nguyên.
+- **v1.0.3 (production): không có lỗi này** (theo mã, không chạy stack v1.0.3).
+  - Máy chủ `v1.0.3` có cùng dòng 47 và 491.
+  - Nhưng guest-web `v1.0.3` còn `RU_UNREVIEWED_LEGAL` có `gw.notice_body` (`i18n.tsx` dòng 28–40). Trang RU khi đó hiện thông báo bằng EN, nên ghi `en` là đúng.
+  - Lỗi chỉ xuất hiện khi P4-42 vào (v1.0.4).
+- **Đề xuất sửa** (BE; SEC chốt quy tắc):
+  - Thêm `ru` vào danh sách ngôn ngữ có thông báo đã duyệt. Gợi ý: gắn danh sách theo phiên bản: `privacy-2026-10-v2` có `vi`, `en`, `ru`; `privacy-2026-10-v1` có `vi`, `en`. Ngôn ngữ ngoài danh sách vẫn về `en`.
+  - Sửa chú thích dòng 489–490.
+  - Không sửa dữ liệu đã ghi trên staging (runbook dòng 591). Dòng `en` của R-PV1 giữ làm bằng chứng.
+  - ARC chốt đường phát hành (bản sửa đi cùng v1.0.4 hay theo sau, có chạy lại S16 không) ở `rounds/round-04/reviews/ARC-on-s16-release-path.md`.
+- **Test chống tái phát:**
+  - BE integration: đổi ca `guest-portal.test.ts:563` thành `ru` → `ru` với v2. Nếu SEC giữ luật "chưa duyệt thì `en`", thêm một ca ngôn ngữ chưa duyệt (ví dụ v1 + `ru`) → `en`.
+  - BE integration: một lượt `ru` đủ bước (đọc thông báo rồi đồng ý). Kiểm `online_checkin.notice_locale` và `consent_record.locale` cùng là `ru`.
+  - STG: **RG-35 (đề xuất)**, chạy sau khi bản sửa lên staging. Lặp các bước trên một đơn thử mới chưa đọc thông báo (khách giả), vì R-PV1 đã đọc. K11 (d) tính từ giờ lên bản sửa phải có `privacy-2026-10-v2|ru|1` ở `online_checkin` và `privacy-2026-10-v2|ru|guest_app|1` ở `consent_record`, không có dòng `en` mới. QA thêm RG-35 vào test case và traceability ở lần cập nhật kế tiếp.
+- **Bằng chứng:** ORC chạy và gửi QA giờ, mã trạng thái và số đếm K11 (d). Số đếm thuộc ô S16 của `rounds/round-04/outputs/OPS/v1.0.4-staging-drill.md`. Không có ảnh, link khách hay phản hồi API trong repo. QA chưa tự chạy (không đăng nhập staging, plan 14.1); QA đọc mã để xác nhận gốc.
+- **Vai chịu trách nhiệm:** BE (PR nhánh `v104/fix-ru-notice-locale`; lúc QA ghi, nhánh chưa có commit so với `main`). SEC (quy tắc ngôn ngữ của bằng chứng, chốt mức). ARC (đường phát hành). MOB đọc lại; phía client không cần đổi.
+- **Trạng thái:** Mới (ORC chạy thay QA 05/11 15:01–15:04; QA ghi 05/11 15:10). S16: K11 (c) đạt (QA plan 14.6), K11 (d) lệch ở `online_checkin`.
+  - Ghi chú về độ phủ test:
+    - Test MOB (`flow.test.tsx:497`, chạy trên mock) chỉ kiểm phía client gửi `locale: 'ru'` vào lượt đồng ý.
+    - Test BE duy nhất đọc `online_checkin.notice_locale` cho `ru` (`guest-portal.test.ts:563`) lại khóa kết quả cũ `en`.
+    - Sau P4-42, không test nào kiểm `ru` → `ru` ở `online_checkin`. Vì vậy QA thêm ca hồi quy RG-35 (đề xuất) vào QA plan (mục 14, ghi chú S16 sau 14.6).
 
 ---
 
