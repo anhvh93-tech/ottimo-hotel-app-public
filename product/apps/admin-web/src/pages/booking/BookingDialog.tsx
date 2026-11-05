@@ -14,7 +14,7 @@ import {
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '../../app/api';
 import { DIRECT_SOURCES } from './directSources';
 import { useCatalog } from '../../app/catalog';
@@ -96,6 +96,11 @@ interface Form {
   rates: Record<string, string>;
   /** ARC 16.18 (vòng sửa 5): nights whose rate box the desk changed – `NightRate.edited` (no number test). */
   ratesEdited: Record<string, boolean>;
+  /**
+   * BUG-R4-037: the stay (`previewKey`) whose price preview filled the boxes the desk has not typed. Those figures
+   * count – shown and sent – only while that is still the stay on screen; otherwise the untyped boxes are empty.
+   */
+  ratesFor?: string;
   depositAmount: string;
   /**
    * BUG-R3-005: the desk typed "Số tiền đã nhận" itself. Until then the box follows the NEWEST quote's deposit
@@ -111,7 +116,36 @@ interface Form {
   capacityReason: string;
 }
 
-const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
+/**
+ * DOM (ARC-03 / UXD-05, BR-112, BR-429 (g), BR-421 (b)): a change that drops the rates the desk TYPED.
+ * - Channel to or from OTA / Nội bộ: a Direct agreed rate is not an OTA rate, nor an intended "internal with charge".
+ * - Room at Trực tiếp / CTV into another room group: an agreed rate belongs to its room type.
+ * Kept: guests, dates (nights still in the stay), Trực tiếp ↔ CTV, a room of the same group, any room at OTA / Nội bộ
+ * (their price goes with the booking, not the room).
+ * The reason names the sentence (UXD): the channel one first when channel and room change together.
+ */
+type RateDrop = 'channel' | 'room_group';
+function rateDrop(
+  was: { group: ChannelGroup; roomId: string },
+  now: { group: ChannelGroup; roomId: string },
+  groupOf: (roomId: string) => string | undefined,
+): RateDrop | null {
+  const ownPrice = (g: ChannelGroup) => g === 'ota' || g === 'internal';
+  if (was.group !== now.group && (ownPrice(was.group) || ownPrice(now.group))) return 'channel';
+  if (was.roomId && now.roomId !== was.roomId && !ownPrice(now.group)) {
+    const a = groupOf(was.roomId);
+    return !a || a !== groupOf(now.roomId) ? 'room_group' : null;
+  }
+  return null;
+}
+
+/** BUG-R4-037: the stay a price preview prices – channel, room and dates (the guests do not change a night's rate). */
+const previewKey = (x: {
+  roomId: string;
+  channelId?: string;
+  arrivalDate: string;
+  nights: number;
+}) => `${x.channelId ?? ''}|${x.roomId}|${x.arrivalDate}|${x.nights}`;
 
 /**
  * H09 Đặt phòng mới (S05, US-017/018/019/023, B2). Nightly prices, deposit and the extra-guest fee are
@@ -201,6 +235,18 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const [busy, setBusy] = useState<'create' | 'hold' | null>(null);
   const [calc, setCalc] = useState<QuoteCalculation | null>(null);
   const [calcError, setCalcError] = useState<unknown>(null);
+  /**
+   * UXD `booking.rates_cleared_channel` / `booking.rates_cleared_room_group` (FB-R4-UXD-FE-PR70-07): the last channel
+   * or room change dropped at least one rate the desk typed – which change, and the room it went to.
+   */
+  const [ratesCleared, setRatesCleared] = useState<{ why: RateDrop; room: string } | null>(null);
+  /** BUG-R4-037 (BE 1.8): the stay (`previewKey`) the last preview answered for – priced or failed. */
+  const [calcFor, setCalcFor] = useState<string | null>(null);
+  /**
+   * DOM ARC-03: a change that dropped the rates asks the preview again – also for the very stay it priced last (the
+   * desk went to OTA and back inside the 300 ms debounce): otherwise the boxes would stay empty with no call coming.
+   */
+  const [requote, setRequote] = useState(0);
   const [avail, setAvail] = useState<{ available: boolean; reason?: string; alt: string[] } | null>(
     null,
   );
@@ -215,9 +261,30 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         : f,
     ),
   );
+  const groupOf = (id: string) => catalog.rooms.find((x) => x.id === id)?.roomGroupId;
   const set = (patch: Partial<Form>) => {
+    const now = { ...form, ...patch };
+    const drop = rateDrop(form, now, groupOf);
+    const drops = drop !== null;
+    // One sentence says the change dropped typed rates (a night of this stay with a typed figure). It goes when the
+    // desk types a rate again, or on the next change of its kind: any channel change; a room change for the room
+    // sentence (a room change keeps the channel sentence – the typed rates are gone already).
+    const said =
+      drop && dates.some((d) => form.ratesEdited[d] && !!form.rates[d])
+        ? { why: drop, room: catalog.rooms.find((x) => x.id === now.roomId)?.roomNo ?? '' }
+        : null;
+    if (patch.group !== undefined && patch.group !== form.group) setRatesCleared(said);
+    else if (patch.roomId !== undefined && patch.roomId !== form.roomId)
+      setRatesCleared((c) => said ?? (c?.why === 'channel' ? c : null));
+    else if (patch.ratesEdited) setRatesCleared(null);
+    if (drops) {
+      // "Tạo đơn" waits (BE 1.8) until the new preview has filled the boxes again
+      setCalcFor(null);
+      setRequote((n) => n + 1);
+    }
     setForm((f) => {
-      const next = { ...f, ...patch };
+      let next = { ...f, ...patch };
+      if (rateDrop(f, next, groupOf)) next = { ...next, rates: {}, ratesEdited: {} };
       writeDraft(DRAFT_KEY, JSON.stringify(next));
       return next;
     });
@@ -244,6 +311,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         : [],
     [datesOk, nights, form.arrivalDate],
   );
+  // DOM (ARC-03 / UXD-05): a hold is priced from the list (saveQuote → createHoldFromQuote carry no nightly rate), so
+  // with a rate the desk typed on a night of this stay "Giữ chỗ" is locked; the line beside it says what to do.
+  const typedRate = dates.some((d) => form.ratesEdited[d] && !!form.rates[d]);
+  const holdWhyId = useId();
+  /** H09 "Giữ chỗ đến …" is offered: Trực tiếp / CTV, arriving from tomorrow, online. */
+  const canHold = directLike && form.arrivalDate > today && online;
   const { extra } = occupancy(form.occ.adults, form.occ.children6to11, room?.baseOccupancy ?? 2);
   const overCapacity =
     !!room && form.occ.adults + form.occ.children6to11 > (room.maxOccupancy ?? 99);
@@ -287,6 +360,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       occ: form.occ,
       channelId: channel?.id,
       on: directLike && datesOk && !longStay && !overCapacity,
+      requote,
     }),
     300,
   );
@@ -323,30 +397,41 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           if (stale) return;
           setCalc(r.data);
           setCalcError(null);
-          setForm((f) => ({
-            ...f,
-            // BR-107 v0.3.8 (DOM S4-38): the desk types the CALENDAR rate (before the length-of-stay step) –
-            // the server applies the step on what it gets, so a stepped figure here would be stepped twice.
-            rates: Object.fromEntries(
-              (r.data.nightlyRates ?? []).map((n) => [
-                n.date,
-                vnd(n.calendarRateVnd ?? n.amountVnd),
-              ]),
-            ),
-            // The server priced the stay again (room, dates, guests): the boxes hold its rates, none edited.
-            ratesEdited: {},
-            // BUG-R3-005: follow the newest quote unless the desk typed the amount (then: mismatch warning).
-            depositAmount: f.depositEdited
-              ? f.depositAmount
-              : r.data.depositVnd
-                ? vnd(r.data.depositVnd)
-                : '',
-          }));
+          setCalcFor(previewKey(p));
+          setForm((f) => {
+            // BUG-R4-037: a box the desk typed keeps its figure; every other box takes this preview's rate and
+            // counts only for this stay (`ratesFor`). A box typed and then emptied is open to the preview again.
+            const typed = (d: string) => !!f.ratesEdited[d] && !!f.rates[d];
+            const kept = Object.keys(f.rates).filter(typed);
+            return {
+              ...f,
+              // BR-107 v0.3.8 (DOM S4-38): the desk types the CALENDAR rate (before the length-of-stay step) –
+              // the server applies the step on what it gets, so a stepped figure here would be stepped twice.
+              rates: {
+                ...Object.fromEntries(
+                  (r.data.nightlyRates ?? []).map((n) => [
+                    n.date,
+                    vnd(n.calendarRateVnd ?? n.amountVnd),
+                  ]),
+                ),
+                ...Object.fromEntries(kept.map((d) => [d, f.rates[d]!])),
+              },
+              ratesEdited: Object.fromEntries(kept.map((d) => [d, true])),
+              ratesFor: previewKey(p),
+              // BUG-R3-005: follow the newest quote unless the desk typed the amount (then: mismatch warning).
+              depositAmount: f.depositEdited
+                ? f.depositAmount
+                : r.data.depositVnd
+                  ? vnd(r.data.depositVnd)
+                  : '',
+            };
+          });
         },
         (e: unknown) => {
           if (stale) return;
           setCalc(null);
           setCalcError(e);
+          setCalcFor(previewKey(p));
         },
       );
     return () => {
@@ -386,17 +471,45 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     };
   }, [availInput, propertyId, today]);
 
-  const rateList = dates.map((d) => ({ date: d, raw: form.rates[d] ?? '' }));
+  // BUG-R4-037: the preview's figures belong to ITS channel, room and dates. The stay on screen now – the same test
+  // the preview runs on (`calcInput.on`), so OTA / Nội bộ / long stay / over capacity never have one – and a box the
+  // desk has not typed shows (and sends) the preview's figure only for that very stay; otherwise it is empty: the
+  // server prices it (OTA calendar – BUG-R2-017; Nội bộ 0 đ; Trực tiếp / CTV the list rate).
+  const liveKey =
+    directLike && datesOk && !longStay && !overCapacity && form.roomId && channel
+      ? previewKey({
+          roomId: form.roomId,
+          channelId: channel.id,
+          arrivalDate: form.arrivalDate,
+          nights,
+        })
+      : null;
+  const prefillLive = !!liveKey && form.ratesFor === liveKey;
+  // BE 1.8: Trực tiếp / CTV – room, dates or channel changed and the preview of the new stay is not back yet (300 ms
+  // debounce + the call): "Tạo đơn" waits (DS busy, like H16 PR #67) – nothing of the previous stay is sent meanwhile.
+  const priceWaiting = !!liveKey && calcFor !== liveKey;
+  const rateList = dates.map((d) => ({
+    date: d,
+    raw: form.ratesEdited[d] || prefillLive ? (form.rates[d] ?? '') : '',
+  }));
   const calendarOf = (date: string) => {
     const n = calc?.nightlyRates?.find((x) => x.date === date);
     return n ? (n.calendarRateVnd ?? n.amountVnd) : undefined;
   };
   // 0.3.5 A-14: the server splits room total / extra-person fee – no subtraction on the client.
   const extraFee = calc?.extraPersonFeeVnd ?? 0;
-  const ratesTouched = !!calc && rateList.some((r) => parseVnd(r.raw) !== calendarOf(r.date));
+  // Only a box the desk typed can differ from the server's rate (an untyped one holds it, or is empty while the
+  // preview of this stay is on its way).
+  const ratesTouched =
+    !!calc &&
+    rateList.some((r) => form.ratesEdited[r.date] && parseVnd(r.raw) !== calendarOf(r.date));
   // BR-107 step of this stay (server). Untouched rates → the server's stepped total; typed rates → the step
   // is applied by the server on save (no client arithmetic) – the sum shown is then the calendar sum.
   const losPct = calc?.losDiscountPct ?? 0;
+  // FB-R4-UXD-FE-PR82-01: the BR-107 sentences speak of the stay on screen only – while its preview is on its way
+  // they say nothing (the old preview's step glued to the new number of nights read e.g. "3 đêm được giảm 10%").
+  // `ratesLocked` keeps the preview's step: it is the guard against stepping twice, not a sentence.
+  const losShown = priceWaiting ? 0 : losPct;
   // A server without the calendar rate per night would leave stepped figures in the inputs (stepped twice on
   // save) – the rates stay read-only then (DOM S4-38).
   const ratesLocked =
@@ -427,11 +540,37 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       e.internalNote = t('field_error.reason_required');
     if (overCapacity && form.group !== 'ota')
       e.occ = t('error.CAPACITY_EXCEEDED', { room: room!.roomNo, max: room!.maxOccupancy ?? '' });
+    // FB-R4-UXD-FE-PR82-04: a Nội bộ night typed 0 (or not a figure) says how to make it free – leave the box empty
+    // (BR-105 v0.5.8 (7): 0 is not taken yet) – never "(lớn hơn 0)" alone, which pushes a rate into a free night.
     rateList.forEach((r, i) => {
       if (r.raw && !((parseVnd(r.raw) ?? 0) > 0))
-        e[`nightlyRates[${i}].amountVnd`] = t('booking.error.rate_empty');
+        e[`nightlyRates[${i}].amountVnd`] = t(
+          form.group === 'internal'
+            ? 'booking.error.rate_zero_internal'
+            : 'booking.error.rate_empty',
+        );
     });
-    if (form.group === 'ota' && rateList.some((r) => r.raw) && rateList.some((r) => !r.raw))
+    // FB-R4-ARC-FE-PR82-01: OTA and Nội bộ type every night or none (`body()` sends their rates only when all are
+    // typed). Before, a Nội bộ stay typed in part went through: no rates sent, the server wrote 0 đ for every night
+    // and the typed figures were lost. Nội bộ has its own sentence – empty boxes are its free stay (BR-105 v0.5.8,
+    // FB-R4-DOM-UXD-PR82-01).
+    if (
+      (form.group === 'ota' || form.group === 'internal') &&
+      rateList.some((r) => r.raw) &&
+      rateList.some((r) => !r.raw)
+    )
+      e.rates = t(
+        form.group === 'internal'
+          ? 'booking.error.rate_empty_internal'
+          : 'booking.error.rate_empty',
+      );
+    // BUG-R4-037: Trực tiếp / CTV with a typed rate sends every night – never an empty one as 0 đ (the preview of
+    // this stay not back yet, or a box emptied by hand).
+    if (
+      directLike &&
+      (ratesTouched || rateList.some((r) => form.ratesEdited[r.date])) &&
+      rateList.some((r) => !r.raw)
+    )
       e.rates = t('booking.error.rate_empty');
     if (directLike && !((parseVnd(form.depositAmount) ?? 0) > 0))
       e.deposit = t('field_error.amount_not_positive');
@@ -453,9 +592,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       edited: !!form.ratesEdited[r.date],
     });
     const anyEdited = rateList.some((r) => form.ratesEdited[r.date]);
+    // BUG-R4-037: OTA / Nội bộ send rates only when the desk typed every night (`rateList` holds nothing else for
+    // them); otherwise the server prices the stay (OTA calendar – BUG-R2-017; Nội bộ 0 đ).
     const nightly =
       form.group === 'ota' || form.group === 'internal'
-        ? rateList.every((r) => r.raw)
+        ? rateList.every((r) => r.raw && form.ratesEdited[r.date])
           ? rateList.map(night)
           : undefined
         : ratesTouched || anyEdited
@@ -546,7 +687,19 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     }
     if (e.code === 'VALIDATION_FAILED') {
       const out: Record<string, string> = {};
+      // FB-R4-UXD-FE-PR70-01: an error on `nightlyRates` must land on a key the form shows – `rates` (under the rate
+      // table) or one night's box. Before, `out.nightlyRates` was set and shown nowhere, so "Tạo đơn" came back with
+      // no sentence (e.g. OTA left empty while the room group has no OTA base rate: 422 `nightlyRates REQUIRED`).
+      const rateKey = (field: string): string | null => {
+        const f = field.replace(/^body\./, '');
+        if (!/^nightlyRates(\[|\.|$)/.test(f)) return null;
+        const i = /^nightlyRates\[(\d+)\]/.exec(f)?.[1];
+        return i !== undefined && Number(i) < rateList.length
+          ? `nightlyRates[${i}].amountVnd`
+          : 'rates';
+      };
       for (const fe of e.fieldErrors) {
+        const rk = rateKey(fe.field);
         if (fe.code === 'LONG_STAY_REQUIRES_CONTRACT') setLongStay(true);
         else if (fe.code === 'RATE_OUT_OF_RANGE_WARNING') setRateWarn(true);
         else if (fe.code === 'CAPACITY_EXCEEDED_WARNING')
@@ -562,13 +715,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           setMinStaySuggest(suggestionsOf(e).filter((x) => x.orphanNight !== false));
           out.departureDate = t('field.MIN_STAY_NOT_MET', { n });
         } else if (fe.code === 'RATE_OUT_OF_RANGE') {
-          out[fe.field] = t('booking.error.rate_range', {
+          out[rk ?? fe.field] = t('booking.error.rate_range', {
             min: String(e.problem.min ?? ''),
             max: String(e.problem.max ?? ''),
             group: '',
           });
-        } else if (!(fe.field in out))
-          out[fe.field] = fieldErrorText(t, fe, { n: rules.longStayFromNights });
+        } else if (rk && (fe.code === 'REQUIRED' || fe.code === 'AMOUNT_NOT_POSITIVE')) {
+          if (!(rk in out)) out[rk] = t('booking.error.rate_empty');
+        } else if (!((rk ?? fe.field) in out))
+          out[rk ?? fe.field] = fieldErrorText(t, fe, { n: rules.longStayFromNights });
       }
       setErrors(out);
       if (!Object.keys(out).length && !rateWarn) setRequestError(null);
@@ -579,7 +734,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
   async function submit(e?: FormEvent, opts: { allowUnassigned?: boolean; roomId?: string } = {}) {
     e?.preventDefault();
-    if (busy || !online) return;
+    if (busy || !online || priceWaiting) return;
     const v = opts.roomId ? {} : validate();
     setErrors(v);
     if (Object.keys(v).length || longStay) return;
@@ -606,9 +761,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
   /** H09 "Giữ chỗ đến …": saveQuote → createHoldFromQuote (B1 + Q2) for direct/agent, not today. */
   async function hold() {
-    if (busy || !online) return;
+    if (busy || !online || typedRate) return;
     const v = validate();
     delete v.deposit;
+    // The rate boxes do not go with a hold (list price), so they never block one – e.g. a typed box emptied again.
+    for (const k of Object.keys(v)) if (k === 'rates' || k.startsWith('nightlyRates[')) delete v[k];
     setErrors(v);
     if (Object.keys(v).length || longStay) return;
     setBusy('hold');
@@ -758,13 +915,23 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       onClose={onClose}
       footer={
         <>
+          {/* UXD FB-R4-UXD-FE-PR75-03: the reason first – its own row, "Đóng" and the actions stay on one row below */}
+          {canHold && typedRate ? (
+            <span className="li-s" id={holdWhyId}>
+              {t('booking.hold.typed_rate_locked')}
+            </span>
+          ) : null}
           <Button className="left" onClick={onClose}>
             {t('booking.close_draft')}
           </Button>
-          {directLike && form.arrivalDate > today && online ? (
+          {canHold ? (
+            // DS C1 (FB-R4-UXD-FE-PR75-02): locked by a typed rate = aria-disabled – still focusable, the reason is
+            // read with it; `hold()` itself does nothing then (click, Enter).
             <Button
               busy={busy === 'hold'}
               disabled={busy !== null || longStay}
+              aria-disabled={typedRate || undefined}
+              aria-describedby={typedRate ? holdWhyId : undefined}
               onClick={() => void hold()}
             >
               {t('booking.create_hold', { time: holdUntil })}
@@ -775,8 +942,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
               variant="pri"
               type="submit"
               form="booking-form"
-              busy={busy === 'create'}
-              busyLabel={write.busyLabel ?? t('bk.checking')}
+              busy={busy === 'create' || priceWaiting}
+              busyLabel={
+                busy === 'create' ? (write.busyLabel ?? t('bk.checking')) : t('common.loading')
+              }
               disabled={busy !== null || longStay}
             >
               {t('booking.create')}
@@ -1200,7 +1369,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         {dates.length && !longStay ? (
           <div className={`field${errors.rates ? ' invalid' : ''}`}>
             <span className="lbl">{t('booking.field.rate')}</span>
-            <div className="table-wrap rate-table">
+            <div className="table-wrap rate-table" aria-busy={priceWaiting || undefined}>
               <table className="table">
                 <thead>
                   <tr>
@@ -1233,13 +1402,25 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                           {err ? <div className="err">{err}</div> : null}
                         </td>
                         <td className="li-s">
-                          {calc ? t(weekend(r.date) ? 'bk.src_weekend' : 'bk.src_list') : '–'}
+                          {/* UXD-on-v104-src-typed: the label says what the box holds. A typed number (any channel,
+                              also while the preview is on its way) is saved as typed (B1 `edited:true` → `manual`);
+                              an empty box (emptied, preview on its way – PR70-02, OTA / Nội bộ not typed) has no
+                              source; a box filled by the preview of the stay on screen is the list rate – every
+                              night, no "+15%" by weekday any more (BR-104 v0.5.1, DOM lượt 8 §4.2). */}
+                          {form.ratesEdited[r.date] && form.rates[r.date]
+                            ? t('bk.src_typed')
+                            : r.raw && calc
+                              ? t('bk.src_list')
+                              : '–'}
                           {(() => {
                             // DOM S4-38: the stepped price of the night, as the server priced it (untouched).
                             const n = calc?.nightlyRates?.find((x) => x.date === r.date);
-                            return losPct > 0 && n && parseVnd(r.raw) === calendarOf(r.date) ? (
+                            return losShown > 0 && n && parseVnd(r.raw) === calendarOf(r.date) ? (
                               <div>
-                                {t('rate.after_tier', { pct: losPct, amount: money(n.amountVnd) })}
+                                {t('rate.after_tier', {
+                                  pct: losShown,
+                                  amount: money(n.amountVnd),
+                                })}
                               </div>
                             ) : null;
                           })()}
@@ -1250,16 +1431,23 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 </tbody>
               </table>
             </div>
-            {losPct > 0 ? (
+            {losShown > 0 ? (
               <span className="help">
                 {ratesLocked
-                  ? t('rate.tier_locked', { n: nights, pct: losPct })
+                  ? t('rate.tier_locked', { n: nights, pct: losShown })
                   : ratesTouched
-                    ? t('rate.tier_on_save', { n: nights, pct: losPct })
-                    : t('rate.tier_note', { n: nights, pct: losPct })}
+                    ? t('rate.tier_on_save', { n: nights, pct: losShown })
+                    : t('rate.tier_note', { n: nights, pct: losShown })}
               </span>
             ) : null}
             {errors.rates ? <div className="err">{errors.rates}</div> : null}
+            {ratesCleared ? (
+              <span className="help" role="status">
+                {ratesCleared.why === 'channel'
+                  ? t('booking.rates_cleared_channel')
+                  : t('booking.rates_cleared_room_group', { room: ratesCleared.room })}
+              </span>
+            ) : null}
             {calcError ? (
               <span className="help">{rsvErrorText(t, calcError, { roomNo: room?.roomNo })}</span>
             ) : null}
@@ -1301,24 +1489,33 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
         {directLike && calc && !longStay ? (
           <>
-            <table className="sum" aria-label={t('booking.summary.total')}>
+            {/* FB-R4-UXD-FE-PR70-02: while the preview of the stay on screen is on its way, no figure of the previous one */}
+            <table
+              className="sum"
+              aria-label={t('booking.summary.total')}
+              aria-busy={priceWaiting || undefined}
+            >
               <tbody>
                 <tr>
                   <td>
                     {t('booking.field.nights', { n: nights })}
-                    {losPct > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
+                    {losShown > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
                   </td>
-                  <td className="r">{vnd(roomTotal)}</td>
+                  <td className="r">{priceWaiting ? '–' : vnd(roomTotal)}</td>
                 </tr>
-                <tr className="sub">
-                  <td>
-                    {calc.losDiscountPct
-                      ? t('sale.los_applied', { pct: calc.losDiscountPct })
-                      : t('bk.los_none')}
-                  </td>
-                  <td className="r" />
-                </tr>
-                {extraFee > 0 ? (
+                {priceWaiting ? null : (
+                  <tr className="sub">
+                    <td>
+                      {calc.losDiscountPct
+                        ? t('sale.los_applied', { pct: calc.losDiscountPct })
+                        : t('bk.los_none')}
+                    </td>
+                    <td className="r" />
+                  </tr>
+                )}
+                {/* FB-R4-ARC-FE-PR82-04: the extra-guest row belongs to the preview – while the one of the stay on
+                    screen is on its way it is hidden, like the BR-107 row (never "0 người vượt định mức") */}
+                {extraFee > 0 && !priceWaiting ? (
                   <tr>
                     <td>{t('occ.fee_line', { n: calc.extraGuestCount ?? extra, nights })}</td>
                     <td className="r">{vnd(extraFee)}</td>
@@ -1327,12 +1524,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 <tr className="total">
                   <td>{t('bk.total')}</td>
                   <td className="r">
-                    {vnd(roomTotal + extraFee)} {t('common.vnd_unit')}
+                    {priceWaiting ? '–' : `${vnd(roomTotal + extraFee)} ${t('common.vnd_unit')}`}
                   </td>
                 </tr>
                 <tr className="sub">
                   <td>{t('bk.deposit_line', { pct: rules.depositPct })}</td>
-                  <td className="r">{vnd(calc.depositVnd ?? 0)}</td>
+                  <td className="r">{priceWaiting ? '–' : vnd(calc.depositVnd ?? 0)}</td>
                 </tr>
               </tbody>
             </table>

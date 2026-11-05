@@ -1147,6 +1147,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                 met: { s: { k: 'scalar' } },
                 detail: { s: { k: 'scalar' } },
                 overridableBy: { s: { k: 'array', items: { k: 'ref', name: 'Role' } } },
+                cause: { s: { k: 'scalar' } },
+                heldByReservationCode: { s: { k: 'scalar' } },
               },
               open: false,
             },

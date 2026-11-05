@@ -717,7 +717,7 @@ g("R2 hi-fi – Đặt phòng mới (H09)", [
     ("bk.eta_help", "Đến sau {time} → lễ tân chuẩn bị nhận phòng muộn.", "Arriving after {time} → front desk prepares a late check-in.", None, "09-booking.html"),
     ("bk.free_ok", "Căn trống cả khoảng ngày", "Room is free for all dates", None, "09-booking.html"),
     ("bk.guest_help", "Tìm theo tên, SĐT, email, mã KH – hoặc tạo nhanh", "Search by name, phone, email, guest ID – or quick-create", None, "09-booking.html"),
-    ("bk.internal_help", "Phòng dùng nội bộ (nhân viên, kiểm tra) – không tính doanh thu, vẫn chiếm phòng.", "Internal use (staff, inspection) – no revenue, still blocks the room.", None, "09-booking.html"),
+    ("bk.internal_help", "Phòng dùng nội bộ (nhân viên, kiểm tra), vẫn chiếm phòng. Mặc định không thu tiền: để trống giá. Có thu: nhập giá cho mọi đêm.", "Internal use (staff, inspection), still blocks the room. Free by default: leave the rates empty. Charged: enter a rate for every night.", None, "09-booking.html. v1.0.4 (FB-R4-DOM-UXD-PR82-01, BR-105 v0.5.8, BR-904 v0.5.5): bỏ 'không tính doanh thu' – Nội bộ có thu vào doanh thu và ADR; cùng cách nói 'mặc định không thu tiền' với sổ tay (BA)"),
     ("bk.long_body", "Từ 28 đêm phải làm hợp đồng (BR-108). Ở giai đoạn này, tạo \"Đơn dài hạn nhập tay\" để giữ phòng; hợp đồng vẫn làm ngoài hệ thống.", "From 28 nights a lease is required (BR-108). For now, create a \"Manual long-stay booking\" to hold the room; the lease is still handled outside the app.", None, "09-booking.html"),
     ("bk.long_title", "{n} đêm là thuê dài hạn", "{n} nights is a long stay", None, "09-booking.html"),
     ("bk.los_none", "Giảm theo số đêm (BR-107): không áp dụng", "Length-of-stay discount (BR-107): not applicable", None, "09-booking.html"),
@@ -744,7 +744,7 @@ g("R2 hi-fi – Đặt phòng mới (H09)", [
     ("bk.src_sales", "Sale nội bộ", "Sales staff", None, "directSource=sales_staff (0.3.1)"),
     ("bk.src_walkin", "Khách vãng lai", "Walk-in", None, "09-booking.html"),
     ("bk.src_web", "Website", "Website", None, "09-booking.html"),
-    ("bk.src_weekend", "Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104)", "Rate calendar: Friday/Saturday +15% (BR-104)", None, "09-booking.html"),
+    ("bk.src_weekend", "Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104)", "Rate calendar: Friday/Saturday +15% (BR-104)", None, "09-booking.html. Không dùng ở Desk từ v1.0.4 (BR-104 v0.5.1: không tăng cuối tuần/lễ; UXD-on-v104-src-typed mục 3). Nếu bật lại mức tăng: nhãn theo nguồn từng đêm của máy chủ, không theo thứ trong tuần"),
     ("bk.src_zalo", "Zalo / điện thoại", "Zalo / phone", None, "09-booking.html"),
     ("bk.to_manual_long", "Tạo đơn dài hạn nhập tay", "Create manual long-stay booking", None, "09-booking.html"),
     ("bk.total", "Tổng tiền đơn", "Booking total", None, "09-booking.html"),
@@ -1056,7 +1056,7 @@ g("R2 hi-fi – Danh mục căn (H04)", [
     ("rooms.footnote", "Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006).", "Monthly and nightly prices are entered separately (BR-101). Price changes have an effective date; existing bookings and quotes keep the old price (BR-006).", None, "04-rooms.html – FB-INV-005 (26/10): bỏ ÷ 12, câu VI theo DOM fb-inv-005 §4.2; FE-A soạn EN. UXD duyệt R3 Review 26/10, giữ nguyên"),
     ("rooms.inc", "Tăng", "Increase", None, "04-rooms.html"),
     ("rooms.name", "Tên căn", "Room name", None, "04-rooms.html"),
-    ("rooms.night_auto", "Đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt do lịch giá cộng thêm.", "Weekday night, Direct channel, VAT included. The rate calendar adds weekend and special-date increases.", None, "04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (2) (VAT – BR-523), BR-104 + ESC-036 A. UXD duyệt R3 Review 26/10: bỏ số +15 %/+30 % viết cứng (tham số lịch giá, BR §0.2 – đổi tham số thì chữ sai mà không ai biết); \"ngày lễ\" → \"ngày đặc biệt\" đúng BR-104 (gồm Tết, cao điểm, sự kiện); bỏ \"Giá đêm\" lặp nhãn ô; 4 → 3 dòng ở cột 1366 px. Key giữ tên cũ để không đổi hi-fi"),
+    ("rooms.night_auto", "Mọi đêm, kênh Trực tiếp, đã gồm VAT. Mức tăng cuối tuần, ngày đặc biệt (nếu có) ở Tham số quy tắc.", "Every night, Direct channel, VAT included. Any weekend or special-date uplift is set in Rule settings.", None, "04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (2) (VAT – BR-523), BR-104 + ESC-036 A. UXD duyệt R3 Review 26/10: bỏ số +15 %/+30 % viết cứng (tham số lịch giá, BR §0.2 – đổi tham số thì chữ sai mà không ai biết); \"ngày lễ\" → \"ngày đặc biệt\" đúng BR-104 (gồm Tết, cao điểm, sự kiện); bỏ \"Giá đêm\" lặp nhãn ô; 4 → 3 dòng ở cột 1366 px. Key giữ tên cũ để không đổi hi-fi"),
     ("rooms.ooo_until", "Khóa sửa chữa đến {date}", "Blocked for repair until {date}", None, "04-rooms.html"),
     ("rooms.price", "Giá niêm yết", "List price", None, "04-rooms.html"),
     ("rooms.public_type", "Hạng phòng công khai", "Public room type", None, "LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009)"),
@@ -4130,6 +4130,57 @@ g("v1.0.4 P4-42 privacy-2026-10-v2", [
      "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1"),
 ])
 
+
+# ---------- v1.0.4 booking – FE-B (PR #70 / v104/fe-hold-typed-rate-lock), UXD 04/11 ----------
+g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026", [
+    ("booking.rates_cleared_channel", "Đã xóa giá đã gõ vì đổi kênh.", "Typed rates were cleared because the channel changed.", None, "v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa"),
+    ("booking.rates_cleared_room_group", "Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn.", "Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking.", None, "v1.0.4 booking (FB-R4-UXD-FE-PR70-07). role=status dưới bảng giá như booking.rates_cleared_channel, chỉ khi có ô đã gõ bị xóa; đổi kênh và căn cùng lúc thì câu kênh"),
+    ("booking.hold.typed_rate_locked", "Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio.", "Holds use the list price only. If the deposit is received, use Create booking to keep the typed rates. If not, clear them and hold, then adjust the rates in the Folio after confirming the deposit.", None, "v1.0.4 booking (FB-R4-UXD-FE-PR75-01). Dòng li-s trong footer H09, là aria-describedby của nút Giữ chỗ. Tên nút khớp booking.create và folio.adjust; Folio là drawer.folio.title. Cách làm tạm: DOM điểm 3, sổ tay 2.5 bước 10. Bỏ khi Q1 nhận giá thỏa thuận (v1.0.5)"),
+    ("bk.src_typed", "Giá đã gõ", "Typed rate", None, "v1.0.4 booking (UXD-on-v104-src-typed). Cột Nguồn giá H09: đêm có ô lễ tân đã gõ và còn số (ratesEdited && rates – cùng phép thử với booking.hold.typed_rate_locked), mọi kênh, không phụ thuộc bản xem. Máy chủ ghi manual (NightRate.edited). Cùng cụm 'giá đã gõ' với booking.rates_cleared_* và booking.hold.typed_rate_locked"),
+    ("booking.error.rate_empty_internal", "Đơn Nội bộ: nhập giá cho mọi đêm, hoặc để trống hết nếu miễn phí cả đơn.", "Internal stay: enter a rate for every night, or leave all rates empty if the whole stay is free.", None, "v1.0.4 booking (FB-R4-DOM-UXD-PR82-01, BR-105 v0.5.8 (3); EN FB-R4-UXD-FE-PR82-03). Dưới bảng giá H09 khi đơn Nội bộ gõ giá một phần số đêm – thay booking.error.rate_empty (câu đó đẩy lễ tân gõ cả đêm định miễn phí). OTA vẫn dùng booking.error.rate_empty. Ô gõ 0 hoặc số không hợp lệ của đơn Nội bộ: booking.error.rate_zero_internal tại ô"),
+    ("booking.error.rate_zero_internal", "Miễn phí: để trống ô. Có thu: nhập giá lớn hơn 0.", "Free: leave the box empty. Charged: enter a rate above 0.", None, "v1.0.4 booking (UXD lượt 3 PR #82, FB-R4-UXD-FE-PR82-04, BR-105 v0.5.8 (7)). Lỗi tại ô giá H09, chỉ đơn Nội bộ, khi ô có chữ nhưng không phải số > 0. Kênh khác: booking.error.rate_empty. Bỏ khi cho gõ 0 lúc tạo đơn (DOM B′)"),
+])
+
+# ---------- v1.0.4 BUG-R4-039 – nhận phòng căn còn khách (OC/OD) ----------
+# BE #74 (BR-402 (1) v0.5.3): ngoại lệ "buồng chưa sẵn sàng" chỉ cho căn VD/CL không còn lượt khác; OC/OD thì 409
+# với mọi vai. UXD chốt chữ và cách hiển thị 05/11/2026 (chặn, theo mẫu vượt sức chứa).
+# DOM lượt 5 mục 2 (DOM-on-v104-pr68-docs.md): chặn có 2 trường hợp – (a) buồng OC/OD; (b) căn còn lượt Đang ở của
+# đơn khác dù trạng thái buồng hiện gì. Việc đầu tiên là lễ tân trả phòng đơn trước; chỉ nhắc buồng phòng khi
+# trạng thái bị lệch (a), không bao giờ ở (b).
+# UXD-on-v104-pr77 lượt 4 (DOM lượt 7 mục 3): v1.0.4 không có nút đưa căn khỏi OC, nên trạng thái kẹt thì đổi căn và
+# báo quản lý (đuôi room_occupied; room_status_stuck khi máy chủ trả cause = room_status trên OC/OD).
+g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
+    ("checkin.room_occupied",
+     "Căn {room} còn khách của đơn trước, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. Nếu đơn trước đã trả phòng: đổi căn cho đơn này và báo quản lý để sửa trạng thái căn.",
+     "Room {room} still has the previous guest, not checked out yet. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case. If that stay is already checked out, move this booking and tell the manager so the room status can be fixed.",
+     None,
+     "v1.0.4 BUG-R4-039 (BR-402 (1)). Alert bad trong dòng room_ready khi buồng OC/OD và máy chủ không trả cause (API trước #74 C2) hoặc trả cause lạ, chỉ khi đơn đã có căn. Không ô lý do, không nút duyệt. Thứ tự lối ra theo DOM lượt 5 mục 2: trả phòng đơn trước, mời khách chờ, đổi căn. Câu cuối cho trạng thái kẹt (v1.0.4 không có nút đưa căn khỏi OC: đổi căn và báo quản lý, DOM lượt 7 mục 3). Có cause: held_by_other_stay → checkin.room_held_code / checkin.room_held; room_status trên OC/OD → checkin.room_status_stuck. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01; UXD-on-v104-pr77 lượt 4, 5). {room} = số căn"),
+    ("checkin.room_held",
+     "Căn {room} còn đơn khác đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
+     "Room {room} still has another stay in house. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
+     None,
+     "v1.0.4 BUG-R4-039 (BR-402 (1), DOM lượt 5 mục 2 (b)). Alert bad trong dòng room_ready khi căn còn lượt Đang ở của đơn khác mà Desk không có mã đơn: cause = held_by_other_stay thiếu heldByReservationCode (mọi trạng thái buồng), hoặc không có cause và buồng không phải OC/OD/OOO (room_ready không có overridableBy, đơn đã có căn). Không nhắc buồng phòng. 'đang ở' = status.booking.in_house. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01; UXD-on-v104-pr77 lượt 5). {room} = số căn"),
+    ("checkin.room_held_code",
+     "Căn {room} còn đơn {code} đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
+     "Room {room} still has booking {code} in house. Check out that booking first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
+     None,
+     "v1.0.4 BUG-R4-039 (#74 C2, heldByReservationCode). Như checkin.room_held, khi cause = held_by_other_stay và máy chủ trả mã đơn gốc đang giữ căn, kể cả khi buồng OC/OD. Chỉ đọc mã khi cause = held_by_other_stay. {code} = heldByReservationCode, hiện mono (monoArgs ['code']); {room} = số căn. Chọn câu (UXD lượt 4): OOO → ci.ooo_never; no_room → không câu (not_unassigned); held_by_other_stay → khóa này, thiếu mã → checkin.room_held; room_status trên OC/OD → checkin.room_status_stuck; không có cause → OC/OD: checkin.room_occupied, còn lại: checkin.room_held. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 3, 5)"),
+    ("checkin.room_status_stuck",
+     "Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Đổi đơn này sang căn trống và báo quản lý để sửa trạng thái căn. Trường hợp này không có ngoại lệ.",
+     "Room {room} still shows as occupied, but no stay is in house. Move this booking to a vacant room and tell the manager so the room status can be fixed. No exception applies in this case.",
+     None,
+     "v1.0.4 BUG-R4-039 (#74 C2). Alert bad trong dòng room_ready khi cause = room_status và buồng OC/OD: không còn lượt Đang ở nào, trạng thái buồng kẹt. Không ô lý do, không nút duyệt; link Đổi căn / đổi ngày như các câu chặn khác. 'đang ở' = status.booking.in_house. v1.0.5 có nút Cần dọn thì UXD đổi câu. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 4). {room} = số căn"),
+])
+
+
+g("v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). UXD duyệt 05/11 (UXD-on-v104-pr81-minibar-race)", [
+    ("co.minibar_cabinet_counting", "Tủ minibar đang đếm", "Minibar being counted", None, "H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở"),
+])
+
+g("v1.0.4 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều tủ – nút chính nêu tủ kế tiếp, toast khi đã lưu một tủ. Chữ của UXD (UXD-on-v104-pr81-minibar-race, 05/11)", [
+    ("co.go_next_cabinet", "Tiếp tục: Tủ căn {room}", "Continue: Room {room} minibar", None, "H16 bước 1, nút chính thay co.go_extras khi sau tủ đang hiện vẫn còn tủ khác (bản tóm tắt mới nhất, bỏ tủ đã đếm trên trang và tủ đang hiện). {room} = căn của tủ kế tiếp. Hết tủ thì co.go_extras. Nhãn busy như #67"),
+    ("co.minibar_cabinet_saved", "Đã lưu số đếm tủ căn {room}.", "Room {room} minibar count saved.", None, "H16 bước 1, toast của DS sau 201 khi trang chuyển sang tủ khác. {room} = tủ vừa đếm (không phải tủ đang hiện). Sang thẳng bước 2 thì không có toast"),
+])
 
 def build():
     vi, en, ru = {}, {}, {}

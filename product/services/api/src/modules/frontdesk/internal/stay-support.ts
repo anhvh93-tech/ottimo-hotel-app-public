@@ -87,6 +87,29 @@ export interface AddedNightContext {
   anchorRoomId: string | null;
   /** S4-36: list prices and group of the rooms priced by this operation, read once (`directRate`). */
   rooms: RoomPriceCache;
+  /**
+   * BUG-R4-038 (EP02 kênh Nội bộ, BR-904 / DOM D-7, metrics Q-05; DOM 04/11): an Internal stay is not sold – its
+   * added night is 0 ₫ (`complimentary`), outside the Direct calendar and its floor–ceiling.
+   */
+  complimentary?: boolean;
+}
+
+/** What `addedNightRate` gives for one added night. */
+export interface AddedNightRate {
+  rateVnd: number;
+  calendarVnd: number;
+  /** The desk's range – none for a complimentary night (0 … MAX_SAFE_INTEGER: callers check nothing). */
+  floorVnd: number;
+  ceilingVnd: number;
+  special: boolean;
+  keepVnd: number | null;
+  /** G-5 (AN-50): the agreement the night inherits (null = none) – stored with `anchorRoomId` of the context. */
+  agreedVnd: number | null;
+  /**
+   * BUG-R4-038: the night of an Internal stay – default 0 ₫, source `complimentary`, no Direct range (the DTOs
+   * leave `floorVnd`/`ceilingVnd` out), 0 may be typed; a typed price > 0 is the rare charged Internal night.
+   */
+  complimentary: boolean;
 }
 
 /** S4-36: per-operation cache of a room's list prices and group code (one read per room, not per night). */
@@ -268,6 +291,7 @@ export class StaySupport {
       side: pick === 'first' ? 'after' : 'before',
       anchorRoomId: boughtRoomId !== originRoomId ? boughtRoomId : null,
       rooms: new Map(),
+      complimentary: row.channel_group === 'internal',
     };
   }
 
@@ -277,22 +301,26 @@ export class StaySupport {
    * the room bought and of the night's room (special date included) with the reference night of an agreed stay.
    * `floorVnd`/`ceilingVnd` = the desk's range (both rooms when the min applies). `keepVnd` =
    * `currentBookingRateVnd` (AN-45 – by source: agreed reference or min; null = the night room's calendar).
+   * BUG-R4-038: an Internal stay (`c.complimentary`) never reads the Direct calendar – 0 ₫, no range.
    */
   async addedNightRate(
     tx: Tx,
     ctx: BookingContext,
     c: AddedNightContext,
     date: LocalDate,
-  ): Promise<{
-    rateVnd: number;
-    calendarVnd: number;
-    floorVnd: number;
-    ceilingVnd: number;
-    special: boolean;
-    keepVnd: number | null;
-    /** G-5 (AN-50): the agreement the night inherits (null = none) – stored with `anchorRoomId` of the context. */
-    agreedVnd: number | null;
-  }> {
+  ): Promise<AddedNightRate> {
+    if (c.complimentary) {
+      return {
+        rateVnd: 0,
+        calendarVnd: 0,
+        floorVnd: 0,
+        ceilingVnd: Number.MAX_SAFE_INTEGER,
+        special: isSpecialDate(date, ctx.params.calendar.specialDates),
+        keepVnd: null,
+        agreedVnd: null,
+        complimentary: true,
+      };
+    }
     const night = await this.directRate(tx, ctx, c.roomId, date, c.rooms);
     const sameRoom = c.boughtRoomId === c.roomId;
     const bought = sameRoom ? night : await this.directRate(tx, ctx, c.boughtRoomId, date, c.rooms);
@@ -319,6 +347,7 @@ export class StaySupport {
       special: night.special,
       keepVnd: p.keep ? p.rateVnd : null,
       agreedVnd: p.agreedVnd,
+      complimentary: false,
     };
   }
 
@@ -389,6 +418,8 @@ export class StaySupport {
       [row.id, night],
     );
     if (rows[0]) return rows[0].gross;
+    // BUG-R4-038: no night to read on an Internal stay → its base is 0 ₫ (never the Direct calendar).
+    if (row.channel_group === 'internal') return 0;
     return (await this.directRate(tx, ctx, roomId, night)).rateVnd;
   }
 

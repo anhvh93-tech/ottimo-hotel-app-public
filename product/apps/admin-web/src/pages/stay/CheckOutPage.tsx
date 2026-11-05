@@ -7,6 +7,7 @@ import {
   type CheckOutBody,
   type Folio,
   type FolioLine,
+  type MinibarStandard,
 } from '@ottimo/api-client';
 import {
   isLocaleLoaded,
@@ -28,13 +29,13 @@ import {
   Stepper,
   Switch,
 } from '@ottimo/ui';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { listApprovals } from '../../app/approvals';
 import { useBusinessDay } from '../../app/businessDay';
-import { timeHHmm } from '../../app/dates';
+import { DEFAULT_ROLLOVER, checkoutInstant, timeHHmm } from '../../app/dates';
 import { hasLineKey, lineLabel, signed } from '../../app/folio';
 import { addDays, currentSegment } from '../../app/reservations';
 import { Code, monoArgs } from '../../app/mono';
@@ -130,6 +131,31 @@ function lateFeeNotAllowed(e: unknown): boolean {
 }
 
 /**
+ * The figures a cabinet count starts from (what is LEFT per item), from the standard read for that cabinet:
+ * - DOM (e), BR-702 v0.3.8: the number the desk corrected on the folio (with a reason) wins over the last count –
+ *   sending `standard − folioUsed` keeps that line (R6); another number = a new count;
+ * - else the last count of this period;
+ * - BUG-R2-144 / BR-703-02: counted earlier in this refill period but due again (the stay came back to the room, or
+ *   was extended) – start from that count, never from a full cabinet (which would read as "nothing used" and
+ *   reverse what was charged);
+ * - else a full cabinet.
+ */
+export function minibarPrefill(std: MinibarStandard | undefined): Record<string, number> {
+  const latest = std?.latestCheck?.lines;
+  return Object.fromEntries(
+    (std?.items ?? []).map((i) => [
+      i.itemId,
+      i.adjustedAfterLastCheck && typeof i.folioUsedQty === 'number'
+        ? Math.max(0, i.standardQty - i.folioUsedQty)
+        : (latest?.find((l) => l.itemId === i.itemId)?.remainingQty ??
+          (typeof i.lastCheckUsedQty === 'number'
+            ? Math.max(0, i.standardQty - i.lastCheckUsedQty)
+            : i.standardQty)),
+    ]),
+  );
+}
+
+/**
  * H16 Trả phòng 3 bước (S07, US-035…039, B18): minibar (counts 0…standard) → extras (actual
  * departure time, late surcharge only when the desk confirms the amount – BR-414, re-priced by the
  * real time – G-10) → bill + payment (VietQR drawn locally, cash/transfer/POS, company invoice) →
@@ -139,7 +165,9 @@ function lateFeeNotAllowed(e: unknown): boolean {
 export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
-  const { roles } = useSession();
+  const { roles, property } = useSession();
+  // BUG-R4-050: the instant of the typed time on the business-day axis B18 reads it on (`checkoutInstant`).
+  const rollover = property?.businessDayRollover ?? DEFAULT_ROLLOVER;
   // R3-Q39 #10, #11 (BR-010): the BUSINESS day – at 02:40 the stay is still in last night's room, and the
   // debt due date counts from the business day of the write (BR-525 (i) v0.4.0).
   const today = useBusinessDay();
@@ -170,6 +198,25 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // 0.3.7 bổ sung 4 (minibar M-1, BR-703-01): one cabinet per (stay, room) – after B14 the old room's cabinet is
   // counted too (`CheckoutSummary.minibarUncheckedRooms`); `undefined` = the room assigned now.
   const [cabinet, setCabinet] = useState<string | undefined>(undefined);
+  // BR-703-01: the old room's cabinet is offered first – once. Never over a cabinet the desk picked or counted on
+  // (ARC FB-R4-ARC-FE-PR67-03: a later summary read, e.g. priced for the typed time, sent the page back to the old
+  // cabinet and dropped the figures typed on this one). The desk may still count this room's cabinet first.
+  const cabinetSettled = useRef(false);
+  /**
+   * BUG-R4-042: the cabinets counted on this page (201) or passed with nothing chargeable, `roomId` → room no. They are
+   * never chosen or offered again on this page – also while the summary read after that count is on its way: until it
+   * is in, the summary still lists them. The next cabinet used to be looked for in that list, so a second count made
+   * before it came in sent the page back to the cabinet just counted, unnamed ("Không dùng gì – tủ đủ" there reversed
+   * the minibar charged). The ref is read by the handlers after `await`; the state draws the screen.
+   */
+  const doneRef = useRef<ReadonlyMap<string, string>>(new Map());
+  const [doneCabinets, setDoneCabinets] = useState(doneRef.current);
+  const markDone = (roomId: string, roomNo: string) => {
+    const next = new Map(doneRef.current).set(roomId, roomNo);
+    doneRef.current = next;
+    setDoneCabinets(next);
+    return next;
+  };
   // K11-03: the cabinet on screen is always named – read and written with its `roomId` (ARC 16.19).
   const countingRoomId = cabinet ?? hereRoomId;
   const std = useResource(
@@ -180,7 +227,36 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           new Promise<never>(() => undefined),
     [propertyId, reservationId, countingRoomId],
   );
-  const [left, setLeft] = useState<Record<string, number>>({});
+  // s4-144 race (v1.0.4): the prefill is derived in render, so the first frame that shows a cabinet already holds
+  // – and would send – the figures it starts from. It used to be copied into state by an effect one render later:
+  // "Tiếp tục" pressed in between sent a full cabinet ("nothing used") and reversed the minibar already charged.
+  const prefill = useMemo(() => minibarPrefill(std.state.data), [std.state.data]);
+  /**
+   * Figures the desk changed – for THIS standard read only: another cabinet, period or re-read drops them
+   * (BUG-R4-035: after B14 the figures typed on cabinet A were sent for cabinet B in the same frame).
+   */
+  const [edits, setEdits] = useState<{
+    of: MinibarStandard | undefined;
+    left: Record<string, number>;
+  }>({ of: undefined, left: {} });
+  const left: Record<string, number> =
+    edits.of && edits.of === std.state.data ? { ...prefill, ...edits.left } : prefill;
+  const editLeft = (next: Record<string, number>) => {
+    cabinetSettled.current = true;
+    const of = std.state.data;
+    setEdits((e) => ({ of, left: { ...(e.of === of ? e.left : {}), ...next } }));
+  };
+  /**
+   * The standard on screen is read and is the one of the cabinet on screen (ARC FB-R4-ARC-FE-PR67-01): a switch
+   * after `await` (next cabinet) or a B14 seen on a reload paints one frame with cabinet B and A's read, as
+   * `useResource` starts loading in an effect. Until then nothing is edited, counted or sent.
+   */
+  const stdForCabinet =
+    !!countingRoomId &&
+    std.state.status === 'ready' &&
+    (std.state.data.roomId ?? countingRoomId) === countingRoomId;
+  /** Read (again) in progress, or not started for this cabinet yet: "Tiếp tục" waits (DS busy). */
+  const stdWaiting = !stdForCabinet && std.state.status !== 'error';
   const [lateTold, setLateTold] = useState(false);
   // S4-25 (US-007 AC1): the late surcharge written on the way to the bill can carry a FOC request.
   const [lateFoc, setLateFoc] = useState<SurchargeFoc>(noSurchargeFoc);
@@ -290,29 +366,6 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const [toBill, setToBill] = useState(false);
 
   useEffect(() => {
-    const items = std.state.data?.items;
-    if (!items) return;
-    const latest = std.state.data?.latestCheck?.lines;
-    setLeft(
-      Object.fromEntries(
-        items.map((i) => [
-          i.itemId,
-          // DOM (e), BR-702 v0.3.8: the number the desk corrected on the folio (with a reason) wins over the last
-          // count – sending `standard − folioUsed` keeps that line (R6); another number = a new count.
-          i.adjustedAfterLastCheck && typeof i.folioUsedQty === 'number'
-            ? Math.max(0, i.standardQty - i.folioUsedQty)
-            : (latest?.find((l) => l.itemId === i.itemId)?.remainingQty ??
-              // BUG-R2-144 / BR-703-02: counted earlier in this refill period but due again (the stay came back
-              // to the room, or was extended) – start from that count, never from a full cabinet (which would
-              // read as "nothing used" and reverse what was charged).
-              (typeof i.lastCheckUsedQty === 'number'
-                ? Math.max(0, i.standardQty - i.lastCheckUsedQty)
-                : i.standardQty)),
-        ]),
-      ),
-    );
-  }, [std.state.data]);
-  useEffect(() => {
     // E03-07: the guest leaves now – never a future time, never the standard time by default. KB7 (UXR 17/10):
     // after 12:30 the default used to be 12:00 ("Trả đúng giờ – không phụ thu") and the late surcharge was
     // lost. "Now" = the desk's clock (trusted device; on the desk-clock stack the browser runs on the stack's
@@ -373,12 +426,66 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // BR-703-01: an unchecked cabinet of an earlier room of this stay is counted first.
   useEffect(() => {
     // Only once the reservation is here – before that every cabinet would look like an earlier room.
-    if (!hereRoomId) return;
-    const old = (s?.minibarUncheckedRooms ?? []).find((c) => c.roomId !== hereRoomId);
-    if (step === 0 && cabinet === undefined && old) setCabinet(old.roomId);
-    // first summary / reservation only
+    if (!hereRoomId || cabinetSettled.current) return;
+    const old = (s?.minibarUncheckedRooms ?? []).find(
+      (c) => c.roomId !== hereRoomId && !doneRef.current.has(c.roomId),
+    );
+    if (step === 0 && cabinet === undefined && old) {
+      cabinetSettled.current = true;
+      setCabinet(old.roomId);
+    }
+    // once: the first summary with an old cabinet, unless the desk picked or typed before
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s?.minibarUncheckedRooms, hereRoomId]);
+  // BUG-R4-042: the latest summary read, for the choice of the next cabinet made after `await` (the summary of the
+  // press may be older – a read that came in meanwhile is used).
+  const latestSummary = useRef(s);
+  useEffect(() => {
+    latestSummary.current = s;
+  }, [s]);
+  /**
+   * BUG-R4-045 (FB-R4-ARC-FE-PR81-01): a cabinet counted on this page stays "counted" only until a summary read SENT
+   * AFTER that count is in. A count calls `sum.reload()` in the same batch as `markDone`, and `useResource` drops every
+   * older answer (`seq`), so a `ready` committed in a render that already holds the cabinet in `doneCabinets` is such a
+   * read. A cabinet that read still lists is due again (B14 / B13 back to that room, a refill, the business day –
+   * `reason`) and is offered again with its "Cần đếm lại" line.
+   * ARC FB-R4-ARC-FE-PR83-02: only the cabinets of `doneCabinets` of THIS render are released – never `doneRef`, which
+   * may already hold a count answered between the commit of this read (sent before that count – BUG-R4-042) and this
+   * effect (React 18 does not order a passive effect before a later network answer).
+   * B18 answered 409 MINIBAR_NOT_CHECKED (`minibarResync`): with the summary read after that answer, back to step 1 on
+   * the first cabinet it lists (BR-703-01: an earlier room's first) – also when the page left step 1 before any
+   * summary was in (D2). Not when the desk is on step 1 already (went back by itself, as the sentence says): the
+   * cabinet on screen is never switched or read again under its hands – the figures typed stay (ARC PR83-01, PR67-03);
+   * the cabinet due is offered by the release above and named on the main button.
+   */
+  const [minibarResync, setMinibarResync] = useState(false);
+  const seenRead = useRef<Date | undefined>(undefined);
+  useEffect(() => {
+    if (sum.state.status !== 'ready' || sum.state.loadedAt === seenRead.current) return;
+    seenRead.current = sum.state.loadedAt;
+    const due = sum.state.data.minibarUncheckedRooms ?? [];
+    const release = [...doneCabinets.keys()].filter((id) => due.some((c) => c.roomId === id));
+    if (release.length) {
+      const kept = new Map([...doneRef.current].filter(([id]) => !release.includes(id)));
+      doneRef.current = kept;
+      setDoneCabinets(kept);
+    }
+    if (!minibarResync) return;
+    setMinibarResync(false);
+    if (step === 0) return;
+    const first = due.find((c) => c.roomId !== hereRoomId) ?? due[0];
+    // none listed any more (counted meanwhile elsewhere): "Hoàn tất" again
+    if (!first) return;
+    // (`cabinetSettled` is set already: every way to B18 went through "Tiếp tục" on step 1)
+    minibarAct.reset();
+    const next = first.roomId === hereRoomId ? undefined : first.roomId;
+    // the cabinet already on screen: read again – a new period (refill), its last count
+    if ((next ?? hereRoomId) === countingRoomId) std.reload();
+    setCabinet(next);
+    setStep(0);
+    // per summary read; `doneCabinets` / `step` / `minibarAct` / `std` / `countingRoomId` of that render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minibarResync, sum.state]);
 
   // ARC 0.3.7 bổ sung 4 (S4-38, BR-416-04/05): at a typed extra-night rate the amount due is the server's too –
   // the cap of a check-out VietQR at that rate (422 AMOUNT_EXCEEDS_BALANCE `max`; nothing is written), never
@@ -401,9 +508,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         {
           amountVnd: DUE_PROBE_VND,
           purpose: 'check_out',
-          checkoutAt: /^\d{2}:\d{2}$/.test(hhmm)
-            ? `${r.departureDate}T${hhmm}:00+07:00`
-            : undefined,
+          checkoutAt: checkoutInstant(
+            hhmm,
+            today,
+            r.stayDepartureDate ?? r.departureDate,
+            rollover,
+          ),
           extraNightRateVnd: Number(rate),
         },
         newIdempotencyKey(),
@@ -427,7 +537,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       stale = true;
     };
     // `s` – a payment recorded or a line written changes what is due at that rate.
-  }, [debTypedKey, typedKey, r, propertyId, s]);
+  }, [debTypedKey, typedKey, r, propertyId, s, today, rollover]);
 
   if (!r && res.state.status === 'error')
     return (
@@ -455,14 +565,46 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 
   const room = here?.roomNo ?? '';
   const currentRoomId = hereRoomId ?? '';
+  /** The room no of a cabinet of this stay – never the room of today for another cabinet (K11-03). */
+  const cabinetNo = (roomId: string | undefined) =>
+    (roomId === currentRoomId ? room : undefined) ??
+    s?.minibarUncheckedRooms?.find((c) => c.roomId === roomId)?.roomNo ??
+    (roomId ? doneCabinets.get(roomId) : undefined) ??
+    r.segments?.find((sg) => sg.roomId === roomId)?.roomNo ??
+    room;
   // The choice of cabinet only when the stay has more than one to count (B14 mid-stay).
+  // BUG-R4-042: a cabinet counted on this page is not offered again (the summary lists it until its next read is in).
   const cabinets = (() => {
-    const list = [...(s?.minibarUncheckedRooms ?? [])];
-    if (cabinet && !list.some((c) => c.roomId === cabinet)) return list;
-    if (list.length && !list.some((c) => c.roomId === currentRoomId))
-      list.push({ roomId: currentRoomId, roomNo: room });
-    return list;
+    const list = (s?.minibarUncheckedRooms ?? []).filter((c) => !doneCabinets.has(c.roomId));
+    if (!list.length) return list;
+    // BUG-R4-045: a cabinet due again while another is on screen (counted, back on step 1) – the one on screen stays
+    // among the choices, pressed (no switch under the desk's hands), the other one is offered next to it.
+    if (cabinet && !list.some((c) => c.roomId === cabinet)) {
+      if (doneCabinets.has(cabinet)) list.push({ roomId: cabinet, roomNo: cabinetNo(cabinet) });
+    } else if (!list.some((c) => c.roomId === currentRoomId)) {
+      if (!doneCabinets.has(currentRoomId) || cabinet === undefined)
+        list.push({ roomId: currentRoomId, roomNo: room });
+    }
+    // UXD FB-R4-UXD-FE-PR83-01: one order, whichever cabinet is on screen or offered again – the rooms of the stay in
+    // their order, this room's cabinet last (BR-703-01, as when the page opens). A button never changes place.
+    const rank = (roomId: string) =>
+      roomId === currentRoomId
+        ? Number.MAX_SAFE_INTEGER
+        : Math.max(0, r.segments?.findIndex((sg) => sg.roomId === roomId) ?? 0);
+    return list.sort((a, b) => rank(a.roomId) - rank(b.roomId));
   })();
+  /**
+   * K11-03 (BUG-R4-042): the stay has more than one cabinet on this page – the one on screen is named on screen
+   * (by the choice while two are left, then by its own line); the title only names the room of today.
+   */
+  const severalCabinets =
+    new Set(
+      [
+        ...doneCabinets.keys(),
+        ...(s?.minibarUncheckedRooms ?? []).map((c) => c.roomId),
+        countingRoomId,
+      ].filter(Boolean),
+    ).size > 1;
   const guest = r.booker?.displayName ?? '';
   // BUG-R3-024: B18 runs only on the departure business day of the whole stay (child extensions included –
   // `stayDepartureDate`); before it the server answers 409 "early departure first – B16". Opened earlier (URL, history),
@@ -560,6 +702,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // none sent to a QR). What to charge instead waits for DOM (e.g. a late fee approved by the manager).
   const lateFeeAsNight = extraUnavailable ? s?.lateFeeAsNightVnd : undefined;
   const lateFeeMode = lateFeeAsNight !== undefined && lateFeeAsNight > 0;
+  // BUG-R4-038 (BE #71, BR-421 R4): an Internal stay's night is 0 ₫, so its one-night late fee is 0 – nothing to
+  // charge, nothing for a manager to confirm, and `lateFeeInsteadOfNight` is refused (422 NOT_ALLOWED): B18 goes on
+  // without it, at the server's due. Other channels: unchanged (a fee above 0, or an older server without one).
+  const lateFeeFree = lateFeeAsNight === 0;
   // ESC-031: recorded now, reviewed later – the server's number read-only, a reason, nothing else (no FOC, no password).
   const lfReview = lateFeeMode && lfModeNow === 'review';
   const lfFocVnd =
@@ -624,8 +770,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         lfFocVnd <= (lateFeeAsNight ?? 0));
   const dueAtCheckout = extraUnavailable
     ? // 0.3.7 bổ sung 4: the server's due then includes the one-night late fee and never the unsold night;
-      // an older server without `lateFeeAsNightVnd` → the folio balance (BUG-R2-139).
-      lateFeeMode
+      // an older server without `lateFeeAsNightVnd` → the folio balance (BUG-R2-139). A fee of 0 (BUG-R4-038):
+      // the server's due too – it already takes back a late charge B18 reverses.
+      lateFeeMode || lateFeeFree
       ? // the FOC asked in this B18 call is not known to the summary (like H13 – BR-402): taken off here.
         Math.max(0, (s?.amountDueAtCheckoutVnd ?? 0) - (lfFocBody?.amountVnd ?? 0))
       : Math.max(0, s?.balanceDueVnd ?? 0)
@@ -661,19 +808,64 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 
   // Cabinets still to count (current room included when it is); the old room's first (BR-703-01).
   const toCount = s?.minibarUncheckedRooms ?? [];
-  const nextCabinet = (doneRoom: string | undefined) =>
-    toCount.find((c) => c.roomId !== (doneRoom ?? currentRoomId));
+  /**
+   * FB-R4-UXD-FE-PR81-01 (a): where "Tiếp tục" on step 1 goes – the cabinet after the one on screen (latest summary,
+   * less the cabinets counted on this page and the one on screen), named on the button; none → step 2.
+   */
+  const nextCabinet = toCount.find(
+    (c) => !doneCabinets.has(c.roomId) && c.roomId !== countingRoomId,
+  );
+  /**
+   * Back one step. Back to step 1 (BUG-R4-047, BUG-R4-045): the cabinet on screen and the summary are read again – the
+   * first count of a cabinet never refilled opens its period on the server (the read on screen still had
+   * `periodId: null` → 409 MINIBAR_PERIOD_CHANGED on the next count), and a cabinet may be due again since. The
+   * figures shown are then its last count (`latestCheck`).
+   */
+  const back = () => {
+    if (step === 1) {
+      std.reload();
+      sum.reload();
+    }
+    setStep((x) => x - 1);
+  };
+  /**
+   * BUG-R4-042: after a cabinet is counted (or passed), the next one – from the LATEST summary read (not the one of
+   * the press, a closure), less every cabinet counted on this page: the summary read after a count may not be in yet.
+   * None left → step 2. Never back to a cabinet counted here. `true` = another cabinet is on screen now.
+   */
+  const goNextCabinet = (done: ReadonlyMap<string, string>) => {
+    // The ref follows every summary committed (passive effects are flushed before the press and after `await`), so
+    // it is never older than the render of the press. Absent `minibarUncheckedRooms` = none due.
+    const next = (latestSummary.current?.minibarUncheckedRooms ?? []).find(
+      (c) => !done.has(c.roomId),
+    );
+    if (next) {
+      setCabinet(next.roomId === currentRoomId ? undefined : next.roomId);
+      return true;
+    }
+    // BUG-R4-045: "Chưa kiểm minibar – làm bước 1" is done now – not carried to step 2.
+    if (act.code === 'MINIBAR_NOT_CHECKED') act.reset();
+    setStep(1);
+    return false;
+  };
   const saveMinibar = async () => {
+    // ARC PR67-01: only on the standard read for the cabinet on screen – before the "nothing chargeable" branch,
+    // which used to skip the count while the read was missing, failed or still of the previous cabinet.
+    if (!stdForCabinet || !countingRoomId) return;
+    // The desk counts the cabinet on screen: a first summary coming in meanwhile no longer picks the old cabinet
+    // under it (ARC PR67-03) – the next cabinet is chosen once this one is counted.
+    cabinetSettled.current = true;
     if (!chargeable) {
-      const next = nextCabinet(cabinet);
-      if (next) setCabinet(next.roomId === currentRoomId ? undefined : next.roomId);
-      else setStep(1);
+      // Nothing to count in this cabinet: passed, never offered again on this page.
+      goNextCabinet(markDone(countingRoomId, cabinetNo(countingRoomId)));
       return;
     }
     // K11-03: the cabinet on screen, by name – never "absent = the room assigned now" (a B14 since would move
     // the count to another cabinet). Only on the standard read for that very cabinet.
-    const counted = cabinet;
-    if (!countingRoomId || std.state.status !== 'ready') return;
+    if (std.state.status !== 'ready') return;
+    // BUG-R4-042: the cabinet counted, kept for after `await` (the screen may have moved on by then).
+    const read = std.state.data;
+    const counted = read.roomId ?? countingRoomId;
     const caught: { error?: unknown } = {};
     const out = await minibarAct.submit((idem) =>
       api
@@ -683,8 +875,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             mode: 'checkout',
             // ARC 16.19: the cabinet and period of the standard the figures were typed on (`MinibarStandard.roomId`
             // – read for `countingRoomId`); a refill or another cabinet since then → 409, nothing written.
-            roomId: std.state.data?.roomId ?? countingRoomId,
-            periodId: std.state.data?.periodId ?? null,
+            roomId: counted,
+            periodId: read.periodId ?? null,
             lines: items.map((i) => ({
               itemId: i.itemId,
               remainingQty: left[i.itemId] ?? i.standardQty,
@@ -709,9 +901,11 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       return;
     }
     sum.reload();
-    const next = nextCabinet(counted);
-    if (next) setCabinet(next.roomId === currentRoomId ? undefined : next.roomId);
-    else setStep(1);
+    // The cabinet the figures were counted on (201) – not the one on screen now.
+    const countedNo = cabinetNo(counted);
+    // FB-R4-UXD-FE-PR81-01 (b): on to another cabinet – say this one is saved (step 2 says it by itself).
+    if (goNextCabinet(markDone(counted, countedNo)))
+      toast(t('co.minibar_cabinet_saved', { room: countedNo }));
   };
 
   const saveInvoice = async () => {
@@ -784,6 +978,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     if (!out) {
       sum.reload();
       const e = caught.error;
+      // BUG-R4-045: a cabinet is still to count – back to step 1 with it once the summary just asked for is in.
+      if (isApiError(e) && e.code === 'MINIBAR_NOT_CHECKED') setMinibarResync(true);
       // BUG-R3-024: 409 INVALID_TRANSITION – e.g. the stay was extended meanwhile: the booking is read again, and a
       // departure that is no longer today turns this page into the Trả sớm pointer (never "vừa chuyển sang Đang ở").
       if (isApiError(e) && (e.code === 'VERSION_CONFLICT' || e.code === 'INVALID_TRANSITION'))
@@ -1120,10 +1316,11 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     const adjusted = (std.state.data?.items ?? []).filter((i) => i.adjustedAfterLastCheck);
     // BUG-R2-144 / ARC 16.14: the cabinet being counted is due again (`stay_continued` – back in the room or
     // extended after the count; `new_fill` – a new refill period); any other value but `never_counted` too.
-    const countingRoomNo =
-      toCount.find((c) => c.roomId === countingRoomId)?.roomNo ??
-      cabinets.find((c) => c.roomId === countingRoomId)?.roomNo ??
-      room;
+    const countingRoomNo = cabinetNo(countingRoomId);
+    const cabinetLabel = (roomId: string, roomNo: string) =>
+      roomId === currentRoomId
+        ? t('co.minibar_cabinet_room', { room: roomNo })
+        : t('co.minibar_cabinet_old', { room: roomNo });
     const due = toCount.find((c) => c.roomId === countingRoomId);
     // FE-S4-23 (UXD): why it is counted again, by `reason`; the general sentence for an unknown value / an older
     // server without `reason`.
@@ -1156,18 +1353,23 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               labelledBy={`${ids}-cab`}
               options={cabinets.map((c) => ({
                 value: c.roomId,
-                label:
-                  c.roomId === currentRoomId
-                    ? t('co.minibar_cabinet_room', { room: c.roomNo ?? '' })
-                    : t('co.minibar_cabinet_old', { room: c.roomNo ?? '' }),
+                label: cabinetLabel(c.roomId, c.roomNo ?? ''),
               }))}
               value={cabinet ?? currentRoomId}
               onChange={(v) => {
+                cabinetSettled.current = true;
                 minibarAct.reset();
                 setCabinet(v === currentRoomId ? undefined : v);
               }}
             />
           </div>
+        ) : severalCabinets ? (
+          // K11-03 (BUG-R4-042): one cabinet left of several – the others counted on this page – still named here; the
+          // title names the room of today, whichever cabinet is on screen.
+          <dl className="dl">
+            <dt>{t('co.minibar_cabinet_counting')}</dt>
+            <dd>{cabinetLabel(countingRoomId ?? currentRoomId, countingRoomNo)}</dd>
+          </dl>
         ) : null}
         {recount ? (
           // BUG-R2-144 (BR-703-02): a cabinet counted before is due again – a new count of this period.
@@ -1190,7 +1392,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             </ul>
           </Alert>
         ) : null}
-        {!std.state.data ? (
+        {!std.state.data || std.state.status === 'error' ? (
           std.state.status === 'error' ? (
             <ErrorBlock titleKey="co.error_title" error={std.state.error} onRetry={std.reload} />
           ) : (
@@ -1212,7 +1414,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 })}
               </Alert>
             ) : null}
-            <div className="table-wrap">
+            {/* UXD FB-R4-UXD-FE-PR67-01: read again (another cabinet after B14, a new period, a retry) – the list on
+                screen is the previous read: locked and marked busy until the new one is in (figures typed now
+                would be dropped without a word). The first read shows LoadingBlock above. */}
+            <div className="table-wrap" aria-busy={!stdForCabinet || undefined}>
               <table className="table">
                 <caption className="sr-only">{t('checkout.step.minibar')}</caption>
                 <thead>
@@ -1249,10 +1454,11 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                               value={rem}
                               min={0}
                               max={i.standardQty}
-                              onChange={(v) => setLeft((x) => ({ ...x, [i.itemId]: v }))}
+                              onChange={(v) => editLeft({ [i.itemId]: v })}
                               labelledBy={`${ids}-i${idx}`}
                               decLabel={t('rooms.dec')}
                               incLabel={t('rooms.inc')}
+                              disabled={!stdForCabinet}
                             />
                             <span className="li-s num">/ {i.standardQty}</span>
                           </span>
@@ -1331,14 +1537,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         ) : null}
         {extraNightNeeded ? (
           // E05-11: one more night instead of a late surcharge; the rate defaults to the direct
-          // calendar price of that night. The room taken tonight → no extra night possible.
+          // calendar price of that night. The room taken tonight → no extra night possible. BUG-R4-038: a fee of 0
+          // (Internal) – nothing to charge, no alert here (the summary line `due_without_extra_night` says it).
           extraUnavailable ? (
             lateFeeMode ? (
               // BR-416-06: no night is added; a late fee of one night, confirmed by a manager at the desk.
               <Alert tone="warn" title={t('checkout.extra_night_title')}>
                 {t('co.late_fee_as_night_body', { amount: money(lateFeeAsNight ?? 0) })}
               </Alert>
-            ) : (
+            ) : lateFeeFree ? null : (
               <Alert tone="bad" title={t('checkout.extra_night_title')}>
                 {t('checkout.extra_night_unavailable')}
               </Alert>
@@ -1583,9 +1790,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 reservation={r}
                 balanceVnd={balance}
                 checkout={{
-                  checkoutAt: /^\d{2}:\d{2}$/.test(time)
-                    ? `${r.departureDate}T${time}:00+07:00`
-                    : undefined,
+                  checkoutAt: checkoutInstant(time, today, stayDeparture, rollover),
                   // ARC 16.18: the same rule as B18 – only a rate the desk changed.
                   extraNightRateVnd:
                     extraNightNeeded && !extraUnavailable && extraEdited
@@ -1766,7 +1971,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 
   // FE-S3-04: say why "Hoàn tất" is locked (first missing thing).
   const whyLocked =
-    extraUnavailable && !lateFeeMode
+    extraUnavailable && !lateFeeMode && !lateFeeFree
       ? t('checkout.extra_night_unavailable')
       : !lfReady
         ? lfReview
@@ -1815,7 +2020,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 {t('ci.back_to_booking')}
               </Link>
             ) : (
-              <Button variant="ghost" onClick={() => setStep((x) => x - 1)}>
+              <Button variant="ghost" onClick={back}>
                 {t('common.back')}
               </Button>
             )}
@@ -1827,20 +2032,31 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               <>
                 {chargeable ? (
                   <Button
+                    disabled={!stdForCabinet}
                     onClick={() =>
-                      setLeft(Object.fromEntries(items.map((i) => [i.itemId, i.standardQty])))
+                      editLeft(Object.fromEntries(items.map((i) => [i.itemId, i.standardQty])))
                     }
                   >
                     {t('checkout.minibar.all_full')}
                   </Button>
                 ) : null}
+                {/* s4-144: while the cabinet's standard is read, the button waits (DS busy) – pressed then it
+                    used to skip the count (no items yet = "nothing chargeable"). */}
                 <Button
                   variant="pri"
-                  busy={minibarAct.busy}
-                  busyLabel={minibarAct.busyLabel}
+                  busy={minibarAct.busy || stdWaiting}
+                  // ARC PR67-01 (a): the standard could not be read – ErrorBlock + "Thử lại" above, no way on
+                  disabled={std.state.status === 'error' && !stdForCabinet}
+                  busyLabel={minibarAct.busy ? minibarAct.busyLabel : t('common.loading')}
                   onClick={() => void saveMinibar()}
                 >
-                  {minibarAct.label(t('co.go_extras'))}
+                  {minibarAct.label(
+                    nextCabinet
+                      ? t('co.go_next_cabinet', {
+                          room: nextCabinet.roomNo ?? cabinetNo(nextCabinet.roomId),
+                        })
+                      : t('co.go_extras'),
+                  )}
                 </Button>
               </>
             ) : step === 1 ? (

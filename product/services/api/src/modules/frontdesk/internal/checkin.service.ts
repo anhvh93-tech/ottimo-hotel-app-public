@@ -20,6 +20,7 @@ import {
 } from '../../../shared/time';
 import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
+import { inRoomOnSql } from '../../housekeeping/public/stay-occupancy';
 import { PaymentService, type PaymentCreateInput } from '../../payments/public/payment.service';
 import { LEASE_END_DATE_KEY } from '../../reservations/public/lease-end';
 import {
@@ -52,11 +53,23 @@ type ConditionCode =
   | 'main_guest_document'
   | 'document_check_block';
 
+/** 0.3.12 (l) – why `room_ready` is not met (CheckInPreview.conditions[].cause). */
+type RoomReadyCause = 'room_status' | 'held_by_other_stay' | 'no_room';
+
 interface Condition {
   code: ConditionCode;
   met: boolean;
   detail?: string;
   overridableBy?: string[];
+  cause?: RoomReadyCause;
+  heldByReservationCode?: string;
+}
+
+/** Another in-house stay in the room on the business day (`roomHolder`): its root booking code. */
+interface RoomHolder {
+  code: string;
+  /** Past its departure date without B18 (`to_date < D`) – a forgotten check-out. */
+  overdue: boolean;
 }
 
 interface Evaluation {
@@ -74,8 +87,9 @@ interface Evaluation {
     defaultRateVnd: number;
     /** direct calendar price of the night (BR-421) – the base the B9a night is re-tiered from */
     calendarVnd: number;
-    floorVnd: number;
-    ceilingVnd: number;
+    /** The desk's range – absent on an Internal stay (BUG-R4-038: 0 ₫ night, no Direct floor–ceiling). */
+    floorVnd?: number;
+    ceilingVnd?: number;
     createsChildReservation: boolean;
     /** ARC 16.18: the room bought now – anchor of a B9a price the desk types (null = the origin room). */
     anchorRoomId: string | null;
@@ -96,6 +110,14 @@ interface Evaluation {
 
 /** Room money (BR-402 (2) "tiền phòng" – always collected in full, pending discounts included). */
 const ROOM_MONEY: ReadonlySet<string> = new Set(['room', 'room_change_difference']);
+
+/** A B9a rate outside the desk's range (BUG-R4-038: an Internal night has none – never out of range). */
+function outOfRange(rate: number, p: { floorVnd?: number; ceilingVnd?: number }): boolean {
+  return (
+    (p.floorVnd !== undefined && rate < p.floorVnd) ||
+    (p.ceilingVnd !== undefined && rate > p.ceilingVnd)
+  );
+}
 
 const FDL_UP = ['front_desk_lead', 'manager', 'owner'];
 
@@ -181,7 +203,7 @@ export class CheckinService {
       return e.amountDueAtCheckinVnd;
     }
     const rate = q.priorNightRateVnd ?? e.priorNight.defaultRateVnd;
-    if (rate < e.priorNight.floorVnd || rate > e.priorNight.ceilingVnd) {
+    if (outOfRange(rate, e.priorNight)) {
       throw problem('RATE_OUT_OF_RANGE', {
         errors: [{ field: 'priorNightRateVnd', code: 'RATE_OUT_OF_RANGE' }],
         extras: { min: e.priorNight.floorVnd, max: e.priorNight.ceilingVnd },
@@ -221,8 +243,7 @@ export class CheckinService {
       p.available &&
       rate !== undefined &&
       rate !== p.defaultRateVnd &&
-      rate >= p.floorVnd &&
-      rate <= p.ceilingVnd
+      !outOfRange(rate, p)
     ) {
       return (await this.evaluate(tx, ctx, row, q.checkinTime, 'write', rate))
         .amountDueAtCheckinVnd;
@@ -295,16 +316,15 @@ export class CheckinService {
       // OTTIMO move min(what the guest bought, this room's calendar); always within BR-105.
       const nc = await this.s.addedNightContext(tx, ctx, row, 'first', room.id);
       const r = await this.s.addedNightRate(tx, ctx, nc, date);
-      const direct = { rateVnd: r.calendarVnd, floorVnd: r.floorVnd, ceilingVnd: r.ceilingVnd };
       const own = row.stay_type === 'long' ? early.baseNightVnd : r.rateVnd;
       priorNight = {
         date,
         available:
           priorNightWindow && (await this.s.occupancy.isFree(tx, room.id, date, row.arrival_date)),
         defaultRateVnd: own,
-        calendarVnd: direct.rateVnd,
-        floorVnd: direct.floorVnd,
-        ceilingVnd: direct.ceilingVnd,
+        calendarVnd: r.calendarVnd,
+        // BUG-R4-038: an Internal night (0 ₫) has no Direct floor–ceiling.
+        ...(r.complimentary ? {} : { floorVnd: r.floorVnd, ceilingVnd: r.ceilingVnd }),
         createsChildReservation: row.channel_group === 'ota' || row.external_contract,
         anchorRoomId: nc.anchorRoomId,
         agreedRateVnd: row.stay_type === 'long' ? null : r.agreedVnd,
@@ -351,15 +371,39 @@ export class CheckinService {
     const docs = await this.s.ports.registration.checkinDocumentStatus(tx, row.id);
     const capacityOk =
       row.capacity_conflict_at === null && (!room || this.s.counted(row) <= room.max_occupancy);
-    const roomReady = !!room && (roomStatus === 'VI' || roomStatus === 'VC');
+    // BR-402 (1) v0.5.3 (BUG-R4-039): the "room not ready" exception is for a VACANT room not cleaned yet (VD/CL)
+    // only. OC/OD (a stay is still in the room), OOO, and a room another in-house stay still holds whatever its
+    // status says (`roomHolder`: leaving today or covering tonight, status edited by hand or set to CL by the
+    // housekeeping steps "needs cleaning"/"start cleaning" while the guest is in; a stay past its departure date
+    // without B18 too – ARC FB-R4-ARC-BE-PR74-01) have no exception for any role, the lead's approval path
+    // included: `overridableBy` absent, B9 refuses `roomNotReadyOverride` below.
+    // v1.0.4: a stay past its dates removes the exception only – VI/VC is still "ready" (`met`) next to it, as
+    // before; the strict "one room, one stay in" for `met` too is v1.0.5 (FB-R4-ARC-BE-PR74-05).
+    // 0.3.12 (l) (FB-R4-ARC-BE-PR74-02): `cause` tells the desk why – `held_by_other_stay` first (with the root
+    // code of the booking to check out), then `room_status`; `no_room` for a booking with no room (no `detail`).
+    const holder = room ? await this.roomHolder(tx, room.id, row, ctx) : null;
+    const heldToday = !!holder && !holder.overdue;
+    const roomReady = !!room && !heldToday && (roomStatus === 'VI' || roomStatus === 'VC');
+    const roomOverridable = !!room && !holder && (roomStatus === 'VD' || roomStatus === 'CL');
+    const roomCause: RoomReadyCause = !room
+      ? 'no_room'
+      : holder
+        ? 'held_by_other_stay'
+        : 'room_status';
     const conditions: Condition[] = [
       { code: 'not_unassigned', met: row.conflict_state !== 'open' },
       { code: 'capacity_within_max', met: capacityOk },
       {
         code: 'room_ready',
         met: roomReady,
-        ...(roomReady ? {} : { detail: roomStatus }),
-        ...(!roomReady && roomStatus !== 'OOO' ? { overridableBy: FDL_UP } : {}),
+        ...(roomReady
+          ? {}
+          : {
+              ...(room ? { detail: roomStatus } : {}),
+              cause: roomCause,
+              ...(holder ? { heldByReservationCode: holder.code } : {}),
+            }),
+        ...(roomOverridable ? { overridableBy: FDL_UP } : {}),
       },
       {
         code: 'balance_paid',
@@ -501,6 +545,35 @@ export class CheckinService {
     return rows.length === 0;
   }
 
+  /**
+   * BUG-R4-039 (BR-402 (1) v0.5.3): another in-house stay is still in this room on the business day – the
+   * housekeeping definition `inRoomOnSql(D)` unchanged (the departure day until B18, the room of the latest
+   * segment on a move day, and a stay left `in_house` past its dates – an overdue departure, "Cần chú ý"). Its
+   * room status can still reach CL through the housekeeping steps (OC → OD → CL), so the stay itself is what
+   * holds the room here (ARC FB-R4-ARC-BE-PR74-01). The stay of this booking itself (its root and children) does
+   * not count. Returns the ROOT booking code (0.3.12 (l) `heldByReservationCode`), a stay leaving today or covering
+   * tonight before an overdue one.
+   */
+  private async roomHolder(
+    tx: Tx,
+    roomId: string,
+    row: ReservationRow,
+    ctx: BookingContext,
+  ): Promise<RoomHolder | null> {
+    const { rows } = await tx.query<{ code: string; overdue: boolean }>(
+      `SELECT root.code, (s.to_date < $3::date) AS overdue
+         FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+         JOIN reservation root ON root.id = COALESCE(r.parent_reservation_id, r.id)
+        WHERE s.room_id = $1 AND COALESCE(r.parent_reservation_id, r.id) <> $2::uuid
+          AND ${inRoomOnSql('$3::date')}
+        ORDER BY (s.to_date < $3::date), s.from_date, root.code
+        LIMIT 1`,
+      [roomId, row.parent_reservation_id ?? row.id, ctx.today],
+    );
+    const r = rows[0];
+    return r ? { code: r.code, overdue: r.overdue } : null;
+  }
+
   private async kitOpen(tx: Tx, reservationId: string): Promise<number> {
     const { rows } = await tx.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM hk_task WHERE reservation_id = $1
@@ -528,7 +601,8 @@ export class CheckinService {
     if (body.houseRulesSent !== true) f.add('houseRulesSent', 'REQUIRED');
     const doorHandedOver = f.bool('doorAccessHandedOver') ?? false;
     const addPriorNight = f.bool('addPriorNight') ?? false;
-    const priorRate = f.money('priorNightRateVnd', { required: false, positive: true });
+    // BUG-R4-038: 0 is accepted here and refused below unless the stay is Internal (its complimentary night).
+    const typedPriorRate = f.money('priorNightRateVnd', { required: false, positive: false });
     const roomOverride = this.object(f, body, 'roomNotReadyOverride');
     const roomOverrideReason =
       roomOverride && typeof roomOverride.reason === 'string' ? roomOverride.reason.trim() : null;
@@ -545,6 +619,14 @@ export class CheckinService {
     if (payment && payment.type !== 'charge') f.add('payment.type', 'NOT_IN_LIST');
 
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
+    // BUG-R4-038 (EP02 Nội bộ, DOM 04/11): a typed 0 is the complimentary B9a night of an Internal stay only – on
+    // any other channel the field error stays what it was (422 AMOUNT_NOT_POSITIVE with the other field errors).
+    const internal = row.channel_group === 'internal';
+    let priorRate = typedPriorRate;
+    if (priorRate === 0 && !internal) {
+      f.add('priorNightRateVnd', 'AMOUNT_NOT_POSITIVE');
+      priorRate = undefined;
+    }
     this.s.stay.assertVersion(row, expectedVersion);
     if (row.status !== 'confirmed') throw this.s.stay.invalid(row);
     const e = await this.evaluate(tx, ctx, row, checkinTime, 'write');
@@ -585,7 +667,10 @@ export class CheckinService {
         if (docOverrideReason.length < 3) f.add('documentBlockOverride.reason', 'REASON_REQUIRED');
         continue;
       }
-      if (c.code === 'room_ready' && e.roomStatus !== 'OOO' && roomOverride) {
+      // BUG-R4-039 (BR-402 (1) v0.5.3): the same `overridableBy` the preview shows – VD/CL with no other stay in
+      // the room (an overdue one included). Otherwise the override (reason, approval request or approved request)
+      // is ignored → 409 below.
+      if (c.code === 'room_ready' && c.overridableBy && roomOverride) {
         if (fdlPlus) {
           if (!roomOverrideReason || roomOverrideReason.length < 3) {
             f.add('roomNotReadyOverride.reason', 'REASON_REQUIRED');
@@ -642,7 +727,14 @@ export class CheckinService {
     }
     if (e.early.addsPreviousNight) {
       if (!addPriorNight) f.add('addPriorNight', 'REQUIRED');
-      if (addPriorNight && expected === undefined && !f.has('expectedSurchargeVnd')) {
+      // BUG-R4-038: the amount shown is confirmed for a night that costs something – an Internal night at 0 ₫ has
+      // nothing to tell the guest (H13 sends no `expectedSurchargeVnd` for 0, like a 0 early surcharge).
+      if (
+        addPriorNight &&
+        expected === undefined &&
+        !f.has('expectedSurchargeVnd') &&
+        (priorUsed ?? 0) > 0
+      ) {
         f.add('expectedSurchargeVnd', 'REQUIRED');
       }
     } else if (addPriorNight) {
@@ -671,7 +763,7 @@ export class CheckinService {
           view,
         );
       }
-      if (priorUsed < e.priorNight.floorVnd || priorUsed > e.priorNight.ceilingVnd) {
+      if (outOfRange(priorUsed, e.priorNight)) {
         throw problem('RATE_OUT_OF_RANGE', {
           errors: [{ field: 'priorNightRateVnd', code: 'RATE_OUT_OF_RANGE' }],
           extras: { min: e.priorNight.floorVnd, max: e.priorNight.ceilingVnd },
@@ -708,7 +800,12 @@ export class CheckinService {
         room,
         e.priorNight,
         priorUsed,
-        priorRate === undefined ? 'default' : 'manual',
+        // BUG-R4-038: an Internal night at 0 ₫ (default or typed) is `complimentary`; > 0 typed = `manual`.
+        internal && priorUsed === 0
+          ? 'complimentary'
+          : priorRate === undefined
+            ? 'default'
+            : 'manual',
       );
     }
     // BR-411/413/415 surcharge confirmed by the desk (BR-414) + optional FOC request.
@@ -935,7 +1032,7 @@ export class CheckinService {
     room: RoomInfo,
     prior: NonNullable<Evaluation['priorNight']>,
     rateVnd: number,
-    source: 'default' | 'manual',
+    source: 'default' | 'manual' | 'complimentary',
   ): Promise<LocalDate> {
     const date = prior.date;
     const sourced = {

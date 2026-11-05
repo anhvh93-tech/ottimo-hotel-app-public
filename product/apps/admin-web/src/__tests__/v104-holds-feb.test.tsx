@@ -14,6 +14,7 @@ import { attentionLine } from '../app/attention';
 import { fromLocalInput, toLocalInput } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
+import { pinDaytime } from '../test/clock';
 import { renderApp, tv } from '../test/render';
 
 const rsvOf = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
@@ -571,6 +572,7 @@ describe('ĐX-R3-QA-01 – "Cần chú ý" hold_overdue / hold_overdue_cap, "Gi�
   });
 
   it('Hôm nay: the holds block is "Giữ chỗ chờ cọc (n)" (part-paid holds too)', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const r = rsvOf('Lê Minh');
     r.arrivalDate = new Date().toISOString().slice(0, 10);
     renderApp('/today', 'qa.fd');
@@ -580,6 +582,7 @@ describe('ĐX-R3-QA-01 – "Cần chú ý" hold_overdue / hold_overdue_cap, "Gi�
   });
 
   it('Hôm nay: a paid hold past its deadline says "Quá hạn từ …", never "còn 0 giờ 00 phút" (FB-R4-UXD-FE-P440-07)', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const r = overdue(200_000);
     r.arrivalDate = new Date().toISOString().slice(0, 10);
     renderApp('/today', 'qa.fd');

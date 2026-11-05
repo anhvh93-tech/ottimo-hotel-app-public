@@ -38,7 +38,7 @@ describe('H16 Trả phòng 3 bước + bill + VietQR (US-035…039, US-119, US-1
     await user.click(within(coke).getByRole('button', { name: /^Giảm/ }));
     expect(within(coke).getByText('25.000')).toBeInTheDocument();
     expect(within(coke).getByRole('button', { name: /^Tăng/ })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
 
     // Step 2 – departure at the standard time → no late surcharge.
     expect(await screen.findByText(tv('checkout.late_none'))).toBeInTheDocument();

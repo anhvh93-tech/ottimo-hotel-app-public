@@ -218,7 +218,7 @@ Lễ tân thấy lý do. Ngày mai vẫn có việc dọn như thường.
 > 3. Lễ tân nhập vào Desk khi trả phòng.
 > 4. Đếm sau khi khách đã đi mà thấy thiếu: báo lễ tân ngay, kèm ảnh tủ (chụp tủ, không chụp người).
 
-Khách đổi phòng: lễ tân nhờ đếm minibar căn cũ. Đếm và báo số như trên.
+Khách đổi phòng: đếm minibar căn cũ **trước khi dọn**, báo lễ tân số còn lại từng món như trên. Báo xong thì **bổ sung đủ tủ** căn cũ khi dọn. Từ v1.0.4, việc **Bổ sung minibar** cho căn cũ sinh lúc lễ tân lưu số tủ căn cũ ở bước **Minibar** của trang **Trả phòng** (khi tủ có món đã dùng), không sinh lúc đổi phòng. Có việc này: kiểm tủ, đủ thì bấm **Làm xong**.
 
 ---
 
@@ -356,8 +356,8 @@ Tập trên **app tập** bằng **tài khoản tập** chủ đầu tư đưa t
 
 ## Lịch sử tệp
 
-Chuyển từ dòng **Lập:** đầu tệp (04/11/2026). Mới nhất ở trên.
+Chuyển từ dòng **Lập:** đầu tệp (04/11/2026; phần bổ sung 05/11 chuyển vào ngày 05/11, giữ nguyên chữ). Mới nhất ở trên.
 
-- Bản 1.4 – 04/11/2026, **áp dụng từ v1.0.4**: đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục thì chủ đầu tư gặp tận mặt rồi **Đặt lại xác thực 2 bước**, anh/chị giữ tài khoản cũ (mục 1.5; BUG-R4-032; sửa cùng ngày theo review SEC: điện thoại bị lấy cắp hoặc có lưu mật khẩu thì chủ đầu tư đặt lại mật khẩu luôn)
+- Bản 1.4 – 04/11/2026, bổ sung 05/11 (**áp dụng ngay**): khách đổi phòng thì đếm minibar căn cũ **trước khi dọn**, báo lễ tân số còn lại từng món, bổ sung đủ tủ căn cũ khi dọn (mục 7; DOM #72 thẻ 02); bản 1.4 **áp dụng từ v1.0.4**: đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục thì chủ đầu tư gặp tận mặt rồi **Đặt lại xác thực 2 bước**, anh/chị giữ tài khoản cũ (mục 1.5; BUG-R4-032; sửa cùng ngày theo review SEC: điện thoại bị lấy cắp hoặc có lưu mật khẩu thì chủ đầu tư đặt lại mật khẩu luôn)
 - Bản 1.3 – 04/11/2026, **áp dụng từ v1.0.4** (bản đang chạy là v1.0.3): app nhân viên có bước nhập mã 2 bước, đổi mật khẩu tạm ngay trên app, bật 2 bước làm trên Desk, bật hay không là tùy chọn (mặc định đội chọn, sửa theo review DOM cùng ngày; mục 1.6, 5.1, 12) (mục 1.2, 1.6, 12)
 - Bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; bản 1.2 ngày 03/11: không bật đăng nhập 2 bước ở v1.0.x vì app nhân viên chưa đăng nhập được bằng 2 bước – mục 1.6, FB-R4-DOM-PO-RN103-02)
