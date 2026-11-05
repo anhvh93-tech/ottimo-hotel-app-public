@@ -124,7 +124,7 @@ Luôn nhớ:
 - Nội dung chuyển khoản luôn là **mã đơn**. CTV không gửi mã VietQR và không xác nhận cọc.
 - Không hứa giá, khuyến mãi hay chính sách hủy khác với Desk.
 - Không chụp, không xin ảnh giấy tờ của khách. Lễ tân lo giấy tờ khi khách đến.
-- Khách ở từ 28 đêm, khách đến hôm nay: nhắn lễ tân.
+- Khách ở từ 30 đêm, khách đến hôm nay: nhắn lễ tân.
 
 ---
 
@@ -132,7 +132,7 @@ Luôn nhớ:
 
 1. **Báo giá & giữ chỗ**, tab **Căn trống**.
 2. Nhập **Ngày đến**, **Số đêm**, **Người lớn (từ 12 tuổi)**, trẻ em.
-3. Chọn căn trong danh sách căn trống. Desk mở **Báo giá**: số đêm thường, số đêm thứ Sáu/thứ Bảy, giảm theo số đêm, phụ thu người, **Tổng tiền đơn**, **Cọc để giữ phòng** (30 % tiền phòng), và **Bạn nhận (…% tiền phòng)** (CTV 8 %, sale 3 %).
+3. Chọn căn trong danh sách căn trống. Desk mở **Báo giá**: số đêm thường, số đêm thứ Sáu/thứ Bảy, phụ thu người, **Tổng tiền đơn**, **Cọc để giữ phòng** (30 % tiền phòng), và **Bạn nhận (…% tiền phòng – BR-903)** (CTV) hoặc **Sale nhận (…% tiền phòng – BR-903)** (sale): Desk tự điền theo tỷ lệ chủ đầu tư cài. Sổ tay không ghi tỷ lệ.
 4. Chọn **Khách đứng tên** ngay trong hộp này (tìm, hoặc **Tạo nhanh khách**: họ tên, **Số điện thoại / Zalo**; đơn Trực tiếp và CTV **bắt buộc có số điện thoại**).
 5. Bấm **Lưu báo giá**.
 6. Chọn **Ngôn ngữ gửi khách** (Tiếng Việt, English, Русский). Bấm **Sao chép gửi Zalo**. Dán vào tin nhắn riêng với khách.
@@ -143,10 +143,10 @@ Luôn nhớ:
 [ẢNH: C4-06-Báo giá trên điện thoại]
 
 Quy tắc giá Desk tự tính (để trả lời khách, không tự tính tay):
-- Đêm thứ Sáu, thứ Bảy +15 %. Ngày đặc biệt +30 % (Tết, lễ, cuối năm).
+- Một giá mọi đêm, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá). Báo giá thử một Studio, ngày đến thứ Sáu, 2 đêm, 2 người lớn: phải ra 1.600.000. Ra số khác: dừng, báo quản lý, không tự sửa giá.
 - Ngày đến thứ Sáu, thứ Bảy, ngày đặc biệt: **tối thiểu 2 đêm**. Desk báo "Ngày này cần ở tối thiểu 2 đêm" thì chọn 2 đêm.
-- Từ 7 đêm giảm 10 %, từ 14 đêm giảm 15 %. Từ 28 đêm là **thuê dài hạn**: hợp đồng vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay.
-- Người thêm vượt định mức: người lớn 150.000 đ/đêm, trẻ 6–11 tuổi 100.000 đ/đêm, dưới 6 tuổi miễn.
+- Không giảm theo số đêm (từ ngày chủ đầu tư chuyển giá). Từ **30 đêm** là **thuê dài hạn**: hợp đồng vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay. Khách dưới 30 đêm tự hỏi thuê tháng: bán đủ 1 tháng theo bảng tháng, ở ít hơn không hoàn (ESC-045 câu 6). Hỏi quản lý trước khi báo khách.
+- Người thêm vượt định mức: từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn. Desk hiện 100.000 cho trẻ 6–11 tuổi: báo quản lý, không tự sửa.
 - Nhận phòng từ 12:00, trả phòng trước 12:00. Câu nói với khách: "Check-in is from 12:00. Your room is always ready by 14:00." / "Nhận phòng từ 12:00. Phòng luôn sẵn sàng lúc 14:00." **Không** hứa "phòng sẵn sàng từ 12:00".
 
 **Chính sách hủy** (kênh Trực tiếp, CTV) – đọc đúng như sau khi khách hỏi:
@@ -303,7 +303,7 @@ Từ 03/11 (v1.0.1), Desk đăng tin báo yêu cầu mới vào một phòng Goo
 | Báo giá hết hiệu lực, khách mới đồng ý | **Gửi quản lý gia hạn**, hoặc **Lập báo giá mới** theo giá hiện hành |
 | Desk báo đã đủ số giữ chỗ (CTV 3, sale 5) | Nhờ lễ tân tạo |
 | Khách đến hôm nay | Nhắn lễ tân tạo đơn |
-| Khách ở từ 28 đêm | Nhắn lễ tân; hợp đồng làm ngoài app |
+| Khách ở từ 30 đêm | Nhắn lễ tân; hợp đồng làm ngoài app |
 | Khách xin gửi ảnh giấy tờ trước | Không nhận. Báo khách lễ tân làm giấy tờ tại quầy khi khách đến |
 | Khách xin mã cửa, Wi-Fi | Sale/CTV không có mã cửa. Mã cửa lễ tân giao khi nhận phòng |
 | Khách gửi số thẻ qua tin nhắn | Không dùng, không ghi lại. Mời khách trả tại máy POS ở quầy |

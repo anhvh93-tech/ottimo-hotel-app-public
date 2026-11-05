@@ -72,6 +72,39 @@ export function shiftDay(day: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * BUG-R4-050 (ARC-on-v104-bug050-rule.md mục 1, FB-R4-ARC-FE-PR86-01): the instant of a check-out time `hhmm` typed
+ * on H16, for the reads that take an instant (`createVietQr.checkoutAt`: the typed extra-night rate probe and the
+ * check-out VietQR). B18 keeps sending `checkoutTime` only (BR-416) – never this instant.
+ * The server reads `checkoutTime` on the business-day axis of the click (`businessMinutes`, the post-midnight window
+ * by the click), so the Desk builds the same instant: before `rollover` the time is on the day after `businessDay`,
+ * from `rollover` on it is on `businessDay` – never chosen from the booking's departure date (the old "departure
+ * date + time" was 24 h early after midnight: VietQR capped at 0 đ). Outside what the server takes for
+ * `checkoutAt` – `[stayDeparture 00:00, stayDeparture + 1 rollover)` – nothing: the server uses its clock, as B18.
+ * - 00:20 at 00:20 the day after the departure (business day = departure) → that day; 00:25 typed then → that day too.
+ * - 04:30 typed at 06:10 on the departure day → the day after, as B18 reads it. The PR #68 case ("left 04:30,
+ *   checked out from 06:00") cannot hold while B18 sends `checkoutTime` only (ARC mục 2) – v1.0.5 sends one
+ *   `checkoutAt` to the summary, the VietQR and B18.
+ * `businessDay` = `useBusinessDay()` of the click; `stayDeparture` = `stayDepartureDate ?? departureDate` (a stay
+ * extended by a child booking); `offset` = the property's UTC offset (Asia/Ho_Chi_Minh, no DST).
+ */
+export function checkoutInstant(
+  hhmm: string,
+  businessDay: string,
+  stayDeparture: string,
+  rollover = DEFAULT_ROLLOVER,
+  offset = '+07:00',
+): string | undefined {
+  if (!/^\d{2}:\d{2}$/.test(hhmm)) return undefined;
+  const R = rollover.slice(0, 5);
+  const day = hhmm < R ? shiftDay(businessDay, 1) : businessDay;
+  const iso = `${day}T${hhmm}:00${offset}`;
+  const t = Date.parse(iso);
+  const from = Date.parse(`${stayDeparture}T00:00:00${offset}`);
+  const to = Date.parse(`${shiftDay(stayDeparture, 1)}T${R}:00${offset}`);
+  return t >= from && t < to ? iso : undefined;
+}
+
 /** Whole days from `a` to `b` (YYYY-MM-DD). */
 export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);

@@ -223,7 +223,7 @@ Lễ tân thấy lý do. Ngày mai vẫn có việc dọn như thường.
 > 3. Lễ tân nhập vào Desk khi trả phòng.
 > 4. Đếm sau khi khách đã đi mà thấy thiếu: báo lễ tân ngay, kèm ảnh tủ (chụp tủ, không chụp người).
 
-Khách đổi phòng: đếm minibar căn cũ **trước khi dọn**, báo lễ tân số còn lại từng món như trên. Báo xong thì **bổ sung đủ tủ** căn cũ khi dọn. Sau khi khách trả phòng, Desk có thể tạo việc **Bổ sung minibar** cho căn cũ: kiểm tủ, đủ thì bấm **Làm xong**.
+Khách đổi phòng: đếm minibar căn cũ **trước khi dọn**, báo lễ tân số còn lại từng món như trên. Báo xong thì **bổ sung đủ tủ** căn cũ khi dọn. Từ v1.0.4, việc **Bổ sung minibar** cho căn cũ sinh lúc lễ tân lưu số tủ căn cũ ở bước **Minibar** của trang **Trả phòng** (khi tủ có món đã dùng), không sinh lúc đổi phòng. Có việc này: kiểm tủ, đủ thì bấm **Làm xong**.
 
 ---
 

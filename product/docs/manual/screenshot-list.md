@@ -84,7 +84,7 @@
 | C2-15 | **Nhận phòng** – **Điều kiện nhận phòng** + bước **Giấy tờ** | Lễ tân, máy đã cấp quyền | Đơn khách nước ngoài 2 người, 1 giấy tờ đã gửi qua link | **Che số giấy tờ, ảnh giấy tờ** |
 | C2-16 | Nhận phòng – bước **Kiểm tra** (có 1 dòng **Chưa kiểm được**) | Như C2-15 | Hộ chiếu nhập tay thiếu ngày nhập cảnh | **Che** số giấy tờ |
 | C2-17 | Nhận phòng – bước **Khai báo** (hạn khai báo) | Như C2-15 | – | – |
-| C2-18 | Nhận phòng – **Giờ nhận & phụ thu**, bật **Khách nhận sớm**, giờ 11:00 → phụ thu 30 % | Như C2-15 | Đơn Trực tiếp | – |
+| C2-18 | Nhận phòng – **Giờ nhận & phụ thu**, bật **Khách nhận sớm**, giờ 10:30 → phụ thu 30 % | Như C2-15 | Đơn Trực tiếp | – |
 | C2-19 | Nhận phòng – **Thu tiền trước khi giao mã** (VietQR đang chờ hoặc tiền mặt) | Như C2-15 | Đơn còn phải thu | **Che mã QR, tài khoản nhận** |
 | C2-20 | Nhận phòng – mã cửa, **Số thẻ phòng đã giao**, tích nội quy, khối **Khi bấm Nhận phòng**, nút **Nhận phòng căn …** | Như C2-15 | – | Không nhập mã cửa thật |
 | C2-21 | **Giấy tờ & khai báo** – tab **Cần xử lý** | Lễ tân, máy đã cấp | ≥ 3 hồ sơ: 1 công dân VN, 1 người nước ngoài, 1 quá hạn | **Che** số giấy tờ (nếu hiện) |
