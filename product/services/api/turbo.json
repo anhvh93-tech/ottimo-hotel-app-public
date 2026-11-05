@@ -13,6 +13,7 @@
         "$TURBO_ROOT$/packages/i18n/src/plural-forms.cases.json",
         "$TURBO_ROOT$/design/copy/strings-*.json",
         "$TURBO_ROOT$/apps/guest-web/src/app/config.ts",
+        "$TURBO_ROOT$/apps/guest-web/src/app/i18n.tsx",
         "$TURBO_ROOT$/apps/landing-web/src/content/en.ts",
         "$TURBO_ROOT$/eslint.config.js",
         "$TURBO_ROOT$/.prettierrc.json"
