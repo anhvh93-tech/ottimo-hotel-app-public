@@ -170,3 +170,10 @@ Thử đột biến. Sửa tạm trong worktree tạm, rồi trả về như cũ
 - Chọn danh sách **theo từng phiên bản**, không chỉ thêm `ru` vào danh sách chung. Nhờ vậy giữ đúng quyết định (a) cho tab v1.0.3 cũ còn mở.
 - G-RU đỏ khi không tìm thấy khai báo, không lặng lẽ bỏ qua. Mỗi ca kèm câu báo lỗi chỉ rõ cách sửa và ai phải ký.
 - PR đúng phạm vi A1', có ghi lệnh và kết quả. Báo cáo nằm ngoài PR để không làm lệch phép kiểm.
+
+## Phản hồi & sửa (05/11): ĐÓNG FB-R4-SEC-BE-RU-NL-01
+
+- **ĐK1 – đạt.** CI PR #91 trên head `9216394f` xanh, gồm cả docker E2E smoke. Log có `bug-r4-053-notice-locale.test.ts` 9 ca và `integration/bug-r4-053-ru-notice-locale.test.ts` 4 ca chạy thật, không bỏ qua. Gộp ra merge commit `6414be25`, không có commit thêm sau head SEC đã xem. A1'' đạt.
+- **ĐK2 – đạt.** Staging `sha-6414be25f20d`. RG-35 (S16', đơn thử mới R-PV2) tính từ `up_at_r3` 09:38:54Z: `consent_record` `privacy-2026-10-v2|ru|guest_app|1`, `online_checkin` `privacy-2026-10-v2|ru|1`, không dòng `|en|`. Kèm C7 `GW_V1_FILES=0`, C4 `AT_IN_LOG=0`. Nguồn: `rounds/round-04/outputs/OPS/v1.0.4-staging-drill.md` bảng 5.x.
+- **Kết luận:** đóng FB-R4-SEC-BE-RU-NL-01. Kết quả RG-35 dùng làm N4. **Đường B (T1–T4) không cần**, mốc 06/11 10:15 bỏ. Hai thẻ v1.0.5 (changeLocale lỗi mạng; G-RU dựa vào đủ khóa RU) vẫn mở, không chặn v1.0.4.
+- ESC mới: không.
