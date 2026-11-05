@@ -43,8 +43,41 @@ type Locale = (typeof LOCALES)[number];
 const STEPS = ['notice', 'documents', 'eta', 'consent'] as const;
 type Step = (typeof STEPS)[number] | 'done';
 const ORDER: readonly Step[] = ['notice', 'documents', 'eta', 'consent', 'done'];
-/** Locales with a privacy notice approved by UXD + SEC (content-guide HR-01). */
-const APPROVED_NOTICE_LOCALES: readonly string[] = ['vi', 'en'];
+
+/**
+ * Languages in which each notice version has a reviewed text that guest-web really SHOWS – BUG-R4-053, SEC rule
+ * `rounds/round-04/reviews/SEC-on-ru-notice-locale-drill.md` mục 4 (replaces the single vi/en list of the
+ * decision of 17/10 (a)). The notice evidence (`online_checkin.notice_locale`, R-CON-02) names one of these;
+ * a session in any other language read the EN lead text, so it is recorded as `en`.
+ * - `privacy-2026-10-v1`: vi, en. guest-web <= v1.0.3 showed the EN text on the RU page (RU_UNREVIEWED_LEGAL).
+ * - `privacy-2026-10-v2`: vi, en, ru. RU signed for THIS version by SEC (meaning, SEC-on-privacy-v2-ru) and UXD
+ *   (tone); guest-web v1.0.4 shows it (P4-42, RU_UNREVIEWED_LEGAL empty).
+ * - A version not listed: vi, en (every version has the EN lead + the VI the lawyer read).
+ * Adding a language to a version = SEC + UXD sign-off for that version, the client unlocks it in the SAME
+ * release, and tests on both sides (guard test `test/bug-r4-053-notice-locale.test.ts` G-RU). Never config.
+ * v1.0.5 (SEC 4.6, ARC FB-R4-ARC-BE-S16-03): one list generated for guest-web and API.
+ */
+export const NOTICE_LOCALES_BY_VERSION: Readonly<Record<string, readonly Locale[]>> = Object.freeze(
+  {
+    'privacy-2026-10-v1': Object.freeze<Locale[]>(['vi', 'en']),
+    'privacy-2026-10-v2': Object.freeze<Locale[]>(['vi', 'en', 'ru']),
+  },
+);
+export const NOTICE_LOCALES_OF_UNKNOWN_VERSION: readonly Locale[] = Object.freeze<Locale[]>([
+  'vi',
+  'en',
+]);
+
+/**
+ * Language of the notice text a session in `sessionLocale` really reads for `version`: the session language when
+ * the version has a reviewed text in it, otherwise `en`. Own keys only (`constructor`, `__proto__` = unknown).
+ */
+export function noticeLocaleShown(version: string, sessionLocale: string): Locale {
+  const reviewed = Object.hasOwn(NOTICE_LOCALES_BY_VERSION, version)
+    ? (NOTICE_LOCALES_BY_VERSION[version] ?? NOTICE_LOCALES_OF_UNKNOWN_VERSION)
+    : NOTICE_LOCALES_OF_UNKNOWN_VERSION;
+  return reviewed.find((l) => l === sessionLocale) ?? 'en';
+}
 
 /** SEC E14-08 / A-31: map links only to these exact hosts, https only. */
 export function safeMapUrl(raw: string | null): string | null {
@@ -486,9 +519,10 @@ export class GuestPortalService {
         errors.push({ field: 'noticeVersion', code: 'NOT_IN_LIST' });
       } else {
         set('notice_version', current);
-        // SEC decision (a) 17/10: the evidence names the language really SHOWN – approved notice texts
-        // exist in vi/en only; a `ru` session reads the EN text (MOB RU_UNREVIEWED_LEGAL).
-        set('notice_locale', APPROVED_NOTICE_LOCALES.includes(g.locale) ? g.locale : 'en');
+        // R-CON-02: the evidence names the language of the notice text really SHOWN. BUG-R4-053 (SEC rule
+        // SEC-on-ru-notice-locale-drill 4): the session language when the CURRENT version has a reviewed text in
+        // it (v1: vi/en; v2: vi/en/ru – P4-42), otherwise `en` (the RU page of v1 showed the EN text).
+        set('notice_locale', noticeLocaleShown(current, g.locale));
         set('notice_accepted_at', c.now);
         noticeNow = true;
       }
