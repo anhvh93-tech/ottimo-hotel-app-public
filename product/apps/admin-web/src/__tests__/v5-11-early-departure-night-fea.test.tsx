@@ -48,6 +48,38 @@ function directStay(guest = 'Trần Thu Nga') {
   return r;
 }
 
+/**
+ * DOM review #142 3.3 (oracle BR-428-15): a direct stay 19–24/10 × 700.000 = D − 2 → D + 3 (D = 21/10), paid in full,
+ * only its 5 room nights on the folio, no open refund request.
+ */
+function domStay() {
+  const r = directStay();
+  const nights = [-2, -1, 0, 1, 2].map((n) => addDays(D, n));
+  const f = mockControl.stay.folios.get(r.folioId)!;
+  const proto = f.lines.find((l) => l.category === 'room')!;
+  f.lines = nights.map((serviceDate, i) => ({
+    ...proto,
+    id: `${proto.id}-dom${i}`,
+    serviceDate,
+    quantity: 1,
+    unitPriceVnd: 700_000,
+    amountVnd: 700_000,
+    lineState: 'posted' as const,
+  }));
+  r.departureDate = addDays(D, 3);
+  if (r.nightlyRates) r.nightlyRates = nights.map((date) => ({ date, amountVnd: 700_000 }));
+  const last = r.segments?.at(-1);
+  if (last) last.toDate = addDays(D, 3);
+  const pays = mockControl.stay.payments;
+  const keep = pays.find((p) => p.folioId === r.folioId && p.type !== 'refund')!;
+  for (let i = pays.length - 1; i >= 0; i--)
+    if (pays[i]!.folioId === r.folioId && pays[i] !== keep) pays.splice(i, 1);
+  Object.assign(keep, { method: 'cash', status: 'succeeded', amountVnd: 3_500_000 });
+  const asks = mockControl.stay.approvals;
+  for (let i = asks.length - 1; i >= 0; i--) if (asks[i]!.folioId === r.folioId) asks.splice(i, 1);
+  return r;
+}
+
 interface Sent {
   body: Record<string, unknown>;
 }
@@ -125,6 +157,11 @@ describe('V5-11 – minCalendarDay and the 409 hint order', () => {
     expect(minCalendarDay('2026-10-20', undefined, t('2026-10-21T04:30:00+07:00'), '04:00')).toBe(
       '2026-10-20',
     );
+    // FB-R5-DOM-FE-142-01: W needs the business day before the calendar day too – the server already at 06:01
+    // (business day 21/10), the desk clock at 05:59 on 21/10 → 21/10, not 22/10
+    expect(minCalendarDay('2026-10-21', undefined, t('2026-10-21T05:59:00+07:00'))).toBe(
+      '2026-10-21',
+    );
   });
 
   it('useCheckout before minNewDepartureDate; any other 409 is not a hint', () => {
@@ -157,19 +194,236 @@ describe('V5-11 – Trả sớm from 00:00 to 06:00 (Desk)', () => {
       ),
     ).toBeInTheDocument();
     await waitFor(() => expect(cap.sent.some((s) => s.body.newDepartureDate === D)).toBe(true));
-    // last night (the business day) is never offered: typed, it is a client error and no request goes out
+    // last night (the business day) is never offered: typed, it is a client error and no request goes out. The
+    // sentence is the 9.13 one with "Dùng {date}" (FB-R5-UXD-FE-142-01), not the generic range.
     fireEvent.change(box, { target: { value: Y } });
     await waitFor(() => expect(box).toHaveAttribute('aria-invalid', 'true'));
     expect(
-      within(dlg).getByText(
+      within(dlg).getByText(tv('early_departure.err.min_date', { date: fmt(D) })),
+    ).toBeInTheDocument();
+    expect(
+      within(dlg).queryByText(
         tv('early_departure.err.date_range', { min: fmt(D), max: fmt(addDays(D, 1)) }),
       ),
-    ).toBeInTheDocument();
+    ).toBeNull();
     await new Promise((x) => setTimeout(x, 600));
     expect(cap.sent.some((s) => s.body.newDepartureDate === Y)).toBe(false);
     expect(toPreview(dlg)).toHaveAttribute('aria-disabled', 'true');
     await user.click(toPreview(dlg));
     expect(cap.writes()).toHaveLength(0);
+    // past the last date: still the range sentence
+    fireEvent.change(box, { target: { value: addDays(D, 2) } });
+    expect(
+      await within(dlg).findByText(
+        tv('early_departure.err.date_range', { min: fmt(D), max: fmt(addDays(D, 1)) }),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dlg).queryByRole('button', {
+        name: tv('early_departure.use_min_date', { date: fmt(D) }),
+      }),
+    ).toBeNull();
+  });
+
+  it('FB-R5-UXD-FE-142-01: step ② open across 00:00 (DOM R2) – ticking "Đã báo khách" at 00:02 goes back to step ① with the 9.13 sentence, focus on the date, never an endless "Đang tính thử…"', async () => {
+    at('23:58', Y);
+    directStay();
+    const cap = captureB16();
+    const { user, dlg } = await openDialog('Trần Thu Nga');
+    expect(dateBox(dlg)).toHaveValue(Y);
+    await waitFor(() => expect(toPreview(dlg)).not.toHaveAttribute('aria-disabled'));
+    await user.click(toPreview(dlg));
+    const told = await within(dlg).findByRole('checkbox', {
+      name: tv('early_departure.told_guest'),
+    });
+    at('00:02'); // DOM R2
+    await user.click(told);
+    // step ①: the date box has the focus and the 9.13 sentence; nothing waits for a preview that cannot run
+    const box = await waitFor(() => {
+      const b = dateBox(dlg);
+      expect(b).toHaveFocus();
+      return b;
+    });
+    expect(box).toHaveAttribute('aria-invalid', 'true');
+    expect(
+      within(dlg).getByText(tv('early_departure.err.min_date', { date: fmt(D) })),
+    ).toBeInTheDocument();
+    expect(within(dlg).queryByText(tv('early_departure.preview_loading'))).toBeNull();
+    expect(
+      within(dlg).queryByRole('checkbox', { name: tv('early_departure.told_guest') }),
+    ).toBeNull();
+    await new Promise((x) => setTimeout(x, 600));
+    expect(within(dlg).queryByText(tv('early_departure.preview_loading'))).toBeNull();
+    // "Dùng D" fills the box, the preview runs for D, step ② asks again and the write is D
+    await user.click(
+      within(dlg).getByRole('button', {
+        name: tv('early_departure.use_min_date', { date: fmt(D) }),
+      }),
+    );
+    expect(box).toHaveValue(D);
+    expect(box).toHaveFocus();
+    await toStep2(user, dlg);
+    await user.click(confirmBtn(dlg));
+    await waitFor(() => expect(cap.writes()).toHaveLength(1));
+    expect(cap.writes()[0]!.body.newDepartureDate).toBe(D);
+    expect(cap.sent.some((s) => s.body.newDepartureDate === Y && s.body.dryRun === false)).toBe(
+      false,
+    );
+  });
+
+  it('DOM review #142 3.3 (1)(3) + R1: opened 23:55 on 20/10, "Xem trước" at 00:05 → the 9.13 sentence and "Dùng 21/10"; then 1.050.000 back, fee 1.050.000 posted on 20/10', async () => {
+    at('23:55', Y);
+    const r = domStay();
+    const cap = captureB16();
+    const { user, dlg } = await openDialog('Trần Thu Nga');
+    const box = dateBox(dlg);
+    expect(box).toHaveValue(Y); // before 00:00: the business day
+    await waitFor(() => expect(toPreview(dlg)).not.toHaveAttribute('aria-disabled'));
+    // R1: nothing touched; at 00:05 the desk clicks "Xem trước số tiền"
+    at('00:05');
+    await user.click(toPreview(dlg));
+    expect(
+      await within(dlg).findByText(tv('early_departure.err.min_date', { date: fmt(D) })),
+    ).toBeInTheDocument();
+    expect(box).toHaveAttribute('aria-invalid', 'true');
+    expect(within(dlg).queryByText(tv('early_departure.preview_loading'))).toBeNull();
+    expect(within(dlg).queryByText(new RegExp(`^${esc(generic())}`))).toBeNull();
+    expect(
+      within(dlg).queryByText(
+        tv('early_departure.err.date_range', { min: fmt(D), max: fmt(addDays(D, 2)) }),
+      ),
+    ).toBeNull();
+    await new Promise((x) => setTimeout(x, 600));
+    expect(cap.sent.some((s) => s.body.newDepartureDate === Y && s.body.dryRun === false)).toBe(
+      false,
+    );
+    // (3) "Dùng 21/10" → keep 20/10, drop 21, 22, 23 = 2.100.000; told 23:55 on 20/10 → 1 day → half back
+    await user.click(
+      within(dlg).getByRole('button', {
+        name: tv('early_departure.use_min_date', { date: fmt(D) }),
+      }),
+    );
+    expect(box).toHaveValue(D);
+    await toStep2(user, dlg);
+    expect(row(dlg, 'early_departure.row_notice')).toHaveTextContent(
+      tv('early_departure.notice_value', { n: 1 }),
+    );
+    expect(row(dlg, 'early_departure.row_refund')).toHaveTextContent(M(1_050_000));
+    const feeRow = row(dlg, 'early_departure.row_fee');
+    expect(feeRow).toHaveTextContent(M(1_050_000));
+    expect(feeRow).toHaveTextContent(tv('early_departure.fee_business_date', { date: fmt(Y) }));
+    await user.click(confirmBtn(dlg));
+    expect(
+      await within(dlg).findByText(tv('early_departure.done_title', { date: fmt(D) })),
+    ).toBeInTheDocument();
+    expect(cap.writes()).toHaveLength(1);
+    expect(cap.writes()[0]!.body).toMatchObject({
+      newDepartureDate: D,
+      noticeGivenAt: `${Y}T23:55:00+07:00`,
+      expectedRefundVnd: 1_050_000,
+      expectedFeeVnd: 1_050_000,
+    });
+    const lines = mockControl.stay.folios.get(r.folioId)!.lines;
+    const fee = lines.filter(
+      (l) => l.category === 'early_departure_fee' && l.lineState === 'posted',
+    );
+    expect(fee.reduce((a, l) => a + l.amountVnd, 0)).toBe(1_050_000);
+    for (const l of fee) expect(l.serviceDate).toBe(Y);
+    expect(
+      lines.some((l) => l.category === 'room' && l.serviceDate === Y && l.lineState === 'posted'),
+    ).toBe(true);
+  });
+
+  it('FB-R5-DOM-FE-142-01 / DOM 3.3 (4): the server already at 06:01 (business day D), the desk clock 2 min slow at 05:59 – floor D, not D + 1; no night lines; D goes through', async () => {
+    at('05:59');
+    server.use(
+      http.get('*/v1/me', async ({ request }) => {
+        const real = await getResponse(handlers, request);
+        if (!real || real.status !== 200) return real;
+        const me = (await real.json()) as { properties: Array<Record<string, unknown>> };
+        me.properties = me.properties.map((p) => ({ ...p, businessDate: D }));
+        return HttpResponse.json(me);
+      }),
+    );
+    directStay();
+    const cap = captureB16();
+    const { user, dlg } = await openDialog('Trần Thu Nga');
+    const box = dateBox(dlg);
+    expect(box).toHaveValue(D);
+    expect(box).toHaveAttribute('min', D);
+    expect(box).not.toHaveAttribute('aria-invalid', 'true');
+    expect(
+      within(dlg).queryByText(tv('early_departure.err.min_date', { date: fmt(addDays(D, 1)) })),
+    ).toBeNull();
+    await waitFor(() => expect(cap.sent.some((s) => s.body.newDepartureDate === D)).toBe(true));
+    await toStep2(user, dlg);
+    // out of W for the Desk: the fee has no "after midnight" business-day line
+    const feeRow = row(dlg, 'early_departure.row_fee');
+    expect(feeRow).not.toHaveTextContent(
+      tv('early_departure.fee_business_date', { date: '§' }).split('§')[0]!,
+    );
+    await user.click(confirmBtn(dlg));
+    expect(
+      await within(dlg).findByText(tv('early_departure.done_title', { date: fmt(D) })),
+    ).toBeInTheDocument();
+    expect(cap.writes().at(-1)!.body.newDepartureDate).toBe(D);
+  });
+
+  it('FB-R5-UXD-FE-142-01 (UXD repro): step ① open across 00:00 – entering a field after it re-reads the clock: err.min_date with "Dùng {date}", not err.date_range', async () => {
+    at('23:58', Y);
+    directStay();
+    const { user, dlg } = await openDialog('Trần Thu Nga');
+    at('00:05');
+    await user.click(
+      within(dlg).getByLabelText(new RegExp(`^${tv('early_departure.notice_time')}`)),
+    );
+    expect(
+      await within(dlg).findByText(tv('early_departure.err.min_date', { date: fmt(D) })),
+    ).toBeInTheDocument();
+    expect(
+      within(dlg).getByRole('button', {
+        name: tv('early_departure.use_min_date', { date: fmt(D) }),
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('FB-R5-UXD-FE-142-01: step ① open across 00:00 – with no click, the dialog turns at 00:00 to err.min_date with "Dùng {date}" (the Desk floor, no 409 needed), not err.date_range', async () => {
+    // Opened 1 s before midnight: the dialog's own 00:00 timer is ~1.25 s of real time away (only Date is faked).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${Y}T23:59:59+07:00`));
+    directStay();
+    const cap = captureB16();
+    const { dlg } = await openDialog('Trần Thu Nga');
+    expect(dateBox(dlg)).toHaveValue(Y);
+    await waitFor(() => expect(cap.sent.some((s) => s.body.newDepartureDate === Y)).toBe(true));
+    const before = cap.sent.length;
+    at('00:05');
+    expect(
+      await within(dlg).findByText(
+        tv('early_departure.err.min_date', { date: fmt(D) }),
+        {},
+        { timeout: 4000 },
+      ),
+    ).toBeInTheDocument();
+    expect(dateBox(dlg)).toHaveAttribute('aria-invalid', 'true');
+    expect(
+      within(dlg).getByRole('button', {
+        name: tv('early_departure.use_min_date', { date: fmt(D) }),
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(dlg).queryByText(
+        tv('early_departure.err.date_range', { min: fmt(D), max: fmt(addDays(D, 1)) }),
+      ),
+    ).toBeNull();
+    expect(
+      within(dlg).getByText(
+        tv('early_departure.new_date_help', { min: fmt(D), max: fmt(addDays(D, 1)) }),
+      ),
+    ).toBeInTheDocument();
+    // the Desk said it alone: no B16 for the old date after 00:00
+    await new Promise((x) => setTimeout(x, 600));
+    expect(cap.sent.slice(before).some((s) => s.body.newDepartureDate === Y)).toBe(false);
   });
 
   it('T-11-1/T-11-3 + UXD 9.13 bug: 03:00, B16 to the calendar day → fee with its business day, then "Trả phòng ngay" (not later_hint)', async () => {

@@ -80,6 +80,9 @@ export function shiftDay(day: string, n: number): string {
  * from the device clock. A Desk estimate for the date it fills in – the server decides (409 `INVALID_TRANSITION` +
  * `minNewDepartureDate`, which the dialog then follows).
  * - 03:00 on 21/10, business day 20/10 → 21/10. 05:59 → 21/10. 06:00 (business day 21/10) → 21/10. 23:00 → 21/10.
+ * - FB-R5-DOM-FE-142-01 (UXD 9.13 "business day < calendar day"): W needs BOTH the device time before the rollover
+ *   AND the business day before the device's calendar day. A device clock a little slow at 05:59 while the server
+ *   already says business day 21/10 → 21/10, not 22/10 (the Desk must never block a date the server takes).
  */
 export function minCalendarDay(
   businessDay: string,
@@ -89,7 +92,8 @@ export function minCalendarDay(
 ): string {
   // Some ICU builds write midnight as 24:00 even with hour12 false.
   const hhmm = timeHHmm(now, timeZone).replace(/^24:/, '00:');
-  return hhmm < rollover.slice(0, 5) ? shiftDay(businessDay, 1) : businessDay;
+  const inW = hhmm < rollover.slice(0, 5) && businessDay < todayLocal(timeZone, now);
+  return inW ? shiftDay(businessDay, 1) : businessDay;
 }
 
 /**

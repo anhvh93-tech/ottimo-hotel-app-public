@@ -17,6 +17,7 @@ import {
   DEFAULT_ROLLOVER,
   daysBetween,
   minCalendarDay,
+  msUntilNextRollover,
   timeHHmm,
   todayLocal,
 } from '../../app/dates';
@@ -103,7 +104,22 @@ export function EarlyDepartureDialog({
   const rollover = property?.businessDayRollover ?? DEFAULT_ROLLOVER;
   const [serverMin, setServerMin] = useState<string | null>(null);
   const [serverCheckout, setServerCheckout] = useState(false);
+  // FB-R5-UXD-FE-142-01 (like R3-Q36 at the rollover): a dialog left open re-renders at the next 00:00, so the night
+  // floor below applies at once – not at the next click. A rollover with "00:00" = the calendar midnight.
+  const [midnight, setMidnight] = useState(0);
+  useEffect(() => {
+    const id = setTimeout(() => setMidnight((x) => x + 1), msUntilNextRollover(TZ, '00:00') + 250);
+    return () => clearTimeout(id);
+  }, [midnight]);
   const estimate = minCalendarDay(today, TZ, new Date(), rollover);
+  // …and on the next focus too (a timer late after sleep): a field the desk enters re-reads the clock.
+  useEffect(() => {
+    const recheck = () => {
+      if (minCalendarDay(today, TZ, new Date(), rollover) !== estimate) setMidnight((x) => x + 1);
+    };
+    document.addEventListener('focusin', recheck);
+    return () => document.removeEventListener('focusin', recheck);
+  }, [today, rollover, estimate]);
   /** W: the business day is still yesterday (UXD 9.13: business day < calendar day, same rollover as `checkoutInstant`). */
   const night = estimate > today;
   const floor = serverMin ?? estimate;
@@ -168,10 +184,14 @@ export function EarlyDepartureDialog({
   const range = { min: date(minDate), max: date(maxDate) };
   const clientErrors: Record<string, string> = {};
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(newDate);
-  // UXD 9.13: before the server's floor → its sentence, with "Dùng {date}" under it (the date comes from the server).
-  const beforeServerMin = validDate && !!serverMin && newDate < serverMin;
-  if (beforeServerMin)
-    clientErrors.newDepartureDate = t('early_departure.err.min_date', { date: date(serverMin) });
+  // UXD 9.13 + FB-R5-UXD-FE-142-01: below the night floor – the server's, or the Desk's own in W (a dialog opened
+  // before 00:00 and used after it) – the 9.13 sentence with "Dùng {date}" under it, not the generic range. Only when
+  // that floor is what sets the minimum (not arrival + 1); out of W and past the last date: the range as before.
+  const nightFloor = serverMin ?? (night ? estimate : null);
+  const belowNightFloor =
+    validDate && !!nightFloor && minDate === nightFloor && newDate < nightFloor;
+  if (belowNightFloor)
+    clientErrors.newDepartureDate = t('early_departure.err.min_date', { date: date(minDate) });
   else if (!validDate || newDate < minDate || newDate > maxDate)
     clientErrors.newDepartureDate = t('early_departure.err.date_range', range);
   if (!noticeLocal) clientErrors.noticeGivenAt = t('common.required');
@@ -309,6 +329,16 @@ export function EarlyDepartureDialog({
   useEffect(() => {
     if (phase === 'preview' && p && (needsOta || needsEvidence)) setPhase('input');
   }, [phase, p, needsOta, needsEvidence]);
+  // FB-R5-UXD-FE-142-01: step 2 never waits for a preview that cannot run. A box turned wrong while it is open (00:00
+  // passed: the chosen date is now below the night floor) → back to step 1 like a 409 on the write, focus on the date.
+  const clientErrorKey = Object.keys(clientErrors).join();
+  useEffect(() => {
+    if (phase !== 'preview' || !clientErrorKey) return;
+    setWas(null);
+    setTold(false);
+    setPhase('input');
+    setFocusDate((n) => n + 1);
+  }, [phase, clientErrorKey]);
 
   const choosePhoto = async (file: File | null) => {
     if (!file) {
@@ -715,17 +745,17 @@ export function EarlyDepartureDialog({
               />
             )}
           </Field>
-          {beforeServerMin && serverMin ? (
+          {belowNightFloor ? (
             // UXD 9.13: only fills the box (the preview then runs by itself, as for any date); focus stays on it.
             <div className="row mb-16">
               <Button
                 size="sm"
                 onClick={() => {
-                  setNewDate(serverMin);
+                  setNewDate(minDate);
                   dateRef.current?.focus();
                 }}
               >
-                {t('early_departure.use_min_date', { date: date(serverMin) })}
+                {t('early_departure.use_min_date', { date: date(minDate) })}
               </Button>
             </div>
           ) : null}
