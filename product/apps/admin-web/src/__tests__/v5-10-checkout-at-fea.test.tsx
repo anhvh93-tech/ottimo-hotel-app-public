@@ -271,11 +271,28 @@ describe('V5-10 – the server instant is what goes out (ARC FE-125-01)', () => 
 });
 
 describe('V5-10 – B18 refuses the instant; the note is as long as the server wants (ARC FE-125-02, FE-125-04)', () => {
-  it('FE-125-02: 422 on `checkoutAt` → back at the time with the sentence under it, the summary read again, the next B18 goes through', async () => {
+  it('FE-125-02 (ARC FE-140-01): 422 on `checkoutAt` → the sentence under the time; the summary is read again and "Tiếp tục" waits for it; the next B18 carries the NEW instant', async () => {
     at('12:05');
     const r = prepaid();
     const { reads, writes } = traffic();
+    // the last summary body as the server sent it – the held re-read answers it with another instant
+    let lastSummary: Record<string, unknown> = {};
+    const keep = ({ request, response }: { request: Request; response: Response }) => {
+      if (request.method === 'GET' && new URL(request.url).pathname.endsWith('/checkout-summary'))
+        void response
+          .clone()
+          .json()
+          .then((b: Record<string, unknown>) => (lastSummary = b));
+    };
+    server.events.on('response:mocked', keep);
+    onTestFinished(() => {
+      server.events.removeListener('response:mocked', keep);
+    });
+    const refreshed = iso('12:04');
     let refused = 0;
+    let open: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (open = resolve));
+    let reread = 0;
     server.use(
       http.post(
         '*/v1/properties/:propertyId/reservations/:reservationId/actions/check-out',
@@ -294,6 +311,21 @@ describe('V5-10 – B18 refuses the instant; the note is as long as the server w
         },
         { once: true },
       ),
+      // the first summary read after the refusal: held until `open()`, then another instant for the same time
+      http.get(
+        '*/v1/properties/:propertyId/reservations/:reservationId/checkout-summary',
+        async () => {
+          if (refused === 0 || reread > 0) return undefined;
+          reread += 1;
+          await held;
+          return HttpResponse.json({
+            ...lastSummary,
+            checkoutAt: refreshed,
+            checkoutAtAfterNow: false,
+            checkoutTimeNoteRequired: false,
+          });
+        },
+      ),
     );
     const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
     await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
@@ -302,21 +334,27 @@ describe('V5-10 – B18 refuses the instant; the note is as long as the server w
     await user.click(await screen.findByRole('button', { name: /hoàn tất|Hoàn tất/ }));
     await user.click(within(await screen.findByRole('alertdialog')).getAllByRole('button')[1]!);
     await waitFor(() => expect(refused).toBe(1));
+    const rejected = writes.filter((w) => w.path.endsWith('/actions/check-out'))[0]!.body
+      .checkoutAt;
+    expect(rejected).toBe(iso('12:05'));
     const readsBefore = reads.length;
     const box = await timeBox();
     await waitFor(() => expect(box).toHaveAccessibleDescription(tv('field.TIME_AFTER_ACTION')));
     expect(box).toHaveAttribute('aria-invalid', 'true');
-    // the summary is asked again for the time on screen (a new `checkoutAt`), not the refused one kept
-    await waitFor(() =>
-      expect(reads.slice(readsBefore - 1).some((x) => x.asked === '12:05')).toBe(true),
-    );
-    await waitFor(() => expect(reads.length).toBeGreaterThan(readsBefore - 1));
+    // the re-read is asked for and held: "Tiếp tục" waits – no bill step while the new instant is not in
+    await waitFor(() => expect(reread).toBe(1));
     await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));
+    expect(screen.queryByRole('button', { name: /hoàn tất|Hoàn tất/ })).toBeNull();
+    open();
+    await waitFor(() => expect(reads.length).toBeGreaterThan(readsBefore));
+    expect(reads.at(-1)).toEqual({ asked: '12:05', checkoutAt: refreshed });
+    // the click was kept: on to the bill once the read is in
     await user.click(await screen.findByRole('button', { name: /hoàn tất|Hoàn tất/ }));
     await user.click(within(await screen.findByRole('alertdialog')).getAllByRole('button')[1]!);
     await waitFor(() => expect(res('Phạm Huy').status).toBe('checked_out'));
     const b18 = writes.filter((w) => w.path.endsWith('/actions/check-out')).at(-1)!.body;
-    expect(b18.checkoutAt).toBe(reads.filter((x) => x.asked === '12:05').at(-1)!.checkoutAt);
+    expect(b18.checkoutAt).toBe(refreshed);
+    expect(b18.checkoutAt).not.toBe(rejected);
   });
 
   it('FE-125-04 / UXD PR125-05: a note under 3 characters keeps "Tiếp tục" locked (the server takes 3–300)', async () => {

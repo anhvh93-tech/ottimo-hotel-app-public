@@ -2278,7 +2278,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           <div className="stack">{summaryCard}</div>
         </div>
         {done ? null : (
-          <div className="wiz-foot">
+          <div className="wiz-foot desk-foot">
             {step === 0 ? (
               <Link className="btn ghost" to={`/reservations/${reservationId}`}>
                 {t('ci.back_to_booking')}

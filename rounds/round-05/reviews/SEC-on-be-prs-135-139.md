@@ -129,3 +129,45 @@ Tệp này không có bí mật, mật khẩu, mã đơn, id hay dữ liệu kh�
 - #139 chặn theo **người tải lên** đúng như đề xuất. Luật cũ giữ lại thành một câu `EXISTS … OR EXISTS …` duy nhất, chạy trước `recordInTx`, và lời từ chối giống hệt mọi ảnh không hợp lệ khác.
 - Cả hai PR có bằng chứng đột biến thật: SEC chạy lại cho #139 và thấy đúng ca mới đỏ. Ca của #135 tự khóa đường gọi bằng `calls === 2`, nên không xanh nhầm.
 - Mô tả PR nói rõ phạm vi (2 tệp, không migration, không đổi hợp đồng) và khớp với diff thật.
+
+---
+
+## 6. Quyết định SEC cho ARC FB-R5-ARC-BE-139-02 (cùng vấn đề với SEC 139-01)
+
+Bổ sung 07/11/2026, theo yêu cầu của ORC. Kết luận DUYỆT #139 @ `97f03a65` ở mục 0 không đổi.
+
+**SEC chọn (a): dùng một thứ tự vai cố định, vai quầy đứng trước, cho mọi chỗ cần lấy "vai chính" của người dùng.** Nhãn `attachment.uploaded_by_role` sẽ lấy theo thứ tự giống `payment.recorded_by_role` và `actorRoleOf` của audit (owner → manager → front_desk_lead → front_desk → sales_staff → collaborator → …), lọc theo `UPLOAD_ROLES[purpose]`. Không lấy theo thứ tự mảng nữa.
+
+Vì sao không chọn (b) hay (c):
+- **(b) "có vai sale/CTV là từ chối"**: không đem lại thêm an toàn đáng kể.
+  - Người kiêm quầy vốn được ghi tiền ở quầy, nên hệ thống không phân biệt được người đó tải ảnh "với tư cách" nào.
+  - Chốt chặn thật là khoản thu luôn `pending` chờ đối soát sao kê.
+  - Đổi lại, (b) ép nhân viên kiêm việc ở một nơi 10 căn phải nhờ người khác tải ảnh. Dễ dẫn tới dùng chung tài khoản, còn tệ hơn.
+  - (b) cũng không làm được bằng nhãn một vai: phải đọc `user_property_role` lúc tải ảnh, mã đổi nhiều hơn.
+- **(c) giữ nguyên**: không phải lỗ hổng, vì ca lệch nguy hiểm (FD + sale → 201) đã được đối soát che. Nhưng hai người cùng kiểu "quầy kiêm bán" bị xử ngược nhau chỉ vì thứ tự chữ cái. Đó là lỗi đúng/sai, không nên đem vào bản phát hành.
+
+Điều kiện kèm (a):
+- **Giữ vế `deposit_notice`** trong `recordAfterClosure`. Với (a), người quầy kiêm sale/CTV tải ảnh được nhãn vai quầy, nên vế này là thứ duy nhất chặn ảnh họ đã gửi kèm tin báo "khách đã chuyển". Nó không còn chỉ là lớp phòng thêm (ARC 139-03 N2).
+- Chỉ áp cho ảnh tải mới, **không migration**. Ảnh cũ của người CTV + FD vẫn mang nhãn `collaborator` và bị từ chối, tức là chặn nhầm chứ không lọt.
+- Test, đủ để diệt đột biến N2, N3 của ARC 139-03 và đóng SEC 139-02:
+  - người CTV + FD tải ảnh báo có → 201 `pending`;
+  - người FD + sale tải ảnh báo có → 201 `pending`;
+  - người FD + sale gửi ảnh kèm tin báo rồi ghi chính ảnh đó → 422 `attachmentId` `NOT_IN_LIST`;
+  - người chỉ có vai CTV tải ảnh cho đơn CTV giữ chỗ, đơn hủy, FD ghi bằng ảnh đó → 422 `attachmentId` `NOT_IN_LIST`.
+- Một danh sách thứ tự dùng chung. `ROLE_ORDER` của `payments/public/payment.service.ts` hiện chưa export. ARC chọn chỗ đặt, miễn là `files` không giữ bản thứ tự riêng.
+- Sổ tay/threat model thêm một câu: "Tài khoản kiêm quầy và sale/CTV: ảnh tải lên được tính là ảnh quầy, trừ ảnh đã gửi kèm tin báo; chốt chặn là đối soát sao kê."
+
+**Thời điểm:** làm (a) **trong #139** nếu BE-B kịp trước tag v1.0.5. Việc này nhỏ: một hàm, 4 ca test, không đổi hợp đồng. Nếu không kịp, SEC **không chặn** gộp #139 hay tag. Khi đó v1.0.5 phát hành với hiện trạng kèm câu sổ tay ở trên, còn (a) vào v1.0.6 qua backlog. "Không kịp" chỉ lùi thời điểm, nghĩa của luật vẫn là (a).
+
+Trạng thái thẻ:
+
+| Thẻ | Trạng thái | Ghi chú |
+|---|---|---|
+| FB-R5-SEC-BE-139-01 (Suggestion) | Open → làm theo ARC 139-02 phương án (a) | Đóng khi nhãn vai theo thứ tự cố định đã gộp, kèm câu sổ tay |
+| FB-R5-SEC-BE-139-02 (Suggestion) | Open | Đóng bằng ca "chỉ CTV → 422" trong bộ test trên |
+
+Dòng đề xuất cho `decision-log.md`:
+
+```
+| 2026-11-07 | 5 | SEC chốt ARC FB-R5-ARC-BE-139-02 / SEC 139-01 theo phương án (a): attachment.uploaded_by_role lấy vai chính theo một thứ tự cố định, vai quầy trước (như payment.recorded_by_role / audit actorRoleOf), không theo thứ tự chữ cái; giữ vế deposit_notice (chặn ảnh người kiêm vai đã gửi kèm tin báo); chỉ áp ảnh tải mới, không migration; 4 ca test (CTV+FD → 201, FD+SAL → 201, FD+SAL ảnh tin báo → 422, chỉ CTV → 422). Làm trong #139 nếu kịp trước tag v1.0.5, không thì v1.0.6 + câu sổ tay; không chặn gộp; không ESC | SEC | rounds/round-05/reviews/SEC-on-be-prs-135-139.md |
+```
