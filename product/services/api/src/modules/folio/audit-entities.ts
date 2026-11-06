@@ -52,11 +52,12 @@ defineAuditEntity('folio_line', [
   'reducedVnd',
   // FB-R3-SEC-BE-B-03: the role at the time of the reduction.
   'actorRole',
-  // Contract 0.3.13 1.5 + 1.20 (V5-16, BR-438): facts of the ROOT line of the adjustment chain (ids and booleans).
-  'rootLineId',
-  'rootLineManual',
+  // 0.3.13 V5-16 + bổ sung 1 (BE C0313-04, DOM 7.2): every folio_line.adjusted – measured on the ROOT line of the
+  // `related_line_id` chain; ids and booleans only, no amount.
   'postedByActor',
   'sameBusinessDay',
+  'rootLineId',
+  'rootLineManual',
 ]);
 defineAuditEntity('invoice_request', ['buyerType', 'einvoiceStatus']);
 // 0.3.7 D1 (S4-02/S4-18/S4-22): folio.foc_dormant / foc_restored / foc_suspended / foc_cancelled on the request.

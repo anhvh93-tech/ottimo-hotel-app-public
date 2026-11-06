@@ -16,7 +16,7 @@ import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import type { FolioLineCategory } from '../../../db/schema/folio';
 import { type FieldError, problem } from '../../../shared/problem';
-import { type LocalDate, type LocalTime, businessDate, localDate } from '../../../shared/time';
+import { type LocalDate, businessDate, localDate } from '../../../shared/time';
 import {
   assertNoCardNumber,
   optionalText,
@@ -39,6 +39,7 @@ import {
   frontDeskMayReduce,
   isLineReduction,
   limitedByBr438,
+  type ReductionScope,
   reductionScope,
   rootLineOf,
 } from '../public/line-reduction';
@@ -116,13 +117,11 @@ export class FolioLinesService {
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
-  private async today(
-    tx: Tx,
-  ): Promise<{ today: LocalDate; tz: string; now: Date; rollover: LocalTime }> {
+  private async today(tx: Tx): Promise<{ today: LocalDate; tz: string; now: Date }> {
     const tz = await this.folios.timezone(tx);
     const now = this.clock.now();
     const rollover = await this.params.get<string>(tx, 'business_day_rollover', localDate(now, tz));
-    return { today: businessDate(now, tz, rollover), tz, now, rollover };
+    return { today: businessDate(now, tz, rollover), tz, now };
   }
 
   private async param<T>(tx: Tx, key: string, day: LocalDate): Promise<T | null> {
@@ -132,6 +131,27 @@ export class FolioLinesService {
       if (e instanceof ParameterMissingError) return null;
       throw e;
     }
+  }
+
+  /**
+   * 0.3.13 V5-16 + bổ sung 1 (BE C0313-04, DOM 7.2 ý 2–3; contract 1.5, 1.20): where a corrected line comes from – the
+   * ROOT of its `related_line_id` chain (each adjustFolioLine replacement points to the line it replaced, same
+   * category; a FOC / discount line points to another category and ends the chain). `postedByActor`: the root was
+   * posted by the person correcting now; `sameBusinessDay`: the root was posted on today's business day (the
+   * rollover in force on the root's posting date); `rootLineManual`: the root was typed by hand – an A30 line or a
+   * minibar count (line-reduction.ts typedByHand, BR-438 (1)(a)); a Desk-flow line stored as `source = manual`
+   * (late check-out B15/B13/B16) is not. A correction in two steps ("FD-2 lowers FD-1's line, then lowers its own
+   * replacement") is measured on FD-1's line. Ids and booleans only – no amount. The BR-438 guard reads these same
+   * facts (frontDeskMayReduce), so the audit says why a front desk reduction went through.
+   */
+  private async lineOrigin(tx: Tx, lineId: string, actorUserId: string): Promise<ReductionScope> {
+    const root = await rootLineOf(tx, lineId);
+    if (!root) throw new Error(`folio line ${lineId} not found for its origin`);
+    const { today, tz, now } = await this.today(tx);
+    const rollover =
+      (await this.param<string>(tx, 'business_day_rollover', localDate(root.postedAt, tz))) ??
+      (await this.params.get<string>(tx, 'business_day_rollover', localDate(now, tz)));
+    return reductionScope(root, actorUserId, { today, tz, rollover });
   }
 
   /** getChargeCatalog (US-032): parameter-priced items + typed-in F&B / service lines. */
@@ -568,13 +588,12 @@ export class FolioLinesService {
     const price = input.newUnitPriceVnd ?? line.unit_price_vnd;
     const lineBeforeVnd = Math.round(Number(line.quantity) * line.unit_price_vnd);
     const role = actorRoleOf(actor.userId, actor.roles);
-    // BR-438 (V5-16; contract 0.3.13 1.5, 1.20): the facts of the chain's ROOT line, audited on every adjustment. A
-    // front desk reduces a non-night line only when it typed the root by hand (A30) itself in the current business
-    // day – otherwise 403 + `requiredFlow: foc_request`, nothing written. Checked after the line is loaded, under L3,
-    // before the debt and price checks (a settled folio is already MGR+ above).
-    const root = await rootLineOf(tx, line.id);
-    if (!root) throw problem('NOT_FOUND');
-    const scope = reductionScope(root, actor.userId, await this.today(tx));
+    // 0.3.13 V5-16 (+ bổ sung 1): every folio_line.adjusted below carries the role at the time and the line's origin.
+    const scope = await this.lineOrigin(tx, line.id, actor.userId);
+    // BR-438 (V5-16; contract 0.3.13 1.5, 1.20): a front desk reduces a non-night line only when it typed the root by
+    // hand (A30 / minibar count) itself in the current business day – otherwise 403 + `requiredFlow: foc_request`,
+    // nothing written. Checked after the line is loaded, under L3, before the debt and price checks (a settled folio
+    // is already MGR+ above).
     const requestedVnd =
       input.voidLine || qty <= 0 ? 0 : night ? night.amountVnd : Math.round(qty * price);
     if (
@@ -584,7 +603,7 @@ export class FolioLinesService {
     ) {
       throw br438Refusal();
     }
-    const br438 = { actorRole: role, ...scope };
+    const origin = { actorRole: role, ...scope };
     // BR-525 N-7 by the number (ARC 16.31.1 – BUG-R2-208, DOM 18/10; SEC s1 D): on a settled folio inside its window
     // a correction that REDUCES a line (void, lower price, lower quantity; reduction = line before − after) is allowed
     // only up to W = max(0, còn phải thu) − `openDebtVnd` (the charges still in their window); above → 409, every
@@ -680,8 +699,9 @@ export class FolioLinesService {
     }
     const lineAfterVnd = input.voidLine || qty <= 0 ? 0 : newAmount;
     // A reduction on a settled folio is audited below with its reduction and the role at the time (BR-433 (e)).
-    // Contract 0.3.13 1.5: every adjustment – a void and a quantity 0 included – is ONE `folio_line.adjusted`
-    // (`after.amountVnd = 0` for a removal), with the role and the BR-438 facts of the root line.
+    // 0.3.13 V5-16 (FB-R4-SEC-BE-A31-01): every other adjustment – a void and a quantity 0 on an open folio included –
+    // is ONE `folio_line.adjusted` (`after.amountVnd = 0` for a removal: the weekly "Bỏ/giảm dòng" filter reads it,
+    // removalsOnly), with the role and the facts of the root line.
     const settledReduction = folio.status === 'settled' && lineAfterVnd < lineBeforeVnd;
     if (!debtCheck && !settledReduction) {
       await this.audit.recordMoney(tx, {
@@ -689,7 +709,7 @@ export class FolioLinesService {
         entityType: 'folio_line',
         entityId: line.id,
         ...(stayCode ? { entityCode: stayCode } : {}),
-        before: { category: line.category, amountVnd: lineBeforeVnd, ...br438 },
+        before: { category: line.category, amountVnd: lineBeforeVnd, ...origin },
         after: { category: line.category, amountVnd: lineAfterVnd },
         reason,
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
@@ -720,7 +740,7 @@ export class FolioLinesService {
           amountVnd: lineBeforeVnd,
           openDebtVnd: debtCheck.openDebtVnd,
           windowVnd: debtCheck.windowVnd,
-          ...br438,
+          ...origin,
         },
         after: {
           category: line.category,
@@ -750,7 +770,7 @@ export class FolioLinesService {
           entityType: 'folio_line',
           entityId: line.id,
           ...(stayCode ? { entityCode: stayCode } : {}),
-          before: { category: line.category, amountVnd: lineBeforeVnd, ...br438 },
+          before: { category: line.category, amountVnd: lineBeforeVnd, ...origin },
           after: { category: line.category, amountVnd: lineAfterVnd, reducedVnd },
           reason,
           ...(actor.requestId ? { requestId: actor.requestId } : {}),
