@@ -7,6 +7,12 @@ export interface OperationMeta {
   roles: string[];
   rbac: string[];
   scope?: unknown;
+  /**
+   * x-write-roles (OpenAPI 0.3.13 bổ sung 1, SEC FB-R5-SEC-ARC-02): body field path (`a.b`, `a[].b`) → roles allowed
+   * to send it. A caller none of whose roles is listed and who sends the field (even null/empty) gets 403
+   * FORBIDDEN_ACTION + access.denied, after the Idempotency-Key lookup and before any body validation.
+   */
+  writeRoles?: Record<string, string[]>;
   /** The operation declares Idempotency-Key: the middleware requires it (428 when missing). */
   idempotencyKey: boolean;
   /** The operation declares If-Match: the middleware requires it (428 when missing). */

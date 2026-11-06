@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Generates src/generated/openapi-meta.ts from docs/api/openapi.yaml (contract-first, coding-standards 7):
-//   - per operation: method, path, x-roles, x-rbac, x-scope, Idempotency-Key / If-Match declared,
+//   - per operation: method, path, x-roles, x-rbac, x-scope, x-write-roles, Idempotency-Key / If-Match declared,
 //     x-requires-trusted-device, x-step-up, x-guest-level, public (security: [])
 //   - Problem.code -> HTTP status table from info.description ("Mã lỗi")
 //   - setParameter.x-security-parameters (SEC hard bounds)
@@ -63,12 +63,29 @@ export function buildMeta(spec) {
       if (!op.operationId) throw new Error(`${method.toUpperCase()} ${path} has no operationId`);
       if (operations[op.operationId]) throw new Error(`duplicate operationId ${op.operationId}`);
       const headers = headerNames(op, pathItem, spec);
+      const writeRoles = op['x-write-roles'];
+      if (writeRoles !== undefined) {
+        // 0.3.13 bổ sung 1 (SEC FB-R5-SEC-ARC-02): body field → roles allowed to send it; must narrow x-roles.
+        const allowed = new Set(op['x-roles'] ?? []);
+        for (const [field, roles] of Object.entries(writeRoles)) {
+          if (!Array.isArray(roles) || roles.length === 0)
+            throw new Error(
+              `${op.operationId}: x-write-roles.${field} must be a non-empty role list`,
+            );
+          for (const r of roles)
+            if (!allowed.has(r))
+              throw new Error(
+                `${op.operationId}: x-write-roles.${field} role ${r} is not in x-roles`,
+              );
+        }
+      }
       operations[op.operationId] = {
         method: method.toUpperCase(),
         path,
         roles: op['x-roles'] ?? [],
         rbac: op['x-rbac'] ?? [],
         ...(op['x-scope'] !== undefined ? { scope: op['x-scope'] } : {}),
+        ...(writeRoles !== undefined ? { writeRoles } : {}),
         idempotencyKey: headers.has('idempotency-key'),
         ifMatch: headers.has('if-match'),
         ...(supportsDryRun(op, spec) ? { dryRun: true } : {}),
