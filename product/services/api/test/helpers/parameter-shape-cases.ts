@@ -126,6 +126,16 @@ export const BAD_SHAPES: Array<[string, unknown, string]> = [
   ['lease_terms', [], 'value'],
   ['lease_terms', [{ months: 1, discountPct: 120 }], 'value[0].discountPct'],
   ['lease_terms', [{ months: 1 }, { months: 1 }], 'value[1].months'],
+  // DOM rules-v1.0.5 13.1 (FB-R5-DOM-BE-PR96-01, QA T-13-2…4): percents ≤ 2 decimals, both hold roles, a cancel tier.
+  ['los_discount', [{ minNights: 7, pct: 12.345 }], 'value[0].pct'],
+  ['cancel_policy_direct', [{ minDays: 7, refundPct: 33.333 }], 'value[0].refundPct'],
+  ['early_checkin_tiers', [{ from: '10:00', to: '12:00', pct: 30.001 }], 'value[0].pct'],
+  ['late_checkout_tiers', [{ after: '12:00', until: '15:00', pct: 0.125 }], 'value[0].pct'],
+  ['early_departure_refund', { minNoticeDays: 1, refundPct: 50.005 }, 'value.refundPct'],
+  ['lease_terms', [{ months: 1, discountPct: 2.125 }], 'value[0].discountPct'],
+  ['cancel_policy_direct', [], 'value'],
+  ['max_open_holds_per_user', {}, 'value.collaborator'],
+  ['max_open_holds_per_user', { collaborator: 3 }, 'value.sales_staff'],
   // damage_catalog (BR-512; DOM rules-v1.0.5 13.4, QA T-13-5) – pulled from R5-B-05 into V5-25.
   ['damage_catalog', GLASS, 'value'],
   ['damage_catalog', 150000, 'value'],
@@ -175,7 +185,8 @@ export const GOOD_SHAPES: Array<[string, unknown]> = [
   ['special_dates', [{ name: 'Tết Nguyên đán 2027', from: '2027-02-05', to: '2027-02-11' }]],
   ['los_discount', []],
   ['los_discount', [{ minNights: 7, pct: 15.5 }]],
-  ['cancel_policy_direct', []],
+  ['los_discount', [{ minNights: 7, pct: 12.34 }]],
+  ['cancel_policy_direct', [{ minDays: 0, refundPct: 0 }]],
   [
     'cancel_policy_direct',
     [
@@ -205,7 +216,7 @@ export const GOOD_SHAPES: Array<[string, unknown]> = [
   ],
   ['weekend_uplift_channels', 'direct'],
   ['special_uplift_channels', 'all'],
-  ['max_open_holds_per_user', {}],
+  ['max_open_holds_per_user', { collaborator: 0, sales_staff: 5 }],
   ['max_open_holds_per_user', { collaborator: 3, sales_staff: 10 }],
   ['lease_terms', [{ months: 1 }, { months: 6, discountPct: 5, billingCycle: 'monthly' }]],
   ['damage_catalog', []],

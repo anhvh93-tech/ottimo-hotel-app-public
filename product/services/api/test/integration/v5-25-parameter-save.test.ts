@@ -6,11 +6,15 @@
  * - (d) a broken `min_stay` already in the database (written another way) never gives a 500 on the quote, the new
  *   booking or the web estimate: not a list → no rule, a broken rule → left out, the good ones apply (DOM 12.3);
  * - (e) min_stay 2 → 3 nights from today: the 2-night Friday quote is refused with minStayNights 3;
- * - DOM 12.2 both ways, also against rows already scheduled; BUG-R5-003 (f) for the other structured keys;
+ * - DOM 12.2 both ways, also against rows already scheduled (ARC FB-R5-ARC-BE-04: a row only scheduled counts);
+ *   BUG-R5-003 (f) for the other structured keys;
  * - the read-only SQL check `scripts/v5-25-parameter-shape-check.sql` gives the same verdict as the save rules on
- *   every shared case (test/helpers/parameter-shape-cases.ts) and prints only key, effective date and ok.
+ *   every shared case (test/helpers/parameter-shape-cases.ts) and prints only key, effective date and ok; its guard
+ *   stops a run that would see nothing (ARC FB-R5-ARC-BE-02); its two counts (DOM FB-R5-DOM-BE-PR96-02) – open
+ *   bookings with a broken copied cancel policy, broken damage_catalog rows in force or scheduled – are numbers only.
  * Fake clock: Thu 05/11/2026 09:00 (VN). DS-E room 101 = 8.000.000/month → 667.000/night.
  */
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Logger } from '@nestjs/common';
@@ -25,6 +29,7 @@ import {
   MIN_STAY_BAD,
   PROD_MIN_STAY,
 } from '../helpers/parameter-shape-cases';
+import { seedStay, setStayStatus } from '../helpers/registration-fixture';
 import {
   type BookingIds,
   seedBooking,
@@ -34,6 +39,7 @@ import {
 import { HAS_DB, type TestTenant, appDatabase, createTenant, setParam } from '../helpers/tenant';
 
 const ROLES = { own: ['owner'], mgr: ['manager'], fd: ['front_desk'] };
+const DAMAGE = 'damage_catalog';
 const TODAY = '2026-11-05';
 const NOW = new Date(`${TODAY}T09:00:00+07:00`);
 const LABEL = 'Standard Studio · City View';
@@ -313,6 +319,23 @@ describe.skipIf(!HAS_DB)(
       expect(three.json()).toMatchObject({ min: 4 });
     });
 
+    it('ARC FB-R5-ARC-BE-04 (HTTP): short_stay_max_nights for today meets a min_stay row only scheduled → 422 min 5', async () => {
+      const rule = (nights: number) => [{ nights, channels: 'all', arrivalWeekdays: ['FRI'] }];
+      // 3 nights from 18/11 (under short_stay 4 from 20/11), then 5 nights for 15/11–17/11 only (short_stay 27).
+      expect((await put('min_stay', rule(3), '2026-11-18')).statusCode).toBe(200);
+      const five = await put('min_stay', rule(5), '2026-11-15');
+      expect(five.statusCode, five.body).toBe(200);
+      // Today's short_stay row would be in force until 20/11 and so meet the scheduled 5-night row.
+      const res = await put('short_stay_max_nights', 3);
+      expect(res.statusCode, res.body).toBe(422);
+      expect(res.json()).toMatchObject({
+        code: 'PARAM_OUT_OF_RANGE',
+        errors: [{ field: 'value', code: 'VALUE_OUT_OF_RANGE' }],
+        min: 5,
+      });
+      expect((await rowsOf('short_stay_max_nights')).map((r) => r.f)).not.toContain(TODAY);
+    });
+
     it('BUG-R5-003 (f) over HTTP: every structured key refuses a wrong shape with 422 PARAM_OUT_OF_RANGE', async () => {
       const date = '2026-12-01';
       for (const [key, value, field] of BAD_SHAPES) {
@@ -341,6 +364,7 @@ describe.skipIf(!HAS_DB)(
   () => {
     let db: Database;
     let t: TestTenant;
+    let ids: BookingIds;
     let pg: PgClient;
     const SQL = readFileSync(
       join(__dirname, '../../scripts/v5-25-parameter-shape-check.sql'),
@@ -350,7 +374,7 @@ describe.skipIf(!HAS_DB)(
     beforeAll(async () => {
       db = appDatabase(3);
       t = await createTenant(db, {});
-      await seedBooking(db, t);
+      ids = await seedBooking(db, t);
       // The owner role under forced RLS, scoped to this tenant (production runs it as ottimo_readonly, BYPASSRLS).
       pg = new PgClient({ connectionString: process.env.MIGRATION_DATABASE_URL });
       await pg.connect();
@@ -365,37 +389,63 @@ describe.skipIf(!HAS_DB)(
       await db?.close();
     });
 
-    const run = async () => {
-      type Result = {
-        command: string;
-        fields: Array<{ name: string }>;
-        rows: Array<{ key: string; effective_from: Date | string; ok: boolean }>;
-      };
-      let results: Result[];
+    type Result = {
+      command: string;
+      fields: Array<{ name: string }>;
+      rows: Array<Record<string, unknown>>;
+    };
+    const runOn = async (client: PgClient): Promise<Result[]> => {
       try {
-        results = (await pg.query(SQL)) as unknown as Result[];
+        return (await client.query(SQL)) as unknown as Result[];
       } catch (err) {
-        await pg.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw err;
       }
-      const select = results.filter((r) => r.command === 'SELECT');
-      expect(select).toHaveLength(1);
-      expect(select[0]!.fields.map((f) => f.name)).toEqual(['key', 'effective_from', 'ok']);
-      expect(results.at(-1)!.command).toBe('ROLLBACK');
-      return select[0]!.rows.map((r) => ({
-        key: r.key,
-        // node-postgres reads a `date` as local midnight.
-        f:
-          r.effective_from instanceof Date
-            ? [
-                r.effective_from.getFullYear(),
-                String(r.effective_from.getMonth() + 1).padStart(2, '0'),
-                String(r.effective_from.getDate()).padStart(2, '0'),
-              ].join('-')
-            : String(r.effective_from),
-        ok: r.ok,
-      }));
     };
+    const runAll = async () => {
+      const results = await runOn(pg);
+      const select = results.filter((r) => r.command === 'SELECT');
+      // The guard (no row on a right run), the per-row verdicts, then the two counts (DOM FB-R5-DOM-BE-PR96-02).
+      expect(select.map((s) => s.fields.map((f) => f.name))).toEqual([
+        ['guard'],
+        ['key', 'effective_from', 'ok'],
+        ['count_of', 'n'],
+        ['count_of', 'n'],
+      ]);
+      expect(select[0]!.rows).toEqual([]);
+      expect(results.at(-1)!.command).toBe('ROLLBACK');
+      const counts = [select[2]!, select[3]!].map((s) => {
+        expect(s.rows).toHaveLength(1);
+        return [String(s.rows[0]!.count_of), Number(s.rows[0]!.n)] as const;
+      });
+      expect(counts.map(([k]) => k)).toEqual([
+        'open_bookings_cancel_policy_broken',
+        'damage_catalog_rows_broken',
+      ]);
+      const rows = select[1]!.rows as Array<{
+        key: string;
+        effective_from: Date | string;
+        ok: boolean;
+      }>;
+      return {
+        rows: rows.map((r) => ({
+          key: r.key,
+          // node-postgres reads a `date` as local midnight.
+          f:
+            r.effective_from instanceof Date
+              ? [
+                  r.effective_from.getFullYear(),
+                  String(r.effective_from.getMonth() + 1).padStart(2, '0'),
+                  String(r.effective_from.getDate()).padStart(2, '0'),
+                ].join('-')
+              : String(r.effective_from),
+          ok: r.ok,
+        })),
+        cancelBroken: counts[0]![1],
+        damageBroken: counts[1]![1],
+      };
+    };
+    const run = async () => (await runAll()).rows;
     // One distinct scheduled date per case, far after the real business date of the database clock.
     let day = 0;
     const nextDate = () => {
@@ -425,9 +475,10 @@ describe.skipIf(!HAS_DB)(
         await setParam(db, t, key, value, f);
         expected.set(`${key} ${f}`, ok);
       };
-      for (const [key, value] of BAD_SHAPES) await add(key, value, false);
+      // damage_catalog has no per-row line: its rows go through the count (b) test below.
+      for (const [key, value] of BAD_SHAPES) if (key !== DAMAGE) await add(key, value, false);
       for (const value of MIN_STAY_BAD) await add('min_stay', value, false);
-      for (const [key, value] of GOOD_SHAPES) await add(key, value, true);
+      for (const [key, value] of GOOD_SHAPES) if (key !== DAMAGE) await add(key, value, true);
       const got = new Map((await run()).map((r) => [`${r.key} ${r.f}`, r.ok]));
       for (const [k, ok] of expected) expect(got.get(k), k).toBe(ok);
     });
@@ -444,6 +495,143 @@ describe.skipIf(!HAS_DB)(
       expect(rows.find((r) => r.key === 'min_stay' && r.f === lastMinStay.f)?.ok).toBe(false);
       // The DS-E row in force is not affected (its period ends before 2100).
       expect(rows.filter((r) => r.key === 'min_stay').at(0)?.ok).toBe(true);
+    });
+
+    it('ARC FB-R5-ARC-BE-04 (SQL): a min_stay row is checked only against the short_stay rows of its own period', async () => {
+      // D1 < D2 < D3, after every row of the tests above. short_stay 4 [D1, D2) only meets min_stay 2 (the 5-night
+      // row starts at D3, when short_stay is 29) → every row ok.
+      const [D1, D2, D3] = ['2101-01-01', '2101-02-01', '2101-03-01'];
+      const rule = (nights: number) => [{ nights, channels: 'all', arrivalWeekdays: ['FRI'] }];
+      await setParam(db, t, 'short_stay_max_nights', 4, D1);
+      await setParam(db, t, 'min_stay', rule(2), D1);
+      await setParam(db, t, 'short_stay_max_nights', 29, D2);
+      await setParam(db, t, 'min_stay', rule(5), D3);
+      const rows = await run();
+      const at = (key: string, f: string) => rows.find((r) => r.key === key && r.f === f)?.ok;
+      expect(at('short_stay_max_nights', D1)).toBe(true);
+      expect(at('min_stay', D1)).toBe(true);
+      expect(at('short_stay_max_nights', D2)).toBe(true);
+      expect(at('min_stay', D3)).toBe(true);
+    });
+
+    it('ARC FB-R5-ARC-BE-02: the guard stops the run and names the cause – never an empty result read as "all ok"', async () => {
+      const stopped = async (
+        url: string,
+        tenant: [string, string] | null,
+        cause: RegExp,
+      ): Promise<void> => {
+        const other = new PgClient({ connectionString: url });
+        await other.connect();
+        try {
+          if (tenant) {
+            await other.query('SET ROLE ottimo_owner');
+            await other.query(
+              `SELECT set_config('app.organization_id', $1, false), set_config('app.property_id', $2, false)`,
+              tenant,
+            );
+          }
+          await expect(runOn(other)).rejects.toThrow(cause);
+        } finally {
+          await other.end();
+        }
+      };
+      // ottimo_app without a tenant: under RLS nothing shows (before: 0 rows and no error).
+      await stopped(
+        process.env.DATABASE_URL!,
+        null,
+        /^invalid input syntax for type boolean: "v5-25 check stopped: run as ottimo_readonly \(BYPASSRLS\)/,
+      );
+      // A tenant that does not exist, and a property without a row of min_stay, weekend_nights, short_stay_max_nights.
+      await stopped(
+        process.env.MIGRATION_DATABASE_URL!,
+        [randomUUID(), randomUUID()],
+        /"v5-25 check stopped: no row of min_stay, weekend_nights, short_stay_max_nights is visible"/,
+      );
+      const bare = await createTenant(db, {});
+      await stopped(
+        process.env.MIGRATION_DATABASE_URL!,
+        [bare.organizationId, bare.propertyIds[0]!],
+        /"v5-25 check stopped: no row of min_stay, weekend_nights, short_stay_max_nights is visible"/,
+      );
+    });
+
+    it('DOM FB-R5-DOM-BE-PR96-02 (a): open bookings with a broken copied cancel policy are counted – a number only', async () => {
+      const open = await seedStay(db, t, ids, { status: 'confirmed', roomNo: '202' });
+      const closed = await seedStay(db, t, ids, { status: 'checked_out', roomNo: '101' });
+      const copy = (id: string, policy: unknown) =>
+        db.withContext(t.ctx(), (tx) =>
+          tx.query(
+            `UPDATE reservation SET pricing_snapshot = jsonb_set(pricing_snapshot, '{cancelPolicy}', $2::jsonb)
+              WHERE id = $1`,
+            [id, JSON.stringify(policy)],
+          ),
+        );
+      const broken = async () => (await runAll()).cancelBroken;
+      // No copy at all ('{}': the policy in force is used) → not counted.
+      expect(await broken()).toBe(0);
+      const bad: unknown[] = [
+        ...BAD_SHAPES.filter(([k]) => k === 'cancel_policy_direct').map(([, v]) => v),
+        [
+          { minDays: 7, refundPct: 50 },
+          { minDays: 7, refundPct: 20 },
+        ],
+        [{ minDays: 7, refundPct: 50, note: 'x' }],
+        [{ minDays: 7, refundPct: '50' }],
+        [{ minDays: 2.5, refundPct: 50 }],
+        [null],
+        '50',
+        Array.from({ length: 11 }, (_, i) => ({ minDays: i, refundPct: 10 })),
+      ];
+      for (const v of bad) {
+        await copy(open.reservationId, v);
+        expect(await broken(), JSON.stringify(v)).toBe(1);
+      }
+      const good: unknown[] = [
+        ...GOOD_SHAPES.filter(([k]) => k === 'cancel_policy_direct').map(([, v]) => v),
+        null,
+      ];
+      for (const v of good) {
+        await copy(open.reservationId, v);
+        expect(await broken(), JSON.stringify(v)).toBe(0);
+      }
+      // A closed booking is never counted; the same copy on an in-house booking is.
+      await copy(closed.reservationId, [null]);
+      expect(await broken()).toBe(0);
+      await copy(open.reservationId, [null]);
+      await setStayStatus(db, t, open.reservationId, 'in_house');
+      expect(await broken()).toBe(1);
+      await copy(open.reservationId, null);
+    });
+
+    it('DOM FB-R5-DOM-BE-PR96-02 (b), QA BUG-R5-004: EVERY broken damage_catalog row counts – in force and scheduled', async () => {
+      const broken = async () => (await runAll()).damageBroken;
+      const item = { code: 'glass', name: 'Ly', priceVnd: 50_000 };
+      expect(await broken()).toBe(0);
+      // A broken row already replaced (a past period) is not counted; the broken row in force is.
+      await setParam(db, t, 'damage_catalog', [null], '2026-09-30');
+      await setParam(db, t, 'damage_catalog', [item], '2026-10-02');
+      expect(await broken()).toBe(0);
+      await setParam(db, t, 'damage_catalog', [item, null], '2026-10-03');
+      expect(await broken()).toBe(1);
+      // Every broken scheduled row is counted too – the shared cases of the save rule (same verdict both sides), plus
+      // a name of tabs only and a name 101 characters long with spaces around (counted before trimming).
+      let n = 1;
+      const bad: unknown[] = [
+        ...BAD_SHAPES.filter(([k]) => k === DAMAGE).map(([, v]) => v),
+        [{ ...item, name: ' \t ' }],
+        [{ ...item, name: ` ${'x'.repeat(99)} ` }],
+      ];
+      for (const v of bad) {
+        await setParam(db, t, 'damage_catalog', v, nextDate());
+        n += 1;
+        expect(await broken(), JSON.stringify(v).slice(0, 80)).toBe(n);
+      }
+      const good: unknown[] = GOOD_SHAPES.filter(([k]) => k === DAMAGE).map(([, v]) => v);
+      expect(good.length).toBeGreaterThanOrEqual(4);
+      for (const v of good) {
+        await setParam(db, t, 'damage_catalog', v, nextDate());
+        expect(await broken(), JSON.stringify(v).slice(0, 80)).toBe(n);
+      }
     });
   },
 );

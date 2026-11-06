@@ -59,7 +59,11 @@ export function isSpecialDate(date: LocalDate, specials: readonly SpecialDate[])
   return specials.some((s) => date >= s.from && date < s.to);
 }
 
-/** `weekend_uplift_channels` / `special_uplift_channels`: 'all' or a list of channel groups. */
+/**
+ * `weekend_uplift_channels` / `special_uplift_channels`: catalogue type `text`, so the stored value is `'all'` or one
+ * channel group (`direct` / `agent` / `ota` – V5-25 save rule); a list is accepted here but can never be stored
+ * (ARC FB-R5-ARC-BE-06).
+ */
 export type ChannelScope = 'all' | readonly string[];
 
 function inScope(scope: ChannelScope, group: ChannelGroup): boolean {
