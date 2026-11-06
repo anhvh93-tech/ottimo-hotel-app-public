@@ -3,11 +3,22 @@ import {
   isApiError,
   type ApprovalRequest,
   type AuditEvent,
+  type ListAuditQuery,
   type PaymentListItem,
   type RefundDestination,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg, StateView } from '@ottimo/ui';
+import {
+  Alert,
+  Button,
+  Chip,
+  ConfirmDialog,
+  Field,
+  Modal,
+  Seg,
+  StateView,
+  Switch,
+} from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../app/api';
@@ -18,7 +29,7 @@ import {
   requestReasonText,
 } from '../../app/auditReason';
 import { listApprovals } from '../../app/approvals';
-import { useBusinessDay } from '../../app/businessDay';
+import { todayLocal } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
 import { addDays } from '../../app/reservations';
 import { useToast } from '../../app/toast';
@@ -40,6 +51,13 @@ import {
 
 type Tab = 'log' | 'recon' | 'refund';
 const OWN_MGR = ['owner', 'manager'];
+
+/** Last day of `YYYY-MM`. */
+function monthEnd(month: string): string {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  return `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
+}
+const minDay = (a: string, b: string) => (a < b ? a : b);
 const SALES = ['sales_staff', 'collaborator'];
 const ROLE_KEY: Record<string, string> = {
   sales_staff: 'role.sales_staff',
@@ -221,16 +239,82 @@ function AuditAction({ e }: { e: AuditEvent }) {
 function MoneyLog() {
   const { t, vnd, dateTime } = useI18n();
   const propertyId = usePropertyId();
-  const today = useBusinessDay(); // BR-010 (night window – BUG-R2-211)
-  const [from, setFrom] = useState(addDays(today, -7));
-  const [to, setTo] = useState(today);
+  const { roles } = useSession();
+  const mgr = roles.some((r) => OWN_MGR.includes(r));
+  // `listAuditEvents` reads `from`/`to` as CALENDAR dates of the property (audit-log.controller) – not the business day:
+  // at 01:00 a row written after midnight is on today's calendar date (BA 01 8.1: "7 ngày tính theo ngày lịch").
+  const today = todayLocal();
+  // US-177 AC7 (i) (BR-438 (4)(ii), 0.3.13 bổ sung 1): "Sửa giảm dòng – 7 ngày" for MGR/OWN, by person. The "Cần chú
+  // ý" line `line_reduction_count` links here as `/audit?reductionsOnly=true&month=YYYY-MM&actorUserId=<id>`; the API
+  // takes dates (`from`/`to`), so a month is turned into its days up to today. FD/FDL never get the filter (the server
+  // keeps them to their own rows anyway).
+  const [search] = useSearchParams();
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(search.get('month') ?? '')
+    ? search.get('month')!
+    : '';
+  const [reductions, setReductions] = useState(mgr && search.get('reductionsOnly') === 'true');
+  const [actor, setActor] = useState(mgr ? (search.get('actorUserId') ?? '') : '');
+  const [from, setFrom] = useState(month ? `${month}-01` : addDays(today, -7));
+  const [to, setTo] = useState(month ? minDay(monthEnd(month), today) : today);
+  const query: ListAuditQuery = {
+    category: 'money',
+    from,
+    to,
+    ...(reductions ? { reductionsOnly: true } : {}),
+    ...(actor ? { actorUserId: actor } : {}),
+  };
   const { state, reload } = useResource(
-    async () =>
-      (await api.listAuditEvents({ propertyId }, { category: 'money', dateFrom: from, dateTo: to }))
-        .data.data,
-    [propertyId, from, to],
+    async () => (await api.listAuditEvents({ propertyId }, query)).data,
+    // `query` is made of these
+    [propertyId, from, to, reductions, actor],
   );
-  const rows = state.data ?? [];
+  // BA (v1.0.5): the API pages (100 a page); a whole month from the "Cần chú ý" link was cut at the first page with
+  // nothing said. "Xem thêm" reads the next page with the same filter. The pages read belong to THIS first page –
+  // another filter or a new first page (retry) starts again.
+  const { online } = useOnline();
+  const [more, setMore] = useState<{
+    base: object;
+    rows: AuditEvent[];
+    cursor: string | undefined;
+  } | null>(null);
+  const [moreBusy, setMoreBusy] = useState(false);
+  // FB-R5-UXD-FE-PR140-03: the next page could not be read – said under the button (the rows read stay); gone on the
+  // next good read or with another first page (filter).
+  const [moreFailed, setMoreFailed] = useState<object | null>(null);
+  const first = state.data;
+  const extra = more && first && more.base === first ? more : null;
+  const nextCursor = extra ? extra.cursor : (first?.page.nextCursor ?? undefined);
+  const loadMore = async () => {
+    if (!first || !nextCursor || moreBusy) return;
+    setMoreBusy(true);
+    try {
+      const out = await api.listAuditEvents({ propertyId }, { ...query, cursor: nextCursor });
+      setMore({
+        base: first,
+        rows: [...(extra?.rows ?? []), ...out.data.data],
+        cursor: out.data.page.nextCursor ?? undefined,
+      });
+      setMoreFailed(null);
+    } catch {
+      setMoreFailed(first);
+    } finally {
+      setMoreBusy(false);
+    }
+  };
+  // People for the filter: active staff of the property (FD+ may read it – `closer-candidates`, kind staff).
+  const people = useResource(
+    async () => (mgr ? (await api.listCloserCandidates({ propertyId }, 'staff')).data.data : []),
+    [propertyId, mgr],
+  );
+  const toggleReductions = (on: boolean) => {
+    setReductions(on);
+    // the last 7 calendar days, today included (the server's own default range)
+    if (on) {
+      setFrom(addDays(today, -6));
+      setTo(today);
+    }
+  };
+  const rows = [...(first?.data ?? []), ...(extra?.rows ?? [])];
   const amountOfEvent = (o: unknown) => {
     const x = o as Record<string, unknown> | undefined;
     // `approval.applied_capped`: asked (before.amountVnd) → applied (after.appliedVnd).
@@ -262,6 +346,44 @@ function MoneyLog() {
             />
           )}
         </Field>
+        {mgr ? (
+          <Field
+            label={t('mlog.who')}
+            // FB-R5-UXD-FE-PR128-02: the list did not load – say so (the table still works)
+            help={people.state.status === 'error' ? t('mlog.who_error') : undefined}
+          >
+            {(p) => (
+              <select
+                {...p}
+                className="input"
+                value={actor}
+                onChange={(e) => setActor(e.target.value)}
+              >
+                <option value="">{t('mlog.all_people')}</option>
+                {(people.state.data ?? []).map((c) => (
+                  <option key={c.userId} value={c.userId}>
+                    {c.displayName}
+                  </option>
+                ))}
+                {actor && !(people.state.data ?? []).some((c) => c.userId === actor) ? (
+                  // the person of a "Cần chú ý" link who is not in the list (left since): still the filter on screen,
+                  // named as such (FB-R5-UXD-FE-PR128-01); while the list loads, "Đang tải…" – by the state, so a
+                  // list that failed never says "loading" for ever (FB-R5-ARC-FE-140-03)
+                  <option value={actor}>
+                    {people.state.status === 'loading'
+                      ? t('common.loading')
+                      : t('mlog.who_unlisted')}
+                  </option>
+                ) : null}
+              </select>
+            )}
+          </Field>
+        ) : null}
+        {mgr ? (
+          <Switch checked={reductions} onChange={toggleReductions}>
+            {t('mlog.filter_reductions')}
+          </Switch>
+        ) : null}
       </div>
       {state.status === 'error' && !state.data ? (
         <ErrorBlock
@@ -273,8 +395,13 @@ function MoneyLog() {
       ) : !state.data ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
-        <StateView icon="bill" title={t('mlog.empty_title')}>
-          {t('mlog.empty_body')}
+        // FB-R5-UXD-FE-PR128-03: the empty state answers what was asked (no reduction = good news); no person filter
+        // to clear for FD/FDL.
+        <StateView
+          icon="bill"
+          title={t(reductions ? 'mlog.empty_reductions_title' : 'mlog.empty_title')}
+        >
+          {t(mgr ? 'mlog.empty_body' : 'mlog.empty_body_dates')}
         </StateView>
       ) : (
         <div className="table-wrap">
@@ -310,6 +437,22 @@ function MoneyLog() {
           </table>
         </div>
       )}
+      {nextCursor && rows.length ? (
+        <div className="stack">
+          {/* FB-R5-ARC-FE-140-02: while another first page loads (filter changed), no next page of the old one */}
+          <Button
+            busy={moreBusy}
+            disabled={!online || state.status === 'loading'}
+            onClick={() => void loadMore()}
+          >
+            {t('common.load_more')}
+          </Button>
+          {/* FB-R5-UXD-FE-PR140-06: the DS alert (colour, icon, words – C3), 12 px under the button (`.stack`) */}
+          {moreFailed && moreFailed === first ? (
+            <Alert tone="bad" title={t('common.error_generic_title')} />
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -583,7 +726,9 @@ function Refunds() {
             const cash = method === 'cash';
             return (
               <li key={a.id} className="card">
-                <div className="row wrap">
+                {/* FB-R5-UXD-FE-130-01: the text takes the whole row at ≤ 520 px, the state and buttons go under it
+                    (the request-row pattern of Yêu cầu từ website) – no longer squeezed to ~90 px at 390 px. */}
+                <div className="row wrap req-row">
                   <div className="grow">
                     <b>
                       {a.reservationCode} · {vnd(a.amountVnd)}
@@ -615,30 +760,32 @@ function Refunds() {
                         : '—'}
                     </div>
                   </div>
-                  <Chip tone={a.status === 'approved' ? 'ok' : 'warn'}>
-                    {approvalStatusText(t, a)}
-                  </Chip>
-                  {left > 0 && online ? (
-                    <>
-                      <Button size="sm" onClick={() => setDest(a)}>
-                        {t('refund.set_destination')}
-                      </Button>
-                      {a.status === 'approved' && cash ? (
-                        <Button size="sm" variant="pri" onClick={() => setPay(a)}>
-                          {t('refund.execute_cash')}
+                  <div className="row wrap req-acts">
+                    <Chip tone={a.status === 'approved' ? 'ok' : 'warn'}>
+                      {approvalStatusText(t, a)}
+                    </Chip>
+                    {left > 0 && online ? (
+                      <>
+                        <Button size="sm" onClick={() => setDest(a)}>
+                          {t('refund.set_destination')}
                         </Button>
-                      ) : null}
-                      {a.status === 'approved' && method && !cash ? (
-                        mgr ? (
+                        {a.status === 'approved' && cash ? (
                           <Button size="sm" variant="pri" onClick={() => setPay(a)}>
-                            {t('refund.execute_transfer')}
+                            {t('refund.execute_cash')}
                           </Button>
-                        ) : (
-                          <span className="li-s">{t('refund.transfer_waits_manager')}</span>
-                        )
-                      ) : null}
-                    </>
-                  ) : null}
+                        ) : null}
+                        {a.status === 'approved' && method && !cash ? (
+                          mgr ? (
+                            <Button size="sm" variant="pri" onClick={() => setPay(a)}>
+                              {t('refund.execute_transfer')}
+                            </Button>
+                          ) : (
+                            <span className="li-s">{t('refund.transfer_waits_manager')}</span>
+                          )
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               </li>
             );

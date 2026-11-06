@@ -806,6 +806,11 @@ describe.skipIf(!HAS_DB)(
         biz.departures.filter((d: { status: string }) => d.status === 'checked_out').length,
       );
       expect(ids(biz.departures)).not.toContain(b['203']!.id);
+      // ARC FB-R5-ARC-BE-D1-01: one minute before the rollover the business date is still 16/10
+      await at('2026-10-17T05:59:00+07:00');
+      const late = await lists('fd');
+      expect([late.date, late.departuresDate]).toEqual(['2026-10-16', '2026-10-17']);
+      expect(ids(late.departures)).toEqual(ids(night.departures));
       // from the rollover the business date is 17/10: date = departuresDate
       await at('2026-10-17T06:00:00+07:00');
       const day = await lists('fd');

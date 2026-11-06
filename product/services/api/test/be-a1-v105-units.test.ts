@@ -349,6 +349,70 @@ describe('V5-10 allowedActions.check_out (BUG-R4-036; BE C0313-09)', () => {
   });
 });
 
+describe('V5-11 allowedActions.early_departure – minimum calendar date (DOM 2.1 (2)–(3))', () => {
+  const base: ActionContext = {
+    status: 'in_house',
+    conflictState: 'none',
+    channelGroup: 'direct',
+    arrivalDate: '2026-10-20',
+    departureDate: '2026-10-24',
+    stayDepartureDate: '2026-10-24',
+    today: '2026-10-20',
+    calendarDate: '2026-10-20',
+    holdExpired: false,
+    holdExtendedCount: 0,
+    own: false,
+    noShowMarkable: false,
+    restoreWithinRules: false,
+    rescheduleCount: 0,
+    rescheduleMaxTimes: 1,
+  };
+  const events = (over: Partial<ActionContext>) =>
+    allowedActions(['front_desk'], { ...base, ...over }).map((a) => a.event);
+
+  it('BR-428-17: a stay ending on the calendar date, at 03:00 → B18 only, no B16', () => {
+    const w = { departureDate: '2026-10-21', stayDepartureDate: '2026-10-21' };
+    const night = events({ ...w, today: '2026-10-20', calendarDate: '2026-10-21' });
+    expect(night).toContain('check_out');
+    expect(night).not.toContain('early_departure');
+    // Evening of 20/10 (before 00:00): no valid B16 date either (min 21/10 = departure); no B18 yet.
+    const evening = events({ ...w, today: '2026-10-20', calendarDate: '2026-10-20' });
+    expect(evening).not.toContain('early_departure');
+    expect(evening).not.toContain('check_out');
+  });
+
+  it('BR-428-14: stay 20–24/10 – 03:00 on 21/10 and 23/10 → B16; 03:00 on 24/10 → B18, no B16', () => {
+    expect(events({ today: '2026-10-20', calendarDate: '2026-10-21' })).toContain(
+      'early_departure',
+    );
+    expect(events({ today: '2026-10-22', calendarDate: '2026-10-23' })).toContain(
+      'early_departure',
+    );
+    const last = events({ today: '2026-10-23', calendarDate: '2026-10-24' });
+    expect(last).not.toContain('early_departure');
+    expect(last).toContain('check_out');
+  });
+
+  it('the B16 window starts at minCalendarDate: business date by day, calendar date 00:00–rollover', () => {
+    // Stay 20–22/10: by day on 21/10 the window is [21/10, 21/10] → open; at 03:00 on 22/10 → closed.
+    const s = { departureDate: '2026-10-22', stayDepartureDate: '2026-10-22' };
+    expect(events({ ...s, today: '2026-10-21', calendarDate: '2026-10-21' })).toContain(
+      'early_departure',
+    );
+    expect(events({ ...s, today: '2026-10-21', calendarDate: '2026-10-22' })).not.toContain(
+      'early_departure',
+    );
+    // Calendar date absent = no window (the former behaviour).
+    expect(events({ ...s, today: '2026-10-21', calendarDate: undefined })).toContain(
+      'early_departure',
+    );
+    // The arrival + 1 floor still applies.
+    expect(events({ ...s, today: '2026-10-20' })).toContain('early_departure');
+    const oneNight = { departureDate: '2026-10-21', stayDepartureDate: '2026-10-21' };
+    expect(events({ ...oneNight, today: '2026-10-20' })).not.toContain('early_departure');
+  });
+});
+
 describe('SEC A1B-01 Fields.text – control and invisible formatting characters removed (D12c)', () => {
   const escape = (s: string) =>
     [...s].map((ch) => `U+${ch.codePointAt(0)!.toString(16).toUpperCase()}`).join(' ');

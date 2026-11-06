@@ -15,17 +15,20 @@
  * early_checkin_tiers, late_checkout_tiers, early_departure_refund, checkout_reminders, weekend_uplift_channels,
  * special_uplift_channels, max_open_holds_per_user, lease_terms (what the quote reads); damage_catalog (BR-512, read
  * by the folio and the bill – pulled from R5-B-05 into V5-25 by ORC 06/11).
+ * FB-R5-ARC-BE-H1-02: short_stay_commission_pct (DOM 4.1) – save rule only, not in the V5-25 SQL check.
  * Left for R5-B-05 (B-KYTHUAT): long_stay_cleaning_window, front_desk_hours, wo_sla, registration_*,
  * extra_guest_kit_items, room_move_pricing, utility_estimate, early_termination, commission_payout.
  */
 import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
+import { SHORT_STAY_COMMISSION_KEY } from '../public/commission-keys';
 import { NOTICE_TEXT_VERSIONS } from '../public/notice-versions';
 import { ParameterMissingError } from '../public/parameter.service';
 import {
   type ShapeIssue,
   cancelPolicyIssue,
   checkoutRemindersIssue,
+  commissionTableIssue,
   damageCatalogIssue,
   earlyCheckinTiersIssue,
   earlyDepartureRefundIssue,
@@ -359,6 +362,10 @@ export async function checkStructuredParameter(
     case 'damage_catalog':
       // V5-25 (pulled from R5-B-05; DOM rules-v1.0.5 13.4): [{code, name, priceVnd}] – what the folio and bill read.
       check(damageCatalogIssue(value));
+      return;
+    // FB-R5-ARC-BE-H1-02 (DOM 4.1): the owner's commission table – {staff, collaborator}, percents ≤ 2 decimals.
+    case SHORT_STAY_COMMISSION_KEY:
+      check(commissionTableIssue(value));
       return;
     case 'session_policy': {
       // Sub-key bounds: SEC hard bounds (x-security-parameters 0.3.4, ParameterService.validate).

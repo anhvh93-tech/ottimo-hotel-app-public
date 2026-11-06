@@ -470,28 +470,46 @@ describe.skipIf(!HAS_DB)('SEC BE-65 – retention anchor of operational photos (
     expect((await anchors(...all, extra))[9]).toBe(kept.toISOString());
   });
 
+  /** Each try waits this long for the four locks – far below deadlock_timeout (1 s), see asMigrator. */
+  const LOCK_WAIT_MS = 150;
+  /** Tries for this long in all (under full parallel load a try can lose many times in a row). */
+  const LOCK_BUDGET_MS = 60_000;
+
   /**
    * The whole 0078 file as the migrator runs it: ottimo_owner, NO tenant context (`app_current_property()`
-   * unset). Inside a transaction that is rolled back (the shared test DB keeps its rows). The four tables are
-   * locked first with NOWAIT (retried) so this test never waits while holding a lock – no deadlock with the
-   * other test files.
+   * unset). Inside a transaction that is rolled back (the shared test DB keeps its rows).
+   * `lockAll` (the shipped file: its ALTER TABLE … DISABLE ROW LEVEL SECURITY needs ACCESS EXCLUSIVE on the four
+   * tables) takes the four locks first, in one statement, `reservation` (the busiest) first while nothing else is
+   * held. NOWAIT needed an instant when no other session held any lock on `reservation` and lost to the parallel
+   * files under full load ("could not obtain lock on relation reservation", 400 tries in 10 s). Now each try waits
+   * in the lock queue – granted as soon as the sessions holding it now end – but only LOCK_WAIT_MS: a waiting
+   * ACCESS EXCLUSIVE makes the other sessions' new requests wait behind it, so it gives up (55P03, retried) long
+   * before their lock_timeout (5 s), statement_timeout (≥ 1 s) or deadlock check (deadlock_timeout 1 s) can fire –
+   * it never takes another file down and never deadlocks with it. The lock_timeout stays for the transaction: no
+   * statement after the LOCK waits while this session holds the four tables.
    */
-  async function asMigrator<T>(fn: (pg: PgClient) => Promise<T>): Promise<T> {
+  async function asMigrator<T>(
+    fn: (pg: PgClient) => Promise<T>,
+    opts: { lockAll: boolean },
+  ): Promise<T> {
     const pg = new PgClient({ connectionString: process.env.MIGRATION_DATABASE_URL });
     await pg.connect();
     try {
       await pg.query('SET ROLE ottimo_owner');
-      for (let i = 0; ; i++) {
+      const until = Date.now() + LOCK_BUDGET_MS;
+      for (;;) {
         await pg.query('BEGIN');
+        await pg.query(`SET LOCAL lock_timeout = '${LOCK_WAIT_MS}ms'`);
+        if (!opts.lockAll) break;
         try {
           await pg.query(
-            'LOCK TABLE attachment, work_order, inspection, reservation IN ACCESS EXCLUSIVE MODE NOWAIT',
+            'LOCK TABLE reservation, attachment, work_order, inspection IN ACCESS EXCLUSIVE MODE',
           );
           break;
         } catch (e) {
           await pg.query('ROLLBACK');
-          if (i >= 400) throw e;
-          await new Promise((r) => setTimeout(r, 25));
+          if ((e as { code?: string }).code !== '55P03' || Date.now() > until) throw e;
+          await new Promise((r) => setTimeout(r, 20 + Math.random() * 60));
         }
       }
       try {
@@ -534,30 +552,37 @@ describe.skipIf(!HAS_DB)('SEC BE-65 – retention anchor of operational photos (
     expect(file.filter((x) => /DISABLE ROW LEVEL SECURITY/.test(x))).toHaveLength(4);
     const anchorsSql = 'SELECT id, retention_anchor_at FROM attachment WHERE id = ANY($1::uuid[])';
 
-    // Control: RLS left on (FORCE binds the owner) and no tenant context → 0 rows, nothing anchored.
-    const control = await asMigrator(async (pg) => {
-      const counts: number[] = [];
-      for (const sql of updates) counts.push((await pg.query(sql)).rowCount ?? 0);
-      const seen = (await pg.query(anchorsSql, [mine])).rows;
-      return { counts, seen };
-    });
+    // Control: RLS left on (FORCE binds the owner) and no tenant context → 0 rows, nothing anchored. Plain DML,
+    // no DDL – no table lock needed.
+    const control = await asMigrator(
+      async (pg) => {
+        const counts: number[] = [];
+        for (const sql of updates) counts.push((await pg.query(sql)).rowCount ?? 0);
+        const seen = (await pg.query(anchorsSql, [mine])).rows;
+        return { counts, seen };
+      },
+      { lockAll: false },
+    );
     expect(control.counts).toEqual([0, 0, 0]);
     expect(control.seen).toEqual([]); // the owner cannot even read them with RLS on
 
     // The file as shipped: RLS off → this tenant's rows are back-filled (other tenants may add more).
-    const shipped = await asMigrator(async (pg) => {
-      const counts: number[] = [];
-      for (const sql of file) {
-        const r = await pg.query(sql);
-        if (/^UPDATE/i.test(sql)) counts.push(r.rowCount ?? 0);
-      }
-      await pg.query('ALTER TABLE attachment NO FORCE ROW LEVEL SECURITY');
-      await pg.query('ALTER TABLE attachment DISABLE ROW LEVEL SECURITY');
-      const seen = (
-        await pg.query<{ id: string; retention_anchor_at: Date | null }>(anchorsSql, [mine])
-      ).rows;
-      return { counts, seen };
-    });
+    const shipped = await asMigrator(
+      async (pg) => {
+        const counts: number[] = [];
+        for (const sql of file) {
+          const r = await pg.query(sql);
+          if (/^UPDATE/i.test(sql)) counts.push(r.rowCount ?? 0);
+        }
+        await pg.query('ALTER TABLE attachment NO FORCE ROW LEVEL SECURITY');
+        await pg.query('ALTER TABLE attachment DISABLE ROW LEVEL SECURITY');
+        const seen = (
+          await pg.query<{ id: string; retention_anchor_at: Date | null }>(anchorsSql, [mine])
+        ).rows;
+        return { counts, seen };
+      },
+      { lockAll: true },
+    );
     expect(shipped.counts[0]).toBeGreaterThanOrEqual(2); // work-order photos
     expect(shipped.counts[2]).toBeGreaterThanOrEqual(1); // penalty evidence
     const byId = new Map(shipped.seen.map((r) => [r.id, r.retention_anchor_at?.toISOString()]));
@@ -569,7 +594,7 @@ describe.skipIf(!HAS_DB)('SEC BE-65 – retention anchor of operational photos (
     ]);
     // Rolled back: the shared DB is unchanged.
     expect(await anchors(...mine)).toEqual([null, null, null]);
-  });
+  }, 120_000); // the lock budget (LOCK_BUDGET_MS) under full parallel load
 
   it('(7) J16 safety net: a bound photo without anchor after the retention since upload is counted (anchorMissing) and journalled, never purged', async () => {
     const { wo, photo } = await openOrder('102'); // open order: bound, no anchor

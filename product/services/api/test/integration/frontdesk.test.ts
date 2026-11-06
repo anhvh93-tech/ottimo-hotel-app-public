@@ -25,6 +25,7 @@ import {
   setPassword,
   startFeatureApp,
 } from '../helpers/feature-app';
+import { withoutRandomIds } from '../helpers/random-free';
 import {
   type BookingIds,
   seedBooking,
@@ -648,8 +649,9 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
       expectedSurchargeVnd: 400_000,
     });
     expect(kid.statusCode, kid.body).toBe(201);
-    expect(kid.body).not.toContain('Bé Na');
-    expect(kid.body).not.toContain('2018');
+    // Neither the name nor the birth year comes back – scanned without the random ids (a guest id held "2018").
+    expect(withoutRandomIds(kid.body)).not.toContain('Bé Na');
+    expect(withoutRandomIds(kid.body)).not.toContain('2018');
     expect(kid.json().occupancyChange).toMatchObject({
       surchargeApplied: true,
       extraGuestKitTaskCreated: true,
@@ -701,6 +703,9 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
 
   it('B18 on the departure day: summary (G-10 recalc), BALANCE_DUE, then pay + check out with bill number', async () => {
     await at('2026-10-19T13:00:00+07:00');
+    // The version this case acts on, read here: when the case above stops half-way it never stores its last version,
+    // and every call below answered 412 VERSION_CONFLICT on top of the real failure (CI run 42282981812).
+    main.version = (await get(main.id)).version;
     const s = await c.fd!.get(url(`/reservations/${main.id}/checkout-summary?checkoutTime=13:00`));
     expect(s.statusCode, s.body).toBe(200);
     const sum = s.json();
