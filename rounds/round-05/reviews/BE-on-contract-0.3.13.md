@@ -708,3 +708,43 @@ Tổng việc trong v1.0.5 (không tính PR-M, 5B-2): khoảng **40 ngày BE**. 
 - Phần lọc của PR-B1 gộp trước được mà không cần V5-13, V5-18 (khác tệp: `folio-lines.service.ts`, module audit).
 - `afterClosure` tính lúc đọc là đủ cho v1.0.5, vì 5B-2 (khôi phục) ở v1.0.6.
 - Không cần ESC: các điểm mới thuộc quyền ARC (chữ hợp đồng), SEC (thẻ 23) hoặc ORC (giao làn).
+
+### 7.7 Đọc lại delta bổ sung 1d (`2cb549cc..45d42368`)
+
+**Kết luận delta: DUYỆT.** ORC gộp khi job `format · lint · audit · test · build` (đang chạy lúc đọc) và E2E smoke trên `45d42368` xanh.
+
+Delta không chỉ đổi tài liệu, nên điều kiện (3) ở 7.0 không áp được. BE đã đọc riêng commit ARC `45d42368`, bỏ qua hai commit gộp `main` (`1f430c39`, `b96203e4`). Phần sản phẩm do hai commit gộp mang vào: `rbac-matrix.json`/`.md` 0.2.8 của BA, `business-rules.md`, `state-machines.md`, `release-notes.md`.
+
+| Đổi | BE đánh giá |
+|---|---|
+| `getPropertyWifi`: `x-rbac` S24 → S36, `x-roles` thêm `front_desk` (BA rbac 0.2.8 ghi chú 47; SEC ARC-10) | Đúng với DOM 7.5. Meta đổi đúng 2 dòng (`roles`, `rbac`). `rbac-cases` đổi đúng 11 dòng của operation này: FD và FD ∪ SAL thành 2xx; HK, MT, SAL, CTV vẫn 403. T58-4 đã sửa thành FD → 200. Dòng V5-58 ở 7.5 ("FD → 403 tới khi BA có dòng") không còn đúng: PR V5-58 làm theo S36 |
+| `getManagerPerformanceBonus` `x-rbac: [A120]` | Meta `rbac: []` → `['A120']`. `rbac-cases` đổi 11 dòng, chỉ ở cột mã rbac; vai và kết quả mong đợi không đổi. Việc "BA cần dòng rbac" ở 7.5 (PR-M) đã xong; PR-M chỉ còn chờ V5-61 |
+| `screens.ts`: `Me.screens` thêm S36 cho OWN, MGR, FDL, FD | Mã chạy đổi: `getMe` trả thêm `S36` cho bốn vai này. Test `be-d-r3-s1-units.test.ts` ("SCREENS_BY_ROLE = rbac-matrix.md section 3") đạt với ma trận 0.2.8. Desk chưa có màn S36 (mock `seed.ts` tới S35); mã màn lạ không làm vỡ gì. Khi làm màn Wi-Fi, FE-A thêm S36 vào mock |
+| G9: cảnh báo khi giá đêm × 30 < giá tháng hoặc giá đêm × 5 > giá tháng; so số nguyên, đúng bằng biên không cảnh báo, hằng số | Chỉ mô tả. Cài đặt rõ (nhân, không chia, nên không có lỗi làm tròn). Áp ở PR-C1 |
+| `nightsNotBilled` theo ngày nghiệp vụ lúc bấm, cả `dryRun` | Chỉ mô tả, khớp cách BE đã ước ở 7.4 |
+| Tên hành động SM-01 B19 = `restore_hold`, thân `restoreHold` chỉ có từ 0.3.14 | Chỉ mô tả, không ảnh hưởng v1.0.5 |
+
+Kiểm cục bộ trên worktree tách ở `45d42368` (đã gỡ):
+
+| Lệnh | Kết quả |
+|---|---|
+| `gen-openapi-meta.mjs --check` | Đều cập nhật, exit 0 |
+| `gen_rbac_cases.py --check` | OK. 210 operation, 2310 ca (2xx 1108 → 1110, 403 857 → 855), 21 `fieldCases`, `rbac mismatch []` |
+| `gen_traceability.py --strict` | exit 0; 0 operation lệch; 1 thuộc tính lệch có sẵn (`email` D27). Bản sinh trùng byte với `traceability.md` trên nhánh |
+| `pnpm --filter @ottimo/api-client gen` | `openapi.ts up to date`, không đổi tệp |
+| `turbo run typecheck --force --no-cache` | 13/13 (0 cache) |
+| `vitest run` `be-b-units`, `be-d-r3-s1-units`, `contract` | 3 tệp, 70/70 |
+| `gh pr checks 94` lúc đọc | 7 job đạt, `format · lint · audit · test · build` đang chạy; `MERGEABLE` |
+
+Thẻ: delta không mở lại thẻ C0313 nào. C0313-22 và 23 vẫn mở, ORC đã chuyển ARC và SEC. Delta không chạm hai thẻ này: nhánh so mật khẩu vẫn chỉ ở `setPropertyWifi` (OWN, MGR); FD chỉ thêm quyền đọc.
+
+Làn BE: BE ghi nhận các quyết định ORC chốt sau 7.4–7.5:
+- PR-A1a giữ `readInput`, `resolveCheckoutAt` và toàn bộ `allowed-actions.ts`;
+- PR-A1b giao người thứ hai, cắt nhánh từ A1a, cập nhật bằng merge;
+- V5-1B vào PR-D1;
+- PR-B2 sang BE-H sau phần lọc V5-16 của PR-B1;
+- V5-58 tách khỏi PR-C1, giao BE-H;
+- PR-S1 mục tiêu gộp 13/11, guard là commit đầu;
+- PR-M chỉ gộp khi V5-61 đạt.
+
+Các quyết định này không đổi ước công ở 7.4.
