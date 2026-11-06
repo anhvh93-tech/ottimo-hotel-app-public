@@ -153,7 +153,7 @@ Chi tiết ở contract 1.29 (đổi người chốt) và danh sách 0.3.14 ở 
 | SEC 123-01 | – | Deferred – 0.3.14 (e) | Quá 32 tầng → 422; lỗi băm ở guard → 403, không 5xx |
 | T58-9, DOM FE-125-01, ARC FE-128-02 | – | Deferred – 0.3.14 (f), (g), (h) | "lần lượt"; câu `checkoutTimeNoteRequired`; `action` giữ tham số lặp |
 
-## 11. Bổ sung 1i – BE review 1g (`BE-on-contract-0313-addendum-1g.md`), BE-H và DOM review 1h
+## 11. Bổ sung 1i – BE review 1g (`BE-on-contract-0313-addendum-1g.md`), BE-H, DOM và SEC review 1h
 
 Chi tiết ở contract 1.30. Chỉ mô tả, không đổi schema.
 
@@ -169,4 +169,7 @@ Chi tiết ở contract 1.30. Chỉ mô tả, không đổi schema.
 | FB-R5-DOM-ARC-1H-03 | Minor | Deferred v1.3 (US-089) | v1.0.5 giữ 409 |
 | FB-R5-DOM-ARC-1H-04 | Suggestion | Đồng ý hướng – BE-H quyết làm trong `r5-h1c` hay v1.0.6 | Không đổi chữ hợp đồng |
 | FB-R5-DOM-ARC-1H-05 | Suggestion | Ghi ở `updateReservation` (nên có) – FE-A, UXD | Không đổi hợp đồng |
+| FB-R5-SEC-ARC-1H-01 | Minor | Done (chữ) – BE-H sửa `r5-h1c` trước khi gộp | Lý do ở cột `reason` của audit; không thêm `reason` vào allowlist `reservation` |
+| FB-R5-SEC-ARC-1H-02 | Minor | Done (chữ, phương án (a)) – BE làm ở PR-M | Không ghi số thưởng vào audit; 0.3.14 (b), `architecture.md` 5.1 |
+| FB-R5-SEC-ARC-1H-03 | Suggestion | Ý 1, 2 Done (chữ) – BE-H ở `r5-h1c`; ý 3 Deferred 0.3.14 (j) – BA | `access.denied` cả hai nhánh 403; thứ tự 403 → 422 → 409 |
 

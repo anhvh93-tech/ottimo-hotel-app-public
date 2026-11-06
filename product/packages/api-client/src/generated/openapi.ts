@@ -1141,11 +1141,14 @@ export interface paths {
      * @description **0.3.13 bổ sung 1h – đổi người chốt `closerUserId` (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02 – `ARC-on-be-h-prs-110-123-131.md` 4.2; BR-903 (3), EP02 5.4).**
      *     Cài ở PR `r5-h1c` (BE-H), sau #131, trước PR-M. Tới đó máy chủ giữ luật cũ: sau `hold` chỉ MGR+, không đồng bộ hoa hồng, bỏ qua `closerChangeReason`.
      *     "Đổi" = giá trị khác giá trị đang lưu, kể cả ghi lần đầu.
-     *     - **Quyền theo mốc** (kiểm sau khi tải đơn, dưới khóa đơn; 403 đi trước 422 của `closerChangeReason`):
+     *     - **Quyền theo mốc** (kiểm sau khi tải đơn, dưới khóa đơn). **Thứ tự lỗi (bổ sung 1i, SEC 1H-03): 403 → 422 (`closerUserId`, `closerChangeReason`) → 409
+     *       (hoa hồng `payable`/`paid`)** – vai bị từ chối không dò được luật lý do hay trạng thái hoa hồng của người khác:
      *       - `hold`: FD+ như cũ;
-     *       - ngoài `hold`, **chưa** nhận phòng (chưa có giờ nhận phòng thật, ví dụ `confirmed`): MGR+ như cũ; FD/FDL → 403 `FORBIDDEN_ACTION`;
+     *       - ngoài `hold`, **chưa** nhận phòng (chưa có giờ nhận phòng thật, ví dụ `confirmed`): MGR+ như cũ; FD/FDL → 403 `FORBIDDEN_ACTION` + audit `security` `access.denied`
+     *         ghi sau rollback (bổ sung 1i, SEC 1H-03; `auditReason` = `CLOSER_CHANGE_BEFORE_CHECKIN`);
      *       - **sau** nhận phòng (đơn có giờ nhận phòng thật: `in_house`, `checked_out`): **chỉ OWN**, `closerChangeReason` bắt buộc; MGR/FDL/FD → 403 `FORBIDDEN_ACTION` + audit
-     *         `security` `access.denied` ghi sau rollback (mẫu `auditReason` của #110).
+     *         `security` `access.denied` ghi sau rollback (mẫu `auditReason` của #110; `CLOSER_CHANGE_AFTER_CHECKIN`).
+     *       - Mỗi 403 vì đổi người chốt ghi **đúng một** `access.denied`, không chứa lý do người gọi gõ.
      *     - **Hoa hồng đồng bộ trong cùng giao dịch** (khóa đơn rồi các dòng `commission` `FOR UPDATE`, cùng thứ tự với B18): bản ghi chưa `void` của người cũ → `void`
      *       (`voidReason` = `closer_changed` trước nhận phòng, `closer_corrected` khi OWN sửa sau nhận phòng); người mới nhận bản ghi theo **tỷ lệ đã ghim** của đơn (#131 – đổi người không
      *       đổi tỷ lệ), ở trạng thái theo **luật đạt của B18** (bổ sung 1i, BE 1H-02): `earned` khi đơn đã đủ điều kiện đạt, `projected` khi chưa (folio còn phải thu, hoặc
@@ -1155,7 +1158,9 @@ export interface paths {
      *       (`currentState` = `checked_out`), như mọi PATCH trên đơn đã trả phòng trước 1h.
      *     - Đơn đã có bản ghi hoa hồng `payable` hoặc `paid` → 409 `INVALID_TRANSITION` (`currentState` = trạng thái đó), không ghi gì: hoa hồng đã vào kỳ chi thì chủ đầu tư chỉnh lúc chi
      *       (DOM đồng ý ở review 1h: lưới chặn; v1.0.5 chưa có luồng chi nên nhánh này không xảy ra; luật đích khi có luồng chi – DOM 1H-03, US-089 v1.3).
-     *     - Audit `money` `reservation.closer_changed`: `before.closerUserId`, `after.closerUserId`, thêm `after.reason` khi có lý do (allowlist `reservation` thêm `reason`). Không số tiền.
+     *     - Audit `money` `reservation.closer_changed`: `before.closerUserId`, `after.closerUserId`; allowlist `reservation` thêm `closerUserId` (id). **Bổ sung 1i (SEC 1H-01,
+     *       SR-AUD-03):** lý do ghi ở **cột `reason`** của bản ghi audit (`AuditEntry.reason`), như mọi thao tác khác của đơn – **không** ở `after`, **không** thêm `reason` vào
+     *       allowlist `reservation`. `listAuditEvents` và `getReservationHistory` đã trả `reason`. Không số tiền.
      *     - Desk (FE-A): ô lý do **bắt buộc** chỉ cho OWN khi đơn đã nhận phòng và người chốt đổi; MGR/FDL/FD không có nút đổi người chốt sau nhận phòng. Nên có (DOM 1H-05):
      *       MGR+ đổi người chốt ở đơn ngoài `hold`, chưa nhận phòng → ô "không bắt buộc".
      */
@@ -6890,7 +6895,8 @@ export interface components {
        * @description **0.3.13 bổ sung 1h (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02; BR-903 (3))** – lý do đổi người chốt, xem `updateReservation`. **Bắt buộc** khi OWN đổi
        *     `closerUserId` sau nhận phòng (`in_house`, `checked_out`); thiếu hoặc ngắn → 422 `VALIDATION_FAILED` (`field` = `closerChangeReason`, `code` = `REASON_REQUIRED`).
        *     Trước nhận phòng: tùy chọn, có thì ghi vào audit. Gửi mà không đổi `closerUserId` → 422 `NOT_ALLOWED`. V-08 (bỏ khoảng trắng đầu/cuối, ký tự điều khiển), V-09
-       *     (số thẻ → `CARD_NUMBER_DETECTED`). Không ghi tên, SĐT, giấy tờ của khách hay số tiền hoa hồng. Ghi vào `after.reason` của audit `reservation.closer_changed`;
+       *     (số thẻ → `CARD_NUMBER_DETECTED`). Không ghi tên, SĐT, giấy tờ của khách hay số tiền hoa hồng. Ghi vào cột `reason` của audit `reservation.closer_changed`, không vào `after`
+       *     (bổ sung 1i, SEC 1H-01);
        *     không trả lại ở `Reservation`.
        */
       closerChangeReason?: string;

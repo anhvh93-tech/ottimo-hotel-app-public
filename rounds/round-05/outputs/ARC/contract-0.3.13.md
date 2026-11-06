@@ -797,7 +797,7 @@ Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi 
 - **FB-R5-DOM-ARC-120-01, FB-R5-DOM-BE-121-02:** đã ghi ở 1.27 (ARC review #120/#121, `df07ccbc`) – không lặp lại ở đây.
 - **Bổ sung 1h – từ ARC review BE-H (`ARC-on-be-h-prs-110-123-131.md` mục 6) và ARC review #140 mục 7:**
   - (a) **`foc_threshold` `line_reduction_count` (ARC 110-01):** "Số đếm theo tháng kinh doanh (06:00 ngày 1). Danh sách mở từ `link` theo ngày lịch, có thể lệch ở các lần sửa 00:00–05:59 ngày 1." Hai nguồn lệch nhỏ khác: bản ghi cũ không có `actorRole` (không đếm, vẫn hiện), người đổi vai giữa tháng (số đếm lọc theo vai lúc sửa). QA không viết ca đòi hai số bằng nhau ở ngày 1. v1.0.6 nếu chủ đầu tư thấy phiền: `listAuditEvents.businessMonth=YYYY-MM` (khung 06:00), link dùng tham số này.
-  - (b) **`listAuditEvents` và `getReservationHistory` (SEC 131-01, ARC 131-01):** "FD/FDL không thấy bản ghi `entityType = commission`; khóa `commissionVnd` (và khóa thưởng của PR-M) bị bỏ khỏi `before`/`after`. OWN/MGR thấy đủ." Mã lên ở PR che hoa hồng của BE-H trước tag v1.0.5 (cổng `audit/public/audit-visibility.ts`, `architecture.md` 5.1).
+  - (b) **`listAuditEvents` và `getReservationHistory` (SEC 131-01, ARC 131-01):** "FD/FDL không thấy bản ghi `entityType = commission`; khóa `commissionVnd` bị bỏ khỏi `before`/`after`. OWN/MGR thấy đủ." ~~(và khóa thưởng của PR-M)~~ **1i (SEC 1H-02):** PR-M không ghi số thưởng vào audit (chỉ id, trạng thái); số thưởng chỉ đọc qua `getManagerPerformanceBonus` (OWN và chính MGR đó), nên không có khóa thưởng nào trong `before`/`after` để che. Mã lên ở PR che hoa hồng của BE-H trước tag v1.0.5 (cổng `audit/public/audit-visibility.ts`, `architecture.md` 5.1).
   - (c) **guard (#123):** vai không được phép dùng lại `Idempotency-Key` với thân khác → 403 (trước là 422 `IDEMPOTENCY_KEY_REUSED`); phát lại multipart sau khi mất vai → 403 – ngoại lệ của ADR-009 (guard chỉ nhường cho lần phát lại thật, so bằng `request_hash`).
   - (d) **B13 `RATE_OUT_OF_RANGE` (#123):** `dates[]` gồm mọi đêm ngoài khung; `date` giữ là đêm đầu (client cũ vẫn đọc được).
   - (e) **Thân lồng sâu (SEC 123-01):** thân yêu cầu lồng quá 32 tầng → 422 `VALIDATION_FAILED`, kiểm trong `request-hash.ts` cho mọi nơi gọi; ở guard, `requestHash` lỗi thì coi như không có lần phát lại → 403 kèm `access.denied`, không bao giờ 5xx. Ghi khi PR sửa gộp (v1.0.5 nếu kịp, không thì B-KYTHUAT); BE-H chốt số tầng theo schema lồng sâu nhất của `openapi.yaml`.
@@ -805,6 +805,7 @@ Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi 
   - (g) **`checkoutTimeNoteRequired` (DOM FE-125-01, ARC 125-05):** "Desk không nhận `manual_time_tolerance_minutes`; tín hiệu giờ tự điền đã cũ là `checkoutTimeNoteRequired` của lần đọc mới." Không thêm trường.
   - (h) **`listAuditEvents.action` (ARC FE-128-02):** giữ dạng tham số lặp (`action=a&action=b`), không đổi hợp đồng. Client phải hỗ trợ mảng trước khi màn nào lọc theo `action`.
   - (i) **`auth_resolve_session(p_mfa_roles)` (BE C0313-33, bổ sung 1i – bổ sung cho dòng ARC-23 ở trên và mục 7):** `p_mfa_roles text[] DEFAULT NULL` (NULL → `mfa_required = false`, SQL vẫn không chứa tên vai); đổi chữ ký nên migration `DROP FUNCTION auth_resolve_session(text)`, tạo hàm mới, `REVOKE … FROM PUBLIC` / `GRANT EXECUTE … TO ottimo_app` theo chữ ký mới (tiền lệ migration 0005); guard truyền `MFA_REQUIRED_ROLES`; `upload-session.check.ts` giữ một tham số (không đọc `mfa_required`); `architecture.test.ts` thêm ca "chỉ có đúng một bản `auth_resolve_session`"; sửa chú thích `mfa-roles.ts` và phần đầu `v105-be-d1-mfa-fdl.test.ts`. Có `DEFAULT NULL` thì api cũ vẫn chạy trong lúc deploy và vẫn bắt 2FA đúng (`mfaRequired()` của guard tự kiểm đủ ba vai khi `mfa_required` không phải `true`, #124).
+  - (j) **Dòng "Đổi người chốt" trong `rbac-matrix` (SEC 1H-03 ý 3, bổ sung 1i):** `hold` FD+, trước nhận phòng MGR+, sau nhận phòng OWN, để `rbac-cases` sinh ca bằng máy. Không phải chỉ mô tả (đổi `rbac-matrix.md`/`.json` và tệp màn hình CI so cùng lúc, nếu không `main` đỏ), nên để 0.3.14; BA làm, ARC xem.
 
 
 ### 1.27 Sau review PR #112, #120, #121 (ARC 07/11) – chỉ tài liệu này, không đổi `openapi.yaml`
@@ -841,7 +842,7 @@ Viết trước khi BE-H mở `r5-h1c` (sau #131, trước PR-M và 01/12). **C�
 | Mốc của đơn | Ai đổi được người chốt | Lý do | Hoa hồng (cùng giao dịch) |
 |---|---|---|---|
 | `hold` | FD+ (như cũ) | Tùy chọn | Bản ghi chưa `void` của người cũ → `void` (`closer_changed`); người mới theo tỷ lệ ghim |
-| Ngoài `hold`, chưa nhận phòng (ví dụ `confirmed`) | MGR+ (như cũ); FD/FDL → 403 | Tùy chọn | Như trên |
+| Ngoài `hold`, chưa nhận phòng (ví dụ `confirmed`) | MGR+ (như cũ); FD/FDL → 403 (+ `access.denied` – 1i, SEC 1H-03) | Tùy chọn | Như trên |
 | Sau nhận phòng (`in_house`, `checked_out`) | **Chỉ OWN**; MGR/FDL/FD → 403 + `access.denied` | **Bắt buộc** 3–500 (`REASON_REQUIRED`) | Người cũ `void` (`closer_corrected`); người mới theo luật đạt của B18 (`earned` khi đủ điều kiện, không thì `projected`; `recognized_at` = lúc sửa – 1i) |
 | Có bản ghi `payable`/`paid` | Không ai – 409 `INVALID_TRANSITION` (ARC chốt, DOM xác nhận ở review `r5-h1c`) | – | Không đổi; chủ đầu tư chỉnh lúc chi |
 
@@ -854,7 +855,7 @@ Ghi chú cài đặt (BE-H, `ARC-on-be-h-prs-110-123-131.md` 4.2):
 - Tới khi `r5-h1c` gộp: BA giữ câu sổ tay tạm của DOM 131-01 mục 4.
 
 
-### 1.30 Bổ sung 1i – sau review 1g (BE-A1) và 1h (BE-H, DOM)
+### 1.30 Bổ sung 1i – sau review 1g (BE-A1) và 1h (BE-H, DOM, SEC)
 
 Chỉ mô tả `openapi.yaml` và tệp `.md`: không đổi schema, `enum`, `required`, `x-roles`, phần mở rộng; không mã lỗi mới; không migration. Nhánh `r5-contract-1i`, xếp trên #147.
 
@@ -872,6 +873,9 @@ Chỉ mô tả `openapi.yaml` và tệp `.md`: không đổi schema, `enum`, `re
 | DOM FB-R5-DOM-ARC-1H-03 (Minor) | Deferred v1.3 (US-089): luật đích khi có luồng chi – `payable` sửa được, người mới vào cùng kỳ; `paid` giữ nguyên + dòng trừ kỳ sau. v1.0.5 giữ 409 | PO (US-089), ARC (hợp đồng bản có luồng chi) |
 | DOM FB-R5-DOM-ARC-1H-04 (Suggestion) | ARC đồng ý hướng: điều kiện "khoản do người hưởng ghi đã đối soát" xét cả người hưởng **trước** của cùng đơn (theo bản ghi `void` lý do `closer_changed`/`closer_corrected`). Không đổi chữ hợp đồng ("luật đạt của B18" bao cả điều kiện này) | BE-H trong `r5-h1c` nếu ≤ 0,25 ngày, không thì v1.0.6 (tới đó câu sổ tay ở 1H-02); QA thêm ca |
 | DOM FB-R5-DOM-ARC-1H-05 (Suggestion) | `updateReservation`: Desk nên có ô lý do "không bắt buộc" khi MGR+ đổi người chốt trước nhận phòng. Không đổi hợp đồng | FE-A, UXD |
+| SEC FB-R5-SEC-ARC-1H-01 (Minor) | `closerChangeReason` ghi ở cột `reason` của audit `reservation.closer_changed` (`AuditEntry.reason`), không ở `after`; allowlist `reservation` thêm `closerUserId`, **không** thêm `reason` (SR-AUD-03) | BE-H: sửa `r5-h1c` (`reservations/audit-entities.ts`), test đọc lại `audit_event` → `reason` = lý do đã làm sạch, `after` chỉ có `closerUserId`; trước khi gộp `r5-h1c` |
+| SEC FB-R5-SEC-ARC-1H-02 (Minor) | Phương án (a) của SEC: PR-M không ghi số thưởng vào audit; 0.3.14 (b) và `architecture.md` 5.1 sửa theo | BE (PR-M); SEC xem ở PR-M |
+| SEC FB-R5-SEC-ARC-1H-03 (Suggestion) | Ý 1, 2 ghi ngay (chỉ mô tả): `access.denied` ở cả hai nhánh 403 (`CLOSER_CHANGE_BEFORE_CHECKIN`, `CLOSER_CHANGE_AFTER_CHECKIN`), thứ tự 403 → 422 → 409. Ý 3 (dòng `rbac-matrix`) → 0.3.14 (j) | BE-H trong `r5-h1c` (thêm nhánh `access.denied` trước nhận phòng); BA ý 3 ở 0.3.14 |
 
 **Truy vấn OPS chỉ đọc (DOM 1H-01, thay gạch OPS ở 1.29):**
 - **Khi chạy:** ngay sau khi máy chủ có `r5-h1c` lên (từ đó chỉ OWN đổi được sau nhận phòng, nên danh sách trọn vẹn), không phải lúc cắt tag. Gửi chủ đầu tư trong ngày, qua kênh riêng. Chạy lại nếu kỳ chi kế tới trước khi chủ đầu tư xử lý xong.
