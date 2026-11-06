@@ -28,6 +28,8 @@ SEC chỉ đọc repo và diff PR (`git show origin/r5-contract-0313:…`), khô
 > **Đọc lại 06/11 khuya @ `2cb549cc`: DUYỆT để gộp** – xem mục 5. Bảng dưới là kết luận lần đầu (`f4c40d9b`).
 >
 > **Bổ sung 1d @ `45d42368` (SEC đọc riêng `x-roles`, `x-rbac`, `screens.ts`, `rbac-cases` của `git diff 2cb549cc..45d42368`): DUYỆT để gộp khi CI của `45d42368` xanh.** Chỉ đổi đúng 3 chỗ. (1) `getPropertyWifi`: S24 → S36, thêm `front_desk`; chỉ `RB-getPropertyWifi-qa.fd` và `-qa.fdsal` từ 403 thành 2xx; HK, MT, SAL, CTV vẫn 403, phiên khách vẫn 401; `no-store` và "không log giá trị" giữ nguyên (ARC-10). (2) `getManagerPerformanceBonus`: chỉ thêm nhãn A120; vai, `x-scope` và mọi `expected` không đổi. (3) `screens.ts`: S36 chỉ cấp cho OWN, MGR, FDL, FD, khớp `x-roles`. `fieldCases` và `openapi-schemas.ts` không đổi; không còn dòng `x-*`/`required`/`enum` nào khác. Phần A120 nằm ngoài danh sách mục 5.6 nhưng không đổi quyền, nên SEC nhận.
+>
+> **Bổ sung 1e @ `f9a1b062` (PR #104, chỉ chữ): DUYỆT để gộp** – xem mục 6. Bỏ mọi `description` dạng chuỗi thì `openapi.yaml` trùng khít `main`; chữ đúng ý SEC ở C0313-22, C0313-23 (SR-RL-10), ARC-15, ARC-17. Đóng ARC-15, ARC-17 (phần chữ). Thẻ mới không chặn gộp: ARC-20, ARC-21 (Minor), ARC-22 (Suggestion).
 
 0 Blocker · 4 Major · 4 Minor · 5 Suggestion.
 
@@ -637,3 +639,102 @@ Nếu delta đổi gì khác thì gửi lại SEC đọc riêng phần đó: vai
 ### 5.7 Dòng decision-log đề xuất (ORC ghi khi gộp)
 
 `| 2026-11-06 | 5 | **SEC – đọc lại PR #94 (0.3.13-draft bổ sung 1/1b/1c, HEAD 2cb549cc, CI 42239136222 xanh): DUYỆT để gộp** (rounds/round-05/reviews/SEC-on-contract-0.3.13.md mục 5). Đóng ARC-01…06, 09, 10, 12, 13; còn mở ARC-07 ý 1 (OPS, Deferred), ARC-11 (SR-NET-01), ARC-14 (L7, ESC-001). BUG-R5-002 (1.21) khớp V5-48 và S1–S8: API từ chối tiền mặt, POS, OTA trên đơn đã đóng, ảnh bắt buộc, luôn chờ đối soát, confirmPaymentReceived/createVietQr 409 + reservationStatus, hoàn payment_after_cancel đứng tên người ghi, nơi nhận cố định original_method, Có thể trùng, createDepositNotice 202; 5B-2 (0.3.14) khớp SEC mục 4. G15: không cần unique index ở v1.0.5 – khóa tư vấn kèm chuẩn hóa mã, khóa trước khi kiểm, chỉ so khoản thu, mọi đường PaymentCreate, test song song; index một phần nên có ở v1.0.6. Xác nhận mốc giữ chứng cứ theo checkoutAt. Thẻ mới, không chặn gộp: ARC-15 (bankReference: vai FD+ hoặc 409 không mã đơn cho SAL, kiểm số thẻ – trước PR-B3), ARC-16 (x-visible-to cho ApprovalRequest.possibleDuplicateCodes – trước PR-B3), ARC-17 (404 phạm vi trước 409 reservationStatus – trước PR-B1), ARC-18 và BA-19 (Suggestion). Chấp nhận delta chỉ đổi tài liệu (G9 ÷ 5, bỏ "chờ DOM", có thể kèm S36 cho getPropertyWifi) mà không đọc lại, theo phạm vi mục 5.6 | SEC | Quyền SEC (review bảo mật hợp đồng API) |`
+
+---
+
+## 6. Bổ sung 1e @ `f9a1b062` (PR #104, nhánh `r5-contract-0313e`) – đọc 06/11
+
+### 6.0 Kết luận: **DUYỆT để gộp**
+
+- **Phạm vi đúng như ARC nói.** Cách SEC kiểm:
+  - So `openapi.yaml` của `main` (`d1d2fb8e`) với `f9a1b062` bằng một script nhỏ (PyYAML). `main` không đổi hợp đồng sau gốc của PR (`ab1fc4ae`).
+  - Bỏ mọi khóa `description` có giá trị **chuỗi** thì hai cây **trùng khít** (0 khác biệt). Script giữ lại 5 thuộc tính schema tên là `description` (`FolioLine`, `FolioLineCreate`, `WorkOrder`, `WorkOrderCreate`, `GuestFolio.lines`), nên không che được thay đổi schema.
+  - Cây đầy đủ khác đúng 12 chỗ, đều là chuỗi `description`: `info`, 8 operation hoặc tham số, 3 thuộc tính `Payment`/`PaymentCreate`.
+  - Không đổi `x-roles`, `x-rbac`, `x-scope`, `x-visible-to`, `enum`, `required`, `pattern`. Bảng mã lỗi trong `info.description` không thêm dòng, nên **không có mã mới**.
+  - `api-client/src/generated/openapi.ts`: mọi dòng đổi là dòng chú thích.
+  - `erd.md` 9.1a chỉ thêm biên DOM. Các danh sách đều có trần (10, 20 hoặc 100 phần tử); `max_open_holds_per_user` bắt buộc đủ hai vai, mỗi vai 0–50. SEC không có ý kiến.
+  - CI xanh trên `f9a1b062`; GitHub báo `MERGEABLE`, `CLEAN`.
+- **Chữ đúng ý SEC** ở cả 5 điểm ORC giao (bảng 6.1).
+- **Thẻ đóng:** ARC-15, ARC-17 (phần chữ). **Còn mở:** ARC-16 (ARC làm PR hợp đồng riêng; SEC đồng ý không gộp vào PR chỉ chữ). ARC-18 dời sang 0.3.14, SEC nhận.
+- **Thẻ mới, không chặn gộp #104:** ARC-20 (Minor, trước PR-B1), ARC-21 (Minor, trước PR-B3), ARC-22 (Suggestion).
+
+### 6.1 Bảng kiểm chữ
+
+| Ý | SEC yêu cầu | Chữ ở `f9a1b062` | Kết luận |
+|---|---|---|---|
+| C0313-22 (a) – hiển thị | `Payment.afterClosure` tính lúc đọc, **chỉ để hiển thị**; so `payment.created_at` của máy chủ, không so `receivedAt`; quyết định lúc ghi không đọc trường này (`SEC-responses.md` 1.1) | `recordPayment` (A), gạch mới; mô tả thuộc tính `Payment.afterClosure` | Đúng |
+| C0313-22 (b) – bộ lọc tuần | `afterClosureOnly` lọc theo `after.afterClosure = true` trong `audit_event`; chuỗi "hủy → ghi muộn → khôi phục" vẫn ra (1.2 ý 1) | Mô tả tham số `afterClosureOnly`; test ca h1 đúng một dòng, ca khôi phục no-show (B12) | Đúng |
+| Allowlist audit | `payment` thêm `afterClosure`, `reservationStatus`; `deposit_notice` thêm `afterClosure`; test đọc lại từ bảng (1.2 ý 2, 1.3) | `recordPayment` (A), `createDepositNotice` | Đúng |
+| S8 – đóng "Không thấy tiền" | Audit có `afterClosure`, người bấm, giờ bấm; vào bộ lọc tuần (1.2 ý 3) | `resolveAttentionEvent` ghi `money` `attention_event.resolved`, `after = {kind, afterClosure: true}`; thực thể `attention_event` đăng ký allowlist `kind`, `afterClosure`. Ghi chú tự do của người bấm **không** vào audit – tốt | Đúng ý. Mã này chưa có trong tập đóng `money` → **ARC-20** |
+| `refundRequestId` | Chưa trả tới 0.3.14 (1.4) | `recordPayment` (B) gạch câu cũ; mô tả thuộc tính ghi "chưa trả tới 0.3.14"; Desk tìm qua `openRefunds` | Đúng. Trường vẫn ở schema (PR không đổi schema); FE không được dựa vào trường này |
+| C0313-23 – SR-RL-10 | 6 ý ở `SEC-responses.md` 2.2 | `setPropertyWifi`, khối "Bổ sung 1e"; contract 1.25 T58-11…13 | Đủ 6 ý: chỉ so khi đã qua kiểm dạng và khác giá trị đang lưu; mỗi lần so đều đếm; 5 lần/24 giờ/`user_id`, PostgreSQL, khóa đếm riêng, không cộng `login_lockout`; trùng → 422 + audit `security` không giá trị; quá ngưỡng bỏ qua phép so, không 429; giao dịch riêng commit trước 422. Một câu cũ dễ đọc ngược → **ARC-22** ý 1 |
+| ARC-15 | (1) chọn một cách cho vai ngoài FD+; (2) `CARD_NUMBER_DETECTED`; (3) chuẩn hóa và 5 điều kiện ở 5.3 | `recordPayment` (B), 7 gạch; `PaymentCreate.bankReference` trỏ về đó | Đúng. SEC nhận cách ARC chọn: vai ngoài FD+ nhận 409 **không** có `duplicateReservationCode`. Bảng chung còn câu không điều kiện, và chưa có test cho ca này → **ARC-21** |
+| ARC-17 | "sau 403 vai và 404 phạm vi, trước mọi kiểm khác của khoản thu"; test SAL → 404 | `confirmPaymentReceived` và `createVietQr` đều có câu này; test ghi ở `createVietQr` ("QR/folio") | Đúng. SAL có trong `x-roles` của **cả hai** operation (`own_deposit_only`, `own`), nên test ở PR-B1 phải phủ cả hai (6.2) |
+
+### 6.2 Thẻ cũ
+
+| Thẻ | Trạng thái | Ghi chú |
+|---|---|---|
+| FB-R5-SEC-ARC-15 | **Closed (chữ)** | SEC kiểm phần cài ở review PR-B3: khóa trước câu kiểm, so dạng chữ hoa, chỉ so khoản thu, đủ 6 đường `PaymentCreate`, test song song, `CARD_NUMBER_DETECTED` ở `field` = `bankReference` |
+| FB-R5-SEC-ARC-16 | Open | Đồng ý tách PR hợp đồng riêng. Hạn giữ nguyên: trước khi gộp PR-B3 |
+| FB-R5-SEC-ARC-17 | **Closed (chữ)** | Test bắt buộc ở PR-B1: SAL gọi `confirmPaymentReceived` với QR `pending` của đơn đã hủy của sale khác → 404; SAL gọi `createVietQr` với folio của đơn đó → 404. Cả hai thân lỗi không có `reservationStatus` |
+| FB-R5-SEC-ARC-18 | Deferred – 0.3.14 | SEC nhận; đã có trong danh sách 0.3.14 (contract 1.25) |
+| FB-R5-BE-ARC-C0313-22, -23 | SEC xác nhận chữ | Khớp `SEC-responses.md` mục 1, 2 và SR-RL-10. BE làm ở PR V5-48 (PR-B1) và PR V5-58 |
+
+### 6.3 Thẻ mới
+
+#### FB-R5-SEC-ARC-20
+- Mức độ: Minor
+- Người nhận: ARC (một dòng chữ hợp đồng, ở PR ARC-16), BE-D (PR-B3), FE-A (câu Nhật ký tiền). *(07/11: đổi từ BE-B/PR-B1 – `rounds/round-05/responses/SEC-responses.md` mục 5)*
+- Vị trí: mô tả `listAuditEvents.afterClosureOnly` (bổ sung 1e) ghi audit `money` `attention_event.resolved`; mô tả `AuditEvent.action` – tập đóng của `money`.
+- Vấn đề:
+  - `attention_event.resolved` **không có** trong tập đóng `money` ở mô tả `AuditEvent.action`. Hợp đồng ghi rõ: thêm mã vào tập này là đổi hợp đồng.
+  - `services/api/test/module-boundaries.test.ts` buộc `MONEY_AUDIT_ACTIONS` bằng đúng danh sách trong `openapi.yaml`. Ngoài production, `AuditService.record` ném lỗi với mã `money` lạ.
+  - BE cài đúng theo chữ thì test đỏ. Khi đó BE phải tự thêm dòng vào hợp đồng, hoặc đổi sang `category` khác. Đổi `category` thì dòng này rời khỏi Nhật ký tiền. FE thiếu câu thì hiện `mlog.a_other`.
+- Vì sao quan trọng: S8 là nửa sau của kiểm soát phát hiện S6 (OWN xem bộ lọc tuần). Mục "Không thấy tiền" không vào audit `money` là mất dấu vết đúng ở chỗ SEC cần.
+- Đề xuất sửa:
+  - ARC thêm `attention_event.resolved` vào tập đóng `money`, kèm một câu: hiện chỉ ghi cho mục `deposit_after_cancel`; `after` = `{kind, afterClosure}`; không có ghi chú tự do.
+  - Dòng hợp đồng, hằng `MONEY_AUDIT_ACTIONS` và câu `mlog.a_*` lên **cùng một PR**. Nếu chỉ thêm dòng hợp đồng vào #104, test `module-boundaries` sẽ đỏ. Hai cách: làm ở PR-B1 (BE thêm hằng, ARC duyệt dòng hợp đồng), hoặc ở PR hợp đồng của ARC-16 kèm hằng.
+  - Giữ `category = money`, không đổi sang loại khác.
+- Hạn: **trong PR-B3** (BE-D); chữ hợp đồng và hằng `MONEY_AUDIT_ACTIONS` cùng một PR (PR ARC-16), gộp trước PR-B3; câu `mlog.a_*` cùng bản phát hành với PR-B3. Hạn quay về "trước PR đó" nếu một PR trước PR-B3 sinh `deposit_after_cancel` hoặc đóng mục bằng "Không thấy tiền". *(07/11, SEC đồng ý đổi hạn theo đề nghị ORC/BE 7.8; hạn cũ: trước khi gộp PR-B1)*
+- Trạng thái: Open
+
+#### FB-R5-SEC-ARC-21
+- Mức độ: Minor
+- Người nhận: ARC (chữ), BE-B (test ở PR-B3)
+- Vị trí:
+  - bảng mã lỗi trong `info.description`, dòng `DUPLICATE_BANK_REFERENCE`: "kèm `duplicateReservationCode`", và chỉ nêu `recordPayment.bankReference`;
+  - bảng trường mở rộng của `Problem`: `duplicateReservationCode` (chỉ mã đơn);
+  - mô tả thuộc tính `Problem.duplicateReservationCode`.
+- Vấn đề:
+  - Luật "chỉ vai FD+ nhận `duplicateReservationCode`" mới có ở `recordPayment` (B). Ba chỗ chung ở trên vẫn ghi không điều kiện. BE dựng `Problem` theo bảng chung thì dễ trả mã đơn cho SAL.
+  - Danh sách test ở `recordPayment` (B) chưa có ca người gọi ngoài FD+.
+- Vì sao quan trọng: SR-AZ-02. Lộ mã đơn ngoài phạm vi cho SAL (mức thấp). Đây chính là ý 1 của ARC-15.
+- Đề xuất sửa:
+  - ARC: ở ba chỗ trên, thêm "chỉ khi người gọi có vai FD+; vai khác nhận 409 không có trường này (xem `recordPayment` (B))". Dòng bảng mã lỗi ghi "mọi đường dùng `PaymentCreate`". Làm cùng PR của ARC-16.
+  - BE-B (PR-B3), test:
+    - SAL `recordPayment` cọc (trong phạm vi `own_deposit_only`) với `bankReference` đã có ở đơn khác → 409 `DUPLICATE_BANK_REFERENCE`, thân lỗi **không** có `duplicateReservationCode`;
+    - cùng ca với SAL `confirmDeposit`;
+    - FD cùng ca → có mã đơn.
+- Hạn: trước khi gộp PR-B3.
+- Trạng thái: Open
+
+#### FB-R5-SEC-ARC-22
+- Mức độ: Suggestion
+- Người nhận: ARC (dọn chữ ở PR của ARC-16 hoặc ở 0.3.14)
+- Vấn đề, đề xuất:
+  1. `setPropertyWifi`: câu "Lỗi kiểm → không ghi `property`, không audit" đứng **sau** khối 1e. Câu này đọc được là 422 `NOT_ALLOWED` (trùng mật khẩu đăng nhập) không ghi audit, ngược với SR-RL-10 ý 3 và 5.
+     - Thêm "trừ bộ đếm và audit `security` của SR-RL-10".
+     - Câu "thay 'không đếm' ở trên" sửa thành "thay 'không đếm'; vẫn không cộng vào `login_lockout`".
+     - T58-12 đã giữ đúng ý, nên đây chỉ là dọn chữ.
+  2. `Payment.afterClosure`: câu đầu "ghi khi đơn đã `cancelled`/`no_show`" nghe như cột lưu lúc ghi. Đổi thành "`true` khi … (tính lúc đọc, xem `recordPayment`)".
+- Trạng thái: Open
+
+### 6.4 Điểm làm tốt
+- PR đúng phạm vi "chỉ chữ": so cây YAML sau khi bỏ mô tả thì trùng khít. Phần cần đổi phần mở rộng (ARC-16) được tách ra, không nhét vào PR này.
+- SR-RL-10 được chép đủ ý vào ngay mô tả operation, kèm ca test T58-11…13. BE không phải mở tệp SEC mới biết luật.
+- `refundRequestId`: ARC chọn phương án ít bề mặt hơn, và ghi lý do kỹ thuật (CHECK 0040).
+
+### 6.5 Dòng decision-log đề xuất (ORC ghi khi gộp)
+
+`| 2026-11-06 | 5 | **SEC – PR #104 hợp đồng 0.3.13 bổ sung 1e (HEAD f9a1b062, CI xanh): DUYỆT để gộp** (rounds/round-05/reviews/SEC-on-contract-0.3.13.md mục 6). Bỏ mọi description dạng chuỗi thì openapi.yaml trùng khít main; không đổi x-*, enum, required, pattern; không mã mới; api-client chỉ đổi chú thích. Chữ khớp SEC-responses.md mục 1, 2: afterClosure tính lúc đọc chỉ để hiển thị (payment.created_at của máy chủ), afterClosureOnly lọc theo giá trị audit lúc ghi, allowlist payment/deposit_notice/attention_event bắt buộc, refundRequestId chưa trả tới 0.3.14, SR-RL-10 cho setPropertyWifi. Đóng ARC-15 (409 không duplicateReservationCode cho vai ngoài FD+, chữ hoa, CARD_NUMBER_DETECTED, 5 điều kiện G15), ARC-17 (404 phạm vi trước 409; test PR-B1 phủ confirmPaymentReceived và createVietQr). ARC-16 còn mở (PR riêng, trước PR-B3); ARC-18 dời 0.3.14. Thẻ mới: ARC-20 (Minor – attention_event.resolved chưa có trong tập đóng money, thêm cùng hằng MONEY_AUDIT_ACTIONS trước PR-B1), ARC-21 (Minor – bảng mã lỗi/Problem còn ghi duplicateReservationCode không điều kiện, test SAL trước PR-B3), ARC-22 (Suggestion – dọn chữ Wi-Fi "không audit", Payment.afterClosure) | SEC | Quyền SEC (review bảo mật hợp đồng API) |`

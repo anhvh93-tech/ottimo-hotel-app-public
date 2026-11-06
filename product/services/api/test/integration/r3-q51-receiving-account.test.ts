@@ -7,11 +7,18 @@
  * - `effectiveFrom` > business date (422 `EFFECTIVE_FROM_TOMORROW`), the first time too; same scheduled day = edit;
  * - S2 in the request (`reauth.secret` – StrongReauthService; wrong → 401, nothing written; missing → 422 REQUIRED);
  * - set / cancel → money audit (masked), `receiving_account_changed` to every OWN/MGR (effective date as code) + an
- *   email to every owner through the outbox (`staff.email`).
+ *   email to every owner through the outbox (`staff.email`);
+ * - SEC FB-R4-SEC-BE-V104-08 (V5-43): the outbox row carries `action` = set / cancel of the controller, end to end
+ *   API → outbox → dispatcher → rendered e-mail (cancel never says "new"/"effective"; an old row without `action`
+ *   → the neutral sentence; the cancel date = the cancelled schedule).
  * Fake clock, FAKE account data only.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { NotificationAdapter, NotificationMessage } from '@ottimo/integrations/contracts';
+import { renderStaffEmail } from '@ottimo/integrations/notification';
+import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { StaffEmailDispatcher } from '../../src/jobs/email-dispatch';
 import { TEST_PASSWORD } from '../helpers/feature-app';
 import { HAS_DB } from '../helpers/tenant';
 import { type Fx, startFixture } from './s438-r8/fixture';
@@ -199,6 +206,7 @@ describe.skipIf(!HAS_DB)(
         userIds: [],
         owners: true,
         effectiveDate: '2030-03-21',
+        action: 'set',
       });
     });
 
@@ -267,12 +275,89 @@ describe.skipIf(!HAS_DB)(
           userIds: [],
           owners: true,
           effectiveDate: '2030-03-25',
+          action: 'cancel',
         },
       ]);
       const inForce = keep(await cancel('owner', { ...body, effectiveFrom: '2030-03-21' }));
       expect(inForce.statusCode, inForce.body).toBe(409);
       const none = keep(await cancel('owner', { ...body, effectiveFrom: '2030-03-30' }));
       expect(none.statusCode).toBe(404);
+    });
+
+    it('SEC V104-08 (V5-43) end to end: setParameter → "set" sentence, cancelScheduledParameter → "cancel" sentence with the cancelled date; an old row without `action` → neutral', async () => {
+      // An older outbox row (written before v1.0.5 – no `action`) still in the queue.
+      await x.q(
+        `INSERT INTO outbox_message (id, organization_id, property_id, topic, payload, dedupe_key)
+         VALUES ($1, $2, $3, 'staff.email', $4, $5)`,
+        [
+          uuidv7(),
+          x.t.organizationId,
+          x.t.propertyIds[0],
+          JSON.stringify({
+            template: 'receiving_account_changed',
+            userIds: [],
+            owners: true,
+            effectiveDate: '2030-03-29',
+          }),
+          `email:receiving_account_changed:${uuidv7()}`,
+        ],
+      );
+      await x.q('UPDATE app_user SET email = $2 WHERE id = $1', [
+        x.t.users.owner!.id,
+        `own-q51-${x.t.organizationId.slice(-6)}@example.test`,
+      ]);
+      const sent: NotificationMessage[] = [];
+      const adapter: NotificationAdapter = {
+        async send(_ctx, m) {
+          sent.push(m);
+          return { status: 'sent' as const, providerMsgId: m.idempotencyKey };
+        },
+        async healthCheck() {
+          return { status: 'ok' as const, checkedAt: '2030-03-22T10:00:00+07:00' as never };
+        },
+      };
+      await new StaffEmailDispatcher(x.db, x.fa.clock, adapter, () => undefined).runForProperty({
+        propertyId: x.t.propertyIds[0]!,
+        organizationId: x.t.organizationId,
+        timezone: 'Asia/Ho_Chi_Minh',
+      });
+      const mails = sent
+        .filter((m) => m.templateId === 'receiving_account_changed')
+        .map((m) => ({
+          change: m.params.change ?? null,
+          date: m.params.effectiveDate,
+          text: renderStaffEmail(m.templateId, m.params).text,
+        }));
+      const pick = (change: string | null, date: string) => {
+        const hit = mails.filter((m) => m.change === change && m.date === date);
+        expect(hit, `${change} ${date}`).toHaveLength(1);
+        return hit[0]!.text;
+      };
+      // set: 21/03, 28/03 (the "edit then cancel" case) and 25/03 (the history case)
+      for (const d of ['21/03/2030', '25/03/2030', '28/03/2030']) {
+        const set = pick('set', d);
+        expect(set).toContain(`A new receiving bank account was set, effective from ${d}.`);
+        expect(set).not.toMatch(/cancel|hủy/i);
+      }
+      // cancel: the date of the cancelled schedule, never "new" / "effective" / "mới" / "có hiệu lực"
+      for (const d of ['25/03/2030', '28/03/2030']) {
+        const cancel = pick('cancel', d);
+        expect(cancel).toContain(
+          `The receiving bank account change scheduled for ${d} was cancelled.`,
+        );
+        expect(cancel).toContain(
+          `Lịch đổi tài khoản ngân hàng nhận chuyển khoản từ ngày ${d} đã được hủy.`,
+        );
+        expect(cancel).not.toMatch(/\bnew\b|effective|mới|có hiệu lực/i);
+      }
+      // the old row: neutral sentence with its date
+      expect(pick(null, '29/03/2030')).toContain(
+        'The receiving bank account schedule for 29/03/2030 was updated.',
+      );
+      expect(mails).toHaveLength(6);
+      // no account number in any rendered e-mail
+      for (const m of mails)
+        for (const n of [NUMBER, '0071000123456']) expect(m.text).not.toContain(n);
     });
 
     it('Q51-2: the full numbers appear in no response of this file, no audit, no notification, no outbox row, no stored idempotency reply', async () => {

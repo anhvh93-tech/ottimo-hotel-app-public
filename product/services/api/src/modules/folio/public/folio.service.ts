@@ -46,6 +46,7 @@ import type { FolioStaySync, VoidStayInput } from '../../reservations/public/fol
 import type { ConfirmedStay } from '../../reservations/public/sales-port';
 import { StayNightAllocationService } from '../../reservations/public/stay-night-allocation';
 import { allocate } from './allocate';
+import { shortStayCommissionRate } from './commission-rate';
 import { lineLabel } from './line-labels';
 import {
   type ReductionRequest,
@@ -556,12 +557,8 @@ export function payeeTypeOf(roles: readonly string[]): PayeeType | null {
   return null;
 }
 
-/** short_stay_commission_pct key of a payee type ({collaborator: 8, staff: 3}). */
-export function commissionPctFor(table: unknown, payee: PayeeType): number | null {
-  if (!table || typeof table !== 'object') return null;
-  const v = (table as Record<string, unknown>)[payee === 'agent' ? 'collaborator' : 'staff'];
-  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
-}
+/** V5-30: rate of a payee in the short-stay commission table – commission-rate.ts (the code holds no rate). */
+export { commissionPctFor } from './commission-rate';
 
 /** lineChangedNote.cause when the caller does not say (BR-434 S4-18). */
 function defaultCause(category: string): LineChangeCause {
@@ -4000,10 +3997,14 @@ export class FolioService implements FolioStaySync {
         [stay.closerUserId, tx.ctx.propertyId],
       );
       const payee = payeeTypeOf(roleRows.map((r) => r.role));
-      const ratePct = payee
-        ? (stay.commissionRatePctSnapshot ??
-          commissionPctFor(await this.params.get(tx, 'short_stay_commission_pct', today), payee))
-        : null;
+      // V5-30 (DOM 7.3): the rate snapshot at booking time, else the owner's rate effective today. No rate yet
+      // (`rate_missing`) → no commission row – never 0, never a number from code; the next sync after OWN typed
+      // the rate creates it. Long stays never reach here (their commission is `long_stay_commission`, PR-M).
+      let ratePct: number | null = stay.commissionRatePctSnapshot ?? null;
+      if (payee && ratePct === null) {
+        const rate = await shortStayCommissionRate(this.params, tx, payee, today);
+        ratePct = rate.status === 'computed' ? rate.ratePct : null;
+      }
       if (payee && ratePct !== null && ratePct > 0) {
         const base = stay.nights.reduce((a, n) => a + n.roomRevenueVnd, 0);
         desired = { payee, ratePct, base, amount: applyPct(base, ratePct, 1) };
