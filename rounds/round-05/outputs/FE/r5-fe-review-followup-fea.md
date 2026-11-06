@@ -89,3 +89,18 @@
 - Test: vitest 3 ca mới, 1 ca viết lại.
 - UXD xin "một ca test ở 768 px". Vitest không dựng bố cục, nên FE đo bằng Playwright với markup tĩnh (số ở trên; ảnh ngoài repo). Ca E2E thật trên Desk ở 768, đề nghị QA thêm vào bộ UI.
 - Không viết chữ mới. Không đổi màu.
+
+## 8. PR nhỏ sau #140 (nhánh `r5-fe-foot-alert`, UXD lượt 3 mục 9.4)
+
+| Thẻ | Mức | Trạng thái | Cách làm |
+|---|---|---|---|
+| FB-R5-UXD-FE-PR140-05 | Minor | Done | Thêm `.wiz-foot.desk-foot > .btn.pri { margin-left: auto; }` trong cùng `@media (max-width: 599px)`. Đo bằng markup tĩnh với CSS thật: bước Minibar (3 nút) ở 390 và 430, nút chính cách mép phải 20 px; Trả phòng có câu lý do không đổi; từ 768 một hàng như cũ |
+| FB-R5-UXD-FE-PR140-06 | Minor | Done | Câu lỗi "Xem thêm" thành `<Alert tone="bad" title={t('common.error_generic_title')} />` của `@ottimo/ui`, nằm trong `.stack`, cách nút 12 px. Không thêm chữ, không thêm CSS |
+| ARC #140 G2 (test chập chờn) | – | Done | `r3-v1-feb-webreq`: chờ nút "Tạo đơn" và "Nhận xử lý" tối đa 5 s thay 1 s, vì drawer đọc yêu cầu trước khi hiện nút |
+
+- Test:
+  - `packages/ui/src/styles.test.ts` thêm 2 ca đọc `app.css`. Ca 1: không luật nào ngoài khối `@media (max-width: 599px)` chạm `.wiz-foot`, và mọi luật trong khối đều là `.wiz-foot.desk-foot`. Ca 2: đủ ba luật, xuống dòng, câu lý do `order: -1`, nút chính `margin-left: auto`;
+  - ca "Xem thêm" lỗi kiểm thêm lớp `alert bad` và biểu tượng.
+- Đột biến, đều đỏ: bỏ luật PR140-05; thêm lại `.wiz-foot { flex-wrap: wrap }` toàn cục; trả câu lỗi về `<p>`.
+- Ca E2E thật ở 390 cho bước Minibar: QA thêm (UXD 9.5).
+
