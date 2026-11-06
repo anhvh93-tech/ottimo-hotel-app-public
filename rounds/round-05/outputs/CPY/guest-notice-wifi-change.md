@@ -24,7 +24,7 @@
 - **Lúc gửi:** ngay sau bước 3, tức là bộ phát đã đổi, Desk đã lưu và trang khách đã kiểm. Giờ đổi là 13:00–17:00 (DOM BA-05). Gửi cho **mọi khách đang ở**, kể cả khách dài hạn, qua kênh đang dùng với từng khách. **Không gửi** cho:
   - khách đi hôm nay, kể cả trả muộn;
   - khách nhận phòng sau giờ đổi;
-  - đơn hôm nay đã có 2 tin chủ động.
+  - đơn hôm nay đã có 2 tin chủ động (trần BR-974).
 
   Các khách này được báo ở quầy khi hỏi; lễ tân ghi sổ giao ca mã đơn. Một đơn nhiều phòng: gửi một tin cho người liên hệ của đơn. Chủ đầu tư quyết đổi gấp ngoài khung giờ: tin này là tin sự cố, gửi ngay.
 - **Một ngôn ngữ mỗi tin, theo khách:** tiếng Việt cho khách Việt, tiếng Anh cho khách khác. Bản tiếng Anh là bản gốc.
