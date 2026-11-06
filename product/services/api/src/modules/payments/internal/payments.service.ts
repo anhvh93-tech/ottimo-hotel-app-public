@@ -929,14 +929,20 @@ export class PaymentsService {
     return out;
   }
 
-  /** BE-15 / DOM S3-3: try SM-11 `earned` after money moved on a booking (see FolioService). */
+  /**
+   * BE-15 / DOM S3-3: try SM-11 `earned` after money moved on a booking (see FolioService). FB-R5-DOM-BE-101-01: a
+   * checked-out stay hands its sold nights over, so a booking confirmed without a rate gets its commission row
+   * before the "earned" check (a debt paid, a transfer reconciled after OWN typed the table).
+   */
   private async tryEarn(tx: Tx, reservationId: string | null, requestId?: string): Promise<void> {
     if (!reservationId) return;
     const own = await this.port().ownership(tx, reservationId);
     if (!own) return;
+    const stay =
+      own.status === 'checked_out' ? await this.port().confirmedStayOf(tx, own.id) : null;
     await this.folios.tryEarnCommissions(
       tx,
-      { reservationId: own.id, reservationCode: own.code, status: own.status },
+      { reservationId: own.id, reservationCode: own.code, status: own.status, stay },
       requestId,
     );
   }
