@@ -795,6 +795,15 @@ Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi 
 - **Hàm SQL `auth_resolve_session` (migration 0079) – bổ sung 1g, SEC ARC-23, theo ARC review PR #100 mục 6.1:** hàm nhận `p_mfa_roles text[]` do guard truyền từ `MFA_REQUIRED_ROLES`; danh sách vai **chỉ** ở TS (`mfa-roles.ts`), SQL không chứa tên vai nào; bỏ `mfaRequired()`/`mfaRoleCache` của guard **cùng PR migration** (tới đó giữ phần guard tự kiểm của #100). Điều kiện SEC để bỏ phần guard tự kiểm: (1) câu SQL **không** lọc theo cơ sở – cùng vị từ với đăng nhập và `getMy2fa`; (2) giữ ca nhiều cơ sở của D1-02 (PR #124) và ca ghim danh sách `['owner','manager','front_desk_lead']`; (3) test đột biến: bỏ một vai khỏi tham số thì có ca đỏ. Có migration (thay hàm) – theo QC R4 ĐK-2.
 - **FB-R5-UXD-ARC-112-02:** mô tả `OpenRefund.reasonCode` thêm nhóm mã lý do hủy (DOM 112-01) và câu "Desk gom theo nhãn, không hiện mã"; mã nhập tay của A32 **không** dùng lại giá trị nào của `CancelReasonCode` (ví dụ `other`) – ARC chốt cách máy chủ bảo đảm khi làm 0.3.14 (đề xuất: 422 `NOT_IN_LIST` ở `reasonCode` khi trùng).
 - **FB-R5-DOM-ARC-120-01, FB-R5-DOM-BE-121-02:** đã ghi ở 1.27 (ARC review #120/#121, `df07ccbc`) – không lặp lại ở đây.
+- **Bổ sung 1h – từ ARC review BE-H (`ARC-on-be-h-prs-110-123-131.md` mục 6) và ARC review #140 mục 7:**
+  - (a) **`foc_threshold` `line_reduction_count` (ARC 110-01):** "Số đếm theo tháng kinh doanh (06:00 ngày 1). Danh sách mở từ `link` theo ngày lịch, có thể lệch ở các lần sửa 00:00–05:59 ngày 1." Hai nguồn lệch nhỏ khác: bản ghi cũ không có `actorRole` (không đếm, vẫn hiện), người đổi vai giữa tháng (số đếm lọc theo vai lúc sửa). QA không viết ca đòi hai số bằng nhau ở ngày 1. v1.0.6 nếu chủ đầu tư thấy phiền: `listAuditEvents.businessMonth=YYYY-MM` (khung 06:00), link dùng tham số này.
+  - (b) **`listAuditEvents` và `getReservationHistory` (SEC 131-01, ARC 131-01):** "FD/FDL không thấy bản ghi `entityType = commission`; khóa `commissionVnd` (và khóa thưởng của PR-M) bị bỏ khỏi `before`/`after`. OWN/MGR thấy đủ." Mã lên ở PR che hoa hồng của BE-H trước tag v1.0.5 (cổng `audit/public/audit-visibility.ts`, `architecture.md` 5.1).
+  - (c) **guard (#123):** vai không được phép dùng lại `Idempotency-Key` với thân khác → 403 (trước là 422 `IDEMPOTENCY_KEY_REUSED`); phát lại multipart sau khi mất vai → 403 – ngoại lệ của ADR-009 (guard chỉ nhường cho lần phát lại thật, so bằng `request_hash`).
+  - (d) **B13 `RATE_OUT_OF_RANGE` (#123):** `dates[]` gồm mọi đêm ngoài khung; `date` giữ là đêm đầu (client cũ vẫn đọc được).
+  - (e) **Thân lồng sâu (SEC 123-01):** thân yêu cầu lồng quá 32 tầng → 422 `VALIDATION_FAILED`, kiểm trong `request-hash.ts` cho mọi nơi gọi; ở guard, `requestHash` lỗi thì coi như không có lần phát lại → 403 kèm `access.denied`, không bao giờ 5xx. Ghi khi PR sửa gộp (v1.0.5 nếu kịp, không thì B-KYTHUAT); BE-H chốt số tầng theo schema lồng sâu nhất của `openapi.yaml`.
+  - (f) **T58-9 (1.23; SEC V558-01, ARC review #140 mục 7 ý 1):** "422 `NOT_ALLOWED` cả hai" → "**lần lượt**": lỗi `ssid` trước, không so, không đếm; gửi lại với `ssid` đúng mới tới lỗi `password`. Ở 0.3.14 bỏ chữ gạch ở bảng 1.23 và thêm câu thứ tự vào `setPropertyWifi` (đoạn "Trùng mật khẩu đăng nhập của chính người gọi"); SEC thêm câu vào SR-RL-15.
+  - (g) **`checkoutTimeNoteRequired` (DOM FE-125-01, ARC 125-05):** "Desk không nhận `manual_time_tolerance_minutes`; tín hiệu giờ tự điền đã cũ là `checkoutTimeNoteRequired` của lần đọc mới." Không thêm trường.
+  - (h) **`listAuditEvents.action` (ARC FE-128-02):** giữ dạng tham số lặp (`action=a&action=b`), không đổi hợp đồng. Client phải hỗ trợ mảng trước khi màn nào lọc theo `action`.
 
 
 ### 1.27 Sau review PR #112, #120, #121 (ARC 07/11) – chỉ tài liệu này, không đổi `openapi.yaml`
@@ -822,6 +831,26 @@ Chỉ mô tả `openapi.yaml`, `erd.md` và tệp `.md`: không đổi schema, `
 | BE C0313-29 | Hàm `isCardNumberReference` ở #119, PR-B3 chỉ dùng lại; `executeRefund` sửa cùng #119. ARC chọn thứ tự lỗi như `note`: lỗi dạng trước, `CARD_NUMBER_DETECTED` chỉ khi không còn lỗi dạng (`executeRefund` đã đúng). Luật C0313-25 ở hợp đồng cập nhật theo SR-PAY-10 bản 07/11 | BE-D ở PR-B3, cùng việc khai `bankReference` ở các bộ đọc (ARC 119-01) – không mở lại #119; QA viết ca "thân có cả hai lỗi" sau PR-B3 |
 | BE C0313-30 | T14-4: "OTA không có `nightlyRates`, hoặc `nightlyRates` đúng dạng" | QA |
 | UXD ARC-112-02 | Vào danh sách 0.3.14 (1.26), chưa làm. DOM ARC-120-01, DOM BE-121-02 đã có ở 1.27 | ARC (0.3.14), BE |
+
+
+### 1.29 Bổ sung 1h – đổi người chốt (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02)
+
+Viết trước khi BE-H mở `r5-h1c` (sau #131, trước PR-M và 01/12). **Có đổi schema, chỉ thêm:** trường tùy chọn `ReservationPatch.closerChangeReason`; `updateReservation` có mô tả, khai thêm phản hồi 403 và 409 (máy chủ đã trả hai mã này). Không mã lỗi mới, không migration. Chi tiết luật ở mô tả `updateReservation`.
+
+| Mốc của đơn | Ai đổi được người chốt | Lý do | Hoa hồng (cùng giao dịch) |
+|---|---|---|---|
+| `hold` | FD+ (như cũ) | Tùy chọn | Bản ghi chưa `void` của người cũ → `void` (`closer_changed`); người mới theo tỷ lệ ghim |
+| Ngoài `hold`, chưa nhận phòng (ví dụ `confirmed`) | MGR+ (như cũ); FD/FDL → 403 | Tùy chọn | Như trên |
+| Sau nhận phòng (`in_house`, `checked_out`) | **Chỉ OWN**; MGR/FDL/FD → 403 + `access.denied` | **Bắt buộc** 3–500 (`REASON_REQUIRED`) | Người cũ `void` (`closer_corrected`); người mới ở trạng thái đơn đang đạt (`projected`/`earned`) |
+| Có bản ghi `payable`/`paid` | Không ai – 409 `INVALID_TRANSITION` (ARC chốt, DOM xác nhận ở review `r5-h1c`) | – | Không đổi; chủ đầu tư chỉnh lúc chi |
+
+Ghi chú cài đặt (BE-H, `ARC-on-be-h-prs-110-123-131.md` 4.2):
+- Cổng: `FolioStaySync.syncCommission(tx, stay, actor, { voidReason })` ở `reservations/public/folio-sync-port.ts`; `MoneyBridge.closerChanged(...)`; phía `folio` gọi `netNights` rồi `syncCommission`. Khóa: đơn (L1) rồi các dòng `commission` `FOR UPDATE`, như B18; không đảo khóa.
+- Lưới an toàn trong `ensureCommission`: chỉ bỏ qua khi đã có bản ghi `earned`/`payable`/`paid`, hoặc đã có `projected` của **đúng** người chốt hiện tại. Ngoài hai ca đó thì đồng bộ – sửa luôn các đơn đã đổi người chốt trên production trước khi bản sửa lên. "Chạy lại không thêm bản ghi thứ hai" vẫn giữ.
+- Đơn mà MGR **đã** đổi người chốt sau nhận phòng trên production: không sửa tự động. OPS chạy truy vấn chỉ đọc trước khi cắt tag (các `reservation.closer_changed` có `occurred_at` sau giờ nhận phòng thật), gửi danh sách mã đơn cho chủ đầu tư; danh sách không vào repo.
+- Test: danh sách DOM 131-01 mục 3, cộng hai ca – đổi người chốt khi đơn chỉ có `projected` → màn **Hoa hồng** ghi người mới ngay; lưới an toàn với đơn đã đổi người trước khi bản sửa lên. Thêm ca 409 khi đã `payable`. Mọi ca hoa hồng dùng `test_rate_*`.
+- **FE-A:** ô "Lý do đổi người chốt" chỉ hiện cho OWN khi đơn đã nhận phòng và người chốt đổi; 422 `REASON_REQUIRED` hiện dưới ô; MGR/FDL/FD không có nút đổi người chốt sau nhận phòng. UXD viết câu nhãn và câu lỗi.
+- Tới khi `r5-h1c` gộp: BA giữ câu sổ tay tạm của DOM 131-01 mục 4.
 
 ---
 

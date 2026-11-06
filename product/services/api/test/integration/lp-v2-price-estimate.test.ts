@@ -262,7 +262,14 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
       ].sort(),
     );
     expect(b.estimateToken).toMatch(/^pe1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
-    const json = r.body;
+    // The scan reads every value the visitor gets except random bytes: the token's HMAC signature is left out (it
+    // held "L12" once – CI job 128154135573) and its payload is DECODED, so a forbidden field put in the token is
+    // caught too (the base64 of the raw body hid it).
+    const [, tokenPayload] = (b.estimateToken as string).split('.');
+    const json = JSON.stringify({
+      ...b,
+      estimateToken: JSON.parse(Buffer.from(tokenPayload!, 'base64url').toString('utf8')),
+    });
     for (const no of ['101', '102', '103', '201', '202', '203', '301', '302', '401', '402']) {
       expect(json).not.toContain(`"${no}"`);
     }

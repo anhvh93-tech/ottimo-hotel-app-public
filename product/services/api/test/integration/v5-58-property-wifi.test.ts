@@ -1,6 +1,6 @@
 /**
  * V5-58 (BUG-R3-021 Desk part) on the real PostgreSQL through the HTTP surface – OpenAPI 0.3.13 1.13, 1.23,
- * bổ sung 1e and 1f (contract doc 1.25, 1.26: T58-1…16), SEC `SEC-responses.md` 2.3 and 3 (the caller-password
+ * bổ sung 1e, 1f and 1g (contract doc 1.25, 1.26, 1.28: T58-1…17), SEC `SEC-responses.md` 2.3 and 3 (the caller-password
  * comparison limit, rule id `CALLER_PASSWORD_COMPARE_RULE`):
  * - getPropertyWifi: S36 reads (OWN, MGR, FDL, FD), `configured = false` before any value, `no-store`;
  * - setPropertyWifi: OWN/MGR; trims `ssid`, 1–32 bytes, no room number as a word, no staff login name; password
@@ -60,6 +60,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
       users: {
         own: ['owner'],
         own2: ['owner'],
+        mgr2: ['manager'],
         mgr: ['manager'],
         fdl: ['front_desk_lead'],
         fd: ['front_desk'],
@@ -67,7 +68,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
         gone: ['front_desk'],
       },
     });
-    for (const u of ['own', 'own2', 'mgr']) await setPassword(db, t, u);
+    for (const u of ['own', 'own2', 'mgr', 'mgr2']) await setPassword(db, t, u);
     lockBefore = await lockout(['own', 'own2', 'mgr']);
     for (const r of lockBefore) {
       expect(r).toMatchObject({
@@ -471,6 +472,42 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     }
   });
 
+  it(`T58-17 (${CALLER_PASSWORD_COMPARE_RULE}, BE C0313-27): 5 comparisons at 06:50, the 6th at 07:05 Vietnam time – the window is the UTC day, so the 6th is compared (new row, count 1)`, async () => {
+    const at = async (iso: string) => {
+      const d = new Date(iso);
+      fa.clock.set(d);
+      await touchSessions(db, t, d);
+    };
+    // 17/10 06:50 VN = 16/10 23:50Z – last minutes of the UTC day 16/10.
+    await at('2026-10-17T06:50:00+07:00');
+    for (let i = 1; i <= 5; i++) {
+      const r = await put('mgr2', {
+        ssid: 'OTTIMO BOUTIQUE STAY',
+        password: `<wifi-password-edge-${i}>`,
+      });
+      expect(r.statusCode, r.body).toBe(200);
+      expect(await count('mgr2')).toBe(i);
+    }
+    // 07:05 VN = 17/10 00:05Z – a new UTC day: the 6th is compared again (MGR's own login password → refused).
+    await at('2026-10-17T07:05:00+07:00');
+    expect422(await put('mgr2', { ssid: 'OTTIMO BOUTIQUE STAY', password: TEST_PASSWORD }), [
+      { field: 'password', code: 'NOT_ALLOWED' },
+    ]);
+    expect(await audits('property.wifi_password_matches_login', 'mgr2')).toHaveLength(1);
+    expect(await audits('property.wifi_password_check_skipped', 'mgr2')).toEqual([]);
+    const rows = await q<{ window_start: Date; expires_at: Date; count: number }>(
+      `SELECT window_start, expires_at, count FROM rate_limit_counter WHERE bucket_key = $1
+        ORDER BY window_start`,
+      [`wifi_pw_cmp:${t.users.mgr2!.id}`],
+    );
+    expect(
+      rows.map((r) => [r.window_start.toISOString(), r.expires_at.toISOString(), r.count]),
+    ).toEqual([
+      ['2026-10-16T00:00:00.000Z', '2026-10-17T00:00:00.000Z', 5],
+      ['2026-10-17T00:00:00.000Z', '2026-10-18T00:00:00.000Z', 1],
+    ]);
+  });
+
   it('T58-5 + T58-16: no Wi-Fi or login password in audit rows, the request log, any PUT answer or problem body', async () => {
     const secrets = [
       WIFI,
@@ -479,6 +516,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
       ...Array.from({ length: 7 }, (_, i) => `<wifi-password-${i + 1}>`),
       ...Array.from({ length: 3 }, (_, i) => `<wifi-password-own2-${i + 1}>`),
       '<wifi-password-guess>',
+      ...Array.from({ length: 5 }, (_, i) => `<wifi-password-edge-${i + 1}>`),
     ];
     const rows = await q<{ row: unknown }>(
       `SELECT row_to_json(a) AS row FROM audit_event a WHERE organization_id = $1`,

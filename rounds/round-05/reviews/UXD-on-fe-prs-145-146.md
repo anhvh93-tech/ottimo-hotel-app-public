@@ -266,3 +266,64 @@ Ghi chú:
 ```
 | 2026-11-07 | 5 | UXD – review FE #145 (V5-15 Desk, Trả phòng quá ngày đi) @ 011d44e7: DUYỆT CÓ ĐIỀU KIỆN – điều kiện 145-01 Major: áp copy-v1.0.5 bản 2.4 mục 9.15 bảng A (sửa overdue_time_help, overdue_after_limit, EN no_notice; thêm overdue_time_help_agreed theo agreedCheckoutTime, DOM 145-01; bỏ co.time_from_late trên đơn quá ngày đi), gộp main và sinh lại strings.js; 145-02 Minor (overdue_time_early theo ARC 3.4, overdue_extend_hint), 145-03 Minor (focus sau 403), 145-04/05/06 Suggestion. #146 (Hoàn tiền 390 px) @ 5ba4fb8c: DUYỆT, đóng 130-01 và 130-04, thêm 146-01 Suggestion. Kiểm trên mock 1440/390, sáng/tối, VI/EN; ảnh chỉ ở scratchpad. Không ESC | UXD | rounds/round-05/reviews/UXD-on-fe-prs-145-146.md |
 ```
+
+---
+
+## 8. Delta @ `b834ea56` (#145, sau lượt sửa của FE-A2)
+
+- Người review: UXD | Round 5 – bước **Review (delta)** | 07/11/2026. Chỉ đọc, không đẩy lên nhánh PR, không gộp.
+- Phạm vi: các commit từ `011d44e7` tới `b834ea56`.
+  - `c937ffd0` là bản sửa. `b834ea56` chỉ sửa báo cáo FE mục 6.
+  - `5bd6d126` (gộp `main` @ `92635b39`) và `c2f883a4` (gộp `main` @ `c2d5588d`): `git show --remerge-diff` chỉ ra `strings.js`. Không còn tệp nào khác.
+  - Chạy lại `gen_strings.py` ở `b834ea56`: không đổi tệp nào.
+  - Gộp thử với `main` @ `02da751a`: sạch. `main` không đổi tệp chữ nào sau `c2d5588d`.
+  - CI lúc review: 6 job xanh, còn 2 job đang chạy (`format · lint · audit · test · build`, `landing LP-v1`). ORC chỉ gộp khi cả 8 job xanh trên đúng SHA này.
+
+### 8.1 Kết luận
+
+| PR | Kết luận | Thẻ |
+|---|---|---|
+| **#145** V5-15 Desk @ `b834ea56` | **DUYỆT** | 145-01 (Major), 145-02, 145-03, 145-05: **Done**. 145-04, 145-06: **Deferred** sang v1.0.6, UXD đồng ý. Không thẻ mới |
+
+- **Chữ:** so từng byte 16 khóa trong `gen_strings.py` với `copy-v1.0.5.md` mục 9.15, khớp cả 16:
+  - bảng A, gồm 2 khóa `need_*`;
+  - 3 khóa bảng B.
+
+  Ghi chú các khóa sửa và khóa mới đã đổi thành "UXD duyệt 07/11". `checkout.overdue_told_guest` chưa thêm, đúng bảng C (v1.0.6). Không có chữ viết cứng, không có mã màu, `style=`, `font-family` hay emoji trong phần sửa.
+- **Không có ESC.**
+
+### 8.2 Kiểm trên mock
+
+Cấu hình: 1440 sáng VI, 390 sáng VI, 390 tối VI, 1440 sáng EN, 390 sáng EN. Dữ liệu mock; ảnh ở scratchpad (`uxd-r5-145-146/shots/145d/`), không đưa vào repo. Đơn mock có ngày đi D = 06/11/2026; đồng hồ khóa ở 10:00 ngày 07/11.
+
+| Ca | Chỗ hiện và chữ | Đạt |
+|---|---|---|
+| MGR, 1 đêm, không giờ hẹn | Dưới ô giờ: đúng câu `overdue_time_help` ("ghi 12:00 (giờ trả chuẩn)…"), không còn `co.time_from_late` | Đạt |
+| MGR, 1 đêm, hẹn 17:00 (phụ thu 350.000 đã ghi) | Ô giờ 17:00. Dưới ô chỉ một câu `overdue_time_help_agreed` ("giữ 17:00 (giờ trả muộn đã hẹn) và phụ thu đã hẹn…"). Không có "Theo giờ trả muộn đã hẹn", không có "(giờ trả chuẩn)" | Đạt |
+| Ô lý do | `help` = `overdue_reason_evidence` rồi câu D12c, trong cùng một dòng `aria-describedby` | Đạt |
+| Nút gợi ý 1, 2 | Điền chữ, focus vào ô, con trỏ ở cuối (18/18, 25/25 VI; 25/25, 30/30 EN), gõ tiếp được ", buồng phòng thấy trống 11:00". Không thêm dấu phẩy | Đạt |
+| Nút "Khác" | Xóa ô, focus vào ô | Đạt |
+| Gõ 19:00 | Lỗi dưới ô và câu cạnh nút khóa cùng là `overdue_after_limit` mới ("…nên tính thêm 1 đêm…") | Đạt |
+| Gõ 03:00 | Lỗi dưới ô và câu cạnh nút khóa cùng là `overdue_time_early`. Biến đúng: "Desk hiểu 03:00 là rạng sáng 07/11/2026. Khách đi lúc 03:00 ngày 06/11/2026: ghi 06:00, …". Không còn câu "quá mốc trả muộn" | Đạt |
+| Gõ 06:00 | Không lỗi, nút mở. Hộp xác nhận có "Ghi giờ khách rời: 06:00 ngày 06/11/2026." | Đạt |
+| Đơn đã gia hạn (D gốc 05/11, gia hạn tới 06/11) mà vẫn quá ngày đi, gõ 03:00 | `overdue_time_early` với `{date}` = 06/11 (ngày đi sau gia hạn), `{next}` = 07/11 | Đạt |
+| 403 `requiredRole: owner` | Focus vào khối Alert màn chỉ dẫn (`div tabindex=-1`). Tab kế tiếp tới "Về chi tiết đơn". Alert có câu gọi chủ đầu tư rồi câu Gia hạn | Đạt |
+| FD 1 đêm, FDL 2 đêm, MGR 2 đêm – trang Trả phòng | Alert: câu `need_*` rồi `overdue_extend_hint`. Mở thẳng trang thì focus không bị dời | Đạt |
+| Cùng 3 người – ngăn đơn | `aria-describedby` của nút Trả phòng khóa ra cả hai câu. Câu đứng ngay trên nút Trả phòng khóa, dưới hàng có nút Gia hạn (bấm được). 1440: 3 dòng. 390 EN: 4 dòng | Đạt |
+| Tràn ngang | 0 px ở mọi ca, 5 cấu hình. Không có lỗi trên console | Đạt |
+
+Ghi chú (không mở thẻ):
+- Nhánh không có `extend_stay` (không hiện câu Gia hạn) không dựng được trên mock, vì FD, FDL, MGR đều có Gia hạn. Đã xác nhận bằng đọc mã (`overdueGuidanceText`, `canExtendStay`) và ca vitest của FE.
+- Khối Alert được focus sau 403 không có viền focus. Chấp nhận được: khối này không bấm được, chỉ là điểm bắt đầu để đọc và Tab tiếp. Phần tử bấm được kế tiếp có viền Earth Brown đúng DS.
+- Ở 390 EN, dòng help ô lý do dài 5 dòng, dòng cuối 71 px. Câu `overdue_time_early` dài 5 dòng ở cả dưới ô lẫn chân trang. Đọc được, không che nút. Dòng cuối ngắn sẽ đỡ khi làm thẻ 146-01 (`text-wrap: pretty` cho `.field .help`).
+
+### 8.3 Việc tiếp
+- **UXD (v1.0.6):** FB-R5-SEC-FE-145-01. Thêm "số thẻ" vào `checkout.overdue_reason_help`, đưa vào bảng chữ v1.0.6 cùng các thẻ 145-04, 145-06 và DOM 145-05.
+- **UXD:** sau khi #145 gộp, thêm các khóa 9.15 vào `design/content-guide.md` mục 8 (mục 5 ở trên).
+- **QA:** chạy ca mục 8 bản 2.4 của `copy-v1.0.5.md` trên staging khi #145 lên.
+
+### 8.4 Dòng đề xuất cho `01-decisions/decision-log.md`
+
+```
+| 2026-11-07 | 5 | UXD – review delta FE #145 (V5-15 Desk) @ b834ea56: DUYỆT. 5bd6d126 và c2f883a4 chỉ gộp main (remerge-diff: strings.js); c937ffd0 là bản sửa; gen_strings.py sạch; gộp thử main @ 02da751a sạch. 16 khóa đúng từng byte copy-v1.0.5 bản 2.4 mục 9.15 (bảng A, B). Kiểm trên mock 1440/390, VI/EN, sáng/tối: overdue_time_help / _agreed tách theo agreedCheckoutTime, bỏ co.time_from_late; after_limit ở 19:00, time_early ở 03:00 (cả đơn đã gia hạn); extend_hint ở màn chỉ dẫn và ngăn đơn; evidence trước D12c, con trỏ cuối ô; focus vào Alert sau 403. 145-01/02/03/05 Done, 145-04/06 Deferred v1.0.6. Không ESC. Gộp khi CI xanh trên đúng SHA | UXD | rounds/round-05/reviews/UXD-on-fe-prs-145-146.md |
+```

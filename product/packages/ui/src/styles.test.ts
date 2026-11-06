@@ -57,3 +57,25 @@ describe('DS v0.4.1 brand fonts (S4-49 B0 + B1 – one build)', () => {
     expect(mono).toMatch(/jetbrains-mono-latin-400-normal\.woff2/);
   });
 });
+
+describe('Desk wizard footer (FB-R5-UXD-FE-PR125-04, PR140-01/02/05)', () => {
+  const app = readFileSync(join(here, 'styles/app.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const start = app.indexOf('.wiz-foot.desk-foot');
+  const media = app.lastIndexOf('@media (max-width: 599px)', start);
+  const block = app.slice(media, app.indexOf('\n}', start) + 2);
+
+  it('only the Desk footer (`.desk-foot`) changes, and only under 600 px – the guest web keeps its own', () => {
+    expect(media).toBeGreaterThanOrEqual(0);
+    const outside = app.slice(0, media) + app.slice(media + block.length);
+    expect(outside).not.toMatch(/\.wiz-foot/);
+    const selectors = [...block.matchAll(/([^{}]+)\{/g)].map((m) => m[1]!.trim()).slice(1);
+    expect(selectors.length).toBeGreaterThan(0);
+    for (const s of selectors) expect(s.startsWith('.wiz-foot.desk-foot')).toBe(true);
+  });
+
+  it('wrapped: the reason on a row of its own above the buttons, the main button at the right edge', () => {
+    expect(block).toMatch(/\.wiz-foot\.desk-foot\s*\{\s*flex-wrap:\s*wrap;/);
+    expect(block).toMatch(/\.wiz-foot\.desk-foot > \.li-s\s*\{[^}]*order:\s*-1;/);
+    expect(block).toMatch(/\.wiz-foot\.desk-foot > \.btn\.pri\s*\{\s*margin-left:\s*auto;/);
+  });
+});
