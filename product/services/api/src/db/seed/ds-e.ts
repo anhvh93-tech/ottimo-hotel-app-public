@@ -326,10 +326,10 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
         );
       }
     }
-    // Room catalogue (US-004; QA TC-NT-040e): server computes the nightly list price (BR-101) and checks it
-    // against expectedNightlyListPriceVnd of the fixture.
+    // Room catalogue (US-004; QA TC-NT-040e): both list prices of each room as the fixture gives them (V5-1A,
+    // BR-101 (1), (5) – never derived from each other); a room without prices is created not for sale.
     if (Array.isArray(fixture.roomGroups) && Array.isArray(fixture.rooms)) {
-      const catalog = await importRoomCatalog(tx, parameters, {
+      const catalog = await importRoomCatalog(tx, {
         groups: fixture.roomGroups as RoomGroupImport[],
         rooms: fixture.rooms as RoomImport[],
         activeFrom: firstFrom,

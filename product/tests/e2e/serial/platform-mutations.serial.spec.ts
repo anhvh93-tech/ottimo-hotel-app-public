@@ -166,7 +166,9 @@ test.describe(
       const rm = room(c, '203');
       const before = await getRoom(request, owner, '203');
       const oldMonthly = before.currentListPrice?.monthlyListPriceVnd ?? 9_500_000;
-      // weekday night, no special date: price = list price (BR-101: monthly ÷ 12, rounded 1.000)
+      const oldNightly = before.currentListPrice?.nightlyListPriceVnd ?? 792_000;
+      // weekday night, no special date: price = the nightly list price as entered (BR-101 (1), (5) – v1.0.5 V5-1A:
+      // both prices are sent, the server never derives the nightly price from the monthly one)
       const w = await freeWindow(request, fd, rm, 1, {
         today,
         minOffset: 20,
@@ -197,6 +199,7 @@ test.describe(
           listPrice: {
             effectiveFrom: today,
             monthlyListPriceVnd: 10_200_000,
+            nightlyListPriceVnd: 850_000,
             reason: 'E2E TC-NT-018',
           },
         });
@@ -207,9 +210,7 @@ test.describe(
           quoteInput(c, { room: rm, arrival: w.arrival, nights: 1 }),
         );
         expect(calc.status, JSON.stringify(calc.body)).toBe(200);
-        expect(calc.body.nightlyRates?.[0]?.amountVnd, 'giá đêm mới = 10.200.000 ÷ 12').toBe(
-          850_000,
-        );
+        expect(calc.body.nightlyRates?.[0]?.amountVnd, 'giá đêm mới = số đã nhập').toBe(850_000);
         const q1After = await call<{ totalVnd?: number }>(
           request,
           'GET',
@@ -224,6 +225,7 @@ test.describe(
           listPrice: {
             effectiveFrom: today,
             monthlyListPriceVnd: oldMonthly,
+            nightlyListPriceVnd: oldNightly,
             reason: 'E2E TC-NT-018 khôi phục',
           },
         });

@@ -22,6 +22,8 @@ import { localDate, toZonedIso } from '../../../shared/time';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { AuditService } from '../../audit/public/audit.service';
 import { FolioService } from '../../folio/public/folio.service';
+import { depositUnverifiedVnd } from '../public/deposit-unverified';
+import { folioLocked, lockReasonOfStatus } from '../../folio/public/folio-locked';
 import {
   type DepositTarget,
   RESERVATION_SALES_PORT,
@@ -153,7 +155,7 @@ export class DepositsService {
     // the port has done its occupancy work.
     const folio = await this.folios.get(tx, t.folioId);
     if (!folio) throw new Error(`folio of ${t.code} not visible`);
-    if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
+    if (folio.status !== 'open') throw folioLocked(lockReasonOfStatus(folio.status));
 
     let receivedAt: Date;
     if (input.payment) {
@@ -353,7 +355,7 @@ export class DepositsService {
               afterDeadline: true,
               holdExpiredAt: overdue.expiredAt.toISOString(),
               paidBeforeVnd: overdue.paidBeforeVnd,
-              unverifiedPaidVnd: Math.min(paid, await this.unverifiedDepositVnd(tx, folio.id)),
+              unverifiedPaidVnd: await depositUnverifiedVnd(tx, folio.id, paid),
               via: input.payment ? 'new_payment' : 'existing_payment',
             }
           : {}),
@@ -361,17 +363,6 @@ export class DepositsService {
       ...(requestId ? { requestId } : {}),
     });
     return { body: await port.reservationView(tx, t.id) };
-  }
-
-  /** HOLDS-02: deposits counted by `depositPaid` that still wait for the desk/bank check (`pending`). */
-  private async unverifiedDepositVnd(tx: Tx, folioId: string): Promise<number> {
-    const { rows } = await tx.query<{ v: string | number }>(
-      `SELECT COALESCE(SUM(amount_vnd), 0) AS v FROM payment
-        WHERE folio_id = $1 AND type = 'deposit' AND status = 'succeeded' AND reversal_of_id IS NULL
-          AND reconciliation = 'pending'`,
-      [folioId],
-    );
-    return Number(rows[0]?.v ?? 0);
   }
 
   /** Room total + extra-person fee of the stay (quote snapshot, else the booking's room total). */

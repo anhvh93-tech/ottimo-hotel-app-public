@@ -8,6 +8,7 @@ import {
   type FolioLineRow,
   type FolioRow,
   type PaymentRowLite,
+  type OpenRefundByReason,
   computeTotals,
 } from './folio.service';
 
@@ -107,7 +108,8 @@ export function folioDto(
   tz: string,
   invoice: Record<string, unknown> | null = null,
   labels: LabelContext = {},
-  openRefundVnd = 0,
+  /** 0.3.13 V5-13: FolioService.openRefundsByReason → `totals.openRefunds` and `unhandledCreditVnd`. */
+  openRefunds: ReadonlyArray<OpenRefundByReason> = [],
   /** 0.3.7 bổ sung 4 (DOM (f)): Payment.amountDueNowVnd of the pending VietQR payments (id → amount). */
   dueNow: ReadonlyMap<string, number> = new Map(),
 ): Record<string, unknown> {
@@ -131,7 +133,7 @@ export function folioDto(
         ...(dueNow.has(p.id) ? { amountDueNowVnd: dueNow.get(p.id) as number } : {}),
       }),
     ),
-    totals: computeTotals(lines, payments, openRefundVnd),
+    totals: computeTotals(lines, payments, openRefunds),
     ...(invoice ? { invoiceRequest: invoice } : {}),
     pendingApprovals: lines.filter((l) => l.line_state === 'pending_approval').length,
     version: folio.version,
