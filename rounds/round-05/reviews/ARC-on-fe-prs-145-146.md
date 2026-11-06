@@ -158,6 +158,8 @@ Trạng thái thẻ V515-01: **Deferred** sang v1.0.6, hợp đồng 0.3.14. Cá
 
 BA đưa cùng ý vào sổ tay (DOM 3.3).
 
+**Cập nhật @ `b834ea56`:** từ `c937ffd0`, Desk không còn báo "gia hạn trước" ở ca này. Dòng dùng cho release notes là bản ở mục 8.4.
+
 ### 3.4 Thẻ DOM 145-02 – vào #145, cùng lượt sửa 145-01
 
 - **Vì sao vào #145:** máy chủ chưa sửa ở v1.0.5, nên câu trên màn là chốt chặn duy nhất ngay lúc gõ giờ. Câu cũng cần UXD chốt chữ như 145-01, nên làm một lượt. Nếu chữ UXD không kịp, #145 vẫn gộp được (điều kiện gộp chỉ là 145-01); khi đó dòng release notes ở 3.3 thay câu trên màn.
@@ -262,3 +264,139 @@ Thêm vào mô tả `CheckoutSummary.postMidnightWindow`: "trên lượt quá ng
 ## 7. Dòng đề xuất ghi `decision-log.md` (ORC ghi)
 
 `| 2026-11-07 | 5 | **ARC – review FE #145 @ 011d44e7 (V5-15 Desk): DUYỆT CÓ ĐIỀU KIỆN; #146 @ 5ba4fb8c (Hoàn tiền 390 px): DUYỆT; quyết định FB-R5-FE-ARC-V515-01.** #145: ai được ghi do máy chủ quyết (allowedActions overdue, 403 requiredRole/nightsNotBilled), thân B18 đúng 1.4/1.18, 409 gửi lại cùng khóa và thân, mock overdue.ts khớp overdue-checkout.ts; đột biến m1/m2/m3 đỏ; remerge-diff chỉ strings.js; gộp thử trên main @ 8598bb5a chỉ xung đột strings.js (sinh lại là hết), 94 tệp / 1061 ca xanh, tsc sạch; E2E desk-clock đã chạy xanh trên CI. Điều kiện: DOM 145-01 + ARC xem delta. Thẻ: ARC-FE-145-01 Suggestion (mock dò số thẻ và ngày nhận theo máy chủ), ARC-QA-145-02 Minor (thêm trường V5-10/V5-15 vào tests/e2e/support, bỏ ép kiểu), ARC-FE-145-03 Suggestion (403 của QR → màn gọi ai). #146: chỉ gom markup và CSS có sẵn, đột biến m4 đỏ, 94 tệp / 1049 ca xanh, không xung đột với #130/#134/#137/#141/#150. **V515-01:** không sửa máy chủ ở v1.0.5; v1.0.6 / 0.3.14: trên lượt quá ngày đi resolveCheckoutAt không dựng ứng viên (ngày đi + 1, t) – giờ trước rollover là rạng sáng của chính ngày đi; BE-A1 cùng PR106-02, FE-A2 cùng tag (không hiện checkout.post_midnight khi overdue, dòng nhắc cách đọc giờ, mock); ARC đã thử bản sửa trong worktree tạm (3 dòng, test cũ vẫn xanh); v1.0.5 có dòng Giới hạn đã biết (gõ 06:00, giờ thật vào lý do, tiền như nhau); DOM 145-02 vào #145 với điều kiện lấy từ checkoutAt của máy chủ (tự tắt khi bản sửa lên); không ESC | ARC | rounds/round-05/reviews/ARC-on-fe-prs-145-146.md |`
+
+## 8. Delta @ `b834ea56` (Review delta, 07/11/2026)
+
+- Đối tượng: `011d44e7..b834ea56` của #145.
+  - Phần sửa nằm ở `c937ffd0` (10 tệp). `b834ea56` chỉ sửa báo cáo FE (`rounds/round-05/outputs/FE/v5-15-overdue-fea.md`).
+  - `5bd6d126` (main @ `92635b39`) và `c2f883a4` (main @ `c2d5588d`) là commit gộp. `git show --remerge-diff` của cả hai chỉ ra `strings.js`, tệp sinh.
+- Đối chiếu:
+  - mục 3.4 của tệp này;
+  - trả lời của FE-A2: `rounds/round-05/responses/FE-responses.md`, mục "FE-A2 – PR #145";
+  - delta của DOM (`DOM-on-fe-pr-145.md` mục 10, DUYỆT) và SEC (`SEC-on-fe-pr-145.md` "Phần chênh", DUYỆT) đã có trên `main`.
+- Cách làm: worktree tạm trong scratchpad. Gộp thử vào `main` @ `506c20c4`, rồi gộp lại @ `02da751a` (sau #147). Không đẩy gì lên nhánh PR, không gộp, không đánh dấu ready.
+
+### 8.0 Kết luận
+
+| PR | SHA | Kết luận ARC |
+|---|---|---|
+| #145 | `b834ea56` | **DUYỆT** (thay cho DUYỆT CÓ ĐIỀU KIỆN @ `011d44e7`) |
+
+- Hai điều kiện ở mục 0 đã xong:
+  - DOM 145-01: Done, DOM đã duyệt delta;
+  - ARC đã xem delta; 3 đột biến cũ m1/m2/m3 vẫn đỏ.
+- Câu 145-02 hiện theo `checkoutAt` của máy chủ, đúng mục 3.4. Desk không có luật riêng nào.
+- **Gộp khi CI xanh trên `b834ea56`.** Lúc ARC đọc, `format · lint · audit · test · build` còn pending, các job khác đã xanh. ARC đã chạy `prettier --check` và `eslint --max-warnings 0` trên 5 tệp mã đổi: sạch.
+- 2 thẻ mới, đều không chặn gộp:
+  - 145-04 Minor: thiếu test cho lượt đã gia hạn mà gõ giờ sau mốc cuối;
+  - 145-05 Suggestion: ca test số thẻ phụ thuộc ngày chạy.
+- Không ESC.
+
+### 8.1 Gộp và chữ
+
+- Gộp thử trên `main` @ `506c20c4` và @ `02da751a`: không xung đột (`git merge-tree` cũng sạch).
+  - `02da751a` mang #147: sinh lại `openapi.ts` của `api-client`, thêm `closerChangeReason`. Không đụng phần của #145.
+- Kết quả trên cả hai bản gộp: admin-web 95 tệp / 1075 ca xanh, `tsc --noEmit` sạch.
+- `python3 -I product/design/tools/gen_strings.py` trên bản gộp: 3518 chuỗi + 8 mẫu, không lệch tệp nào.
+
+### 8.2 Điều kiện mục 3.4 – đối chiếu mã
+
+| Điều kiện (3.4) | Mã @ `b834ea56` | Kết quả |
+|---|---|---|
+| Hiện câu khi `overdue && extraNightRequired && ngày của checkoutAt máy chủ ≠ ngày đi hiệu lực` | `overdueEarlyAt(overdueAfterLimit, s?.checkoutAt, stayDeparture)`, trong đó `overdueAfterLimit = overdue && !!s?.extraNightRequired` và `stayDeparture = r.stayDepartureDate ?? r.departureDate`. Ngày lấy bằng `localDayTime`, là ngày lịch Asia/Ho_Chi_Minh | **Đạt** |
+| Không so giờ gõ với 06:00 | `overdueEarlyAt` chỉ đọc `checkoutAt`. `{time}` và `{next}` cũng là giờ và ngày của `checkoutAt` máy chủ | **Đạt** |
+| Thay `overdue_after_limit` ở cả hai chỗ | `overdueLimitText` dùng ở `overdueWhy` (lý do khóa nút) và `timeError` (dưới ô giờ) | **Đạt** (m6 đỏ) |
+| Tự tắt khi v1.0.6 lên | Máy chủ đặt giờ lên D, nên `day === stayDeparture` và hàm trả `null`. Có ca hàm thuần: `'2026-11-10T03:00…'` → `null` | **Đạt** |
+| Lượt đã gia hạn | `{date}` = ngày đi sau Gia hạn, `{next}` = ngày máy chủ trả. Có ca vitest | **Đạt**, thiếu 1 ca (thẻ 145-04) |
+| Tham số | `{date}` = `date(stayDeparture)`, `{next}` = `date(checkoutAt.day)`, `{rollover}` = `property.businessDayRollover` (`LocalTime`, mặc định `DEFAULT_ROLLOVER = '06:00'`) | **Đạt** |
+
+Các phần khác của delta, xét về kỹ thuật:
+- **145-01:** nhánh quá ngày đi chỉ có một câu help. Có `agreedCheckoutTime` thì dùng `overdue_time_help_agreed`, không có thì dùng `overdue_time_help`. Nhánh thường giữ như `main`. Giá trị ô giờ và thân B18 không đổi (m9 đỏ).
+- **`overdue_extend_hint`:** hiện theo `allowedActions` `extend_stay` của máy chủ, ở cả hai chỗ: `canExtendStay(r)` trên trang, `allowed.has('extend_stay')` ở ngăn đơn. Không đoán vai (m7 đỏ).
+- **Focus sau 403** (`div tabIndex=-1`, effect theo `overdueDenied`) và **con trỏ cuối ô lý do**: không đụng dữ liệu hay API.
+- **Mock:**
+  - dò số thẻ bằng `containsCardNumber` của `mocks/replyNote.ts`;
+  - trả 422 `CARD_NUMBER_DETECTED` chỉ với `errors[overdueReason]`, như `Fields.done()` (SEC đã đóng 145-02).
+
+### 8.3 Đột biến
+
+Chạy trong worktree tạm, trả tệp về nguyên trạng sau mỗi lần. Bộ chạy: `v5-15-overdue-fea`, 21 ca.
+
+| # | Đột biến | Kết quả |
+|---|---|---|
+| m1 | Mở hộp theo vai (`mgr`) thay cho `allowedActions` `overdue` | Đỏ: "MGR, 2 nights → … the owner" |
+| m2 | Màn chỉ dẫn sau 403 dùng số đêm của tóm tắt, bỏ `requiredRole` | Đỏ: "B18 403 with requiredRole owner …" |
+| m3 | `retries.CONCURRENT_UPDATE` = 0 | Đỏ: "409 CONCURRENT_UPDATE …" |
+| m5 | `overdueEarlyAt(…, r.departureDate)`: ngày đi gốc thay cho ngày đi hiệu lực | **Xanh** → thẻ 145-04 |
+| m6 | Lý do khóa nút vẫn là `overdue_after_limit` | Đỏ: 2 ca (gõ 03:00; lượt đã gia hạn) |
+| m7 | Luôn thêm `overdue_extend_hint` | Đỏ: ca hàm thuần |
+| m8 | Mock dò số thẻ theo luật cũ (ghép mọi chữ số rồi thử Luhn) | **Xanh** → thẻ 145-05 |
+| m9 | Bỏ nhánh `overdue_time_help_agreed` | Đỏ: ca hẹn 17:00 |
+| m10 | Desk so giờ gõ với `rollover` (đột biến xanh FE-A2 đã báo) | Xanh. Đột biến tương đương, ARC chấp nhận (xem dưới) |
+
+**Về m10:** ARC đồng ý với FE-A2: không test nào phân biệt được hai cách, và cũng không cần.
+- **Với máy chủ v1.0.5:** lượt quá ngày đi nghĩa là giờ máy chủ đã sang ngày nghiệp vụ sau D. Mọi giờ gõ trước rollover đều bị đặt sang D+1 và quá mốc cuối. Giờ gõ từ rollover trở đi luôn nằm trên D. Hai cách cho cùng kết quả.
+- **Với máy chủ v1.0.6:** giờ gõ trước rollover nằm trên D, phụ thu 0, `extraNightRequired = false`. Vì vậy `overdueAfterLimit` sai, và câu không hiện ở cả hai cách.
+- Chốt cho điều kiện này là đọc mã (mục 8.2) và ca hàm thuần, không phải đột biến. Cách hiện tại vẫn tốt hơn: Desk theo đúng cách máy chủ đọc giờ, kể cả lúc tóm tắt chưa kịp đọc lại sau khi gõ.
+
+**Probe của ARC cho m5:** thêm tạm một ca vào tệp test trong worktree, không commit. Lượt đã gia hạn tới T−1, vẫn quá ngày đi, gõ 18:30.
+- Mã hiện tại: xanh. Nút khóa với `overdue_after_limit`.
+- Dưới m5: đỏ. Màn hiện câu rạng sáng.
+
+### 8.4 Dòng Giới hạn đã biết cho release notes v1.0.5 (thay bản ở 3.3)
+
+Sửa theo góp ý của DOM (`DOM-on-fe-pr-145.md` mục 10.3): Desk nay nói rõ cách đọc giờ, không còn báo "gia hạn trước".
+
+> Trả phòng quá ngày đi: nếu khách rời căn trong 00:00–05:59 của ngày đi (hoặc của ngày đi mới sau Gia hạn) mà tới sau 06:00 hôm sau mới ghi, Desk hiểu giờ gõ trước 06:00 là rạng sáng hôm sau và nói rõ điều đó ngay dưới ô giờ. Không gia hạn. Gõ 06:00 và ghi giờ thật vào lý do. Số tiền như khi ghi đúng giờ; chỉ giờ trên đăng ký lưu trú lệch, cùng ngày. Sửa ở v1.0.6.
+
+### 8.5 Trạng thái các thẻ ARC trước đó
+
+| Thẻ | Trạng thái | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-FE-145-01 (Suggestion) | Done một phần | Dò số thẻ đã Done (`containsCardNumber`). Ba việc còn lại Deferred sang v1.0.6, làm cùng mock `resolveCheckoutAt` của V515-01, ARC chấp nhận: (a) kiểm ngày `checkoutAt` theo `checkout-at.ts`; (b) chỗ `note` ở dòng 1549 của `mocks/stay.ts`; (c) mock mới chép luật gốc, chưa có nửa `looksLikeCard` của máy chủ (ký tự ẩn, chữ số full-width). Mock lỏng hơn máy chủ, Desk không bị ảnh hưởng |
+| FB-R5-ARC-QA-145-02 (Minor) | Open | Thẻ của QA. Không chặn #145 |
+| FB-R5-ARC-FE-145-03 (Suggestion) | Deferred v1.0.6 | ARC chấp nhận |
+| FB-R5-FE-ARC-V515-01 | Deferred v1.0.6 / 0.3.14 | Theo mục 3.2 và 3.5 |
+
+### FB-R5-ARC-FE-145-04
+- Mức độ: Minor
+- Vị trí:
+  - test: `product/apps/admin-web/src/__tests__/v5-15-overdue-fea.test.tsx`, khối "V5-15 – copy 9.15";
+  - mã cần giữ: `CheckOutPage.tsx`, `overdueEarlyAt(overdueAfterLimit, s?.checkoutAt, stayDeparture)`.
+- Vấn đề:
+  - Ca "a time after the last tier ON the departure day stays extend first" chỉ chạy trên lượt chưa gia hạn, nơi ngày đi gốc trùng ngày đi hiệu lực.
+  - Ca lượt đã gia hạn chỉ gõ 03:00, khi ngày máy chủ trả khác cả hai ngày đó.
+  - Vì vậy đổi đối số thành `r.departureDate` (m5) mà cả 21 ca vẫn xanh.
+- Vì sao quan trọng:
+  - Nếu sau này mã bị đổi như m5: lượt đã gia hạn mà gõ 18:30 sẽ hiện câu rạng sáng, bảo "ghi 06:00, không gia hạn" cho một đêm khách đã ở.
+  - Làm theo câu đó là mất tiền một đêm.
+  - Mã hiện tại đúng. Chỉ thiếu test giữ nó.
+- Đề xuất sửa:
+  - Thêm 1 ca: lượt đã gia hạn tới T−1 (dựng như ca "ARC 3.4: an extended stay still overdue"), gõ 18:30. Kỳ vọng: nút khóa với `checkout.overdue_after_limit`, không có câu rạng sáng.
+  - ARC đã thử đúng ca này: xanh với mã hiện tại, đỏ dưới m5.
+  - Làm trong #145 nếu còn lượt đẩy; nếu không, ở PR FE-A2 kế tiếp của round 5.
+- Trạng thái: Open
+
+### FB-R5-ARC-FE-145-05
+- Mức độ: Suggestion
+- Vị trí: `v5-15-overdue-fea.test.tsx`, ca "the server reads the reason like V-09: times and dates in it are not a card number (ARC 145-01)".
+- Vấn đề:
+  - Câu lý do là `Khách đi 11:40 ngày ${dmy(r.departureDate)}, thấy trống 12:15`. Ngày trong câu đổi theo ngày chạy test.
+  - Luật cũ của mock chỉ báo nhầm khi 16 chữ số ghép lại qua được Luhn, tức khoảng 1 ngày trên 10.
+  - Với ngày chạy hôm nay (ngày đi 06/11/2026), phép ghép không qua Luhn, nên m8 xanh.
+- Vì sao quan trọng: ca này chỉ giữ được thẻ 145-01 vào những ngày tình cờ. Chỉ ảnh hưởng mock.
+- Đề xuất sửa:
+  - Dùng câu cố định mà phép ghép qua Luhn, ví dụ `Khách đi 11:40 ngày 05/11/2026, thấy trống 12:45`: ghép lại là `1140051120261245`, qua Luhn.
+  - ARC đã chạy `containsCardNumber` của máy chủ trên câu này: không phải số thẻ, đúng ý ca test.
+  - Có thể thêm một dòng kiểm phép ghép qua Luhn ngay trong ca, để ca không mất nghĩa khi ai đó đổi câu.
+- Trạng thái: Open
+
+### 8.6 Việc theo vai
+
+- **ORC:** gộp #145 khi CI xanh trên `b834ea56`. Release notes v1.0.5 dùng dòng ở mục 8.4.
+- **FE-A2:** 145-04 (Minor) và 145-05 (Suggestion). Phần còn lại của 145-01 và 145-03 ở v1.0.6.
+- **QA:** thẻ QA-145-02 vẫn mở.
+
+### 8.7 Dòng đề xuất ghi `decision-log.md` (ORC ghi)
+
+`| 2026-11-07 | 5 | **ARC – delta review FE #145 @ b834ea56 (V5-15 Desk, sửa ở c937ffd0): DUYỆT** (thay DUYỆT CÓ ĐIỀU KIỆN @ 011d44e7). Điều kiện xong: DOM 145-01 Done, ARC đã xem delta. Câu 145-02 overdue_time_early hiện khi overdue && extraNightRequired && ngày của checkoutAt máy chủ ≠ ngày đi hiệu lực (overdueEarlyAt, lượt đã gia hạn có tính), Desk không so giờ gõ với 06:00, {rollover} = property.businessDayRollover, tự tắt khi v1.0.6 lên. remerge-diff 5bd6d126/c2f883a4 chỉ strings.js. Gộp thử trên main @ 506c20c4 và @ 02da751a: sạch, 95 tệp / 1075 ca xanh, tsc sạch, gen_strings không lệch, prettier + eslint sạch. 10 đột biến: m1/m2/m3/m6/m7/m9 đỏ; m10 (so giờ gõ với rollover) là đột biến tương đương với cả máy chủ v1.0.5 lẫn v1.0.6, ARC chấp nhận; m5 xanh → thẻ ARC-FE-145-04 Minor (thêm ca lượt đã gia hạn gõ 18:30 → overdue_after_limit; ARC đã thử: xanh với mã hiện tại, đỏ dưới m5); m8 xanh → ARC-FE-145-05 Suggestion (ca số thẻ phụ thuộc ngày chạy, dùng câu cố định). ARC-FE-145-01 Done một phần (phần còn lại v1.0.6), 145-03 Deferred v1.0.6. Dòng Giới hạn đã biết v1.0.5 sửa theo DOM 10.3 (mục 8.4). Gộp khi CI xanh trên b834ea56; không ESC | ARC | rounds/round-05/reviews/ARC-on-fe-prs-145-146.md |`

@@ -57,8 +57,42 @@ Kết quả chạy: `v5-15-overdue-fea.test.tsx` 15/15 xanh.
   - Trong ca đó, kiểm thêm: mô tả của ô chứa cả câu lỗi lẫn `checkout.overdue_reason_help`.
   - Cho mock trả lỗi số thẻ đúng dạng `Fields.done()`, như `mocks/ops.ts` đã làm: `problem(422, 'CARD_NUMBER_DETECTED', { errors: [card] })`.
 - Người nhận: FE-A2. Làm ở PR sau, không chặn #145.
-- Trạng thái: Open
+- Trạng thái: **Closed** @ `b834ea56` (fix `c937ffd0`, mục "Phần chênh")
 
 ## Dòng decision-log đề xuất (ORC ghi)
 
 `| 2026-11-07 | 5 | **SEC – PR #145 (FE-A2, V5-15 hộp Trả phòng quá ngày đi), ô lý do @ 011d44e7: DUYỆT.** Đủ điều kiện SEC 2.5: lời nhắc D12c (không ghi họ tên, số giấy tờ, sức khỏe của khách) luôn hiện dưới ô lý do, kể cả khi có lỗi, và nối aria-describedby. 422 CARD_NUMBER_DETECTED của máy chủ (errors[overdueReason]) về đúng ô: con trỏ ở ô, trang quay về bước 2, câu lỗi cố định không lặp số đã gõ. ID_NUMBER_DETECTED chưa áp cho ô này (A1B-02, v1.0.6), khi có thì đi cùng đường. Lý do chỉ vào thân POST checkOut: không query, URL, storage, console hay analytics. Test V5-15 15/15 xanh; 4 đột biến (2 đỏ đúng chỗ, 1 xanh như mong đợi, 1 lọt → 145-02). Hai Suggestion không chặn: 145-01 thêm "số thẻ" vào lời nhắc (UXD, v1.0.6), 145-02 test giữ help sau lỗi và mock lỗi số thẻ đúng dạng máy chủ (FE-A2). Không ESC | SEC | rounds/round-05/reviews/SEC-on-fe-pr-145.md |`
+
+---
+
+## Phần chênh @ `b834ea56` (Review delta, 07/11/2026)
+
+**Đối tượng:** `011d44e7..b834ea56`. Nhánh có hai commit của FE: `c937ffd0` (sửa theo review) và `b834ea56` (chỉ báo cáo FE). Hai commit gộp `main` là `5bd6d126` và `c2f883a4`. `git show --remerge-diff` của hai commit gộp chỉ ra `strings.js`, tệp sinh tự động. Phần `main` mang vào có `problem.ts` / `common.tsx` (#130). Ở đó, cặp riêng (trường, mã) chỉ áp cho `bankReference`, nên `overdueReason` vẫn dùng câu `error.CARD_NUMBER_DETECTED`. `Field.tsx` không đổi.
+
+| Điểm kiểm | Kết quả |
+|---|---|
+| D12c luôn hiện, kể cả khi lỗi | **Đạt.** Help của ô lý do nay là một dòng gồm `checkout.overdue_reason_evidence` (cách biết giờ khách rời), rồi tới `checkout.overdue_reason_help` (D12c). Không có điều kiện nào trên đường quá ngày đi. `Field` vẫn hiện help cạnh lỗi, không thay help bằng lỗi. Chữ D12c VI/EN giữ nguyên |
+| `aria-describedby` | **Đạt.** Thuộc tính vẫn nối cả lỗi lẫn help (`[errId, helpId]`). Ca 422 nay kiểm mô tả của ô **đúng bằng** câu lỗi + dòng evidence + dòng D12c, và dòng help vẫn có trên trang |
+| Lỗi số thẻ về đúng ô | **Đạt**, test chạy theo dạng của máy chủ: mock dò như V-09 (`containsCardNumber`) và trả 422 `CARD_NUMBER_DETECTED` với `errors: [overdueReason]`, như `Fields.done()`. Test kiểm cả thân trả lời |
+| Con trỏ ở cuối ô sau gợi ý 1 và 2 | Không có ý bảo mật: chỉ `focus()` và `setSelectionRange` trên ô nhập |
+| Lý do chỉ đi trong thân POST | **Đạt.** `reason` vẫn chỉ ở ba chỗ: state, ô nhập, `overdueReason` của `checkOut`. Các hàm mới ở `overdue.tsx` (`canExtendStay`, `overdueGuidanceText`, `overdueEarlyAt`) và phần sửa ở `ReservationDrawer.tsx` không đọc lý do. Phần chênh không thêm `console`, storage, query, URL hay analytics. `URLSearchParams` ở ngăn đơn đã có từ trước và chỉ xóa tham số `open` |
+
+Kết quả chạy @ `b834ea56`: `v5-15-overdue-fea.test.tsx` 21/21 xanh. Bốn đột biến SEC, đã trả tệp về nguyên trạng:
+
+| Đột biến | Thay đổi | Kết quả |
+|---|---|---|
+| N1 | Ẩn cả help khi có lỗi (M3 cũ) | **Đỏ** (trước đây lọt) |
+| N2 | Bỏ dòng D12c, chỉ giữ dòng evidence | **Đỏ** (2 ca) |
+| N3 | Bỏ dòng D12c chỉ khi có lỗi | **Đỏ** |
+| N4 | `Field` không đưa help vào `aria-describedby` | **Đỏ** (3 ca) |
+
+Ghi nhận, không thẻ:
+- Dòng evidence mời ghi thêm chữ tự do (ai thấy căn trống, khách có nhắn không) vào audit append-only. Dòng D12c đứng ngay sau, nên mức Low SEC đã chấp nhận ở mục 2.5 không đổi.
+- Khi sửa chữ cho 145-01 (v1.0.6), UXD có thể xét thêm nhắc "đừng chép nguyên tin nhắn của khách" (số điện thoại). Đây là gợi ý, không bắt buộc.
+- 145-01 vẫn Open, để v1.0.6, đúng như báo cáo FE ghi.
+
+**Kết luận:** về phần ô lý do, #145 vẫn **DUYỆT @ `b834ea56`**. FB-R5-SEC-FE-145-02 **Closed**; 145-01 (Suggestion, UXD) vẫn Open, để v1.0.6. Lúc SEC đọc, `format · lint · audit · test · build` còn đang chạy; gitleaks, confidential paths đã xanh. ORC kiểm CI trên SHA cuối.
+
+Dòng decision-log đề xuất (ORC ghi):
+
+`| 2026-11-07 | 5 | **SEC – PR #145 delta @ b834ea56 (fix c937ffd0), ô lý do V5-15: vẫn DUYỆT; FB-R5-SEC-FE-145-02 Closed.** Help là một dòng: evidence (DOM 145-04) rồi D12c, luôn hiện kể cả khi lỗi; aria-describedby vẫn nối lỗi + help; ca 422 kiểm mô tả đúng bằng lỗi + hai dòng help. Mock trả 422 CARD_NUMBER_DETECTED với errors[overdueReason] như Fields.done(), dò bằng containsCardNumber. Con trỏ cuối ô: không có ý bảo mật. Lý do chỉ đi trong thân POST checkOut, phần chênh không thêm log, storage, URL hay analytics. Test V5-15 21/21 xanh; 4 đột biến SEC (ẩn help khi lỗi, bỏ D12c, bỏ D12c khi lỗi, bỏ help khỏi describedby) đều đỏ. 145-01 (thêm "số thẻ", UXD) vẫn Open, để v1.0.6. Không ESC | SEC | rounds/round-05/reviews/SEC-on-fe-pr-145.md |`

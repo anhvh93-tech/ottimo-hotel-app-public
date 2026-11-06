@@ -120,11 +120,32 @@ const FIELD_FALLBACK: Record<string, string> = {
 };
 
 /**
- * FieldError.code → string key: `field.<CODE>` → `field_error.<code>` → known aliases → `error.<CODE>`.
- * The code set is open (OpenAPI): an unknown code falls back to `field_error.generic`, not to the
+ * (field, code) pairs whose sentence differs from the code's own one. UXD copy-v1.0.5 9.8 (C0313-25): a bank
+ * transaction reference refused as a card number says "enter the last 8 digits", not the note sentence of
+ * `error.CARD_NUMBER_DETECTED` ("remove the digits") – free-text fields keep that one. The field may carry a
+ * prefix (`payment.bankReference`, `body.bankReference`).
+ */
+const FIELD_PAIR: Array<{ field: RegExp; code: string; key: string }> = [
+  {
+    field: /(^|\.)bankReference$/,
+    code: 'CARD_NUMBER_DETECTED',
+    key: 'pay.bank_reference_card_like',
+  },
+];
+
+/** The pair sentence key for this field error, if any (see `FIELD_PAIR`). */
+export function fieldPairKey(fe: FieldError): string | undefined {
+  return FIELD_PAIR.find((p) => p.code === fe.code && p.field.test(fe.field))?.key;
+}
+
+/**
+ * FieldError → string key: (field, code) pair → `field.<CODE>` → `field_error.<code>` → known aliases →
+ * `error.<CODE>`. The code set is open (OpenAPI): an unknown code falls back to `field_error.generic`, not to the
  * misleading "Chọn một giá trị trong danh sách" (UXD s3 #2).
  */
 export function fieldErrorText(t: T, fe: FieldError, args: Args = {}): string {
+  const pair = fieldPairKey(fe);
+  if (pair && hasKey(pair)) return t(pair, args);
   const candidates = [
     `field.${fe.code}`,
     `field_error.${fe.code.toLowerCase()}`,

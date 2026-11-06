@@ -919,7 +919,7 @@
 |---|---|---|---|---|
 | `mfa.finish_locked` | Hoàn tất (tích ô "đã lưu" trước) | Finish (tick "saved" first) | ⟨chừa chỗ⟩ | 01-login.html |
 | `mfa.installed` | Tôi đã cài – Tiếp tục | I've installed it – Continue | ⟨chừa chỗ⟩ | 01-login.html |
-| `mfa.nudge` | Tài khoản chủ đầu tư/quản lý nên bật xác thực 2 bước. Từ khi có dữ liệu khách thật, việc này là bắt buộc. | Owner and manager accounts should turn on 2-step verification. Once real guest data is in the app, it becomes mandatory. | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.nudge` | Tài khoản của bạn chưa bật xác thực 2 bước. Từ khi có dữ liệu khách thật, Desk chỉ cho làm việc sau khi bật. | Your account doesn't have 2‑step verification yet. Once real guest data is in the app, Desk only lets you work after it is on. | ⟨chừa chỗ⟩ | 01-login.html. v1.0.5 V5-40: không kể tên vai (UXD-on-prs-97-116-117-118-122; copy-v1.0.5 9.10). Băng nhắc đầu trang (mfaRequiredButMissing) và khung warn ở Bảo mật tài khoản |
 | `mfa.nudge_cta` | Bật ngay | Turn on now | ⟨chừa chỗ⟩ | 01-login.html |
 | `mfa.nudge_later` | Để sau | Later | ⟨chừa chỗ⟩ | 01-login.html |
 | `mfa.recovery_after` | Sau khi vào, bạn cần đăng ký lại ứng dụng xác thực. Mã vừa dùng bị hủy. | After signing in, set up your authenticator app again. The code you used is cancelled. | ⟨chừa chỗ⟩ | 01-login.html |
@@ -2352,6 +2352,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `refund.execute_transfer` | Ghi đã hoàn chuyển khoản / qua máy POS | Record transfer / card terminal refund | ⟨chừa chỗ⟩ | executeRefund – MGR/OWN (A47) |
 | `refund.proof` | Ảnh chứng từ (ủy nhiệm chi hoặc biên nhận có chữ ký khách) | Proof photo (transfer slip or receipt signed by the guest) | ⟨chừa chỗ⟩ |  |
 | `refund.bank_reference` | Mã giao dịch ngân hàng / mã hoàn POS | Bank transaction ref / card refund code | ⟨chừa chỗ⟩ |  |
+| `pay.bank_reference_card_like` | Mã này trông giống số thẻ thanh toán nên Desk không lưu. Nhập 8 chữ số cuối của mã giao dịch. | This looks like a card number, so Desk can't save it. Enter the last 8 digits of the transaction reference. | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.8 (bản 1.8, C0313-25): 422 CARD_NUMBER_DETECTED có field = bankReference; ô ghi chú giữ error.CARD_NUMBER_DETECTED |
 | `refund.transfer_waits_manager` | Hoàn chuyển khoản do quản lý thực hiện – báo khách thời hạn. | Transfer refunds are made by a manager – tell the guest when to expect it. | ⟨chừa chỗ⟩ |  |
 | `refund.request_overpayment` | Đề nghị hoàn {amount} | Request a refund of {amount} | ⟨chừa chỗ⟩ | Spec ghi {creditVnd} – FE truyền {amount} |
 | `refund.requested` | Đã gửi đề nghị hoàn – chờ quản lý duyệt. | Refund request sent – waiting for a manager to approve. | ⟨chừa chỗ⟩ |  |
@@ -3367,7 +3368,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `mfa.step_expired` | Bước nhập mã đã hết hạn. Đăng nhập lại bằng mật khẩu. | This sign-in step has expired. Sign in again with your password. | ⟨chừa chỗ⟩ | MFA_INVALID lần thứ 5 hoặc quá 5 phút (OpenAPI 0.3.8 bảng mã lỗi) – client tự về bước 1 |
 | `error.MFA_INVALID` | Mã chưa đúng hoặc đã hết hạn. Nhập mã đang hiện trong ứng dụng. | The code is wrong or has expired. Enter the code the app shows now. | ⟨chừa chỗ⟩ | 401 – loginMfa, mọi nhánh lỗi một câu (SEC 06.20). Không nêu số lần còn lại |
 | `error.MFA_ENROLLMENT_REQUIRED` | Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc. | Your account needs 2-step verification before you continue. | ⟨chừa chỗ⟩ | 403 – phiên hạn chế (SEC 06.4) – Desk chuyển sang màn đăng ký |
-| `mfa.enroll_required` | Vai chủ đầu tư và quản lý bắt buộc bật xác thực 2 bước. Bật xong bạn vào làm việc như thường. | Owner and manager accounts must use 2-step verification. Once it is on, you can continue as usual. | ⟨chừa chỗ⟩ | Màn đăng ký khi Me.mfaEnrollmentRequired = true (US-143 AC1) |
+| `mfa.enroll_required` | Vai của bạn bắt buộc bật xác thực 2 bước. Bật xong bạn vào làm việc như thường. | Your role requires 2‑step verification. Once it is on, you can continue as usual. | ⟨chừa chỗ⟩ | Màn đăng ký khi Me.mfaEnrollmentRequired = true (US-143 AC1). v1.0.5 V5-40: không kể tên vai (UXD-on-prs-97-116-117-118-122; copy-v1.0.5 9.10) |
 | `mfa.enroll_password` | Nhập mật khẩu đăng nhập để tạo mã QR. | Enter your sign-in password to create the QR code. | ⟨chừa chỗ⟩ | startMy2faSetup cần currentPassword (SEC 06.7) |
 | `mfa.enroll_start` | Tạo mã QR | Create QR code | ⟨chừa chỗ⟩ | Nút gọi startMy2faSetup |
 | `mfa.qr_label` | Mã QR để thêm OTTIMO vào ứng dụng xác thực | QR code to add OTTIMO to your authenticator app | ⟨chừa chỗ⟩ | aria-label của QR (không đọc khóa) |
@@ -3383,7 +3384,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `mfa.status_on` | Đang bật từ {date} | On since {date} | ⟨chừa chỗ⟩ | Màn Xác thực 2 bước (SEC 06.35) |
 | `mfa.status_on_nodate` | Đang bật | On | ⟨chừa chỗ⟩ | Khi server chưa trả enrolledAt |
 | `mfa.status_off` | Chưa bật | Off | ⟨chừa chỗ⟩ |  |
-| `mfa.required_note` | Bắt buộc với vai chủ đầu tư và quản lý. | Required for owner and manager roles. | ⟨chừa chỗ⟩ |  |
+| `mfa.required_note` | Bắt buộc với vai của bạn. | Required for your role. | ⟨chừa chỗ⟩ | Trang Bảo mật tài khoản, khi getMy2fa.required. v1.0.5 V5-40: không kể tên vai (UXD-on-prs-97-116-117-118-122; copy-v1.0.5 9.10) |
 | `mfa.codes_left` | Còn {n} mã khôi phục | {n} recovery codes left | ⟨chừa chỗ⟩ |  |
 | `mfa.codes_low` | Chỉ còn {n} mã khôi phục. Tạo bộ mới để không bị khóa ngoài tài khoản. | Only {n} recovery codes left. Create a new set so you aren't locked out. | ⟨chừa chỗ⟩ | getMy2fa.recoveryCodesRemaining ≤ 3 – SEC 06.15 |
 | `mfa.codes_low_short` | Sắp hết mã khôi phục. Tạo bộ mới ở mục Xác thực 2 bước. | You're running out of recovery codes. Create a new set under 2-step verification. | ⟨chừa chỗ⟩ | Banner đầu trang khi Me.recoveryCodesLow |
