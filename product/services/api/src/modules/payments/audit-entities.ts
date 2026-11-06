@@ -24,7 +24,13 @@ defineAuditEntity('payment', [
   'debtVnd',
   // ARC 16.26 (BR-525): a receipt collecting the debt of a checked-out stay.
   'debtCollection',
+  // 0.3.13 bổ sung 1 (V5-48, SEC S6, BE C0313-22): a receipt recorded once the booking was `cancelled`/`no_show` –
+  // the value AT WRITE TIME that `listAuditEvents.afterClosureOnly` filters on (never recomputed from the booking).
+  // `reservationStatus` also marks a pending VietQR expired by the closure itself (J1, B5, B10, B11).
+  'afterClosure',
+  'reservationStatus',
 ]);
-defineAuditEntity('deposit_notice', ['amountVnd', 'status']);
+// 0.3.13 bổ sung 1 (5B-1 S7, BE C0313-22): a "khách đã chuyển" notice on a closed booking – afterClosureOnly.
+defineAuditEntity('deposit_notice', ['amountVnd', 'status', 'afterClosure']);
 // Refund destination events (no C3: method and the last 4 digits only – D15 masked).
 defineAuditEntity('approval_request', ['refundMethod', 'accountNoLast4']);
