@@ -86,7 +86,7 @@ Viết theo SEC N4 và runbook N5:
 Đã sửa mọi chỗ QC liệt kê, cộng 9 chỗ grep tìm thêm. Grep `tạm dừng\|chưa gửi link` trên các tệp `.md` còn 6 dòng, đều đúng: phiếu sửa chờ vật tư, chú thích nguồn ẩn, mục lịch sử.
 
 **Câu còn đúng, giữ nguyên:**
-- đơn giữ chỗ chưa tạo được link (BUG-R3-047, V5-53);
+- ~~đơn giữ chỗ chưa tạo được link (BUG-R3-047, V5-53);~~ *Đính chính (BA, Phản hồi & sửa 06/11, FB-R5-SEC-BA-09): sai. BUG-R3-047 đã sửa ở v1.0.4 (`5539b7e6`): đơn giữ chỗ không có mục Link check-in online. Đã sửa ở `64025107`.*
 - Wi-Fi trên trang khách ghi "hỏi lễ tân" (V5-58);
 - mở lại link sau "Bổ sung tại quầy" thì không gửi được (V5-5A);
 - sale, CTV không gửi link.

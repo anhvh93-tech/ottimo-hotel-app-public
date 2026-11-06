@@ -258,7 +258,7 @@ Nhân viên buồng phòng, bảo trì (và lễ tân trưởng dùng app): lầ
    - yêu cầu hoàn **còn mở** do người đó tạo (mục 8.3): nơi nhận còn trống thì người khác nhập, không phải người nghỉ. Chỉ còn anh/chị thì nhập **Chuyển khoản** rồi duyệt và chi; anh/chị nhập **Tiền mặt** thì không tự duyệt được khoản đó.
 3. **Khóa tài khoản** (dòng **Khóa tài khoản** ở trên). Tài khoản người nghỉ hẳn **không Mở khóa lại**: mật khẩu, 2 bước và mã khôi phục cũ vẫn còn hiệu lực. Tuyển lại thì tạo tài khoản mới (tên đăng nhập mới, mật khẩu tạm mới, bật 2 bước lại nếu vai cần).
 4. **Xóa email** của người đó (phần **Đặt email cho nhân viên** ngay dưới: mở hộp, bấm **Xóa email**, xác nhận bằng mật khẩu và mã 6 số). Sau bước 3, tài khoản này không nhận thư bảo mật về chính mình nữa, **trừ một** thư **Security notice: notification email changed** gửi tới địa chỉ cũ ở bước này (thư không có dữ liệu khách). Người nghỉ êm: báo trước cho người đó về thư này. Anh/chị cũng nhận một bản; các chủ đầu tư vẫn nhận bản của mình.
-5. **Google Chat:** gỡ người đó khỏi phòng "OTTIMO – Yêu cầu đặt phòng" (mục 12.1). Khóa Desk **không** gỡ người đó khỏi phòng. Người đó có tài khoản `@ottimo.vn` riêng: tạm ngưng tài khoản đó trong Admin console.
+5. **Google Chat:** gỡ người đó khỏi phòng "OTTIMO – Yêu cầu đặt phòng" (mục 12.1), và phòng "OTTIMO – Báo động" nếu người đó là người thứ hai (mục 17.1). Khóa Desk **không** gỡ người đó khỏi phòng. Người đó có tài khoản `@ottimo.vn` riêng: tạm ngưng tài khoản đó trong Admin console.
 6. **Chìa, mã, mật khẩu dùng chung** (những thứ người đó biết hoặc được giao):
    - thu chìa cơ, thẻ tổng, thẻ nhân viên của khóa;
    - app khóa: gỡ tài khoản ủy quyền của người đó, vô hiệu mã/thẻ nhân viên trên khóa;
@@ -871,7 +871,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 | Lễ tân hỏi cách ghi trễ ngày đi trên cổng khai báo lưu trú (đơn quá ngày đi, khách đã đi) | Ghi ngay trong ngày phát hiện, đúng ngày khách rời thật (ngày đi trên đơn cũ), không dán ô ngày đi Desk đang hiện. Ghi sổ giao ca. Hạn ghi trễ: đội đang hỏi luật sư (BR mục 15). Tới khi có câu trả lời, vẫn ghi ngay trong ngày phát hiện và báo chủ đầu tư (tệp 02 mục 11.1, **Đơn quá ngày đi**) |
 | Lễ tân báo căn vẫn hiện có khách mà đơn trước đã **Đã trả phòng** | Không có ngoại lệ nhận phòng. Lễ tân đổi khách sang căn trống sẵn sàng khác (cùng hạng, không có thì nâng hạng, OTTIMO chịu chênh). Nhắn đội kỹ thuật số căn và mã đơn trước để sửa trạng thái căn; không còn căn nào thì gọi đội trong ca. Không dùng **Khóa phòng** (`OOO`) để đặt lại trạng thái (tệp 02 mục 7.4) |
 | Khách yêu cầu xem/xóa dữ liệu | Xử lý tay, không hứa ngày (mục 12) |
-| Lễ tân gửi nhầm link check-in online cho người khác | Lễ tân **Thu hồi link** ngay, tạo link mới gửi đúng khách (tệp 02 mục 17.3) |
+| Lễ tân gửi nhầm link check-in online cho người khác | Lễ tân **Thu hồi link** ngay, tạo link mới gửi đúng khách, ghi sổ giao ca, báo anh/chị trong ngày (tệp 02 mục 17.3). Anh/chị: đọc dòng sổ giao ca. Báo đội bằng `/feedback` (không cần P0): mã đơn, giờ gửi, giờ thu hồi, kênh, đơn có hiện **Đã làm thủ tục trước** trước giờ thu hồi không. Không ghi tên khách hay người nhận nhầm. Đội bảo mật trả lời trong ngày có cần làm gì thêm. Không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị |
 | Nhân viên quên mật khẩu | **Đặt lại mật khẩu** (mục 1.9) |
 | Nhân viên mất điện thoại | Không có 2 bước: **Đặt lại mật khẩu** hoặc **Khóa tài khoản**. Có 2 bước mà mất cả mã khôi phục: gặp tận mặt; từ v1.0.4 **Đặt lại xác thực 2 bước** (mục 1.9), ở v1.0.3 làm theo mục 1.7 |
 | Nhân viên bị khóa do sai mật khẩu | **Mở khóa** (mục 1.9). Người đó nói không gõ sai: **Đặt lại mật khẩu**, xem **Cần chú ý** |
@@ -924,7 +924,7 @@ Ngày v1.0.3 lên (mục 1.6a):
 
 - Từ 06/11/2026 (v1.0.4), lễ tân gửi link check-in online cho khách thật, chỉ với đơn đã xác nhận (tệp 02 mục 17.3). Trang khách có thông báo xử lý dữ liệu bản 2, cùng nội dung tờ **Your ID details** v2 ở quầy. Cách tạm cũ (không gửi link, đội đếm link mỗi sáng) đã bỏ.
 - Sale, CTV vẫn không cấp, không gửi link.
-- Đội có thể báo dừng lại khi kiểm thấy lỗi, ví dụ ở lượt đồng ý thật đầu tiên. Khi đó anh/chị báo người trực "dừng check-in online": ngừng tạo, ngừng gửi link, mọi khách làm giấy tờ tại quầy tới khi đội báo mở lại.
+- Đội có thể báo dừng lại khi kiểm thấy lỗi, ví dụ ở lượt đồng ý thật đầu tiên. Khi đó anh/chị báo người trực "dừng check-in online": ngừng tạo, ngừng gửi link, mọi khách làm giấy tờ tại quầy tới khi đội báo mở lại. Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi.
 
 ### 15.5 Khách trả phòng sớm
 
@@ -989,7 +989,7 @@ Khi báo lỗi cho đội: theo mục 12 – mô tả bằng lời, mã đơn, m
 ### 17.1 Phòng Google Chat "OTTIMO – Báo động" (chủ đầu tư và tối đa một người thứ hai)
 
 - Phòng cảnh báo kỹ thuật. Trong phòng có chủ đầu tư, và tối đa **một** người thứ hai anh/chị chọn. Đội đề xuất quản lý hoặc lễ tân trưởng, tài khoản `@ottimo.vn`. Không thêm ai khác. Tin chỉ có tên mục kiểm và số đếm, không có dữ liệu khách.
-- Thêm người thứ hai: mở phòng trong Google Chat, thêm người đó bằng tài khoản `@ottimo.vn`, rồi nhắn đội "đã thêm người thứ hai vào phòng Báo động – vai …" (không ghi tên, email). Người đó nghỉ việc: gỡ khỏi phòng cùng ngày. Cách làm đầy đủ: sổ vận hành `product/docs/so-van-hanh.md` mục 7.2.
+- Thêm người thứ hai: điện thoại người đó đã cài theo mục 12.1. Mở phòng trong Google Chat, thêm người đó bằng tài khoản `@ottimo.vn` là **thành viên** (không làm quản lý phòng). Không thêm ứng dụng hay webhook nào khác vào phòng. Cho người đó đọc sổ vận hành mục 2.3 bước 6 (lễ tân trưởng: tệp 02 mục 13.5). Rồi nhắn đội "đã thêm người thứ hai vào phòng Báo động – vai …" (không ghi tên, email). Người đó nghỉ việc: gỡ khỏi phòng cùng ngày. Cách làm đầy đủ: sổ vận hành `product/docs/so-van-hanh.md` mục 7.2.
 - Người thứ hai nhận **FAIL**: mở thử `desk.ottimo.vn` trên 4G. Không vào được: gọi anh/chị ngay, người trực ghi sổ giấy (tệp 02 mục 15). Vào được: nhắn anh/chị trong ngày. Anh/chị báo đội như dưới đây.
 - Nhận gì: tin **FAIL** khi máy chủ hoặc một dịch vụ có lỗi (ví dụ sao lưu, ổ đĩa, bộ nhớ, lỗi máy chủ), nhắc lại mỗi 6 giờ khi lỗi còn; tin **OK** khi đã hồi phục. Thêm **email** từ **Healthchecks.io** (máy chủ báo lỗi hoặc im lặng quá 1 giờ) và **UptimeRobot** (trang không mở được từ bên ngoài) về `info@ottimo.vn`.
 - Nhận **FAIL**: mở thử `desk.ottimo.vn` bằng dấu trang. **Không vào được**: báo đội ngay bằng `/feedback` có chữ **"P0"**, ghi **giờ nhận tin** và tên mục trong tin; người trực ghi sổ giấy (tệp 02 mục 15). Vào được: người trực làm việc bình thường; anh/chị vẫn báo đội trong ngày kèm giờ nhận tin.

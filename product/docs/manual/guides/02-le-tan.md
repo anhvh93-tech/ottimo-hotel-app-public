@@ -1417,6 +1417,15 @@ Khách báo hỏng: tạo phiếu ở **Vận hành → Bảo trì** → tab **P
 
 [ẢNH: C4-05-Phiếu sửa mới và khóa căn trên Desk]
 
+### 13.5 Khi anh/chị là người thứ hai ở phòng "OTTIMO – Báo động"
+
+Chỉ áp dụng khi chủ đầu tư đã thêm anh/chị vào phòng này (sổ vận hành mục 7.2). Tin trong phòng chỉ có tên mục kiểm và số đếm, không có dữ liệu khách.
+
+1. Nhận tin **FAIL**: mở `desk.ottimo.vn` bằng dấu trang, trên điện thoại dùng **4G** (không dùng Wi-Fi quầy).
+2. **Không vào được Desk**: gọi chủ đầu tư ngay. Người trực làm theo mục 15 (danh sách giấy, sổ giấy).
+3. **Vào được**: làm việc bình thường. Nhắn chủ đầu tư trong ngày, kèm giờ nhận tin và tên mục trong tin.
+4. Không tự sửa máy chủ, không đăng nhập máy chủ. Không thêm ứng dụng hay webhook nào vào phòng. Tin **OK** đến sau tin **FAIL**: không cần làm gì.
+
 ---
 
 ## 14. Việc riêng của lễ tân trưởng
@@ -1538,7 +1547,7 @@ Không ai tự duyệt yêu cầu của chính mình, trừ khoản nằm trong 
 - Không nhận khách vào căn `VD`, `CL` mà không qua xác nhận của lễ tân trưởng. Không bao giờ nhận khách vào căn đang có khách (`OC`, `OD`), căn còn đơn khác đang ở, hoặc căn `OOO`.
 - Không bán căn của đơn đã trả đủ/OTA đã thu trong đêm đánh dấu không đến, trước 06:00.
 - Không thu tiền ngoài Desk.
-- Không gửi link check-in online vào nhóm chat, không gửi kèm mã cửa hay số căn, không chụp màn hình hộp link (mục 17.3).
+- Không gửi link check-in online vào nhóm chat, không gửi kèm mã cửa hay số căn, không chụp màn hình hộp link, không gửi tới số hay tài khoản không ghi trên đơn, kể cả người xưng là khách (mục 17.3).
 - Không chép tên, SĐT, lời nhắn của khách từ phòng Google Chat sang Zalo hay nơi khác. Không mở Google Chat trên máy quầy. Không mời ai vào phòng Chat (mục 13.1a).
 
 ---
@@ -1633,12 +1642,18 @@ Từ 06/11/2026 (v1.0.4) lễ tân gửi lại link check-in online cho khách t
 **Các bước:**
 1. Mở đơn **đã xác nhận** → mục **Link check-in online** → **Tạo link check-in online**. Gửi qua Zalo thì làm trên Desk ở điện thoại cơ sở, vì máy quầy không mở Zalo (mục 4.1).
 2. Hộp **Link check-in online · đơn …** hiện link, mã QR của link và hạn link. Bấm **Sao chép link**. **Link chỉ hiện một lần**: đóng hộp là không xem lại được; cần thì **Tạo link mới** (link cũ ngừng hoạt động). **Không chụp màn hình hộp này** (mã QR là link).
-3. Gửi **riêng 1–1** cho khách của đơn, từ tài khoản OTTIMO (mục 4.1) hoặc email. Không gửi vào nhóm chat. Không kèm mã cửa hay số căn.
+3. Gửi **riêng 1–1** tới số điện thoại (Zalo), email hoặc hội thoại OTA **ghi trên đơn**, từ tài khoản OTTIMO (mục 4.1) hoặc email của OTTIMO. Không gửi vào nhóm chat. Không kèm mã cửa hay số căn. Người nhắn từ số hoặc tài khoản khác, dù xưng là khách: không gửi; gửi tới liên hệ trên đơn, hoặc mời làm thủ tục tại quầy. Đơn CTV: gửi khách, không gửi CTV.
 4. Khách gửi xong: **Hôm nay** ghi **Đã làm thủ tục trước**. Lúc khách đến, chỉ đối chiếu bản gốc.
-5. Gửi nhầm người: **Thu hồi link** ngay (Desk hỏi lại; người mở link sẽ thấy "Liên kết đã hết hạn"), rồi tạo link mới cho đúng khách.
+5. **Gửi nhầm người** (tới số, email hay tài khoản không phải của khách trên đơn):
+   - **Thu hồi link** ngay (Desk hỏi lại; người mở link sẽ thấy "Liên kết đã hết hạn"). Rồi **Tạo link mới**, gửi đúng khách.
+   - Ghi sổ giao ca: mã đơn, giờ gửi nhầm, giờ thu hồi, kênh đã gửi. Không ghi tên khách. Không ghi tên hay số của người nhận nhầm.
+   - Báo chủ đầu tư **trong ngày**.
+   - Trước giờ thu hồi, đơn đã hiện **Đã làm thủ tục trước**, giờ đến mới hoặc yêu cầu mới mà khách thật nói mình chưa gửi: không dùng giấy tờ đó để khai báo; khách đến thì đối chiếu bản gốc như mọi khách; ảnh không phải của người trên đơn thì không **Gắn người**, quản lý **Xóa ảnh** (mục 8.3); báo chủ đầu tư **ngay trong ca**.
+   - Vì sao: người nhận nhầm thấy tên gọi của khách, mã đơn, ngày ở, căn, giờ đến, và ghi được vào đơn tới lúc thu hồi. Chủ đầu tư cùng đội bảo mật quyết có phải báo cơ quan chức năng hay không.
+   - Không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị.
 
 - Khách chọn **Bổ sung tại quầy** rồi đóng và mở lại link giữa chừng: **Gửi thủ tục** không được, trang quay về bước Giấy tờ mà không báo gì. Mời khách làm giấy tờ tại quầy khi đến.
-- **Chủ đầu tư báo "dừng check-in online"**: ngừng tạo, ngừng gửi link. Mọi khách làm giấy tờ tại quầy tới khi chủ đầu tư báo mở lại.
+- **Chủ đầu tư báo "dừng check-in online"**: ngừng tạo, ngừng gửi link. Mọi khách làm giấy tờ tại quầy tới khi chủ đầu tư báo mở lại. Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi.
 - Trên Desk tập, tập các bước với dữ liệu giả.
 
 [ẢNH: C2-14-Link check-in online]

@@ -98,7 +98,8 @@ Thêm:
      - báo chủ đầu tư **ngay trong ca**.
   5. `guides/01` 14.1, cột việc của chủ đầu tư: "Đọc dòng sổ giao ca. Báo đội bằng `/feedback` (không cần P0): mã đơn, giờ gửi, giờ thu hồi, kênh, đơn có hiện **Đã làm thủ tục trước** trước giờ thu hồi không. Không ghi tên khách hay người nhận nhầm. Đội bảo mật trả lời trong ngày có cần làm gì thêm."
   - Không cần báo khách hay báo người nhận nhầm, trừ khi đội bảo mật đề nghị.
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: Làm đủ 4 ý ở sổ tay 2.9 bước 6 và `02` 17.3 bước 5: (1) **Thu hồi link** rồi **Tạo link mới**, gửi đúng khách; (2) ghi sổ giao ca mã đơn, giờ gửi nhầm, giờ thu hồi, kênh, không ghi tên khách, không ghi tên hay số người nhận nhầm; (3) báo chủ đầu tư trong ngày; (4) đơn đã hiện **Đã làm thủ tục trước**, giờ đến hay yêu cầu lạ: không dùng giấy tờ để khai báo, đối chiếu bản gốc, không **Gắn người**, quản lý **Xóa ảnh** (sổ tay 2.11, `02` 8.3), báo chủ đầu tư ngay trong ca. Thêm một câu vì sao (người nhận nhầm thấy gì, ghi được gì; chủ đầu tư cùng SEC quyết việc báo cơ quan chức năng) và câu "không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị". `01` 14.1: cột việc thêm phần của chủ đầu tư theo ý 5. Tờ 1 là thẻ PO-01 của PO.
 
 ### FB-R5-SEC-BA-02
 - Mức độ: Major
@@ -124,7 +125,8 @@ Thêm:
     - ghi kết quả có/không vào dòng decision-log của lần kéo.
   - **Nếu Time Machine đã từng chép thư mục này:** OPS và SEC đề xuất cách bỏ các bản đó trước khi bản cũ nhất quá 35 ngày. Việc xóa trên Time Machine là xóa vĩnh viễn, nên **INV tự làm** theo hướng dẫn của đội.
   - Mac không bật Time Machine thì thẻ đóng ngay, chỉ còn sửa chữ.
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11) – phần chữ. Phần ORC (kiểm ở lần kéo 08/11) theo mục 4
+- Phản hồi BA: 1.1a: câu "bản quá 35 ngày tự xóa" chỉ nói thư mục sao lưu, bỏ vế "đúng lời hứa". Thêm gạch **Giữ đúng lời hứa 35 ngày** áp cho mọi bản trên Mac, ghi đúng kết quả ORC kiểm chỉ đọc 06/11 (decision-log, `fa596477`): chưa cấu hình ổ Time Machine nên chưa có bản chép nào; thư mục chưa được loại khỏi Time Machine nên sẽ bị chép nếu sau này bật; thư mục ngoài Desktop/Documents nên iCloud Drive không đồng bộ. Đội chỉ đổi khi chủ đầu tư đồng ý trong chat; chủ đầu tư định bật Time Machine thì báo đội trước; mỗi lần kéo từ 08/11 đội kiểm lại chỉ đọc, ghi có/không vào decision-log. 5.4: câu "đồng ý loại thư mục khỏi Time Machine" tách khỏi câu lịch tự kéo, đứng ngay trên nó, có thể đồng ý sớm qua chat. Không ghi đường dẫn thư mục trong sổ vận hành (đã có ở README `infra/server`). Mac chưa bật Time Machine nên nhánh "bỏ các bản Time Machine cũ" chưa cần.
 
 ### FB-R5-SEC-BA-03
 - Mức độ: Minor
@@ -140,7 +142,8 @@ Thêm:
   - Dòng 52: "lượt kéo kết thúc với mã 3: bản trên máy chủ khác bản đã có trên Mac. Coi là P0 bảo mật, nghi máy chủ bị xâm nhập, tới khi đội bảo mật kết luận".
   - Dòng 51: "Từ lần kéo 08/11".
   - Dòng 53: "đội xử lý, báo anh/chị trong ngày" (bỏ "kéo lại" với mã 1).
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: Cả 4 ý: dòng báo lại có giờ chạy, mã thoát (0 là ổn), số tệp mới, tên bản mới nhất, có dòng "server copy changed" không; "Cách kéo từ lần kéo 08/11"; mã 3 viết "lượt kéo kết thúc với mã 3: bản trên máy chủ khác bản đã có trên Mac … tới khi đội bảo mật kết luận"; tách mã 2 (mạng, kết nối: kéo lại lần sau) với mã 1 (mã kiểm tra trên Mac không khớp: đội xử lý, báo trong ngày, kéo lại không tự sửa được). Mã thoát đối chiếu với `pull-backups.sh` dòng 17–19.
 
 ### FB-R5-SEC-BA-04
 - Mức độ: Minor
@@ -155,7 +158,8 @@ Thêm:
   - (a) "Không duyệt phát hành nào ('Review deployments') tới khi đội bảo mật báo."
   - (b) "Đội có thể đề nghị tạm tắt máy chủ. Khi đó Desk ngừng, quầy làm theo mục 3.2 với sổ giấy. Anh/chị quyết."
   - (c) "Nếu xác nhận dữ liệu khách bị lộ, có thể phải báo cơ quan chức năng trong 72 giờ. Đội và luật sư chuẩn bị, anh/chị quyết."
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: Ba dòng (a), (b), (c) thêm ngay dưới gạch mã 3 ở 1.1a, mở đầu "Khác với P0 thường ở mục 3.4". 3.4 thêm một câu đầu mục: nghi máy chủ bị xâm nhập thì không làm bước 2–5, làm theo 1.1a, chờ đội bảo mật báo. Runbook SR-INC-01 là việc SEC tự nhận (mục 5 ý 1).
 
 ### FB-R5-SEC-BA-05
 - Mức độ: Minor (hạn: trước buổi review 20/11, vì INV xác nhận con số ở buổi đó)
@@ -174,6 +178,7 @@ Thêm:
   - 2.1a: ghi con số OPS chốt cho cả hai dòng.
   - 5.4: "Xác nhận: máy chủ còn – mất tối đa 12 (hoặc 13) giờ từ v1.0.5; máy chủ mất hẳn – mất tối đa khoảng … (nhịp kéo hiện nay), khoảng … khi Mac tự kéo hằng ngày."
 - Trạng thái: Open – chờ OPS chọn giờ lượt dump hai
+- Phản hồi BA: Chưa sửa số theo giao việc ORC. 2.1a, 2.2, 5.4 giữ "12 giờ"; dòng "Máy chủ mất hẳn" chưa có con số. Lịch sử bản 1.3 ghi rõ phần này còn chờ. OPS chọn 15:00 (12 giờ) hoặc giữ 14:00 (13 giờ) và chốt con số khi máy chủ mất hẳn; BA sửa ba chỗ trong ngày khi có, trước buổi 20/11.
 
 ### FB-R5-SEC-BA-06
 - Mức độ: Minor
@@ -186,7 +191,8 @@ Thêm:
 - Đề xuất sửa: "…Lượt tự kéo lỗi thì có email báo ngay; lỗi 'server copy changed' là P0 như mục 1.1a. Quá 48 giờ không có lượt kéo nào thành công (ví dụ Mac tắt) cũng có email."
   - SEC chốt phần của mình cho V5-60: ngưỡng im lặng **48 giờ**, kèm điều kiện ping của OR-02 (thoát 0 **và** bản mới nhất ≤ 36 giờ). Thay cho 8 ngày.
   - Gợi ý cho OPS (không bắt buộc): cho check `ottimo-offsite` báo thêm vào phòng "Báo động", nếu không phải đưa bí mật mới vào repo.
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: 2.2, cột đề xuất của dòng tự kéo: "Lượt tự kéo lỗi thì có email báo ngay về `info@ottimo.vn`; lỗi 'server copy changed' là P0 như mục 1.1a. Quá 48 giờ không có lượt kéo nào thành công (ví dụ Mac tắt) cũng có email." Gợi ý báo vào phòng Báo động để OPS cân nhắc ở V5-60, BA không ghi vào sổ.
 
 ### FB-R5-SEC-BA-07
 - Mức độ: Minor
@@ -201,7 +207,8 @@ Thêm:
   - 7.2 "Cách thêm": "thêm là **thành viên** (không làm quản lý phòng); điện thoại người đó đã cài theo `01` mục 12.1; trong phòng không có ứng dụng hay webhook nào khác ngoài `ottimo-alert`; cho người đó đọc mục 2.3 bước 6".
   - Bước 5 của khối 8 bước (`01` 1.9 và sổ tay 1.5): thêm "và phòng 'OTTIMO – Báo động' nếu người đó là người thứ hai".
   - Tùy chọn: thêm 3 dòng 2.3 bước 6 vào `02` mục 13 hoặc 15.
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: (1) 7.2 và `01` 17.1: thêm là **thành viên**, không làm quản lý phòng; không thêm ứng dụng hay webhook nào khác (7.2 ghi "ngoài cảnh báo `ottimo-alert`", không ghi địa chỉ). (2) Trước khi thêm: điện thoại đã cài theo `01` 12.1. (3) Bước 5 khối **Ngày cuối của người nghỉ** ở `01` 1.9 và sổ tay 1.5: "và phòng 'OTTIMO – Báo động' nếu người đó là người thứ hai". (4) Làm luôn phần tùy chọn: `02` mục 13.5 mới (nhận FAIL thì làm gì, 4 bước theo 2.3 bước 6); 7.2 và 17.1 trỏ tới 13.5 cho lễ tân trưởng.
 
 ### FB-R5-SEC-BA-08
 - Mức độ: Minor
@@ -209,7 +216,8 @@ Thêm:
 - Vấn đề: "Gửi riêng 1–1 **cho khách của đơn**" chưa nói gửi **tới đâu**. Link là thẻ vào cửa: ai cầm cũng vào được mức 1. SR-GST-13 đã đặt luật cho mã xác minh: chỉ gửi tới hội thoại OTA của đơn, Zalo hoặc email của liên hệ trên đơn, không gửi tới tài khoản khác "dù người nhắn tự xưng là khách". Link nên theo cùng luật.
 - Vì sao quan trọng: cách gửi nhầm hay gặp nhất là người lạ nhắn từ số khác, xưng là khách, xin link. Đây cũng là cách phòng FB-R5-SEC-BA-01 từ gốc.
 - Đề xuất sửa: bước 3 thêm: "tới số điện thoại (Zalo), email hoặc hội thoại OTA **ghi trên đơn**. Người nhắn từ số hoặc tài khoản khác, dù xưng là khách: không gửi; gửi tới liên hệ trên đơn, hoặc mời làm thủ tục tại quầy. Đơn CTV: gửi khách, không gửi CTV."
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: Sổ tay 2.9 bước 3 và `02` 17.3 bước 3: gửi tới số điện thoại (Zalo), email hoặc hội thoại OTA ghi trên đơn; người nhắn từ số hoặc tài khoản khác, dù xưng là khách: không gửi, gửi tới liên hệ trên đơn hoặc mời làm thủ tục tại quầy; đơn CTV gửi khách, không gửi CTV. `02` 16.2: thêm "không gửi tới số hay tài khoản không ghi trên đơn, kể cả người xưng là khách".
 
 ### FB-R5-SEC-BA-09
 - Mức độ: Minor
@@ -222,7 +230,8 @@ Thêm:
 - Vấn đề: câu "đơn giữ chỗ cũng hiện nút **Tạo link check-in online**, Desk luôn từ chối (dự kiến sửa ở v1.0.5)" đã sai từ v1.0.4. BUG-R3-047 đã sửa ở `5539b7e6`: đơn giữ chỗ không còn nút này (release notes v1.0.4; plan R5 mục 8 ý 8). PO phát hiện. ORC đã giao BA sửa.
 - Vì sao quan trọng: không có tác động bảo mật, vì luật "chỉ đơn đã xác nhận" vẫn đúng, máy chủ vẫn từ chối. Ghi lại để ĐK-5 khép đúng sự thật.
 - Đề xuất sửa: thay bằng "Đơn giữ chỗ không có nút link: xác nhận cọc trước." Giữ nguyên luật chỉ đơn đã xác nhận.
-- Trạng thái: **Đang sửa (BA)**
+- Trạng thái: Resolved (BA, 06/11, `64025107`)
+- Phản hồi BA: Sửa ở sổ tay 2.4, 2.9 (khung đầu, bước 1, chú thích nguồn), bỏ dòng ở 5.6, đính chính ở 5.7; `02` 4.5, 17.3; `05` 4.2 (Sale/CTV không thấy mục link: Desk chỉ hiện cho lễ tân trở lên, `FD_PLUS`); `00` mục 7. Chữ theo release notes v1.0.4 và Tờ 1: "Đơn giữ chỗ không có mục Link check-in online: xác nhận cọc trước." Báo cáo BA mục 1: gạch câu sai, ghi đính chính.
 
 ### FB-R5-SEC-BA-10
 - Mức độ: Suggestion
@@ -233,14 +242,16 @@ Thêm:
 - Đề xuất sửa:
   - "Đội bảo mật đã kiểm trang khách (06/11); còn kiểm lượt đồng ý thật đầu tiên."
   - Thêm vào ý dừng: "Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi."
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: Sổ tay 2.9 khung đầu: "Đội bảo mật đã kiểm trang khách (06/11); còn kiểm lượt đồng ý thật đầu tiên." Câu dừng ở sổ tay 2.9, `01` 15.4, `02` 17.3 thêm "Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi."
 
 ### FB-R5-SEC-BA-11
 - Mức độ: Suggestion
 - Vị trí: `so-van-hanh.md` 5.4 dòng 323, ý (c).
 - Vấn đề: FileVault trên Mac của INV đã được xác nhận ngày 27/10 (decision-log). Câu hỏi lặp lại nguyên văn câu B4 (c) của SEC.
 - Đề xuất sửa: "(c) FileVault trên Mac vẫn bật (đã xác nhận 27/10)". INV chỉ cần trả lời "vẫn bật". Bớt một câu phải nghĩ trong danh sách vốn đã dài.
-- Trạng thái: Open
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: 5.4 ý (c): "FileVault trên Mac vẫn bật (đã xác nhận 27/10)".
 
 ---
 
