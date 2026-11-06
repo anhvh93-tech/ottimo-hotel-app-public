@@ -70,7 +70,13 @@ Gạch **Ở đâu** đã dặn "đơn **Đã hủy**, lý do **Hết hạn gi�
   - một giữ chỗ chưa cọc tự hủy;
   - một giữ chỗ có cọc thiếu đã quá hạn;
   - một giữ chỗ còn chờ cọc lúc 12:00 ngày đến.
-- Trạng thái: Open (PO sửa Tờ 2a, BA sửa sổ tay; DOM đọc lại một câu trước khi UXD dựng bản in)
+- Trạng thái: **PO-08 Closed** (phần Tờ 2a) – DOM đọc lại lần cuối 07/11/2026 trên `53bbde7c`:
+  - hai câu ở gạch **Ở đâu** và **Hết hạn, chưa cọc** đúng nguyên văn; phần còn lại của Tờ 2a khớp với hai câu mới (ba mốc rà, có cọc, sổ giao ca, trước khi rời quầy);
+  - DOM sửa thẳng một câu nhỏ ở bảng "Cách in": câu cũ vừa bảo in lại Tờ 2a bản 06/11, vừa bảo in bản 07/11. Nay tách ra: Tờ 1 in bản 06/11, Tờ 2a chỉ in bản 07/11. Không đổi ý.
+  - UXD dựng PDF được.
+  - Phần sổ tay 2.4 và `guides/02-le-tan.md` (BA):
+    - DOM đã xem bản BA đang sửa trong checkout, chưa commit. Bản đó đúng ý thẻ: "Tin không đổ chuông", "Tin chỉ để nhắc", ba loại tin ở v1.0.4, và tách hai trạng thái **Đã hủy** / còn **Giữ chỗ · chờ cọc** kèm câu "**Không** báo khách đơn đã hủy";
+    - phần này đóng khi BA commit; không chặn bản in.
 
 ## 2. BUG-R5-005 – câu cho lễ tân khi khách báo tab Yêu cầu lỗi
 
