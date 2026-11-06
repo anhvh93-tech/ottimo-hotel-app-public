@@ -36,28 +36,60 @@ case " ${args[*]} " in *" log_error_verbosity=terse "*) ok "compose: log_error_v
 pins="log_error_verbosity=terse log_min_duration_statement=-1 log_parameter_max_length=0 log_parameter_max_length_on_error=0 log_statement=none"
 
 secret="guest.terse-$$@example.invalid" phone="0900$$"
-provoke() { # name args… → prints the container log
-  local name="$1"; shift
+# ARC FB-R5-ARC-OPS-11: the image's entrypoint first runs a TEMPORARY server for initdb that listens on the Unix
+# socket only (listen_addresses=''). It also logs "ready to accept connections" and is stopped ~90 ms later, before
+# the real server opens TCP. A socket `pg_isready` could say "ready" to the temporary server; the SQL then landed
+# while the server restarted, `|| true` swallowed the psql error and the test said "control: … did not show the
+# values" instead of "could not connect". So: wait for the real server over TCP loopback (`--network none` keeps
+# `lo`), send every psql over TCP as well (the temporary server never answers there), and a server that cannot be
+# reached is a HARNESS failure with its own message, never a finding about the log setting.
+provoke() { # name args… → prints the container log, or one line `HARNESS-ERROR <what>` when postgres is not reachable
+  local name="$1" up=0 rc=0 out
+  shift
   docker run -d --name "$name" --network none --pull="${PG_PULL:-missing}" -e POSTGRES_PASSWORD=test-only \
     -e POSTGRES_HOST_AUTH_METHOD=trust "$image" "$@" >/dev/null
-  for _ in $(seq 1 60); do docker exec "$name" pg_isready -q -U postgres 2>/dev/null && break; sleep 1; done
-  docker exec -i "$name" psql -X -q -U postgres -d postgres >/dev/null 2>&1 <<SQL || true
+  for _ in $(seq 1 60); do
+    if docker exec "$name" pg_isready -q -h 127.0.0.1 -U postgres 2>/dev/null; then up=1; break; fi
+    sleep 1
+  done
+  if [ "$up" -ne 1 ]; then
+    echo "HARNESS-ERROR no answer on 127.0.0.1:5432 after 60 s (container $(docker inspect -f '{{.State.Status}}' "$name" 2>&1))"
+    docker rm -f "$name" >/dev/null; return 0
+  fi
+  # The provoked errors are expected: without ON_ERROR_STOP psql reports them and still exits 0.
+  # Exit 1 = psql's own fatal error, 2 = connection failed or lost.
+  docker exec -i "$name" psql -X -q -h 127.0.0.1 -U postgres -d postgres >/dev/null 2>&1 <<SQL || rc=$?
 CREATE TABLE guest (email text UNIQUE, phone text NOT NULL CHECK (length(phone) >= 8));
 INSERT INTO guest VALUES (\$1, \$2) \bind '$secret' '$phone' \g
 INSERT INTO guest VALUES (\$1, \$2) \bind '$secret' '$phone' \g
 INSERT INTO guest VALUES (\$1, \$2) \bind 'other-$secret' '12' \g
 INSERT INTO guest (email) VALUES (\$1) \bind 'third-$secret' \g
 SQL
-  docker exec "$name" psql -X -q -tA -U postgres -d postgres -c "SELECT 'SETTING ' || name || '=' || setting || ' ' || source
+  if [ "$rc" -ne 0 ]; then
+    echo "HARNESS-ERROR psql exit $rc on the provoking statements"
+    docker rm -f "$name" >/dev/null; return 0
+  fi
+  out=$(docker exec "$name" psql -X -q -tA -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -c "SELECT 'SETTING ' || name || '=' || setting || ' ' || source
     FROM pg_settings WHERE name IN ('log_error_verbosity', 'log_min_duration_statement', 'log_parameter_max_length',
-    'log_parameter_max_length_on_error', 'log_statement') ORDER BY name" 2>&1 || true
+    'log_parameter_max_length_on_error', 'log_statement') ORDER BY name" 2>/dev/null) || rc=$?
+  if [ "$rc" -ne 0 ] || [ "$(grep -c '^SETTING ' <<<"$out")" -ne 5 ]; then
+    echo "HARNESS-ERROR pg_settings query: psql exit $rc, $(grep -c '^SETTING ' <<<"$out") of 5 rows"
+    docker rm -f "$name" >/dev/null; return 0
+  fi
+  echo "$out"
   sleep 1
   docker logs "$name" 2>&1
   docker rm -f "$name" >/dev/null
 }
+harness() { # log run → stop with a harness failure when provoke could not reach postgres
+  grep -q '^HARNESS-ERROR ' <<<"$1" || return 0
+  ko "harness: postgres not reachable in the $2 run – $(grep -m 1 '^HARNESS-ERROR ' <<<"$1" | cut -d ' ' -f 2-) (the log setting was NOT tested)"
+  echo "== $pass passed, $fail failed"; exit 1
+}
 trap 'docker rm -f "ottimo-terse-$$" "ottimo-verbose-$$" >/dev/null 2>&1 || true' EXIT
 
 log=$(provoke "ottimo-terse-$$" "${args[@]}")
+harness "$log" terse
 grep -q 'duplicate key value violates unique constraint' <<<"$log" && ok "terse: the unique error is logged (code + message)" || ko "terse: unique error missing from the log"
 grep -q 'violates check constraint' <<<"$log" && ok "terse: the CHECK error is logged" || ko "terse: CHECK error missing"
 grep -q 'violates not-null constraint' <<<"$log" && ok "terse: the NOT NULL error is logged" || ko "terse: NOT NULL error missing"
@@ -70,6 +102,7 @@ for p in $pins; do
 done
 
 ctl=$(provoke "ottimo-verbose-$$" postgres)
+harness "$ctl" control
 if grep -Fq "$secret" <<<"$ctl" && grep -q 'Failing row contains' <<<"$ctl"; then
   ok "control: without the setting the same errors log the e-mail and the failing row (the test can see a leak)"
 else ko "control: the default run did not show the values – the test would not catch a regression"; fi

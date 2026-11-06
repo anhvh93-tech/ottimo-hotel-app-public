@@ -20,12 +20,14 @@ export interface ReasonOptions {
 export { luhnValid };
 
 /**
- * Control / invisible formatting characters (C0 except tab/newline/CR, DEL, C1, zero-width, bidi overrides) –
- * removed from free text before it is stored, printed or audited (SEC-BE-44, A4).
+ * Control / invisible characters – removed from free text before it is stored, printed or audited (SEC-BE-44, A4;
+ * SR-INP-05): every control character (Cc) except tab, newline and CR; every format character (Cf: bidi marks and
+ * overrides, zero-width, soft hyphen, Arabic letter mark, tag characters…); every default-ignorable code point
+ * (word joiner, Hangul fillers, variation selectors…) – the same "invisible" set the card / ID detector ignores
+ * (shared/sensitive-number.ts) – and lone surrogates (Cs: PostgreSQL refuses them in jsonb, 22P02). Vietnamese
+ * combining tone marks (Mn) are kept. FB-R5-SEC-BE-127-01 (the hand-written list missed U+2060, U+00AD, tags, U+D800…).
  */
-const CONTROL_CHARS =
-  // eslint-disable-next-line no-control-regex -- matching control characters is the point here
-  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g;
+const CONTROL_CHARS = /[^\P{Cc}\t\n\r]|[\p{Cf}\p{Default_Ignorable_Code_Point}\p{Cs}]/gu;
 
 export function stripControlChars(text: string): string {
   return text.replace(CONTROL_CHARS, '');
