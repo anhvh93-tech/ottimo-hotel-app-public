@@ -27,6 +27,8 @@ import {
 } from '../support/s3.js';
 import { scan } from './axe.js';
 import { UI } from './helpers.js';
+// own line, not merged into the api.js import above: keeps PR #113 (same file) free of a merge conflict
+import { resetRateLimits } from '../support/api.js';
 
 const VI = JSON.parse(
   readFileSync(new URL('../../../design/copy/strings-vi.json', import.meta.url), 'utf8'),
@@ -72,7 +74,16 @@ async function guestPage(browser: Browser): Promise<Page> {
   return ctx.newPage();
 }
 
-/** Confirmed booking (2 adults) + guest link (same set-up as ui/guest-web.h18.spec.ts). */
+/**
+ * Confirmed booking (2 adults) + guest link (same set-up as ui/guest-web.h18.spec.ts).
+ *
+ * Then a fresh guest-open window: the page itself opens the session (POST /v1/guest/sessions) on `page.goto`, and
+ * guest-open is 10/min + 100/day per IP – every E2E call comes from one IP, so the parallel guest cases can fill
+ * the minute before this page opens (CI #112 run 42274686717 / #126 run 42274569391: 429 "Bạn đã thử quá nhiều
+ * lần" page in both attempts, Retry-After 4 s, the retry inside the same window). The API helper `openGuest`
+ * resets on a 429; the page cannot, so the limiter is cleared here, just before the page opens (no-op on a
+ * stack without test support). A 429 the product sends for the guest's own retries is not what these cases check.
+ */
 async function bookingWithLink(request: Page['request'], roomNo: string) {
   const fd = await session(request, 'qa.fd');
   const c = await s2Context(request);
@@ -83,7 +94,9 @@ async function bookingWithLink(request: Page['request'], roomNo: string) {
     today: await stackToday(request),
     guestId: g.id,
   });
-  return guestLink(request, fd, res.id);
+  const link = await guestLink(request, fd, res.id);
+  await resetRateLimits(request, 'V5-46: trang khách tự mở phiên (guest-open 10/phút/IP)');
+  return link;
 }
 
 test.describe(
