@@ -218,10 +218,13 @@ info:
     | OVERPAYMENT_HANDLING_REQUIRED (mã trường) | `unhandledCreditVnd` (0.3.6 bổ sung 2 (BA v0.3, ARC 17/10)) |
     | ROOM_NOT_READY | `roomStatus` |
     | FOLIO_LOCKED | `lockReason` (0.3.13, V5-44) |
+    | FORBIDDEN_ACTION – B18/QR `check_out` đơn quá ngày đi, MGR, `nightsNotBilled` > 1 (0.3.13 bổ sung 1, V5-15) | `requiredRole` (= `owner`), `nightsNotBilled` |
+    | FORBIDDEN_ACTION – `adjustFolioLine` sửa giảm ngoài phạm vi BR-438 (0.3.13 bổ sung 1, V5-16) | `requiredFlow` (= `foc_request`) |
+    | INVALID_TRANSITION – `earlyDeparture` trong 00:00–05:59 (0.3.13 bổ sung 1, V5-11) | `minNewDepartureDate`, `useCheckout` |
     | PARAM_OUT_OF_RANGE | `min`, `max`, `allowed[]` |
     | 422 có `HOLD_LIMIT_REACHED` | `max` |
     | 422 có `MIN_STAY_NOT_MET` | `minStayNights`, `suggestions[]` với `orphanNight=true` (BR-113 a) |
-    | 422 có `RATE_OUT_OF_RANGE(_WARNING)` | `dates[]`; **0.3.13 (V5-22)**: `min`, `max` – sàn và trần (VND) của đêm đầu tiên trong `dates[]` |
+    | 422 có `RATE_OUT_OF_RANGE(_WARNING)` | `dates[]`; **0.3.13 (V5-22)**: `min`, `max` – sàn và trần (VND) của đêm đầu tiên trong `dates[]` | Mọi nơi trả mã này (gồm `createReservation` bản `_WARNING` của OTA, B13 `extendStay`, báo giá V5-14). B13 trả thêm `date` (số ít, cho client cũ). 403 khác **không** có trường mở rộng.
     | 422 `moveReservation` (`overbookingResolution` sai) | `expected` |
 
     ## Mã lỗi theo trường (`FieldError.code`, nằm trong `errors[]` của `422 VALIDATION_FAILED`) – 0.3.1
@@ -307,29 +310,60 @@ info:
     ## Thay đổi phiên bản 0.3.13-draft (R5 v1.0.5 – Gói 0; ARC 06/11; chi tiết `rounds/round-05/outputs/ARC/contract-0.3.13.md`)
     Nền: 0.3.12-draft (`main` @ `4a36180a`). Chủ yếu **thêm**: trường chỉ đọc, trường tùy chọn ở thân lệnh, tham số lọc, trường mở rộng của Problem, luật trên operation đã có, và hai operation mới (Wi-Fi).
     **Một đổi phá vỡ có chủ đích** (V5-1A, BUG-R4-057): `RoomInput.nightlyListPriceVnd` và `RoomPatch.listPrice.nightlyListPriceVnd` thành **bắt buộc**. Lý do: gỡ đường tạm BR-101 (5) – gọi API mà quên
-    giá đêm thì giá đêm sai mà không ai được báo, web và Desk cùng hiện số sai. Desk đã luôn gửi giá đêm khi đổi giá; form tạo căn của Desk phải thêm ô giá đêm (FE-A).
+    giá đêm thì giá đêm sai mà không ai được báo, web và Desk cùng hiện số sai. Desk đã luôn gửi giá đêm khi đổi giá và **không có** màn tạo căn (`createRoom` chỉ do script, công cụ
+    gọi); mock `admin-web` và các test phải gửi giá đêm (sửa câu cũ "form tạo căn của Desk" – SEC ARC-12, BE C0313-15).
     Operation/trường đổi mang ghi chú "0.3.13". **Không migration DB** cho các mục đã chốt ở đây. BE sinh lại `openapi-meta.ts`, `openapi-schemas.ts`; api-client sinh lại `generated/openapi.ts` (cùng PR).
     - **(a) V5-10 – một `checkoutAt` (BUG-R4-036, BUG-R4-051, FB-R4-ARC-FE-P432-04)**: `CheckoutSummary.checkoutAt` (thời điểm trả **đã quy đổi**; mọi số của bản tóm tắt tính theo nó) và
       `checkoutTimeNoteRequired`. Một luật quy đổi `checkoutTime` cho tóm tắt, QR `check_out` và B18 (xem `checkOut`, mục "Quy đổi giờ trả"). Desk gửi **đúng** `checkoutAt` đó cho
       `createVietQr purpose=check_out` và `checkOut`. `allowedActions` có `check_out` từ 00:00 ngày lịch = ngày đi (cửa sổ sau nửa đêm, đã có từ 0.3.6; cài lại theo BUG-R4-036).
     - **(b) V5-13 – `openRefunds`** (ARC A1 (b), FB-R4-ARC-FE-P432-02): `CheckoutSummary.openRefunds[]` và `Folio.totals.openRefunds[]` = `OpenRefund { reasonCode, openVnd }`, gom theo lý do, gồm mọi yêu cầu
       hoàn đang mở của các đơn trên folio (kể cả yêu cầu do người khác tạo). Chỉ FD+.
-    - **(c) V5-14 – giữ chỗ theo giá đã gõ (BUG-R4-041, FB-R4-ARC-FE-PR75-01)**: `QuoteInput.nightlyRates` (tùy chọn; chỉ `short`; kênh khác `ota`; chỉ FD+). Báo giá chụp giá gõ, `createHoldFromQuote`
+    - **(c) V5-14 – giữ chỗ theo giá đã gõ (BUG-R4-041, FB-R4-ARC-FE-PR75-01)**: `QuoteInput.nightlyRates` (tùy chọn; chỉ `short`; báo giá chỉ nhận kênh `direct`/`agent`; chỉ FD+ – xem bổ sung 1). Báo giá chụp giá gõ, `createHoldFromQuote`
       giữ chỗ và tính cọc theo giá chụp. `createHoldFromQuote` nhận trường giá → 422 `NOT_ALLOWED`.
     - **(d) V5-15 – trả phòng đơn quá ngày đi** (BR-421 v0.5.7, hướng v1.0.5): `checkOut.overdueReason`. Lượt đã qua ngày đi → B18 với `checkoutAt` = lúc khách rời thật (ngày nghiệp vụ = ngày đi), **chỉ OWN/MGR**;
       `AllowedAction.overdue`, `CheckoutSummary.overdue`. Nút **Cần dọn** dùng `transitionRoomStatus` `needs_cleaning` (R8) và `RoomStatusEntry.allowedEvents` đã có – không đổi hợp đồng.
     - **(e) V5-16 – phần không phụ thuộc lựa chọn của DOM**: `listAuditEvents` thêm `action` (nhiều giá trị) và `removalsOnly`; `folio_line.adjusted` ghi thêm `before.actorRole`, `before.postedByActor`,
-      `before.sameBusinessDay`. Phần chặn theo vai (SEC đề xuất (a)) **chờ DOM** – chưa có trong bản này, ARC bổ sung sau khi DOM chốt.
+      `before.sameBusinessDay`. Phần chặn theo vai: DOM chọn SEC (a) + báo cáo (b) → BR-438, ở bổ sung 1 (g).
     - **(f) V5-18 – `Reservation.depositUnverifiedVnd`** (FB-R4-SEC-FE-HOLDS-03): phần cọc đã ghi mà còn chờ đối soát. Chỉ FD+.
     - **(g) V5-1A – giá đêm bắt buộc (BUG-R4-057)**: thiếu → 422 `VALIDATION_FAILED`, `errors[].code = REQUIRED`, không ghi gì. Server không còn tính giá tháng ÷ `night_from_month_divisor`.
       Giữ `MoneyVnd` (≥ 1) và CHECK > 0 của DB (SEC 06/11). Ví dụ ghi đủ hai giá.
     - **(h) V5-22 – `RATE_OUT_OF_RANGE` có `min`/`max`** (BUG-R4-040): ở mọi lệnh trả mã này, cạnh `dates[]`.
     - **(i) V5-30 – hoa hồng không có số mặc định (FB-R4-SEC-BE-01)**: `QuoteCalculation.commission.status` (`computed` | `rate_missing` | `not_applicable`); `listParameters` trả `missing[]`
-      (khóa không có mặc định mà chưa có giá trị – OWN/MGR). Cấu trúc bảng H2 **chờ DOM**. Hợp đồng không chứa tỷ lệ hay số tiền hoa hồng nào.
+      (khóa không có mặc định mà chưa có giá trị – OWN/MGR). Cấu trúc bảng H2 (DOM 06/11): bổ sung 1 (k). Hợp đồng không chứa tỷ lệ hay số tiền hoa hồng nào.
     - **(j) V5-44 – bỏ dò chữ `detail`**: `Problem.lockReason` luôn có với `409 FOLIO_LOCKED`. `cancelScheduledRoomListPrice`: lỗi `check_violation` của trigger 0094 → `409 INVALID_TRANSITION`
       `currentState: effective` thay 500.
     - **(k) V5-58 – Wi-Fi trên Desk (BUG-R3-021 phần Desk)**: `getPropertyWifi`, `setPropertyWifi` (`/v1/properties/{propertyId}/wifi`) đọc/ghi `property.wifi_info_i18n`, cột trang khách đang đọc. Không migration.
     - Không đổi hợp đồng (ghi lại để tra): V5-46 (`ID_NUMBER_DETECTED` đã có từ 0.3.12 (i)); V5-50 (Desk lọc căn theo `listRoomStatuses`); V5-57 (`listReservations.q` đã tìm theo tên người đứng tên từ 0.3.7).
+    **Bổ sung 1 (06/11 tối – ARC sửa theo review SEC `SEC-on-contract-0.3.13.md`, BE `BE-on-contract-0.3.13.md`; DOM trả lời `rules-v1.0.5.md` mục 7, 9, 11)** – vẫn `0.3.13-draft`, chưa gộp:
+    - **(a) `x-write-roles` (mới, SEC ARC-02)** – phần mở rộng ở mức operation: `{ <đường dẫn trường thân lệnh>: [vai] }` (`a.b` = trường con, `a[].b` = trường của mọi phần tử).
+      Vai có trong `x-roles` mà không có trong danh sách gửi trường đó (kể cả `null`, mảng rỗng) → `403 FORBIDDEN_ACTION` + `audit_event access.denied`, **sau** bước tra
+      `Idempotency-Key` (ADR-009), **trước** mọi kiểm thân lệnh và mọi tính giá; thân lỗi không có trường mở rộng nào (không `min`, `max`, `dates`, `errors`). Tài khoản nhiều vai qua
+      khi **một** vai có trong danh sách (hợp quyền, như `x-roles`; ví dụ FD ∪ SAL gửi được `nightlyRates`). `openapi-meta.ts` mang `writeRoles`; `gen_rbac_cases.py` sinh `fieldCases`.
+      Ranh giới theo **trạng thái** (đơn quá ngày đi) không biểu diễn được bằng phần mở rộng này: ca viết tay ở `contract-0.3.13.md` mục 1.16.
+    - **(b) V5-14 (SEC ARC-01, ARC-06; BE C0313-05)**: báo giá chỉ nhận kênh `direct`/`agent` (BR-112, như mã hiện nay); `ota`, `internal` → 422 `NOT_IN_LIST`. `QuoteInput.nightlyRates`
+      cùng nghĩa `createReservation` của kênh `direct`/`agent`: gửi thì phủ mọi đêm, giá gõ = giá lịch trước bậc BR-107/BR-111, luôn sàn–trần BR-105, không đêm 0 đ; đêm `edited` ≠ `true`
+      lấy giá lịch của máy chủ (bỏ `amountVnd` gửi lên). Báo giá dùng chung `PricingService.price`. `x-write-roles` trên `calculateQuote`, `saveQuote`, `createReservationGroup`.
+    - **(c) V5-15 (SEC ARC-03, DOM 7.1 (a); BE C0313-03, 09, 10)**: MGR trả phòng đơn quá ngày đi khi `nightsNotBilled` ≤ 1; từ 2 đêm chỉ OWN (403 kèm `requiredRole`, `nightsNotBilled`).
+      Audit `after.overdue.nightsNotBilled`; `listAuditEvents.overdueOnly`; `CheckoutSummary.nightsNotBilled`; `overdueReason` qua bộ đọc chữ D12c. B18 có `checkoutAt` ghi
+      `actual_checkout_at` = `checkoutAt`. `check_out`, cửa sổ sau nửa đêm và `overdue` theo **ngày đi hiệu lực** của lượt.
+    - **(d) V5-10 (BE C0313-01, 02, 07, 08)**: QR `check_out` và `amountDueNow` kiểm `TIME_AFTER_ACTION` như B18; `CheckoutSummary.checkoutAtAfterNow`; ứng viên thứ ba của
+      "Quy đổi giờ trả" (giữ hành vi hiện có cho giờ rời tối trước ngày đi); `getArrivalsDepartures` vắng `date` trong cửa sổ sau nửa đêm → `departuresDate`.
+    - **(e) V5-11 (DOM mục 2, 7.6)**: `earlyDeparture` 409 `INVALID_TRANSITION` thêm `minNewDepartureDate`, `useCheckout`.
+    - **(f) V5-58 (SEC ARC-04, ARC-05; BE C0313-16, 21)**: luật client chống trình duyệt tự điền; máy chủ chặn `ssid` trùng tên đăng nhập nhân viên và mật khẩu trùng mật khẩu người gọi;
+      `ssid` ≤ 32 byte UTF-8; mật khẩu ASCII in được; `no-store` cả PUT; PUT không trả mật khẩu (`passwordSet`); lỗi không lặp lại giá trị; không SSE. FD đọc (DOM 7.5): chờ dòng rbac của BA.
+    - **(g) V5-16 (DOM 3, 7.2 → BR-438; BE C0313-04, 20)**: `adjustFolioLine` – FD/FDL sửa **giảm** trực tiếp chỉ dòng nhập tay của chính mình ghi trong ngày nghiệp vụ hiện tại (xét
+      theo dòng gốc); ngoài ra 403 `FORBIDDEN_ACTION` + `requiredFlow: foc_request`. Audit thêm `before.rootLineId`, `before.rootLineManual`; `reductionsOnly`; FOC `entered_in_error`;
+      `ShiftReport.lineReductions`; "Cần chú ý" `foc_threshold` `check = line_reduction_count`.
+    - **(h) Khác (BE C0313-11…19)**: `lockReason` + `invoice_issued`; `depositUnverifiedVnd` có chặn trên; `OpenRefund.reasonCode` mọi mã lý do hoàn; trigger 0094 bắt theo SQLSTATE +
+      tiền tố câu; `setParameter` ghi dạng `weekend_nights` (`Weekday[]`), `min_stay` (`MinStayRule[]`); `listParameters.missing[]` lọc vai như `data`; cảnh báo tỷ lệ giá đêm/giá tháng
+      (`NIGHTLY_PRICE_UNUSUAL`, SEC ARC-12).
+    - **(h2) BUG-R5-002, BUG-R5-003 (QA 06/11)**: `recordPayment`/`createVietQr` trên đơn `cancelled`/`no_show` – trần cứng còn phải thu, đóng đường ghi vượt có `note`; luật lưu `min_stay` chi tiết
+      (mục `setParameter`). Không đổi schema.
+    - **(i) Tin `hold_expired` (DOM mục 9)**: gửi người tạo, người chốt **và** mọi FD, FDL đang hoạt động (bỏ nhánh "chỉ khi không có người tạo"). Không đổi schema.
+    - **(k) V5-30, V5-31 (DOM 4, 5, 7.3, 7.4) – cần migration, PR riêng (PR-M)**: `Commission.instalmentNo`, `voidReason`; `getManagerPerformanceBonus` (tính lúc đọc); `AttentionItem.kind`
+      `commission_rate_missing`; `GuestRequest.feeFallback`. Khóa mới `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` cần dòng danh mục
+      `config_parameter_def` (migration) – chi tiết `contract-0.3.13.md` mục 4. Operation/trường của (k) chỉ cài cùng PR-M.
+    - **(l) `x-round: R5`** cho các operation mới của 0.3.13 (cột `sprint` của `rbac-cases`); `rbac-cases` đổi sang id ổn định `RB-<operationId>-<subject>` (SEC ARC-13).
 
     ## Thay đổi phiên bản 0.3.12-draft (R4 v1.0.4 – gói P4-00; ARC 04/11; chi tiết `rounds/round-04/outputs/ARC/v1.0.4-contract-0.3.12.md`)
     Nền: 0.3.11-draft (`lp-v2-main`). Chỉ **thêm** giá trị enum ở phản hồi, trường chỉ đọc, mã lỗi trên operation đã có và mô tả – **không** operation mới, không đổi `x-roles`.
@@ -1670,6 +1704,9 @@ paths:
         **0.3.13 (V5-1A, BUG-R4-057)**: `nightlyListPriceVnd` **bắt buộc** cùng `monthlyListPriceVnd` – hai giá của dòng `room_list_price` đầu tiên của căn (hiệu lực `activeFrom`, vắng = hôm nay).
         Thiếu → 422 `VALIDATION_FAILED` (`field` = `nightlyListPriceVnd`, `code` = `REQUIRED`), không tạo căn. Server không suy giá này từ giá kia (BR-101 (1)).
         Đường tạo căn ngoài API (bootstrap, nhập danh mục) phải ghi đủ hai giá, hoặc để căn ngừng bán tới khi OWN nhập giá; `pricegap` tĩnh (V5-73) đếm căn đang bán mà thiếu giá.
+        **0.3.13 bổ sung 1 (BE C0313-15)**: `production-bootstrap` tạo căn `isSellable = false` khi chưa có dòng giá; OWN nhập giá rồi mới mở bán.
+        **0.3.13 bổ sung 1 (SEC ARC-12, BR-101 (4))**: giá đêm < giá tháng ÷ 30, hoặc > giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt biên trên] → vẫn lưu, phản hồi có `warnings[]`
+        `NIGHTLY_PRICE_UNUSUAL` (không chặn – BR-101 (1) hai giá độc lập). Desk tự tính cùng điều kiện **trước** khi gửi và đòi bấm xác nhận lại ("Giá đêm 800 đ – đúng chưa?").
       x-roles: [owner, manager]
       x-rbac: [S25]
       x-stories: [US-004]
@@ -1685,7 +1722,19 @@ paths:
           description: Đã tạo
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Room' }
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Room' }
+                  - type: object
+                    properties:
+                      warnings:
+                        type: array
+                        description: '**0.3.13 bổ sung 1**: chỉ `NIGHTLY_PRICE_UNUSUAL` (xem mô tả); rỗng/vắng = không cảnh báo'
+                        items:
+                          type: object
+                          required: [code]
+                          properties:
+                            code: { type: string, enum: [NIGHTLY_PRICE_UNUSUAL] }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/rooms/{roomId}:
@@ -1705,6 +1754,7 @@ paths:
         **0.3.13 (V5-1A, BUG-R4-057)**: `listPrice.nightlyListPriceVnd` **bắt buộc** – thiếu → 422 `VALIDATION_FAILED` (`field` = `listPrice.nightlyListPriceVnd`, `code` = `REQUIRED`), không ghi gì;
         server không còn tính giá tháng ÷ `night_from_month_divisor`. Giá ≤ 0 → 422 như mọi `MoneyVnd`; CHECK > 0 của DB giữ nguyên (lớp thứ hai).
         Gỡ hẳn một dòng đã lên lịch (trở về giá trước đó) dùng `cancelScheduledRoomListPrice`. Phản hồi có `scheduledListPrices` (OWN/MGR).
+        **0.3.13 bổ sung 1 (SEC ARC-12)**: `listPrice` có giá đêm ngoài khoảng [giá tháng ÷ 30, giá tháng ÷ 3] → vẫn lưu, `warnings[]` thêm `NIGHTLY_PRICE_UNUSUAL` (như `createRoom`).
       x-roles: [owner, manager]
       x-rbac: [S25]
       x-stories: [US-004]
@@ -1736,10 +1786,10 @@ paths:
                           `hold`/`confirmed`/`in_house` có đêm từ hôm nay giữ căn này (ngừng bán không hủy/dời đơn – lễ tân tự dời). Không có cảnh báo → mảng rỗng.
                         items:
                           type: object
-                          required: [code, count]
+                          required: [code]
                           properties:
-                            code: { type: string, enum: [FUTURE_RESERVATIONS_KEEP_ROOM] }
-                            count: { type: integer, minimum: 1 }
+                            code: { type: string, enum: [FUTURE_RESERVATIONS_KEEP_ROOM, NIGHTLY_PRICE_UNUSUAL], description: '**0.3.13 bổ sung 1**: + `NIGHTLY_PRICE_UNUSUAL` (không có `count`)' }
+                            count: { type: integer, minimum: 1, description: 'Chỉ với `FUTURE_RESERVATIONS_KEEP_ROOM`' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: CAPACITY_BELOW_BOOKINGS – giảm `maxOccupancy` dưới số khách của đơn `confirmed`/`in_house`/giữ chỗ còn hạn có đêm từ hôm nay (BUG-R1-007)
@@ -1772,6 +1822,8 @@ paths:
         - **0.3.12 (BUG-R4-015)**: không được xóa dòng có `effectiveFrom` **nhỏ nhất** của căn khi căn còn dòng khác (căn tạo với `activeFrom` tương lai: dòng đầu là giá mở bán,
           xóa đi thì từ `activeFrom` tới dòng kế không có giá) → `409 INVALID_TRANSITION` (`currentState` = `first_price`) – sửa giá dòng đó bằng `updateRoom.listPrice`.
           `only_price` giữ cho căn chỉ có một dòng. Kiểm dưới khóa `room … FOR UPDATE`. Dòng `effectiveFrom` ≤ ngày nghiệp vụ còn bị trigger DB 0094 chặn xóa (ED-02, BE-C) – lớp thứ hai, không đổi mã lỗi.
+        - **0.3.13 bổ sung 1 (BE C0313-19)**: bắt **chỉ** khi SQLSTATE = `23514` **và** câu lỗi bắt đầu bằng `room_list_price: applied price row is append-only` (trong `SAVEPOINT`,
+          như mẫu `create_room`); lỗi `23514` khác ném lại (500). Không audit, `version` không tăng.
         - **0.3.13 (V5-44, ARC P411-02)**: lần xóa bị trigger 0094 từ chối (SQLSTATE `23514` `check_violation` – ví dụ ngày lịch vừa sang ngày hiệu lực giữa lúc kiểm và lúc xóa, hoặc đồng hồ
           staging `CLOCK_MODE=mutable` lùi về quá khứ) → `409 INVALID_TRANSITION` (`currentState` = `effective`), rollback, không audit – thay 500 chung. Chỉ ánh xạ lỗi của trigger này trên lệnh này;
           `check_violation` khác vẫn là 500.
@@ -1842,8 +1894,12 @@ paths:
       description: |
         **0.3.13 (V5-58)**. Đọc `property.wifi_info_i18n`, cùng nguồn với `getGuestStay.wifi`. Chưa cấu hình → `200` với `configured = false`, không có `ssid`, `password`.
         `Cache-Control: no-store`. Không ghi giá trị vào log. Vai đọc = vai xem Tham số quy tắc (S24: OWN, MGR, FDL).
+        **0.3.13 bổ sung 1 (BE C0313-16)**: đọc theo **cùng luật** với trang khách (`wifiOf`: dạng phẳng `{ssid, password}`, hoặc dạng cũ theo ngôn ngữ `raw[locale]` → `raw.vi`).
+        `passwordSet` = có mật khẩu (mạng không mở). **FD đọc** (DOM 7.5, SEC không phản đối – C1): ARC thêm `front_desk` vào `x-roles` khi BA có dòng rbac riêng cho việc đọc Wi-Fi
+        (S24 là màn Tham số, FD không xem) – tới đó FD → 403.
       x-roles: [owner, manager, front_desk_lead]
       x-rbac: [S24]
+      x-round: R5
       x-stories: [US-005, US-108]
       responses:
         '200':
@@ -1864,9 +1920,24 @@ paths:
         (`field` = `ssid`, `code` = `NOT_ALLOWED`) – tên mạng khách thấy không được lộ căn (BR-012 (7)). `password` 8–63 ký tự in được (WPA2-PSK) hoặc chuỗi rỗng (mạng mở); khác → 422
         `VALUE_OUT_OF_RANGE` (`field` = `password`).
         Audit `config` `property.wifi_changed`: `before.ssid`, `after.ssid`, `after.passwordChanged` (boolean). **Không** ghi mật khẩu vào audit, log hay thông báo. Không báo khách.
-        Phản hồi như `getPropertyWifi`. Seed, fixtures, ví dụ và ảnh chụp chỉ dùng chuỗi giữ chỗ `<wifi-password>`.
+        Seed, fixtures, ví dụ và ảnh chụp chỉ dùng chuỗi giữ chỗ `<wifi-password>`.
+        **0.3.13 bổ sung 1** – thay các câu kiểm ở trên khi khác nhau:
+        - **Kiểm `ssid`** (SEC ARC-05): sau khi bỏ khoảng trắng đầu/cuối, 1–**32 byte UTF-8** (chuẩn Wi-Fi; tên có dấu tiếng Việt tốn 2–3 byte/ký tự), không ký tự điều khiển → khác: 422
+          `VALUE_OUT_OF_RANGE` (`field` = `ssid`, `max` = 32). Có số căn → 422 `NOT_ALLOWED` như trên. **Trùng tên đăng nhập** của một nhân viên cơ sở (không phân biệt hoa thường, kể cả
+          tài khoản đã khóa) → 422 `NOT_ALLOWED` (`field` = `ssid`) – SEC ARC-04 (a).
+        - **Kiểm `password`** (BE C0313-16, SEC ARC-04 (b)): rỗng (mạng mở) hoặc 8–63 ký tự ASCII 0x20–0x7E (WPA2-PSK) → khác: 422 `VALUE_OUT_OF_RANGE` (`field` = `password`).
+          Trùng **mật khẩu đăng nhập của chính người gọi** → 422 `NOT_ALLOWED` (`field` = `password`): một lần argon2 verify trên hash của người gọi, không đếm vào khóa đăng nhập, không log,
+          không so với tài khoản khác (không thành kênh dò, ngoài SR-AUTH-11).
+        - **Lỗi 422 không lặp lại giá trị đã gửi** ở `detail`, `title`, `errors[].message` (chỉ `field`, `code`, `max`). Lỗi kiểm → không ghi `property`, không audit.
+        - **Phản hồi** (BE C0313-21): `PropertyWifi` **không** có `password` (`passwordSet` thay thế; Desk đã có giá trị vừa gõ). `Cache-Control: no-store` ở cả 200 và 422.
+        - **Không phát SSE** (không có loại sự kiện cấu hình). Ghi dạng phẳng `{ssid, password}`, `UPDATE … WHERE id = $propertyId` (RLS `property` theo tổ chức); thực thể audit
+          `property` đăng ký với `ssid`, `passwordChanged`. Không `If-Match`: người sau ghi đè (tần suất rất thấp; audit giữ `before.ssid`).
+        - **Client (Desk – FE-A, UXD; SEC ARC-04)**: ô mật khẩu Wi-Fi **không** là `type="password"` (ô chữ có nút ẩn/hiện); form và hai ô `autocomplete="off"`; `name`/`id` không chứa
+          `user`, `login`, `pass` (ví dụ `wifiNetworkName`, `wifiKey`); không điền sẵn từ trình duyệt; trước khi lưu có bước xác nhận "Khách sẽ thấy: tên mạng …, mật khẩu …".
+          E2E: trình duyệt đã lưu tài khoản Desk → hai ô vẫn trống.
       x-roles: [owner, manager]
       x-rbac: [A101]
+      x-round: R5
       x-stories: [US-005, US-108]
       requestBody:
         required: true
@@ -1882,7 +1953,7 @@ paths:
             example: { ssid: OTTIMO BOUTIQUE STAY, password: '<wifi-password>' }
       responses:
         '200':
-          description: Đã lưu
+          description: Đã lưu – không có `password` (0.3.13 bổ sung 1)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PropertyWifi' }
@@ -1921,7 +1992,7 @@ paths:
                   missing:
                     type: array
                     x-visible-to: [owner, manager]
-                    description: '**0.3.13 (V5-30)** – khóa không có mặc định và chưa có giá trị hiệu lực ở `asOf`; rỗng = đủ'
+                    description: '**0.3.13 (V5-30)** – khóa không có mặc định và chưa có giá trị hiệu lực ở `asOf`; rỗng = đủ. **Bổ sung 1 (BE C0313-17)**: cùng bộ lọc vai với `data` (MGR không thấy tên khóa chỉ OWN). Mọi chỗ đọc khóa hoa hồng bắt `ParameterMissingError` → `rate_missing`, không 500. Bỏ số ở `production-defaults.ts` không đổi giá trị đã có trên production'
                     items: { type: string }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -1964,6 +2035,14 @@ paths:
         Khóa không bảo mật có khoảng giá trị (erd 9) cũng trả `PARAM_OUT_OF_RANGE` khi vượt khoảng.
         Mỗi lần sửa tham số bảo mật ghi `audit_event category='security'` (giá trị trước/sau, lý do, người sửa); các khóa khác ghi `category='config'`.
         Kiểm tra thực hiện trên server theo khóa trong đường dẫn – client không quyết định khóa nào là "bảo mật".
+        **0.3.13 bổ sung 1 (BE C0313-06, 18; BUG-R5-001, V5-25)** – dạng giá trị hai khóa (không đổi schema; `allowed[]` có thể là chuỗi):
+        - `weekend_nights` = `Weekday[]` (`MON`…`SUN`, ít nhất 1, không trùng; OTTIMO `["FRI","SAT"]`); khác (kể cả số 1–7) → 422 `PARAM_OUT_OF_RANGE`, `allowed` = 7 mã chữ.
+        - `min_stay` = `MinStayRule[]` (kiểu ở `reservations/public/pricing.ts`: `nights` nguyên 1–7, `arrivalWeekdays` `Weekday[]` không trùng, `arrivalOnSpecialDates` boolean, `channels` = `all` hoặc nhóm kênh); dạng số hoặc
+          đối tượng → 422 `PARAM_OUT_OF_RANGE`. Bộ tính giá đọc phòng thủ: không phải mảng → coi như rỗng, log cảnh báo một lần, không 500.
+          **BUG-R5-003 (ARC chốt)**: mảng có thể rỗng (= không luật); mỗi phần tử phải có `arrivalWeekdays` không rỗng **hoặc** `arrivalOnSpecialDates = true` (luật không áp vào ngày nào → lỗi);
+          khóa lạ trong phần tử → lỗi. Lỗi trả `errors[]` với `field` = `value[<i>].<thuộc tính>` (ví dụ `value[0].nights`) và `allowed`/`min`/`max` như các khóa khác – **không thêm trường
+          mở rộng, không đổi schema** (`ParameterValue` vẫn tự do). Bộ đọc phòng thủ bỏ qua phần tử hỏng (không bỏ cả mảng). Giá trị đang hiệu lực hôm nay không sửa được trong ngày
+          (luật `effectiveFrom` cũ) – vì bộ đọc không còn 500 nên không mở ngoại lệ sửa trong ngày ở bản này.
         **0.3.7 bổ sung 2 (SEC ARC-17, C-3 (e))**: `public_booking_requests_enabled` là tham số bảo mật (chỉ OWN, audit `security`). Đặt `true` → server kiểm có dòng `privacy_notice_version`
         đang hiệu lực cho mỗi ngôn ngữ landing đang phát hành (`vi`, `en`; `ru` khi có trang RU) và khóa ký form đã nạp – thiếu → 422 `PUBLIC_FORM_NOT_READY` (`missing[]`), giá trị không đổi;
         đổi thành công → thông báo `public_booking_toggled` cho OWN + MGR. Đây là **công tắc duy nhất** việc nhận dữ liệu lúc chạy: trang luôn có sẵn mã form, form token 404 → khối Zalo;
@@ -2219,7 +2298,7 @@ paths:
       parameters:
         - name: date
           in: query
-          description: '0.3.7 (B-20): vắng = ngày nghiệp vụ (BR-010 – 01:30 vẫn là ngày hôm trước); ngoài ngày nghiệp vụ ±7 ngày → 422 `VALUE_OUT_OF_RANGE` (`field` = `date`)'
+          description: '0.3.7 (B-20): vắng = ngày nghiệp vụ (BR-010 – 01:30 vẫn là ngày hôm trước); ngoài ngày nghiệp vụ ±7 ngày → 422 `VALUE_OUT_OF_RANGE` (`field` = `date`). **0.3.13 bổ sung 1 (BE C0313-02, BUG-R4-036)**: vắng `date` **trong cửa sổ sau nửa đêm** (ngày lịch = ngày nghiệp vụ + 1, trước `business_day_rollover`) → phần `departures` lấy lượt có ngày đi hiệu lực = **ngày lịch** (`departuresDate`), `allowedActions` như ngày đó; `arrivals`, `holdsArrivingToday` giữ ngày nghiệp vụ. Lượt quá ngày đi (V5-15) không vào `departures`'
           schema: { $ref: '#/components/schemas/LocalDate' }
       responses:
         '200':
@@ -3817,6 +3896,9 @@ paths:
         `checkoutTimeNoteRequired` báo trước việc B18 sẽ đòi `checkoutTimeNote`. Tóm tắt không trả 422 theo giờ gõ (B18 kiểm `TIME_AFTER_ACTION`, `TIME_NOTE_REQUIRED` như cũ).
         **0.3.13 (V5-15)**: lượt đã qua ngày đi → `overdue = true`; số tính theo `checkoutAt` (vắng → quy đổi giờ hẹn/giờ chuẩn trên ngày đi). Vai đọc không đổi; chỉ OWN/MGR ghi được B18 (xem `checkOut`).
         **0.3.13 (V5-13)**: `openRefunds[]` – tổng đang chờ hoàn theo lý do (xem schema).
+        **0.3.13 bổ sung 1**: `checkoutAtAfterNow = true` khi `checkoutAt` > giờ server + `manual_time_tolerance_minutes` (BE C0313-01) – Desk tắt nút QR và Hoàn tất, hiện "Giờ trả đang ở sau
+        giờ hiện tại". Desk chỉ chuyển tiếp `checkoutAt` của lần tóm tắt **có gửi** `checkoutTime` hoặc `checkoutAt` (giờ bước 2), không chuyển tiếp lần gọi không tham số (BE C0313-08).
+        Đơn quá ngày đi: `nightsNotBilled` (V5-15, DOM 7.1).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [S07]
       x-stories: [US-036, US-037]
@@ -3859,6 +3941,12 @@ paths:
         **`allowedActions` (0.3.9 bổ sung 1, FB-R3-UXD-FE-A-06)**: `early_departure` chỉ có khi đơn chính `in_house` **và** còn ít nhất một ngày rời hợp lệ, tức
         max(hôm nay, `arrivalDate` + 1) < `stayDepartureDate` (ngày đi của cả lượt, gồm đơn con gia hạn). Desk hiện/ẩn nút chỉ theo `allowedActions`; ngày rời chọn được
         trong [max(hôm nay, `arrivalDate` + 1), `stayDepartureDate` − 1]. Server vẫn kiểm lại (422 `DATE_INVALID`).
+
+        **0.3.13 bổ sung 1 (V5-11; DOM mục 2, 7.6; BR-010, BR-428)** – trong **W** = 00:00 tới trước `business_day_rollover` của ngày lịch D+1 (ngày nghiệp vụ D), xét **trước** mọi kiểm ngày khác,
+        cả `dryRun`: (1) ngày đi hiệu lực của lượt = D+1 → `409 INVALID_TRANSITION` (`currentState: in_house`, `useCheckout: true`) – dùng B18 (phụ thu 0, nút Trả phòng có từ 00:00 – V5-10);
+        (2) `newDepartureDate` ≤ D → `409 INVALID_TRANSITION` (`minNewDepartureDate` = D+1) – đêm D khách đã ở. Ngoài W giữ như cũ (tối thiểu = ngày nghiệp vụ). Đơn, folio không đổi.
+        Dòng phí giữ lại (`cancellation_fee`, `no_show_fee`, `early_departure_fee`, `deposit_forfeit`) lấy `serviceDate` = ngày nghiệp vụ lúc thao tác (BUG-R3-036) – không đổi hợp đồng.
+        Một hàm "ngày lịch tối thiểu" dùng chung (`businessDay` + `rollover`) cho B16, V5-10.
 
         **Tính thử (`dryRun=true`)** – như `cancelReservation`/`setLateCheckout`: không cần `Idempotency-Key`/`If-Match`, không tiêu khóa, **không để lại gì** (không
         `reservation_change`, `stay_night`, `folio_line`, `approval_request`, `audit_event`, outbox, SSE, không gắn tệp, không cấp mã/số từ sequence). Cùng quyền (`x-roles`, phạm vi) và
@@ -4012,11 +4100,30 @@ paths:
           phụ thuộc mật khẩu nên không thành kênh dò.
         - **0.3.13 (V5-10) – Quy đổi giờ trả** (một luật cho `getCheckoutSummary`, QR `check_out` và B18): có `checkoutAt` → dùng nguyên (ngày nghiệp vụ phải = ngày đi của lượt hoặc cửa sổ sau
           nửa đêm của ngày đó; khác → 422 `DATE_INVALID`, `field` = `checkoutAt`). Không có → giờ `t` = `checkoutTime` ?? giờ hẹn trả muộn ?? `checkout_time`; ứng viên = (ngày lịch = ngày đi, `t`) và,
-          khi `t` < `business_day_rollover`, (ngày đi + 1, `t`); chọn ứng viên **muộn nhất không sau** giờ server + `manual_time_tolerance_minutes`; không ứng viên nào đạt → ứng viên sớm nhất
+          khi `t` < `business_day_rollover`, (ngày đi + 1, `t`); **0.3.13 bổ sung 1 (BE C0313-07)** – khi giờ server đang ở cửa sổ sau nửa đêm của ngày đi và `t` ≥ `business_day_rollover`,
+          thêm (ngày đi − 1, `t`) (khách rời buổi tối trước, lễ tân ghi trong đêm – giữ hành vi hiện có); chọn ứng viên **muộn nhất không sau** giờ server + `manual_time_tolerance_minutes`; không ứng viên nào đạt → ứng viên sớm nhất
           (B18 trả `TIME_AFTER_ACTION`). Ví dụ đi 23/11, `business_day_rollover` 06:00: 07:00 ngày 23/11 gõ 05:30 → 23/11 05:30 (cửa sổ sau nửa đêm, phụ thu 0; sớm hơn giờ thao tác quá ngưỡng → cần
-          `checkoutTimeNote`) – trước đây hiểu là 24/11 05:30 rồi 422 (BUG-R4-051); 01:05 ngày 24/11 gõ 01:00 → 24/11 01:00 (sau mốc cuối → `extraNight`). Luật mới chỉ đổi kết quả ở các ca trước
-          đây bị 422 `TIME_AFTER_ACTION`. Desk gửi `checkoutAt` = `CheckoutSummary.checkoutAt` của lần tóm tắt cuối; server vẫn kiểm lại dưới khóa. `allowedActions` có `check_out` từ 00:00 ngày lịch
-          = ngày đi (cửa sổ sau nửa đêm) – BUG-R4-036.
+          `checkoutTimeNote`) – trước đây hiểu là 24/11 05:30 rồi 422 (BUG-R4-051); 01:05 ngày 24/11 gõ 01:00 → 24/11 01:00 (sau mốc cuối → `extraNight`). Đi 24/11, 01:05 ngày 24/11 gõ 23:50 → 23/11 23:50 (phụ thu 0).
+          `checkoutAt` gửi thẳng có ngày nghiệp vụ = ngày đi − 1 chỉ nhận trong cùng điều kiện đó (trước đây 422 `DATE_INVALID` – lệch với đường gõ giờ), không trước giờ nhận phòng thực tế.
+          **QR `check_out` và `amountDueNow` kiểm `TIME_AFTER_ACTION` như B18** (BE C0313-01): một hàm quy đổi dùng chung (`resolveCheckoutAt`); 422, không tạo QR, không ghi gì. Desk gửi `checkoutAt` = `CheckoutSummary.checkoutAt` của lần tóm tắt cuối; server vẫn kiểm lại dưới khóa. `allowedActions` có `check_out` từ 00:00 ngày lịch
+          = ngày đi (cửa sổ sau nửa đêm) – BUG-R4-036. **Bổ sung 1 (BE C0313-09)**: "ngày đi" ở mục này, cửa sổ sau nửa đêm và `overdue` đều là **ngày đi hiệu lực** của lượt
+          (`stayDepartureDate` – gồm đơn con gia hạn, BR-422); `ActionContext` có thêm ngày lịch. Đơn chính có đơn con còn hiệu lực → không `check_out`, không `overdue` ở ngày đi của đơn chính.
+        - **0.3.13 bổ sung 1 (BE C0313-03) – thời điểm ghi**: B18 có `checkoutAt` (mọi đường) ghi `reservation.actual_checkout_at` = `registration.actual_checkout_at` = `checkoutAt`;
+          `stay_ended_at`, khai báo lúc đi (BR-604), mốc giữ chứng cứ phạt theo giá trị này. Giờ ghi (`recordedAt`) chỉ cho audit và `post_checkout_window_until`. `checkoutTime` có thể vắng khi
+          có `checkoutAt`; gửi cả hai thì `checkoutTime` phải khớp giờ địa phương của `checkoutAt` (khác → 422 `VALIDATION_FAILED`, `field` = `checkoutTime`); vắng cả hai → 422 `REQUIRED`.
+        - **0.3.13 bổ sung 1 – đơn quá ngày đi, thay các câu tương ứng ở mục dưới (SEC ARC-02, ARC-03; DOM 7.1 (a); BE C0313-10)**:
+          - `nightsNotBilled` = ngày nghiệp vụ lúc ghi − ngày đi hiệu lực (số nguyên ≥ 1; ví dụ đi 10/11: 09:00 ngày 11/11 → 1; 06:30 ngày 12/11 → 2; 05:00 ngày 12/11 → 1).
+          - Vai: **OWN** luôn; **MGR** khi `nightsNotBilled` ≤ 1 (hằng số theo BR-433 / ESC-007 A, không phải tham số). MGR quá 1 đêm → 403 `FORBIDDEN_ACTION` kèm **chỉ**
+            `requiredRole: owner`, `nightsNotBilled`. FD/FDL → 403 `FORBIDDEN_ACTION` **không** trường mở rộng. Cả hai ghi `access.denied`, folio và đơn không đổi; `dryRun` cùng kết quả.
+          - Thứ tự: tra `Idempotency-Key` (ADR-009, cả bước 0 của `lateFeeInsteadOfNight`) → tải đơn **không khóa** → kiểm vai/trần đêm → mới đọc thân lệnh, khóa, tính tiền.
+          - `checkoutAt` không sau giờ server + `manual_time_tolerance_minutes`; `checkoutTimeNote` không bắt buộc (luôn sớm hơn giờ thao tác).
+          - `overdueReason` đi qua **cùng hàm đọc chữ** với `checkoutTimeNote` (D12c: bỏ ký tự điều khiển, kiểm số thẻ V-09 → 422 `CARD_NUMBER_DETECTED`, `field` = `overdueReason`).
+            Desk gợi ý 3 lý do (DOM 7.1) và nhắc không ghi họ tên khách.
+          - Audit `after.overdue = { departureDate, checkoutAt, recordedAt, reason, nightsNotBilled }` (chỉ số nguyên, không tiền – tập mã `money` không đổi). Allowlist audit
+            `reservation` phải có khóa `overdue` (không thì bị bỏ âm thầm – SR-AUD-03); test đọc lại `audit_event`.
+          - Không thông báo, không mục "Cần chú ý" mới; OWN xem bằng `listAuditEvents.overdueOnly` (bộ lọc "Trả phòng quá ngày đi – tuần này").
+          - QR `check_out` của đơn quá ngày đi: cùng vai, cùng trần đêm; FD/FDL → 403 **trước** kiểm trạng thái (thay 409 hiện nay). Minibar: lần đếm có ngày nghiệp vụ ≥ ngày đi được tính
+            – PR-A1b đổi cổng `minibar-checkout.port.ts` (`countFrom: LocalDate`), người giữ module inventory review.
         - **0.3.13 (V5-15, BR-421 v0.5.7 – hướng v1.0.5) – trả phòng đơn quá ngày đi**: lượt có ngày nghiệp vụ hiện tại > ngày đi của lượt, ngoài cửa sổ sau nửa đêm (trước đây 409
           `INVALID_TRANSITION`). B18 nhận khi đủ cả ba: (1) người gọi **OWN/MGR** – FD/FDL → 403 `FORBIDDEN_ACTION`, kiểm trước thân lệnh, không ghi gì; (2) `checkoutAt` = lúc khách rời thật,
           ngày nghiệp vụ = ngày đi của lượt (hoặc cửa sổ sau nửa đêm của ngày đó), không sau giờ server – thiếu → 422 `REQUIRED`, sai ngày → 422 `DATE_INVALID` (`field` = `checkoutAt`);
@@ -4038,7 +4145,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [checkoutTime]
+              description: '**0.3.13 bổ sung 1 (BE C0313-10)**: phải có `checkoutTime` hoặc `checkoutAt` (vắng cả hai → 422 `REQUIRED`, `field` = `checkoutTime`)'
               properties:
                 checkoutTime: { $ref: '#/components/schemas/LocalTime' }
                 checkoutAt:
@@ -4514,9 +4621,11 @@ paths:
         **tất cả** căn trong **một** giao dịch (ADR-009 – mỗi căn vẫn là một đơn SM-01, ràng buộc EXCLUDE theo căn – đêm giữ nguyên);
         thiếu một căn → không tạo nửa nhóm, trả `409 ROOM_UNAVAILABLE` kèm `conflicts[]` và `suggestions[]` cho căn hết (BR-321).
         Hạn giữ chỗ là một hạn chung của nhóm (BR-322). Mã nhóm `NH-{n:05}` (erd mục 10; `HH-` dành cho nhóm hộ CRM R3). SAL/CTV chỉ gom đơn/khách của mình; CTV chỉ nhóm giữ chỗ – đơn `hold` (rbac A23 ghi chú, `own_hold_only`).
+        **0.3.13 bổ sung 1 (SEC ARC-02 ý 6)**: `rooms[].nightlyRates` chỉ FD+ (`x-write-roles`) – cùng luật với `createReservation`/báo giá; SAL/CTV gửi → 403 trước mọi kiểm giá.
       x-round: R3
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-scope: { sales_staff: own, collaborator: own_hold_only }
+      x-write-roles: { 'rooms[].nightlyRates': [owner, manager, front_desk_lead, front_desk] }
       x-rbac: [A23]
       x-transition: G1
       x-stories: [US-140]
@@ -4976,6 +5085,53 @@ paths:
                       paidVnd: { $ref: '#/components/schemas/MoneyVnd' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /v1/properties/{propertyId}/commissions/manager-bonus:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    get:
+      tags: [commissions]
+      operationId: getManagerPerformanceBonus
+      summary: Thưởng hiệu suất quản lý của một tháng – tính lúc đọc, không lưu bản ghi (V5-30, DOM 4.2, 7.3)
+      description: |
+        **0.3.13 bổ sung 1 (k) – cài cùng PR-M** (cần khóa `manager_performance_bonus_pct`). Thưởng tháng M = tỷ lệ hiệu lực **ngày 1** của M × doanh thu phòng tháng M đã thu (K-06,
+        ESC-051 câu 3 A [GIẢ ĐỊNH – chờ INV]). Tính mỗi lần đọc; chi ngoài Desk theo kỳ lương. Chưa có tỷ lệ → `status = rate_missing`, không `ratePct`/`amountVnd`. Tháng có hơn một
+        quản lý: một số chung, `managers[]` liệt kê để OWN chia (Desk không tự chia). MGR chỉ đọc được tháng mình có vai quản lý (ngoài phạm vi → 404) và `managers[]` chỉ có chính mình.
+        Không ví dụ số (SEC G3): test dùng `test_rate_bonus`. Dòng rbac: BA thêm (đề xuất cạnh A60).
+      x-roles: [owner, manager]
+      x-scope: { manager: own }
+      x-round: R5
+      x-stories: [US-089]
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$', example: 2026-11 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [month, status]
+                properties:
+                  month: { type: string }
+                  status: { type: string, enum: [computed, rate_missing] }
+                  ratePct: { $ref: '#/components/schemas/Percent' }
+                  baseVnd: { $ref: '#/components/schemas/MoneyVnd' }
+                  amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+                  managers:
+                    type: array
+                    items:
+                      type: object
+                      required: [userId, displayName]
+                      properties:
+                        userId: { $ref: '#/components/schemas/Uuid' }
+                        displayName: { type: string }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/commissions/{commissionId}/payouts/{payoutId}/actions/mark-paid:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -5027,7 +5183,9 @@ paths:
         Mọi công thức ở server (ADR-001). Kết quả dài hạn phải khớp ví dụ BL 5.2 (US-081 AC1).
         CTV không nhận `ottimoRemainingVnd` (rbac ghi chú 34). Đạt ngưỡng BR-108 → trả thêm `longStayAlternative`.
         Báo giá theo nhóm (không `roomId`): server chọn căn và trả `roomId`/`roomNo` – thiếu đêm so với ở tối thiểu thì ưu tiên căn đêm lẻ (BR-113 a; 0.3.5 A-05).
+        **0.3.13 bổ sung 1**: thứ tự kiểm – vai (`x-roles`) → `x-write-roles` (`nightlyRates` chỉ FD+, 403 không trường mở rộng) → thân lệnh → kênh (`direct`/`agent`) → tính giá.
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
+      x-write-roles: { nightlyRates: [owner, manager, front_desk_lead, front_desk] }
       x-rbac: [A50]
       x-stories: [US-080, US-081, US-082]
       requestBody:
@@ -5097,7 +5255,11 @@ paths:
       tags: [quotes]
       operationId: saveQuote
       summary: Lưu báo giá (Q1) – cấp mã BG-xxxxx, hạn hiệu lực theo quote_validity_days, snapshot (US-083 AC1)
+      description: |
+        **0.3.13 bổ sung 1 (SEC ARC-01, ARC-02)**: thứ tự kiểm – tra `Idempotency-Key` (ADR-009) → vai → `x-write-roles` (`nightlyRates` chỉ FD+; SAL/CTV → 403 không trường mở rộng)
+        → thân lệnh → kênh (`direct`/`agent`; `internal` → 422, không có báo giá nào được lưu) → tính giá như `calculateQuote`.
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
+      x-write-roles: { nightlyRates: [owner, manager, front_desk_lead, front_desk] }
       x-rbac: [A50]
       x-transition: Q1
       x-stories: [US-083]
@@ -5473,6 +5635,12 @@ paths:
       operationId: adjustFolioLine
       summary: Sửa một dòng = bút toán đảo + dòng mới, lý do bắt buộc (BR-008). Folio `settled` chỉ MGR+ (A32, US-038 AC2).
       description: |
+        **0.3.13 bổ sung 1 (V5-16, BR-438 – DOM mục 3, 7.2; SEC FB-R4-SEC-BE-A31-01)** – **sửa giảm** = `voidLine`, giảm `newQuantity` (kể cả về 0) hoặc giảm `newUnitPriceVnd`, trên dòng
+        khác `room`, `extra_person`, `room_change_difference`, folio chưa `settled`. **FD/FDL** sửa giảm trực tiếp khi đủ cả ba, xét trên **dòng gốc** của chuỗi `related_line_id`:
+        (a) dòng gốc `source = manual` (A30) **và** do chính người gọi ghi; (b) ngày nghiệp vụ ghi dòng gốc = ngày nghiệp vụ hiện tại; (c) folio chưa `settled`. Ngoài ra → `403 FORBIDDEN_ACTION`
+        + `requiredFlow: foc_request` + `access.denied`, không ghi gì (kiểm sau khi tải dòng, dưới khóa L3, trước kiểm giá). Dòng hệ thống (phụ thu nhận sớm/trả muộn, phí giữ lại, phí dọn từ
+        yêu cầu khách) luôn đi FOC, kể cả khi chính lễ tân đó bấm thao tác sinh dòng. Sửa **tăng** không thuộc luật này. OWN/MGR như cũ. Sửa giảm theo luật này không tính FOC tháng,
+        không tính hạn mức BR-433; mọi lần có audit (xem `listAuditEvents.reductionsOnly`), vào `ShiftReport.lineReductions` và cảnh báo `foc_threshold` `check = line_reduction_count`.
         **0.3.8 bổ sung 3 (ARC 24/10, FB-R3-ARC-FUZZ-01, BR-522 K11-06)**: trên folio `settled`, thao tác này để lại tiền dư chưa có yêu cầu hoàn (`unhandledCreditVnd` > 0) → server tạo **một** yêu cầu hoàn `overpayment` bằng phần chưa yêu cầu (người xin = người thao tác; người duyệt MGR+ khác người xin – SEC F8) và mở "Cần chú ý" `closed_reservation_credit`, **cùng giao dịch**; yêu cầu hoàn đang mở lớn hơn tiền dư → chạy lại `refundPlan` (hủy `superseded` + tạo lại, DOM-S4-14). Không đổi hình dạng phản hồi.
         **0.3.6 bổ sung (review S3, ARC 17/10)**: `If-Match` = `Folio.version` (ETag của `getFolio`/`addFolioLine`; mọi thay đổi dòng của folio tăng version – BE-B decision 16/10; **0.3.7 bổ sung 4 (N-6)**: và mọi thay đổi giao dịch thu/hoàn – xem `Folio.version`).
         Dòng **sinh từ đêm lưu trú** (`room`, `extra_person`) sửa giá phải ghi lại giá đêm ở đơn (cùng giao dịch) để lần đồng bộ đêm sau (gia hạn, đổi phòng, đổi số người)
@@ -5600,6 +5768,10 @@ paths:
         mà J15 (mỗi giờ) chưa chạy và chưa có công nợ → 409 `FOLIO_LOCKED` tới lần chạy J15 kế tiếp (N-15 – chấp nhận ở R2, khoảng hở ≤ 1 giờ).
         **0.3.12 (FB-R4-SEC-BE-HOLDS-01, SEC-on-v104-holds mục 3)**: folio của giữ chỗ đã quá `holdExpiresAt`: người gọi không có vai FD+ (SAL) nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì.
         FD+ ghi được như cũ. Không có trường mới.
+        **0.3.13 bổ sung 1 (BUG-R5-002, DOM 11.4 – ARC chốt **đóng** đường này; SEC xác nhận ở `SEC-on-bug-r5-002.md`)**: folio có đơn `cancelled` (mọi lý do) hoặc `no_show`: số tiền
+        ≤ còn phải thu (thu phí hủy/phí không đến còn nợ) – **trần cứng**, không vai nào vượt bằng `note`: vượt → 422 `AMOUNT_EXCEEDS_BALANCE` (`max`), không ghi gì. Trước đây FD+ có `note`
+        ghi được khoản thu vượt lên đơn đã hủy mà không ảnh chứng từ (201). Tiền khách chuyển sau khi giữ chỗ tự hủy đi **đường riêng** của DOM 11.4 (ảnh bắt buộc, chờ đối soát, chỉ
+        `hold_expired`, khôi phục hoặc hoàn 100 %) – operation ở 0.3.14 (`contract-0.3.13.md` mục 1.21). Cùng luật cho `createVietQr.overBalanceReason` trên đơn `cancelled`/`no_show`.
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff]
       x-scope: { sales_staff: own_deposit_only }
       x-rbac: [A33]
@@ -6225,7 +6397,7 @@ paths:
                 checkinTime: { $ref: '#/components/schemas/LocalTime', description: '0.3.7 – chỉ `purpose=check_in` (như `previewCheckIn.checkinTime`); purpose khác → 422 `NOT_ALLOWED`' }
                 addPriorNight: { type: boolean, description: '0.3.7 – chỉ `purpose=check_in`. **0.3.7 bổ sung 4 (BUG-R2-127)**: đêm trước không trống (`CheckInPreview.priorNight.available = false`) → 422 `NOT_ALLOWED` (`field` = `addPriorNight`)' }
                 priorNightRateVnd: { $ref: '#/components/schemas/MoneyVnd', description: '0.3.7 – chỉ `purpose=check_in` khi `addPriorNight`. **0.3.7 bổ sung 3 (BE-B (f))**: gửi mà không kèm `addPriorNight = true` → 422 `NOT_ALLOWED` (`field` = `priorNightRateVnd`)' }
-                checkoutAt: { $ref: '#/components/schemas/Instant', description: '0.3.7 – chỉ `purpose=check_out` (như `getCheckoutSummary.checkoutAt`; vắng = giờ server). **0.3.13 (V5-10)**: Desk gửi `CheckoutSummary.checkoutAt` – cùng giá trị sẽ gửi cho `checkOut`. Đơn quá ngày đi (V5-15): bắt buộc, chỉ OWN/MGR (FD/FDL → 403)' }
+                checkoutAt: { $ref: '#/components/schemas/Instant', description: '0.3.7 – chỉ `purpose=check_out` (như `getCheckoutSummary.checkoutAt`). **0.3.13 (V5-10)**: Desk gửi `CheckoutSummary.checkoutAt` – cùng giá trị sẽ gửi cho `checkOut`; vắng → quy đổi như `checkOut` mục "Quy đổi giờ trả" (bổ sung 1, BE C0313-08 – bỏ câu cũ "vắng = giờ server"); sau giờ server + dung sai → 422 `TIME_AFTER_ACTION`. Đơn quá ngày đi (V5-15): bắt buộc; vai và trần đêm như `checkOut` (OWN; MGR khi `nightsNotBilled` ≤ 1; FD/FDL → 403 trước kiểm trạng thái)' }
                 extraNightRateVnd: { $ref: '#/components/schemas/MoneyVnd', description: '0.3.7 – chỉ `purpose=check_out` khi cần đêm thêm (vắng = `extraNightDefaultRateVnd`). **0.3.7 bổ sung 4 (BUG-R2-139)**: `CheckoutSummary.extraNightAvailable = false` → 422 `NOT_ALLOWED` (`field` = `extraNightRateVnd`) – không bao giờ cộng đêm không bán được; dùng `lateFeeAsNight`' }
                 lateFeeAsNight: { type: boolean, description: '0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06): chỉ `purpose=check_out`, khi tóm tắt (theo `checkoutAt`) có `extraNightRequired = true` và `extraNightAvailable = false` – trần = `CheckoutSummary.amountDueAtCheckoutVnd` gồm `lateFeeAsNightVnd` (= lệnh `checkOut.lateFeeInsteadOfNight`). Ngoài trường hợp đó → 422 `NOT_ALLOWED` (`field` = `lateFeeAsNight`). Vắng/false → trần không gồm khoản này' }
                 overBalanceReason:
@@ -6233,7 +6405,7 @@ paths:
                   minLength: 3
                   maxLength: 300
                   x-rbac-field: D12c
-                  description: '0.3.6 (DOM G-4, BA E15-03): **FD+** cho QR vượt còn phải thu khi "thu trước dịch vụ/ký quỹ"; SAL/CTV gửi → 403. Không có lý do mà vượt → 422 `AMOUNT_EXCEEDS_BALANCE`'
+                  description: '0.3.6 (DOM G-4, BA E15-03): **FD+** cho QR vượt còn phải thu khi "thu trước dịch vụ/ký quỹ"; SAL/CTV gửi → 403. Không có lý do mà vượt → 422 `AMOUNT_EXCEEDS_BALANCE`. **0.3.13 bổ sung 1 (BUG-R5-002)**: đơn `cancelled`/`no_show` không nhận trường này – vượt → 422 `AMOUNT_EXCEEDS_BALANCE` (như `recordPayment`)'
       responses:
         '201':
           description: Giao dịch `pending` + chuỗi QR
@@ -7004,6 +7176,22 @@ paths:
             **0.3.13 (V5-16, FB-R4-SEC-BE-A31-01)** – chỉ các lần **bỏ dòng hoặc giảm về 0** một dòng phát sinh: `folio_line.adjusted` có `after.amountVnd = 0` và dòng không phải tiền phòng.
             Bộ lọc tuần của quản lý: `category=money&removalsOnly=true&from=…&to=…`. Từ 0.3.13 mọi `folio_line.adjusted` ghi thêm `before.actorRole` (vai lúc sửa), `before.postedByActor`
             (`true` = người sửa cũng là người đã ghi dòng) và `before.sameBusinessDay` (dòng ghi cùng ngày nghiệp vụ với lần sửa) – không thêm số tiền nào. FD/FDL vẫn chỉ thấy bản ghi của mình.
+            **Bổ sung 1 (BE C0313-04, DOM 7.2 ý 2–3)**: `postedByActor`, `sameBusinessDay` tính trên **dòng gốc** của chuỗi `related_line_id` (dòng đầu: `posted_by`, `business_date` của nó);
+            thêm `before.rootLineId` (chỉ id) và `before.rootLineManual` (dòng gốc `source = manual`). Allowlist audit `folio_line` thêm `postedByActor`, `sameBusinessDay`, `rootLineId`,
+            `rootLineManual`. Bật bộ lọc này → máy chủ tự ghim `category = money`, `action = folio_line.adjusted` (dùng index có sẵn – BE C0313-20); so jsonb
+            `(after->>'amountVnd')::numeric = 0`, dòng khác `room`, `extra_person`, `room_change_difference`.
+          schema: { type: boolean, default: false }
+        - name: reductionsOnly
+          in: query
+          description: |
+            **0.3.13 bổ sung 1 (V5-16, DOM 7.2 ý 1, BR-438 (4))** – mọi lần **sửa giảm** một dòng phát sinh (bỏ dòng, giảm số lượng, giảm đơn giá: `after.amountVnd < before.amountVnd`),
+            gồm cả `removalsOnly`. Bộ lọc "Sửa giảm dòng – 7 ngày" của quản lý (theo người: `actorUserId`). Ghim `category`, `action` như `removalsOnly`. FD/FDL chỉ thấy của mình.
+          schema: { type: boolean, default: false }
+        - name: overdueOnly
+          in: query
+          description: |
+            **0.3.13 bổ sung 1 (V5-15, SEC ARC-03, DOM 7.1)** – chỉ `reservation.checked_out` có `after.overdue` (trả phòng đơn quá ngày đi). Máy chủ ghim `category = state`,
+            `action = reservation.checked_out`. Bộ lọc "Trả phòng quá ngày đi – tuần này": OWN thấy mọi bản ghi, MGR thấy cả bản ghi của MGR khác (MGR không bị thu phạm vi ở S27).
           schema: { type: boolean, default: false }
         - $ref: '#/components/parameters/DateFrom'
         - $ref: '#/components/parameters/DateTo'
@@ -10412,12 +10600,31 @@ components:
           description: '`409 REGISTRATION_INCOMPLETE` – số người còn thiếu giấy tờ được tính (0.3.7)'
         lockReason:
           type: string
-          enum: [closed, settled, post_checkout_window_over, debt_reduction_requires_write_off]
+          enum: [closed, settled, post_checkout_window_over, debt_reduction_requires_write_off, invoice_issued]
           description: |
             **0.3.13 (V5-44, P4-41)** – **luôn có** với `409 FOLIO_LOCKED`: vì sao folio không nhận thao tác này. `closed` = folio đã đóng (J15). `settled` = folio đã chốt mà thao tác không nhận
             folio `settled` (ví dụ `recordPayment` `type` khác `charge`). `post_checkout_window_over` = folio `settled` đã quá `post_checkout_window_until`, J15 chưa kịp đóng (N-15).
             `debt_reduction_requires_write_off` = `adjustFolioLine` giảm vượt phần dòng còn trong cửa sổ khi đơn có công nợ mở (BR-525) – phần nợ chỉ giảm qua `requestFoc` `debt_write_off`.
             Client chọn câu theo trường này; giá trị lạ hoặc vắng (máy chủ cũ) → câu chung `error.FOLIO_LOCKED`. `detail` chỉ để đọc log, không để client so chữ.
+            **Bổ sung 1 (BE C0313-11)**: `invoice_issued` = hóa đơn điện tử của folio đã phát hành (`bill.service`). Thu nợ (`recordPayment` `debtCollection`) trên folio **đang mở** không phải
+            khóa → `409 INVALID_TRANSITION` (`currentState: open`). Mọi chỗ ném qua một hàm chung `folioLocked(reason)`.
+        requiredRole:
+          $ref: '#/components/schemas/Role'
+          description: '**0.3.13 bổ sung 1 (V5-15)** – `403 FORBIDDEN_ACTION` của B18/QR `check_out` đơn quá ngày đi khi MGR vượt trần 1 đêm: vai làm được (`owner`)'
+        nightsNotBilled:
+          type: integer
+          minimum: 1
+          description: '**0.3.13 bổ sung 1 (V5-15)** – cùng lỗi trên: số đêm không tính (xem `CheckoutSummary.nightsNotBilled`)'
+        requiredFlow:
+          type: string
+          enum: [foc_request]
+          description: '**0.3.13 bổ sung 1 (V5-16, BR-438)** – `403 FORBIDDEN_ACTION` của `adjustFolioLine` sửa giảm ngoài phạm vi lễ tân: Desk chuyển sang "Gửi miễn có duyệt" (`requestFoc`)'
+        minNewDepartureDate:
+          $ref: '#/components/schemas/LocalDate'
+          description: '**0.3.13 bổ sung 1 (V5-11)** – `409 INVALID_TRANSITION` của `earlyDeparture` trong 00:00–05:59: ngày rời mới nhỏ nhất (ngày lịch D+1)'
+        useCheckout:
+          type: boolean
+          description: '**0.3.13 bổ sung 1 (V5-11)** – cùng lỗi trên khi ngày đi hiệu lực = ngày lịch: dùng Trả phòng (B18), không Trả sớm'
       additionalProperties: true
     OccupancyConflict:
       type: object
@@ -10450,7 +10657,7 @@ components:
         action: { type: string, description: 'Đường dẫn hành động (check-in, cancel, confirm-deposit…)', example: check-in }
         requiresApproval: { type: boolean, description: 'Vai hiện tại gửi được nhưng cần duyệt (ký hiệu D trong rbac)' }
         requiresTrustedDevice: { type: boolean, description: 'Hành động cần thiết bị tin cậy (vd. B9 nhận phòng – xem giấy tờ)' }
-        overdue: { type: boolean, description: '**0.3.13 (V5-15)**: chỉ với `event = check_out` – trả phòng đơn quá ngày đi (chỉ có khi người gọi là OWN/MGR). Desk mở hộp "Trả phòng quá ngày đi": chọn ngày giờ khách rời, nhập lý do' }
+        overdue: { type: boolean, description: '**0.3.13 (V5-15)**: chỉ với `event = check_out` – trả phòng đơn quá ngày đi (chỉ có khi người gọi làm được: OWN; MGR khi `nightsNotBilled` ≤ 1 – bổ sung 1). Desk mở hộp "Trả phòng quá ngày đi": chọn ngày giờ khách rời, nhập lý do' }
 
     # ── trạng thái (erd mục 5) ──
     ReservationStatus: { type: string, enum: [hold, confirmed, in_house, checked_out, cancelled, no_show] }
@@ -10577,6 +10784,23 @@ components:
             restoredNoShows: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
             selfAppliedFocLineIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
             roomStatusMismatches: { type: array, items: { type: string }, description: 'Số căn lệch buồng – đơn (BR-806)' }
+        lineReductions:
+          type: array
+          description: |
+            **0.3.13 bổ sung 1 (V5-16, BR-438 (4)(i), BR-526 (d))** – mọi lần FD/FDL sửa giảm dòng trong ca, **tính lúc đọc** từ audit `folio_line.adjusted` (không lưu kind mới, không
+            vào `carryOverVersion`). Nếu BE không tính được từ audit ở v1.0.5 thì dời v1.0.6 (DOM 7.2 ý 4) – bộ lọc `reductionsOnly` là đủ tới đó.
+          items:
+            type: object
+            required: [lineId, beforeVnd, afterVnd, reason, actorName]
+            properties:
+              lineId: { $ref: '#/components/schemas/Uuid' }
+              reservationCode: { type: string }
+              category: { type: string }
+              beforeVnd: { $ref: '#/components/schemas/MoneyVnd' }
+              afterVnd: { type: integer, minimum: 0 }
+              reason: { type: string, x-rbac-field: D12c }
+              actorName: { type: string }
+              at: { $ref: '#/components/schemas/Instant' }
         carryOverVersion: { type: integer, description: 'Tăng khi danh sách việc tồn đổi; `closeShift` phải gửi lại đúng số này' }
         handoverNote: { type: string }
     WorkOrderStatus: { type: string, enum: [new, in_progress, waiting_parts, done, cancelled] }
@@ -10863,7 +11087,8 @@ components:
       properties:
         configured: { type: boolean, description: '`false` = chưa nhập – trang khách hiện "Vui lòng hỏi lễ tân" (BUG-R3-021 (b))' }
         ssid: { type: string }
-        password: { type: string, description: 'Chỉ trong phản hồi cho OWN/MGR/FDL; không ghi log' }
+        password: { type: string, description: 'Chỉ trong phản hồi `getPropertyWifi` (OWN/MGR/FDL); **không** có trong phản hồi `setPropertyWifi` (0.3.13 bổ sung 1); không ghi log' }
+        passwordSet: { type: boolean, description: '**0.3.13 bổ sung 1** – `true` = có mật khẩu; `false` = mạng mở (`password` rỗng)' }
     Parameter:
       type: object
       required: [key, value, effectiveFrom]
@@ -10907,6 +11132,7 @@ components:
       required: [date, arrivals, departures, holdsArrivingToday]
       properties:
         date: { $ref: '#/components/schemas/LocalDate' }
+        departuresDate: { $ref: '#/components/schemas/LocalDate', description: '**0.3.13 bổ sung 1 (BE C0313-02)** – ngày đi hiệu lực đã dùng cho `departures` (= `date`, trừ cửa sổ sau nửa đêm khi vắng `date`). Desk ghi tiêu đề theo trường này; vắng = máy chủ cũ (dùng `date`)' }
         arrivals:
           type: array
           description: '0.3.7 bổ sung 1: đơn chính có ngày đến = `date` (`confirmed` chưa nhận, `in_house` đã nhận) – đơn con B9a/B13 không thành dòng riêng'
@@ -10947,7 +11173,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [vip_arrival, room_ooo, rent_due_soon, lease_expiring, registration_due, registration_overdue, visa_expiring, work_order_high_open, hold_expiring, meter_not_read, channel_sync_error, foc_threshold, overbooking, unassigned_with_free_room, data_quality, deposit_after_cancel, no_show_call, no_show_mark, security_alert, capacity_conflict, work_order_overdue, extra_guest_kit_overdue, room_status_mismatch, reconcile_overdue, ooo_ending_work_open, guest_request_overdue, ota_no_show_report, closed_reservation_credit, website_request_new, checkout_debt, late_fee_post_review, foc_stay_total_exceeded, manager_confirmation_pending, hold_overdue, hold_overdue_cap]
+          enum: [vip_arrival, room_ooo, rent_due_soon, lease_expiring, registration_due, registration_overdue, visa_expiring, work_order_high_open, hold_expiring, meter_not_read, channel_sync_error, foc_threshold, overbooking, unassigned_with_free_room, data_quality, deposit_after_cancel, no_show_call, no_show_mark, security_alert, capacity_conflict, work_order_overdue, extra_guest_kit_overdue, room_status_mismatch, reconcile_overdue, ooo_ending_work_open, guest_request_overdue, ota_no_show_report, closed_reservation_credit, website_request_new, checkout_debt, late_fee_post_review, foc_stay_total_exceeded, manager_confirmation_pending, hold_overdue, hold_overdue_cap, commission_rate_missing]
           description: |
             **0.3.12 (ĐX-R3-QA-01, BUG-R3-041/042, DOM A.5 ý 7)** – hai mục **tính lúc đọc** (`source: computed`, không có `eventId`, không có dòng `attention_event`), mức `critical`,
             **không** tắt được bằng `resolveAttentionEvent`/"Đã xử lý" (client không hiện nút kể cả khi gặp `source: event`); tự hết khi đơn rời `hold` (xác nhận, hủy, nhận phòng):
@@ -10983,7 +11209,8 @@ components:
             **0.3.7 bổ sung 1 (BE-D s4 2.5 #2 – bảng khóa cho phép đúng như server đã cài, `ATTENTION_PARAM_KEYS`)**:
             | `kind` | Khóa `params` | Người thấy |
             |---|---|---|
-            | `foc_threshold` (BR-435, US-012 AC8; `computed`, `warning`) | `check` = `foc_pct_of_room_revenue` → `pct` (FOC lũy kế tháng ÷ doanh thu phòng lũy kế × 100, 1 chữ số thập phân; **vắng** khi doanh thu phòng = 0 – hiện "–"), `threshold` (= `foc_alert_pct_of_room_revenue`); `check` = `foc_count_per_approver` → `count` (số FOC đã duyệt trong kỳ của **một** người duyệt, gồm tự áp BR-436), `max` (= `foc_alert_count_per_approver`) – mỗi người vượt ngưỡng một dòng, **không** nêu tên: `link` = `/approvals?type=foc&month=YYYY-MM&approverId=<id>`. Kỳ = ngày 1 tháng nghiệp vụ → hôm nay | chỉ OWN |
+            | `foc_threshold` (BR-435, US-012 AC8; `computed`, `warning`) | `check` = `foc_pct_of_room_revenue` → `pct` (FOC lũy kế tháng ÷ doanh thu phòng lũy kế × 100, 1 chữ số thập phân; **vắng** khi doanh thu phòng = 0 – hiện "–"), `threshold` (= `foc_alert_pct_of_room_revenue`); `check` = `foc_count_per_approver` → `count` (số FOC đã duyệt trong kỳ của **một** người duyệt, gồm tự áp BR-436), `max` (= `foc_alert_count_per_approver`) – mỗi người vượt ngưỡng một dòng, **không** nêu tên: `link` = `/approvals?type=foc&month=YYYY-MM&approverId=<id>`. Kỳ = ngày 1 tháng nghiệp vụ → hôm nay. **0.3.13 bổ sung 1 (BR-438 (4)(iii))**: `check` = `line_reduction_count` → `count` (số lần **một** FD/FDL sửa giảm trực tiếp trong tháng nghiệp vụ), `max` (= `foc_alert_count_per_approver`, dùng chung ngưỡng) – mỗi người vượt một dòng, không tên, `link` = `/audit?reductionsOnly=true&month=YYYY-MM&actorUserId=<id>` | chỉ OWN |
+            | `commission_rate_missing` (**0.3.13 bổ sung 1 (k)**, V5-30, DOM 7.3; `computed`, `warning`; cài cùng PR-M) | `count` (số đơn/HĐ đã chốt mà chưa có tỷ lệ hoa hồng, không tạo bản ghi `commission`), `refCode` khi `count` = 1; không số tiền. Hết khi lần đồng bộ hoa hồng tạo được bản ghi | chỉ OWN |
             | `reconcile_overdue` | `count`, `oldestDays` | MGR+ |
             | `checkout_debt` (0.3.7 bổ sung 4, BR-525 G-4; `computed`) – đơn `checked_out` còn công nợ mở (ghi lúc trả phòng, tự ghi khi đảo khoản thu sau trả phòng, hoặc J15 `folio.close` tự ghi cho phát sinh sau trả phòng chưa thu – R7LOCK-01); hết khi thu đủ (`recordPayment` thu nợ) hoặc xóa nợ (FOC `reasonCode = debt_write_off`, `requestFoc`); `warning`, `critical` khi đã quá hạn; `dueAt` = hạn công nợ sớm nhất; `refCode` = mã đơn khi `count` = 1; **không** số tiền; tự hết khi folio không còn phải thu (thu đủ, FOC/xóa nợ BR-433) | `count` | MGR+ |
             | `no_show_call`, `no_show_mark` | `count`, `time` (`HH:mm` – `no_show_call_time` / `no_show_mark_time`) | FD+ |
@@ -11379,7 +11606,7 @@ components:
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
           description: |
             **0.3.13 (V5-18, FB-R4-SEC-FE-HOLDS-03)**: phần của `depositPaidVnd` còn chờ đối soát (giao dịch cọc `succeeded`, không phải dòng đảo, `reconciliation = pending`); 0 khi đã đối soát hết.
-            Hộp "chấp nhận cọc thiếu sau hạn" (MGR/OWN) nêu rõ số này. Chỉ đọc; cùng câu truy vấn với `after.unverifiedPaidVnd` của audit `reservation.deposit_confirmed`.
+            **Bổ sung 1 (BE C0313-13)**: = min(`depositPaidVnd`, Σ cọc chờ đối soát) – không lớn hơn số cọc đang giữ khi đã hoàn một phần. Hộp "chấp nhận cọc thiếu sau hạn" (MGR/OWN) nêu rõ số này. Chỉ đọc; cùng câu truy vấn với `after.unverifiedPaidVnd` của audit `reservation.deposit_confirmed`.
         depositNotices:
           type: array
           x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
@@ -11744,7 +11971,7 @@ components:
       properties:
         kind: { type: string, enum: [foc, special_discount] }
         amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
-        reasonCode: { type: string, enum: [regular_vip, room_ready_no_impact, service_recovery, long_stay_guest, other, debt_write_off], description: '0.3.7 bổ sung 4 (R7LOCK-02, DOM 18/10 BR-525): `debt_write_off` = **xóa công nợ** sau trả phòng – chỉ `kind = foc`, chỉ OWN/MGR, `note` bắt buộc; xem `requestFoc`' }
+        reasonCode: { type: string, enum: [regular_vip, room_ready_no_impact, service_recovery, long_stay_guest, other, debt_write_off, entered_in_error], description: '**0.3.13 bổ sung 1 (V5-16, DOM 3.1 (2))**: `entered_in_error` = "Ghi nhầm" – miễn dòng lễ tân không tự sửa được (BR-438), báo cáo FOC tách riêng; không có CHECK DB (`reason_code` là text). 0.3.7 bổ sung 4 (R7LOCK-02, DOM 18/10 BR-525): `debt_write_off` = **xóa công nợ** sau trả phòng – chỉ `kind = foc`, chỉ OWN/MGR, `note` bắt buộc; xem `requestFoc`' }
         note: { type: string, maxLength: 500 }
         authMethod:
           type: string
@@ -11984,6 +12211,17 @@ components:
           description: |
             **0.3.13 (V5-10)**: `checkoutAt` sớm hơn giờ server quá `manual_time_tolerance_minutes` → B18 đòi `checkoutTimeNote` (422 `TIME_NOTE_REQUIRED`). Desk hiện ô ghi chú khi `true`.
             Đơn quá ngày đi (`overdue`) dùng `overdueReason` thay ghi chú – cờ này `false`.
+        checkoutAtAfterNow:
+          type: boolean
+          description: |
+            **0.3.13 bổ sung 1 (BE C0313-01)**: `checkoutAt` > giờ server + `manual_time_tolerance_minutes` → B18 và QR `check_out` sẽ trả 422 `TIME_AFTER_ACTION`. Desk tắt nút QR,
+            Hoàn tất và hiện "Giờ trả đang ở sau giờ hiện tại". Vắng = máy chủ cũ.
+        nightsNotBilled:
+          type: integer
+          minimum: 1
+          description: |
+            **0.3.13 bổ sung 1 (V5-15, DOM 7.1)**: chỉ có khi `overdue = true` – số đêm từ ngày đi hiệu lực tới ngày nghiệp vụ hiện tại. MGR ghi được khi ≤ 1; > 1 Desk viết
+            "Quá 1 đêm: cần chủ đầu tư trả phòng." (không cần biết `allowedActions`).
         overdue:
           type: boolean
           description: |
@@ -12012,7 +12250,7 @@ components:
       required: [reasonCode, openVnd]
       description: '**0.3.13 (V5-13)** – một dòng tổng chờ hoàn theo lý do (`CheckoutSummary.openRefunds`, `Folio.totals.openRefunds`)'
       properties:
-        reasonCode: { type: string, description: '`ApprovalRequest.reasonCode` của các yêu cầu hoàn (hiện `early_departure`, `overpayment`); mã lạ → Desk hiện nhãn chung "Hoàn tiền"' }
+        reasonCode: { type: string, description: '`ApprovalRequest.reasonCode` của **mọi** yêu cầu loại `refund` (bổ sung 1, BE C0313-14) – mã hệ thống hiện có: `early_departure` (B16), `overpayment` (B18, A32, `requestRefund`), `overbooking_relocated` (BR-312); mã nhập tay của A32 giữ nguyên. Mã lạ → Desk hiện nhãn chung "Hoàn tiền"' }
         openVnd: { $ref: '#/components/schemas/MoneyVnd' }
     SwapRoomPreview:
       type: object
@@ -12261,17 +12499,25 @@ components:
         childrenUnder6: { type: integer, minimum: 0 }
         guestCategory: { type: string, enum: [vn, foreigner], description: 'Theo thông tin sale nhập (BR-009)' }
         cleaningPerWeek: { type: integer, minimum: 0, maximum: 3 }
-        channelId: { $ref: '#/components/schemas/Uuid' }
+        channelId:
+          $ref: '#/components/schemas/Uuid'
+          description: '**0.3.13 bổ sung 1 (SEC ARC-01, BR-112)**: báo giá chỉ nhận kênh nhóm `direct`, `agent` đang hoạt động (như mã hiện nay); `ota`, `internal`, kênh ngừng → 422 `VALIDATION_FAILED` (`field` = `channelId`, `code` = `NOT_IN_LIST`), có hay không `nightlyRates`. Đơn Nội bộ chỉ tạo bằng `createReservation` (BR-105 (8), A01 FD+)'
         closerUserId: { $ref: '#/components/schemas/Uuid' }
         returnGuestCode: { type: string }
         nightlyRates:
           type: array
           description: |
-            **0.3.13 (V5-14, BUG-R4-041, FB-R4-ARC-FE-PR75-01)** – giá thỏa thuận lễ tân gõ (hộp Đặt phòng mới → Giữ chỗ). Cùng nghĩa `ReservationCreate.nightlyRates`: mỗi phần tử là một đêm trong
-            khoảng `arrivalDate` + `nights` (đêm vắng = giá lịch), cờ `edited`, sàn–trần BR-105 → 422 `RATE_OUT_OF_RANGE` (`dates[]`, `min`, `max`); đơn kênh Nội bộ theo BR-421 v0.5.3 như
-            `createReservation`. Chỉ `type = short` và kênh khác nhóm `ota` (khác → 422 `NOT_ALLOWED`, `field` = `nightlyRates`); đêm ngoài khoảng hoặc trùng ngày → 422 `DATE_INVALID`
-            (`field` = `nightlyRates[i].date`). Chỉ FD+ (SAL/CTV → 403 `FORBIDDEN_ACTION`, như A01). `calculateQuote` trả số theo giá này; `saveQuote` chụp giá này vào báo giá (BR-006);
-            `createHoldFromQuote` giữ chỗ và tính cọc theo **giá chụp** (đêm `edited = true` → nguồn `manual`, `bookingRateSource = manual_agreed`).
+            **0.3.13 (V5-14, BUG-R4-041, FB-R4-ARC-FE-PR75-01; bổ sung 1 – SEC ARC-01, ARC-02, ARC-06, BE C0313-05)** – giá thỏa thuận lễ tân gõ (hộp Đặt phòng mới → Giữ chỗ).
+            - **Quyền**: chỉ FD+ (`x-write-roles`; SAL/CTV → 403 `FORBIDDEN_ACTION` + `access.denied`, kiểm **trước** mọi kiểm thân lệnh và tính giá, thân lỗi không có `min`/`max`/`dates`).
+              Tài khoản nhiều vai có FD (ví dụ FD ∪ SAL) gửi được.
+            - **Nghĩa**: như `ReservationCreate.nightlyRates` của kênh `direct`/`agent`: gửi thì **phủ mọi đêm** của `arrivalDate` + `nights` (thiếu đêm → 422 `REQUIRED`, `field` =
+              `nightlyRates`; ngoài khoảng hoặc trùng ngày → 422 `DATE_INVALID`, `field` = `nightlyRates[i].date`). Giá gõ = **giá lịch** của đêm, **trước** bậc giảm BR-107 và mã quay lại BR-111
+              (BR-107 v0.3.8). Luôn sàn–trần BR-105 → 422 `RATE_OUT_OF_RANGE` (`dates[]`, `min`, `max`); không có đêm 0 đ (`AMOUNT_NOT_POSITIVE`); không nhánh Nội bộ (kênh chỉ `direct`/`agent`).
+            - **Đêm `edited` ≠ `true`** (SEC ARC-06): máy chủ dùng giá lịch của **chính nó**, bỏ `amountVnd` gửi lên (khác B1 `createReservation` ở bản này). Chỉ đêm `edited = true` mang giá client.
+            - Chỉ `type = short` (khác → 422 `NOT_ALLOWED`, `field` = `nightlyRates`).
+            - **Cài đặt**: phần giá đêm và sàn–trần gọi `PricingService.price` (module reservations, public), không viết lại trong module sales. Snapshot báo giá lưu `nights[].source` và
+              giá thỏa thuận; `createHoldFromQuote` lấy nguồn trong snapshot (đêm `edited = true` → `manual`, `bookingRateSource = manual_agreed`), giữ chỗ và tính cọc theo **giá chụp**.
+              Oracle chung: cùng căn, ngày, khách, giá gõ → `calculateQuote.totalVnd`, `depositVnd` = `createReservation` `previewOnly` (T14-7).
           items: { $ref: '#/components/schemas/NightRate' }
     QuoteCalculation:
       type: object
@@ -13617,6 +13863,10 @@ components:
           oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }]
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
           description: '0.3.7 (EP14 4.4, B-16): phí khách đã đồng ý (snapshot) – ghi folio khi việc xong (BR-506); null = không phí'
+        feeFallback:
+          type: boolean
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+          description: '**0.3.13 bổ sung 1 (k)** (V5-31, BR-204, BR-506 v0.5.12; cài cùng PR-M): `true` = khách thuê tháng mà căn chưa có trong `long_stay_cleaning_fee_by_room` lúc gửi, phí lấy `adhoc_cleaning_fee` – Desk hiện "Chưa có phí dọn thuê tháng cho căn này" để lễ tân thêm dòng phần chênh. Tính lúc đọc theo giá trị khóa hiệu lực ngày gửi'
         declinedReasonCode: { type: string, enum: [not_available_now, outside_service_hours, needs_front_desk, duplicate, other], description: '0.3.7 – như `GuestRequestForGuest`' }
         replyNote: { type: string, x-rbac-field: D23, description: '0.3.7 – lời nhắn nhân viên đã gửi khách (hiện ở mức 1)' }
         notePurgedAt: { $ref: '#/components/schemas/Instant', description: '0.3.8 bổ sung 4 (ARC 24/10, R3-Q15 T13 – migration 0083): lúc ghi chú của yêu cầu (`note`, `replyNote`) bị xóa theo hạn lưu `retention.guest_request_months`; có thì `note`/`replyNote` vắng mặt và màn hiện "Ghi chú đã xóa theo hạn lưu". Vắng = chưa xóa' }
@@ -13924,8 +14174,8 @@ components:
             không tên/SĐT/số tiền (SEC A5). Người nhận là tài khoản **đang hoạt động** có vai chưa thu hồi tại cơ sở; mỗi người **một** dòng mỗi sự kiện. Không bao giờ HK, MT, kế toán.
             `hold_overdue_with_deposit` – lượt J1 đầu tiên thấy giữ chỗ **đã nhận > 0 đ** quá `holdExpiresAt` (không tự hủy): người tạo + người chốt của đơn và mọi FD, FDL, **MGR** (0.3.12 thêm MGR);
             chống trùng theo (đơn, `holdExpiresAt`) – gia hạn giữ chỗ rồi lại quá hạn thì báo lần nữa. `hold_overdue_cap` – đơn vẫn `hold` (có cọc) lúc ≥ ngày đến + `hold_latest_time_on_arrival`:
-            **MGR, OWN** (0.3.12 thêm OWN); một lần mỗi đơn. `hold_expired` (đã có) – J1 tự hủy giữ chỗ **chưa cọc**: người tạo + người chốt; **0.3.12**: không ra ai (không có, đã khóa, đã thu vai)
-            → gửi FD, FDL; một lần mỗi đơn. Chống trùng ở server (khóa `dedupe_key` của dòng outbox `staff.push` trong cùng giao dịch – BE-B P4-10), client không lọc thêm.
+            **MGR, OWN** (0.3.12 thêm OWN); một lần mỗi đơn. `hold_expired` (đã có) – J1 tự hủy giữ chỗ **chưa cọc**: người tạo + người chốt **và mọi FD, FDL đang hoạt động** (**0.3.13 bổ sung 1**, DOM mục 9 – thay nhánh 0.3.12 "chỉ gửi FD, FDL khi
+            không có người tạo/người chốt"; sale, CTV chưa có hộp nhận tin ở v1.0.x, lễ tân là người báo khách); một lần mỗi đơn, mỗi người một dòng. Chống trùng ở server (khóa `dedupe_key` của dòng outbox `staff.push` trong cùng giao dịch – BE-B P4-10), client không lọc thêm.
             Client cũ gặp kind lạ → câu chung (PWA v1.0.3: `staff.notif.k.other`), không lỗi.
             **0.3.8 (US-164)**: `manager_confirmation_requested` (mọi OWN/MGR **đang hoạt động** của cơ sở; Web Push nếu đã đăng ký – payload chỉ `kind` + `refId`; refType `manager_confirmation`,
             refCode = mã đơn) · `manager_confirmation_decided` (người gửi – đã duyệt/từ chối) · `manager_confirmation_expired` (người gửi – hết hạn, Desk mở nhánh tự ghi) ·
@@ -13977,6 +14227,11 @@ components:
         reservationCode: { type: string }
         leaseContractCode: { type: string }
         payeeType: { type: string, enum: [agent, staff] }
+        instalmentNo:
+          type: integer
+          enum: [1, 2]
+          description: '**0.3.13 bổ sung 1 (k)** (V5-30, BR-212, DOM 4.2): chỉ hoa hồng HĐ thuê tháng – đợt 1 (`firstInstalmentPct`) hoặc đợt 2 (phần còn lại); vắng = ngắn ngày. Cột `commission.instalment_no` (migration PR-M)'
+        voidReason: { type: string, description: '**0.3.13 bổ sung 1 (k)**: lý do `void` (ví dụ đợt 2 khi HĐ chấm dứt trước tháng thứ 2); không số tiền' }
         payeeName: { type: string, x-visible-to: [owner, manager] }
         ratePctSnapshot: { $ref: '#/components/schemas/Percent' }
         baseAmountVnd: { $ref: '#/components/schemas/MoneyVnd' }

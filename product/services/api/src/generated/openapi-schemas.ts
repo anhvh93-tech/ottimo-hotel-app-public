@@ -79,6 +79,11 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         parentOnlyAvailable: { s: { k: 'scalar' } },
         missingCount: { s: { k: 'scalar' } },
         lockReason: { s: { k: 'scalar' } },
+        requiredRole: { s: { k: 'ref', name: 'Role' } },
+        nightsNotBilled: { s: { k: 'scalar' } },
+        requiredFlow: { s: { k: 'scalar' } },
+        minNewDepartureDate: { s: { k: 'ref', name: 'LocalDate' } },
+        useCheckout: { s: { k: 'scalar' } },
       },
       open: true,
     },
@@ -247,6 +252,25 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
               roomStatusMismatches: { s: { k: 'array', items: { k: 'scalar' } } },
             },
             open: false,
+          },
+        },
+        lineReductions: {
+          s: {
+            k: 'array',
+            items: {
+              k: 'object',
+              props: {
+                lineId: { s: { k: 'ref', name: 'Uuid' } },
+                reservationCode: { s: { k: 'scalar' } },
+                category: { s: { k: 'scalar' } },
+                beforeVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                afterVnd: { s: { k: 'scalar' } },
+                reason: { s: { k: 'scalar' }, f: 'D12c' },
+                actorName: { s: { k: 'scalar' } },
+                at: { s: { k: 'ref', name: 'Instant' } },
+              },
+              open: false,
+            },
           },
         },
         carryOverVersion: { s: { k: 'scalar' } },
@@ -487,6 +511,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         configured: { s: { k: 'scalar' } },
         ssid: { s: { k: 'scalar' } },
         password: { s: { k: 'scalar' } },
+        passwordSet: { s: { k: 'scalar' } },
       },
       open: false,
     },
@@ -531,6 +556,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       k: 'object',
       props: {
         date: { s: { k: 'ref', name: 'LocalDate' } },
+        departuresDate: { s: { k: 'ref', name: 'LocalDate' } },
         arrivals: {
           s: {
             k: 'array',
@@ -1440,6 +1466,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         serverTime: { s: { k: 'ref', name: 'Instant' } },
         checkoutAt: { s: { k: 'ref', name: 'Instant' } },
         checkoutTimeNoteRequired: { s: { k: 'scalar' } },
+        checkoutAtAfterNow: { s: { k: 'scalar' } },
+        nightsNotBilled: { s: { k: 'scalar' } },
         overdue: { s: { k: 'scalar' } },
         openRefunds: { s: { k: 'array', items: { k: 'ref', name: 'OpenRefund' } } },
         amountDueAtCheckoutVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
@@ -3153,6 +3181,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           s: { k: 'union', of: [{ k: 'ref', name: 'MoneyVnd' }, { k: 'scalar' }] },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
         },
+        feeFallback: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         declinedReasonCode: { s: { k: 'scalar' } },
         replyNote: { s: { k: 'scalar' }, f: 'D23' },
         notePurgedAt: { s: { k: 'ref', name: 'Instant' } },
@@ -3448,6 +3480,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         reservationCode: { s: { k: 'scalar' } },
         leaseContractCode: { s: { k: 'scalar' } },
         payeeType: { s: { k: 'scalar' } },
+        instalmentNo: { s: { k: 'scalar' } },
+        voidReason: { s: { k: 'scalar' } },
         payeeName: { s: { k: 'scalar' }, v: ['owner', 'manager'] },
         ratePctSnapshot: { s: { k: 'ref', name: 'Percent' } },
         baseAmountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
@@ -3895,7 +3929,57 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         open: false,
       },
     },
-    createRoom: { '201': { k: 'ref', name: 'Room' } },
+    createRoom: {
+      '201': {
+        k: 'object',
+        props: {
+          id: { s: { k: 'ref', name: 'Uuid' } },
+          roomNo: { s: { k: 'scalar' } },
+          name: { s: { k: 'scalar' } },
+          publicRoomType: { s: { k: 'scalar' } },
+          roomGroupId: { s: { k: 'ref', name: 'Uuid' } },
+          floor: { s: { k: 'scalar' } },
+          baseOccupancy: {
+            s: { k: 'scalar' },
+            v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
+          },
+          maxOccupancy: {
+            s: { k: 'scalar' },
+            v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
+          },
+          bedSetup: { s: { k: 'scalar' } },
+          bedCount: { s: { k: 'scalar' } },
+          areaM2: { s: { k: 'scalar' } },
+          isSellable: { s: { k: 'scalar' } },
+          activeFrom: { s: { k: 'ref', name: 'LocalDate' } },
+          activeTo: { s: { k: 'scalar' } },
+          currentListPrice: {
+            s: {
+              k: 'object',
+              props: {
+                effectiveFrom: { s: { k: 'ref', name: 'LocalDate' } },
+                monthlyListPriceVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                nightlyListPriceVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+              },
+              open: false,
+            },
+            v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
+          },
+          scheduledListPrices: {
+            s: { k: 'array', items: { k: 'ref', name: 'RoomScheduledListPrice' } },
+            v: ['owner', 'manager'],
+          },
+          version: { s: { k: 'scalar' } },
+          warnings: {
+            s: {
+              k: 'array',
+              items: { k: 'object', props: { code: { s: { k: 'scalar' } } }, open: false },
+            },
+          },
+        },
+        open: false,
+      },
+    },
     updateRoom: {
       '200': {
         k: 'object',
@@ -4454,6 +4538,32 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                 paidVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
               },
               open: false,
+            },
+          },
+        },
+        open: false,
+      },
+    },
+    getManagerPerformanceBonus: {
+      '200': {
+        k: 'object',
+        props: {
+          month: { s: { k: 'scalar' } },
+          status: { s: { k: 'scalar' } },
+          ratePct: { s: { k: 'ref', name: 'Percent' } },
+          baseVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+          amountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+          managers: {
+            s: {
+              k: 'array',
+              items: {
+                k: 'object',
+                props: {
+                  userId: { s: { k: 'ref', name: 'Uuid' } },
+                  displayName: { s: { k: 'scalar' } },
+                },
+                open: false,
+              },
             },
           },
         },
