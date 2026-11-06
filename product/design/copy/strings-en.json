@@ -3395,7 +3395,7 @@
   "audit.reason.early_departure": "Early departure refund",
   "approvals.refund_may_decrease": "The amount may go down at approval: charges posted after this request are taken off first.",
   "mlog.a_refund_destination_carried": "Refund destination carried over to the replacement request",
-  "mlog.a_money_not_found": "Closed 'Money for a cancelled booking' – money not found",
+  "mlog.a_money_not_found": "Money not received for cancelled booking",
   "rooms.cancel_sched_first": "This is the room's opening price, so it can't be cancelled – without it the room has no price until the next scheduled one. Change it in the price fields above, same date {date}.",
   "deposit.received_at": "Time received",
   "deposit.received_at_help": "When the money arrived or the guest paid. You can enter an earlier time, not a later one. A hold with no deposit can only be confirmed if the money arrived before its deadline.",
