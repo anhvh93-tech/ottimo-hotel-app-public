@@ -15,7 +15,7 @@
   - mục 6, 7, 8.
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.3**: áp thẻ FB-R5-CPY-UXD-V105-12 (CPY lượt 3, mục 12 tệp review). Chỉ đổi chữ 3 câu `sale.hold_next*` ở 4.14 (sale, CTV tự bấm Gia hạn giữ chỗ), cùng mục 0, 7, 8. Số khóa không đổi.
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.4**: thêm mục 9, chữ Desk nội bộ ngoài Gói 2 theo DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` (`e9e0e2e4`): 9.1 hộp ghi tiền về cho đơn đã hủy (V5-5B, DOM 11.4), 9.2 câu lỗi khi lưu `min_stay` sai dạng (V5-25, DOM 12.7). Cùng mục 0, 6, 8. Chữ Desk nội bộ, không cần CPY.
-- Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.5**: mục 9.1 theo ARC 0.3.13 bổ sung 1c (PR #94, mục 1.21, nhánh `r5-contract-0313` @ `2cb549cc`) và DOM 11.4 (`5ad26fc1`): mã hoàn `payment_after_cancel`, "Có thể trùng", nơi nhận hoàn cố định, ảnh chứng từ do chủ đầu tư hoặc quản lý gửi, nhắc tìm đơn mới, mã giao dịch tùy chọn và 409 `DUPLICATE_BANK_REFERENCE`; mục 9.1a mới cho V5-48 (409 `INVALID_TRANSITION` trên đơn đã đóng). Mục 9.3 mới cho V5-1A: cảnh báo giá đêm khác thường `NIGHTLY_PRICE_UNUSUAL` (DOM 1.2 ý 6, `1568e523`). Cùng mục 0, 6, 8.
+- Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.5**: mục 9.1 theo ARC 0.3.13 bổ sung 1c (PR #94, mục 1.21, nhánh `r5-contract-0313` @ `2cb549cc`) và DOM 11.4 (`5ad26fc1`): mã hoàn `payment_after_cancel`, "Có thể trùng", nơi nhận hoàn cố định, ảnh chứng từ do chủ đầu tư hoặc quản lý gửi, nhắc tìm đơn mới, mã giao dịch tùy chọn và 409 `DUPLICATE_BANK_REFERENCE`; mục 9.1a mới cho V5-48 (409 `INVALID_TRANSITION` trên đơn đã đóng). Mục 9.3 mới cho V5-1A: cảnh báo giá đêm khác thường `NIGHTLY_PRICE_UNUSUAL` (DOM 1.2 ý 6, `1568e523`). Theo BE PR #96 (V5-25): 9.2 sửa ca thiếu `channels` (máy chủ trả `allowed`) và ca quá 20 luật; mục 9.4 mới, câu lỗi chung cho 11 khóa có cấu trúc. Mục 9.5 mới cho V5-16 (US-177, BR-438; PO `6cfa6085`, ARC 0.3.13 mục 1.20). Cùng mục 0, 6, 8.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -50,9 +50,10 @@
 | V5-24 Tiếng Nga | 8 | 0 | 0 | **8** | Bản 1.1 thêm `gw.req.clean_long_fee`. `sale.quote_text`, `msg.booking_confirmed`, `msg.deposit_received`, `msg.hot_water_issue` đổi thêm cột VI và/hoặc EN, vẫn đếm một lần ở đây. Kèm yêu cầu font (mục 5.2) |
 | V5-5B Tiền về sau khi hủy (bản 1.4, 1.5, mục 9.1) | 0 | 26 | 0 | **26** | Ngoài Gói 2. Đi cùng 5B-1. Bản 1.4: 13 khóa. Bản 1.5: thêm 13 (gồm `audit.reason.payment_after_cancel`, trước là khóa có điều kiện). 3 khóa để sẵn cho 5B-2, chưa đếm |
 | V5-48 Thu tiền trên đơn đã đóng (bản 1.5, mục 9.1a) | 0 | 3 | 0 | **3** | Ngoài Gói 2. Bắt buộc v1.0.5 (ARC 1.21 mục 2) |
-| V5-25 Lưu `min_stay` (bản 1.4, mục 9.2) | 0 | 3 | 0 | **3** | Ngoài Gói 2. Đi cùng PR V5-25 của BE |
+| V5-25 Lưu tham số có cấu trúc (bản 1.4, 1.5, mục 9.2, 9.4) | 0 | 8 | 0 | **8** | Ngoài Gói 2. Đi cùng PR #96 (V5-25). Bản 1.4: 3 khóa `min_stay`. Bản 1.5: 5 khóa câu chung ở 9.4 |
+| V5-16 Lễ tân sửa giảm dòng (bản 1.5, mục 9.5) | 0 | 7 | 0 | **7** | Ngoài Gói 2. Đi cùng US-177 (PR-B2). 2 khóa đóng ca để sẵn, chưa đếm |
 | V5-1A Cảnh báo giá đêm khác thường (bản 1.5, mục 9.3) | 1 | 3 | 0 | **4** | Ngoài Gói 2. Đi cùng PR-C1 của BE (V5-1A) |
-| **Tổng** | **72** | **103** | **7** | **182** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162 |
+| **Tổng** | **72** | **115** | **7** | **194** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162 |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
@@ -60,7 +61,7 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Xếp sau:** 5.3 (kiểm tự động).
 - 3 câu `sale.hold_next*` (4.14): bản 1.3 dùng nguyên chữ CPY (thẻ 12), không còn chờ.
 - **v1.0.6:** 4.20 (c) và C6.
-- **Mục 9 (bản 1.4, 1.5):** theo lịch của việc đi kèm, không theo Gói 2. 9.1 lên cùng V5-5B (5B-1; PO xếp v1.0.5 nếu kịp, không thì v1.0.6). 9.1a lên cùng V5-48 (bắt buộc v1.0.5). 9.2 lên cùng V5-25. 9.3 lên cùng V5-1A (PR-C1).
+- **Mục 9 (bản 1.4, 1.5):** theo lịch của việc đi kèm, không theo Gói 2. 9.1 lên cùng V5-5B (5B-1; PO xếp v1.0.5 nếu kịp, không thì v1.0.6). 9.1a lên cùng V5-48 (bắt buộc v1.0.5). 9.2 và 9.4 lên cùng V5-25 (PR #96). 9.3 lên cùng V5-1A (PR-C1). 9.5 lên cùng V5-16 (US-177, Must v1.0.5; 403 ở PR-B2, bộ lọc ở PR-B1).
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -764,10 +765,13 @@ Bắt buộc v1.0.5. `confirmPaymentReceived` và `createVietQr` trên đơn `ca
 
 ### 9.2 Câu lỗi khi lưu `min_stay` sai dạng (V5-25; DOM 12.1, 12.7)
 
-Sau V5-25, `min_stay` sai dạng trả 422 `PARAM_OUT_OF_RANGE`. Theo DOM 12.1:
-- `nights` sai: `extras` có `min`, `max`;
-- `channels`, `arrivalWeekdays` sai: `extras` có `allowed`;
-- các lỗi còn lại không có `allowed`: không phải mảng, quá 20 luật, khóa lạ, thiếu `channels`, luật không áp vào ngày nào, `arrivalOnSpecialDates` là chữ.
+Sau V5-25, `min_stay` sai dạng trả 422 `PARAM_OUT_OF_RANGE`. Theo DOM 12.1 và bộ kiểm của BE (PR #96, `parameter-shapes.ts`):
+- `nights` thiếu, sai kiểu hoặc ngoài khoảng: `extras` có `min`, `max`;
+- `channels` **thiếu** (`REQUIRED`), sai hoặc trùng, và `arrivalWeekdays` sai hoặc trùng: `extras` có `allowed` (oracle BR-113-23, 24, 25; 17, 18, 19);
+- quá 20 luật: `extras` chỉ có `max` (= 20), `field` = `value`;
+- các lỗi còn lại không có `extras`: không phải mảng, phần tử không phải đối tượng, khóa lạ, luật không áp vào ngày nào, `arrivalOnSpecialDates` là chữ.
+
+Bản 1.5 sửa theo PR #96: bản 1.4 xếp "thiếu `channels`" và "quá 20 luật" vào câu dạng chung. Máy chủ trả `allowed` cho ca thiếu `channels`, nên Desk hiện câu "Chọn một trong" (bước 1 dưới), kèm chỗ cần sửa theo 9.4. UXD đồng ý với máy chủ, không cần ARC đổi: câu "Chọn một trong: all, direct, agent, ota" cho người sửa biết phải điền gì, còn câu dạng chung không nói thiếu ở luật nào.
 
 Câu chung `_SHAPE` (mục 2.3) không chỉ được chỗ sai. Câu `_MINMAX` ("Giá trị phải từ 1 đến 7.") đọc như cả ô phải là một số. Vì vậy `min_stay` có câu riêng. Câu dạng lấy theo đề xuất của DOM, thêm một câu nói mỗi luật cần gì, để sửa lỗi gõ mà không phải mở từ điển.
 
@@ -778,11 +782,12 @@ Câu chung `_SHAPE` (mục 2.3) không chỉ được chỗ sai. Câu `_MINMAX` 
 | `params.err_short_stay_below_min_stay` | Mới | Phải từ {min} đêm trở lên, vì Ở tối thiểu đang có luật {min} đêm. | Must be at least {min} nights, because Minimum stay has a {min}‑night rule. | `short_stay_max_nights`, 422 chỉ có `min` (kiểm chiều ngược, DOM 12.2) |
 
 FE (`app/problem.ts`, nhánh `PARAM_OUT_OF_RANGE`; ParamDialog biết khóa đang lưu), xét trước thứ tự 6 bước ở mục 2.3:
-1. khóa `min_stay`, có `allowed` → giữ `error.PARAM_OUT_OF_RANGE` ("Chọn một trong: all, direct, agent, ota" hoặc 7 mã thứ);
+1. khóa `min_stay`, có `allowed` → câu chung 9.4, `{detail}` = `error.PARAM_OUT_OF_RANGE` ("Chọn một trong: all, direct, agent, ota" hoặc 7 mã thứ). Ví dụ BR-113-23: "Chỗ cần sửa: mục 1, channels. Giá trị này không có trong danh sách cho phép. Chọn một trong: all, direct, agent, ota. Xem dạng đúng trong từ điển tham số, mục min_stay.";
 2. khóa `min_stay`, có `min` và `max` → `params.err_min_stay_nights`;
-3. khóa `min_stay`, còn lại → `params.err_min_stay_shape`;
-4. khóa `short_stay_max_nights`, chỉ có `min` → `params.err_short_stay_below_min_stay`;
-5. các khóa khác: theo mục 2.3.
+3. khóa `min_stay`, chỉ có `max` (quá 20 luật) → câu chung 9.4 dạng cả giá trị, `{detail}` = `error.PARAM_OUT_OF_RANGE_MAX`;
+4. khóa `min_stay`, không có `extras` → `params.err_min_stay_shape`;
+5. khóa `short_stay_max_nights`, chỉ có `min` → `params.err_short_stay_below_min_stay`;
+6. 11 khóa ở 9.4: theo 9.4. Các khóa khác: theo mục 2.3.
 
 JSON gõ sai (thiếu ngoặc, thiếu dấu ngoặc kép) vẫn báo `params.err_json` ở máy khách, trước khi gửi. `[]` lưu được (DOM 12.2), không có câu lỗi.
 
@@ -807,6 +812,67 @@ Giá tháng là giá tháng của cùng căn, cùng ngày hiệu lực với gi�
 | `rooms.warn.nightly_price_unusual` | Mới | – | Giá đêm khác thường so với giá tháng. Giá đã lưu: kiểm lại hai giá của căn, sai thì sửa ngay. | The nightly price looks unusual next to the monthly price. The price is saved: check both prices for this room and correct them now if needed. | Dòng thêm trong toast lưu khi `warnings[]` có `NIGHTLY_PRICE_UNUSUAL`. Không dùng câu "Kiểm lại trước khi lưu" ở đây vì giá đã lưu |
 
 Không thêm tham số cho hai biên (DOM: hằng số). Câu không ghi "÷ 5" hay "÷ 30" ở biên trên để người đọc hiểu ngay bằng ngày, tháng.
+
+### 9.4 Câu lỗi chung cho khóa có cấu trúc (V5-25, BE PR #96)
+
+Áp cho 11 khóa có bộ kiểm mới ở PR #96: `special_dates`, `los_discount`, `cancel_policy_direct`, `early_checkin_tiers`, `late_checkout_tiers`, `early_departure_refund`, `checkout_reminders`, `weekend_uplift_channels`, `special_uplift_channels`, `max_open_holds_per_user`, `lease_terms`. `min_stay` dùng ở bước 1 và 3 của 9.2.
+
+Vấn đề: các khóa này là danh sách hoặc đối tượng JSON. `_MINMAX` ("Giá trị phải từ 0 đến 100.") đọc như cả ô phải là một số. `_SHAPE` không nói chỗ nào sai. Máy chủ báo chỗ sai đầu tiên ở `errors[0].field` (ARC 1.24), nên câu chung nói chỗ đó trước, rồi mới nói giá trị nhận.
+
+**Giữ nguyên 6 bước ở mục 2.3.** Câu 2.3 chọn được ghép vào `{detail}`:
+- có `allowed` (hai khóa `*_uplift_channels`, `max_open_holds_per_user` khi gõ sai vai) → `error.PARAM_OUT_OF_RANGE`;
+- có `min` và `max` → `_MINMAX`; chỉ `max` → `_MAX`; chỉ `min` → `_MIN`;
+- không có `extras` → `_SHAPE`.
+`_GROUPS` chỉ cho `ota_base_rate`, không gặp ở đây.
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `params.err_structured` | Mới | Chỗ cần sửa: {where}. {detail} Xem dạng đúng trong từ điển tham số, mục {key}. | Fix this part: {where}. {detail} See the correct format in the parameter dictionary, under {key}. | `errors[0].field` sâu hơn `value` |
+| `params.err_structured_whole` | Mới | {detail} Xem dạng đúng trong từ điển tham số, mục {key}. | {detail} See the correct format in the parameter dictionary, under {key}. | `field` = `value`, hoặc không có `errors` |
+| `params.where_item` | Mới | mục {n} | item {n} | `value[i]` |
+| `params.where_item_field` | Mới | mục {n}, {field} | item {n}, {field} | `value[i].<khóa>` và sâu hơn (`value[i].channels[j]` → khóa `channels`) |
+| `params.where_field_item` | Mới | {field}, mục {n} | {field}, item {n} | `value.<khóa>[j]` (ví dụ `value.before[3]` của `checkout_reminders`) |
+
+Cách dựng `{where}` từ `errors[0].field`:
+- `{n}` = chỉ số + 1 (máy chủ đếm từ 0, người đọc đếm từ 1);
+- `{field}` = tên khóa con, giữ nguyên mã (`pct`, `minNights`, `refundPct`, `before`), vì ô JSON và từ điển dùng đúng mã này;
+- `value.<khóa>` không có chỉ số → `{where}` = tên khóa con, không cần khóa chữ;
+- chỉ lấy một chỉ số và một tên khóa đầu tiên, bỏ phần sâu hơn.
+
+`{key}` = mã tham số (`los_discount`). Từ điển tham số đặt tên mục theo mã, và ParamDialog đã hiện mã dưới tên.
+
+Ví dụ:
+- `los_discount`, `value[1].pct` = 120, `{min: 0, max: 100}` → "Chỗ cần sửa: mục 2, pct. Giá trị phải từ 0 đến 100. Xem dạng đúng trong từ điển tham số, mục los_discount."
+- `special_dates`, `value[0].from` = 30/02, không `extras` → "Chỗ cần sửa: mục 1, from. Giá trị này chưa đúng dạng, hoặc chưa khớp với tham số đi kèm. Xem dạng đúng trong từ điển tham số, mục special_dates."
+- `early_departure_refund`, `value.refundPct` = −5 → "Chỗ cần sửa: refundPct. Giá trị phải từ 0 đến 100. Xem dạng đúng trong từ điển tham số, mục early_departure_refund."
+- `lease_terms` 13 kỳ, `field` = `value`, `{max: 12}` → "Giá trị này vượt mức cho phép (12). Xem dạng đúng trong từ điển tham số, mục lease_terms."
+
+Không đổi `params.err_json` (JSON gõ sai vẫn báo ở máy khách, trước khi gửi). Định dạng số theo mục 2.3; các khóa con ở đây không có đơn vị `vnd`, nên số in trần.
+
+### 9.5 Lễ tân sửa giảm dòng phát sinh (V5-16; US-177, BR-438; ARC 0.3.13 mục 1.20)
+
+Luật: lễ tân, lễ tân trưởng chỉ tự sửa giảm (bỏ dòng, giảm số lượng, giảm đơn giá) dòng **chính mình nhập tay trong ngày nghiệp vụ hiện tại**, xét theo dòng gốc. Mọi ca khác (dòng của người khác, dòng Desk tự ghi, dòng ngày trước) → 403 `FORBIDDEN_ACTION` + `requiredFlow: foc_request`, folio không đổi. Desk đưa sang **Gửi miễn có duyệt**. Quản lý, chủ đầu tư sửa như cũ.
+
+Desk không tự đoán trước được: `FolioLine` không có nguồn `manual`, ngày nghiệp vụ ghi hay dòng gốc. Vì vậy hộp **Điều chỉnh** giữ nguyên lối sửa, có câu phụ báo luật từ đầu. Khi máy chủ từ chối thì hộp hiện câu chỉ dẫn và nút **Gửi miễn có duyệt**, mở form miễn phí cho đúng dòng đó. Chữ không lộ mã kỹ thuật (US-177 AC9).
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `folio.adjust_reduce_rule` | Mới | Lễ tân tự giảm hoặc bỏ được dòng chính mình nhập tay trong ngày nghiệp vụ hôm nay. Dòng khác cần Gửi miễn có duyệt. | Front desk staff can lower or cancel only the lines they entered by hand themselves on today's business day. Any other line needs a waiver request with approval. | Câu phụ trong hộp Điều chỉnh, dưới ô Bỏ cả dòng. Chỉ FD, FDL. Luôn hiện, không tùy dòng |
+| `error.reduce_needs_foc` | Mới | Chưa ghi điều chỉnh. Dòng này không phải dòng bạn tự nhập tay hôm nay: dòng của người khác, dòng Desk tự ghi, hoặc dòng ngày trước. Bấm Gửi miễn có duyệt để người có quyền duyệt xem. | Adjustment not recorded. This isn't a line you entered by hand today: it was entered by someone else, added by Desk, or entered on an earlier day. Select Request a waiver (needs approval) so an approver can review it. | 403 có `requiredFlow = foc_request` ở `adjustFolioLine`. FE đọc `requiredFlow` trước, rồi mới tới câu chung `error.FORBIDDEN_ACTION`. Khung cảnh báo trong hộp, giữ số đã gõ |
+| `folio.foc_request_btn` | Mới | Gửi miễn có duyệt | Request a waiver (needs approval) | Nút trong khung `error.reduce_needs_foc`. Mở form miễn phí của dòng đó, ô Số tiền điền sẵn phần định giảm (số cũ − số mới, bỏ dòng = cả dòng, không quá `foc.max`). EN theo `ci.ask_foc` |
+| `foc.reduce_note` | Mới | Số tiền đã điền phần bạn định giảm. Chọn lý do (dòng ghi sai: Ghi nhầm) rồi Gửi duyệt. | The amount is filled in with what you meant to take off. Choose a reason (for a line entered wrongly: Entered in error), then send it for approval. | Dòng đầu form miễn phí khi mở từ nút trên. Mở form theo lối thường thì không hiện |
+| `foc.r_entered_in_error` | Mới | Ghi nhầm | Entered in error | Lý do FOC `entered_in_error` (US-177 AC8): nút chọn lý do, cột Lý do, Cần duyệt, báo cáo FOC |
+| `mlog.filter_reductions` | Mới | Sửa giảm dòng – 7 ngày | Line reductions – 7 days | Bộ lọc `reductionsOnly` ở Nhật ký tiền. Chỉ MGR, OWN (US-177 AC7 (i)) |
+| `attn.line_reduction_count` | Mới | Một người đã tự sửa giảm dòng {count} lần tháng này – vượt ngưỡng {max} | One person has lowered or cancelled their own lines {count} times this month – over the limit of {max} | "Cần chú ý" `foc_threshold`, `check = line_reduction_count`. Cùng kiểu `attn.foc_count`: không tên, link lọc theo người |
+
+Để sẵn, chưa đếm, thêm khi `ShiftReport.lineReductions[]` lên (v1.0.5 nếu kịp, không thì v1.0.6; DOM 7.2 ý 4):
+
+| Khóa | VI | EN | Khi nào |
+|---|---|---|---|
+| `shift.line_reductions_title` | Dòng tự sửa giảm trong ca | Lines lowered or cancelled this shift | Tiêu đề khối ở danh sách đóng ca (BR-526 (d)) |
+| `shift.line_reduction_row` | {code} · {line}: {before} → {after} · {reason} | {code} · {line}: {before} → {after} · {reason} | Một dòng mỗi lần. `{before}`, `{after}` dùng `money()`; `{reason}` = lý do người sửa gõ. Không tên khách |
+
+Lưu ý cho PO, CPY (không chặn): bill khách in lý do miễn theo `bill.line.foc_reason` ("Miễn phí · {reason}"). Với `entered_in_error`, UXD đề xuất bill chỉ in `bill.line.foc` ("Miễn phí"), không in "Ghi nhầm". Lý do: đây là chữ nội bộ, khách không cần đọc. Số tiền trên bill không đổi.
 
 ---
 
@@ -834,7 +900,8 @@ Không thêm tham số cho hai biên (DOM: hằng số). Câu không ghi "÷ 5" 
 | FE-A | màn Cần duyệt, Hoàn tiền, Đối soát (`money/*`, `approvals/*`) | Bản 1.5: nhãn `payment_after_cancel`, khối nơi nhận cố định (ẩn Nhập nơi nhận hoàn, ẩn chi tiền mặt), chip và câu "Có thể trùng" khi `possibleDuplicateCodes` không rỗng. Lên cùng 5B-1 | 9.1 |
 | FE-A | `pages/RoomDrawer.tsx` | Bản 1.5: thêm `nightlyHigh` (giá đêm × 5 > giá tháng) cạnh `nightlyLow`; chữ nút Lưu khi cảnh báo hiện và ô giá đã sửa; đọc `warnings[]` của `updateRoom` để thêm dòng vào toast. Lên cùng V5-1A | 9.3 |
 | FE-A | `app/problem.ts`, hộp Xác nhận cọc, `DepositQr` | Bản 1.5: 409 `INVALID_TRANSITION` có `reservationStatus` → 3 câu 9.1a theo vai và theo 5B-1 đã lên hay chưa. Lên cùng V5-48 (bắt buộc v1.0.5) | 9.1a |
-| FE-A | `app/problem.ts`, `pages/ParamDialog.tsx` | Bản 1.4: chọn câu lỗi riêng cho `min_stay`, `short_stay_max_nights` trước 6 bước ở 2.3. Lên cùng V5-25 | 9.2 |
+| FE-A | `app/problem.ts`, `pages/ParamDialog.tsx` | Bản 1.4: chọn câu lỗi riêng cho `min_stay`, `short_stay_max_nights` trước 6 bước ở 2.3. Bản 1.5: `min_stay` có `allowed` hay chỉ `max` dùng câu chung 9.4; 11 khóa có cấu trúc dựng `{where}` từ `errors[0].field`, ghép câu 2.3 vào `{detail}`. Lên cùng V5-25 (PR #96) | 9.2, 9.4 |
+| FE-A | `pages/stay/FolioDialog.tsx` (hộp Điều chỉnh, form miễn phí), `app/problem.ts`, Nhật ký tiền, "Cần chú ý" | Bản 1.5: câu phụ cho FD, FDL; 403 `requiredFlow = foc_request` → câu chỉ dẫn và nút mở form miễn phí điền sẵn; lý do Ghi nhầm; bộ lọc `reductionsOnly`; `attn.line_reduction_count`. Lên cùng V5-16 (US-177) | 9.5 |
 | UXD | `design/content-guide.md` | Sau khi FE áp: đồng bộ mục 8 theo `strings-tables.md`, ghi phiên bản v0.4.7, xóa dòng `fo.tabs.holds`, sửa ô `bk.src_weekend` trong `hifi/09-booking.html` | 1.3, 4.18 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
@@ -882,5 +949,7 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - Bản 1.4, mục 9.1 (khi 5B-1 lên staging): lễ tân mở đơn đã hủy → nút "Ghi tiền về sau khi hủy" có, sale và CTV không thấy nút. Hộp chỉ có Chuyển khoản, VietQR. Khung cảnh báo đầu hộp luôn hiện. Thiếu ảnh hoặc chọn tiền mặt thì hiện đúng câu 9.1. Ghi xong hiện câu `rsv.after_cancel.done` có số tiền và mã đơn.
 - Bản 1.5, mục 9.1 (ca QA (h), (i) của DOM 11.4): yêu cầu hoàn tự tạo hiện "Tiền về sau khi hủy", khối nơi nhận cố định, không có nút Nhập nơi nhận hoàn, không có lối chi tiền mặt. Cùng 400.000 ở đơn cũ và đơn mới, cách 2 giờ: chip "Có thể trùng" ở màn duyệt hoàn và màn đối soát, câu chỉ hiện mã đơn. Gõ lại một mã giao dịch đã ghi: câu `error.DUPLICATE_BANK_REFERENCE` có mã đơn kia, không có khoản thu mới.
 - Bản 1.5, mục 9.1a (khi V5-48 lên staging): lễ tân bấm Xác nhận cọc hoặc tạo VietQR trên đơn đã hủy (mở ở tab cũ) → câu 9.1a có "Đã hủy", không phải câu "tải lại". Sale tạo VietQR trên đơn đã hủy → câu `_sales`. Đơn Không đến → "Không đến".
+- Bản 1.5, mục 9.4 (khi PR #96 lên staging): `los_discount` có `pct` 120 ở luật thứ hai → "Chỗ cần sửa: mục 2, pct. Giá trị phải từ 0 đến 100. …"; `lease_terms` 13 kỳ → câu cả giá trị có "(12)"; `weekend_uplift_channels` = "web" → "Chọn một trong: all, direct, agent, ota". Không còn `{where}`, `{detail}`, `{key}` lộ ra; chỉ số đếm từ 1.
+- Bản 1.5, mục 9.5 (khi PR-B2 lên staging; ca DOM T-16-1…10, ARC T16-6…12): lễ tân bỏ dòng tay của chính mình hôm nay → lưu được. Bỏ dòng của lễ tân khác, dòng phụ thu trả muộn Desk tự ghi, dòng mình ghi hôm qua → câu `error.reduce_needs_foc`, có nút "Gửi miễn có duyệt", folio không đổi. Bấm nút → form miễn phí đúng dòng, Số tiền điền sẵn đúng phần định giảm, chọn được "Ghi nhầm". Quản lý bỏ dòng bất kỳ → lưu được, không có câu phụ. Lễ tân không thấy bộ lọc "Sửa giảm dòng – 7 ngày".
 - Bản 1.5, mục 9.3 (khi V5-1A lên staging): căn giá tháng 8.500.000, gõ giá đêm 2.800.000 → câu `rooms.night_high`, nút "Vẫn lưu giá này", lưu được. Gõ 1.700.000 (đúng bằng ÷ 5) → không cảnh báo. Gõ 280.000 (< ÷ 30) → câu `rooms.night_low` mới. Lưu giá đêm qua API với giá tháng ngày hiệu lực khác giá đang hiện → toast có dòng `rooms.warn.nightly_price_unusual`.
-- Bản 1.4, mục 9.2 (khi V5-25 lên staging, theo oracle BR-113-06…30): ca 08, 09, 20, 23, 27 → `params.err_min_stay_shape`; ca 11, 12 → `params.err_min_stay_nights` với số đúng; ca 17, 24, 25 → câu "Chọn một trong: …"; ca 28 → `params.err_short_stay_below_min_stay` với số 2. Không còn `{min}`, `{max}` lộ ra.
+- Bản 1.4, mục 9.2 (khi V5-25 lên staging, theo oracle BR-113-06…30): ca 07, 08, 09, 20, 22, 27 → `params.err_min_stay_shape`; ca 11, 12, 16 → `params.err_min_stay_nights` với số đúng; ca 17, 18, 19, 23, 24, 25 → câu chung 9.4 có "Chỗ cần sửa: mục 1, …" và "Chọn một trong: …" (bản 1.5: ca 23 chuyển sang đây theo PR #96); ca 28 → `params.err_short_stay_below_min_stay` với số 2. Không còn `{min}`, `{max}` lộ ra.
