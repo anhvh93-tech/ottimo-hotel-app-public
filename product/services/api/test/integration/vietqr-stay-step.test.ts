@@ -302,7 +302,14 @@ describe.skipIf(!HAS_DB)('createVietQr check_in / check_out (BE-B Sprint 4, S4-1
     expect(again.statusCode).toBe(409);
 
     const leaveAt = `${input.departureDate}T14:00:00+07:00`;
+    // 0.3.13 (V5-10, BE C0313-01): a check-out QR is created at (or after) the departure it charges – a `checkoutAt`
+    // ahead of the server clock + tolerance is refused (TIME_AFTER_ACTION, below).
     await at(`${input.departureDate}T09:00:00+07:00`);
+    const early = await qr('fd', b, { amountVnd: 1, purpose: 'check_out', checkoutAt: leaveAt });
+    expect(early.statusCode, early.body).toBe(422);
+    expect(early.json().errors).toEqual([{ field: 'checkoutAt', code: 'TIME_AFTER_ACTION' }]);
+    expect(await qrCount(b)).toBe(0);
+    await at(`${input.departureDate}T14:00:00+07:00`);
     const sum = await c.fd!.get(
       url(`/reservations/${b.id}/checkout-summary?checkoutAt=${encodeURIComponent(leaveAt)}`),
     );
