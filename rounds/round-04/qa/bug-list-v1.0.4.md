@@ -2112,3 +2112,6 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
     - thêm CO-01b (giới hạn đã biết, mong đợi "không có dòng"), không ghi thành lỗi;
     - thêm CO-04 (đọc lỗi: câu chữ Stone, không chặn Hoàn tất);
     - CO-03 N/A – dời v1.0.5.
+
+## Ghi nhận 06/11 (không mở bug)
+- HD-27 SSE trên staging `sha-6414be25f20d`: luồng logger ORC (mở 11:45:55) không nhận `notification.created` lúc 12:00:51, reset 12:13:32 mà không thấy đóng sạch ở maxAge 15 phút (12:00:55) → luồng đã chết lặng trước đó. Đọc mã: `hold_overdue_cap` phát trong cùng `expireHold…` và cùng `notifyHoldOnce` → `EventsService.notify(..., { push: false })` như `hold_overdue_with_deposit` (HD-14 qua SSE đạt 05/11); hộp thư + chú ý của cap đạt. Kết luận: hạn chế đo, không phải lỗi app. Phủ tự động: `test/integration/v104-holds.test.ts` (cap → hộp thư MGR/OWN, chú ý) và test SSE chung của `events.notify`; chưa có test assert riêng sự kiện SSE cho kind `hold_overdue_cap` – đề xuất BE thêm 1 assert (P3, không chặn).
