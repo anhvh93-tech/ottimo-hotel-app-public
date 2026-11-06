@@ -179,6 +179,8 @@ export class BillService {
       roomOn: roomResolver(segments),
       roomName,
       catalogName: await this.catalogNames(tx, today),
+      // US-177 AC10: the guest's bill never prints an internal FOC reason ("Ghi nhầm").
+      guestFacing: true,
     };
     const lastRoomNo = segments[segments.length - 1]?.roomNo;
     const { rows: prop } = await tx.query<{ name: string; address: string | null }>(

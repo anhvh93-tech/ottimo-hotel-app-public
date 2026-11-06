@@ -38,6 +38,9 @@ export const REPORTING_READ_TABLES = [
   'guest',
   'folio_line',
   'approval_request',
+  // Contract 0.3.13 1.20 (V5-16, BR-438 (4)(iii)): `foc_threshold` `check = line_reduction_count` counts the
+  // `folio_line.adjusted` money events of FD/FDL at read time (actor id, role, category, amounts – no guest data).
+  'audit_event',
 ] as const;
 
 /** C6: the only table the module writes – the exactly-once slot of its J2 job (architecture 9.1). */

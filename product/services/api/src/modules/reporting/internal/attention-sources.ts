@@ -26,6 +26,11 @@
  *   (c) ARC 16.27 (2) / BR-525 (DOM 18/10): a FOC with reason `debt_write_off` (writing a debt off after check-out)
  *       is NOT a free service to a staying guest – it is left out of (a) (its line, and the reversal of it) and
  *       of (b). The FOC report shows it apart (BE-B / DATA – not this module).
+ *   (d) BR-438 (4)(iii), contract 0.3.13 1.20 (V5-16): per FD/FDL (role at the time), the direct reductions of a
+ *       non-night line in the period, from the `folio_line.adjusted` audit (after.amountVnd < before.amountVnd).
+ *       Above the SAME `foc_alert_count_per_approver` → one line per person: params {check: line_reduction_count,
+ *       count, max}, no name – `link` = /audit?reductionsOnly=true&month=YYYY-MM&actorUserId=<id>. Such a correction
+ *       is not a FOC: it is outside (a) and (b).
  */
 import type { Tx } from '../../../db/database';
 import { type LocalTime, atLocal } from '../../../shared/time';
@@ -34,6 +39,7 @@ import type {
   AttentionSource,
   AttentionSourceContext,
 } from '../../events/public/events.service';
+import { FRONT_DESK_ROLES, NIGHT_LINE_CATEGORIES } from '../../folio/public/line-reduction';
 
 const VIP_TAGS = new Set(['vip', 'khach quen', 'returning', 'regular']);
 
@@ -183,6 +189,37 @@ export const focThreshold: AttentionSource = async (tx: Tx, ctx: AttentionSource
         count: r.n,
         link: `/approvals?type=foc&month=${month}&approverId=${r.approver_id}`,
         params: { check: 'foc_count_per_approver', count: r.n, max: countLimit },
+      });
+    }
+    // (d) BR-438 (4)(iii) (contract 0.3.13 1.20): per FD/FDL, the direct reductions of a non-night line in the
+    // business month – read from the `folio_line.adjusted` audit (after < before, role at the time), same threshold.
+    const { rows: cut } = await tx.query<{ actor_user_id: string; n: number }>(
+      `SELECT e.actor_user_id, count(*)::int AS n FROM audit_event e
+        WHERE e.property_id = $1 AND e.category = 'money' AND e.action = 'folio_line.adjusted'
+          AND e.occurred_at >= $2 AND e.occurred_at <= $3 AND e.actor_user_id IS NOT NULL
+          AND e.before->>'actorRole' = ANY($4::text[])
+          AND NOT (COALESCE(e.before->>'category', '') = ANY($5::text[]))
+          AND (e.after->>'amountVnd')::bigint < (e.before->>'amountVnd')::bigint
+        GROUP BY e.actor_user_id HAVING count(*) > $6
+        ORDER BY count(*) DESC, e.actor_user_id`,
+      [
+        tx.ctx.propertyId,
+        atLocal(monthStart, rollover, ctx.tz),
+        ctx.now,
+        [...FRONT_DESK_ROLES],
+        [...NIGHT_LINE_CATEGORIES],
+        countLimit,
+      ],
+    );
+    for (const r of cut) {
+      if (!focCountAlert(r.n, countLimit)) continue;
+      items.push({
+        kind: 'foc_threshold',
+        source: 'computed',
+        severity: 'warning',
+        count: r.n,
+        link: `/audit?reductionsOnly=true&month=${month}&actorUserId=${r.actor_user_id}`,
+        params: { check: 'line_reduction_count', count: r.n, max: countLimit },
       });
     }
   }
