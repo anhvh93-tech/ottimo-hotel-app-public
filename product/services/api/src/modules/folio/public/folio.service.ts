@@ -1539,7 +1539,9 @@ export class FolioService implements FolioStaySync {
   /**
    * SM-11 `projected → earned` (BR-903 + BR-527, DOM S3-3 / BE-15): a short-stay commission is earned when
    * ALL hold – the booking is `checked_out`, its folio owes nothing, and no receipt recorded by the payee on
-   * the folio is still `pending`/`disputed`. Called at the LAST of those events: B18 (reservation hook),
+   * the folio is still `pending`/`disputed`. "The payee" = any payee of a commission row of the booking, also an
+   * earlier closer whose row was voided (DOM FB-R5-DOM-ARC-1H-04, contract 0.3.13 bổ sung 1h): a transfer the old
+   * closer recorded and nobody reconciled yet holds the new closer's row too. Called at the LAST of those events: B18 (reservation hook),
    * reconciliation / cash handover, a receipt after checkout (debt). The caller passes the booking status.
    * "After the check-out" (a receipt still unconfirmed holds the commission) = after the folio was `settled` by B18
    * (`folio.settled_at`, ARC 3.1 / DOM PR99-01) – not the guest's departure time (`actual_checkout_at`).
@@ -1590,8 +1592,10 @@ export class FolioService implements FolioStaySync {
         WHERE c.reservation_id = $1 AND c.status = 'projected'
           AND NOT EXISTS (
             SELECT 1 FROM payment p
-             WHERE p.folio_id = $2 AND p.recorded_by = c.payee_user_id AND p.status = 'succeeded'
-               AND p.reversal_of_id IS NULL AND p.reconciliation IN ('pending', 'disputed'))
+             WHERE p.folio_id = $2 AND p.status = 'succeeded'
+               AND p.reversal_of_id IS NULL AND p.reconciliation IN ('pending', 'disputed')
+               AND p.recorded_by IN (
+                 SELECT v.payee_user_id FROM commission v WHERE v.reservation_id = c.reservation_id))
         FOR UPDATE OF c`,
       [stay.reservationId, folio.id],
     );
@@ -1742,7 +1746,8 @@ export class FolioService implements FolioStaySync {
    *   when OWN corrects it after check-in): `projected` rows through syncCommission, an `earned` row here.
    * - The new closer's row is created at the booking's pinned rate (the snapshot, else the first row of the payee type
    *   – #131: a change of person never changes the rate), `projected`; on a `checked_out` booking it is then earned
-   *   by the same rule as B18 (tryEarnCommissions: folio owes nothing, no receipt of the payee pending).
+   *   by the same rule as B18 (tryEarnCommissions: folio owes nothing, no receipt of the payee – nor of an earlier
+   *   closer, DOM FB-R5-DOM-ARC-1H-04 – pending).
    * Lock order: the caller holds the booking (L1) and the folio (L3); the commission rows are locked FOR UPDATE here,
    * as at B18. Returns the amount of the live row (0 = none, e.g. `rate_missing` or a long stay).
    */

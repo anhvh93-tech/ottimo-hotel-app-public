@@ -13,7 +13,9 @@
  * - safety net (ARC 131-02 (3)): a closer changed BEFORE this fix (row of the earlier closer still `projected`) → the
  *   "earned" step voids it and earns the current closer's row;
  * - ARC 131-03: the debt on a ROOM line written off while `ensureCommission` creates the row at that step → base = room
- *   revenue − the write-off, `earned`.
+ *   revenue − the write-off, `earned`;
+ * - DOM FB-R5-DOM-ARC-1H-04: a transfer the OLD closer recorded, not reconciled yet, keeps the NEW closer's row
+ *   `projected` – at B18 after an in-house correction and at OWN's correction after check-out – until it is reconciled.
  * SEC G3: the only rate is the test value `test_rate_short`. FAKE data only.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -26,6 +28,7 @@ import {
   NoMinibarPort,
 } from '../../src/modules/frontdesk/internal/default-ports';
 import { FrontdeskPorts } from '../../src/modules/frontdesk/internal/stay-support';
+import { PaymentService } from '../../src/modules/payments/public/payment.service';
 import {
   FD_CHILD_DATA_PORT,
   type CheckinDocumentStatus,
@@ -690,6 +693,96 @@ describe.skipIf(!HAS_DB)(
       expect(await closerOf(S)).toBe(sal2());
       expect(await commissions(S)).toEqual(rows);
       expect(await voidAudits(S)).toHaveLength(voided);
+    });
+
+    it('DOM 1H-04: a transfer the OLD closer recorded, still pending, keeps the NEW closer projected (B18 after an in-house correction; OWN correction after check-out) until it is reconciled', async () => {
+      await at('2026-10-27T13:00:00+07:00');
+      const K1 = await book('101', '2026-10-28', 2);
+      const K2 = await book('102', '2026-10-28', 2);
+      // The sale takes a transfer from each guest the day of arrival (a sale's receipt always waits for the check).
+      await at('2026-10-28T14:00:00+07:00');
+      const transfers: Record<string, string> = {};
+      for (const b of [K1, K2]) {
+        const r = await db.withContext({ ...t.ctx(), userId: sal(), actorType: 'user' }, (tx) =>
+          fa.app.get(PaymentService).recordManual(tx, {
+            folioId: b.folioId,
+            reservationId: b.id,
+            reservationCode: b.code,
+            type: 'deposit',
+            method: 'bank_transfer',
+            amountVnd: 100_000,
+            receivedAt: new Date('2026-10-28T14:00:00+07:00'),
+            recordedBy: sal(),
+          } as never),
+        );
+        transfers[b.id] = r.id;
+        const [p] = await q(`SELECT reconciliation FROM payment WHERE id = $1`, [r.id]);
+        expect(p.reconciliation).toBe('pending');
+      }
+      await checkIn(K1);
+      await checkIn(K2);
+      await at('2026-10-29T10:00:00+07:00');
+      const base1 = await roomBase(K1);
+      const r1 = await patch(
+        K1,
+        { closerUserId: sal2(), closerChangeReason: 'Sale 2 chốt đơn, chủ đầu tư sửa' },
+        'owner',
+      );
+      expect(r1.statusCode, r1.body).toBe(200);
+      expect(await commissions(K1)).toEqual([
+        row('sal', 'void', base1, 'closer_corrected'),
+        row('sal2', 'projected', base1),
+      ]);
+      await checkOut(K1);
+      await checkOut(K2);
+      expect(await due(K1)).toBe(0);
+      // B18: sal2 recorded nothing, but sal's transfer on the folio is still pending → sal2 stays projected.
+      expect(await commissions(K1)).toEqual([
+        row('sal', 'void', base1, 'closer_corrected'),
+        row('sal2', 'projected', base1),
+      ]);
+      expect((await commissions(K2)).map((x) => [x.payee, x.status])).toEqual([
+        ['sal', 'projected'],
+      ]);
+      await at('2026-10-30T12:00:00+07:00');
+      const base2 = await roomBase(K2);
+      const r2 = await patch(
+        K2,
+        { closerUserId: sal2(), closerChangeReason: 'Sale 2 chốt đơn, chủ đầu tư sửa' },
+        'owner',
+      );
+      expect(r2.statusCode, r2.body).toBe(200);
+      expect(await commissions(K2)).toEqual([
+        row('sal', 'void', base2, 'closer_corrected'),
+        row('sal2', 'projected', base2),
+      ]);
+      // MGR confirms both transfers → sal2 earned on each, on that day.
+      await at('2026-10-31T09:00:00+07:00');
+      for (const [b, base] of [
+        [K1, base1],
+        [K2, base2],
+      ] as const) {
+        const id = transfers[b.id]!;
+        const [p] = await q(`SELECT version FROM payment WHERE id = $1`, [id]);
+        const rec = await c.mgr!.send(
+          'POST',
+          url(`/payments/${id}/actions/reconcile`),
+          { result: 'reconciled' },
+          { 'if-match': `"${p.version}"` },
+        );
+        expect(rec.statusCode, rec.body).toBe(200);
+        expect(await commissions(b)).toEqual([
+          row('sal', 'void', base, 'closer_corrected'),
+          row('sal2', 'earned', base),
+        ]);
+        const [earned] = await q(
+          `SELECT recognized_at FROM commission WHERE reservation_id = $1 AND status = 'earned'`,
+          [b.id],
+        );
+        expect(new Date(earned.recognized_at).toISOString()).toBe(
+          new Date('2026-10-31T09:00:00+07:00').toISOString(),
+        );
+      }
     });
   },
 );
