@@ -313,3 +313,84 @@ Giá trong khóa là **giá dịch vụ công khai** của bảng 01/11 mục 4,
 2. Tên khóa `long_stay_cleaning_fee_by_room`, `long_stay_commission`, `manager_performance_bonus_pct`, mã lỗi 409/403/422 và tên trường gợi ý: đề xuất, ARC chốt.
 3. Bảng nội bộ cộng tỷ lệ đợt 1 và đợt 2 bằng 100 % hoa hồng HĐ (đợt 2 = phần còn lại).
 4. Ngưỡng cảnh báo sửa giảm dùng chung `foc_alert_count_per_approver` (10, INV-007); chủ đầu tư đổi được trên Desk.
+
+---
+
+## 7. Trả lời ARC – hợp đồng 0.3.13-draft (PR #94, `rounds/round-05/outputs/ARC/contract-0.3.13.md` mục 3)
+
+Nguyên tắc: hai hướng ngang nhau thì chọn hướng không cần migration (QC R4 ĐK-2). Chỉ V5-30 và V5-31 cần migration, và cả hai gộp vào **một** migration chỉ thêm dòng danh mục, không giá trị.
+
+### 7.1 V5-15 – trả phòng đơn đã quá ngày đi
+
+**Chốt:** đồng ý **chỉ OWN/MGR** ở v1.0.5, không làm "lễ tân ghi, quản lý hậu kiểm". Không migration.
+
+Lý do nghiệp vụ:
+- Đây là đường làm giảm đêm bán so với gia hạn. Nếu lễ tân ghi được ngày rời lùi, đó là chỗ giấu tiền khách ở thêm.
+- Ca hiếm ở 10 căn, và quản lý làm được trên điện thoại.
+- Trong lúc chờ quản lý, không ai mất tiền: căn vẫn "Đang ở"; buồng phòng vẫn bấm **Cần dọn**; khách mới thì đổi căn.
+
+Kèm theo (không đổi hợp đồng):
+1. `overdueReason`: Desk gợi ý 3 lý do – "Khách đi không báo", "Lễ tân quên bấm Trả phòng", "Khác (ghi rõ)". Máy chủ vẫn nhận chữ tự do.
+2. Khai báo tạm trú ghi **ngày khách rời thật** (`checkoutAt`), không ghi ngày Desk ghi nhận (BR-010, BR-602). BA thêm câu này vào sổ tay.
+3. Phụ thu trả muộn tính theo `checkoutAt`, như ARC ghi. Khách ở thêm đêm thì gia hạn B13 trước. Cả hai đúng BR-421, BR-413.
+4. Xem lại hướng hậu kiểm ở v1.0.6 chỉ khi một tháng có trên 2 ca phải chờ quản lý quá 2 giờ (QA/DATA đếm trên audit `after.overdue`).
+
+### 7.2 V5-16 – phần chặn theo vai
+
+**Chốt:** chọn **(a)** như SEC đề xuất, thêm phần báo cáo (b). Luật đầy đủ ở BR-438 và mục 3 trên. ARC làm bổ sung 1 với 403 `FORBIDDEN_ACTION` + `requiredFlow: foc_request`. Bốn điểm khác bản nháp ARC:
+
+1. **Phạm vi là mọi lần sửa giảm**, không chỉ bỏ hoặc giảm về 0: giảm số lượng một phần và giảm đơn giá cũng tính. Lý do: thu tiền mặt 3 lon rồi sửa còn 1 thất thoát giống hệt bỏ dòng. Bộ lọc tuần của quản lý cần thêm tham số lọc mọi lần giảm (`after.amountVnd < before.amountVnd`, ví dụ `reductionsOnly`), bên cạnh `removalsOnly`. Không migration (lọc jsonb).
+2. **"Của mình" và "cùng ngày" xét trên dòng gốc**, tức dòng đầu của chuỗi `relatedLineId`. `before.postedByActor` và `before.sameBusinessDay` tính theo người ghi và ngày nghiệp vụ ghi của dòng gốc, không theo dòng thay thế. Không làm vậy thì lách được bằng cách sửa tăng dòng người khác rồi bỏ dòng thay thế (BR-438-05).
+3. **Chỉ dòng nhập tay** (`source = manual`) mới là "của mình". Dòng hệ thống tự ghi luôn đi FOC, dù người bấm thao tác sinh dòng là chính lễ tân đó: phụ thu nhận sớm/trả muộn, phí giữ lại, phí dọn từ yêu cầu khách (BR-438-04).
+4. **Cảnh báo theo người làm** (BR-438 (4)(iii)): thêm một `check` vào nguồn "Cần chú ý" `foc_threshold`, vốn tính lúc đọc, không lưu kind (ví dụ `check: line_reduction_count`, `count`, `max` = `foc_alert_count_per_approver`). Không migration.
+   - Danh sách đóng ca (4)(i): làm ở v1.0.5 nếu dữ liệu bàn giao ca được tính lúc đọc từ audit. Nếu phải lưu kind mới thì dời sang v1.0.6; tới đó bộ lọc tuần là đủ.
+
+### 7.3 V5-30 – cấu trúc H2 và khi thiếu tỷ lệ
+
+**Chốt cấu trúc** (mục 4; không số):
+
+| Khóa | Kiểu | Chiều | Ghi chú |
+|---|---|---|---|
+| `short_stay_commission_pct` (giữ) | `{"staff": %, "collaborator": %}` | Không chia theo kênh: chỉ đơn có người chốt sale/CTV mới có hoa hồng; đơn OTA, khách vãng lai → `not_applicable` | Bảng có một mức: chủ đầu tư nhập cùng số cho hai khóa con |
+| `long_stay_commission` (mới) | `{"bands":[{"fromMonths","toMonths"\|null,"vnPct","foreignPct"}],"firstInstalmentPct"}` | Khoảng kỳ hạn × khách VN/NN; một mức cho sale và CTV | Thay `lease_terms[].commissionStaffPct/commissionCollaboratorPct`: bỏ khỏi mặc định, mã không còn đọc |
+| `manager_performance_bonus_pct` (mới) | % | Theo tháng | Tỷ lệ hiệu lực ngày 1 áp cả tháng |
+
+Mốc chi: ngắn ngày một lần (mốc "đạt" BR-903). Thuê tháng hai đợt (`firstInstalmentPct`, phần còn lại ở đợt 2).
+
+**Chốt khi thiếu tỷ lệ lúc chốt đơn:** đồng ý đề xuất ARC.
+- Không tạo dòng `commission`; `status = rate_missing`.
+- "Cần chú ý" cho OWN dạng nguồn tính lúc đọc: "n đơn/HĐ chưa có tỷ lệ hoa hồng", có link. Không thông báo đẩy, nên không cần kind mới.
+- Khi đã có tỷ lệ, lần đồng bộ hoa hồng kế tiếp tạo bản ghi. Tỷ lệ = tỷ lệ chụp lúc tạo đơn/ký HĐ nếu có, không có thì tỷ lệ hiệu lực ngày đồng bộ (như `syncCommission` hiện nay). Desk không cho đặt "Hiệu lực từ" lùi ngày, nên tra theo ngày đến sẽ không bao giờ tìm thấy tỷ lệ.
+
+**Chốt thưởng quản lý:** **tính lúc đọc**, không lưu bản ghi ở v1.0.5. Màn Hoa hồng có dòng "Thưởng hiệu suất tháng M" (cơ sở, tỷ lệ, số), chủ đầu tư thấy, quản lý thấy của mình. Chi ngoài Desk theo kỳ lương. Lý do: bảng `commission` có CHECK `payee_type` (agent, staff) và CHECK "đúng một trong đơn/HĐ"; lưu thưởng ở đó phải đổi CHECK, tức migration lớn hơn. Lưu bản ghi thưởng để sau.
+
+**Chốt migration:** một migration chỉ thêm dòng danh mục cho `long_stay_commission`, `manager_performance_bonus_pct` (và `long_stay_cleaning_fee_by_room` ở 7.4), không giá trị. Có thể ARC cần cột phân biệt đợt 1/đợt 2 trên `commission` cho HĐ; nếu cần thì gộp vào cùng migration.
+- Hướng không migration (nhét tỷ lệ thuê tháng vào các dòng `lease_terms`) **không** ngang: nó buộc khoảng hoa hồng vào khoảng giảm giá. Chủ đầu tư sửa bảng giảm giá là hoa hồng đổi theo mà không ai báo. Và thưởng quản lý vẫn không có chỗ.
+- Nếu diễn tập khôi phục (V5-61) chưa xong khi cắt v1.0.5: bản lên không có migration này. Phần làm ngay của ARC vẫn lên (bỏ số mặc định, `rate_missing`, `missing[]`, cơ sở ngắn ngày theo 4.2). Hai khóa mới và H3 đi bản sửa riêng trước 01/12, theo quy tắc 25/11 của plan. Tới đó: hoa hồng thuê tháng và thưởng chủ đầu tư tính ngoài Desk như hiện nay.
+
+### 7.4 V5-31 – khóa phí dọn thuê tháng
+
+**Chốt:** khóa mới `long_stay_cleaning_fee_by_room`, theo số căn (mục 5), gộp vào cùng migration danh mục ở 7.3.
+- Không có hướng không migration ngang: `adhoc_cleaning_fee` là một số, đổi kiểu sẽ vỡ mọi chỗ đang đọc; danh mục phát sinh dựng từ khóa tham số.
+- Tới khi lên: lễ tân thêm dòng phần chênh như hiện nay (BR-204).
+
+### 7.5 V5-58 – FD đọc Wi-Fi trên Desk
+
+**Chốt:** **FD đọc được** (chỉ `getPropertyWifi`), sửa vẫn chỉ OWN/MGR. Đổi nhỏ, không migration. BA sửa rbac S24/A101; SEC xác nhận.
+
+Lý do nghiệp vụ:
+- OTTIMO có **một mạng chung** cho khách (ESC-022 B). Mật khẩu đã ở trên thẻ trong căn, trên trang khách và trong tin chào: mọi khách đều có.
+- Ca làm hằng ngày ở quầy cần đọc được mật khẩu:
+  - khách nước ngoài không có dữ liệu di động cần Wi-Fi mới mở được link trang khách;
+  - khách hỏi lại khi thẻ trong căn bị mất;
+  - khách vãng lai, đơn OTA chưa có link.
+- Ở OTTIMO lễ tân thường trực một mình. Nếu không đọc được, lễ tân phải gọi quản lý hoặc vào căn đọc thẻ, hoặc chép mật khẩu ra giấy dán quầy. Giấy dán quầy còn lộ hơn.
+- Giữ `no-store`, không ghi mật khẩu vào audit. Đề nghị OPS/SEC: máy Desk và thiết bị văn phòng dùng mạng tách khỏi mạng khách, nếu chưa tách.
+
+### 7.6 V5-11 – luật cho ARC review
+
+**Chốt:** luật ở mục 2 và BR-428, BR-010, BR-309 (viii), BR-311 v0.5.12. Đồng ý dùng 409 `INVALID_TRANSITION` đã có, không thêm mã mới, thêm `extras`:
+- `minNewDepartureDate` = ngày lịch (D+1);
+- `useCheckout: true` khi ngày đi của đơn = ngày lịch.
+
+Điều kiện 00:00–05:59 xét trước các kiểm tra ngày khác, áp cả `dryRun`. Dòng phí giữ lại lấy `serviceDate` = ngày nghiệp vụ, không đổi hợp đồng. Không migration.
