@@ -37,6 +37,22 @@ export const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 const isInt = (v: unknown): v is number => Number.isSafeInteger(v);
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
+/** A field path made only of the fixed names of these rules (no text taken from the stored value). */
+const LOG_SAFE_FIELD = /^value(\[\d+\])?(\.[A-Za-z]+(\[\d+\])?)?$/;
+
+/**
+ * SEC FB-R5-SEC-BE-V525-01: the field path of a dropped element as a defensive read may write it into a log line. The
+ * name of an unknown key is part of the stored value (it can be long, or hold a line break that forges a log line), so
+ * NOT_ALLOWED gives `value[<i>].<unknown key>`; any other path is written only when it is made of the fixed names of
+ * the rules (`value`, `value[<i>]`, `value[<i>].<key>`, `value[<i>].<key>[<j>]`), else `value[<i>]`. The 422 of a
+ * save keeps the real path (ARC 1.24) – the sender owns the data.
+ */
+export function logSafeField(field: string, code: string, index?: number): string {
+  const at = index === undefined ? 'value' : `value[${index}]`;
+  if (code === 'NOT_ALLOWED') return `${at}.<unknown key>`;
+  return LOG_SAFE_FIELD.test(field) ? field : at;
+}
+
 /** null/absent → REQUIRED; anything else of the wrong type → VALIDATION_FAILED (OpenAPI field-code table). */
 const missingOrType = (v: unknown): 'REQUIRED' | 'VALIDATION_FAILED' =>
   v === undefined || v === null ? 'REQUIRED' : 'VALIDATION_FAILED';
@@ -213,10 +229,15 @@ function listOf(
   return null;
 }
 
-/** A percent 0–100 (fractions allowed – pctToBp). Above 100 or below 0 the engine throws (RangeError → 500). */
+/**
+ * A percent 0–100 with at most 2 decimals (DOM rules-v1.0.5 13.1: the engine works in basis points – `pctToBp` rounds –
+ * so 12,345 would silently become 12,35). Above 100 or below 0 the engine throws (RangeError → 500). A third decimal →
+ * VALIDATION_FAILED with min/max (ARC review #96, 9).
+ */
 function pctIssue(v: unknown, field: string): ShapeIssue | null {
   if (!isNum(v)) return issue(field, missingOrType(v), { min: 0, max: 100 });
   if (v < 0 || v > 100) return issue(field, 'VALUE_OUT_OF_RANGE', { min: 0, max: 100 });
+  if (Number(v.toFixed(2)) !== v) return issue(field, 'VALIDATION_FAILED', { min: 0, max: 100 });
   return null;
 }
 
@@ -255,8 +276,13 @@ export function losDiscountIssue(value: unknown): ShapeIssue | null {
   });
 }
 
-/** `cancel_policy_direct` (BR-309): [{minDays 0–365, refundPct 0–100}], minDays not repeated. */
+/**
+ * `cancel_policy_direct` (BR-309): [{minDays 0–365, refundPct 0–100}], minDays not repeated, at least one tier (DOM
+ * 13.1: the engine reads `[]` as "no refund in any case", so clearing the cell would change the policy silently; no
+ * refund at all is `[{"minDays":0,"refundPct":0}]`).
+ */
 export function cancelPolicyIssue(value: unknown): ShapeIssue | null {
+  if (Array.isArray(value) && value.length === 0) return issue('value', 'REQUIRED');
   const seen = new Set<number>();
   return listOf(value, TIER_LIST_MAX, ['minDays', 'refundPct'], [], (o, at) => {
     const n = intIssue(o.minDays, `${at}.minDays`, 0, 365);
@@ -342,7 +368,7 @@ export function upliftChannelsIssue(value: unknown): ShapeIssue | null {
     : issue('value', 'NOT_IN_LIST', { allowed: [...UPLIFT_CHANNELS_ALLOWED] });
 }
 
-/** `max_open_holds_per_user` (SEC-BE-28): {collaborator?, sales_staff?: whole number 0–50}. */
+/** `max_open_holds_per_user` (SEC-BE-28): {collaborator, sales_staff: whole number 0–50}, both required (DOM 13.1). */
 export const HOLD_LIMIT_ROLES = ['collaborator', 'sales_staff'] as const;
 export function maxOpenHoldsIssue(value: unknown): ShapeIssue | null {
   if (!isPlainObject(value)) return issue('value', missingOrType(value));
@@ -350,8 +376,8 @@ export function maxOpenHoldsIssue(value: unknown): ShapeIssue | null {
   if (extra !== null) {
     return issue(`value.${extra}`, 'NOT_ALLOWED', { allowed: [...HOLD_LIMIT_ROLES] });
   }
+  // DOM 13.1: both roles required – `assertOpenHoldLimit` reads a missing role as "no limit" (SEC-BE-28 lost).
   for (const role of HOLD_LIMIT_ROLES) {
-    if (value[role] === undefined) continue;
     const bad = intIssue(value[role], `value.${role}`, 0, 50);
     if (bad) return bad;
   }

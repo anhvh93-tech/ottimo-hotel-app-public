@@ -1,21 +1,64 @@
--- V5-25 (BUG-R5-001 / BUG-R5-003; DOM rules-v1.0.5 8.4 and 12.1–12.4; ARC 0.3.13 bổ sung 1, 1.24) – READ-ONLY
--- shape check of the structured parameters that got a save rule in V5-25: are the values already stored valid
--- under the new rules?
+-- V5-25 (BUG-R5-001 / BUG-R5-003 / BUG-R5-004; DOM rules-v1.0.5 8.4, 12.1–12.4, 13.1–13.4; ARC 0.3.13
+-- bổ sung 1, 1.24) – READ-ONLY shape check of the structured parameters that got a save rule in V5-25: are the
+-- values already stored valid under the new rules? Run once, right before the deploy of v1.0.5 (ARC review #96 ĐK-2).
 --
--- Prints ONLY three columns – key, effective_from, ok (true = the new rule accepts it) – never a value, a property
--- name or any guest column. Rows covered, per property and key: the row in force on the property's business date
--- (BR-010: local time minus business_day_rollover, 06:00 when absent) and every row scheduled after it.
+-- Output, in this order (nothing else – never a value, a property name, a booking id or any guest column):
+--   1. the guard: no row when the run is right; otherwise the run STOPS with "v5-25 check stopped: …" (see below);
+--   2. key | effective_from | ok – one line per row of a checked key (ok = true: the new save rule accepts it). Rows
+--      covered, per property and key: the row in force on the property's business date (BR-010: local time minus
+--      business_day_rollover, 06:00 when absent) and every row scheduled after it;
+--   3. open_bookings_cancel_policy_broken | n – how many OPEN bookings (status hold, confirmed, in_house) carry a
+--      cancel policy copied into pricing_snapshot.cancelPolicy that breaks the cancel_policy_direct rule (DOM 13.2,
+--      card FB-R5-DOM-BE-PR96-02 (a)); a booking without a copy (absent or null: the policy in force is used) is not
+--      counted;
+--   4. damage_catalog_rows_broken | n – how many damage_catalog ROWS break its save rule (DOM 13.4, card 02 (b), QA
+--      BUG-R5-004): EVERY row is counted, the one in force on the business date AND every row scheduled for a later
+--      day (a broken scheduled row starts the incident on its own date).
 -- The rules mirror `src/modules/platform/public/parameter-shapes.ts` (test: test/integration/v5-25-parameter-save
--- .test.ts runs this file against every case of test/helpers/parameter-shape-cases.ts); min_stay ↔
--- short_stay_max_nights is checked both ways over the period each row is in force (DOM 12.2).
+-- .test.ts runs this file against the shared cases of test/helpers/parameter-shape-cases.ts); min_stay ↔
+-- short_stay_max_nights is checked both ways over the period each row is in force (DOM 12.2, ARC review #96 1).
+-- damage_catalog: rule of the stacked PR (BUG-R5-004) – code ^[a-z0-9_]{1,40}$ and name not repeated (name compared
+-- with lower() after trimming spaces, tabs and line breaks at both ends: the database collation decides case for
+-- non-ASCII letters), name 1–100 characters, priceVnd whole 1.000–20.000.000, at most 100 items, no other key.
 --
--- Run (ORC; role ottimo_readonly = BYPASSRLS + SELECT, inside a READ ONLY transaction, like ops-check):
---   PGOPTIONS="-c default_transaction_read_only=on -c role=ottimo_readonly" \
---     psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f v5-25-parameter-shape-check.sql
--- Needs Postgres ≥ 16 (pg_input_is_valid). Nothing is changed. A row with ok = false is fixed on the Desk
--- (setParameter of a corrected value, or cancel-scheduled for a scheduled row) – never by an UPDATE.
+-- Run (ORC; ARC FB-R5-ARC-BE-03): the file is NOT inside the postgres container – it goes in on STDIN. Role
+-- ottimo_readonly (BYPASSRLS + SELECT) inside a READ ONLY transaction, like ops-check. From `product/` on the server:
+--   docker compose --env-file .env -f infra/docker-compose.yml exec -T \
+--     -e PGOPTIONS="-c default_transaction_read_only=on -c role=ottimo_readonly -c statement_timeout=30s -c lock_timeout=3s" \
+--     postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -f -' \
+--     < services/api/scripts/v5-25-parameter-shape-check.sql
+-- On production use the block pinned by SEC (rounds/round-05/reviews/SEC-on-pr-96-v5-25.md 4.3, same stdin and role,
+-- SHA-256 of this file compared first); OPS puts it in the v1.0.5 runbook before the switch to SHA_V105.
+-- Needs Postgres ≥ 16 (pg_input_is_valid). Nothing is changed (no DO, no SET, no write; ends with ROLLBACK).
+--
+-- Reading the result (ARC review #96 ĐK-2, card 03):
+--   * "v5-25 check stopped: …" – nothing was checked (wrong role, RLS without a tenant, no property or no parameter
+--     row visible): fix the run; never read it as "all ok";
+--   * every property shows at least min_stay, weekend_nights and short_stay_max_nights; missing → the run is wrong;
+--   * ok = false on min_stay or weekend_nights → STOP the deploy; fix the value on the Desk first;
+--   * ok = false on another key → note key and date, fix on the Desk after the deploy (DOM 13.2);
+--   * open_bookings_cancel_policy_broken or damage_catalog_rows_broken other than 0 → STOP the deploy, wait for DOM.
+-- A row with ok = false is fixed on the Desk (setParameter of a corrected value, or cancel-scheduled for a scheduled
+-- row) – never by an UPDATE.
 
 BEGIN TRANSACTION READ ONLY;
+
+-- Guard (ARC FB-R5-ARC-BE-02): stop with an error that names the cause – never print an empty result that looks like
+-- "nothing broken". Plain SQL, no DO block: the failing branch casts its own constant message to boolean, so psql
+-- stops (ON_ERROR_STOP) with `invalid input syntax for type boolean: "v5-25 check stopped: …"`. On success it prints
+-- nothing (no row).
+SELECT 1 AS guard
+ WHERE (CASE
+          WHEN NOT COALESCE((SELECT r.rolbypassrls OR r.rolsuper FROM pg_roles r WHERE r.rolname = current_user), false)
+               AND COALESCE(current_setting('app.property_id', true), '') = ''
+            THEN 'v5-25 check stopped: run as ottimo_readonly (BYPASSRLS) - under RLS without a tenant nothing shows'
+          WHEN NOT EXISTS (SELECT 1 FROM property)
+            THEN 'v5-25 check stopped: no property is visible'
+          WHEN NOT EXISTS (SELECT 1 FROM config_parameter
+                            WHERE key IN ('min_stay', 'weekend_nights', 'short_stay_max_nights'))
+            THEN 'v5-25 check stopped: no row of min_stay, weekend_nights, short_stay_max_nights is visible'
+          ELSE 'false'
+        END)::boolean;
 
 WITH
 keys(key) AS (
@@ -164,6 +207,8 @@ ev AS (
         AND (CASE WHEN jsonb_typeof(el.eo->'minNights') = 'number' THEN (el.eo->'minNights')::numeric END)
             BETWEEN 1 AND 89
         AND (CASE WHEN jsonb_typeof(el.eo->'pct') = 'number' THEN (el.eo->'pct')::numeric END) BETWEEN 0 AND 100
+        AND (CASE WHEN jsonb_typeof(el.eo->'pct') = 'number'
+                  THEN (el.eo->'pct')::numeric = round((el.eo->'pct')::numeric, 2) END)
       WHEN 'cancel_policy_direct' THEN
         jsonb_typeof(el.el) = 'object'
         AND NOT EXISTS (SELECT 1 FROM jsonb_object_keys(el.eo) AS k(k) WHERE k NOT IN ('minDays', 'refundPct'))
@@ -173,18 +218,24 @@ ev AS (
             BETWEEN 0 AND 365
         AND (CASE WHEN jsonb_typeof(el.eo->'refundPct') = 'number' THEN (el.eo->'refundPct')::numeric END)
             BETWEEN 0 AND 100
+        AND (CASE WHEN jsonb_typeof(el.eo->'refundPct') = 'number'
+                  THEN (el.eo->'refundPct')::numeric = round((el.eo->'refundPct')::numeric, 2) END)
       WHEN 'early_checkin_tiers' THEN
         jsonb_typeof(el.el) = 'object'
         AND NOT EXISTS (SELECT 1 FROM jsonb_object_keys(el.eo) AS k(k) WHERE k NOT IN ('from', 'to', 'pct'))
         AND (SELECT g.lo < g.hi FROM rg g
               WHERE g.property_id = el.property_id AND g.key = el.key AND g.s = el.s AND g.i = el.i)
         AND (CASE WHEN jsonb_typeof(el.eo->'pct') = 'number' THEN (el.eo->'pct')::numeric END) BETWEEN 0 AND 100
+        AND (CASE WHEN jsonb_typeof(el.eo->'pct') = 'number'
+                  THEN (el.eo->'pct')::numeric = round((el.eo->'pct')::numeric, 2) END)
       WHEN 'late_checkout_tiers' THEN
         jsonb_typeof(el.el) = 'object'
         AND NOT EXISTS (SELECT 1 FROM jsonb_object_keys(el.eo) AS k(k) WHERE k NOT IN ('after', 'until', 'pct'))
         AND (SELECT g.lo < g.hi FROM rg g
               WHERE g.property_id = el.property_id AND g.key = el.key AND g.s = el.s AND g.i = el.i)
         AND (CASE WHEN jsonb_typeof(el.eo->'pct') = 'number' THEN (el.eo->'pct')::numeric END) BETWEEN 0 AND 100
+        AND (CASE WHEN jsonb_typeof(el.eo->'pct') = 'number'
+                  THEN (el.eo->'pct')::numeric = round((el.eo->'pct')::numeric, 2) END)
       WHEN 'lease_terms' THEN
         jsonb_typeof(el.el) = 'object'
         AND (CASE WHEN jsonb_typeof(el.eo->'months') = 'number' THEN (el.eo->'months')::numeric END)
@@ -192,8 +243,10 @@ ev AS (
         AND (CASE WHEN jsonb_typeof(el.eo->'months') = 'number' THEN (el.eo->'months')::numeric END)
             BETWEEN 1 AND 60
         AND (NOT el.eo ? 'discountPct'
-             OR (CASE WHEN jsonb_typeof(el.eo->'discountPct') = 'number'
-                      THEN (el.eo->'discountPct')::numeric END) BETWEEN 0 AND 100)
+             OR ((CASE WHEN jsonb_typeof(el.eo->'discountPct') = 'number'
+                       THEN (el.eo->'discountPct')::numeric END) BETWEEN 0 AND 100
+                 AND (CASE WHEN jsonb_typeof(el.eo->'discountPct') = 'number'
+                           THEN (el.eo->'discountPct')::numeric = round((el.eo->'discountPct')::numeric, 2) END)))
       ELSE true
     END, false) AS ok
     FROM el JOIN x USING (property_id, key, s)
@@ -218,7 +271,7 @@ v AS (
         jsonb_typeof(x.v) = 'array' AND jsonb_array_length(x.a) <= 10
         AND (SELECT count(*) = count(DISTINCT j->'minNights') FROM jsonb_array_elements(x.a) AS t(j))
       WHEN 'cancel_policy_direct' THEN
-        jsonb_typeof(x.v) = 'array' AND jsonb_array_length(x.a) <= 10
+        jsonb_typeof(x.v) = 'array' AND jsonb_array_length(x.a) BETWEEN 1 AND 10
         AND (SELECT count(*) = count(DISTINCT j->'minDays') FROM jsonb_array_elements(x.a) AS t(j))
       WHEN 'early_checkin_tiers' THEN jsonb_typeof(x.v) = 'array' AND jsonb_array_length(x.a) <= 10
       WHEN 'late_checkout_tiers' THEN jsonb_typeof(x.v) = 'array' AND jsonb_array_length(x.a) <= 10
@@ -235,6 +288,8 @@ v AS (
             BETWEEN 0 AND 365
         AND (CASE WHEN jsonb_typeof(x.o->'refundPct') = 'number' THEN (x.o->'refundPct')::numeric END)
             BETWEEN 0 AND 100
+        AND (CASE WHEN jsonb_typeof(x.o->'refundPct') = 'number'
+                  THEN (x.o->'refundPct')::numeric = round((x.o->'refundPct')::numeric, 2) END)
       WHEN 'checkout_reminders' THEN
         jsonb_typeof(x.v) = 'object'
         AND NOT EXISTS (SELECT 1 FROM jsonb_object_keys(x.o) AS k(k)
@@ -256,14 +311,14 @@ v AS (
       WHEN 'max_open_holds_per_user' THEN
         jsonb_typeof(x.v) = 'object'
         AND NOT EXISTS (SELECT 1 FROM jsonb_object_keys(x.o) AS k(k) WHERE k NOT IN ('collaborator', 'sales_staff'))
-        AND (NOT x.o ? 'collaborator'
-             OR ((CASE WHEN jsonb_typeof(x.o->'collaborator') = 'number' THEN (x.o->'collaborator')::numeric END)
+        AND (x.o ? 'collaborator'
+             AND ((CASE WHEN jsonb_typeof(x.o->'collaborator') = 'number' THEN (x.o->'collaborator')::numeric END)
                    = trunc(CASE WHEN jsonb_typeof(x.o->'collaborator') = 'number'
                                 THEN (x.o->'collaborator')::numeric END)
                  AND (CASE WHEN jsonb_typeof(x.o->'collaborator') = 'number'
                            THEN (x.o->'collaborator')::numeric END) BETWEEN 0 AND 50))
-        AND (NOT x.o ? 'sales_staff'
-             OR ((CASE WHEN jsonb_typeof(x.o->'sales_staff') = 'number' THEN (x.o->'sales_staff')::numeric END)
+        AND (x.o ? 'sales_staff'
+             AND ((CASE WHEN jsonb_typeof(x.o->'sales_staff') = 'number' THEN (x.o->'sales_staff')::numeric END)
                    = trunc(CASE WHEN jsonb_typeof(x.o->'sales_staff') = 'number'
                                 THEN (x.o->'sales_staff')::numeric END)
                  AND (CASE WHEN jsonb_typeof(x.o->'sales_staff') = 'number'
@@ -282,5 +337,90 @@ v AS (
 SELECT key, s AS effective_from, ok
   FROM v
  ORDER BY key, effective_from;
+
+-- (a) DOM 13.2, card FB-R5-DOM-BE-PR96-02 (a): open bookings whose COPIED cancel policy
+-- (pricing_snapshot.cancelPolicy, read when the booking is cancelled or moved) breaks the cancel_policy_direct rule –
+-- fixing the parameter never fixes a copy. Same rule as the parameter: 1–10 tiers, each exactly {minDays whole 0–365,
+-- refundPct 0–100 with at most 2 decimals}, minDays not repeated. A number only.
+SELECT 'open_bookings_cancel_policy_broken' AS count_of, count(*) AS n
+  FROM (SELECT rv.pricing_snapshot -> 'cancelPolicy' AS c
+          FROM reservation rv
+         WHERE rv.status IN ('hold', 'confirmed', 'in_house')) b
+ WHERE b.c IS NOT NULL AND jsonb_typeof(b.c) <> 'null'
+   AND NOT COALESCE(
+     jsonb_typeof(b.c) = 'array'
+     AND jsonb_array_length(CASE WHEN jsonb_typeof(b.c) = 'array' THEN b.c ELSE '[]'::jsonb END) BETWEEN 1 AND 10
+     AND (SELECT count(*) = count(DISTINCT t.j->'minDays')
+            FROM jsonb_array_elements(CASE WHEN jsonb_typeof(b.c) = 'array' THEN b.c ELSE '[]'::jsonb END) AS t(j))
+     AND NOT EXISTS (
+       SELECT 1
+         FROM jsonb_array_elements(CASE WHEN jsonb_typeof(b.c) = 'array' THEN b.c ELSE '[]'::jsonb END) AS t(j)
+         CROSS JOIN LATERAL (SELECT CASE WHEN jsonb_typeof(t.j) = 'object' THEN t.j ELSE '{}'::jsonb END AS o) eo
+         CROSS JOIN LATERAL (
+           SELECT CASE WHEN jsonb_typeof(eo.o->'minDays') = 'number' THEN (eo.o->'minDays')::numeric END AS d,
+                  CASE WHEN jsonb_typeof(eo.o->'refundPct') = 'number' THEN (eo.o->'refundPct')::numeric END AS p) n
+        WHERE NOT COALESCE(
+          jsonb_typeof(t.j) = 'object'
+          AND NOT EXISTS (SELECT 1 FROM jsonb_object_keys(eo.o) AS k(k) WHERE k NOT IN ('minDays', 'refundPct'))
+          AND n.d = trunc(n.d) AND n.d BETWEEN 0 AND 365
+          AND n.p BETWEEN 0 AND 100 AND n.p = round(n.p, 2),
+          false)),
+     false);
+
+-- (b) DOM 13.2, card FB-R5-DOM-BE-PR96-02 (b), QA BUG-R5-004: damage_catalog ROWS that break the save rule (DOM 13.4)
+-- – EVERY row: the one in force on the property's business date and every row scheduled for a later day. A number
+-- only (the read of the stacked PR leaves a broken item out, but a row counted here still means "stop, ask DOM").
+WITH
+cp AS (
+  SELECT c.property_id, c.key, c.effective_from AS s,
+         lead(c.effective_from) OVER (PARTITION BY c.property_id, c.key ORDER BY c.effective_from) AS e,
+         c.value AS v
+    FROM config_parameter c
+   WHERE c.key IN ('damage_catalog', 'business_day_rollover')
+),
+bd AS (
+  SELECT pr.id AS property_id,
+         ((now() AT TIME ZONE pr.timezone) - COALESCE(
+            (SELECT CASE WHEN jsonb_typeof(o.v) = 'string'
+                          AND (o.v #>> '{}') ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+                         THEN (o.v #>> '{}')::interval END
+               FROM cp o
+              WHERE o.property_id = pr.id AND o.key = 'business_day_rollover'
+                AND o.s <= (now() AT TIME ZONE pr.timezone)::date
+              ORDER BY o.s DESC LIMIT 1),
+            interval '6 hours'))::date AS d
+    FROM property pr
+),
+-- The row in force on the business date and every row scheduled after it.
+r AS (
+  SELECT cp.v, CASE WHEN jsonb_typeof(cp.v) = 'array' THEN cp.v ELSE '[]'::jsonb END AS a
+    FROM cp JOIN bd USING (property_id)
+   WHERE cp.key = 'damage_catalog' AND (cp.e IS NULL OR cp.e > bd.d)
+)
+SELECT 'damage_catalog_rows_broken' AS count_of, count(*) AS n
+  FROM r
+ WHERE NOT COALESCE(
+   jsonb_typeof(r.v) = 'array' AND jsonb_array_length(r.a) <= 100
+   -- code and name not repeated (name: lower() after trimming spaces, tabs and line breaks at both ends)
+   AND (SELECT count(*) = count(DISTINCT t.j->'code')
+               AND count(*) = count(DISTINCT lower(btrim(t.j->>'name', ' ' || chr(9) || chr(10) || chr(11) || chr(12)
+                                                                       || chr(13))))
+          FROM jsonb_array_elements(r.a) AS t(j))
+   AND NOT EXISTS (
+     SELECT 1
+       FROM jsonb_array_elements(r.a) AS t(j)
+       CROSS JOIN LATERAL (SELECT CASE WHEN jsonb_typeof(t.j) = 'object' THEN t.j ELSE '{}'::jsonb END AS o) eo
+       CROSS JOIN LATERAL (
+         SELECT CASE WHEN jsonb_typeof(eo.o->'priceVnd') = 'number' THEN (eo.o->'priceVnd')::numeric END AS p) n
+      WHERE NOT COALESCE(
+        jsonb_typeof(t.j) = 'object'
+        AND NOT EXISTS (SELECT 1 FROM jsonb_object_keys(eo.o) AS k(k) WHERE k NOT IN ('code', 'name', 'priceVnd'))
+        AND jsonb_typeof(eo.o->'code') = 'string' AND (eo.o->>'code') ~ '^[a-z0-9_]{1,40}$'
+        AND jsonb_typeof(eo.o->'name') = 'string'
+        AND btrim(eo.o->>'name', ' ' || chr(9) || chr(10) || chr(11) || chr(12) || chr(13)) <> ''
+        AND char_length(eo.o->>'name') <= 100
+        AND n.p = trunc(n.p) AND n.p BETWEEN 1000 AND 20000000,
+        false)),
+   false);
 
 ROLLBACK;

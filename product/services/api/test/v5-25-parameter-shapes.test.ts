@@ -13,11 +13,12 @@ import { join } from 'node:path';
 import { Logger } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PRODUCTION_PARAMETERS } from '../src/admin/production-defaults';
+import { ParameterMissingError } from '../src/modules/platform/public/parameter.service';
 import {
   type ScheduledValues,
   checkStructuredParameter,
 } from '../src/modules/platform/internal/parameter-rules';
-import { WEEKDAY_CODES } from '../src/modules/platform/public/parameter-shapes';
+import { WEEKDAY_CODES, logSafeField } from '../src/modules/platform/public/parameter-shapes';
 import { readMinStay, resetMinStayReadLog } from '../src/modules/reservations/public/min-stay-read';
 import { type MinStayRule, minStayNights } from '../src/modules/reservations/public/pricing';
 import { estimatePublicRate } from '../src/modules/reservations/public/public-rate';
@@ -56,7 +57,8 @@ const others =
   async (k: string): Promise<unknown> => {
     const map = m instanceof Map ? m : new Map(Object.entries(m));
     if (map.has(k)) return map.get(k);
-    throw new Error(`missing ${k}`);
+    // What ParameterService.get throws for a key with no row in force (ARC FB-R5-ARC-BE-06: only this reads as null).
+    throw new ParameterMissingError(k);
   };
 
 /** The 422 of a refused save (or null when accepted). */
@@ -367,5 +369,75 @@ describe('plan V5-25 AC2 – every value the team ships passes the new rules', (
   it('the production min_stay value of 06/11 (ORC read-only check, DOM 12.4) and ["FRI","SAT"]', async () => {
     expect(await save('min_stay', PROD_MIN_STAY, { short_stay_max_nights: 29 })).toBeNull();
     expect(await save('weekend_nights', ['FRI', 'SAT'])).toBeNull();
+  });
+});
+
+describe('DOM rules-v1.0.5 13.1 (FB-R5-DOM-BE-PR96-01; QA T-13-2…4) – three save rules tightened', () => {
+  it('T-13-3: a percent takes at most 2 decimals (12,5 and 12,34 ok; 12,345 → VALIDATION_FAILED min 0 max 100)', async () => {
+    expect(await save('los_discount', [{ minNights: 7, pct: 12.5 }])).toBeNull();
+    expect(await save('los_discount', [{ minNights: 7, pct: 12.34 }])).toBeNull();
+    const e = await save('los_discount', [{ minNights: 7, pct: 12.345 }]);
+    expect(e?.code).toBe('PARAM_OUT_OF_RANGE');
+    expect(fieldOf(e)).toEqual({ field: 'value[0].pct', code: 'VALIDATION_FAILED' });
+    expect(extrasOf(e)).toEqual({ min: 0, max: 100 });
+  });
+
+  it('T-13-2: cancel_policy_direct [] → REQUIRED at value; [{minDays 0, refundPct 0}] (no refund at all) is accepted', async () => {
+    const e = await save('cancel_policy_direct', []);
+    expect(fieldOf(e)).toEqual({ field: 'value', code: 'REQUIRED' });
+    expect(await save('cancel_policy_direct', [{ minDays: 0, refundPct: 0 }])).toBeNull();
+  });
+
+  it('T-13-4: max_open_holds_per_user needs both roles (a missing role read as "no limit" lost SEC-BE-28); 0 is accepted', async () => {
+    expect(fieldOf(await save('max_open_holds_per_user', { collaborator: 3 }))).toEqual({
+      field: 'value.sales_staff',
+      code: 'REQUIRED',
+    });
+    expect(fieldOf(await save('max_open_holds_per_user', {}))).toEqual({
+      field: 'value.collaborator',
+      code: 'REQUIRED',
+    });
+    expect(await save('max_open_holds_per_user', { collaborator: 0, sales_staff: 5 })).toBeNull();
+  });
+});
+
+describe('ARC FB-R5-ARC-BE-06 – only "no row in force" reads as null in the cross checks', () => {
+  it('another error of the lookup is not swallowed', async () => {
+    const boom = new Error('connection lost');
+    const fail = async (): Promise<unknown> => {
+      throw boom;
+    };
+    await expect(checkStructuredParameter('min_stay', PROD_MIN_STAY, fail)).rejects.toBe(boom);
+    await expect(checkStructuredParameter('late_checkout_tiers', [], fail)).rejects.toBe(boom);
+  });
+});
+
+describe('SEC FB-R5-SEC-BE-V525-01 – the warning of the defensive read never carries text of the stored value', () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    resetMinStayReadLog();
+    warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+  afterEach(() => warn.mockRestore());
+
+  it('an unknown key with a line break and a marker → "<unknown key>", no marker, no line break, no JSON', () => {
+    const forged = 'x\nERROR fake log line ZZMARK-V525';
+    readMinStay([PROD_MIN_STAY[0], { ...PROD_MIN_STAY[1], [forged]: 1 }], 29, {
+      propertyId: 'p-1',
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = String(warn.mock.calls[0]?.[0]);
+    expect(line).toContain('1 of 2 rules left out, first value[1].<unknown key> NOT_ALLOWED');
+    expect(line).not.toContain('ZZMARK');
+    expect(line).not.toContain('\n');
+    expect(line).not.toMatch(/[{}"]/);
+  });
+
+  it('logSafeField keeps only paths made of the fixed names of the rules', () => {
+    expect(logSafeField('value[1].channels', 'REQUIRED', 1)).toBe('value[1].channels');
+    expect(logSafeField('value[0].channels[2]', 'NOT_IN_LIST', 0)).toBe('value[0].channels[2]');
+    expect(logSafeField('value[3].x y', 'NOT_ALLOWED', 3)).toBe('value[3].<unknown key>');
+    expect(logSafeField('value[3].a\nb', 'REQUIRED', 3)).toBe('value[3]');
+    expect(logSafeField('value', 'VALIDATION_FAILED')).toBe('value');
   });
 });

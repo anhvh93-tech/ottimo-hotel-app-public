@@ -20,6 +20,7 @@
 import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
 import { NOTICE_TEXT_VERSIONS } from '../public/notice-versions';
+import { ParameterMissingError } from '../public/parameter.service';
 import {
   type ShapeIssue,
   cancelPolicyIssue,
@@ -62,6 +63,12 @@ const fail = (i: ShapeIssue): never => {
   });
 };
 
+/** ARC FB-R5-ARC-BE-06: only "no row in force" reads as null; any other error is not swallowed. */
+const missingAsNull = (e: unknown): null => {
+  if (e instanceof ParameterMissingError) return null;
+  throw e;
+};
+
 /**
  * The values of `key` that will be in force while the row being saved for `own` is: the one in force on its
  * `effectiveFrom`, then every row of `key` scheduled after it and before the next row of `own` (DOM 12.2: the
@@ -77,7 +84,7 @@ async function valuesDuringOwnRow(
   const later = (await scheduled(key))
     .filter((r) => ownNext === null || r.effectiveFrom < ownNext)
     .map((r) => r.value);
-  return [await other(key).catch(() => null), ...later];
+  return [await other(key).catch(missingAsNull), ...later];
 }
 
 /** erd 9.1b: every FOC amount 0–100.000.000 VND. */
@@ -327,7 +334,9 @@ export async function checkStructuredParameter(
       check(earlyCheckinTiersIssue(value));
       return;
     case 'late_checkout_tiers':
-      check(lateCheckoutTiersIssue(value, await other('business_day_rollover').catch(() => null)));
+      check(
+        lateCheckoutTiersIssue(value, await other('business_day_rollover').catch(missingAsNull)),
+      );
       return;
     case 'early_departure_refund':
       check(earlyDepartureRefundIssue(value));

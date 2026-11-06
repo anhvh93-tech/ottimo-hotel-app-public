@@ -6,11 +6,16 @@
  * The save rules make a broken value impossible through the API; a value that still got into the database another way
  * never stops sales: not a list → no rule; a broken rule → that rule is left out, the good ones apply. No default
  * number is invented (DOM 12.3). One warning per value and property (so OPS sees it), without the value itself and
- * without any guest data – only the key, the property, how many rules were left out and the first problem.
+ * without any guest data – only the key, the property, how many rules were left out and the first problem (its field
+ * path without the name of an unknown key – SEC FB-R5-SEC-BE-V525-01).
  */
 import { createHash } from 'node:crypto';
 import { Logger } from '@nestjs/common';
-import { minStayNightsCap, readMinStayRules } from '../../platform/public/parameter-shapes';
+import {
+  logSafeField,
+  minStayNightsCap,
+  readMinStayRules,
+} from '../../platform/public/parameter-shapes';
 import type { MinStayRule } from './pricing';
 
 const log = new Logger('ParameterRead');
@@ -44,10 +49,12 @@ export function readMinStay(
     if (logged.size >= LOGGED_MAX) logged.clear();
     logged.add(fingerprint);
     const first = read.dropped[0];
+    // SEC FB-R5-SEC-BE-V525-01: never the name of an unknown key (it is part of the stored value).
+    const firstField = first ? logSafeField(first.field, first.code, first.index) : '-';
     log.warn(
       read.notAList
         ? `parameter min_stay is not a list – read as no minimum stay (DOM 12.3) property=${where.propertyId ?? '-'} fingerprint=${fingerprint}`
-        : `parameter min_stay: ${read.dropped.length} of ${read.dropped.length + read.rules.length} rules left out, first ${first?.field} ${first?.code} – the other rules apply (DOM 12.3) property=${where.propertyId ?? '-'} fingerprint=${fingerprint}`,
+        : `parameter min_stay: ${read.dropped.length} of ${read.dropped.length + read.rules.length} rules left out, first ${firstField} ${first?.code} – the other rules apply (DOM 12.3) property=${where.propertyId ?? '-'} fingerprint=${fingerprint}`,
     );
   }
   return read.rules;
