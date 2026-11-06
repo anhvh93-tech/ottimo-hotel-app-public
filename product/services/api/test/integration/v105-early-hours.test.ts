@@ -5,7 +5,8 @@
  * departure ≤ D (409 + `minNewDepartureDate`) and a stay ending on D+1 (409 + `useCheckout`), before every other
  * date check, dry run included; the retained fee lines are dated the business date of the action.
  * Oracles BR-428-14…17, BR-309-27, BR-311-04 (tests/fixtures/br-examples.json); DOM cases T-11-1…T-11-5, T-11-7,
- * T-11-8. Fake clock, FAKE data.
+ * T-11-8; DOM FB-R5-DOM-BE-PR114-01 (the commission of a sale's booking keeps night D, not the early-departure fee –
+ * BR-903 (2), test rate `test_rate_short` only, SEC G3). Fake clock, FAKE data.
  */
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -24,6 +25,7 @@ import {
   type FrontdeskChildDataPort,
   type FrontdeskRegistrationPort,
 } from '../../src/modules/frontdesk/public/ports';
+import { applyPct } from '../../src/modules/reservations/public/pricing';
 import { sha256Hex } from '../../src/shared/http/auth.guard';
 import { Client, type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
 import {
@@ -32,7 +34,7 @@ import {
   seedGuestRow,
   touchSessions,
 } from '../helpers/reservations-fixture';
-import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
+import { HAS_DB, type TestTenant, appDatabase, createTenant, setParam } from '../helpers/tenant';
 
 class DocsOk implements FrontdeskRegistrationPort {
   async checkinDocumentStatus(): Promise<CheckinDocumentStatus> {
@@ -62,7 +64,9 @@ class DocsOk implements FrontdeskRegistrationPort {
   }
 }
 
-const ROLES = { mgr: ['manager'], fd: ['front_desk'] };
+const ROLES = { mgr: ['manager'], fd: ['front_desk'], sal: ['sales_staff'] };
+/** Test-only commission rate (SEC G3) – an odd value unrelated to any real table. */
+const test_rate_short = 1.37;
 
 // Oracle rows are free-form JSON (QA fixture) – read field by field below.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,8 +160,17 @@ describe.skipIf(!HAS_DB)('V5-11 – early departure and retained fees 00:00–05
     }
     return out;
   };
-  /** Direct booking at a fixed nightly rate, booked ahead with the deposit required paid in cash. */
-  const direct = async (room: string, from: string, to: string, rate: number) => {
+  /**
+   * Direct booking at a fixed nightly rate, booked ahead with the deposit required paid in cash (`extra`: e.g. a sale
+   * closing it).
+   */
+  const direct = async (
+    room: string,
+    from: string,
+    to: string,
+    rate: number,
+    extra: Record<string, unknown> = {},
+  ) => {
     await at('2026-10-10T10:00:00+07:00');
     const body = {
       roomId: ids.rooms[room],
@@ -169,6 +182,7 @@ describe.skipIf(!HAS_DB)('V5-11 – early departure and retained fees 00:00–05
       arrivalDate: from,
       departureDate: to,
       nightlyRates: dates(from, to).map((date) => ({ date, amountVnd: rate })),
+      ...extra,
     };
     // A token payment below the deposit → 422 with the deposit required (then paid exactly – the oracles' deposit).
     const quote = await c.fd!.send('POST', url('/reservations'), {
@@ -463,6 +477,58 @@ describe.skipIf(!HAS_DB)('V5-11 – early departure and retained fees 00:00–05
     expect(out.statusCode, out.body).toBe(200);
     expect(await feeLines(b, 'deposit_forfeit')).toEqual([
       { amount_vnd: 100_000, d: '2026-10-20' },
+    ]);
+  });
+
+  it('DOM PR114-01 (BR-428-14 on a booking a sale closed): 03:00 on 21/10 → the commission base keeps night 20/10 (700.000), never the 1.050.000 fee', async () => {
+    // Test rate only (SEC G3), in force before the booking is made.
+    await setParam(
+      db,
+      t,
+      'short_stay_commission_pct',
+      { staff: test_rate_short, collaborator: test_rate_short },
+      '2026-10-02',
+    );
+    const o = oracle('BR-428-14');
+    const i = o.input;
+    const b = await direct('402', i.arrivalDate, i.departureDate, i.nightRateVnd, {
+      directSource: 'sales_staff',
+      closerUserId: t.users.sal!.id,
+    });
+    const rows = () =>
+      q<{ status: string; payee_type: string; rate: string; base: number; amount: number }>(
+        `SELECT status, payee_type, rate_pct_snapshot::text AS rate, base_amount_vnd AS base,
+                amount_vnd AS amount
+           FROM commission WHERE reservation_id = $1 AND status <> 'void' ORDER BY created_at`,
+        [b.id],
+      );
+    const nights = dates(i.arrivalDate, i.departureDate).length;
+    const row = (base: number) => ({
+      status: 'projected',
+      payee_type: 'staff',
+      rate: String(test_rate_short),
+      base,
+      amount: applyPct(base, test_rate_short, 1),
+    });
+    expect(await rows()).toEqual([row(nights * i.nightRateVnd)]);
+    await stay(b, i.arrivalDate);
+    await at(i.notifiedAt);
+    const body = { newDepartureDate: i.newDepartureDate, noticeGivenAt: i.notifiedAt };
+    const dry = await preview(b.id, body);
+    expect(dry.statusCode, dry.body).toBe(200);
+    expect(dry.json().earlyDepartureFeeVnd).toBe(o.expected.earlyDepartureFeeVnd);
+    const wr = await act(b.id, 'early-departure', {
+      ...body,
+      expectedRefundVnd: dry.json().refundVnd,
+      expectedFeeVnd: dry.json().earlyDepartureFeeVnd,
+    });
+    expect(wr.statusCode, wr.body).toBe(200);
+    // One night kept (20/10): base 700.000 – the early-departure fee (other revenue, BR-904) is not in it.
+    const kept = nights - o.expected.cancelledNights.length;
+    expect(kept).toBe(1);
+    expect(await rows()).toEqual([row(kept * i.nightRateVnd)]);
+    expect((await feeLines(b, 'early_departure_fee')).map((l) => l.amount_vnd)).toEqual([
+      o.expected.earlyDepartureFeeVnd,
     ]);
   });
 });
