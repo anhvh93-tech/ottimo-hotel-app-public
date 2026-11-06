@@ -57,6 +57,12 @@ Hai lỗi này có từ v1.0.0. Không mất tiền, không lộ dữ liệu: m�
 4. Máy hoặc điện thoại ở quầy đăng nhập **app nhân viên** trong ca, để lễ tân thấy tin giữ chỗ tự hủy (dòng **Tin giữ chỗ tự hủy** ở trên). Vẫn rà giữ chỗ theo mã đơn ở Tờ 2a tới khi anh/chị báo hết tạm.
 5. Tới khi bản lên: chi hoàn chuyển khoản bị chặn ở ô mã thì nhập 8 chữ số cuối của mã giao dịch (BUG-R5-006 ở bảng trên).
 
+### Việc anh/chị làm ngày lên v1.0.5
+
+1. **Nhập Wi-Fi trên Desk** (khi bản có ô nhập Wi-Fi, dòng **Lỗi nhỏ ở quầy** ở trên). Nhập **tên mạng** và **mật khẩu** Wi-Fi đang dùng, đọc kỹ dòng xác nhận "Khách sẽ thấy: …" rồi lưu. Mở trang khách của một đơn đang ở để kiểm: đọc trên màn hình, không chụp ảnh, không chép ra chat. Từ đó trang khách hiện Wi-Fi, lễ tân đọc Wi-Fi trên Desk khi khách hỏi.
+   - Muốn đổi mật khẩu luôn trong ngày này: trước đó **in thẻ Wi-Fi mới** cho 10 căn và 2 thẻ dự phòng, đổi trong 13:00–17:00, buồng phòng thay thẻ ở lần dọn đầu của mỗi căn. Không đổi mật khẩu thì thẻ trong căn vẫn đúng, không cần in lại.
+   - Hướng dẫn: sổ tay 1.4; `01` 9.2.
+
 ### Giới hạn đã biết của v1.0.5 và cách làm ở quầy
 
 Áp dụng từ ngày v1.0.5 lên. Mỗi dòng ghi bản sẽ sửa.
@@ -67,10 +73,10 @@ Hai lỗi này có từ v1.0.0. Không mất tiền, không lộ dữ liệu: m�
   - Từ 06:00 đơn đó thành quá ngày đi: lễ tân không tự trả phòng được nữa, phải nhờ quản lý. Người trực hiện nay giữ vai quản lý nên làm được, ghi lý do.
   - Hướng dẫn: sổ tay 2.20; `02` mục 2, 13.3. v1.0.6 đưa căn này lên đầu danh sách **Khách đi**.
 - **Đóng ca chưa liệt kê các lần lễ tân tự sửa giảm dòng** (bỏ dòng, giảm số lượng, giảm giá; tới v1.0.6).
-  - Lễ tân, trước khi giao ca: mở **Nhật ký tiền → Nhật ký thao tác tiền**, tìm hàng **Điều chỉnh dòng folio** của mình có số **Trước → sau** nhỏ đi. Lần đếm lại minibar hiện thành hàng **Đảo dòng folio**, lý do **Đếm lại minibar**. Ghi các lần đó vào sổ giao ca, báo người nhận ca.
+  - Lễ tân, trước khi giao ca: mở **Nhật ký tiền → Nhật ký thao tác tiền**, tìm hàng **Điều chỉnh dòng folio** của mình có số **Trước → sau** nhỏ đi. Lần đếm lại minibar thấp hơn cũng hiện là **Điều chỉnh dòng folio**, lý do **Đếm lại minibar**. Ghi các lần đó vào sổ giao ca, báo người nhận ca.
   - Quản lý, chủ đầu tư: mỗi tuần rà bộ lọc **Sửa giảm dòng – 7 ngày** ở **Nhật ký tiền**.
   - Hướng dẫn: sổ tay 2.1, 1.15; `02` 12.4; `01` 8.1. v1.0.6 thêm các lần này vào danh sách đóng ca.
-- **Luật "lễ tân không tự hạ số minibar đã đếm" chưa có tác dụng thật ở OTTIMO** (tới khi buồng phòng có màn đếm minibar trên app). Luật này chỉ có tác dụng khi lễ tân không giữ vai quản lý và buồng phòng tự đếm trên app. Hiện người trực giữ cả vai quản lý, còn buồng phòng báo số bằng lời để lễ tân nhập. Số tiền mỗi món nhỏ, nhưng gõ thấp ngay từ đầu thì Desk không có lần sửa nào để bắt.
+- **Luật "lễ tân không tự hạ số minibar đã đếm" chưa có tác dụng thật ở OTTIMO** (tới khi buồng phòng có màn đếm minibar trên app). Luật này chỉ có tác dụng khi lễ tân không giữ vai quản lý và buồng phòng tự đếm trên app. Hiện người trực giữ cả vai quản lý, còn buồng phòng báo số bằng lời để lễ tân nhập. Desk không chặn lần đếm lại thấp hơn; lần đếm lại làm tiền minibar nhỏ đi hiện ở bộ lọc **Sửa giảm dòng – 7 ngày** của quản lý, chủ đầu tư. Số tiền mỗi món nhỏ, nhưng gõ thấp ngay từ đầu thì Desk không có lần sửa nào để bắt.
   - Đội đề nghị anh/chị **kiểm kho minibar mỗi tuần (K-MB)**, khoảng 10 phút, cùng lượt rà tuần. Làm được ngay từ tuần này, không cần chờ v1.0.5:
     1. Chuẩn bị một lần: hàng minibar để ở kho riêng có khóa, anh/chị giữ chìa dự phòng. Nhập hàng thì ghi sổ kho (ngày, món, số lượng). Người nạp tủ ghi phiếu nạp, mỗi lần một dòng: ngày, căn, món, số lượng. Không ghi tên khách. Đếm kho lần đầu để có tồn đầu tuần.
     2. Đếm kho theo từng món: tồn đầu tuần + nhập − tồn cuối tuần = số đã lấy ra. So với tổng phiếu nạp trong tuần.
@@ -81,8 +87,8 @@ Hai lỗi này có từ v1.0.0. Không mất tiền, không lộ dữ liệu: m�
 
 <!-- Nguồn "Giới hạn đã biết của v1.0.5" (PO 07/11, plan R5 quyết định 27):
 - Ca đêm: ARC A4, FB-R5-DOM-ARC-D1-01 (backlog R5-B-09); câu BA 792e510a, sửa theo DOM FB-R5-DOM-BA-02 (không gõ cửa ban đêm, việc chính ở mốc đóng quầy) – DOM-on-ba-v105-docs.md mục 4.
-- Đóng ca: ShiftReport.lineReductions[] (backlog R5-B-10, US-177 AC7 (iii)); lễ tân không thấy bộ lọc 7 ngày (US-177 AC7 (i)); hàng Đảo dòng folio theo DOM FB-R5-DOM-BA-03.
-- Minibar: DOM rounds/round-05/responses/DOM-responses.md mục "Rủi ro BA mục 8, ý 1" (7496e5bc), đề xuất (A) 1–3; backlog R5-B-15. Câu DOM (A) 1 thứ hai ("Lần đếm lại minibar chưa hiện trong bộ lọc Sửa giảm dòng – 7 ngày…") chỉ thêm khi phần audit của SEC V516-01 không vào tag (plan R5 mục 4a T5).
+- Đóng ca: ShiftReport.lineReductions[] (backlog R5-B-10, US-177 AC7 (iii)); lễ tân không thấy bộ lọc 7 ngày (US-177 AC7 (i)). Lần đếm lại thấp hơn hiện là Điều chỉnh dòng folio, lý do Đếm lại minibar, và có trong bộ lọc 7 ngày nhờ BE-A2 r5-v516-minibar 0b2ebb45, chỉ khi #110 và nhánh này cùng vào tag (BA lượt 4, da596507). Thiếu một trong hai: làm theo plan R5 mục 4a T5.
+- Minibar: DOM rounds/round-05/responses/DOM-responses.md mục "Rủi ro BA mục 8, ý 1" (7496e5bc), đề xuất (A) 1–3; backlog R5-B-15. Phần chặn không vào v1.0.5. Câu thứ hai của DOM (A) 1 (đếm lại chưa có trong bộ lọc) không ghi ở đây; chỉ thêm khi thiếu #110 hoặc phần audit (plan R5 mục 4a T5).
 - Sổ tay 1.1, 01 2.1: BA thêm K-MB theo DOM-responses (việc theo vai). Kiểm trước khi cắt (plan 4a, "Thêm khi cắt"). -->
 
 ### Không có trong v1.0.5

@@ -1,7 +1,7 @@
 # Sổ vận hành OTTIMO – dành cho chủ đầu tư
 
 - Dành cho: chủ đầu tư (OWN). Quản lý (MGR) và lễ tân trưởng (FDL) đọc phần của mình ở mục 1.
-- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.7 (07/11/2026, Round 5: đếm kho minibar mỗi tuần K-MB ở mục 1.2; kiểm điện thoại cơ sở còn tắt tự lưu ảnh ở mục 1.3) · Bản 1.6 (07/11/2026, Round 5: lễ tân trưởng bật 2 bước trước ngày lên v1.0.5; đổi vai chỉ trên Desk) · Bản 1.5 (06/11/2026, Round 5: không lưu `weekend_nights`, `min_stay` tới khi v1.0.5 lên; con số "máy chủ mất hẳn" theo cùng một cách tính) · Bản 1.4 (06/11/2026, Round 5: lượt sao lưu thứ hai lúc 15:00, mức mất dữ liệu khi máy chủ mất hẳn) · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
+- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.7 (07/11/2026, Round 5: đếm kho minibar mỗi tuần K-MB ở mục 1.2; kiểm điện thoại cơ sở còn tắt tự lưu ảnh ở mục 1.3; đổi giá căn xong báo giá thử 1 đêm từ ngày hiệu lực trở đi ở mục 4.1 bước 7; phiếu nạp gồm dòng không vào tủ) · Bản 1.6 (07/11/2026, Round 5: lễ tân trưởng bật 2 bước trước ngày lên v1.0.5; đổi vai chỉ trên Desk) · Bản 1.5 (06/11/2026, Round 5: không lưu `weekend_nights`, `min_stay` tới khi v1.0.5 lên; con số "máy chủ mất hẳn" theo cùng một cách tính) · Bản 1.4 (06/11/2026, Round 5: lượt sao lưu thứ hai lúc 15:00, mức mất dữ liệu khi máy chủ mất hẳn) · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
 - Áp dụng từ: 06/11/2026. Hôm nay OTTIMO chạy thật đủ 4 trang: Desk, app nhân viên, trang khách, website 5 ngôn ngữ (form đặt phòng và giá ước tính đã bật).
 - Cách dùng: in mục 1 dán cạnh bàn làm việc. Đánh dấu ô `[ ]` khi xong. Mục 3 mở ra khi có sự cố.
 - Đọc cùng: sổ tay sử dụng `product/docs/manual/user-manual-v1.0.md`, từ điển tham số `product/docs/tham-so-quy-tac.md`, bộ hướng dẫn theo vai `product/docs/manual/guides/`.
@@ -69,7 +69,7 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 - [ ] **OWN** – lần kéo bản sao lưu về Mac gần nhất cách hôm nay không quá 2 ngày (mục 1.1a). Quá: nhắn đội kéo ngay hôm đó.
 - [ ] **OWN** – hộp thư `info@ottimo.vn` (cả mục Spam): còn thư "down", "failing" từ UptimeRobot, Healthchecks.io chưa xử lý không. Còn: mục 2.3.
 - [ ] **OWN** – phòng "OTTIMO – Báo động": tin **FAIL** nào chưa có tin **OK** theo sau. Có: báo đội trong ngày.
-- [ ] **OWN** – **đếm kho minibar (K-MB)**, khoảng 10 phút: tồn đầu + nhập − tồn cuối so với phiếu nạp; so 3 dòng phiếu nạp ngẫu nhiên với **Folio** của đơn. Lệch quá 2 món một tuần: hỏi người trực, ghi sổ (hướng dẫn `01` mục 2.1).
+- [ ] **OWN** – **đếm kho minibar (K-MB)**, khoảng 10 phút: tồn đầu + nhập − tồn cuối so với phiếu nạp (gồm cả dòng không vào tủ); so 3 dòng phiếu nạp ngẫu nhiên với **Folio** của đơn. Lệch quá 2 món một tuần: hỏi người trực, ghi sổ (hướng dẫn `01` mục 2.1).
 - [ ] **MGR** – **Chờ đối soát**: không còn khoản ghi **Quá … ngày**.
 - [ ] **MGR** – **Giấy tờ & khai báo**, tab **Tất cả**: không còn hồ sơ quá hạn; hồ sơ **Cổng từ chối** đã khai lại.
 - [ ] **MGR** – **Cần chú ý**: công nợ, phiếu sửa quá hạn đã có người xử lý.
@@ -266,7 +266,7 @@ Anh/chị tự làm được, không cần báo đội:
 - [ ] 4. Chọn **Hiệu lực từ**: hôm nay (Desk điền sẵn; ngày trên Desk đổi lúc 06:00) hoặc ngày sau. Đơn, báo giá, hợp đồng đã tạo **giữ số cũ**.
 - [ ] 5. Ghi **Lý do** ngắn. Bấm **Lưu thay đổi**.
 - [ ] 6. Mở **Lịch sử thay đổi** trong cùng hộp. Dòng mới phải có **tên anh/chị**, đúng giá trị, đúng ngày hiệu lực. Không thấy tên mình, hoặc thấy dòng lạ: dừng, báo đội (P0 nếu là tài khoản nhận tiền hoặc tham số bảo mật).
-- [ ] 7. Tham số giá: báo giá thử một ca trên Desk (không lưu báo giá) theo bảng "Ví dụ kiểm nhanh" của từ điển. Mở ottimo.vn, thử cùng ca: web phải ra cùng số.
+- [ ] 7. Tham số giá: báo giá thử một ca trên Desk (không lưu báo giá) theo bảng "Ví dụ kiểm nhanh" của từ điển. Mở ottimo.vn, thử cùng ca: web phải ra cùng số. Giá căn: báo giá thử 1 đêm của căn đó **từ ngày hiệu lực trở đi**, vì Desk chưa cảnh báo giá đêm cao bất thường (gõ thừa số 0) tới khi có bản sửa.
 - [ ] 8. Ghi sổ giao ca: tên tham số, ngày hiệu lực. Báo lễ tân trưởng.
 
 **Lưu ý:**
