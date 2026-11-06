@@ -387,6 +387,33 @@ describe.skipIf(!HAS_DB)('V5-11 – early departure and retained fees 00:00–05
     expect(out.statusCode, out.body).toBe(200);
   });
 
+  it('ARC 114-01 ("≤", not "="): at 03:00 on 21/10 a stay ending 20/10 (= business date) or 19/10 (overdue) → 409 useCheckout, no minNewDepartureDate, nothing written', async () => {
+    // 19–20/10 ends on the business date D (20/10); 18–19/10 is already past its departure. Both: B18, never "from D+1".
+    for (const [room, from, to, rate] of [
+      ['203', '2026-10-19', '2026-10-20', 700_000],
+      ['401', '2026-10-18', '2026-10-19', 1_600_000],
+    ] as const) {
+      const b = await direct(room, from, to, rate);
+      await stay(b, from);
+      await at('2026-10-21T03:00:00+07:00');
+      const before = await footprint(b);
+      const body = { newDepartureDate: to, noticeGivenAt: '2026-10-21T03:00:00+07:00' };
+      for (const res of [
+        await preview(b.id, body),
+        await act(b.id, 'early-departure', { ...body, expectedRefundVnd: 0, expectedFeeVnd: 0 }),
+      ]) {
+        expect(res.statusCode, `${room} ${res.body}`).toBe(409);
+        expect(res.json()).toMatchObject({
+          code: 'INVALID_TRANSITION',
+          currentState: 'in_house',
+          useCheckout: true,
+        });
+        expect(res.json().minNewDepartureDate, room).toBeUndefined();
+      }
+      expect(await footprint(b), room).toEqual(before);
+    }
+  });
+
   it('T-11-5 (BR-428-12/13 boundary): 05:59 → minimum 21/10 (20/10 → 409, 21/10 → 1 day notice); 06:00 → minimum 21/10 by the business date, 0 day notice, 20/10 → 422 as before', async () => {
     const b = await direct('202', '2026-10-20', '2026-10-24', 700_000);
     await stay(b, '2026-10-20');
