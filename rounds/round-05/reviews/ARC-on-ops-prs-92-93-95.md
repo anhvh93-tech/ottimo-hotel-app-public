@@ -21,7 +21,7 @@
 | `server/test/postgres-log-terse.test.sh` (#93, postgres:17-alpine local) | **7/7.** Lượt đối chứng lộ email và "Failing row", đúng như dự kiến |
 | `ci/test-ops-check.sh`, `ops-check-price.test.sh`, shellcheck | Không chạy lại. CI job `infra scripts` xanh ở `b1354a4f` |
 | CI #92 | Xanh đủ, kể cả `docker images build · E2E smoke` |
-| CI #93 @ `b1354a4f`, #95 @ `fd11c4a2` | Xanh, trừ `docker images build · E2E smoke` còn **đang chạy** lúc viết |
+| CI #93 @ `b1354a4f`, #95 @ `fd11c4a2` | **Xanh đủ.** `docker images build · E2E smoke` còn chạy lúc viết, xanh ngay sau đó (#93 15 phút 53 giây, #95 13 phút 29 giây) |
 | Gộp thử trong bộ nhớ (`git merge-tree`): `main` → #92 → #93 → #95 → #94 | Không xung đột chữ |
 
 ## 0. Kết luận
@@ -29,7 +29,7 @@
 | PR | Kết luận | Điều kiện |
 |---|---|---|
 | #92 | **DUYỆT** | – |
-| #93 | **DUYỆT CÓ ĐIỀU KIỆN** | E2E xanh trên đầu nhánh. SEC đọc lại ARC-07, ARC-08 như PR ghi. Thẻ 06 (Minor, chữ) sửa trong lúc chờ E2E nếu tiện, không chặn |
+| #93 | **DUYỆT CÓ ĐIỀU KIỆN** | E2E xanh trên đầu nhánh: **đã đạt** (`b1354a4f`). Còn: SEC đọc lại ARC-07, ARC-08 như PR ghi. Thẻ 06 (Minor, chữ) sửa trước khi gộp nếu tiện, không chặn; nếu sửa thì CI phải xanh lại |
 | #95 | **DUYỆT CÓ ĐIỀU KIỆN** | Sửa 3 thẻ Major 01, 02, 03 **trước khi gộp**, vì runbook này là mẫu cho các bản sau. ARC chỉ đọc lại phần sửa, không review lại cả tệp. Minor 04, 05, 07 sửa trước cửa sổ bảo trì |
 
 - Blocker 0, Major 3 (cả 3 ở #95), Minor 5 (4 cho OPS, 1 cho BE), Suggestion 2.
