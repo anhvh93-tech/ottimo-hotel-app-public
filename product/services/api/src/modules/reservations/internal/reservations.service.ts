@@ -430,6 +430,8 @@ export class ReservationsService {
         ]));
     }
     const depositPaidVnd = await this.money.depositPaid(tx, row);
+    // 0.3.13 V5-18: read for every caller, removed for SAL/CTV by the role serializer (x-visible-to FD+).
+    const depositUnverifiedVnd = await this.money.depositUnverified(tx, row, depositPaidVnd);
     let requestedGroup: { id: string; code: string } | null = null;
     if (row.conflict_state === 'open') {
       const g = await tx.query<{ id: string; code: string }>(
@@ -485,6 +487,7 @@ export class ReservationsService {
       iso: ctx.iso,
       noShowAvailableFrom: markAt,
       depositPaidVnd,
+      depositUnverifiedVnd,
       requestedGroup,
       ...(stayDepartureDate ? { stayDepartureDate } : {}),
     });
