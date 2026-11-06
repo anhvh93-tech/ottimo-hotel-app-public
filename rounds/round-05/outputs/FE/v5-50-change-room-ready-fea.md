@@ -36,3 +36,10 @@ Không tự viết câu mới. UXD xem lại: ca lỗi có cần câu riêng kh�
 ## 6. Cần xem
 - UXD: hai câu ở mục 2; hộp ở 1366 và 390 (ảnh trong PR).
 - QA: đóng phần lọc của BUG-R3-023 sau khi lên staging (chọn căn VD không còn trong danh sách).
+
+## 7. Phản hồi & sửa (UXD-on-fe-prs-98-102-107, 06/11)
+UXD: **DUYỆT**. Trả lời đủ thẻ ở `rounds/round-05/responses/FE-responses.md` (nhánh #102).
+- **PR98-01 (Minor)**: khóa mới `room_change.no_rooms_not_ready`, nguyên văn `copy-v1.0.5.md` 9.7. Khi danh sách đã lọc rỗng **và** có căn trống (`available`, khác căn đang ở) đang VD hoặc CL → khung `warn` nêu các căn đó (tăng dần, nối ", ") thay `room_change.no_rooms`. Không có căn VD/CL thì giữ `no_rooms`. Danh sách chưa lọc (`ready_unfiltered`) thì không dùng câu mới.
+- Vitest: ca "mọi căn trống còn VD" nay chờ câu mới với đủ số căn; thêm ca VD 203 + CL 202 (+ OC, OOO) → "căn 202, 203"; thêm ca chỉ OC/OD/OOO → vẫn `no_rooms`; ca chưa lọc không có câu mới.
+- **Ảnh đã đổi** (mock, dữ liệu giả): `v5-50-change-room-1366.png`, `v5-50-change-room-390.png` – khung cảnh báo nay là câu mới ("… chưa dọn xong: căn 203 …").
+- Kiểm: `tsc`, `eslint`, `prettier`, `gen_strings.py` sinh lại không lệch; toàn bộ vitest admin-web 1000/1000 xanh ở máy.

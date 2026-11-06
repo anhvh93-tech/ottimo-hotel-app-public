@@ -441,6 +441,8 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
 
 /** B14 target rooms: VI · inspected, ready or VC · cleaned, awaiting inspection (BR-803, ARC 0.3.13 1.12). */
 const READY_FOR_MOVE: readonly RoomStatusEntry['status'][] = ['VI', 'VC'];
+/** Free but not cleaned yet – named when nothing is ready (UXD PR98-01: ask housekeeping to clean one first). */
+const WAITING_FOR_CLEAN: readonly RoomStatusEntry['status'][] = ['VD', 'CL'];
 
 function ChangeRoomForm({
   reservation: r,
@@ -493,6 +495,20 @@ function ChangeRoomForm({
   const options = (avail.state.data?.alternatives ?? []).filter(
     (x) => x.available && x.roomNo !== roomNo && (unfiltered || ready.has(x.roomId)),
   );
+  // FB-R5-UXD-FE-PR98-01: nothing ready, but free rooms only wait for cleaning → name them (ascending).
+  const statusOf = new Map((statuses.state.data ?? []).map((s) => [s.roomId, s.status]));
+  const notCleaned = unfiltered
+    ? []
+    : [
+        ...new Set(
+          (avail.state.data?.alternatives ?? [])
+            .filter((x) => {
+              const st = statusOf.get(x.roomId);
+              return x.available && x.roomNo !== roomNo && !!st && WAITING_FOR_CLEAN.includes(st);
+            })
+            .map((x) => x.roomNo),
+        ),
+      ].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   // 409 ROOM_UNAVAILABLE (busy before the effective departure) → the server's suggested free room.
   const suggested = suggestionsOf(act.error).filter((x) => x.roomNo !== roomNo);
   const target =
@@ -586,7 +602,13 @@ function ChangeRoomForm({
         {!listed ? <LoadingBlock rows={1} /> : null}
         {listed && options.length === 0 ? (
           <Alert tone="warn">
-            {t('room_change.no_rooms', { from: date(today), to: date(stayEnd) })}
+            {notCleaned.length
+              ? t('room_change.no_rooms_not_ready', {
+                  from: date(today),
+                  to: date(stayEnd),
+                  rooms: notCleaned.join(', '),
+                })
+              : t('room_change.no_rooms', { from: date(today), to: date(stayEnd) })}
           </Alert>
         ) : null}
         {options.map((x) => (

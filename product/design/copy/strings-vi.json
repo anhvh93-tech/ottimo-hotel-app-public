@@ -3490,6 +3490,7 @@
   "co.go_next_cabinet": "Tiếp tục: Tủ căn {room}",
   "co.minibar_cabinet_saved": "Đã lưu số đếm tủ căn {room}.",
   "room_change.ready_unfiltered": "Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì.",
+  "room_change.no_rooms_not_ready": "Chưa có căn nào sẵn sàng. Còn trống từ {from} đến {to} nhưng chưa dọn xong: căn {rooms}. Nhờ buồng phòng dọn trước một căn rồi mở lại hộp này. Không chờ được thì hỏi quản lý.",
   "msg.booking_confirmed": "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights_text}). Nhận phòng từ {checkin_time} (phòng luôn sẵn sàng lúc 14:00), trả phòng trước {checkout_time}. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",
   "msg.deposit_received": "Chào {name}, OTTIMO đã nhận cọc {deposit} cho đơn {code} (căn {room}, {from} → {to}). Còn {balance} thanh toán khi nhận phòng. Chính sách hủy: {cancel_policy_short}",
   "msg.checkin_link": "Chào {name}, để nhận phòng nhanh, vui lòng gửi giấy tờ và giờ đến tại: {link} (khoảng 2 phút).",

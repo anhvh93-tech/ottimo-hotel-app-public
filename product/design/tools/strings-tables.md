@@ -4079,11 +4079,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.go_next_cabinet` | Tiếp tục: Tủ căn {room} | Continue: Room {room} minibar | ⟨chừa chỗ⟩ | H16 bước 1, nút chính thay co.go_extras khi sau tủ đang hiện vẫn còn tủ khác (bản tóm tắt mới nhất, bỏ tủ đã đếm trên trang và tủ đang hiện). {room} = căn của tủ kế tiếp. Hết tủ thì co.go_extras. Nhãn busy như #67 |
 | `co.minibar_cabinet_saved` | Đã lưu số đếm tủ căn {room}. | Room {room} minibar count saved. | ⟨chừa chỗ⟩ | H16 bước 1, toast của DS sau 201 khi trang chuyển sang tủ khác. {room} = tủ vừa đếm (không phải tủ đang hiện). Sang thẳng bước 2 thì không có toast |
 
-#### v1.0.5 V5-50 – FE-A: hộp Đổi phòng chỉ liệt kê căn VI/VC (BUG-R3-023). Chữ UXD v1.0.0 (FB-R3-UXD-FE-A-17), dùng lại cho ca chưa tải được trạng thái buồng
+#### v1.0.5 V5-50 – FE-A: hộp Đổi phòng chỉ liệt kê căn VI/VC (BUG-R3-023). Chữ UXD v1.0.0 (FB-R3-UXD-FE-A-17), dùng lại cho ca chưa tải được trạng thái buồng; câu mọi căn trống còn bẩn UXD duyệt 06/11 (copy-v1.0.5 9.7)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
 | `room_change.ready_unfiltered` | Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì. | You can only move to a room that is VI · Inspected, ready or VC · Cleaned, awaiting inspection. The list may still include rooms not yet cleaned – choosing one shows a message and nothing is saved. | ⟨chừa chỗ⟩ | V5-50: chỉ khi listRoomStatuses lỗi – danh sách Đổi phòng chưa lọc được trạng thái buồng; máy chủ vẫn chặn 409 ROOM_NOT_READY (BR-803). Nguyên văn câu v1.0.0 của room_change.ready_only (UXD thẻ 17) |
+| `room_change.no_rooms_not_ready` | Chưa có căn nào sẵn sàng. Còn trống từ {from} đến {to} nhưng chưa dọn xong: căn {rooms}. Nhờ buồng phòng dọn trước một căn rồi mở lại hộp này. Không chờ được thì hỏi quản lý. | No room is ready yet. Free from {from} to {to} but not yet cleaned: {rooms}. Ask housekeeping to clean one first, then open this form again. If that can't wait, ask a manager. | ⟨chừa chỗ⟩ | v1.0.5 V5-50 (FB-R5-UXD-FE-PR98-01; UXD-on-fe-prs-98-102-107; copy-v1.0.5 9.7). Khung warn thay room_change.no_rooms khi danh sách đã lọc rỗng và có căn trống (available, khác căn đang ở) đang VD hoặc CL. {rooms} = các số căn đó, tăng dần, nối ', '; {from}, {to} như no_rooms. Không có căn VD/CL → no_rooms. Danh sách chưa lọc (ready_unfiltered) → không dùng |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

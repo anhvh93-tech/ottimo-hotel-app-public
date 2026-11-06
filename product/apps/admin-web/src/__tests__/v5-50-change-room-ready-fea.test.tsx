@@ -2,6 +2,8 @@
 // thái buồng (ARC 0.3.13 mục 1.12): Desk đọc thêm `listRoomStatuses` (FD+) và bỏ căn VD / CL / OC / OD / OOO khỏi danh
 // sách. Máy chủ vẫn chặn 409 ROOM_NOT_READY (BR-803) – MSW ở `mocks/stay.ts` giữ đúng luật đó. Không tải được trạng
 // thái buồng thì danh sách giữ như cũ và câu dưới danh sách nói thật (`room_change.ready_unfiltered`).
+// FB-R5-UXD-FE-PR98-01 (UXD 06/11, copy-v1.0.5 9.7): lọc xong không còn căn nào mà có căn trống VD / CL → câu
+// `room_change.no_rooms_not_ready` nêu các căn đó (tăng dần) thay `room_change.no_rooms`.
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -27,6 +29,29 @@ async function openChangeRoom() {
   return { user, dlg };
 }
 
+/** searchAvailability answers exactly these rooms as free (it never looks at housekeeping); statuses set alongside. */
+function freeAs(status: Record<string, string>) {
+  Object.assign(mockControl.stay.roomStatus, status);
+  server.use(
+    http.get(/\/availability$/, ({ request }) => {
+      const q = new URL(request.url).searchParams;
+      return HttpResponse.json({
+        arrival: q.get('arrival'),
+        departure: q.get('departure'),
+        alternatives: Object.keys(status).map((no) => ({
+          roomId: roomId(no),
+          roomNo: no,
+          available: true,
+          upgrade: false,
+        })),
+      });
+    }),
+  );
+}
+
+const NOT_READY_HEAD =
+  /^Chưa có căn nào sẵn sàng\. Còn trống từ .+ đến .+ nhưng chưa dọn xong: căn /;
+
 /** Rooms free for Kim's stay (today → departure, 402 excluded): every room VI first, read the list, unmount. */
 async function freeRooms(): Promise<string[]> {
   for (const r of mockControl.db.rooms) mockControl.stay.roomStatus[r.roomNo] = 'VI';
@@ -49,22 +74,7 @@ describe('V5-50 – Đổi phòng lists only rooms ready for a guest (VI / VC)',
       '101': 'OD',
       '401': 'OOO',
     };
-    Object.assign(mockControl.stay.roomStatus, status);
-    server.use(
-      http.get(/\/availability$/, ({ request }) => {
-        const q = new URL(request.url).searchParams;
-        return HttpResponse.json({
-          arrival: q.get('arrival'),
-          departure: q.get('departure'),
-          alternatives: Object.keys(status).map((no) => ({
-            roomId: roomId(no),
-            roomNo: no,
-            available: true,
-            upgrade: false,
-          })),
-        });
-      }),
-    );
+    freeAs(status);
     const { dlg } = await openChangeRoom();
     await waitFor(() => expect(listed(dlg)).toHaveLength(2));
     expect(listed(dlg).sort()).toEqual(['103', '202']);
@@ -72,15 +82,34 @@ describe('V5-50 – Đổi phòng lists only rooms ready for a guest (VI / VC)',
     expect(within(dlg).queryByText(tv('room_change.ready_unfiltered'))).toBeNull();
   });
 
-  it('every free room still dirty → the "no ready room" message, no radio', async () => {
+  it('every free room still dirty (VD) → names them in ascending order (PR98-01), no radio', async () => {
     const free = await freeRooms();
     for (const no of free) mockControl.stay.roomStatus[no] = 'VD';
     const { dlg } = await openChangeRoom();
     const group = within(dlg).getByRole('group', { name: tv('stay.new_room') });
-    await waitFor(() =>
-      expect(within(group).getByText(/^Không còn căn sẵn sàng đủ chỗ/)).toBeInTheDocument(),
-    );
+    const msg = await within(group).findByText(NOT_READY_HEAD);
+    const sorted = [...free].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    expect(msg.textContent).toContain(`căn ${sorted.join(', ')}.`);
+    expect(msg.textContent).toContain('Nhờ buồng phòng dọn trước một căn');
+    expect(within(group).queryByText(/^Không còn căn sẵn sàng đủ chỗ/)).toBeNull();
     expect(within(group).queryAllByRole('radio')).toHaveLength(0);
+  });
+
+  it('PR98-01: free rooms VD 203 + CL 202 (+ OC, OOO), none VI/VC → "202, 203" only', async () => {
+    freeAs({ '203': 'VD', '202': 'CL', '302': 'OC', '401': 'OOO' });
+    const { dlg } = await openChangeRoom();
+    const group = within(dlg).getByRole('group', { name: tv('stay.new_room') });
+    const msg = await within(group).findByText(NOT_READY_HEAD);
+    expect(msg.textContent).toMatch(/: căn 202, 203\. /);
+    expect(within(group).queryAllByRole('radio')).toHaveLength(0);
+  });
+
+  it('PR98-01: free rooms only OC / OD / OOO (nothing waits for cleaning) → the plain "no ready room" message', async () => {
+    freeAs({ '302': 'OC', '101': 'OD', '401': 'OOO' });
+    const { dlg } = await openChangeRoom();
+    const group = within(dlg).getByRole('group', { name: tv('stay.new_room') });
+    expect(await within(group).findByText(/^Không còn căn sẵn sàng đủ chỗ/)).toBeInTheDocument();
+    expect(within(group).queryByText(NOT_READY_HEAD)).toBeNull();
   });
 
   it('a VC room picked from the filtered list is moved to (B14 sends its id)', async () => {
@@ -132,6 +161,7 @@ describe('V5-50 – Đổi phòng lists only rooms ready for a guest (VI / VC)',
     const { dlg } = await openChangeRoom();
     await waitFor(() => expect(listed(dlg)).toContain(vd));
     expect(within(dlg).getByText(tv('room_change.ready_unfiltered'))).toBeInTheDocument();
+    expect(within(dlg).queryByText(NOT_READY_HEAD)).toBeNull();
     expect(within(dlg).queryByText(tv('room_change.ready_only'))).toBeNull();
   });
 });

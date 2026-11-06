@@ -4183,8 +4183,9 @@ g("v1.0.4 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều 
 ])
 
 # ---------- v1.0.5 V5-50 – hộp Đổi phòng lọc bỏ căn chưa dọn (BUG-R3-023 phần lọc) ----------
-g("v1.0.5 V5-50 – FE-A: hộp Đổi phòng chỉ liệt kê căn VI/VC (BUG-R3-023). Chữ UXD v1.0.0 (FB-R3-UXD-FE-A-17), dùng lại cho ca chưa tải được trạng thái buồng", [
+g("v1.0.5 V5-50 – FE-A: hộp Đổi phòng chỉ liệt kê căn VI/VC (BUG-R3-023). Chữ UXD v1.0.0 (FB-R3-UXD-FE-A-17), dùng lại cho ca chưa tải được trạng thái buồng; câu mọi căn trống còn bẩn UXD duyệt 06/11 (copy-v1.0.5 9.7)", [
     ("room_change.ready_unfiltered", "Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì.", "You can only move to a room that is VI · Inspected, ready or VC · Cleaned, awaiting inspection. The list may still include rooms not yet cleaned – choosing one shows a message and nothing is saved.", None, "V5-50: chỉ khi listRoomStatuses lỗi – danh sách Đổi phòng chưa lọc được trạng thái buồng; máy chủ vẫn chặn 409 ROOM_NOT_READY (BR-803). Nguyên văn câu v1.0.0 của room_change.ready_only (UXD thẻ 17)"),
+    ("room_change.no_rooms_not_ready", "Chưa có căn nào sẵn sàng. Còn trống từ {from} đến {to} nhưng chưa dọn xong: căn {rooms}. Nhờ buồng phòng dọn trước một căn rồi mở lại hộp này. Không chờ được thì hỏi quản lý.", "No room is ready yet. Free from {from} to {to} but not yet cleaned: {rooms}. Ask housekeeping to clean one first, then open this form again. If that can't wait, ask a manager.", None, "v1.0.5 V5-50 (FB-R5-UXD-FE-PR98-01; UXD-on-fe-prs-98-102-107; copy-v1.0.5 9.7). Khung warn thay room_change.no_rooms khi danh sách đã lọc rỗng và có căn trống (available, khác căn đang ở) đang VD hoặc CL. {rooms} = các số căn đó, tăng dần, nối ', '; {from}, {to} như no_rooms. Không có căn VD/CL → no_rooms. Danh sách chưa lọc (ready_unfiltered) → không dùng"),
 ])
 
 def build():
