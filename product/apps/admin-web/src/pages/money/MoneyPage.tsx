@@ -447,10 +447,9 @@ function MoneyLog() {
           >
             {t('common.load_more')}
           </Button>
+          {/* FB-R5-UXD-FE-PR140-06: the DS alert (colour, icon, words – C3), 12 px under the button (`.stack`) */}
           {moreFailed && moreFailed === first ? (
-            <p className="err m-0" role="alert">
-              {t('common.error_generic_title')}
-            </p>
+            <Alert tone="bad" title={t('common.error_generic_title')} />
           ) : null}
         </div>
       ) : null}
