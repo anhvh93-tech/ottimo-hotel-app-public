@@ -178,8 +178,8 @@ Thêm:
 - Đề xuất sửa:
   - 2.1a: ghi con số OPS chốt cho cả hai dòng.
   - 5.4: "Xác nhận: máy chủ còn – mất tối đa 12 (hoặc 13) giờ từ v1.0.5; máy chủ mất hẳn – mất tối đa khoảng … (nhịp kéo hiện nay), khoảng … khi Mac tự kéo hằng ngày."
-- Trạng thái: Open – ~~chờ OPS chọn giờ lượt dump hai~~ OPS đã chọn **15:00** (`c224f0e8`); BA sửa số theo mục 2a, hạn trước 20/11
-- Phản hồi BA: Chưa sửa số theo giao việc ORC. 2.1a, 2.2, 5.4 giữ "12 giờ"; dòng "Máy chủ mất hẳn" chưa có con số. Lịch sử bản 1.3 ghi rõ phần này còn chờ. OPS chọn 15:00 (12 giờ) hoặc giữ 14:00 (13 giờ) và chốt con số khi máy chủ mất hẳn; BA sửa ba chỗ trong ngày khi có, trước buổi 20/11.
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: Lượt 1 (06/11): chưa sửa số, chờ OPS. Lượt 2 (06/11, sau mục 2a): sửa đúng chữ SEC đề xuất ở mục 2a, sổ vận hành bản 1.4. 2.1a: "Tới **12 giờ**: thêm lượt sao lưu lúc **15:00**"; dòng "Máy chủ mất hẳn" cột Hiện nay thêm "Kéo đúng nhịp 2 ngày: mất tới khoảng **64 giờ** (gần 3 ngày); kéo trễ thì hơn.", cột Từ v1.0.5 "Khoảng **60 giờ** khi vẫn kéo tay; khoảng **36 giờ** khi Mac tự kéo hằng ngày (mục 2.2)." 2.2: "thêm lượt **15:00**, mất tối đa 12 giờ". 5.4: câu xác nhận nêu 12 giờ khi máy chủ còn, 60 giờ nếu kéo tay, 36 giờ nếu Mac tự kéo, và mức hiện nay (24 giờ, khoảng 64 giờ). Ghi nhận ngoài thẻ: `02` 17.3 bước 5 sửa thành "(mục 8.1, 8.3)". Câu cũ "sau hạn Desk từ chối xác nhận cọc" ở sổ tay 2.4, `02` 4.5, 17.1 ghi vào V5-71 trong plan, chưa sửa lần này.
 
 ### FB-R5-SEC-BA-06
 - Mức độ: Minor

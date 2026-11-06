@@ -1643,7 +1643,7 @@ Từ 06/11/2026 (v1.0.4) lễ tân gửi lại link check-in online cho khách t
    - **Thu hồi link** ngay (Desk hỏi lại; người mở link sẽ thấy "Liên kết đã hết hạn"). Rồi **Tạo link mới**, gửi đúng khách.
    - Ghi sổ giao ca: mã đơn, giờ gửi nhầm, giờ thu hồi, kênh đã gửi. Không ghi tên khách. Không ghi tên hay số của người nhận nhầm.
    - Báo chủ đầu tư **trong ngày**.
-   - Trước giờ thu hồi, đơn đã hiện **Đã làm thủ tục trước**, giờ đến mới hoặc yêu cầu mới mà khách thật nói mình chưa gửi: không dùng giấy tờ đó để khai báo; khách đến thì đối chiếu bản gốc như mọi khách; ảnh không phải của người trên đơn thì không **Gắn người**, quản lý **Xóa ảnh** (mục 8.3); báo chủ đầu tư **ngay trong ca**.
+   - Trước giờ thu hồi, đơn đã hiện **Đã làm thủ tục trước**, giờ đến mới hoặc yêu cầu mới mà khách thật nói mình chưa gửi: không dùng giấy tờ đó để khai báo; khách đến thì đối chiếu bản gốc như mọi khách; ảnh không phải của người trên đơn thì không **Gắn người**, quản lý **Xóa ảnh** (mục 8.1, 8.3); báo chủ đầu tư **ngay trong ca**.
    - Vì sao: người nhận nhầm thấy tên gọi của khách, mã đơn, ngày ở, căn, giờ đến, và ghi được vào đơn tới lúc thu hồi. Chủ đầu tư cùng đội bảo mật quyết có phải báo cơ quan chức năng hay không.
    - Không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị.
 

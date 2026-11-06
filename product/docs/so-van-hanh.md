@@ -1,7 +1,7 @@
 # Sổ vận hành OTTIMO – dành cho chủ đầu tư
 
 - Dành cho: chủ đầu tư (OWN). Quản lý (MGR) và lễ tân trưởng (FDL) đọc phần của mình ở mục 1.
-- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
+- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.4 (06/11/2026, Round 5: lượt sao lưu thứ hai lúc 15:00, mức mất dữ liệu khi máy chủ mất hẳn) · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
 - Áp dụng từ: 06/11/2026. Hôm nay OTTIMO chạy thật đủ 4 trang: Desk, app nhân viên, trang khách, website 5 ngôn ngữ (form đặt phòng và giá ước tính đã bật).
 - Cách dùng: in mục 1 dán cạnh bàn làm việc. Đánh dấu ô `[ ]` khi xong. Mục 3 mở ra khi có sự cố.
 - Đọc cùng: sổ tay sử dụng `product/docs/manual/user-manual-v1.0.md`, từ điển tham số `product/docs/tham-so-quy-tac.md`, bộ hướng dẫn theo vai `product/docs/manual/guides/`.
@@ -148,8 +148,8 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 
 | Sự cố | Hiện nay | Từ v1.0.5 |
 |---|---|---|
-| Dữ liệu hỏng hoặc bị xóa nhầm, máy chủ vẫn còn | Tới **24 giờ**: máy chủ sao lưu mỗi đêm một lượt | Tới **12 giờ**: thêm lượt sao lưu lúc 14:00 |
-| Máy chủ mất hẳn (hỏng đĩa, nhà cung cấp khóa tài khoản, bị chiếm quyền) | Chỉ còn bản trên Mac. Mất phần dữ liệu sau bản mới nhất có trên Mac. Vì vậy kéo đúng nhịp mục 1.1a | Như cột bên trái, tới khi Mac tự kéo hằng ngày (mục 2.2) |
+| Dữ liệu hỏng hoặc bị xóa nhầm, máy chủ vẫn còn | Tới **24 giờ**: máy chủ sao lưu mỗi đêm một lượt | Tới **12 giờ**: thêm lượt sao lưu lúc **15:00** |
+| Máy chủ mất hẳn (hỏng đĩa, nhà cung cấp khóa tài khoản, bị chiếm quyền) | Chỉ còn bản trên Mac. Mất phần dữ liệu sau bản mới nhất có trên Mac. Vì vậy kéo đúng nhịp mục 1.1a. Kéo đúng nhịp 2 ngày: mất tới khoảng **64 giờ** (gần 3 ngày); kéo trễ thì hơn. | Khoảng **60 giờ** khi vẫn kéo tay; khoảng **36 giờ** khi Mac tự kéo hằng ngày (mục 2.2). |
 
 - Con số "mất tối đa 15 phút" ghi từ trước chưa đúng: máy chủ chưa có cách sao lưu liên tục.
 - Anh/chị xác nhận mức **12 giờ** ở buổi review 20/11 (mục 5.4). Muốn dưới 12 giờ thì cần máy chủ phụ, có chi phí. Đội sẽ trình phương án riêng khi anh/chị muốn.
@@ -160,7 +160,7 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 | Việc | Hiện nay làm thế nào | Đề xuất |
 |---|---|---|
 | Bản sao lưu ngoài máy chủ tự kéo về theo lịch | Đội kéo tay về Mac **ít nhất 2 ngày một lần**, vào ngày anh/chị cho phép (mục 1.1a) | chưa có – đề xuất v1.0.5: Mac của anh/chị tự kéo hằng ngày, chỉ cài khi anh/chị đồng ý (mục 5.4). Lượt tự kéo lỗi thì có email báo ngay về `info@ottimo.vn`; lỗi "server copy changed" là P0 như mục 1.1a. Quá **48 giờ** không có lượt kéo nào thành công (ví dụ Mac tắt) cũng có email |
-| Lượt sao lưu thứ hai trong ngày | Mỗi đêm một lượt, mất tối đa 24 giờ (mục 2.1a) | chưa có – đề xuất v1.0.5: thêm lượt 14:00, mất tối đa 12 giờ |
+| Lượt sao lưu thứ hai trong ngày | Mỗi đêm một lượt, mất tối đa 24 giờ (mục 2.1a) | chưa có – đề xuất v1.0.5: thêm lượt **15:00**, mất tối đa 12 giờ |
 | Tự báo khi tin Google Chat không gửi được ("chat dead") | Đội kiểm bằng lệnh khi có việc. Lễ tân luôn xem Desk nên không sót yêu cầu | chưa có – đề xuất v1.0.5: thêm vào lượt kiểm 30 phút |
 | Nhắc hạn tên miền, máy chủ, Google Workspace | Anh/chị tự nhớ (mục 1.4) | chưa có – đề xuất v1.0.5: nhắc trước 30 ngày vào phòng Báo động |
 | Nhắc diễn tập khôi phục sao lưu | Đội diễn tập ít nhất mỗi round, cần anh/chị khoảng 30 phút mở khóa giải mã. Lần gần nhất 29/10/2026; lần tới chậm nhất 20/11/2026 (mục 1.4) | chưa có – đề xuất v1.0.5: quá **35 ngày** chưa diễn tập thì phòng Báo động nhận tin **FAIL**. Biên bản trình ở buổi review, chỉ có số đếm |
@@ -334,7 +334,7 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 - [ ] Trả lời **có hoặc không**, không gửi giá trị: (a) sao lưu tự động của nhà cung cấp máy chủ đang tắt, hoặc giữ tối đa 7 ngày; (b) bản ngoại tuyến của khóa dữ liệu và khóa giải mã sao lưu vẫn còn, anh/chị mở được; (c) FileVault trên Mac vẫn bật (đã xác nhận 27/10).
 - [ ] **Đồng ý hay không** cho đội loại thư mục sao lưu trên Mac khỏi Time Machine (mục 1.1a). Chỉ đổi danh sách loại trừ của Time Machine, không xóa gì. Đồng ý sớm hơn thì nhắn đội trong chat, không cần chờ buổi này.
 - [ ] **Đồng ý hay không** cho đội cài lịch tự kéo sao lưu hằng ngày về Mac của anh/chị (v1.0.5). Chưa đồng ý thì đội vẫn kéo tay theo mục 1.1a.
-- [ ] **Xác nhận** mức mất dữ liệu tối đa **12 giờ** từ v1.0.5, thay con số 15 phút ghi từ trước (mục 2.1a). Hiện mức thật là 24 giờ.
+- [ ] **Xác nhận** mức mất dữ liệu, thay con số 15 phút ghi từ trước (mục 2.1a): mất tối đa **12 giờ** từ v1.0.5 khi máy chủ còn; khi máy chủ mất hẳn: khoảng 60 giờ nếu kéo tay, khoảng 36 giờ nếu Mac tự kéo hằng ngày. Hiện mức thật là 24 giờ khi máy chủ còn, khoảng 64 giờ khi máy chủ mất hẳn.
 - [ ] Chọn **một người thứ hai** vào phòng "OTTIMO – Báo động" (mục 7.2). Không tốn tiền.
 - [ ] Chọn việc cho v1.0.5: ô nhập giá OTA nền trên Desk, các việc "chưa có" ở mục 2.2.
 
@@ -442,3 +442,4 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | 06/11/2026 | 1.1 | BA | Round 4 – Phản hồi & sửa. Mục 5.4: việc cần chốt ở buổi review 20/11 là giá 2027 và gia hạn `web_estimate.open_until`; chưa gia hạn thì từ 01/01/2027 web ghi "giá theo yêu cầu". Mục 7.4: bản HTML của sổ tay cần dựng lại |
 | 06/11/2026 | 1.2 | BA | Round 5 – Sản xuất (QC Round 4 ĐK-4). Mục 1.1a mới: kéo sao lưu về Mac ít nhất 2 ngày một lần vào ngày anh/chị cho phép; cách kéo mới không ghi đè bản trên Mac; "server copy changed" là P0 bảo mật. Mục 1.2, 5.3 ý 5, G2 theo nhịp này. Mục 1.3, 1.5, 2.3, 6, 7.2: phòng Báo động có thể thêm một người thứ hai. Mục 2.1a mới: mất dữ liệu tối đa 24 giờ, 12 giờ từ v1.0.5. Mục 2.2: báo kéo chậm sau 48 giờ, lượt sao lưu 14:00, nhắc diễn tập sau 35 ngày thay cho "hằng quý". Mục 1.4, 5.4: diễn tập chậm nhất 20/11 và các việc mang vào buổi review 20/11. Mục 3.1: thêm ví dụ P0 |
 | 06/11/2026 | 1.3 | BA | Round 5 – Phản hồi & sửa (review SEC `rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md`). Mục 1.1a: dòng báo lại có giờ chạy và mã thoát; cách kéo mới từ lần kéo 08/11; Time Machine, iCloud áp cho mọi bản trên Mac, ghi đúng kết quả kiểm chỉ đọc 06/11 (chưa có ổ Time Machine, thư mục chưa được loại, iCloud không đồng bộ); mã 3 = bản trên máy chủ khác bản trên Mac, không duyệt phát hành, có thể tạm tắt máy chủ, có thể phải báo trong 72 giờ; tách mã 1 với mã 2. Mục 3.4: nhánh nghi xâm nhập không làm bước 2–5. Mục 2.2: lượt tự kéo lỗi báo ngay, 48 giờ là ngưỡng im lặng. Mục 5.4: câu Time Machine tách khỏi câu lịch tự kéo; FileVault đã xác nhận 27/10. Mục 7.2: người thứ hai là thành viên, điện thoại cài theo `01` 12.1, không thêm webhook khác, đọc 2.3 bước 6. Chưa sửa: con số 12/13 giờ và dòng máy chủ mất hẳn ở 2.1a, 2.2, 5.4, chờ OPS chọn giờ lượt sao lưu thứ hai (FB-R5-SEC-BA-05) |
+| 06/11/2026 | 1.4 | BA | Round 5 – Phản hồi & sửa (SEC FB-R5-SEC-BA-05, chữ ở mục 2a của review; OPS `c224f0e8`, V5-62). Lượt sao lưu thứ hai lúc **15:00** (production 03:00 + 15:00): mục 2.1a, 2.2, 5.4. Mục 2.1a dòng "Máy chủ mất hẳn" có con số: hiện nay khoảng 64 giờ; từ v1.0.5 khoảng 60 giờ nếu kéo tay, khoảng 36 giờ nếu Mac tự kéo hằng ngày. Mục 5.4: câu xác nhận nêu cả hai kịch bản |
