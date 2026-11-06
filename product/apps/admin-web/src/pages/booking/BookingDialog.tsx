@@ -14,7 +14,7 @@ import {
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '../../app/api';
 import { DIRECT_SOURCES } from './directSources';
 import { useCatalog } from '../../app/catalog';
@@ -146,6 +146,42 @@ const previewKey = (x: {
   arrivalDate: string;
   nights: number;
 }) => `${x.channelId ?? ''}|${x.roomId}|${x.arrivalDate}|${x.nights}`;
+
+type Translate = ReturnType<typeof useI18n>['t'];
+
+/** Sentence of a 422 on a rate outside the BR-105 floor–ceiling (`min`, `max` of the problem – V5-22 owns the wording). */
+const rangeSentence = (t: Translate, problem: Record<string, unknown>) =>
+  t('booking.error.rate_range', {
+    min: String(problem.min ?? ''),
+    max: String(problem.max ?? ''),
+    group: '',
+  });
+
+/**
+ * V5-14: the boxes a 422 about typed rates belongs to. Top-level `RATE_OUT_OF_RANGE` (V5-22: `dates[]` = the nights
+ * out of range) → the sentence on each of those nights (none matched → under the table). Any other problem → null.
+ */
+export function rateRangeErrors(
+  t: Translate,
+  e: unknown,
+  nights: readonly string[],
+): Record<string, string> | null {
+  if (!isApiError(e) || e.code !== 'RATE_OUT_OF_RANGE') return null;
+  const msg = rangeSentence(t, e.problem);
+  const out: Record<string, string> = {};
+  const dates = Array.isArray(e.problem.dates) ? (e.problem.dates as unknown[]) : [];
+  for (const d of dates) {
+    const i = nights.indexOf(String(d));
+    if (i >= 0) out[`nightlyRates[${i}].amountVnd`] = msg;
+  }
+  return Object.keys(out).length ? out : { rates: msg };
+}
+
+/** A form's errors without the rate ones (`rates`, `nightlyRates[i].amountVnd`). */
+const withoutRateErrors = (x: Record<string, string>) =>
+  Object.fromEntries(
+    Object.entries(x).filter(([k]) => k !== 'rates' && !k.startsWith('nightlyRates[')),
+  );
 
 /**
  * H09 Đặt phòng mới (S05, US-017/018/019/023, B2). Nightly prices, deposit and the extra-guest fee are
@@ -311,10 +347,21 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         : [],
     [datesOk, nights, form.arrivalDate],
   );
-  // DOM (ARC-03 / UXD-05): a hold is priced from the list (saveQuote → createHoldFromQuote carry no nightly rate), so
-  // with a rate the desk typed on a night of this stay "Giữ chỗ" is locked; the line beside it says what to do.
   const typedRate = dates.some((d) => form.ratesEdited[d] && !!form.rates[d]);
-  const holdWhyId = useId();
+  // V5-14 (contract 0.3.13 1.3, 1.17; BUG-R4-041): the rates the desk typed go to the quote (`QuoteInput.nightlyRates`),
+  // for the price preview (`calculateQuote`) and for "Giữ chỗ" (`saveQuote` → `createHoldFromQuote` holds at the
+  // quoted price). Every night, each with `edited` from its box; a night not edited is priced by the server's own
+  // calendar (its amount is ignored – SEC ARC-06) but still has to be > 0, so the nights go only once every box holds
+  // a figure (the preview of this stay fills the others). No typed rate → no `nightlyRates`, the server prices all.
+  const quoteNights = useMemo(() => {
+    if (!directLike || !typedRate) return undefined;
+    const all = dates.map((d) => ({
+      date: d,
+      amountVnd: parseVnd(form.rates[d] ?? '') ?? 0,
+      edited: !!form.ratesEdited[d],
+    }));
+    return all.every((n) => n.amountVnd > 0) ? all : undefined;
+  }, [directLike, typedRate, dates, form.rates, form.ratesEdited]);
   /** H09 "Giữ chỗ đến …" is offered: Trực tiếp / CTV, arriving from tomorrow, online. */
   const canHold = directLike && form.arrivalDate > today && online;
   const { extra } = occupancy(form.occ.adults, form.occ.children6to11, room?.baseOccupancy ?? 2);
@@ -361,6 +408,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       channelId: channel?.id,
       on: directLike && datesOk && !longStay && !overCapacity,
       requote,
+      rates: quoteNights,
     }),
     300,
   );
@@ -372,6 +420,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       occ: Occupancy;
       channelId?: string;
       on: boolean;
+      rates?: Array<{ date: string; amountVnd: number; edited: boolean }>;
     };
     if (!p.on || !p.roomId || !p.channelId) {
       setCalc(null);
@@ -390,6 +439,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           children6to11: p.occ.children6to11,
           childrenUnder6: p.occ.childrenUnder6,
           channelId: p.channelId,
+          ...(p.rates ? { nightlyRates: p.rates } : {}),
         },
       )
       .then(
@@ -398,6 +448,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           setCalc(r.data);
           setCalcError(null);
           setCalcFor(previewKey(p));
+          // V5-14: the typed rates passed – a sentence a refused one left on a box goes.
+          if (p.rates) setErrors(withoutRateErrors);
           setForm((f) => {
             // BUG-R4-037: a box the desk typed keeps its figure; every other box takes this preview's rate and
             // counts only for this stay (`ratesFor`). A box typed and then emptied is open to the preview again.
@@ -429,6 +481,20 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         },
         (e: unknown) => {
           if (stale) return;
+          // V5-14: a typed rate the server refuses (422 RATE_OUT_OF_RANGE, or a rule of `nightlyRates`) – the sentence
+          // goes on the box; the last preview of this stay stays on screen (the save is refused the same way).
+          const boxes = p.rates
+            ? rateRangeErrors(
+                t,
+                e,
+                p.rates.map((n) => n.date),
+              )
+            : null;
+          if (boxes) {
+            setErrors((x) => ({ ...x, ...boxes }));
+            setCalcFor(previewKey(p));
+            return;
+          }
           setCalc(null);
           setCalcError(e);
           setCalcFor(previewKey(p));
@@ -437,7 +503,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     return () => {
       stale = true;
     };
-  }, [calcInput, propertyId, vnd]);
+  }, [calcInput, propertyId, vnd, t]);
 
   // Availability of the chosen room (US-082 AC1) – a hint only; the server re-checks on save.
   const availInput = useDebounced(
@@ -685,6 +751,16 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       setErrors({ deposit: rsvErrorText(t, e, { locale }) });
       return;
     }
+    // V5-14 / V5-22: a typed rate outside the floor–ceiling (createReservation of a direct/agent booking, saveQuote).
+    const range = rateRangeErrors(
+      t,
+      e,
+      rateList.map((r) => r.date),
+    );
+    if (range) {
+      setErrors(range);
+      return;
+    }
     if (e.code === 'VALIDATION_FAILED') {
       const out: Record<string, string> = {};
       // FB-R4-UXD-FE-PR70-01: an error on `nightlyRates` must land on a key the form shows – `rates` (under the rate
@@ -715,11 +791,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           setMinStaySuggest(suggestionsOf(e).filter((x) => x.orphanNight !== false));
           out.departureDate = t('field.MIN_STAY_NOT_MET', { n });
         } else if (fe.code === 'RATE_OUT_OF_RANGE') {
-          out[rk ?? fe.field] = t('booking.error.rate_range', {
-            min: String(e.problem.min ?? ''),
-            max: String(e.problem.max ?? ''),
-            group: '',
-          });
+          out[rk ?? fe.field] = rangeSentence(t, e.problem);
         } else if (rk && (fe.code === 'REQUIRED' || fe.code === 'AMOUNT_NOT_POSITIVE')) {
           if (!(rk in out)) out[rk] = t('booking.error.rate_empty');
         } else if (!((rk ?? fe.field) in out))
@@ -759,13 +831,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     }
   }
 
-  /** H09 "Giữ chỗ đến …": saveQuote → createHoldFromQuote (B1 + Q2) for direct/agent, not today. */
+  /**
+   * H09 "Giữ chỗ đến …": saveQuote → createHoldFromQuote (B1 + Q2) for direct/agent, not today. V5-14: the typed
+   * rates go with the quote (every night, `edited` per box) and the hold keeps them – the rate boxes are checked like
+   * for "Tạo đơn" (FB-R4-UXD-FE-PR75-02's clearing of their errors is gone).
+   */
   async function hold() {
-    if (busy || !online || typedRate) return;
+    if (busy || !online) return;
     const v = validate();
     delete v.deposit;
-    // The rate boxes do not go with a hold (list price), so they never block one – e.g. a typed box emptied again.
-    for (const k of Object.keys(v)) if (k === 'rates' || k.startsWith('nightlyRates[')) delete v[k];
     setErrors(v);
     if (Object.keys(v).length || longStay) return;
     setBusy('hold');
@@ -784,6 +858,16 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           channelId: channel!.id,
           guestId: form.guest!.id,
           websiteBookingRequestId: webRequest?.id,
+          // ARC 1.17: absent `edited` = not edited (the server prices that night) – here it is always sent.
+          ...(typedRate
+            ? {
+                nightlyRates: rateList.map((r) => ({
+                  date: r.date,
+                  amountVnd: parseVnd(r.raw) ?? 0,
+                  edited: !!form.ratesEdited[r.date],
+                })),
+              }
+            : {}),
         },
         newIdempotencyKey(),
       );
@@ -915,23 +999,13 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       onClose={onClose}
       footer={
         <>
-          {/* UXD FB-R4-UXD-FE-PR75-03: the reason first – its own row, "Đóng" and the actions stay on one row below */}
-          {canHold && typedRate ? (
-            <span className="li-s" id={holdWhyId}>
-              {t('booking.hold.typed_rate_locked')}
-            </span>
-          ) : null}
           <Button className="left" onClick={onClose}>
             {t('booking.close_draft')}
           </Button>
           {canHold ? (
-            // DS C1 (FB-R4-UXD-FE-PR75-02): locked by a typed rate = aria-disabled – still focusable, the reason is
-            // read with it; `hold()` itself does nothing then (click, Enter).
             <Button
               busy={busy === 'hold'}
               disabled={busy !== null || longStay}
-              aria-disabled={typedRate || undefined}
-              aria-describedby={typedRate ? holdWhyId : undefined}
               onClick={() => void hold()}
             >
               {t('booking.create_hold', { time: holdUntil })}
@@ -1390,7 +1464,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                             inputMode="numeric"
                             aria-label={`${t('rate.pre_tier')} ${dayMonth(r.date)}`}
                             aria-invalid={err ? true : undefined}
-                            readOnly={ratesLocked || undefined}
+                            readOnly={ratesLocked || busy !== null || undefined}
                             value={r.raw}
                             onChange={(e) =>
                               set({
