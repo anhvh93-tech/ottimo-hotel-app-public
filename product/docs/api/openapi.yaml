@@ -2855,7 +2855,8 @@ paths:
           SR-AUD-03):** lý do ghi ở **cột `reason`** của bản ghi audit (`AuditEntry.reason`), như mọi thao tác khác của đơn – **không** ở `after`, **không** thêm `reason` vào
           allowlist `reservation`. `listAuditEvents` và `getReservationHistory` đã trả `reason`. Không số tiền.
         - Desk (FE-A): ô lý do **bắt buộc** chỉ cho OWN khi đơn đã nhận phòng và người chốt đổi; MGR/FDL/FD không có nút đổi người chốt sau nhận phòng. Nên có (DOM 1H-05):
-          MGR+ đổi người chốt ở đơn ngoài `hold`, chưa nhận phòng → ô "không bắt buộc".
+          MGR+ đổi người chốt ở đơn ngoài `hold`, chưa nhận phòng → ô "không bắt buộc". **Gửi `closerChangeReason` (bổ sung 1i, BE-H #154):** bắt buộc 3–500 chỉ khi OWN đổi
+          người chốt sau nhận phòng; tùy chọn trước nhận phòng; chỉ gửi khi `closerUserId` đổi – gửi mà không đổi người chốt → 422 `NOT_ALLOWED` (`field` = `closerChangeReason`).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [S04]
       x-stories: [US-020, US-047]
