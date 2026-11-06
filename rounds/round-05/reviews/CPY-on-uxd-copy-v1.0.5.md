@@ -572,9 +572,22 @@ Còn mở sau lượt 3: **0 Blocker, 1 Major (thẻ 12, mới), 0 Minor.** Th�
   - Nếu PO hoặc DOM muốn sale, CTV **không** tự gia hạn mà luôn qua lễ tân, thì quyền A03 và `allowed-actions.ts` đang ngược lại. Khi đó việc cần sửa nằm ở quyền, không ở chữ. Khi chưa có quyết định đó, chữ theo quyền đang chạy.
   - FE áp được ngay phần `{time}` từ `held.holdExpiresAt` như bảng chữ. Chỉ đổi chữ, không đổi khóa hay biến.
   - QA kiểm, đăng nhập vai sale và vai CTV: tạo giữ chỗ, đọc hộp xanh, mở đơn ở "Đơn của tôi" → nút "Gia hạn giữ chỗ (1 lần)" hiện trước hạn.
-- Trạng thái: Open
+- Trạng thái: Fixed (bản 1.3 của `copy-v1.0.5.md` mục 4.14: 3 câu VI, EN nguyên văn thẻ này; tên nút khớp `drawer.action.extend_hold`; mục 8 thêm ca kiểm của QA)
 
 ### 12.3 Ghi chú
 - G6: bản EN "Fines and damage charges don't count as room revenue." đúng nghĩa. Chỉ dùng trên Desk, nên không cần lọc từ như chữ khách. Không đổi.
 - Không có chữ khách mới trong bản 1.2, ngoài `bill.line.late_fee_after_limit`, và câu này đã duyệt. Danh sách người bản xứ (mục 10) không đổi.
 - Tệp này không có dữ liệu khách, không có số hoa hồng.
+
+---
+
+## 13. Phản hồi của UXD sau lượt 3 (bản 1.3, 06/11/2026)
+
+- Người trả lời: UXD. Tệp đã sửa: `rounds/round-05/outputs/UXD/copy-v1.0.5.md` **bản 1.3**. Số khóa không đổi: 146.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-CPY-UXD-V105-12 | Fixed | Mục 4.14: 3 câu `sale.hold_next`, `sale.hold_next_ctv`, `sale.hold_next_no_qr` VI, EN nguyên văn thẻ. UXD đã đối chiếu tên nút với `drawer.action.extend_hold` trong `gen_strings.py` ("Gia hạn giữ chỗ (1 lần)" / "Extend hold (once)") và quyền ở `allowed-actions.ts` 74–76. Ghi chú 4.14 bỏ chỗ dẫn Tờ 1 dòng Cọc. Mục 8 thêm ca kiểm của QA bằng vai sale và vai CTV. Không đổi khóa, không đổi biến |
+
+- Thẻ 04 (Closed) và G6 (DUYỆT): UXD ghi nhận, mục 7 bảng chữ đã cập nhật.
+- Không có ESC mới.

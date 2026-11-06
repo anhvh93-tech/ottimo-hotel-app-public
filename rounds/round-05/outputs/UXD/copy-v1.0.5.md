@@ -13,6 +13,7 @@
   - 4.8 (thẻ CPY 04: `bill.line.late_fee_after_limit` vào bảng chính);
   - 4.14 (FB-R5-DOM-UXD-01: bỏ vế "Bạn sẽ được nhắc…", thay bằng giờ hạn; bỏ dạng số nhiều);
   - mục 6, 7, 8.
+- Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.3**: áp thẻ FB-R5-CPY-UXD-V105-12 (CPY lượt 3, mục 12 tệp review). Chỉ đổi chữ 3 câu `sale.hold_next*` ở 4.14 (sale, CTV tự bấm Gia hạn giữ chỗ), cùng mục 0, 7, 8. Số khóa không đổi.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -51,7 +52,7 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
 - **Nên có, làm cùng lượt C5:** 4.20 (b), 4.21, thẻ 06 và 08 ở 5.1. Không kịp thì chuyển US-125 (B-SAU). Không chặn QC.
 - **Xếp sau:** 5.3 (kiểm tự động).
-- **Chờ CPY đọc lại (bản 1.2):** 3 câu `sale.hold_next*` (4.14). Chữ Desk cho sale, CTV, nên không chặn FE; CPY sửa thì UXD cập nhật bảng.
+- 3 câu `sale.hold_next*` (4.14): bản 1.3 dùng nguyên chữ CPY (thẻ 12), không còn chờ.
 - **v1.0.6:** 4.20 (c) và C6.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
@@ -450,13 +451,15 @@ QuoteDialog 773: hộp xanh luôn nói "Gửi mã QR cho khách", kể cả khi 
 - sale, CTV không có màn nào trên app đó;
 - Desk không có hộp thông báo, và trang Hôm nay (có Cần chú ý) chỉ mở cho OWN, MGR, FDL, FD.
 
-Sale, CTV yên tâm chờ nhắc thì giữ chỗ tự hủy mà không ai báo khách. Bản 1.2 bỏ vế nhắc ở cả ba câu. Thay vào đó, câu nêu **giờ hạn**, điều xảy ra lúc đó, và việc người tạo phải làm: tự theo dõi giờ này, khách cần thêm giờ thì báo lễ tân trước hạn (lễ tân gia hạn được 1 lần, Tờ 1 dòng Cọc). Câu không hứa nhắc mà cũng không nói "Desk không nhắc", vì lễ tân, quản lý tạo giữ chỗ trong hộp này vẫn thấy dòng "Giữ chỗ sắp hết hạn". Câu đúng với mọi vai và mọi giá trị `hold_expiry_reminder_hours`, kể cả 0 (DOM: 0 là không nhắc). Không còn `{hours}` nên bỏ dạng số nhiều. "Chưa cọc thì tự hủy" cùng chữ với `sale.hold_until` ngay trước bước tạo. Giữ chỗ có cọc một phần không tự hủy (báo đỏ cho quầy), nên câu không nói "chưa đủ cọc".
+Sale, CTV yên tâm chờ nhắc thì giữ chỗ tự hủy mà không ai báo khách. Bản 1.2 bỏ vế nhắc ở cả ba câu. Thay vào đó, câu nêu **giờ hạn**, điều xảy ra lúc đó, và việc người tạo phải làm. Câu không hứa nhắc mà cũng không nói "Desk không nhắc", vì lễ tân, quản lý tạo giữ chỗ trong hộp này vẫn thấy dòng "Giữ chỗ sắp hết hạn".
+
+**Bản 1.3 (FB-R5-CPY-UXD-V105-12, Major).** Bản 1.2 bảo sale, CTV nhờ lễ tân gia hạn, là chỉ sai người làm. Sale, CTV tự gia hạn được giữ chỗ của mình: BR-303, `rbac-matrix.md` A03 (SAL, CTV "M"), `allowed-actions.ts` 74–76 (`extend_hold` khi `fd || sal || ctv`, chưa gia hạn lần nào, chưa quá hạn). Họ mở đơn ở "Đơn của tôi" và bấm nút **Gia hạn giữ chỗ (1 lần)**. Bản 1.3 dùng nguyên chữ CPY: vế cuối là việc tự làm, có tên nút; VI thêm "lúc" trước giờ; EN nói rõ mốc là giờ hạn. Tên nút trong câu phải khớp nguyên văn `drawer.action.extend_hold` (VI "Gia hạn giữ chỗ (1 lần)", EN "Extend hold (once)"). Đổi tên nút thì đổi cả 3 câu. Câu đúng với mọi vai và mọi giá trị `hold_expiry_reminder_hours`, kể cả 0 (DOM: 0 là không nhắc). Không còn `{hours}` nên bỏ dạng số nhiều. "Chưa cọc thì tự hủy" cùng chữ với `sale.hold_until` ngay trước bước tạo. Giữ chỗ có cọc một phần không tự hủy (báo đỏ cho quầy), nên câu không nói "chưa đủ cọc".
 
 | Khóa | Kiểu | VI | EN | Khi nào |
 |---|---|---|---|---|
-| `sale.hold_next` | Sửa | Gửi mã QR cho khách. Giữ chỗ hết hạn {time}, chưa cọc thì tự hủy. Tự theo dõi giờ này; khách cần thêm giờ thì báo lễ tân trước hạn. | Send the QR code to the guest. The hold expires {time}; without a deposit it's cancelled. Keep track of the time, and if the guest needs longer, tell the front desk before then. | Sale nội bộ, mã QR đang tạo hoặc đã có |
-| `sale.hold_next_ctv` | Sửa | Nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cọc cho khách. Giữ chỗ hết hạn {time}, chưa cọc thì tự hủy. Tự theo dõi giờ này; khách cần thêm giờ thì báo lễ tân trước hạn. | Ask the front desk or sales staff to send the guest the deposit VietQR. The hold expires {time}; without a deposit it's cancelled. Keep track of the time, and if the guest needs longer, tell the front desk before then. | CTV |
-| `sale.hold_next_no_qr` | Mới | Thu cọc của khách theo hướng dẫn bên dưới. Giữ chỗ hết hạn {time}, chưa cọc thì tự hủy. Tự theo dõi giờ này; khách cần thêm giờ thì báo lễ tân trước hạn. | Collect the deposit as shown below. The hold expires {time}; without a deposit it's cancelled. Keep track of the time, and if the guest needs longer, tell the front desk before then. | Sale nội bộ, `DepositQr` báo lỗi hoặc `PAYMENT_NOT_CONFIGURED` |
+| `sale.hold_next` | Sửa | Gửi mã QR cho khách. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Send the QR code to the guest. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | Sale nội bộ, mã QR đang tạo hoặc đã có |
+| `sale.hold_next_ctv` | Sửa | Nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cọc cho khách. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Ask the front desk or sales staff to send the guest the deposit VietQR. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | CTV |
+| `sale.hold_next_no_qr` | Mới | Thu cọc của khách theo hướng dẫn bên dưới. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Collect the deposit as shown below. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | Sale nội bộ, `DepositQr` báo lỗi hoặc `PAYMENT_NOT_CONFIGURED` |
 
 Bản 1.1 có 6 khóa `_one`/`_other` mới và xóa `sale.hold_next`, `sale.hold_next_ctv`. Bản 1.2 bỏ cả 6 khóa đó, giữ 2 khóa cũ (đổi chữ) và thêm 1 khóa `_no_qr`. FE chưa áp bản 1.1, nên không có gì phải gỡ.
 
@@ -466,7 +469,7 @@ FE:
 - QuoteDialog chọn `sale.hold_next_no_qr` khi đã có lỗi và chưa có mã QR;
 - trong lúc đang tạo, giữ `sale.hold_next`.
 
-Ba câu này là chữ cho sale, CTV, nên CPY đọc lại (mục 7). Không chặn FE áp: CPY sửa chữ thì chỉ đổi bảng.
+Ba câu này là chữ cho sale, CTV. CPY đã viết lại ở thẻ 12 (bản 1.3); áp nguyên văn.
 
 ### 4.15 U+2011 cho "2-step" (CPY P401-11) và các cụm số–chữ EN
 
@@ -714,7 +717,7 @@ Hôm nay INV không cần sửa tham số này (mức tăng = 0, hướng dẫn 
 
 Các khóa khách CPY viết thêm trong review: 4.20, 4.21, `gw.req.clean_long_fee` (5.1), `gw.lang_auto_sr` (4.6). Khi áp thì không cần CPY duyệt lại. UXD kiểm khớp nguyên văn khi review PR.
 
-Chờ CPY đọc lại (bản 1.2): 3 câu `sale.hold_next`, `sale.hold_next_ctv`, `sale.hold_next_no_qr` (4.14). Đây là chữ cho sale và CTV, có việc người đọc phải làm. `stay.charge_penalty_note` (4.3) là chữ Desk nội bộ, chữ của DOM, UXD chốt; CPY xem thêm nếu muốn.
+CPY lượt 3 (mục 12 tệp review): thẻ 04 Closed; `stay.charge_penalty_note` (4.3) DUYỆT; 3 câu `sale.hold_next`, `sale.hold_next_ctv`, `sale.hold_next_no_qr` (4.14) DUYỆT CÓ ĐIỀU KIỆN theo thẻ 12. Bản 1.3 áp nguyên chữ CPY của thẻ 12.
 
 Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol.
 
@@ -725,7 +728,7 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - `quote-copy.ts` VI và `gw.req.clean_makeup_free`, `gw.req.clean_second_fee`: không còn "căn" đứng riêng. Nếu lượt C5 đã áp thì 3 mẫu `msg.*` VI cũng không còn.
 - Nếu lượt C5 đã áp: `msg.hot_water_issue`, `msg.house_rules_smoking`, `guest.late.done_title`, `msg.bill` RU không còn "!", trừ lời chào RU "Здравствуйте, {name}!".
 - Phiếu VI/EN: `bill.line.early_departure_fee_notice_*` có U+00A0 sau số (soát bằng `tv(key)`, không gõ lại). Ở khung 362 px, số và chữ "ngày"/"days'" không tách dòng.
-- `strings-vi.json`, `strings-en.json`: không còn "được nhắc", "get a reminder", không còn khóa `sale.hold_next*_one` / `_other`. Hộp xanh sau khi tạo giữ chỗ hiện đúng giờ hạn của đơn (so với khung đơn), cả khi giữ chỗ bị chặn ở `holdLatestTime`.
+- `strings-vi.json`, `strings-en.json`: không còn "được nhắc", "get a reminder", không còn khóa `sale.hold_next*_one` / `_other`. Hộp xanh sau khi tạo giữ chỗ hiện đúng giờ hạn của đơn (so với khung đơn), cả khi giữ chỗ bị chặn ở `holdLatestTime`. Đăng nhập vai sale và vai CTV: tạo giữ chỗ, đọc hộp xanh, mở đơn ở "Đơn của tôi" → nút "Gia hạn giữ chỗ (1 lần)" hiện trước hạn, đúng chữ trong câu (so với `drawer.action.extend_hold`).
 - Hộp thêm khoản phát sinh (StayDialogs 755): chọn khoản nhóm `penalty`, rồi nhóm `damage`. Câu "Phí phạt và tiền bồi thường hư hỏng…" hiện ở cả hai; khoản minibar, giặt không hiện.
 - Phiếu: quản lý sửa đơn giá dòng `late_fee_as_night` 800.000 → 400.000 → nhãn "Phụ thu trả muộn (rời sau mốc trả muộn)"; dòng 800.000 kèm FOC 400.000 → nhãn "Phụ thu trả muộn (bằng giá 1 đêm)".
 - Trình đọc màn hình (VoiceOver hoặc NVDA) ở ô chọn ngôn ngữ trang khách: đọc "Language selected for you" khi khách chưa tự chọn.
