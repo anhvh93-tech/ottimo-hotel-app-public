@@ -171,3 +171,13 @@ ORC lưu từ báo cáo bàn giao của UXD.
   - (b) "mã giao dịch" theo nhãn ô, thay cho "mã chuyển khoản".
 - Lưu ý cho ORC khi báo INV cách làm tạm (SEC 4.4): trên production, ô mã ở hộp chi hoàn đang hiện câu "Ô ghi chú có dãy số giống số thẻ thanh toán…". Lời dặn nên ghi "nhập 8 chữ số cuối của mã giao dịch", cho khớp câu mới.
 - ESC mới: không có. Chưa sửa mã.
+
+## 10. Cập nhật 07/11 – copy v1.0.5 bản 1.9 (V5-15, điều kiện SEC cho BE PR #99)
+- Mục 9.9 mới, một khóa: `checkout.overdue_reason_help`. Đây là chữ gợi ý D12c dưới ô lý do (`overdueReason`) của hộp Trả phòng quá ngày đi (SEC `SEC-on-be-prs-106-99-checkout.md` mục 2.5).
+  - VI: "Lý do lưu vào nhật ký thay đổi. Không ghi họ tên, số giấy tờ hay thông tin sức khỏe của khách."
+  - EN: "The reason is kept in the change log. Don't write the guest's name, ID numbers or health information."
+- Không dùng lại được câu có sẵn: `crm.note_hint` thiếu họ tên; `webreq.note_hint`, `rsv.after_cancel.note_hint` thiếu giấy tờ hoặc sức khỏe.
+- Hiện bằng `Field help` có sẵn (Stone Grey, 12 px). Không Alert, không thêm màu.
+- Số khóa mục 0: 74/133/7 = **214**.
+- Phát hiện: nhãn ô, 3 lý do gợi ý (DOM 7.1) và tiêu đề hộp chưa có trong `design/copy`. Đề xuất FE-A viết theo chữ DOM rồi UXD duyệt.
+- ESC mới: không có. Chưa sửa mã.
