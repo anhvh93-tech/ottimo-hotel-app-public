@@ -3,11 +3,11 @@
 - Round 5 (v1.0.5), bước **Review**, góc kiểm thử. Người review: QA. Ngày 07/11/2026.
 - PR:
   - **#97** `r5-mob-v5-15-clean` @ **`d3081f93`** (cắt từ `main` @ `ab1fc4ae`). 12 tệp, 1 tệp test mới `apps/mobile/src/__tests__/v105-needs-cleaning.test.tsx` (15 ca).
-  - **#122** `r5-fe-v5-14`: đọc diff ở **`6dd07bf5`** (cắt từ `main` @ `4003471e`, chưa có #103). HEAD lúc viết là **`c783a59f`**: FE-A gộp `main` @ `195d7adf` (có #103). So với bản gộp thử của QA (mục 8), `c783a59f` giống hệt ở `apps/admin-web` và `tests/e2e`; chỉ khác các tệp hợp đồng của #111 (chưa có trong `195d7adf`). Kết luận áp cho cả hai SHA.
+  - **#122** `r5-fe-v5-14`: đọc diff ở **`6dd07bf5`** (cắt từ `main` @ `4003471e`, chưa có #103). FE-A đã gộp `main` hai lần, không đổi mã của PR (ARC: cùng `patch-id`): `c783a59f` (có #103) rồi **`44535cfe`** (có thêm #111). `44535cfe` giống hệt bản gộp thử của QA (mục 8) ở `apps/admin-web`, `packages` và `tests/e2e` (`git diff` rỗng). Kết luận áp cho `6dd07bf5` và `44535cfe`.
 - Đã đọc:
   - hợp đồng 0.3.13 mục 1.3, 1.4 (T15-8), 1.17, 1.26 (bổ sung 1f, PR #111);
   - báo cáo MOB `rounds/round-05/outputs/MOB/report.md` mục V5-15; báo cáo FE `rounds/round-05/outputs/FE/v5-14-hold-typed-rates-fea.md` (trong #122);
-  - review của làn khác, để không lặp thẻ: `UXD-on-prs-97-116-117-118-122.md` (PR97-01…03, PR122-01…04), `SEC-on-prs-111-118-122.md` (#122 DUYỆT), `DOM-on-prs-112-121-122.md` (#122 DUYỆT CÓ ĐIỀU KIỆN, BA-122-01). ARC chưa có tệp review hai PR này lúc viết;
+  - review của làn khác, để không lặp thẻ: `UXD-on-prs-97-116-117-118-122.md` (PR97-01…03, PR122-01…04), `SEC-on-prs-111-118-122.md` (#122 DUYỆT), `DOM-on-prs-112-121-122.md` (#122 DUYỆT CÓ ĐIỀU KIỆN, BA-122-01), `ARC-on-fe-mob-prs-97-116-118-122.md` (có sau khi QA viết bản đầu; thẻ trùng ghi ở từng thẻ QA dưới đây);
   - oracle QA: `rounds/round-05/qa/v1.0.5-test-cases.md` TC-V105-S1-06 và mục 2.2 của `QA-on-be-pr-103-s1.md`.
 - Mã đã đọc ngoài diff:
   - #97: máy chủ `housekeeping/internal/rules.ts` `allowedEvents`, `housekeeping.service.ts` `scopeRooms` (HK chỉ trong phạm vi T: việc của ngày, không hủy, chưa giao ai hoặc giao cho chính mình); hàng đợi PWA `queue/queue.ts` `classify()`;
@@ -19,7 +19,7 @@ Cách kiểm:
 - Thử đột biến (mutation) bằng tay trên mã sản phẩm, mỗi lần một chỗ, chạy lại tệp test của PR (mục 2, mục 4).
 - Viết tệp test dò (probe) cho chỗ QA thấy thiếu, chỉ trong worktree, **không commit**.
 - Không gọi staging hay production. Tệp này không có bí mật, mật khẩu hay dữ liệu khách.
-- CI: gitleaks đỏ ở mọi PR do một commit trên `r5-s1-tests`, SEC đang sửa allowlist (ORC báo), không phải lỗi của hai PR này. Job shellcheck đỏ ở `c783a59f` là ca kiểm `postgres-log-terse` chập chờn (thẻ OPS-11), cũng không do PR.
+- CI: gitleaks đỏ ở `c783a59f` do một commit trên `r5-s1-tests` (SEC sửa allowlist, ORC báo), shellcheck đỏ ở `c783a59f` là ca kiểm `postgres-log-terse` chập chờn (thẻ OPS-11). Cả hai không do PR, và đã xanh ở `44535cfe`. Job `format · lint · audit · test · build` của `44535cfe` còn chờ lúc viết.
 
 ---
 
@@ -28,9 +28,9 @@ Cách kiểm:
 | PR | SHA | Kết luận QA | Điều kiện |
 |---|---|---|---|
 | #97 | `d3081f93` | **DUYỆT CÓ ĐIỀU KIỆN** | (1) MOB gộp `main` (hiện **xung đột** ở `wireframes/assets/strings.js` sau #111 `eeb78698`; sinh lại bằng `gen_strings.py`) và sửa UXD PR97-01 (đưa nút ra khỏi ô nút chính). CI xanh trên SHA mới, QA chạy lại 15 ca và cả bộ mobile trên SHA đó. Khi #102 gộp trước: giữ **một** dòng `hk.action.needs_cleaning`. (2) Thẻ QA 97-01 có test và xanh **trước tag v1.0.5**; nên làm cùng lượt sửa PR97-01. (3) Staging v1.0.5: TC-V105-15-01…14 đạt (-05 là ca thăm dò, không chặn) |
-| #122 | `6dd07bf5`, `c783a59f` | **DUYỆT CÓ ĐIỀU KIỆN** | (1) CI của `c783a59f` (job `format · lint · audit · test · build`, còn chạy lúc viết) xanh và T14-6 E2E **chạy và qua**, không "skipped". QA đọc báo cáo Playwright của job. (2) Thẻ 122-02 (bỏ `test.skip` động) trước tag. (3) Thẻ 122-01 (cùng UXD PR122-03) trước tag, hoặc ORC và UXD ghi là giới hạn đã biết của v1.0.5. (4) Staging: TC-V105-S1-06 đạt |
+| #122 | `6dd07bf5`, `44535cfe` | **DUYỆT CÓ ĐIỀU KIỆN** | (1) CI của `44535cfe` xanh, và T14-6 E2E **chạy và qua**. Cổng CI "UI cases ran" làm job đỏ nếu T14-6 bị bỏ qua (run `42264842764` @ `6dd07bf5` đã đỏ vì vậy). QA đọc `junit.xml` của job. (2) Thẻ 122-01 (cùng UXD PR122-03) trước tag, hoặc ORC và UXD ghi là giới hạn đã biết của v1.0.5. (3) Staging: TC-V105-S1-06 đạt |
 
-- 0 Blocker · 0 Major · 3 Minor · 2 Suggestion. **Không có lỗi sản phẩm làm sai tiền hay sai trạng thái.**
+- 0 Blocker · 0 Major · 2 Minor · 3 Suggestion. **Không có lỗi sản phẩm làm sai tiền hay sai trạng thái.**
   - #97: mã đúng ở cả 4 ca probe. Thẻ là thiếu test.
   - #122: tiền của đơn luôn đúng (máy chủ tính cọc từ giá gõ). Lệch là số trên hộp trong lúc bản xem giá gõ chưa về (thẻ 122-01).
 - ESC mới: **không**.
@@ -97,7 +97,7 @@ Probe (tệp tạm `qa-probe-v105.test.tsx`, không commit), **4/4 qua** ở `d3
 | Giữ chỗ không mang giá (`createHoldFromQuote`) | Vitest: thân chỉ `{ holdHours, depositMethod }`; mock trả 422 `NOT_ALLOWED` nếu có trường giá | Đủ (F2 chết) |
 | Giá ngoài sàn–trần: câu ở đúng ô, không tạo đơn; sửa lại thì câu mất | Vitest | Đủ (F7, F10 chết). Chữ câu: UXD PR122-01 |
 | Ô giá chỉ đọc khi giữ chỗ đang chạy | Vitest | Đủ (F6 chết) |
-| T14-6 chạy thật trên máy chủ V5-14 | E2E `ui-clock/v5-14-hold-typed-rate.r5.spec.ts` | Có `test.skip` động: bỏ qua khi bản xem không trả giá gõ. Sau #103, điều này giấu luôn lỗi máy chủ thành "skipped". Thẻ 122-02 |
+| T14-6 chạy thật trên máy chủ V5-14 | E2E `ui-clock/v5-14-hold-typed-rate.r5.spec.ts` | Có `test.skip` động: bỏ qua khi bản xem không trả giá gõ. Trên CI không lọt được (cổng "UI cases ran" làm job đỏ), nhưng lỗi máy chủ sẽ hiện thành "bỏ qua" với lý do sai. Thẻ 122-02 |
 
 ---
 
@@ -145,7 +145,7 @@ Probe Q1 (tệp tạm `qa-probe-v514.test.tsx`, không commit), chạy lại 07/
 - Trạng thái: Open
 
 ### FB-R5-QA-MOB-97-02
-- Mức độ: **Suggestion**.
+- Mức độ: **Suggestion**. **Trùng FB-R5-ARC-MOB-97-02 (Minor)**, ARC nêu thêm thứ tự kiểm của mock. MOB làm một lần theo thẻ ARC; QA đóng thẻ này cùng lúc.
 - Vị trí: `apps/mobile/src/mocks/handlers.ts` `inHkScope`, `entry()`; ca "maintenance (read only) never gets the button" và "housekeeping: only inside scope T".
 - Vấn đề:
   1. `inHkScope` của mock chỉ xét căn có việc, bỏ qua ngày của việc và người được giao. Máy chủ (`scopeRooms`) chỉ tính việc của ngày, không hủy, **chưa giao ai hoặc giao cho chính mình**. Ca "việc hôm nay giao cho buồng phòng khác → không có nút" không dựng được trên mock.
@@ -173,7 +173,7 @@ Probe Q1 (tệp tạm `qa-probe-v514.test.tsx`, không commit), chạy lại 07/
 - Trạng thái: Open
 
 ### FB-R5-QA-FE-122-02
-- Mức độ: **Minor**. Trước tag v1.0.5.
+- Mức độ: **Suggestion** (bản đầu ghi Minor; hạ sau khi đọc cổng CI "UI cases ran", `ci.yml` dòng 646).
 - Vị trí: `product/tests/e2e/ui-clock/v5-14-hold-typed-rate.r5.spec.ts` dòng 151–154:
   ```ts
   test.skip(
@@ -182,16 +182,18 @@ Probe Q1 (tệp tạm `qa-probe-v514.test.tsx`, không commit), chạy lại 07/
   );
   ```
 - Vấn đề:
-  - Cách bỏ qua này hợp lúc #103 chưa gộp. Từ `c783a59f` máy chủ đã có V5-14, nên nó chỉ còn một tác dụng: **giấu lỗi**.
-  - Máy chủ bỏ qua giá gõ (đúng hình BUG-R4-041 phía máy chủ), hay bản xem trả lỗi (`pv.status !== 200` làm `pvBody = {}`), thì ca thành "skipped" và CI vẫn xanh.
-- Vì sao quan trọng: T14-6 là ca E2E duy nhất nối Desk với máy chủ thật cho BUG-R4-041. QA đóng BUG-R4-041 phần Desk dựa vào ca này.
+  - Cách bỏ qua này hợp lúc #103 chưa gộp. Từ `c783a59f` máy chủ đã có V5-14.
+  - Trên CI, ca bị bỏ qua làm job đỏ nhờ cổng "UI cases ran", nên không xanh âm thầm. Nhưng nếu máy chủ hỏng (bỏ qua giá gõ, đúng hình BUG-R4-041 phía máy chủ, hoặc bản xem trả lỗi vì `pv.status !== 200` làm `pvBody = {}`), người đọc thấy "bỏ qua: máy chủ chưa có V5-14" thay vì một phép so đỏ có số.
+  - Chạy E2E tại máy (không có cổng), ca chỉ báo "skipped".
+- Vì sao quan trọng: T14-6 là ca E2E duy nhất nối Desk với máy chủ thật cho BUG-R4-041. Lý do sai làm người sửa đi tìm ở sai chỗ.
 - Đề xuất sửa:
   - Bỏ `test.skip` động. Thay bằng `expect(pv.status).toBe(200)` và `expect(pvBody.nightlyRates?.[0]?.calendarRateVnd, 'máy chủ nhận giá gõ (V5-14)').toBe(typed)`.
   - Giữ hai `test.skip` đầu tệp (`E2E_UI`, `QA_SEED_PASSWORD`) như các spec khác.
+  - Làm ở PR sau của FE-A, không chặn #122.
 - Trạng thái: Open
 
 ### FB-R5-QA-FE-122-03
-- Mức độ: **Suggestion**.
+- Mức độ: **Suggestion**. **Trùng FB-R5-ARC-FE-122-02** (cùng đột biến, ARC gọi là M5). ARC đề xuất bỏ dòng hoặc thêm ca; QA chấp nhận cả hai. FE làm một lần, QA đóng thẻ này cùng lúc.
 - Vị trí: `BookingDialog.tsx` `hold()`: `if (typedNights?.some((n) => !(n.amountVnd > 0)) && !v.rates)`.
 - Vấn đề: không test nào chạm nhánh này (đột biến F5 sống). `validate()` đã chặn ô trống trước, nên hôm nay nhánh không tới được bằng giao diện.
 - Vì sao quan trọng: máy chủ trả 422 `AMOUNT_NOT_POSITIVE` cho đêm 0, kể cả `edited: false` (QA-on-be-pr-103 mục 6). Nếu `validate()` đổi (ví dụ cho ô trống khi chưa có giá lịch), chặn này là lớp duy nhất còn lại mà không ai biết nó có chạy hay không.
@@ -208,14 +210,14 @@ Probe Q1 (tệp tạm `qa-probe-v514.test.tsx`, không commit), chạy lại 07/
   - ghi dòng decision-log ở mục 7.
 - **MOB**: thứ tự gộp với #102 như báo cáo MOB đã ghi (xung đột ở `gen_strings.py`, `strings-tables.md`, `strings.js`: QA gộp thử thấy đúng ba tệp này). Nay thêm xung đột `strings.js` với `main` sau #111.
 - **BA**: TC-V104-RG-15 và cách làm tạm "Tạo đơn thay Giữ chỗ" ở sổ tay 2.5 bước 10 hết hiệu lực khi #122 lên (DOM BA-122-01 đã giao, QA không thêm).
-- **QA (tự làm)**: đọc báo cáo Playwright của CI `c783a59f`: T14-6 phải "passed". Chạy lại 15 ca #97 trên SHA mới.
+- **QA (tự làm)**: đọc `junit.xml` của CI `44535cfe`: T14-6 phải "passed". Chạy lại 15 ca #97 trên SHA mới.
 
 ---
 
 ## 7. Đề xuất dòng decision-log (QA tự quyết – kết luận kiểm thử)
 
 ```
-| 2026-11-07 | 5 | QA review PR #97 (MOB V5-15 Báo cần dọn) @ d3081f93: DUYỆT CÓ ĐIỀU KIỆN – 15/15, bộ mobile 177/177, gộp thử main 181/181 (có V5-1B #117), đột biến 5/6 chết, probe 4/4 qua (mã đúng, thiếu test). Điều kiện: MOB gộp main (xung đột strings.js sau #111) và sửa UXD PR97-01, CI xanh, QA chạy lại; FB-R5-QA-MOB-97-01 (Minor: chuỗi bước, chạm đúp mất mạng giữ performedAt, 404 → Cần xem lại) trước tag; staging TC-V105-15-01…14. PR #122 (FE-A V5-14 T14-6) @ 6dd07bf5 và c783a59f: DUYỆT CÓ ĐIỀU KIỆN – 7/7, gộp thử main (có #103, #111) admin-web 996/996, đột biến 8/9 chết. Điều kiện: CI c783a59f xanh với T14-6 passed (không skipped); FB-R5-QA-FE-122-02 (bỏ test.skip động) và 122-01 (cọc cũ trên hộp khi bản xem giá gõ chưa về, cùng UXD PR122-03; hoặc giới hạn đã biết) trước tag; staging TC-V105-S1-06. TC-V104-RG-15 hết hiệu lực khi #122 vào bản cắt. Không ESC | QA | Quyền QA (kết luận kiểm thử) |
+| 2026-11-07 | 5 | QA review PR #97 (MOB V5-15 Báo cần dọn) @ d3081f93: DUYỆT CÓ ĐIỀU KIỆN – 15/15, bộ mobile 177/177, gộp thử main 181/181 (có V5-1B #117), đột biến 5/6 chết, probe 4/4 qua (mã đúng, thiếu test). Điều kiện: MOB gộp main (xung đột strings.js sau #111) và sửa UXD PR97-01, CI xanh, QA chạy lại; FB-R5-QA-MOB-97-01 (Minor: chuỗi bước, chạm đúp mất mạng giữ performedAt, 404 → Cần xem lại) trước tag; staging TC-V105-15-01…14. PR #122 (FE-A V5-14 T14-6) @ 6dd07bf5 và 44535cfe (chỉ gộp main): DUYỆT CÓ ĐIỀU KIỆN – 7/7, gộp thử main (có #103, #111; giống 44535cfe) admin-web 996/996, đột biến 8/9 chết. Điều kiện: CI 44535cfe xanh với T14-6 passed (cổng UI cases ran làm ca bỏ qua thành đỏ); FB-R5-QA-FE-122-01 (Minor: cọc cũ trên hộp khi bản xem giá gõ chưa về, probe Q1, cùng UXD PR122-03; hoặc giới hạn đã biết) trước tag; 122-02, 122-03 Suggestion (122-03 trùng ARC FE-122-02, 97-02 trùng ARC MOB-97-02); staging TC-V105-S1-06. TC-V104-RG-15 hết hiệu lực khi #122 vào bản cắt. Không ESC | QA | Quyền QA (kết luận kiểm thử) |
 ```
 
 ---
@@ -232,9 +234,9 @@ Probe Q1 (tệp tạm `qa-probe-v514.test.tsx`, không commit), chạy lại 07/
 | #122 | `6dd07bf5`, tệp của PR | 7/7 |
 | #122 | `6dd07bf5`, cả bộ admin-web | 993/995. 2 ca đỏ (`r3-bug-010-011-feb`, `r3-v1-feb-webreq`, đường mở hộp từ yêu cầu web) qua khi chạy riêng và qua ở bản gộp dưới: chập chờn khi máy tải nặng, không do PR |
 | #122 | gộp thử với `main` @ `cd4b4c1f` (có #103, #111) | 88 tệp, **996/996**; `tsc` 0 lỗi |
-| #122 | `c783a59f` | `apps/admin-web` và `tests/e2e` giống bản gộp thử ở trên; QA không chạy lại |
+| #122 | `44535cfe` (HEAD lúc viết) | `apps/admin-web`, `packages`, `tests/e2e` giống hệt bản gộp thử ở trên (`git diff` rỗng); kết quả 996/996 áp nguyên |
 
-- E2E T14-6 không chạy trên máy QA (cần stack có DB và seed). Bằng chứng E2E là CI của `c783a59f` (điều kiện 1).
+- E2E T14-6 không chạy trên máy QA (cần stack có DB và seed). Bằng chứng E2E là CI của `44535cfe` (điều kiện 1).
 
 ---
 
