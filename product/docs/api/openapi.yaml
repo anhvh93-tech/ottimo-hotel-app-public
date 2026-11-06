@@ -167,7 +167,7 @@ info:
     | DELIVERY_CHANNEL_DISABLED | 409 | Kênh gửi mã xác minh (OTA/Zalo) chưa được owner bật (phân xử ORC 15/10) |
     | MFA_REQUIRED | 401 | Cần mã TOTP để hoàn tất đăng nhập (SR-AUTH-06, R3) – kèm `mfaToken`. **0.3.8**: cũng trả khi `transitionManagerConfirmation` `approve`/`reject` được gọi từ phiên chưa qua bước 2 của người có 2FA (SEC 06.29) – đăng nhập lại |
     | MFA_INVALID | 401 | **0.3.8 (SEC 06.20)** – `loginMfa`: **một** mã cho mọi nhánh lỗi (token hết hạn/đã dùng/đã sai 5 lần, mã sai, mã đã dùng, mã khôi phục sai); body giống hệt, không nói nhánh nào. Client giữ bước 2; tự quay lại bước 1 sau 5 phút hoặc 5 lần sai |
-    | MFA_ENROLLMENT_REQUIRED | 403 | **0.3.8 (SEC 06.4)** – `mfa_enforced = true`, người có vai `owner`/`manager` chưa bật 2FA: phiên hạn chế chỉ gọi được `getMe`, `getMy2fa`, `startMy2faSetup`, `confirmMy2fa`, `logout`; mọi API khác trả mã này (guard chung ở server) |
+    | MFA_ENROLLMENT_REQUIRED | 403 | **0.3.8 (SEC 06.4)** – `mfa_enforced = true`, người có vai `owner`/`manager`/`front_desk_lead` (FDL từ 0.3.13, V5-40) chưa bật 2FA: phiên hạn chế chỉ gọi được `getMe`, `getMy2fa`, `startMy2faSetup`, `confirmMy2fa`, `logout`; mọi API khác trả mã này (guard chung ở server) |
     | MANAGER_CONFIRMATION_PENDING | 409 | **0.3.8 (US-164 AC4)** – đơn đang có yêu cầu quản lý xác nhận `pending`: thao tác bị khóa trong lúc chờ (`checkOut` không kèm `confirmationId` đó, `extendStay`, `changeRoom`, `setLateCheckout`, tạo yêu cầu mới) – kèm `confirmationId`; Desk mở yêu cầu đang chờ hoặc hủy nó |
     | CONFIRMATION_NOT_USABLE | 409 | **0.3.8 (US-164)** – `checkOut.lateFeeInsteadOfNight.confirmationId` không dùng được: khác đơn, `rejected`/`cancelled`/`consumed`, còn `pending` (chưa hết hạn), hoặc đơn đã đổi làm điều kiện BR-416-06 không còn đúng – kèm `confirmationStatus`. Hết hạn → xem `CONFIRMATION_EXPIRED` |
     | CONFIRMATION_EXPIRED | 409 | **0.3.8 (US-164, ESC-024 B)** – `transitionManagerConfirmation` `approve`/`reject` sau `expiresAt` (quản lý duyệt muộn): không đổi gì, kèm `confirmationStatus = expired`; lễ tân đã có thể tự ghi theo ESC-024 B |
@@ -366,7 +366,8 @@ info:
       `createDepositNotice` trên đơn đã đóng → 202 + `deposit_after_cancel`, `listAuditEvents.afterClosureOnly`. 5B-2 (khôi phục) ở 0.3.14. **V5-25 (BUG-R5-003; DOM mục 12)**: luật lưu
       `min_stay` đầy đủ + kiểm ngược `short_stay_max_nights` – chỉ mô tả, không đổi schema.
       **Bổ sung 1f (SEC ARC-16, PR riêng trước PR-B3)**: `ApprovalRequest.possibleDuplicateCodes` thêm `x-visible-to: [owner, manager, front_desk_lead, front_desk]` như
-      `Payment.possibleDuplicateCodes` – serializer sinh lại; HK, MT, SAL, CTV đọc `listApprovalRequests` không thấy trường này.
+      `Payment.possibleDuplicateCodes` – serializer sinh lại; HK, MT, SAL, CTV đọc `listApprovalRequests` không thấy trường này. Chữ 2FA bắt buộc thêm `front_desk_lead`
+      (V5-40, PR #100) ở `MFA_ENROLLMENT_REQUIRED`, `login`, `getMy2fa`, `Me.mfaRequiredButMissing` – chỉ mô tả.
     - **(i) Tin `hold_expired` (DOM mục 9)**: gửi người tạo, người chốt **và** mọi FD, FDL đang hoạt động (bỏ nhánh "chỉ khi không có người tạo"). Không đổi schema.
     - **(k) V5-30, V5-31 (DOM 4, 5, 7.3, 7.4) – cần migration, PR riêng (PR-M)**: `Commission.instalmentNo`, `voidReason`; `getManagerPerformanceBonus` (tính lúc đọc); `AttentionItem.kind`
       `commission_rate_missing`; `GuestRequest.feeFallback`. Khóa mới `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` cần dòng danh mục
@@ -863,7 +864,7 @@ paths:
         Tài khoản có 2FA (R3): trả `401 MFA_REQUIRED` kèm `mfaToken` ngắn hạn → gọi `POST /v1/auth/login/mfa`.
         **0.3.8 (SEC 06.17, 06.4)**: `mfaToken` ≥ 256 bit, DB chỉ lưu SHA-256, dùng **một lần**, hạn 5 phút, gắn `user_id` + kênh (admin/PWA); không phải phiên, không cookie, không URL/log.
         Không có "ghi nhớ thiết bị" để bỏ bước 2 (06.1). Cờ triển khai `MFA_ENFORCED = true` (bắt buộc ở staging/production – server từ chối khởi động production khi `false`) và người có vai
-        `owner`/`manager` ở bất kỳ cơ sở nào **chưa** bật 2FA → đăng nhập 200 với **phiên hạn chế** (`Me.mfaEnrollmentRequired = true`): chỉ `getMe`, `getMy2fa`, `startMy2faSetup`,
+        `owner`/`manager`/`front_desk_lead` (FDL từ 0.3.13, V5-40) ở bất kỳ cơ sở nào **chưa** bật 2FA → đăng nhập 200 với **phiên hạn chế** (`Me.mfaEnrollmentRequired = true`): chỉ `getMe`, `getMy2fa`, `startMy2faSetup`,
         `confirmMy2fa`, `logout`; API khác → `403 MFA_ENROLLMENT_REQUIRED`. `MFA_ENFORCED = false` (dev/CI mặc định): đăng nhập bình thường, `Me.mfaRequiredButMissing = true` để nhắc.
         Mật khẩu tạm (`mustChangePassword=true` trong `Me`): mọi API khác trả `403 PASSWORD_CHANGE_REQUIRED` cho tới khi đổi.
       requestBody:
@@ -1096,7 +1097,7 @@ paths:
     get:
       tags: [auth]
       operationId: getMy2fa
-      summary: Trạng thái 2FA của tôi (R3; bắt buộc với owner, manager trước khi đưa dữ liệu thật)
+      summary: Trạng thái 2FA của tôi (R3; bắt buộc với owner, manager, front_desk_lead (từ 0.3.13, V5-40) trước khi đưa dữ liệu thật)
       x-roles: [any_staff]
       x-round: R3
       responses:
@@ -10968,7 +10969,7 @@ components:
               businessDayRollover: { $ref: '#/components/schemas/LocalTime', description: '0.3.8 (R3-Q38) – tham số `business_day_rollover` đang hiệu lực (mặc định 06:00)' }
         mustChangePassword: { type: boolean, description: 'Mật khẩu tạm – chỉ cho đổi mật khẩu (SR-AUTH-05)' }
         mfaEnabled: { type: boolean }
-        mfaRequiredButMissing: { type: boolean, description: 'Vai owner/manager chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật). 0.3.8: chỉ có nghĩa khi `MFA_ENFORCED = false`' }
+        mfaRequiredButMissing: { type: boolean, description: 'Vai owner/manager/front_desk_lead (FDL từ 0.3.13, V5-40) chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật). 0.3.8: chỉ có nghĩa khi `MFA_ENFORCED = false`' }
         mfaEnrollmentRequired: { type: boolean, description: '0.3.8 (SEC 06.4) – phiên hạn chế: chỉ màn đăng ký 2FA; mọi API khác 403 `MFA_ENROLLMENT_REQUIRED`' }
         soleOwner: { type: boolean, description: '0.3.8 (ESC-027 B) – người gọi là `owner` duy nhất của tổ chức (câu `auth.enroll.single_owner`); vắng với vai khác' }
         recoveryCodesLow: { type: boolean, description: '0.3.8 (SEC 06.15) – còn ≤ 3 mã khôi phục → nhắc tạo bộ mới mỗi lần đăng nhập' }

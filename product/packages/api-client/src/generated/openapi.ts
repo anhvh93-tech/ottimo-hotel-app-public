@@ -40,7 +40,7 @@ export interface paths {
      *     Tài khoản có 2FA (R3): trả `401 MFA_REQUIRED` kèm `mfaToken` ngắn hạn → gọi `POST /v1/auth/login/mfa`.
      *     **0.3.8 (SEC 06.17, 06.4)**: `mfaToken` ≥ 256 bit, DB chỉ lưu SHA-256, dùng **một lần**, hạn 5 phút, gắn `user_id` + kênh (admin/PWA); không phải phiên, không cookie, không URL/log.
      *     Không có "ghi nhớ thiết bị" để bỏ bước 2 (06.1). Cờ triển khai `MFA_ENFORCED = true` (bắt buộc ở staging/production – server từ chối khởi động production khi `false`) và người có vai
-     *     `owner`/`manager` ở bất kỳ cơ sở nào **chưa** bật 2FA → đăng nhập 200 với **phiên hạn chế** (`Me.mfaEnrollmentRequired = true`): chỉ `getMe`, `getMy2fa`, `startMy2faSetup`,
+     *     `owner`/`manager`/`front_desk_lead` (FDL từ 0.3.13, V5-40) ở bất kỳ cơ sở nào **chưa** bật 2FA → đăng nhập 200 với **phiên hạn chế** (`Me.mfaEnrollmentRequired = true`): chỉ `getMe`, `getMy2fa`, `startMy2faSetup`,
      *     `confirmMy2fa`, `logout`; API khác → `403 MFA_ENROLLMENT_REQUIRED`. `MFA_ENFORCED = false` (dev/CI mặc định): đăng nhập bình thường, `Me.mfaRequiredButMissing = true` để nhắc.
      *     Mật khẩu tạm (`mustChangePassword=true` trong `Me`): mọi API khác trả `403 PASSWORD_CHANGE_REQUIRED` cho tới khi đổi.
      */
@@ -195,7 +195,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Trạng thái 2FA của tôi (R3; bắt buộc với owner, manager trước khi đưa dữ liệu thật) */
+    /** Trạng thái 2FA của tôi (R3; bắt buộc với owner, manager, front_desk_lead (từ 0.3.13, V5-40) trước khi đưa dữ liệu thật) */
     get: operations['getMy2fa'];
     put?: never;
     post?: never;
@@ -5879,7 +5879,7 @@ export interface components {
       /** @description Mật khẩu tạm – chỉ cho đổi mật khẩu (SR-AUTH-05) */
       mustChangePassword?: boolean;
       mfaEnabled?: boolean;
-      /** @description Vai owner/manager chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật). 0.3.8: chỉ có nghĩa khi `MFA_ENFORCED = false` */
+      /** @description Vai owner/manager/front_desk_lead (FDL từ 0.3.13, V5-40) chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật). 0.3.8: chỉ có nghĩa khi `MFA_ENFORCED = false` */
       mfaRequiredButMissing?: boolean;
       /** @description 0.3.8 (SEC 06.4) – phiên hạn chế: chỉ màn đăng ký 2FA; mọi API khác 403 `MFA_ENROLLMENT_REQUIRED` */
       mfaEnrollmentRequired?: boolean;

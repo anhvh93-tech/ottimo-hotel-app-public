@@ -838,6 +838,8 @@ Luật chung:
 - **Bổ sung 1:** đổi id `rbac-cases` làm mọi id cũ đổi một lần (QA biết; tài liệu cũ tra git). Bổ sung 1 thêm nhiều luật vào PR-A1b, PR-B2, PR-S1 – hạn PR-S1 ≤ 08/11 sát; nếu trễ, ORC dời phần `x-write-roles` guard chung sang PR riêng nhưng **không** cho PR-S1 lên mà thiếu chặn SAL/CTV.
 - PR-M phụ thuộc V5-61; H2 có thể trượt sang bản sau 01/12 nếu diễn tập trễ.
 - BR-438 chưa có story/TC tham chiếu (`traceability.md` 5.5): PO gắn vào story V5-16, QA viết TC theo T16-6…T16-12.
+- **0.3.14 (thêm vào danh sách 1.25, bổ sung 1f):** sửa hàm SQL `auth_resolve_session().mfa_required` (migration 0079) để đọc đủ danh sách vai bắt buộc 2FA (OWN, MGR, FDL – V5-40),
+  rồi bỏ phần kiểm FDL riêng ở guard (PR #100). Có migration (thay hàm) – theo QC R4 ĐK-2. Ở 0.3.13 chữ hợp đồng đã ghi FDL ở 4 chỗ 2FA (bổ sung 1f).
 
 ---
 
