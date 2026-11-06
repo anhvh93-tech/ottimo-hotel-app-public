@@ -251,3 +251,15 @@ body {
 .gw-notice > p + p {
   margin-top: 12px; /* DS space 12 (FB-R4-UXD-MOB-P442-01) */
 }
+
+/*
+ * FB-R5-UXD-FE-GW-01 (UXD-on-fe-prs-98-102-107 mục 4): no blue on the guest pages. The info alert (only one today:
+ * "Lễ tân trả lời từ 07:00", tab Yêu cầu after hours) uses the OTTIMO palette – Cream background, Sage 1px border,
+ * Ink title, text and icon (the icon strokes `currentColor`). Guest pages only: `@ottimo/ui`, the `--info` token and
+ * the Desk keep their colours (DS 2.4). Guest pages are light only (DS 11.5).
+ */
+.guest-app .alert.info {
+  background: var(--cream);
+  border-color: var(--sage);
+  color: var(--ink);
+}

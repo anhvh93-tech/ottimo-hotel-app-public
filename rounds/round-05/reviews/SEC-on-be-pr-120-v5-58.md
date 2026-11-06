@@ -125,3 +125,47 @@ SEC coi duyệt ở mục 0 áp cho HEAD mới nếu phần đổi so với `b79
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | **SEC – review PR #120 (BE-D V5-58) @ b790b09f: DUYỆT** (rounds/round-05/reviews/SEC-on-be-pr-120-v5-58.md). SR-RL-15 đúng: đếm (UPSERT rate_limit_counter, khóa wifi_pw_cmp:<user_id>, cửa sổ cố định 24 h, 5 lần) và audit skipped commit ở giao dịch riêng trước argon2, audit trùng commit trước 422; quá ngưỡng bỏ qua phép so, không 429; không đụng khóa đăng nhập; PUT không trả password, no-store cả 422, audit chỉ ssid/passwordChanged/rule, T58-5 quét audit, log, phản hồi lỗi. Gộp main trước (chữ 1f của #111). HEAD mới do chuyển UPSERT sang shared/ được duyệt theo nếu đạt 5 điểm ở mục 3 (một câu SQL, thứ tự giữ nguyên, khóa chỉ id, test T58-9/11/12/13 và SR-RL-11 xanh, không đổi gì khác). Thẻ mới không chặn gộp: V558-01 (chỉ so khi mọi kiểm khác đã qua), V558-02 (chú thích SR-RL-10 → SR-RL-15). | SEC |`
+
+---
+
+## 6. Lượt 2 (07/11): phần chênh `b790b09f..f1ac530b`
+
+Đối tượng: HEAD **`f1ac530b`**, cũng là bản ARC duyệt. Phần chênh của chính PR gồm 2 commit:
+- `9e81c92d`: chuyển câu UPSERT sang `shared/`, test T58-11…16;
+- `ce81ba5c`: sửa thẻ V558-01 và V558-02.
+
+Merge `f1ac530b` (gộp `main`: chữ hợp đồng 1f của #111, allowlist gitleaks) không có hunk tự sửa (`git show --cc` rỗng). CI của `f1ac530b` đang chạy lúc đọc; CI của `b790b09f` xanh.
+
+### 6.1 Năm điểm ở mục 3: đạt cả 5
+
+| # | Điểm | Kết quả |
+|---|---|---|
+| 1 | Một câu SQL, ở `shared/` | `shared/rate-limit-counter.ts` có câu `INSERT … ON CONFLICT (bucket_key, window_start) DO UPDATE SET count = rate_limit_counter.count + 1 RETURNING count` giống hệt bản cũ, `expires_at` = cuối cửa sổ. Tệp `public-site/public/rate-limit-counter.ts` đã xóa. `git grep` trên nhánh: câu `INSERT INTO rate_limit_counter` chỉ còn ở tệp này. Test đơn vị mới ghim điều đó (`v5-58-wifi-units.test.ts`: chỉ một tệp ghi bảng; `public-site` và `identity` import đúng hàm). Tham số đổi từ `tx: Tx` sang `q: Pick<Tx, 'query'>`: người gọi chọn giao dịch, như hợp đồng 1.26 |
+| 2 | Thứ tự trong `CallerPasswordMatch.check` | Chỉ đổi dòng import và một câu chú thích. Thứ tự giữ nguyên: đếm (và audit skipped) ở giao dịch 1, commit; rồi argon2 ngoài giao dịch; rồi audit khi trùng ở giao dịch riêng |
+| 3 | Khóa chỉ có id | Hàm dùng chung không ghép gì thêm vào khóa. Khóa vẫn là `wifi_pw_cmp:` + `user_id`, cửa sổ cố định 24 giờ. Ngoại lệ RLS trong `architecture.test.ts` nay ghi cả SR-RL-15 và khóa `wifi_pw_cmp:<user_id>` |
+| 4 | Test giữ nguyên và thêm | T58-9, T58-13 còn. Các ca 1.25 của hợp đồng: T58-11 (6 mật khẩu khác: so 5, bỏ qua lần 6, 200, một audit), T58-12 (lần so đầu: 422, bộ đếm 1, audit còn sau rollback), T58-14 (3 lần, khởi động lại, lần 4), T58-15 (khóa đăng nhập không đổi, người gọi vẫn đăng nhập được), T58-16 (không có mật khẩu thử nào trong audit, log, phản hồi PUT). Theo commit, test đột biến làm đỏ đúng ca (bộ đếm trong RAM → T58-14, T58-11; trùng mà tăng `failed_login_count` → T58-15). Test SR-RL-11 của trang công khai không đổi, chỉ đổi đường import |
+| 5 | Không đổi gì khác | Ngoài các tệp chuyển hàm và chỗ import, chỉ có `ce81ba5c` (6.2) |
+
+### 6.2 V558-01 và V558-02: đóng
+
+- `setPropertyWifi` chỉ so (và đếm) khi `errors.length === 0`, tức sau khi mọi kiểm dạng và luật cơ sở của `ssid` đã qua; và chỉ khi mật khẩu khác rỗng, khác mật khẩu đang lưu. Vì vậy mỗi lần đoán sai đều lưu Wi-Fi mới và để lại audit `property.wifi_changed`, không còn lối đoán thầm sau một lỗi `ssid`.
+- T58-9 đổi thành hai bước:
+  - với 3 kiểu `ssid` sai (trùng tên đăng nhập, có số căn, rỗng sau khi bỏ khoảng trắng) × 2 mật khẩu (trùng mật khẩu đăng nhập, đoán sai), phản hồi chỉ có lỗi `ssid`, và bộ đếm không tăng;
+  - `ssid` đúng thì mới ra lỗi `password`.
+- Commit ghi rằng bỏ điều kiện này thì ca đỏ.
+- `identity.module.ts` nay ghi SR-RL-15 (`CALLER_PASSWORD_COMPARE_RULE`).
+- Việc theo:
+  - SEC thêm câu "chỉ so khi mọi kiểm khác đã qua" vào SR-RL-15 (`security-requirements.md`, commit riêng);
+  - ARC: mô tả `setPropertyWifi` (bổ sung 1e) còn ghi "chỉ so khi `password` đã qua kiểm dạng và khác mật khẩu đang lưu". Mã nay chặt hơn chữ hợp đồng, nên sửa chữ ở delta 0.3.14. Không chặn gộp.
+
+### 6.3 Kết luận lượt 2
+
+| PR | SHA | Kết luận | Gộp khi |
+|---|---|---|---|
+| #120 | `f1ac530b` | **DUYỆT** | CI xanh trên đúng SHA |
+
+0 Blocker · 0 Major · 0 Minor · 0 Suggestion mới. V558-01, V558-02: **Done**. ESC mới: không.
+
+Dòng đề xuất cho decision-log (ORC ghi):
+
+`| 2026-11-07 | 5 | **SEC – PR #120 lượt 2 @ f1ac530b: DUYỆT** (rounds/round-05/reviews/SEC-on-be-pr-120-v5-58.md mục 6). Phần chênh b790b09f..f1ac530b đạt cả 5 điểm của mục 3: câu UPSERT rate_limit_counter chỉ còn một bản ở shared/rate-limit-counter.ts (có test ghim), thứ tự đếm → argon2 → audit không đổi, khóa wifi_pw_cmp:<user_id>, T58-11…16 theo hợp đồng 1.25, không đổi gì khác. V558-01 xong (chỉ so khi mọi kiểm khác đã qua, T58-9 hai bước), V558-02 xong. ARC sửa chữ setPropertyWifi ở 0.3.14; SEC sửa SR-RL-15. Gộp khi CI xanh. | SEC |`
