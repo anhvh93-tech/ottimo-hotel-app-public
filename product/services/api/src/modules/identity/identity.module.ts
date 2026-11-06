@@ -35,6 +35,7 @@ import { SessionService } from './public/session.service';
 import { IdentityParamsService } from './public/identity-params';
 import { CloserCandidatesController } from './internal/closer-candidates.controller';
 import { PasswordReauth } from './public/password-reauth';
+import { CallerPasswordMatch } from './public/caller-password-match';
 import { assertCommonPasswordList } from './public/passwords';
 import './audit-entities';
 
@@ -74,6 +75,7 @@ export class IdentityModule {
         { provide: CSRF_VERIFIER, useExisting: SessionService },
         MeService,
         PasswordReauth,
+        CallerPasswordMatch,
         IdentityParamsService,
         MfaStore,
         StrongReauthService,
@@ -91,6 +93,8 @@ export class IdentityModule {
         SessionService,
         CSRF_VERIFIER,
         PasswordReauth,
+        // SR-RL-10 (V5-58): "is this the caller's own login password?" with its own counter.
+        CallerPasswordMatch,
         IdentityParamsService,
         // 0.3.8 (US-143): S2 step-up for every `x-strong-reauth` operation (BE-B R3-Q51 uses it).
         StrongReauthService,
