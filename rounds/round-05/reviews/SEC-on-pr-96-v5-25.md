@@ -19,6 +19,8 @@
 **Lượt 2: DUYỆT để gộp PR #96 @ `897ff46e` khi CI xanh.**
 **PR #109 @ `f2e6733d`: DUYỆT để gộp vào `r5-v5-25` khi CI xanh.**
 
+> 07/11, sau khi viết: CI của `897ff46e` và của `f2e6733d` đều **xanh** (SEC xem `gh run list`). Điều kiện CI của hai kết luận trên đã đủ.
+
 - 0 Blocker, 0 Major.
 - `FB-R5-SEC-BE-V525-01` (Minor): **Closed**. Đã sửa ở `897ff46e`, và #109 dùng cùng hàm `logSafeField`.
 - `FB-R5-SEC-OPS-V525-02` (Suggestion): vẫn Open. Ý 3 đã làm một phần: mẫu lệnh đầu tệp nay chạy qua stdin, có timeout.
