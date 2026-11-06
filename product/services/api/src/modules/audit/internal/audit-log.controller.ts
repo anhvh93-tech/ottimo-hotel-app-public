@@ -147,12 +147,8 @@ export class AuditLogController {
     if (category !== undefined && !AUDIT_CATEGORIES.includes(category as AuditCategory)) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'category', code: 'NOT_IN_LIST' }] });
     }
-    if (overdueOnly !== undefined && overdueOnly !== 'true' && overdueOnly !== 'false') {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'overdueOnly', code: 'VALIDATION_FAILED' }],
-      });
-    }
-    const overdue = overdueOnly === 'true';
+    // FB-R5-ARC-BE-A2-04: read like removalsOnly / reductionsOnly (empty → false; other than true/false → 422).
+    const overdue = boolQuery('overdueOnly', overdueOnly);
     if (actorUserId !== undefined && !UUID.test(actorUserId)) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'actorUserId', code: 'VALIDATION_FAILED' }],

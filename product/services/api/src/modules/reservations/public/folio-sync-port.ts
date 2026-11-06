@@ -14,6 +14,7 @@
  *                count, reverse a previous `no_show_fee` on B12, re-project commission on the snapshot %).
  */
 import type { Tx } from '../../../db/database';
+import type { LocalDate } from '../../../shared/time';
 import type { ConfirmedStay } from './sales-port';
 
 export const FOLIO_STAY_SYNC = Symbol('FOLIO_STAY_SYNC');
@@ -27,6 +28,13 @@ export interface VoidStayInput {
   /** Deposit kept by OTTIMO (BR-309 cancellation fee / BR-311 no-show); 0 = nothing. */
   retainedVnd: number;
   retainedKind: 'cancellation_fee' | 'no_show_fee' | null;
+  /**
+   * V5-11 (DOM rules v1.0.5 2.1 (5), BUG-R3-036; oracles BR-309-27, BR-311-04): the business date of the action
+   * (BR-010) – the service date of the retained line, not the calendar date (00:00 to the rollover belongs to the
+   * day before). Always passed (ARC FB-R5-ARC-BE-114-02: a caller that forgets it fails `tsc`, not a cancellation with
+   * a retained fee at run time); read when `retainedVnd` > 0.
+   */
+  businessDate: LocalDate;
   /**
    * 0.3.6 bổ sung 4 (BR-310/901): the OTA's actual channel fee on the cancellation penalty
    * (`cancelReservation.otaPenaltyChannelFeeVnd`); absent → the channel rate snapshot × base.

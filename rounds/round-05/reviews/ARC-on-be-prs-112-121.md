@@ -253,3 +253,54 @@ Thẻ:
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | **ARC – review PR #121 (BE-C PR-C1, V5-1A + V5-44 (b)) @ 089dbe99 và PR #112 (BE-B PR-B1, V5-13/V5-18/V5-44 (a)) @ 7f4aaf44: cả hai DUYỆT CÓ ĐIỀU KIỆN** (rounds/round-05/reviews/ARC-on-be-prs-112-121.md). Mã đọc ở 452e8b01 và a2378981; các commit gộp main sau đó chỉ gỡ xung đột ở br-examples.json và phần import, blob trùng bản gộp thử của ARC; 089dbe99 thêm một dòng warn khi 0094 từ chối (SEC C1-01), 7f4aaf44 chỉ thêm test HTTP theo vai (SEC B1-01). Điều kiện duy nhất: CI xanh ở SHA cuối. Đúng hợp đồng 0.3.13 ở mọi ca T1A-1…5, T44-1/3/4, T13-1…5, T18-1…4, BE 11/13/14/15/19. Đột biến: #121 11/11 bị bắt; #112 14/16 (B11 tương đương; B12 – bỏ đơn con khỏi tập đơn của folio – không test nào bắt, thẻ ARC-BE-B1-02). Không migration, không đổi openapi. Lỗi khi chạy bộ đầy đủ song song là do máy quá tải: chạy riêng các tệp đỏ thì 32/32 và 124/124 đạt. ARC chốt giữ VALUE_OUT_OF_RANGE cho giá căn ≤ 0, FE-A sửa mock ở V5-5C (ARC-BE-C1-01). Đồng ý DOM FE-121-01 (V5-5C), BE-121-02 (0.3.14: chặn isSellable = true khi căn chưa có giá), UXD-112-01 (sáu nhóm nhãn; ARC thêm mô tả OpenRefund.reasonCode ở 0.3.14), SEC C1-01 (log warn khi 0094 từ chối – đã làm ở 089dbe99), SEC B1-01 (đã làm ở 7f4aaf44)/B1-02. Thẻ mới: ARC-BE-B1-01 Minor (ca FD-2 đọc yêu cầu hoàn của FD-1 – đúng CO-01b), ARC-BE-B1-02 Suggestion, ARC-PO-112-01 Minor (PO thêm T12 #112 + FE V5-13/V5-18 hoặc sửa release notes; T13 FE V5-44 (a) không lên tag thiếu #112). Không ESC. |`
+
+---
+
+## 5. PR #144 `r5-be-b-test-followups` @ `bdd6ba7b` (BE-B, chỉ test) – đóng B1-01, 105-01, 105-02, 96-01
+
+- Lời giao: ORC, bước Review round 5. PR cắt từ `main` @ `c1c41043`, một commit. Head không đổi trong lúc review.
+- Thẻ được đóng nằm ở ba tệp review:
+  - B1-01, B1-02: tệp này, mục 2.4;
+  - 105-01, 105-02: `ARC-on-prs-105-119-125-128.md`;
+  - 96-01: `ARC-on-be-a1-prs-127-113-114.md` mục 6.1.
+- **Kết luận: DUYỆT @ `bdd6ba7b`.** 0 Blocker, 0 Major, không thẻ mới.
+  - Bốn thẻ Minor: **Done**.
+  - Cách xử lý B1-02: đồng ý.
+  - Điều kiện gộp: CI xanh ở `bdd6ba7b`. Lúc ghi, job `docker images build · E2E smoke` còn đang chạy.
+
+### 5.1 Chỉ có test
+
+- `git diff c1c41043 bdd6ba7b`: 4 tệp, đều dưới `product/services/api/test/` (+200/−9). Không mã nguồn, không migration, không hợp đồng.
+- `s438-r8/fixture.ts` (tùy chọn `startFixture({ extraUsers })`) có blob **trùng từng byte** với bản của #139 (`171c00f4`). Gộp theo thứ tự nào cũng không xung đột.
+- Người dùng thêm chỉ có trong tệp gọi `extraUsers`. Tenant chung của các tệp khác giữ nguyên, nên số thông báo FD ở các tệp đó không đổi.
+- `tsc --noEmit` sạch. Ba tệp của PR trên PostgreSQL 17 riêng: **15/15**.
+
+### 5.2 Mỗi thẻ một đột biến (chạy lại trên `bdd6ba7b`, mỗi lần một chỗ, rồi trả mã về)
+
+| Thẻ | Ca mới | Đột biến của ARC | Bản `bdd6ba7b` | Bản trên `main` `c1c41043` |
+|---|---|---|---|---|
+| **B1-01** | T13-1: FD-2 (một vai `front_desk`, không tạo yêu cầu nào) đọc tóm tắt Trả phòng **đầu tiên**, rồi tới lead, MGR, OWN, FD-1. FD-2 đọc cả folio (`openRefunds`, `unhandledCreditVnd`). Đọc lại `approval_request` để chắc người tạo chỉ là FD-1 | `openRefundsByReason`: người gọi có vai `front_desk` chỉ thấy yêu cầu mình tạo (đúng dạng lỗi v1.0.4, TC-V104-CO-01b) | **Đỏ**, đúng 1 ca, ở `fd2: expected [] to deeply equal [...]` | Xanh 10/10: lỗ hổng cũ có thật |
+| **105-01** | Hủy lúc T = 11:00, FD ghi lúc 12:00 với `receivedAt` 09:00. Ca tự kiểm tiền đề (`received_at` < `cancelled_at` < `created_at`) → `afterClosure: true`, có trong `afterClosureOnly`, audit `reservationStatus: cancelled` | m6: `AFTER_CLOSURE_SQL` dùng `received_at` thay `created_at` | **Đỏ** | (không có ca) |
+| **105-02** | Mức service, `PaymentService.expirePendingQrOnClosure` với `folioId` của đơn chính: đơn khác → `[]`, QR vẫn `pending`; đơn chính → QR `expired`, SM-12 `reservation_closed`, `actor_type: system` | m9: bỏ hiệu lực vế `f.primary_reservation_id = $2` | **Đỏ** | (không có ca) |
+| **96-01** | Bỏ `requestId` và `instance` trước khi so; `150` chỉ khớp khi là một số đứng riêng (`\b150\b`) | R1: mọi `requestId` bắt đầu bằng `1503222a` (đúng lần CI đỏ cũ) | **Xanh 3/3**: hết chập chờn | **Đỏ 3/3**: tái hiện lỗi chập chờn |
+| 96-01 (đối chứng) | – | L2: giá trị hỏng lộ ra một trường thêm của thân lỗi (`extras.stored`) | **Đỏ 2/3** | – |
+
+- **105-02 ở mức service: chấp nhận.**
+  - Luật nằm trọn trong `expirePendingQrOnClosure`.
+  - `MoneyBridge.voided` gọi hàm này với đúng `input.folioId` (folio của đơn, tức folio chung với đơn con) và `input.reservationId`. Ca service dựng đúng dạng lời gọi đó.
+  - Đi qua HTTP phải dựng cả luồng đơn con đang ở rồi hủy. Dài, mà không chứng minh thêm điều gì cho luật này.
+- **96-01, đối chứng L2:** ca "giá trị số 50" không đỏ. Lý do: regex chỉ tìm `150` và hai tên khóa, chưa bao giờ tìm `50`, kể cả trước #144. Đây là giới hạn có từ #96, không do PR này và không thuộc thẻ.
+  - Gợi ý cho lần BE-C sửa tệp này (v1.0.6, không thẻ): dựng regex từ chính giá trị của từng ca, ví dụ `\b50\b` cho ca số.
+
+### 5.3 FB-R5-ARC-BE-B1-02 (Suggestion): đồng ý cách chuyển
+
+- Lời BE-B: PR-B3 (BE-D) sửa `folio.service.ts` thì hàm chung `folioReservationIds` và ca hoàn tiền cho đơn con B13 đi cùng PR-B3. Không thì sang v1.0.6.
+- ARC đồng ý. PR chỉ có test thì không nên gom mã.
+- Hai lưu ý cho người làm:
+  - Có **ba** chỗ dựng cùng tập đơn của folio, không phải hai: `openRefundsByReason` (dòng ~1147), `openRefunds` (~1169), và `stayReservationIds` (~3399, dùng ở ~3230 và ~3314). Hàm chung nên thay cả ba.
+  - Nếu PR-B3 không nhận, PO thêm một dòng backlog v1.0.6 cho B1-02. Như vậy thẻ không chỉ còn nằm trong thân PR.
+- Thẻ B1-02 giữ trạng thái Open (Deferred) tới khi có PR.
+
+### 5.4 Dòng decision-log đề xuất (ORC ghi khi commit)
+
+`| 2026-11-07 | 5 | ARC – PR #144 (BE-B, chỉ test) DUYỆT @ bdd6ba7b: 4 tệp đều dưới test/, không mã, không migration; fixture extraUsers trùng blob với #139 nên gộp không xung đột. Bốn thẻ Minor Done, mỗi thẻ một đột biến ARC chạy lại: B1-01 (FD chỉ thấy yêu cầu mình tạo → đỏ đúng ở FD-2, bản test trên main xanh); 105-01 (m6 received_at → đỏ); 105-02 (m9 bỏ vế đơn chính → đỏ; mức service chấp nhận vì MoneyBridge gọi đúng dạng đó); 96-01 (requestId bắt đầu 1503222a → bản #144 xanh, bản main đỏ 3/3). B1-02 Suggestion: đồng ý đi cùng PR-B3 nếu PR-B3 sửa folio.service.ts, không thì v1.0.6 và PO thêm dòng backlog; hàm chung phải thay cả ba chỗ dựng tập đơn (gồm stayReservationIds). Gộp khi CI (E2E) xanh | ARC | rounds/round-05/reviews/ARC-on-be-prs-112-121.md |`
