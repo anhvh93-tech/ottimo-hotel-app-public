@@ -190,9 +190,13 @@ describe('erd 9.1a structured parameter rules', () => {
     ).resolves.toBeUndefined();
   });
   it('lists: weekend_nights, hold_hours_options', async () => {
+    // V5-25 (BUG-R5-001 (b), DOM 8.4): weekday codes as the price engine reads them; the numbers 1–7 are refused.
+    await expect(
+      checkStructuredParameter('weekend_nights', ['FRI', 'SAT'], others({})),
+    ).resolves.toBeUndefined();
     await expect(
       checkStructuredParameter('weekend_nights', [5, 6], others({})),
-    ).resolves.toBeUndefined();
+    ).rejects.toMatchObject({ code: 'PARAM_OUT_OF_RANGE' });
     await expect(checkStructuredParameter('weekend_nights', [], others({}))).rejects.toMatchObject({
       code: 'PARAM_OUT_OF_RANGE',
     });

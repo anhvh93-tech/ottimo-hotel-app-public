@@ -2,8 +2,8 @@
  * Role serializer (SR-AZ-04, rbac 6/8.1, coding-standards 7.7): snapshot per role on contract schemas.
  * A hidden field is ABSENT (not null); undeclared keys are dropped; writeOnly/C3 never leak.
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { OPENAPI_SCHEMAS } from '../src/generated/openapi-schemas';
 import { OPENAPI_META } from '../src/generated/openapi-meta';
@@ -203,6 +203,53 @@ describe("role serializer – the caller's own data (SELF_DATA_FIELDS, BUG-R4-01
     }
   });
 
+  it('V5-43 / SEC FB-R4-SEC-BE-C0312-02: serializeSchema (SSE/outbox path) never returns x-self-data – Me.email dropped for every role, OWN included', () => {
+    for (const r of [...LOW, 'front_desk', 'front_desk_lead', 'manager', 'owner']) {
+      const out = ser('Me', me, [r]);
+      expect('email' in out, r).toBe(false);
+      // the rest of Me is untouched (only the sd property goes)
+      expect(out, r).toMatchObject({ id: me.id, displayName: 'hk', securityEmailMissing: false });
+      // C3 does not reopen it either
+      expect('email' in ser('Me', me, [r], true), r).toBe(false);
+    }
+    // the operation answers are unchanged: getMe still returns the caller's own e-mail
+    expect(
+      (serializeResponse('getMe', 200, me, { roles: ['housekeeping'] }) as Record<string, unknown>)
+        .email,
+    ).toBe('hk@example.test');
+  });
+
+  it('V5-43: serializeShape / serializeResponse / propertyAllowed are called only by the serializer and SerializeInterceptor (no hand-made owner in src/)', () => {
+    const SRC = join(__dirname, '..', 'src');
+    const walkDir = (dir: string): string[] =>
+      readdirSync(dir).flatMap((n) => {
+        const p = join(dir, n);
+        return statSync(p).isDirectory() ? walkDir(p) : p.endsWith('.ts') ? [p] : [];
+      });
+    const allowed = new Set([
+      'shared/serialization/serializer.ts',
+      'shared/serialization/serialize.interceptor.ts',
+    ]);
+    const offenders: string[] = [];
+    for (const f of walkDir(SRC)) {
+      const r = relative(SRC, f).split(sep).join('/');
+      if (allowed.has(r) || r.startsWith('generated/')) continue;
+      const code = readFileSync(f, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '');
+      for (const fn of ['serializeShape', 'serializeResponse', 'propertyAllowed']) {
+        if (new RegExp(`\\b${fn}\\b`).test(code)) offenders.push(`${r}: ${fn}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+    // the interceptor passes the operation id – the one owner the serializer trusts
+    const interceptor = readFileSync(
+      join(SRC, 'shared', 'serialization', 'serialize.interceptor.ts'),
+      'utf8',
+    );
+    expect(interceptor).toMatch(/serializeResponse\(auth\.operationId,/);
+  });
+
   it('own 2FA secrets reach every role (C3 rule unchanged: only in x-c3-log answers)', () => {
     const codes = Array.from({ length: 10 }, (_, i) => `AAAA-BBBB-CCCC-000${i}`);
     for (const r of LOW) {
@@ -247,8 +294,6 @@ describe("role serializer – the caller's own data (SELF_DATA_FIELDS, BUG-R4-01
       expect('email' in ser('User', user, [r])).toBe(false);
     }
     expect(ser('User', user, ['owner']).email).toBe('hk@example.test');
-    // serializeSchema of Me (no operation) uses the same schema key – still the caller's own object
-    expect(ser('Me', me, ['housekeeping']).email).toBe('hk@example.test');
     // AuditEvent.actorName (D27) unchanged for HK even inside any operation
     const e = {
       occurredAt: '2026-10-16T09:00:00+07:00',
