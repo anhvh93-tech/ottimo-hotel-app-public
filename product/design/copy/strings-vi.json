@@ -2279,6 +2279,7 @@
   "error.REFUND_SOURCE_NOT_RECONCILED": "Chưa chi được: {amount} trong khoản hoàn đến từ chuyển khoản chưa đối soát. Chờ quản lý khớp sao kê rồi chi.",
   "checkin.time_note": "Ghi chú giờ nhận (vì sao ghi bù)",
   "checkout.time_note": "Ghi chú giờ trả (vì sao ghi bù)",
+  "checkout.time_prefilled_help": "Giờ này Desk tự điền theo đồng hồ máy quầy và đang tính thêm tiền. Ghi giờ khách rời thật – lúc trả chìa hoặc báo đã rời căn – không phải lúc bấm.",
   "stay.time_note_help": "Bắt buộc khi giờ ghi sớm hơn lúc bấm. Ghi chú lưu vào nhật ký thay đổi.",
   "checkout.extra_night_title": "Trả sau mốc trả muộn",
   "checkout.extra_night_body": "Giờ trả này quá mốc trả muộn nên tính thêm 1 đêm ({amount}) thay cho phụ thu trả muộn. Báo khách trước khi hoàn tất.",
