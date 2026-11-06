@@ -31,6 +31,7 @@ import {
   luhnValid,
   optionalText,
   requireReason,
+  stripControlChars,
 } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { type ApprovalRow, ApprovalService } from '../../approvals/public/approval.service';
@@ -132,9 +133,6 @@ export function parseRefundAccount(plain: string): { accountNo: string; accountH
   const { accountNo, accountHolder } = value as { accountNo: string; accountHolder: string };
   return { accountNo, accountHolder };
 }
-
-// eslint-disable-next-line no-control-regex
-const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 
 @Injectable()
 export class RefundsService {
@@ -528,8 +526,12 @@ export class RefundsService {
       else if (!/^[0-9]{6,19}$/.test(accountNo)) {
         errors.push({ field: 'accountNo', code: 'VALIDATION_FAILED' });
       }
-      // SEC-BE-44: control characters stripped, Luhn refused (V-09).
-      holder = input.accountHolder?.replace(CONTROL_CHARS, '').trim() ?? null;
+      // SEC-BE-44: control characters stripped, Luhn refused (V-09). FB-R5-SEC-BE-127-02: the one shared filter
+      // (SR-INP-05 – Cc, Cf incl. bidi overrides, default-ignorable): a name of invisible characters only → REQUIRED.
+      holder =
+        typeof input.accountHolder === 'string'
+          ? stripControlChars(input.accountHolder).trim()
+          : null;
       if (!holder) errors.push({ field: 'accountHolder', code: 'REQUIRED' });
       else if (holder.length > 70) errors.push({ field: 'accountHolder', code: 'TOO_LONG' });
       if (errors.length) throw problem('VALIDATION_FAILED', { errors });

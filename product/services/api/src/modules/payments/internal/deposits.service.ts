@@ -469,7 +469,11 @@ export class DepositsService {
       entityId: id,
       entityCode: t.code,
       // SEC S6/S7 (BE C0313-22): the value at write time that `listAuditEvents.afterClosureOnly` filters on.
-      after: { amountVnd: input.amountVnd, status: 'open', ...(closed ? { afterClosure: true } : {}) },
+      after: {
+        amountVnd: input.amountVnd,
+        status: 'open',
+        ...(closed ? { afterClosure: true } : {}),
+      },
       ...(requestId ? { requestId } : {}),
     });
     if (closed) {

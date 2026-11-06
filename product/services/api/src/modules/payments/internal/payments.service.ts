@@ -80,7 +80,9 @@ const AFTER_CLOSURE_METHODS: readonly string[] = ['bank_transfer', 'vietqr'];
  * while still a hold (5B-2 confirms the deposit with this very receipt), `charge` for any other booking (a confirmed
  * one cancelled, a no-show: `status_before_cancel` = `confirmed`).
  */
-export function afterClosureType(statusBeforeCancel: string | null | undefined): 'deposit' | 'charge' {
+export function afterClosureType(
+  statusBeforeCancel: string | null | undefined,
+): 'deposit' | 'charge' {
   return statusBeforeCancel === 'hold' ? 'deposit' : 'charge';
 }
 

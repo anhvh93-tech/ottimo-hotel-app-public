@@ -449,7 +449,9 @@ export class PaymentService {
       // Steps 2–3 (`card_pos` on a closed booking – DOM FB-R5-DOM-ARC-105-01): only while the folio still owes
       // something (a cancellation / no-show fee), never more than that – no "thu dư kèm ghi chú" here.
       if (owed <= 0) {
-        throw problem('VALIDATION_FAILED', { errors: [{ field: f('method'), code: 'NOT_IN_LIST' }] });
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: f('method'), code: 'NOT_IN_LIST' }],
+        });
       }
       if (raw.amountVnd > owed) {
         throw problem('VALIDATION_FAILED', {

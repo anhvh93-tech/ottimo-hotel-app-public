@@ -3226,11 +3226,7 @@ export class FolioService implements FolioStaySync {
       [folioId],
     );
     const originActorIds = [
-      ...new Set([
-        ...carried,
-        ...makers.map((m) => m.actor_id),
-        ...late.map((l) => l.recorded_by),
-      ]),
+      ...new Set([...carried, ...makers.map((m) => m.actor_id), ...late.map((l) => l.recorded_by)]),
     ];
     if (input.source === 'a32') {
       const basis = await this.limitBasisVnd(tx, folioId, null);
@@ -3471,11 +3467,7 @@ export class FolioService implements FolioStaySync {
    * "Cần chú ý" closed_reservation_credit of the stay (one per booking – dedupeKey). Public for 5B-1: a receipt after
    * closure that leaves money to pay back opens it like a cancellation does (RefundsService.createAfterClosureRefund).
    */
-  async openCreditAttention(
-    tx: Tx,
-    reservationId: string,
-    reservationCode: string,
-  ): Promise<void> {
+  async openCreditAttention(tx: Tx, reservationId: string, reservationCode: string): Promise<void> {
     if (!this.events) return;
     await this.events.openAttention(tx, {
       kind: 'closed_reservation_credit',
