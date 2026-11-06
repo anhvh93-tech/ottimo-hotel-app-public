@@ -17,7 +17,9 @@
  * - (h5) createVietQr on a closed booking → 409 + `reservationStatus`, every purpose, OWN, `overBalanceReason` – no row;
  * - "nên làm cùng": J1, B10, B11 expire the folio's pending VietQR in the closing transaction (audit
  *   `payment.expired` + `reservationStatus`, SM-12 reason `reservation_closed`);
- * - (h6) MGR still reverses a receipt written on a closed booking.
+ * - (h6) MGR still reverses a receipt written on a closed booking;
+ * - FB-R5-SEC-BE-105-01: an image a sale uploaded is never the proof – the image REPLACED on its notice and an image
+ *   it never sent with a notice → 422 `attachmentId` NOT_IN_LIST like the one on the notice; an FD image → 201.
  * Fake clock and FAKE data only (guest name of the fixture, `@example.test`-free).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -541,4 +543,69 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
     const [p] = await x.q(`SELECT status FROM payment WHERE id = $1`, [written[cB.code]]);
     expect(p).toEqual({ status: 'reversed' });
   }, 60_000);
+
+  it("FB-R5-SEC-BE-105-01: a sale's image replaced on its notice or never sent → 422 attachmentId NOT_IN_LIST, nothing written; an FD image → 201", async () => {
+    // Last in the file: it moves the clock past the afterClosureOnly window of the cases above.
+    await x.at('2026-11-22T09:00:00+07:00');
+    const h = await hold('103', 'sal', '2026-12-20', '2026-12-22');
+    const first = await attach('sal', h.id);
+    const replacing = await attach('sal', h.id);
+    const neverSent = await attach('sal', h.id);
+    const report = (attachmentId: string) =>
+      x.c.sal!.send('POST', x.url(`/reservations/${h.id}/deposit-notices`), {
+        amountVnd: 300_000,
+        note: 'Khách báo đã chuyển',
+        attachmentId,
+      });
+    expect((await report(first)).statusCode).toBe(202);
+    // Reported again with another image: the open notice now holds `replacing`, `first` sits on no notice.
+    expect((await report(replacing)).statusCode).toBe(202);
+    const onNotice = await x.q(
+      `SELECT attachment_id FROM deposit_notice WHERE reservation_id = $1 ORDER BY created_at`,
+      [h.id],
+    );
+    expect(onNotice.map((r) => r.attachment_id)).toEqual([replacing]);
+    const cancel = await x.act(h.id, 'cancel', { reasonCode: 'found_other' });
+    expect(cancel.statusCode, cancel.body).toBe(200);
+
+    const before = await snapshot(h);
+    for (const [img, label] of [
+      [first, 'replaced on the notice'],
+      [neverSent, 'never sent'],
+      [replacing, 'on the notice'],
+    ] as const) {
+      for (const who of DESK) {
+        const res = await record(
+          h,
+          {
+            type: 'deposit',
+            method: 'bank_transfer',
+            amountVnd: 300_000,
+            note: NOTE,
+            attachmentId: img,
+          },
+          who,
+        );
+        expect(res.statusCode, `${label} ${who} ${res.body}`).toBe(422);
+        expect(res.json().errors, `${label} ${who}`).toEqual([
+          { field: 'attachmentId', code: 'NOT_IN_LIST' },
+        ]);
+      }
+    }
+    expect(await snapshot(h)).toEqual(before);
+    // The bank's notice, uploaded by the desk: taken, pending as every receipt on a closed booking.
+    const ok = await record(
+      h,
+      {
+        type: 'deposit',
+        method: 'bank_transfer',
+        amountVnd: 300_000,
+        note: NOTE,
+        attachmentId: await attach('fd', h.id),
+      },
+      'fd',
+    );
+    expect(ok.statusCode, ok.body).toBe(201);
+    expect(ok.json().reconciliation).toBe('pending');
+  }, 120_000);
 });
