@@ -4,6 +4,7 @@
  * MGR ≤ 1 night, FDL/FD never; union of roles) and the exact 403 bodies (H-01, H-02, H-04). No database.
  */
 import { describe, expect, it } from 'vitest';
+import { countInWindow } from '../src/modules/inventory/internal/fridge';
 import { checkOutAction } from '../src/modules/reporting/internal/stay-actions';
 import {
   type ActionContext,
@@ -174,6 +175,20 @@ describe('V5-15 allowedActions check_out + overdue (T15-7, T15-15; BE C0313-09)'
         }
       }
     }
+  });
+});
+
+describe('FB-R5-ARC-BE-A2-01 – fridge.ts countInWindow (B18 blocker and MinibarStandard.latestCheck)', () => {
+  it('no window = K11-09: only a count of today', () => {
+    expect(countInWindow('2029-01-15', '2029-01-15')).toBe(true);
+    expect(countInWindow('2029-01-14', '2029-01-15')).toBe(false);
+    expect(countInWindow('', '2029-01-15')).toBe(false);
+  });
+  it('countFrom (overdue stay) = any business day from the effective departure on, never before', () => {
+    const w = { countFrom: '2029-01-10' };
+    expect(countInWindow('2029-01-10', '2029-01-12', w)).toBe(true);
+    expect(countInWindow('2029-01-12', '2029-01-12', w)).toBe(true);
+    expect(countInWindow('2029-01-09', '2029-01-12', w)).toBe(false);
   });
 });
 

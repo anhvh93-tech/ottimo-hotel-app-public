@@ -9,7 +9,7 @@
  *   written; `checkoutAt` + `overdueReason`; `nightsNotBilled` from the business day at the click; the times written
  *   (BE C0313-03); `allowedActions`, `getCheckoutSummary`, QR `check_out` (H-03).
  */
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
@@ -667,6 +667,15 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
       expect(await snapshot(s2)).toEqual(before);
     });
 
+    it('FB-R5-ARC-BE-A2-01: S2 at 12/01 06:30 – minibar-standard latestCheck = the count of 10/01, the summary has no unchecked fridge (one rule, fridge.ts countInWindow)', async () => {
+      const std = await c.mgr!.get(url(`/reservations/${s2.id}/minibar-standard`));
+      expect(std.statusCode, std.body).toBe(200);
+      expect(std.json().latestCheck).toMatchObject({ checkedAt: '2029-01-10T10:00:00.000+07:00' });
+      const s = await summary(s2, 'mgr');
+      expect(s.minibarUncheckedRooms).toBeUndefined();
+      expect(s.blockers).not.toContain('minibar_not_checked');
+    });
+
     it('T15-11: OWN, same stay → 200 with the late charge of checkoutAt (14:00 → tier 1) paid in the same B18; the count of the departure day counts', async () => {
       const left = '2029-01-10T14:00:00+07:00';
       const s = await summary(s2, 'own', `?checkoutAt=${encodeURIComponent(left)}`);
@@ -730,6 +739,15 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
     let s4: Booking;
     it('T15-6: not overdue + overdueReason → 422 NOT_ALLOWED; the ordinary B18 with checkoutAt writes actual_checkout_at = checkoutAt', async () => {
       s4 = await inHouse('301', '2029-01-13', '2029-01-15');
+      // FB-R5-ARC-BE-A2-01: K11-09 unchanged on the ordinary path – a count of the day before is no count at 07:00
+      // on the departure day, for the standard and for the summary alike.
+      await at('2029-01-14T10:00:00+07:00');
+      await count(s4);
+      await at('2029-01-15T07:00:00+07:00');
+      const std = await c.fd!.get(url(`/reservations/${s4.id}/minibar-standard`));
+      expect(std.statusCode, std.body).toBe(200);
+      expect(std.json().latestCheck).toBeNull();
+      expect((await summary(s4)).blockers).toContain('minibar_not_checked');
       await at('2029-01-15T10:00:00+07:00');
       await count(s4);
       expect((await summary(s4)).overdue ?? false).toBe(false);
@@ -752,6 +770,76 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
       expect(row!.actual_checkout_at.toISOString()).toBe(zoned('2029-01-15T09:50:00+07:00'));
       expect(docs.checkedOut.get(s4.id)?.toISOString()).toBe(zoned('2029-01-15T09:50:00+07:00'));
       expect(await overdueAudit(s4)).toEqual([null]);
+    });
+
+    it('FB-R5-DOM-BE-PR99-02 (ARC 3.2): B18 with checkoutTime only, 40 minutes before the press, with a note → actual_checkout_at and the registration = the typed time', async () => {
+      const s5 = await inHouse('302', '2029-01-16', '2029-01-18');
+      await at('2029-01-18T10:00:00+07:00');
+      await count(s5);
+      await at('2029-01-18T11:00:00+07:00');
+      const r = await checkOut(
+        s5,
+        { checkoutTime: '10:20', checkoutTimeNote: 'Khách trả chìa 10:20, quầy ghi sau' },
+        'fd',
+      );
+      expect(r.statusCode, r.body).toBe(200);
+      const [row] = await q<{ actual_checkout_at: Date }>(
+        'SELECT actual_checkout_at FROM reservation WHERE id = $1',
+        [s5.id],
+      );
+      expect(row!.actual_checkout_at.toISOString()).toBe(zoned('2029-01-18T10:20:00+07:00'));
+      expect(docs.checkedOut.get(s5.id)?.toISOString()).toBe(zoned('2029-01-18T10:20:00+07:00'));
+      // the recording time stays for the folio (commission anchor, post-checkout window)
+      const [f] = await q<{ settled_at: Date }>('SELECT settled_at FROM folio WHERE id = $1', [
+        s5.folioId,
+      ]);
+      expect(f!.settled_at.toISOString()).toBe(zoned('2029-01-18T11:00:00+07:00'));
+    });
+
+    it('FB-R5-ARC-BE-A2-01: an OTA stay extended by a child – the overdue window starts at the CHILD departure (a count of the primary departure no longer counts)', async () => {
+      await at('2029-01-20T15:00:00+07:00');
+      await vacant('103');
+      const res = await c.fd!.send('POST', url('/reservations'), {
+        roomId: ids.rooms['103'],
+        channelId: ids.channels.agoda,
+        adults: 2,
+        bookerGuestId: guest,
+        paymentModel: 'ota_prepaid',
+        otaRef: `AG${randomUUID().slice(0, 8)}`,
+        otaRoomAmountVnd: 1_800_000,
+        arrivalDate: '2029-01-20',
+        departureDate: '2029-01-22',
+      });
+      expect(res.statusCode, res.body).toBe(201);
+      const o = res.json() as Booking;
+      const ci = await act(
+        o,
+        'check-in',
+        { cardsIssued: 1, houseRulesSent: true, checkinTime: '15:00' },
+        'fd',
+      );
+      expect(ci.statusCode, ci.body).toBe(200);
+      await at('2029-01-21T10:00:00+07:00');
+      const ext = await act(o, 'extend', { nights: 1 }, 'fd');
+      expect(ext.statusCode, ext.body).toBe(200);
+      expect(ext.json().childReservation).toMatchObject({ departureDate: '2029-01-23' });
+      await at('2029-01-22T10:00:00+07:00');
+      await count(o);
+      // 24/01 07:00: one night past the EFFECTIVE departure 23/01 – the 22/01 count is before the window
+      await at('2029-01-24T07:00:00+07:00');
+      const before = await c.mgr!.get(url(`/reservations/${o.id}/minibar-standard`));
+      expect(before.statusCode, before.body).toBe(200);
+      expect(before.json().latestCheck).toBeNull();
+      const s = await summary(o, 'mgr');
+      expect(s).toMatchObject({ overdue: true, nightsNotBilled: 1 });
+      expect(s.blockers).toContain('minibar_not_checked');
+      // counted again after the guest left (overdue day) → both say counted
+      await count(o);
+      const after = await c.mgr!.get(url(`/reservations/${o.id}/minibar-standard`));
+      expect(after.json().latestCheck).toMatchObject({
+        checkedAt: '2029-01-24T07:00:00.000+07:00',
+      });
+      expect((await summary(o, 'mgr')).blockers).not.toContain('minibar_not_checked');
     });
 
     it('T15-12: listAuditEvents?overdueOnly=true has the B18 of T15-9 and T15-11 (and T15-5), not the ordinary B18', async () => {

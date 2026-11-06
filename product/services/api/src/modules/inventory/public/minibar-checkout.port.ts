@@ -27,6 +27,7 @@ import type { MinibarRefillDonePort } from '../../housekeeping/public/minibar-re
 import { ParameterService } from '../../platform/public/parameter.service';
 import {
   type FridgeItem,
+  countInWindow,
   fridgeItems,
   latestFill,
   lockFridge,
@@ -93,10 +94,11 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
       const today = await this.today(tx, this.clock.now());
       // K11-09: the room the stay is in → the count must be of the departure day (business day of B18). V5-15
       // (contract 1.4, 1.18): an overdue check-out takes a count of any business day from the departure on.
-      const inWindow = window.countFrom
-        ? live.business_date >= window.countFrom
-        : live.business_date === today;
-      if (!inWindow && (await stayIsInRoom(tx, primaryId, roomId, today))) {
+      // fridge.ts countInWindow – the same rule as MinibarStandard.latestCheck (FB-R5-ARC-BE-A2-01).
+      if (
+        !countInWindow(live.business_date, today, window) &&
+        (await stayIsInRoom(tx, primaryId, roomId, today))
+      ) {
         checked = false;
       }
     }

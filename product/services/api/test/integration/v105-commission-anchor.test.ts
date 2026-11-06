@@ -9,8 +9,9 @@
  * - The B18 `finalPayment` by transfer (reconciliation `pending`) with `checkoutAt` 20 minutes earlier → `earned`.
  * - Overdue stay (V5-15): left 22/11 11:00, the desk records a transfer 22/11 15:00, the manager records B18 23/11
  *   09:00 → `earned` at 23/11 09:00.
- * Money collected by transfer AFTER B18 still waits for its reconciliation: reversal-debt-g4.test.ts ("DOM 18/10 …
- * commission earned only when the transfer is reconciled"); the payee's own receipt: payments-s3.test.ts BR-527-05.
+ * - ARC 3.1 case 2: a debt collected by transfer AFTER B18 still waits for its reconciliation (as v1.0.4).
+ * - ARC 3.1 case 4: a receipt the payee (the sale) recorded, still `pending` → held, whenever it was recorded.
+ * Every case reads `commission.status` / `recognized_at` back from the table.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomBytes } from 'node:crypto';
@@ -22,6 +23,7 @@ import {
   NoMinibarPort,
 } from '../../src/modules/frontdesk/internal/default-ports';
 import { FrontdeskPorts } from '../../src/modules/frontdesk/internal/stay-support';
+import { PaymentService } from '../../src/modules/payments/public/payment.service';
 import {
   FD_CHILD_DATA_PORT,
   type CheckinDocumentStatus,
@@ -172,8 +174,11 @@ describe.skipIf(!HAS_DB)('PR99-01 – commission anchor = B18 recording time (BE
       )
     )[0];
 
-  /** A sale's booking (staff commission), paid in full at check-in; an F&B line of `extraVnd` left to pay. */
-  async function stay(room: string, extraVnd: number): Promise<Booking> {
+  /**
+   * A sale's booking (staff commission), paid in full at check-in (`salVnd` of it recorded by the sale himself – B2
+   * recordManual, reconciliation `pending`); an F&B line of `extraVnd` left to pay.
+   */
+  async function stay(room: string, extraVnd: number, salVnd = 0): Promise<Booking> {
     await at('2026-11-10T10:00:00+07:00');
     const body = {
       roomId: ids.rooms[room],
@@ -205,6 +210,20 @@ describe.skipIf(!HAS_DB)('PR99-01 – commission anchor = B18 recording time (BE
        ON CONFLICT (room_id) DO UPDATE SET status = 'VC'`,
       [ids.rooms[room], t.organizationId, t.propertyIds[0], new Date('2026-10-01T00:00:00Z')],
     );
+    if (salVnd > 0) {
+      await db.withContext({ ...t.ctx(), userId: t.users.sal!.id, actorType: 'user' }, (tx) =>
+        fa.app.get(PaymentService).recordManual(tx, {
+          folioId: b.folioId,
+          reservationId: b.id,
+          reservationCode: b.code,
+          type: 'deposit',
+          method: 'cash',
+          amountVnd: salVnd,
+          receivedAt: new Date(`${ARRIVAL}T14:00:00+07:00`),
+          recordedBy: t.users.sal!.id,
+        } as never),
+      );
+    }
     const due = (await folio(b)).totals.balanceDueVnd as number;
     if (due > 0) {
       const p = await c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
@@ -313,5 +332,58 @@ describe.skipIf(!HAS_DB)('PR99-01 – commission anchor = B18 recording time (BE
     const cm = await commissions(b);
     expect(cm[0]).toMatchObject({ status: 'earned' });
     expect(iso(cm[0].recognized_at)).toBe(iso('2026-11-23T09:00:00+07:00'));
+  });
+
+  it('ARC 3.1 case 2: a debt collected by transfer after B18 waits for its reconciliation, then earned on that day', async () => {
+    const b = await stay('301', 100_000);
+    await at(`${DEPARTURE}T11:00:00+07:00`);
+    const out = await act(
+      b,
+      'check-out',
+      {
+        checkoutTime: '11:00',
+        debt: { dueDate: '2026-11-25', reason: 'Khách chuyển khoản phần còn lại sau' },
+      },
+      'mgr',
+    );
+    expect(out.statusCode, out.body).toBe(200);
+    expect((await commissions(b))[0]).toMatchObject({ status: 'projected' });
+    await at('2026-11-24T10:00:00+07:00');
+    const tr = await c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
+      type: 'charge',
+      method: 'bank_transfer',
+      amountVnd: 100_000,
+    });
+    expect(tr.statusCode, tr.body).toBe(201);
+    expect(tr.json().reconciliation).toBe('pending');
+    expect((await commissions(b))[0]).toMatchObject({ status: 'projected' });
+    await at('2026-11-25T09:00:00+07:00');
+    const rec = await c.mgr!.send(
+      'POST',
+      url(`/payments/${tr.json().id}/actions/reconcile`),
+      { result: 'reconciled' },
+      { 'if-match': `"${tr.json().version}"` },
+    );
+    expect(rec.statusCode, rec.body).toBe(200);
+    const cm = await commissions(b);
+    expect(cm[0]).toMatchObject({ status: 'earned' });
+    expect(iso(cm[0].recognized_at)).toBe(iso('2026-11-25T09:00:00+07:00'));
+  });
+
+  it('ARC 3.1 case 4: a receipt the sale recorded himself, still pending → held at B18 (BR-527), whenever it was recorded', async () => {
+    const b = await stay('302', 80_000, 300_000);
+    const [p] = await q(
+      `SELECT reconciliation FROM payment WHERE folio_id = $1 AND recorded_by = $2`,
+      [b.folioId, t.users.sal!.id],
+    );
+    expect(p.reconciliation).toBe('pending');
+    await at(`${DEPARTURE}T11:00:00+07:00`);
+    const out = await act(b, 'check-out', {
+      checkoutTime: '11:00',
+      finalPayment: { type: 'charge', method: 'cash', amountVnd: 80_000 },
+    });
+    expect(out.statusCode, out.body).toBe(200);
+    expect(iso((await stamps(b)).settled_at)).toBe(iso(`${DEPARTURE}T11:00:00+07:00`));
+    expect((await commissions(b))[0]).toMatchObject({ status: 'projected', recognized_at: null });
   });
 });

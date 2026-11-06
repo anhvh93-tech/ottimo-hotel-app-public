@@ -1472,6 +1472,8 @@ export class FolioService implements FolioStaySync {
    * ALL hold – the booking is `checked_out`, its folio owes nothing, and no receipt recorded by the payee on
    * the folio is still `pending`/`disputed`. Called at the LAST of those events: B18 (reservation hook),
    * reconciliation / cash handover, a receipt after checkout (debt). The caller passes the booking status.
+   * "After the check-out" (a receipt still unconfirmed holds the commission) = after the folio was `settled` by B18
+   * (`folio.settled_at`, ARC 3.1 / DOM PR99-01) – not the guest's departure time (`actual_checkout_at`).
    */
   async tryEarnCommissions(
     tx: Tx,

@@ -1222,9 +1222,12 @@ export class CheckoutService {
     const folioId = row.folio_id;
     // V5-15: the stay read again under the locks – the body was read under the rules of `overdue`; a stay that changed
     // in between (B13 / B16 of another desk) is a concurrent update, never the other path's rules.
+    // FB-R5-ARC-BE-A2-02: with `Retry-After` like every CONCURRENT_UPDATE (shared/problem.ts concurrencyProblem) – the
+    // retry (same Idempotency-Key / If-Match) is decided on the new state, e.g. 422 NOT_ALLOWED on `overdueReason`
+    // once the stay was extended.
     const locked = await this.overdueStay(tx, ctx, row);
     if (!!locked !== !!overdue || (locked && locked.departureDate !== overdue?.departureDate)) {
-      throw problem('CONCURRENT_UPDATE');
+      throw problem('CONCURRENT_UPDATE', { headers: { 'Retry-After': '1' } });
     }
     const { d, typed, decided, surcharge, old, raise } = await this.decide(
       tx,
@@ -1457,10 +1460,13 @@ export class CheckoutService {
     }
 
     // ── state ──
-    // BE C0313-03 (0.3.13 bổ sung 1): a B18 with `checkoutAt` (every path) records it as the actual check-out – the
-    // reservation, the registration (→ `stay_ended_at`, BR-604 declaration, penalty evidence) and the profiles' last
-    // stay. The recording time (`ctx.now`) stays for the audit, the transitions and `post_checkout_window_until`.
-    const departedAt = d.checkout.sent ? d.checkout.at : ctx.now;
+    // BE C0313-03 (0.3.13 bổ sung 1) + FB-R5-DOM-BE-PR99-02 (ARC 3.2, contract 0.3.14 1.18 "every B18"): the
+    // check-out time the desk declared – `checkoutAt`, or `checkoutTime` converted (readInput requires one; tolerance
+    // and note already checked; the time the late fee is priced on) – is the actual check-out: the reservation, the
+    // registration (→ `stay_ended_at`, BR-604 declaration, penalty evidence) and the profiles' last stay. The
+    // recording time (`ctx.now`) stays for the audit, the transitions, `post_checkout_window_until`, `debt_opened_at`
+    // and the commission anchor (`folio.settled_at`, PR99-01).
+    const departedAt = d.checkout.at;
     await tx.query(
       `UPDATE reservation SET status = 'checked_out', actual_checkout_at = $8, checkout_mode = $3,
               debt_due_date = $4, debt_reason = $5, updated_at = $2, version = version + 1,
