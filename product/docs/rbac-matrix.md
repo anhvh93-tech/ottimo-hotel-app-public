@@ -1,6 +1,6 @@
 # Ma trận phân quyền (RBAC) – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: **0.2.7** (06/11, BA – ghi chú 46: ranh giới quyền theo điều kiện của hợp đồng 0.3.13-draft ở A18, A50; `rbac-matrix.json` 0.2.7). Bản 0.2.6 (03/11, ARC theo giao việc ORC – A100/A112 email nhận thư bảo mật, ghi chú 45, OpenAPI 0.3.10). Bản 0.2.5 (17/10, R2 Sprint 4: S23 hàng chờ hoàn tiền FD/FDL – S4-40, S4-43, ghi chú 41; **S35 + A64–A68** yêu cầu đặt phòng từ website – US-155, ghi chú 42–43; báo chuyển cọc `depositNotices` – ghi chú 44; mục 8 quy tắc 11 người nhận SSE theo vai; mục 5.1 giảm giá đặc biệt theo A36 sau BUG-R2-104). Bản 0.2.2 (R2 Sprint 2: S33 theo vai – ghi chú 33a; 0.2.1 đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: **0.2.8** (06/11, BA – theo hợp đồng 0.3.13-draft mục 1.21–1.24: **S36** xem Wi-Fi cơ sở – ghi chú 47; **A120** thưởng hiệu suất quản lý – ghi chú 48; A07b, A33 bỏ hai operationId không có thật; `rbac-matrix.json` 0.2.8). Bản 0.2.7 (06/11, BA – ghi chú 46: ranh giới quyền theo điều kiện của hợp đồng 0.3.13-draft ở A18, A50; `rbac-matrix.json` 0.2.7). Bản 0.2.6 (03/11, ARC theo giao việc ORC – A100/A112 email nhận thư bảo mật, ghi chú 45, OpenAPI 0.3.10). Bản 0.2.5 (17/10, R2 Sprint 4: S23 hàng chờ hoàn tiền FD/FDL – S4-40, S4-43, ghi chú 41; **S35 + A64–A68** yêu cầu đặt phòng từ website – US-155, ghi chú 42–43; báo chuyển cọc `depositNotices` – ghi chú 44; mục 8 quy tắc 11 người nhận SSE theo vai; mục 5.1 giảm giá đặc biệt theo A36 sau BUG-R2-104). Bản 0.2.2 (R2 Sprint 2: S33 theo vai – ghi chú 33a; 0.2.1 đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
 - Bản máy đọc: `rbac-matrix.json` (vai × hành động × endpoint OpenAPI) – sinh từ tài liệu này; khi lệch, tài liệu này là nguồn sự thật.
 - Nguồn: BL mục 2 và 8.2 #27; `security/data-risk-assessment.md` mục 3 (thang C0–C3), mục 4 (kiểm kê D01–D28), mục 8 (R-REG), mục 11; `business-rules.md` (BR-432, 433, 610…); `PRD.md` mục 4; backlog US-002, 003, 007, 020, 048, 087; decision-log 15/10/2026.
 - Không chép con số nghiệp vụ: hạn mức duyệt, thời hạn lưu… ghi bằng mã BR.
@@ -86,6 +86,7 @@ Mức phân loại dữ liệu theo SEC mục 3: **C0** công khai · **C1** n�
 | S33 | Đối soát chuyển khoản (P11, SM-12) | ✔ | ✔ | M R ³³ᵃ | M R ³³ᵃ | ✖ | ✖ | M R ³³ᵃ | ✖ | ✖ |
 | S34 | Danh sách dự phòng mất mạng (P12) – bản in/bản đọc offline | ✔ | ✔ | ✔ Q | ✔ Q | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S35 | Yêu cầu đặt phòng từ website – hàng chờ "Yêu cầu từ website" (M15, US-155; `specs/EP19-website-requests.md`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ⁴² | ✖ | ✖ |
+| S36 | Xem Wi-Fi cơ sở – tên mạng, mật khẩu để báo khách (V5-58, BR-012 (7); `getPropertyWifi`) | R ⁴⁷ | R ⁴⁷ | R ⁴⁷ | R ⁴⁷ | ✖ | ✖ | ✖ | ✖ | ✖ |
 
 Ghi chú:
 1. FD thấy KPI đêm nay và "Cần chú ý" vận hành; **không** thấy dòng tài chính (doanh thu tháng, ADR, RevPAR, cảnh báo FOC BR-435). Cảnh báo FOC chỉ đến OWN.
@@ -133,7 +134,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A06 | Hủy đơn đã đảm bảo (B10) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ²¹ | ✖ | ✖ | ✔ (OTA R3) | Phần hoàn → A43 |
 | A07 | Đổi căn / đổi ngày (B7) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Lý do bắt buộc |
 | A07a | Gán căn cho đơn xung đột / chưa gán căn (B7a) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Dời khách ra ngoài: MGR+ (`resolveOverbookingExternal`) |
-| A07b | Áp thay đổi OTA cho đơn (B7c) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✔ (R3) | Đơn `in_house` rút ngắn: FD xác nhận |
+| A07b | Áp thay đổi OTA cho đơn (B7c) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✔ (R3) | Đơn `in_house` rút ngắn: FD xác nhận. Đường OTA của hệ thống: `webhookPost`/`webhookGet` (SYS, R3), không gán vào dòng này |
 | A08 | Dời ngày thay vì hủy (B8) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | BR-309 |
 | A09 | Đánh dấu no-show (B11) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Không tự động (BR-311) |
 | A10 | Khôi phục no-show (B12) | ✔ | ✔ | ✔ / D ³⁵ | ✔ / D ³⁵ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | DOM SQ-1 |
@@ -160,7 +161,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A30 | Thêm dòng phát sinh từ danh mục (phụ thu, giặt, phạt BR-511) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✔ | Nhật ký BR-008 |
 | A31 | Sửa giá một dòng / giá đêm ngoài lịch giá | ✔ | ✔ | ✔ | ✔ ²³ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Trong sàn–trần BR-105 |
 | A32 | Điều chỉnh folio đã `settled` (bút toán) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Lý do bắt buộc |
-| A33 | Ghi nhận thu tiền (giao dịch `succeeded`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | ✖ | ✔ | Chuyển khoản ghi tay → `reconciliation = pending` (SM-12) |
+| A33 | Ghi nhận thu tiền (giao dịch `succeeded`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | ✖ | ✔ | Chuyển khoản ghi tay → `reconciliation = pending` (SM-12). Đường cổng thanh toán của hệ thống: `webhookPost`/`webhookGet` (SYS, R3), không gán vào dòng này. Khôi phục giữ chỗ kèm khoản thu (`restoreHold`, SM-01 B19, từ hợp đồng 0.3.14 / v1.0.6): chỉ FD+, SAL, CTV không được |
 | A34 | Đảo giao dịch ghi sai | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
 | A35 | Gửi FOC / giảm giá đặc biệt | ✔ | ✔ | D | D ²⁴ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | SM-10 |
 | A36 | Duyệt FOC / giảm giá đặc biệt | ✔ | ✔ ²⁵ | ✔ ²⁵ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Không duyệt cho chính mình (trừ MGR/OWN) – BR-432 |
@@ -196,6 +197,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A66 | Trả lại hàng chờ (WR2 `release`) | ✔ | ✔ | ✔ | ◐ ⁴³ | ✖ | ✖ | M ⁴³ | ✖ | Người đang giữ; OWN/MGR/FDL với yêu cầu của người khác |
 | A67 | Từ chối yêu cầu website kèm mã lý do (WR3 `decline`) / đánh dấu spam (WR4 `mark-spam`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ⁴² | ✖ | SAL: yêu cầu giao cho mình; lý do `other` → ghi chú bắt buộc; không gửi gì cho khách (nhân viên tự nhắn – EP19 mục 6) |
 | A68 | Mở lại yêu cầu website đã từ chối/spam (WR5 `reopen`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ⁴² | ✖ | Chỉ khi trường C2 chưa xóa và chưa quá hạn tuổi tối đa; giao cho người mở; SAL: yêu cầu mình đã từ chối |
+| A120 | Xem thưởng hiệu suất quản lý theo tháng (`getManagerPerformanceBonus`, tính lúc đọc) | ✔ | M ⁴⁸ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | V5-30, US-089; ghi chú 48 |
 
 ### 4.4 Giấy tờ & khai báo
 | # | Hành động | OWN | MGR | FDL | FD | Khác | Ghi chú |
@@ -274,6 +276,8 @@ Ghi chú hành động:
 46. **Hai ranh giới quyền theo điều kiện (hợp đồng 0.3.13-draft, V5-15, V5-14).** Luật của hợp đồng **0.3.13-draft** (PR #94, chưa gộp; SEC `rounds/round-05/reviews/SEC-on-contract-0.3.13.md` thẻ FB-R5-SEC-ARC-02). Áp dụng khi 0.3.13 gộp và bản có thay đổi này lên. `x-roles` của các lệnh này vẫn có vai bị chặn, nên đây là quyền theo điều kiện: bộ `rbac-cases` tự sinh không phủ; ca deny viết tay (SR-AZ-09 lớp 2) do ARC, QA làm.
     - **46a – A18, trả phòng đơn đã quá ngày đi** (V5-15, BR-421 v0.5.7): lượt có ngày nghiệp vụ hiện tại sau ngày đi (ngoài cửa sổ sau nửa đêm). B18 (`checkOut` kèm `overdueReason`) và mã VietQR `purpose = check_out` (`createVietQr`) của đơn đó: **chỉ OWN, MGR**. FDL, FD → 403 `FORBIDDEN_ACTION` + `access.denied`, kiểm trước mọi kiểm thân lệnh, không ghi gì. `AllowedAction.overdue` chỉ cho OWN, MGR. FD, FDL vẫn làm đường cũ: gia hạn B13 tới ngày khách rời thật, rồi B18 thường.
     - **46b – A50, báo giá kèm giá gõ tay** (V5-14, `QuoteInput.nightlyRates`): **chỉ FD+** (OWN, MGR, FDL, FD), theo A31; chỉ báo giá ngắn ngày, kênh `direct`, `agent` (không `ota`, không Nội bộ – FB-R5-SEC-ARC-01). SAL, CTV gửi `nightlyRates` ở `calculateQuote` hoặc `saveQuote` → 403 `FORBIDDEN_ACTION` + `access.denied`, kiểm **trước** mọi kiểm giá; thân lỗi không có `min`, `max`, `dates` (không lộ sàn–trần BR-105). Báo giá không có `nightlyRates`: SAL, CTV làm như dòng A50. Vai ghép có FD (ví dụ FD ∪ SAL): theo mục 1 ý 2 (hợp quyền), được gửi; ARC ghi rõ trong hợp đồng. `createHoldFromQuote` kèm trường giá → 422 `NOT_ALLOWED` với mọi vai. R3: `createReservationGroup` (SAL, CTV gọi được) áp cùng luật.
+47. **S36 – xem Wi-Fi cơ sở** (V5-58, BUG-R3-021; hợp đồng 0.3.13-draft mục 1.23; DOM `rules-v1.0.5.md` 7.5; SEC ARC-10 không phản đối, mức C1). OWN, MGR, FDL, FD **chỉ xem** tên mạng và mật khẩu Wi-Fi của cơ sở để báo khách tại quầy (`getPropertyWifi`, `Cache-Control: no-store`). HK, MT, SAL, CTV ✖. Sửa: OWN, MGR (A101, `setPropertyWifi`; PUT không trả mật khẩu, audit không có mật khẩu). Khách xem ở trang khách (GST1, mục 1 ý 5). S24 (màn Tham số) không đổi: FD vẫn không xem màn Tham số. Áp khi 0.3.13 gộp: ARC đổi `x-rbac` của `getPropertyWifi` từ S24 sang S36 và thêm `front_desk` vào `x-roles`; tới đó FD → 403 (ca T58-4).
+48. **A120 – thưởng hiệu suất quản lý** (V5-30, hợp đồng 0.3.13-draft mục 1.22; DOM 4.2, 7.3): OWN xem của mọi quản lý; MGR **chỉ của chính mình** (`x-scope: { manager: own }`), quản lý khác → không thấy. FDL, FD, HK, MT, SAL, CTV ✖. Số tính lúc đọc, không lưu bản ghi; tỷ lệ là tham số mới `manager_performance_bonus_pct`, số do INV quyết (ESC-051). Áp khi PR-M (V5-30) lên; ARC gắn `x-rbac: [A120]`.
 
 ## 5. Phê duyệt và hạn mức
 
@@ -453,3 +457,4 @@ Quyết định BA (cách trình bày đặc tả, thuộc quyền BA): tách **
 | 03/11/2026 | 4 (v1.0.3 – Sản xuất, ARC theo giao việc ORC) | v0.2.6: A100 thêm "đặt email nhận thư bảo mật" (trừ OWN khác, trừ chính mình), A112 thêm "email của mình", ghi chú 45 – OpenAPI 0.3.10 (`setMyEmail`, `updateUser.email`, `User.email` OWN, `Me.email`). `rbac-matrix.json` 0.2.6: A112 `operationIds` + `setMyEmail` | ARC |
 | 06/11/2026 | 5 (Phản hồi & sửa, V5-02 – BUG-R1-023) | Không đổi quyền. `rbac-matrix.json` 0.2.7: ghi chú A22 nói đúng ánh xạ hiện tại (A22 không có operation; `issueGuestLink` → A22a, `issueGuestVerificationCode` → A113); `openapi_check` bỏ ảnh chụp lệch 0.2.1 (3 mục đã khớp) và danh sách operation chưa gán A-xx (cũ), trỏ sang `gen_traceability.py --strict` ở CI (06/11, OpenAPI 0.3.12-draft: 0 operation lệch) | BA |
 | 06/11/2026 | 5 (Phản hồi & sửa – SEC FB-R5-SEC-ARC-02, theo giao việc ORC) | v0.2.7: ghi chú 46 – A18 đơn đã quá ngày đi chỉ OWN, MGR (B18 và VietQR `check_out`, FD, FDL 403); A50 báo giá kèm `nightlyRates` chỉ FD+, kênh `direct`/`agent`, SAL, CTV 403 trước mọi kiểm giá, thân lỗi không lộ sàn–trần. Luật của hợp đồng 0.3.13-draft (PR #94, chưa gộp). Không đổi ô ✔/✖ (quyền theo điều kiện), không đổi `rbac-cases`. `rbac-matrix.json` 0.2.7: thêm `note` cho A18, A50 | BA |
+| 06/11/2026 | 5 (Phản hồi & sửa – theo hợp đồng 0.3.13-draft mục 1.21–1.24, ARC đề nghị; giao việc ORC) | v0.2.8: thêm **S36** "Xem Wi-Fi cơ sở" – OWN, MGR, FDL, FD chỉ xem (ghi chú 47; SEC ARC-10 chờ dòng này). Thêm **A120** `getManagerPerformanceBonus` – OWN, MGR chỉ của mình (ghi chú 48). A07b, A33: bỏ `channelWebhook`, `paymentCallback` khỏi `operationIds` (không có trong OpenAPI; đường hệ thống thật là `webhookPost`/`webhookGet`, SYS) và ghi chú điều đó; A33 thêm câu `restoreHold` chỉ FD+ (SM-01 B19, từ 0.3.14 / v1.0.6). Không đổi ô ✔/✖ của dòng cũ. `rbac-matrix.json` 0.2.8; `state-machines.md` 0.2.8 (B19) | BA |
