@@ -7,7 +7,7 @@
  *   `CALLER_PASSWORD_COMPARE_LIMIT` comparisons per user in a fixed 24 h window. Over the limit the comparison is
  *   SKIPPED (the caller applies its other rules and saves as usual) – no 429, no new code, no change in the answer.
  * - The counter is PostgreSQL `rate_limit_counter` (migration 0086 – no new table or column, no migration) through
- *   its one UPSERT (public-site `bumpRateLimitCounter`), bucket `<bucket>:<user_id>` (Wi-Fi: `wifi_pw_cmp:<user_id>`),
+ *   its one UPSERT (`shared/rate-limit-counter.ts`), bucket `<bucket>:<user_id>` (Wi-Fi: `wifi_pw_cmp:<user_id>`),
  *   `window_start` = start, `expires_at` = end of the window. It is NOT the login lockout (`app_user.failed_*`,
  *   `locked_until`) nor the re-auth counter (SR-RL-02, `approval_pin_*`): a leaked session must not lock the owner
  *   out, and the account is never locked from here.
@@ -25,7 +25,7 @@ import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import { AuditService } from '../../audit/public/audit.service';
-import { bumpRateLimitCounter } from '../../public-site/public/rate-limit-counter';
+import { bumpRateLimitCounter } from '../../../shared/rate-limit-counter';
 import { verifyPassword } from './passwords';
 
 /** The security requirement this limit implements – the one place to change if SEC renumbers it. */

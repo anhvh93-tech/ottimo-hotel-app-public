@@ -1,7 +1,7 @@
 /**
- * V5-58 (BUG-R3-021 Desk part) on the real PostgreSQL through the HTTP surface – OpenAPI 0.3.13 1.13, 1.23 and
- * bổ sung 1e (T58-1…13), SEC `SEC-responses.md` 2.3 (the caller-password comparison limit, rule id
- * `CALLER_PASSWORD_COMPARE_RULE`):
+ * V5-58 (BUG-R3-021 Desk part) on the real PostgreSQL through the HTTP surface – OpenAPI 0.3.13 1.13, 1.23,
+ * bổ sung 1e and 1f (contract doc 1.25, 1.26: T58-1…16), SEC `SEC-responses.md` 2.3 and 3 (the caller-password
+ * comparison limit, rule id `CALLER_PASSWORD_COMPARE_RULE`):
  * - getPropertyWifi: S36 reads (OWN, MGR, FDL, FD), `configured = false` before any value, `no-store`;
  * - setPropertyWifi: OWN/MGR; trims `ssid`, 1–32 bytes, no room number as a word, no staff login name; password
  *   empty or 8–63 printable ASCII and never the caller's own login password; 422 without any value, nothing written,
@@ -40,8 +40,10 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
   let fa: FeatureApp;
   let t: TestTenant;
   let guestSid: string;
+  let lockBefore: Record<string, unknown>[];
   const lines: string[] = [];
   const bodies: string[] = [];
+  const putBodies: string[] = [];
   const sink = new Writable({
     write(chunk, _enc, cb) {
       lines.push(String(chunk));
@@ -57,6 +59,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
       properties: 2,
       users: {
         own: ['owner'],
+        own2: ['owner'],
         mgr: ['manager'],
         fdl: ['front_desk_lead'],
         fd: ['front_desk'],
@@ -64,8 +67,16 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
         gone: ['front_desk'],
       },
     });
-    await setPassword(db, t, 'own');
-    await setPassword(db, t, 'mgr');
+    for (const u of ['own', 'own2', 'mgr']) await setPassword(db, t, u);
+    lockBefore = await lockout(['own', 'own2', 'mgr']);
+    for (const r of lockBefore) {
+      expect(r).toMatchObject({
+        status: 'active',
+        failed_login_count: 0,
+        locked_until: null,
+        approval_pin_failed_count: 0,
+      });
+    }
     const ids = await seedBooking(db, t);
     await db.withContext(t.ctx(), async (tx) => {
       await tx.query(`UPDATE app_user SET status = 'disabled' WHERE id = $1`, [t.users.gone!.id]);
@@ -106,8 +117,30 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
   const put = async (who: string, body: unknown) => {
     const r = await Client.of(fa, t, who).send('PUT', `${P(t)}/wifi`, body);
     bodies.push(r.body);
+    putBodies.push(r.body);
     return r;
   };
+  /** SR-AUTH-04 `login_lockout` state + the re-auth counter (SR-RL-02) of these people. */
+  async function lockout(who: string[]) {
+    return (
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query(
+          `SELECT username, status, failed_login_count, locked_until, lock_count_24h,
+                  approval_pin_failed_count, approval_pin_locked_until
+             FROM app_user WHERE id = ANY($1::uuid[]) ORDER BY username`,
+          [who.map((u) => t.users[u]!.id)],
+        ),
+      )
+    ).rows;
+  }
+  const lockoutBefore = (who: string[]) =>
+    lockBefore.filter((r) => who.some((u) => t.users[u]!.username === r.username));
+  const login = (who: string) =>
+    fa.app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { username: t.users[who]!.username, password: TEST_PASSWORD },
+    });
   const stored = async (i = 0) =>
     (
       await q<{ wifi_info_i18n: unknown }>('SELECT wifi_info_i18n FROM property WHERE id = $1', [
@@ -236,14 +269,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     expect(await count('own')).toBe(before);
   });
 
-  it(`T58-9 + T58-12 (${CALLER_PASSWORD_COMPARE_RULE}): staff login name (any case, disabled too), caller login password, both – 422, counted, kept after rollback`, async () => {
-    const lockout = () =>
-      q(
-        `SELECT status, failed_login_count, locked_until, lock_count_24h, approval_pin_failed_count,
-                approval_pin_locked_until FROM app_user WHERE id = $1`,
-        [t.users.own!.id],
-      );
-    const lockBefore = await lockout();
+  it(`T58-9 + SEC ARC-22 (${CALLER_PASSWORD_COMPARE_RULE}): staff login name (any case, disabled too), caller login password, both – 422, nothing written, only the counter and the security audit kept`, async () => {
     const configAudits = (await audits('property.wifi_changed')).length;
     expect(await count('own')).toBe(1);
 
@@ -284,13 +310,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     // Nothing written, no config audit; the login lockout and the re-auth counter never moved.
     expect(await stored()).toEqual({ ssid: 'OTTIMO401', password: WIFI });
     expect(await audits('property.wifi_changed')).toHaveLength(configAudits);
-    expect(await lockout()).toEqual(lockBefore);
-    expect(lockBefore[0]).toMatchObject({
-      status: 'active',
-      failed_login_count: 0,
-      locked_until: null,
-      approval_pin_failed_count: 0,
-    });
+    expect(await lockout(['own'])).toEqual(await lockoutBefore(['own']));
     // MGR's login password is MGR's business: OWN typing it is not compared with anything but OWN's hash.
     const ok = await put('own', { ssid: 'OTTIMO BOUTIQUE STAY', password: WIFI });
     expect(ok.statusCode, ok.body).toBe(200);
@@ -319,26 +339,72 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     expect(last?.after).toEqual({ ssid: 'OTTIMO BOUTIQUE STAY', passwordChanged: false });
   });
 
-  it(`T58-11 (${CALLER_PASSWORD_COMPARE_RULE}): 5 comparisons per user and window – the 6th is skipped and saved, one audit, kept across a restart`, async () => {
+  it(`T58-12 (${CALLER_PASSWORD_COMPARE_RULE}): the caller's login password, first comparison of the window – 422 NOT_ALLOWED, counter = 1 and the audit kept after the rollback`, async () => {
+    const storedBefore = await stored();
+    const configAudits = (await audits('property.wifi_changed')).length;
+    expect(await count('own2')).toBe(0);
+    const r = await put('own2', { ssid: 'OTTIMO BOUTIQUE STAY', password: TEST_PASSWORD });
+    expect422(r, [{ field: 'password', code: 'NOT_ALLOWED' }]);
+    expect(r.body).not.toContain(TEST_PASSWORD);
+    expect(await count('own2')).toBe(1);
+    expect(await audits('property.wifi_password_matches_login', 'own2')).toEqual([
+      {
+        category: 'security',
+        entity_type: 'property',
+        entity_id: t.propertyIds[0],
+        before: null,
+        after: { rule: CALLER_PASSWORD_COMPARE_RULE },
+      },
+    ]);
+    // the request itself was rolled back: property and config audit unchanged (SEC ARC-22)
+    expect(await stored()).toEqual(storedBefore);
+    expect(await audits('property.wifi_changed')).toHaveLength(configAudits);
+  });
+
+  it(`T58-14 (${CALLER_PASSWORD_COMPARE_RULE}): counted 3 times, api restarted, one more PUT → 4 – the \`wifi_pw_cmp:<user_id>\` row survives`, async () => {
+    for (const i of [1, 2]) {
+      const r = await put('own2', {
+        ssid: 'OTTIMO BOUTIQUE STAY',
+        password: `<wifi-password-own2-${i}>`,
+      });
+      expect(r.statusCode, r.body).toBe(200);
+    }
+    expect(await count('own2')).toBe(3);
+    await fa.close();
+    fa = await start();
+    const r = await put('own2', {
+      ssid: 'OTTIMO BOUTIQUE STAY',
+      password: '<wifi-password-own2-3>',
+    });
+    expect(r.statusCode, r.body).toBe(200);
+    const rows = await q<{ bucket_key: string; count: number }>(
+      `SELECT bucket_key, count FROM rate_limit_counter WHERE bucket_key = $1`,
+      [`wifi_pw_cmp:${t.users.own2!.id}`],
+    );
+    expect(rows).toEqual([{ bucket_key: `wifi_pw_cmp:${t.users.own2!.id}`, count: 4 }]);
+  });
+
+  it(`T58-11 (${CALLER_PASSWORD_COMPARE_RULE}): 6 PUTs with other passwords in 24 h – 5 compared, the 6th skipped and saved (200), one audit; kept across a restart`, async () => {
     expect(CALLER_PASSWORD_COMPARE_LIMIT).toBe(5);
     const own = await count('own');
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
       const r = await put('mgr', {
         ssid: 'OTTIMO BOUTIQUE STAY',
         password: `<wifi-password-${i}>`,
       });
       expect(r.statusCode, r.body).toBe(200);
+      expect(r.json()).toEqual({
+        configured: true,
+        ssid: 'OTTIMO BOUTIQUE STAY',
+        passwordSet: true,
+      });
       expect(await count('mgr')).toBe(i);
+      // the security audit is written once, by the 6th (the first over the limit)
+      expect(await audits('property.wifi_password_check_skipped', 'mgr')).toHaveLength(
+        i === 6 ? 1 : 0,
+      );
     }
-    // 6th: MGR's OWN login password – not compared any more, the same 200 as usual, saved.
-    const sixth = await put('mgr', { ssid: 'OTTIMO BOUTIQUE STAY', password: TEST_PASSWORD });
-    expect(sixth.statusCode, sixth.body).toBe(200);
-    expect(sixth.json()).toEqual({
-      configured: true,
-      ssid: 'OTTIMO BOUTIQUE STAY',
-      passwordSet: true,
-    });
-    expect(await count('mgr')).toBe(6);
+    expect(await stored()).toEqual({ ssid: 'OTTIMO BOUTIQUE STAY', password: '<wifi-password-6>' });
     expect(await audits('property.wifi_password_matches_login', 'mgr')).toEqual([]);
     const skipped = await audits('property.wifi_password_check_skipped', 'mgr');
     expect(skipped).toEqual([
@@ -351,18 +417,21 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
       },
     ]);
     // 7th: still skipped, no second audit in the window.
-    expect(
-      (await put('mgr', { ssid: 'OTTIMO BOUTIQUE STAY', password: '<wifi-password-7>' }))
-        .statusCode,
-    ).toBe(200);
+    const seventh = await put('mgr', {
+      ssid: 'OTTIMO BOUTIQUE STAY',
+      password: '<wifi-password-7>',
+    });
+    expect(seventh.statusCode, seventh.body).toBe(200);
+    expect(await count('mgr')).toBe(7);
     expect(await audits('property.wifi_password_check_skipped', 'mgr')).toHaveLength(1);
 
-    // The counter is in PostgreSQL: a restarted api still skips.
+    // The counter is in PostgreSQL: a restarted api still skips – even MGR's OWN login password is saved (200).
     await fa.close();
     fa = await start();
     const after = await put('mgr', { ssid: 'OTTIMO BOUTIQUE STAY', password: TEST_PASSWORD });
     expect(after.statusCode, after.body).toBe(200);
     expect(await count('mgr')).toBe(8);
+    expect(await audits('property.wifi_password_matches_login', 'mgr')).toEqual([]);
     expect(await audits('property.wifi_password_check_skipped', 'mgr')).toHaveLength(1);
     // Per user: OWN's counter did not move.
     expect(await count('own')).toBe(own);
@@ -385,12 +454,21 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     expect(windows.map((w) => w.count)).toEqual([8, 2]);
   });
 
-  it('T58-5: no Wi-Fi or login password in audit rows, the request log, or any problem body', async () => {
+  it(`T58-15 (${CALLER_PASSWORD_COMPARE_RULE}): after T58-11 and T58-12 the callers' login_lockout is unchanged and they still log in`, async () => {
+    expect(await lockout(['own', 'own2', 'mgr'])).toEqual(lockBefore);
+    for (const who of ['mgr', 'own2', 'own']) {
+      const r = await login(who);
+      expect(r.statusCode, `${who} ${r.body}`).toBe(200);
+    }
+  });
+
+  it('T58-5 + T58-16: no Wi-Fi or login password in audit rows, the request log, any PUT answer or problem body', async () => {
     const secrets = [
       WIFI,
       OTHER_SITE,
       TEST_PASSWORD,
       ...Array.from({ length: 7 }, (_, i) => `<wifi-password-${i + 1}>`),
+      ...Array.from({ length: 3 }, (_, i) => `<wifi-password-own2-${i + 1}>`),
     ];
     const rows = await q<{ row: unknown }>(
       `SELECT row_to_json(a) AS row FROM audit_event a WHERE organization_id = $1`,
@@ -407,5 +485,13 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     const problems = bodies.filter((b) => b.includes('"code"'));
     expect(problems.length).toBeGreaterThan(10);
     for (const b of problems) for (const s of secrets) expect(b).not.toContain(s);
+    // T58-16 / T58-6: a PUT answer never carries a password, whatever happened
+    expect(putBodies.length).toBeGreaterThan(20);
+    for (const b of putBodies) {
+      const body = JSON.parse(b) as Record<string, unknown>;
+      if (!('code' in body))
+        expect(Object.keys(body).sort()).toEqual(['configured', 'passwordSet', 'ssid']);
+      for (const s of secrets) expect(b).not.toContain(s);
+    }
   });
 });

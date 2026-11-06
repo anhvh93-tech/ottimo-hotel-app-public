@@ -3,7 +3,9 @@
  * comparison limit (`CALLER_PASSWORD_COMPARE_RULE`). The HTTP + PostgreSQL cases are in
  * test/integration/v5-58-property-wifi.test.ts. Placeholder values only (`<wifi-password>`).
  */
-import { describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CALLER_PASSWORD_COMPARE_LIMIT,
   CALLER_PASSWORD_COMPARE_RULE,
@@ -22,6 +24,7 @@ import {
   wifiView,
 } from '../src/modules/platform/internal/property-wifi';
 import { wifiOf } from '../src/modules/platform/public/property-wifi';
+import { bumpRateLimitCounter } from '../src/shared/rate-limit-counter';
 
 describe('V5-58 ssid shape (SEC ARC-05: 1–32 bytes UTF-8, no control character)', () => {
   it('counts bytes, not characters', () => {
@@ -140,5 +143,44 @@ describe(`caller-password comparison limit ${CALLER_PASSWORD_COMPARE_RULE} (rule
     expect(callerPasswordWindowStart(new Date('2026-10-16T00:00:00Z')).toISOString()).toBe(
       '2026-10-16T00:00:00.000Z',
     );
+  });
+});
+
+describe('rate_limit_counter UPSERT – one shared function (ARC contract 0.3.13 1.26, SEC 3.1)', () => {
+  const SRC = join(__dirname, '../src');
+  const files = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory()
+        ? e.name === 'migrations'
+          ? []
+          : files(join(dir, e.name))
+        : e.name.endsWith('.ts')
+          ? [join(dir, e.name)]
+          : [],
+    );
+  it('the SQL lives in shared/rate-limit-counter.ts only; public-site and identity import it', () => {
+    const writers = files(SRC).filter((f) =>
+      /INSERT\s+INTO\s+rate_limit_counter/i.test(readFileSync(f, 'utf8')),
+    );
+    expect(writers.map((f) => relative(SRC, f))).toEqual(['shared/rate-limit-counter.ts']);
+    for (const f of [
+      'modules/public-site/internal/public-booking.service.ts',
+      'modules/identity/public/caller-password-match.ts',
+    ]) {
+      expect(readFileSync(join(SRC, f), 'utf8'), f).toMatch(
+        /import \{ bumpRateLimitCounter \} from '\.\.\/\.\.\/\.\.\/shared\/rate-limit-counter';/,
+      );
+    }
+  });
+  it('runs on the client it is given; window end = start + window', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ count: 3 }] });
+    const start = new Date('2026-10-15T00:00:00Z');
+    expect(await bumpRateLimitCounter({ query }, 'wifi_pw_cmp:u1', start, 86_400_000)).toBe(3);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0]![1]).toEqual([
+      'wifi_pw_cmp:u1',
+      start,
+      new Date('2026-10-16T00:00:00Z'),
+    ]);
   });
 });

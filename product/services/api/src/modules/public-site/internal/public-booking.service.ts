@@ -63,7 +63,7 @@ import {
   subSourceOf,
 } from './website-request-rules';
 import { WebsiteRequestsService } from './website-requests.service';
-import { bumpRateLimitCounter } from '../public/rate-limit-counter';
+import { bumpRateLimitCounter } from '../../../shared/rate-limit-counter';
 
 /** SR-RL-11 DB limits (security constants – SEC section 5). */
 export const PUBLIC_LIMITS = {
