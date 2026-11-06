@@ -1,7 +1,7 @@
 # Luật nghiệp vụ cho v1.0.5 – V5-1A, V5-11, V5-16, V5-30, V5-31, V5-25 (`min_stay`); trả lời ARC, UXD, CPY
 
 - Tác giả: DOM | Round 5 – v1.0.5 | Bước: Sản xuất (Gói 0) | Ngày: 06/11/2026
-- Sửa: DOM | Bước: Phản hồi & sửa | 06/11/2026 khuya – theo QA `rounds/round-05/qa/bug-list.md` (BUG-R5-002, BUG-R5-003, commit `233b9b5d`): mục 11.2 bỏ câu "J1 đứng thì Xác nhận đã nhận cọc", thêm chữ thay cho Tờ 2a dòng 86; mục 11.3 tách "dòng tay" với "khoản thu"; mục 11.4 viết lại theo V5-5B (dùng lại `recordPayment`); **mục 12 mới**: luật kiểm khi lưu `min_stay` cho V5-25. Bổ sung 06/11 (thẻ SEC `FB-R5-SEC-DOM-B002-04`): mục 11.4 – 2(c) ảnh thông báo tiền vào tài khoản OTTIMO, 3 hoàn về đúng tài khoản đã chuyển, 3a mã giao dịch và S4, 3b lỡ ghi hai lần. Bổ sung 06/11 (ARC hợp đồng 0.3.13, PR #94): mục 1.2 ý 6 biên trên cảnh báo giá đêm ÷ 5 (G9); mục 2.1 ý 3 không có nút Trả sớm trong W cho lượt đi hôm nay; mục 7.1 ngày nghiệp vụ lúc bấm và ngày đi hiệu lực của lượt gia hạn.
+- Sửa: DOM | Bước: Phản hồi & sửa | 06/11/2026 khuya – theo QA `rounds/round-05/qa/bug-list.md` (BUG-R5-002, BUG-R5-003, commit `233b9b5d`): mục 11.2 bỏ câu "J1 đứng thì Xác nhận đã nhận cọc", thêm chữ thay cho Tờ 2a dòng 86; mục 11.3 tách "dòng tay" với "khoản thu"; mục 11.4 viết lại theo V5-5B (dùng lại `recordPayment`); **mục 12 mới**: luật kiểm khi lưu `min_stay` cho V5-25. Bổ sung 06/11 (thẻ SEC `FB-R5-SEC-DOM-B002-04`): mục 11.4 – 2(c) ảnh thông báo tiền vào tài khoản OTTIMO, 3 hoàn về đúng tài khoản đã chuyển, 3a mã giao dịch và S4, 3b lỡ ghi hai lần. Bổ sung 06/11 (ARC hợp đồng 0.3.13, PR #94): mục 1.2 ý 6 biên trên cảnh báo giá đêm ÷ 5 (G9); mục 2.1 ý 3 không có nút Trả sớm trong W cho lượt đi hôm nay; mục 7.1 ngày nghiệp vụ lúc bấm và ngày đi hiệu lực của lượt gia hạn. Review PR #96 (06/11): **mục 13 mới** – biên khi lưu 11 khóa có cấu trúc khác và `damage_catalog`, giá trị hỏng trong DB bỏ qua hay chặn, `short_stay_max_nights` 27 hay 29; mục 3.4, 3.6 xác nhận cách Desk của UXD 9.5 cho V5-16.
 - Người đọc: ARC (hợp đồng 0.3.13), BE, FE-A, BA, QA, SEC, DATA.
 - Nguồn sự thật: `product/docs/business-rules.md` **v0.5.13** (BR-010, BR-101, BR-204, BR-212, BR-303, BR-309, BR-311, BR-428, BR-438 mới, BR-506, BR-903, mục 13); `product/docs/tham-so-quy-tac.md` bản 1.3; oracle `product/tests/fixtures/br-examples.json`. Tệp này giải thích và gom ca kiểm, không thay BR.
 - **Không có tỷ lệ, số tiền hoa hồng hay thưởng, hay ranh giới khoảng kỳ hạn của bảng nội bộ** trong tệp này. Ca kiểm hoa hồng dùng tham số thử `test_rate_*` (SEC G3).
@@ -22,6 +22,7 @@
 | CPY thẻ 04 | Nhãn `late_fee_after_limit` khi số tiền khác `limit_ref_vnd` (mục 10) | Không |
 | Tiền về mà giữ chỗ đã tự hủy | Kiểm tiền theo mã đơn trước khi hủy hoặc báo khách; đặt lại nếu còn căn, không thì chủ đầu tư hoàn đủ; lỗi phần mềm cho QA, việc BE (mục 11). **Sửa 06/11 khuya:** giữ chỗ quá hạn mà Desk chưa tự hủy thì chỉ còn Hủy giữ chỗ, không mở nút xác nhận cọc; V5-5B dùng lại `recordPayment` cho mọi đơn đã đóng, chỉ chuyển khoản/VietQR, ảnh bắt buộc | Không (NGÀNH) |
 | V5-25 `min_stay` (BUG-R5-003) | Chỉ nhận danh sách luật; mỗi luật: `nights` nguyên 1–7 và ≤ `short_stay_max_nights`, `channels` = `"all"` hoặc tập con của `direct`, `agent`, `ota`, áp vào ít nhất một ngày; `[]` = không có ở tối thiểu, cho lưu; giá trị production hiện tại hợp lệ (mục 12) | Không (NGÀNH; mức 2 đêm vẫn là INV-004) |
+| V5-25 khóa khác, `damage_catalog` (PR #96) | Chốt biên của BE, sửa 3 chỗ: phần trăm tối đa 2 chữ số thập phân; `max_open_holds_per_user` đủ hai vai; `cancel_policy_direct` không rỗng. `damage_catalog`: ≤ 100 món, giá 1.000–20.000.000. Hỏng trong DB: bỏ qua ở bán, Hôm nay, bảng đền bù; chặn rõ ở tính hoàn, phụ thu, giới hạn giữ chỗ. `short_stay_max_nights` đúng là 29 (mục 13) | Không (NGÀNH) |
 
 ### Việc chủ đầu tư nhập trên Desk sau khi v1.0.5 lên (đội không đổi tham số trên production)
 
@@ -175,7 +176,7 @@ Gọi **W** là khoảng 00:00–05:59 ngày lịch D+1, khi ngày nghiệp vụ
 
 - ARC: mã từ chối và gợi ý trong hợp đồng 0.3.13 (`adjust`); trường "người ghi dòng gốc", "ngày nghiệp vụ ghi dòng gốc" (lưu trên dòng thay thế hoặc lần theo `relatedLineId`); mục mới trong dữ liệu đóng ca; truy vấn bộ lọc 7 ngày; mã lý do "Ghi nhầm" (NÊN).
 - BE: `folio-lines.service.ts` `adjust` – nhánh FD/FDL; đếm cho cảnh báo BR-435.
-- FE-A: nút Sửa trên dòng ngoài phạm vi (1) đổi thành "Gửi miễn có duyệt"; hiện chỉ dẫn khi máy chủ từ chối; đóng ca và bộ lọc.
+- FE-A: theo UXD copy 1.5 mục 9.5 (DOM xác nhận ở 3.6): hộp Điều chỉnh giữ lối sửa, có câu phụ báo luật; máy chủ từ chối thì hiện chỉ dẫn và nút "Gửi miễn có duyệt" (form miễn phí điền sẵn); đóng ca và bộ lọc. Gợi ý cũ "đổi nút Sửa trên dòng ngoài phạm vi" bỏ, vì Desk chưa biết trước dòng nào ngoài phạm vi.
 - BA: cập nhật `rbac-matrix.md` A30/A31 (chú thích mới: sửa giảm theo BR-438), sổ tay mục sửa dòng.
 - SEC: duyệt (plan mục SEC).
 
@@ -193,6 +194,15 @@ Gọi **W** là khoảng 00:00–05:59 ngày lịch D+1, khi ngày nghiệp vụ
 | T-16-8 | FD tăng số lượng dòng người khác | Được (không thuộc BR-438) | – |
 | T-16-9 | Folio `settled`, FD sửa dòng mình vừa ghi | Chặn như hiện nay (A32) | – |
 | T-16-10 | Bộ lọc "Sửa giảm dòng – 7 ngày": quản lý thấy, FD không thấy | Đúng vai | – |
+| T-16-11 | FD bấm Điều chỉnh giảm dòng FD khác ghi → 403 → bấm Gửi miễn có duyệt | Form miễn phí mở cho đúng dòng, Số tiền = số cũ − số mới; folio không đổi tới khi FOC được áp | – |
+
+### 3.6 Cách Desk báo luật – xác nhận UXD copy 1.5 mục 9.5 (06/11)
+
+**Có, đủ cho v1.0.5.** Chốt kiểm soát nằm ở máy chủ (403 `requiredFlow = foc_request`, folio không đổi), nên Desk không cần biết trước. Lễ tân tốn thêm một lần bấm ở ca hiếm (sửa giảm dòng không phải của mình hôm nay), và form miễn phí điền sẵn số nên không gõ lại.
+
+Điều kiện: 403 không ghi gì nửa chừng; form điền sẵn không quá `foc.max`; câu chỉ dẫn không lộ mã kỹ thuật (UXD đã ghi).
+
+Desk biết trước (ẩn hay đổi nút trên đúng dòng) là việc cho **hợp đồng 0.3.14**, mức nên có (B-QUAY): `FolioLine` thêm nguồn nhập tay, ngày nghiệp vụ ghi và dòng gốc, hoặc một cờ `allowedActions` cho sửa giảm. Không chặn v1.0.5.
 
 ---
 
@@ -730,7 +740,7 @@ Thứ tự khóa trong đối tượng, thứ tự luật trong mảng không qu
   - 0, số âm, số lẻ (2,5), chữ `"2"` → 422. QA thấy `[{"nights":0}]` lọt ở v1.0.4.
   - **1 cho lưu:** luật 1 đêm nghĩa là những ngày đó không có tối thiểu. Vô hại, đúng ý người gõ.
   - **Trần 7:** ở tối thiểu trên 7 đêm không phải cách bán ngắn ngày của cơ sở 10 căn. Cao điểm như Tết thường đặt 2–3 đêm. Muốn trên 7 thì báo đội đổi hằng số.
-  - **Trần `short_stay_max_nights`:** tối thiểu lớn hơn đơn ngắn ngày dài nhất thì ngày đến đó không bán ngắn ngày được nữa. Production đang 29 (BR-112), nên trần thực tế là 7.
+  - **Trần `short_stay_max_nights`:** tối thiểu lớn hơn đơn ngắn ngày dài nhất thì ngày đến đó không bán ngắn ngày được nữa. Đích là 29 (BR-112, bảng giá 01/11); production còn thấp hơn 29 tới khi chủ đầu tư làm B5 (mục 13.3). Cả hai trường hợp, trần thực tế là 7.
   - **Chiều ngược:** lưu `short_stay_max_nights` nhỏ hơn `nights` lớn nhất trong `min_stay` đang hiệu lực → 422, `min` = số đó. Làm như các cặp giờ (`TIME_ORDER`).
   - Đơn từ `long_stay_required_from_nights` đêm (thuê tháng) luôn đủ đêm nên không vướng.
 - **`channels`:**
@@ -804,3 +814,106 @@ Ca (a)–(f) QA đề xuất ở BUG-R5-003 vẫn giữ. Ca (a) thêm: phần t�
 - **UXD:** câu lỗi Desk khi 422 không có `allowed` (lỗi dạng, khóa lạ, luật không áp ngày nào): đề xuất "Giá trị chưa đúng dạng danh sách luật. Xem từ điển tham số, mục Ở tối thiểu." Không chặn V5-25.
 - **QA:** chạy ca 12.6 và ca (a)–(f) của BUG-R5-003 khi V5-25 lên staging.
 - **DOM/BA:** khi V5-25 lên production, gỡ cảnh báo ở từ điển (`min_stay`, `weekend_nights`, mục "Sắp có ở v1.0.5") và ở sổ tay.
+
+---
+
+## 13. V5-25 mở rộng – biên khi lưu các khóa có cấu trúc khác (PR #96) và `damage_catalog`
+
+Nguồn: PR #96 (nhánh `r5-v5-25`, `parameter-shapes.ts`; mô tả mục 2, 5, 6); ORC 06/11 kéo `damage_catalog` (BR-512) vào V5-25, BE-C mở PR xếp chồng. Biên ở đây là biên kỹ thuật để bắt lỗi gõ, không phải số chính sách. Không đổi giá trị nào đang chạy.
+
+### 13.1 Biên khi lưu – DOM chốt
+
+| Khóa | Biên PR #96 | DOM | Giá trị đang dùng |
+|---|---|---|---|
+| `special_dates` | ≤ 100 khoảng; mỗi khoảng 1–31 đêm, ngày có thật, `to` sau `from`; `name` ≤ 100 ký tự | **Chốt.** `to` là ngày sau đêm cuối (nửa mở, như từ điển). Mùa dài hơn 31 đêm thì chia nhiều khoảng. Khoảng chồng nhau vẫn nhận | 6 khoảng, dài nhất 9 đêm → qua |
+| Danh sách bậc (`los_discount`, `cancel_policy_direct`, `early_checkin_tiers`, `late_checkout_tiers`) | ≤ 10 phần tử | **Chốt, thêm một điều:** `cancel_policy_direct` **không rỗng** (`[]` → 422 `REQUIRED`). Bộ tính hiểu `[]` là không hoàn mọi trường hợp, nên lỡ xóa trắng ô là đổi chính sách lặng lẽ. Muốn không hoàn hẳn: `[{"minDays":0,"refundPct":0}]` | qua; `los_discount` `[]` (hướng dẫn B3) vẫn nhận |
+| `los_discount.minNights` | 1–89, không trùng | **Chốt.** 89 là trần của `short_stay_max_nights`; bậc lớn hơn đơn ngắn ngày dài nhất chỉ không bao giờ áp | qua |
+| Mọi phần trăm | 0–100, nhận số lẻ | **Sửa:** tối đa **2 chữ số thập phân**, chữ số thứ ba → 422. Bộ tính đổi ra phần vạn (`pctToBp` làm tròn), nên 12,345 bị tính thành 12,35 mà không ai biết | số nguyên → qua |
+| `cancel_policy_direct.minDays`, `early_departure_refund.minNoticeDays` | 0–365 | **Chốt** | qua |
+| `checkout_reminders.before` | ≤ 6 mốc | **Chốt** | 3 mốc → qua |
+| `max_open_holds_per_user` | 0–50 mỗi vai; thiếu vai thì bỏ qua | **Sửa:** **bắt buộc đủ hai vai** `collaborator`, `sales_staff` (thiếu → 422 `REQUIRED` ở `value.<vai>`). Bộ tính hiểu vai thiếu là không giới hạn (`reservations.service.ts` `assertOpenHoldLimit`), tức mất chốt SEC-BE-28 lặng lẽ. 0 = vai đó không được giữ chỗ: nhận | đủ hai vai → qua |
+| `lease_terms` | 1–12 kỳ; `months` 1–60, không trùng; `discountPct` 0–100 | **Chốt** cho v1.0.5. H7 (đổi cấu trúc theo ESC-045 câu 2) xét lại số kỳ | 5 kỳ → qua |
+| `weekend_uplift_channels`, `special_uplift_channels` | một trong `all`, `direct`, `agent`, `ota` | **Chốt.** Một mức giá mọi kênh (BR-103), mức tăng đang 0 (ESC-045 câu 1). Cần "mọi kênh trừ OTA" thì đổi kiểu khóa sau | `all` → qua |
+
+**Có biên nào chặn giá trị đang dùng không: không.** Đối chiếu với `production-defaults.ts`, DS-E, đối chiếu chỉ đọc 06/11 (từ điển, mục "Tham số trên production lệch sổ tay": các khóa lệch vẫn mang giá trị cũ, đúng dạng) và hướng dẫn chuyển giá 01/11 (B3 `los_discount` `[]`, B5 `short_stay_max_nights` 29, B7 `early_checkin_tiers` bậc mới). Ba chỗ DOM sửa cũng không chặn: giá trị đang chạy là số nguyên, có đủ hai vai, chính sách hủy có ba bậc.
+
+**Chốt cuối là câu SQL chỉ đọc của PR:** ORC chạy trên production trước khi lên v1.0.5. Dòng `ok = false` thì chủ đầu tư sửa trên Desk trước khi lên. BE cập nhật câu SQL theo ba chỗ sửa và thêm hai dòng chỉ in số ở 13.2.
+
+### 13.2 Giá trị hỏng đã nằm trong DB – bỏ qua hay chặn
+
+Nguyên tắc (mở rộng 12.3): (1) không bao giờ 500; (2) không tính sai tiền mà không ai biết; (3) không dừng bán, không giữ khách ở quầy vì một tham số phụ khi đã có đường làm tay.
+
+| Khóa | Đường đọc | Khi hỏng | Lý do |
+|---|---|---|---|
+| `min_stay` | bán | bỏ luật hỏng (12.3, đã có trong PR) | – |
+| `weekend_nights` | bán | **bỏ qua**: coi như không có đêm cuối tuần | Mức tăng đang 0. Dừng bán thiệt hơn |
+| `special_dates` | bán, ở tối thiểu, không hoàn ngày cao điểm | **bỏ khoảng hỏng**, giữ khoảng đúng | Bỏ một khoảng chỉ làm luật dễ hơn cho khách |
+| `*_uplift_channels` | bán | **bỏ qua**: không áp mức tăng | Như trên |
+| `los_discount` | bán | **bỏ bậc hỏng**, giữ bậc đúng | Báo giá hiện dòng giảm nên người bán thấy. Đang `[]` |
+| `lease_terms` | khối "So sánh: thuê 1 tháng" | **bỏ qua**: không hiện khối, báo giá ngắn ngày vẫn ra | Khối chỉ là thông tin phụ |
+| `checkout_reminders` | Hôm nay, trạng thái khách đi | **bỏ qua**: không nhắc, màn vẫn mở | Không phải tiền. Màn Hôm nay không được lỗi |
+| `damage_catalog` | bill, ghi phí hư hỏng | **bỏ dòng hỏng** khỏi danh sách chọn. Cả bảng hỏng: không có bảng, lễ tân dùng "món ngoài bảng" (quản lý định giá, có ảnh – BR-512) | Có sẵn đường làm tay. Không giữ khách lúc trả phòng |
+| `max_open_holds_per_user` | giữ chỗ của SAL, CTV | **chặn** giữ chỗ mới của SAL, CTV, lỗi rõ. FD+ không ảnh hưởng | Chốt của SEC. Bỏ qua tức là không giới hạn |
+| `cancel_policy_direct` | tạo đơn trực tiếp (chép vào `pricing_snapshot`), hủy | **chặn** tạo đơn trực tiếp, lỗi rõ. Không đoán tỷ lệ hoàn. Hủy: bản chép trong đơn hỏng thì dùng chính sách đang hiệu lực, như mã đang làm khi đơn không có bản chép; cả hai hỏng thì chặn | Không nhận đơn khi chưa có chính sách hủy đúng. Hoàn sai là tiền thật |
+| `early_departure_refund` | Trả sớm | **chặn** Trả sớm, lỗi rõ (như `PAYMENT_NOT_CONFIGURED` đang có khi giá trị null) | Như trên |
+| `early_checkin_tiers`, `late_checkout_tiers` | nhận phòng, trả phòng | **chặn chỉ khi cần bảng**: nhận trước giờ nhận chuẩn (`checkin_time`), trả sau giờ ân hạn (`late_grace_until`). Đúng giờ thì làm như thường | Không đoán phụ thu. Khách đúng giờ không phải chờ |
+
+- **Lỗi rõ** = mã lỗi nghiệp vụ, không 500. ARC chốt mã (DOM đề xuất một mã chung "tham số sai dạng", kèm tên khóa, không kèm giá trị). Desk: "Tham số {tên} đang sai dạng. Báo quản lý sửa ở Tham số quy tắc rồi làm lại." (UXD viết chữ.)
+- Quản lý sửa được ngay, chọn **Hiệu lực từ** là hôm nay: dòng hỏng chỉ có thể có từ trước v1.0.5, vì từ V5-25 Desk không cho lưu sai dạng.
+- Mọi chỗ bỏ qua đều ghi log như 12.3: khóa, cơ sở, số phần tử bị bỏ; không có giá trị, không có dữ liệu khách.
+- **Mức cần có:**
+  - **bắt buộc ở v1.0.5:** bộ kiểm khi lưu (PR #96 và PR `damage_catalog`), và câu SQL đạt trên production trước khi lên. Hai việc này làm ca "giá trị hỏng nằm sẵn trong DB" gần như không còn;
+  - **nên có ở v1.0.5**, nếu BE kịp với cùng hàm `parameter-shapes.ts`: đọc phòng thủ nhóm bán (`weekend_nights`, `special_dates`, hai khóa `*_uplift_channels`, `los_discount`). Nay các khóa này hỏng thì báo giá 500, cùng mức với BUG-R5-003;
+  - còn lại: R5-B-05 (PO).
+- **Hai dòng đếm thêm vào câu SQL** (chỉ in số, ORC chạy cùng lúc): (a) số đơn còn mở có `pricing_snapshot.cancelPolicy` sai dạng, vì câu SQL hiện chỉ xem bảng tham số; (b) số dòng `damage_catalog` sai dạng. Kỳ vọng cả hai là 0, vì chủ đầu tư chưa sửa hai khóa này. Khác 0 thì DOM viết cách xử lý.
+
+### 13.3 `short_stay_max_nights`: 27 hay 29
+
+- **Số đúng là 29.** Nguồn: BR-108, BR-112, BR mục 13 (đổi ở v0.5.0, trước là 27), bảng giá chủ đầu tư 01/11, chủ đầu tư nhắc lại 06/11. Từ điển ghi 29 là đúng.
+- **27 ở `production-defaults.ts`** là số khởi tạo lần đầu theo BR v0.4.4 (Round 3), có trước bảng giá 01/11. Tệp chỉ chạy một lần khi dựng production, nên sửa tệp không đổi production.
+- **Production hiện còn thấp hơn 29**, theo đối chiếu chỉ đọc 06/11 (từ điển, mục "Tham số trên production lệch sổ tay"): chủ đầu tư chưa làm B5 của hướng dẫn chuyển giá. Đây là việc của chủ đầu tư (B4 rồi B5), đội không đổi tham số giá trên production (plan R5 mục G).
+- **Ảnh hưởng tới V5-25: không có.** Trần `nights` của `min_stay` = min(7, `short_stay_max_nights`) = 7, dù là 27 hay 29. Chiều ngược (12.2) chỉ chặn khi xuống dưới 2.
+- **Tệp phải sửa:**
+  - `product/services/api/src/admin/production-defaults.ts`: 27 → 29. Việc của BE, nhóm B-KYTHUAT (R5-B-05), không cần trong PR #96. Nên làm trong cùng một lượt đồng bộ tệp này với BR mục 13 v0.5.x (các khóa đã đổi ở hướng dẫn chuyển giá 01/11, trừ hoa hồng), để lần dựng lại sau, ví dụ diễn tập VPS mới, không nạp số cũ;
+  - DOM đã sửa "Production đang 29" ở mục 12.2 và "đang 29" ở từ điển (bản 1.4).
+- **Không cần câu SQL in giá trị.** ORC đã có số từ lần đối chiếu 06/11, hoặc xem trên Desk (tab Khác).
+
+### 13.4 `damage_catalog` (BR-512) – biên khi lưu
+
+| Điểm | Đề xuất ORC/BE | DOM chốt | Lý do |
+|---|---|---|---|
+| Dạng | danh sách {code, name, priceVnd} | **Chốt**; khóa lạ → 422 `NOT_ALLOWED` | – |
+| `code` | `^[a-z0-9_]{1,40}$`, không trùng | **Chốt.** Không cần nới: mã đang có đều qua | – |
+| `name` | không rỗng | Không rỗng sau khi bỏ khoảng trắng hai đầu, **≤ 100 ký tự**, **không trùng** (không phân biệt hoa thường) | Lễ tân chọn món theo tên, tên in trên bill. Hai dòng cùng tên khác giá dễ chọn nhầm |
+| `priceVnd` | nguyên ≥ 0, trần 100.000.000 | Số nguyên **1.000–20.000.000** | 0 đồng không phải giá đền bù, thường là ô để trống. Bảng chỉ dành cho món nhỏ hay gặp (khăn, ga, ly, remote, thẻ cửa). Món lớn (TV, máy lạnh, nệm, khóa cửa) giá theo đời máy và mức hư, nên đi đường "món ngoài bảng": quản lý định giá, có ảnh, có duyệt (BR-512, BR-426). Trần thấp bắt được lỗi gõ thừa hai số 0 ở món giá vài trăm nghìn |
+| Số dòng | – | **≤ 100** | Cơ sở 10 căn cần khoảng 20–50 món. Trần chặn dán nhầm khối lớn và giữ danh sách chọn ở quầy dùng được |
+| `[]` | – | **Nhận**: chưa có bảng, mọi món là "ngoài bảng" | Bảng giá chủ đầu tư chưa gửi (ESC-008) |
+
+- Bảng chủ đầu tư gửi (ESC-008) có món trên 20.000.000 thì đội nới trần, không cần ESC.
+- Tên món in trên bill khách: theo brand, nên ghi tiếng Anh trước, ví dụ "Bath towel / Khăn tắm". CPY, UXD chốt cách ghi khi có bảng thật; 100 ký tự đủ cho cả hai thứ tiếng.
+- Giá trị tạm hiện có là [GIẢ ĐỊNH] (BR-512), không đổi.
+- Từ điển: dòng **Giới hạn** của `damage_catalog` ghi "v1.0.4 chưa kiểm, từ v1.0.5 chỉ nhận …", như `min_stay` (bản 1.4).
+
+### 13.5 Ca kiểm QA
+
+| Mã | Ca | Mong đợi |
+|---|---|---|
+| T-13-1 | `special_dates`: khoảng 31 đêm; 32 đêm; `from` = `to`; ngày 2027-02-30 | nhận; 422; 422; 422 |
+| T-13-2 | `cancel_policy_direct` `[]`; `[{"minDays":0,"refundPct":0}]` | 422 `REQUIRED`; nhận |
+| T-13-3 | Phần trăm 12,5; 12,345 (ở `los_discount.pct`) | nhận; 422 |
+| T-13-4 | `max_open_holds_per_user` `{"collaborator":3}`; `{"collaborator":0,"sales_staff":5}` rồi CTV tạo giữ chỗ | 422 `REQUIRED` ở `value.sales_staff`; nhận, CTV bị chặn `HOLD_LIMIT_REACHED` |
+| T-13-5 | `damage_catalog`: `priceVnd` 0; 20.000.000; 20.001.000; 101 dòng; trùng `code`; tên "Ly" và "ly"; `[]` | 422; nhận; 422; 422; 422; 422; nhận |
+| T-13-6 | Giá trị đang dùng (`production-defaults.ts`, DS-E, hướng dẫn chuyển giá B3, B5, B7) | nhận hết |
+| T-13-7 | DB có sẵn `weekend_nights` = `5` (nếu BE làm đọc phòng thủ nhóm bán) | báo giá 200, không mức tăng, có log |
+| T-13-8 | DB có sẵn `early_departure_refund` = `50` → Trả sớm | lỗi rõ, không 500, folio không đổi |
+
+### 13.6 Việc theo vai
+
+- **BE-C (PR #96):** ba chỗ sửa ở 13.1; cập nhật câu SQL và thêm hai dòng đếm ở 13.2; đọc phòng thủ nhóm bán nếu kịp.
+- **BE-C (PR `damage_catalog`):** theo 13.4; đọc khi hỏng theo 13.2.
+- **BE:** `production-defaults.ts` 27 → 29 trong lượt đồng bộ với BR mục 13 (B-KYTHUAT).
+- **ARC:** mã lỗi chung "tham số sai dạng" cho các chỗ chặn ở 13.2. Phần nào không kịp hợp đồng 0.3.13 thì để 0.3.14.
+- **UXD:** câu lỗi "tham số sai dạng"; câu cho 422 `REQUIRED` của `cancel_policy_direct`, `max_open_holds_per_user`.
+- **PO:** đưa phần "còn lại" của 13.2 vào R5-B-05.
+- **QA:** ca 13.5 khi PR lên staging.
+- **ORC:** chạy câu SQL (có hai dòng đếm) trên production trước khi lên v1.0.5.
