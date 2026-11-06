@@ -750,6 +750,11 @@ export function createStayMock(ctx: Ctx) {
       approvals,
       audit,
       minibarChecks: new Map<string, Array<{ itemId: string; remainingQty: number }>>(),
+      /**
+       * Tests only (FB-R5-UXD-FE-PR125-03): minutes the server's clock is off from the desk's when it resolves the
+       * check-out time (negative = the server is behind, so the desk's filled-in time can be "after now").
+       */
+      checkoutClockSkewMinutes: 0,
       /** BR-416-06 desk confirmation: failed attempts per caller (mock SR-RL-02, no expiry). */
       lateFeeFails: new Map<string, number>(),
       /**
@@ -1096,6 +1101,7 @@ export function createStayMock(ctx: Ctx) {
    * (departure − 1, t) while the clock is in the departure's post-midnight window and t ≥ rollover; the latest not
    * after now + tolerance (mock 15'), else the earliest. Also the two flags of `CheckoutSummary`.
    */
+  const serverNow = () => Date.now() + st.checkoutClockSkewMinutes * 60_000;
   function resolveCheckoutAt(r: MockReservation, time: string | undefined, sentAt?: unknown) {
     const tol = 15 * 60_000;
     const at = (d: string, hhmm: string) => `${d}T${hhmm}:00+07:00`;
@@ -1107,11 +1113,11 @@ export function createStayMock(ctx: Ctx) {
       const cands = [at(dep, t)];
       if (t < '06:00') cands.push(at(addDays(dep, 1), t));
       if (postMidnightWindow(r) && t >= '06:00') cands.unshift(at(addDays(dep, -1), t));
-      const limit = Date.now() + tol;
+      const limit = serverNow() + tol;
       const ok = cands.filter((c) => Date.parse(c) <= limit);
       iso = ok.length ? ok.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a)) : cands[0]!;
     }
-    const diff = Date.parse(iso) - Date.now();
+    const diff = Date.parse(iso) - serverNow();
     return {
       checkoutAt: iso,
       hhmm: iso.slice(11, 16),

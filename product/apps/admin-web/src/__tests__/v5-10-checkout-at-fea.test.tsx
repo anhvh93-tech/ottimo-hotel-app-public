@@ -132,6 +132,12 @@ describe('V5-10 – one checkoutAt for the bill, the check-out VietQR and B18', 
     await typeTime(reads, '12:10');
     expect(await screen.findByLabelText(noteLabel())).toBeInTheDocument();
     expect(writes.some((w) => w.path.endsWith('/actions/check-out'))).toBe(false);
+    // FB-R5-UXD-FE-PR125-02: "Tiếp tục" waits for the note (not after the money, at "Hoàn tất")
+    const go = screen.getByRole('button', { name: tv('co.go_bill') });
+    expect(go).toHaveAttribute('aria-disabled', 'true');
+    expect(go).toHaveAccessibleDescription(tv('field.TIME_NOTE_REQUIRED'));
+    await user.type(screen.getByLabelText(noteLabel()), 'Khach tra chia luc 12:10');
+    await waitFor(() => expect(go).not.toHaveAttribute('aria-disabled'));
   });
 
   it('checkoutAtAfterNow: 13:40 typed at 13:00 → the sentence under the time, "Tiếp tục" says why and stays; nothing written', async () => {
@@ -161,9 +167,29 @@ describe('V5-10 – one checkoutAt for the bill, the check-out VietQR and B18', 
     const box = await timeBox();
     await waitFor(() => expect(box).toHaveClass('is-prefilled'));
     expect(box).toHaveAttribute('data-prefilled', 'true');
+    // FB-R5-UXD-FE-PR125-01: not by colour only – the help sentence, tied to the box
+    const help = tv('checkout.time_prefilled_help');
+    expect(screen.getByText(help)).toBeInTheDocument();
+    expect(box).toHaveAccessibleDescription(help);
     await typeTime(reads, '12:55');
     expect(box).not.toHaveClass('is-prefilled');
     expect(box).not.toHaveAttribute('data-prefilled');
+    expect(screen.queryByText(help)).toBeNull();
+  });
+
+  it('FB-R5-UXD-FE-PR125-03: a filled-in time with an error (desk clock ahead of the server) → only the error, no brown ring, no help', async () => {
+    at('13:00');
+    const r = prepaid();
+    traffic();
+    // the server's clock is 20 minutes behind the desk's: the filled-in 13:00 is after "now" for the server
+    mockControl.stay.checkoutClockSkewMinutes = -20;
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    const box = await timeBox();
+    await waitFor(() => expect(box).toHaveAttribute('aria-invalid', 'true'));
+    expect(box).toHaveAttribute('data-prefilled', 'true');
+    expect(box).not.toHaveClass('is-prefilled');
+    expect(screen.queryByText(tv('checkout.time_prefilled_help'))).toBeNull();
   });
 
   it('DOM 15.2: filled in at 12:05 (grace, nothing to pay for the time) → not marked', async () => {
@@ -176,5 +202,6 @@ describe('V5-10 – one checkoutAt for the bill, the check-out VietQR and B18', 
     expect(box).toHaveValue('12:05');
     expect(box).toHaveAttribute('data-prefilled', 'true');
     expect(box).not.toHaveClass('is-prefilled');
+    expect(screen.queryByText(tv('checkout.time_prefilled_help'))).toBeNull();
   });
 });

@@ -60,3 +60,17 @@
 - Giả định:
   - "giờ khiến khách mất tiền" = phụ thu trả muộn ở giờ đó > 0, hoặc phải tính đêm thêm (DOM: "có phụ thu > 0");
   - lễ tân xóa trống ô giờ: B18 gửi giờ của tóm tắt (như cũ), QR không kèm `checkoutAt`, và máy chủ quy đổi cả hai theo cùng một luật.
+
+## 6. Sửa theo review UXD (07/11, sau merge main)
+Review: `rounds/round-05/reviews/UXD-on-fe-prs-125-128.md` (#125 @ `797ff439`). Chữ lấy nguyên văn mục 1.3 của review.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-UXD-FE-PR125-01 (Major) | Done | Khóa mới `checkout.time_prefilled_help` (VI/EN nguyên văn mục 1.3) ở `help` của ô giờ trả khi `timePrefilledCharged`. Có `co.time_from_late` thì ghép sau, cách một dấu cách. Chữ Stone của `Field help`, nối qua `aria-describedby`. Viền Earth Brown giữ làm dấu phụ. Test: giờ tự điền 13:00 có phụ thu → có câu và là mô tả của ô; sửa giờ → câu mất; 12:05 → không có câu |
+| FB-R5-UXD-FE-PR125-02 (Minor) | Done | `lateWhy`: ngay sau `timeAfterNow`, khi `checkoutTimeNoteRequired` của lần tóm tắt có giờ và ô ghi chú trống → `field.TIME_NOTE_REQUIRED`. "Tiếp tục" có `aria-disabled` và mô tả bằng câu đó; gõ ghi chú thì mở. Test trong ca 12:10 lúc 13:00 |
+| FB-R5-UXD-FE-PR125-03 (Suggestion) | Done | Ô có lỗi thì không gắn `is-prefilled` và không hiện câu nhắc: chỉ còn lỗi. Mock có thêm núm chỉ dùng trong test `checkoutClockSkewMinutes` (đồng hồ máy chủ lệch máy quầy) để dựng ca giờ tự điền nằm sau "hiện tại" của máy chủ |
+| Xác nhận dùng lại `field.TIME_AFTER_ACTION` | – | UXD đồng ý (mục 1.1) |
+
+Mục 4 ở trên: phần "UXD – dòng nhắc" và "xác nhận `field.TIME_AFTER_ACTION`" đã xong qua lượt này.
+
+Test cũ `checkout.test.tsx` đổi theo PR125-02: ca KB7 (3)(4) nay dừng ở bước 2 ("Tiếp tục" chờ ghi chú), không còn đi tới "Hoàn tất" rồi bị đưa về. Ca "ghi bù lâu sau khi khách đi" giữ đường dự phòng B18 `TIME_NOTE_REQUIRED` bằng tóm tắt không có cờ (máy chủ ≤ 0.3.12). Kiểm: vitest admin-web 1001/1001; `tsc`; `eslint`; `prettier`.

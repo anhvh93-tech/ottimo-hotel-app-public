@@ -1045,15 +1045,19 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // S4-48 / BUG-R2-088: the reason says what to do (tick the box), not the box's own label.
   const lateWhy = timeAfterNow
     ? t('field.TIME_AFTER_ACTION')
-    : extraRangeError
-      ? extraRangeError
-      : dueComputing
-        ? t('checkout.due_computing')
-        : lateRaise && !lateTold
-          ? t('co.go_bill_needs_told')
-          : lateRaise
-            ? surchargeFocMissing(t, lateFoc)
-            : null;
+    : // FB-R5-UXD-FE-PR125-02: the server already said B18 will ask for the note – no going on with it empty
+      // (else the desk collects the money, then "Hoàn tất" sends them back to this step).
+      timedSummary && s.checkoutTimeNoteRequired && !timeNote.trim()
+      ? t('field.TIME_NOTE_REQUIRED')
+      : extraRangeError
+        ? extraRangeError
+        : dueComputing
+          ? t('checkout.due_computing')
+          : lateRaise && !lateTold
+            ? t('co.go_bill_needs_told')
+            : lateRaise
+              ? surchargeFocMissing(t, lateFoc)
+              : null;
   const goBill = async () => {
     if (toBill || lateAct.busy) return;
     if (!priced) {
@@ -1521,24 +1525,25 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       </section>
     );
   } else if (step === 1) {
+    const timeError =
+      act.fields.checkoutTime ?? (timeAfterNow ? t('field.TIME_AFTER_ACTION') : undefined);
+    // FB-R5-UXD-FE-PR125-01: the brown ring is only a second sign – the sentence says the time was filled in by Desk and
+    // costs the guest money (DOM 15.1: key returned 11:40, clicked 12:10). PR125-03: an error is the only thing shown.
+    const prefilledHint = timePrefilledCharged && !timeError;
+    const timeHelp = [
+      r.agreedCheckoutTime ? t('co.time_from_late', { time: r.agreedCheckoutTime }) : '',
+      prefilledHint ? t('checkout.time_prefilled_help') : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
     body = (
       <section className="card stack">
-        <Field
-          label={t('checkout.departure_time')}
-          help={
-            r.agreedCheckoutTime
-              ? t('co.time_from_late', { time: r.agreedCheckoutTime })
-              : undefined
-          }
-          error={
-            act.fields.checkoutTime ?? (timeAfterNow ? t('field.TIME_AFTER_ACTION') : undefined)
-          }
-        >
+        <Field label={t('checkout.departure_time')} help={timeHelp || undefined} error={timeError}>
           {(p) => (
             <input
               {...p}
               type="time"
-              className={`input${timePrefilledCharged ? ' is-prefilled' : ''}`}
+              className={`input${prefilledHint ? ' is-prefilled' : ''}`}
               data-prefilled={timePrefilled || undefined}
               value={time}
               onChange={(e) => changeTime(e.target.value)}

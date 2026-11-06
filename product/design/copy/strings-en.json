@@ -2274,6 +2274,7 @@
   "error.REFUND_SOURCE_NOT_RECONCILED": "Can't pay this out yet: {amount} of the refund comes from transfers that aren't reconciled. Wait for a manager to match the bank statement, then pay.",
   "checkin.time_note": "Check-in time note (why it's recorded late)",
   "checkout.time_note": "Check-out time note (why it's recorded late)",
+  "checkout.time_prefilled_help": "Desk filled in this time from the desk clock, and it adds a charge. Enter when the guest actually left – when they returned the key or said they'd gone – not when you click.",
   "stay.time_note_help": "Required when the time is earlier than now. The note is kept in the change log.",
   "checkout.extra_night_title": "Check-out after the late check-out limit",
   "checkout.extra_night_body": "This check-out time is past the late check-out limit, so one extra night ({amount}) is charged instead of a late check-out fee. Tell the guest before completing.",
