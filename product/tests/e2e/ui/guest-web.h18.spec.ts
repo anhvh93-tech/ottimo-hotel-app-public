@@ -5,8 +5,15 @@
 // ĐK-3 (SEC): sau luồng không có ảnh/khóa nào trong localStorage/sessionStorage; token không còn trên thanh địa chỉ.
 // Project desk-chromium (testMatch ui/); mỗi ca tự tạo browser context di động.
 import { readFileSync } from 'node:fs';
-import { expect, test, type Browser, type FileChooser, type Page } from '@playwright/test';
-import { session, stackToday } from '../support/api.js';
+import {
+  expect,
+  test,
+  type Browser,
+  type BrowserContext,
+  type FileChooser,
+  type Page,
+} from '@playwright/test';
+import { resetRateLimits, session, stackToday } from '../support/api.js';
 import { GUEST_ORIGIN, SEED_PASSWORD } from '../support/env.js';
 import { bookFree, cleanupTracked, getReservation, room, s2Context } from '../support/s2.js';
 import {
@@ -60,6 +67,9 @@ async function expectNoticeV2(page: Page, S: Record<string, string>) {
   ).toBeVisible();
 }
 
+/** Guest contexts still open – closed in afterEach, so a failed case does not leave its page behind. */
+const openContexts = new Set<BrowserContext>();
+
 async function guestPage(browser: Browser, locale: string): Promise<Page> {
   const ctx = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -68,7 +78,21 @@ async function guestPage(browser: Browser, locale: string): Promise<Page> {
     locale,
     timezoneId: 'Asia/Ho_Chi_Minh',
   });
+  openContexts.add(ctx);
+  ctx.on('close', () => openContexts.delete(ctx));
   return ctx.newPage();
+}
+
+/**
+ * Open a guest URL. The page itself opens the session (POST /v1/guest/sessions) on load, and guest-open is
+ * 10/min + 100/day per IP – every E2E call comes from one IP, so the parallel guest cases can fill the minute
+ * (CI #112 / #126, V5-46-2: 429 page in both attempts, the retry inside the same window). The API helper
+ * `openGuest` resets on a 429; the page cannot, so the limiter is cleared just before (no-op on a stack without
+ * test support).
+ */
+async function gotoGuest(page: Page, request: Page['request'], url: string): Promise<void> {
+  await resetRateLimits(request, 'H18: trang khách tự mở phiên (guest-open 10/phút/IP)');
+  await page.goto(url);
 }
 
 /** Confirmed booking (2 adults) + guest link; `guest` = extra fields of the booker (e.g. nationality). */
@@ -128,6 +152,10 @@ test.describe(
     test.skip(!UI, 'Chạy với E2E_UI=1');
     test.skip(!SEED_PASSWORD, 'Thiếu QA_SEED_PASSWORD');
     test.afterEach(async ({ request }) => cleanupTracked(request));
+    test.afterEach(async () => {
+      for (const ctx of [...openContexts]) await ctx.close().catch(() => undefined);
+      openContexts.clear();
+    });
 
     test('TC-L7-010 (E) + TC-L7-001 (E) luồng check-in online tiếng Việt trên điện thoại + axe 18.1–18.3', async ({
       browser,
@@ -137,7 +165,7 @@ test.describe(
       const { fd, res, link } = await bookingWithLink(request, '302');
       expect(new URL(link.url).origin).toBe(GUEST_ORIGIN);
       const page = await guestPage(browser, 'vi-VN');
-      await page.goto(link.url);
+      await gotoGuest(page, request, link.url);
       // 18.1: vào thẳng trang của đơn, token không còn trên thanh địa chỉ (ĐK-4)
       await expect(page.getByRole('heading', { name: WELCOME })).toBeVisible({
         timeout: 15_000,
@@ -212,7 +240,7 @@ test.describe(
     }) => {
       const { link } = await bookingWithLink(request, '201');
       const first = await guestPage(browser, 'vi-VN');
-      await first.goto(link.url);
+      await gotoGuest(first, request, link.url);
       await first
         .getByRole('button', { name: /Làm thủ tục trước/ })
         .first()
@@ -225,7 +253,7 @@ test.describe(
       await first.context().close(); // khách đóng trình duyệt
       // mở lại đúng link (máy khác / phiên mới)
       const again = await guestPage(browser, 'vi-VN');
-      await again.goto(link.url);
+      await gotoGuest(again, request, link.url);
       await again
         .getByRole('button', { name: /Làm thủ tục|Tiếp tục/ })
         .first()
@@ -248,7 +276,7 @@ test.describe(
     }, info) => {
       const { link } = await bookingWithLink(request, '401', { nationalityCode: 'DE' });
       const page = await guestPage(browser, 'en-US');
-      await page.goto(link.url);
+      await gotoGuest(page, request, link.url);
       await expect(page.getByRole('heading', { name: WELCOME })).toBeVisible({
         timeout: 15_000,
       });
@@ -275,7 +303,7 @@ test.describe(
     }) => {
       const { link } = await bookingWithLink(request, '203', { preferredLocale: 'en' });
       const page = await guestPage(browser, 'vi-VN');
-      await page.goto(link.url);
+      await gotoGuest(page, request, link.url);
       await expect(page.getByRole('heading', { name: WELCOME })).toBeVisible({
         timeout: 15_000,
       });
@@ -299,7 +327,7 @@ test.describe(
         bookingWithLink(request, '103'),
       );
       const page = await guestPage(browser, 'en-US');
-      await page.goto(link.url);
+      await gotoGuest(page, request, link.url);
       await expect(
         page.getByRole('button', { name: VI['guest.cta.checkin_short']! }).first(),
         'hồ sơ vi thắng trình duyệt en-US',
@@ -323,14 +351,14 @@ test.describe(
         },
       );
       const page = await guestPage(browser, 'vi-VN');
-      await page.goto(link.url);
+      await gotoGuest(page, request, link.url);
       await expect(
         page.getByRole('heading', { name: VI['guest.link_expired_title']! }),
       ).toBeVisible({
         timeout: 15_000,
       });
       await scan(page, info, 'H18-5-link-invalid');
-      await page.goto(`${GUEST_ORIGIN}/g/${'x'.repeat(43)}`);
+      await gotoGuest(page, request, `${GUEST_ORIGIN}/g/${'x'.repeat(43)}`);
       await expect(
         page.getByRole('heading', { name: VI['guest.link_expired_title']! }),
       ).toBeVisible({
