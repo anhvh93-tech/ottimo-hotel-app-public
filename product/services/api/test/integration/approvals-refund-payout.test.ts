@@ -18,6 +18,7 @@ import {
   setPassword,
   startFeatureApp,
 } from '../helpers/feature-app';
+import { withoutRandomIds } from '../helpers/random-free';
 import { type BookingIds, seedBooking, seedGuestRow } from '../helpers/reservations-fixture';
 import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
@@ -466,7 +467,7 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
         code: 'CARD_NUMBER_DETECTED',
         errors: [{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }],
       });
-      expect(r.body).not.toContain('4111');
+      expect(withoutRandomIds(r.body)).not.toContain('4111'); // the requestId is random hex
     }
     expect(await refunds()).toBe(0);
     const note = await pay('FT26290001', { note: 'Khách đọc số 4111 1111 1111 1111' });
