@@ -18,6 +18,7 @@ import type { Tx } from '../../../db/database';
 import { sha256Hex } from '../../../shared/http/auth.guard';
 import type { GuestPrincipal } from '../../../shared/http/guest-session';
 import { type FieldError, problem } from '../../../shared/problem';
+import { looksLikeIdNumber } from '../../../shared/sensitive-number';
 import { type LocalDate, atLocal, businessDate, localDate, toZonedIso } from '../../../shared/time';
 import { containsCardNumber } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
@@ -560,6 +561,11 @@ export class GuestPortalService {
           throw problem('CARD_NUMBER_DETECTED', {
             errors: [{ field: 'arrivalNote', code: 'CARD_NUMBER_DETECTED' }],
           });
+        } else if (looksLikeIdNumber(note)) {
+          // 0.3.12 (i) / V5-46 (FB-R5-SEC-BE-V546-01, PR24PM-01 guest-portal half, SR-LOG-04): an identity-document
+          // number (ID half of shared/sensitive-number.ts) → 422 `ID_NUMBER_DETECTED`, only `field` + `code`. The
+          // whole write is refused below (no ETA, no step, no audit) – the guest stays on the ETA step.
+          errors.push({ field: 'arrivalNote', code: 'ID_NUMBER_DETECTED' });
         } else {
           set('arrival_note', note === '' ? null : note);
           hasNote = note !== '';
