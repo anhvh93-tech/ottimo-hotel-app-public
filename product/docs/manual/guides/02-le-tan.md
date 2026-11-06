@@ -3,7 +3,7 @@
 - Dành cho: **lễ tân (FD)**, **lễ tân trưởng (FDL)**, người trực đêm
 - Thiết bị: **máy quầy đã được cấp quyền**, địa chỉ `desk.ottimo.vn`. Lễ tân trưởng dùng thêm app nhân viên `staff.ottimo.vn` trên điện thoại để kiểm phòng.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**. Mục 9.3 bước 6, 11.5 và 17.5 áp dụng từ bản `v1.0.2` (nút **Trả sớm**)
-- Lập: BA · 30/10/2026 · Tệp này bản 1.12 (thuộc bộ hướng dẫn bản 1.12) – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
+- Lập: BA · 30/10/2026 · Tệp này bản 1.13 (thuộc bộ hướng dẫn bản 1.13) – 06/11/2026, áp dụng ngay: các mục ghi ở `00` mục 7, hai khối "Sửa 06/11/2026" (check-in online mở lại, gửi nhầm link, website theo thực tế 06/11). Bản 1.12 – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi học, anh/chị cũng không ghi những thứ này lên giấy.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 

@@ -3,7 +3,7 @@
 - Dành cho: **nhân viên buồng phòng (HK)**
 - Thiết bị: **điện thoại**, địa chỉ `staff.ottimo.vn` (app nhân viên, mở bằng trình duyệt, không cần cài từ kho ứng dụng)
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Tệp này bản 1.5 (thuộc bộ hướng dẫn bản 1.12) – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
+- Lập: BA · 30/10/2026 · Tệp này bản 1.5 (thuộc bộ hướng dẫn bản 1.13, tệp không đổi chữ) – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã cửa hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
