@@ -14,8 +14,9 @@
  *   "earned" step voids it and earns the current closer's row;
  * - ARC 131-03: the debt on a ROOM line written off while `ensureCommission` creates the row at that step → base = room
  *   revenue − the write-off, `earned`;
- * - DOM FB-R5-DOM-ARC-1H-04: a transfer the OLD closer recorded, not reconciled yet, keeps the NEW closer's row
- *   `projected` – at B18 after an in-house correction and at OWN's correction after check-out – until it is reconciled.
+ * - DOM FB-R5-DOM-ARC-1H-04: money the OLD closer recorded and nobody confirmed yet (cash not handed over, a transfer
+ *   not reconciled) keeps the NEW closer's row `projected` – at B18 after an in-house correction and at OWN's correction
+ *   after check-out – until the desk confirms the cash / MGR reconciles the transfer.
  * SEC G3: the only rate is the test value `test_rate_short`. FAKE data only.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -695,27 +696,31 @@ describe.skipIf(!HAS_DB)(
       expect(await voidAudits(S)).toHaveLength(voided);
     });
 
-    it('DOM 1H-04: a transfer the OLD closer recorded, still pending, keeps the NEW closer projected (B18 after an in-house correction; OWN correction after check-out) until it is reconciled', async () => {
+    it('DOM 1H-04: money the OLD closer recorded, still pending (cash not handed over / a transfer), keeps the NEW closer projected (B18 after an in-house correction; OWN correction after check-out) until it is confirmed', async () => {
       await at('2026-10-27T13:00:00+07:00');
       const K1 = await book('101', '2026-10-28', 2);
       const K2 = await book('102', '2026-10-28', 2);
-      // The sale takes a transfer from each guest the day of arrival (a sale's receipt always waits for the check).
+      // The sale takes a deposit from each guest the day of arrival: cash on K1 (not handed over to the desk yet),
+      // a transfer on K2. A sale's receipt always waits for the desk / bank check (BR-527, A46a).
       await at('2026-10-28T14:00:00+07:00');
-      const transfers: Record<string, string> = {};
-      for (const b of [K1, K2]) {
+      const receipts: Record<string, string> = {};
+      for (const [b, method] of [
+        [K1, 'cash'],
+        [K2, 'bank_transfer'],
+      ] as const) {
         const r = await db.withContext({ ...t.ctx(), userId: sal(), actorType: 'user' }, (tx) =>
           fa.app.get(PaymentService).recordManual(tx, {
             folioId: b.folioId,
             reservationId: b.id,
             reservationCode: b.code,
             type: 'deposit',
-            method: 'bank_transfer',
+            method,
             amountVnd: 100_000,
             receivedAt: new Date('2026-10-28T14:00:00+07:00'),
             recordedBy: sal(),
           } as never),
         );
-        transfers[b.id] = r.id;
+        receipts[b.id] = r.id;
         const [p] = await q(`SELECT reconciliation FROM payment WHERE id = $1`, [r.id]);
         expect(p.reconciliation).toBe('pending');
       }
@@ -736,7 +741,7 @@ describe.skipIf(!HAS_DB)(
       await checkOut(K1);
       await checkOut(K2);
       expect(await due(K1)).toBe(0);
-      // B18: sal2 recorded nothing, but sal's transfer on the folio is still pending → sal2 stays projected.
+      // B18: sal2 recorded nothing, but sal's cash on the folio is still pending → sal2 stays projected.
       expect(await commissions(K1)).toEqual([
         row('sal', 'void', base1, 'closer_corrected'),
         row('sal2', 'projected', base1),
@@ -756,20 +761,17 @@ describe.skipIf(!HAS_DB)(
         row('sal', 'void', base2, 'closer_corrected'),
         row('sal2', 'projected', base2),
       ]);
-      // MGR confirms both transfers → sal2 earned on each, on that day.
+      // The desk confirms sal's cash on K1, MGR reconciles sal's transfer on K2 → sal2 earned on each, on that day.
       await at('2026-10-31T09:00:00+07:00');
-      for (const [b, base] of [
-        [K1, base1],
-        [K2, base2],
+      for (const [b, base, who, verb, body] of [
+        [K1, base1, 'fd', 'confirm-cash-handover', { result: 'received' }],
+        [K2, base2, 'mgr', 'reconcile', { result: 'reconciled' }],
       ] as const) {
-        const id = transfers[b.id]!;
+        const id = receipts[b.id]!;
         const [p] = await q(`SELECT version FROM payment WHERE id = $1`, [id]);
-        const rec = await c.mgr!.send(
-          'POST',
-          url(`/payments/${id}/actions/reconcile`),
-          { result: 'reconciled' },
-          { 'if-match': `"${p.version}"` },
-        );
+        const rec = await c[who]!.send('POST', url(`/payments/${id}/actions/${verb}`), body, {
+          'if-match': `"${p.version}"`,
+        });
         expect(rec.statusCode, rec.body).toBe(200);
         expect(await commissions(b)).toEqual([
           row('sal', 'void', base, 'closer_corrected'),
