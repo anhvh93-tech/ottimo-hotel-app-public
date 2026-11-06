@@ -51,4 +51,8 @@ defineAuditEntity('reservation', [
   // end it was decided on (dates only).
   'earlyDepartureRule',
   'leaseEndDate',
+  // OpenAPI 0.3.13 bổ sung 1 (V5-15, BE C0313-10): `reservation.checked_out` of an overdue check-out –
+  // `{ departureDate, checkoutAt, recordedAt, reason, nightsNotBilled }` (dates, times, a count and the reason that
+  // passed the D12c reader – no money, no guest data); `listAuditEvents.overdueOnly` reads it.
+  'overdue',
 ]);

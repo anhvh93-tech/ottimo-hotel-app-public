@@ -45,12 +45,14 @@ import {
 } from '../../folio/public/line-reduction';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { publishEvent } from '../../platform/public/staff-notify';
+import { isOverdue } from '../../reservations/public/overdue-checkout';
 import {
   RESERVATION_SALES_PORT,
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
 import {
   type FridgeItem,
+  countInWindow,
   currentRoomOfStay,
   fridgeItems,
   isCurrentPeriod,
@@ -84,6 +86,8 @@ interface StayInfo {
   roomId: string | null;
   roomNo: string | null;
   departureDate: LocalDate;
+  /** The stay's effective departure (StayInfo.stayDepartureDate, BR-422) – null for a child booking. */
+  stayDepartureDate: LocalDate | null;
 }
 
 /** What the previous count of the fridge and the folio say about one item (R6, DOM (e)). */
@@ -147,6 +151,7 @@ export class MinibarService {
       roomId: v.roomId,
       roomNo: v.roomNo,
       departureDate: v.departureDate,
+      stayDepartureDate: v.stayDepartureDate,
     };
     const desk = roles.some((r) => DESK.includes(r));
     if (!desk) {
@@ -191,6 +196,25 @@ export class MinibarService {
       (await rolloverOn(localDate(root.postedAt, day.tz))) ??
       (await this.params.get<LocalTime>(tx, 'business_day_rollover', localDate(day.now, day.tz)));
     return reductionScope(root, actorUserId, { today: day.today, tz: day.tz, rollover });
+  }
+
+  /**
+   * FB-R5-ARC-BE-A2-01: the count window of the stay's fridge – `countFrom` = the EFFECTIVE departure (extension
+   * children included, BR-422) once the business day is past it (overdue, reservations/public/overdue-checkout.ts),
+   * as CheckoutService.uncheckedMinibars passes it to the B18 port; otherwise none (K11-09). The fridge belongs to
+   * the primary booking: a child booking read here takes the primary's departure.
+   */
+  private async countWindow(
+    tx: Tx,
+    s: StayInfo,
+    primaryId: string,
+    today: LocalDate,
+  ): Promise<{ countFrom?: LocalDate }> {
+    const dep =
+      s.id === primaryId
+        ? s.stayDepartureDate
+        : ((await this.port().stayInfo(tx, primaryId))?.stayDepartureDate ?? null);
+    return dep && isOverdue(today, dep) ? { countFrom: dep } : {};
   }
 
   /** A housekeeping task in the room due today (not cancelled) – HK's "today" scope for a left fridge. */
@@ -318,10 +342,17 @@ export class MinibarService {
     // ARC R9: latestCheck = the live count after the latest mark of the fridge (its current period; a count
     // made stale when the stay went on is no longer "counted") – null = to count again. K11-09 (DOM BR-703 note 7,
     // ARC 16.19 bổ sung): for the fridge of the room the stay is in, only a count of today's business day.
+    // FB-R5-ARC-BE-A2-01 (contract 0.3.14 list 6): on an overdue stay, a count from its effective departure on – the
+    // window of the B18 blocker and CheckoutSummary.minibarUncheckedRooms (fridge.ts countInWindow), so the two
+    // never disagree. The scope (who reads which stay) does not change.
     let latest = await this.periodCount(tx, fr.primaryId, fr.roomId, fillId, { live: true });
     if (
       latest &&
-      latest.business_date !== today &&
+      !countInWindow(
+        latest.business_date ?? '',
+        today,
+        await this.countWindow(tx, s, fr.primaryId, today),
+      ) &&
       (await stayIsInRoom(tx, fr.primaryId, fr.roomId, today))
     ) {
       latest = null;

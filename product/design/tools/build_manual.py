@@ -23,6 +23,8 @@ Cú pháp Markdown được hỗ trợ (đúng những gì BA dùng):
     > khối trích (có danh sách bên trong) · --- · [ẢNH: Cx-yy-mô tả] · <!-- chú thích --> (bị bỏ)
 Khối trích mở đầu bằng **Tạm ở v1.0:**, **Lỗi nhỏ đã biết…:**, "Trước khi bắt đầu:" thành khung màu;
 đoạn "Lưu ý:" / "Luôn nhớ:" ngay trước một danh sách thành khung "Lưu ý".
+Khối trích mở đầu bằng **[Chờ xác nhận …]** (BA viết sẵn, chưa áp dụng) KHÔNG dựng: bỏ khỏi HTML,
+in tên khối ra màn hình. ORC báo bản rồi BA bỏ ngoặc vuông thì khối tự lên (Round 5, khối Wi-Fi trên Desk).
 
 Chỉ dùng thư viện chuẩn Python 3.9+. Không sửa tệp nguồn, không sửa ảnh.
 """
@@ -543,6 +545,20 @@ def render_quote(b, ctx):
     return callout(kind, inline(title, ctx, xref=False) if title else None, render_blocks(inner, ctx))
 
 
+PENDING_RE = re.compile(r"^\*\*\[Chờ xác nhận\b[^\]]*\]")
+
+
+def pending_title(b):
+    """Tên khối trích chờ xác nhận ("[Chờ xác nhận – …] Tiêu đề."), hoặc None nếu không phải."""
+    inner = b.get("blocks") or []
+    if not inner or inner[0]["t"] != "p":
+        return None
+    m = PENDING_RE.match(inner[0]["text"])
+    if not m:
+        return None
+    return plain(re.match(r"^\*\*(.+?)\*\*", inner[0]["text"]).group(1))
+
+
 def render_blocks(blocks, ctx):
     out, i = [], 0
     while i < len(blocks):
@@ -568,7 +584,13 @@ def render_blocks(blocks, ctx):
         elif t == "table":
             out.append(render_table(b, ctx))
         elif t == "quote":
-            out.append((getattr(ctx, "render_quote", None) or render_quote)(b, ctx))
+            skip = pending_title(b)
+            if skip:  # chưa áp dụng: không dựng thành bước làm (ORC báo bản mới dựng)
+                if ctx is not None:
+                    ctx.pending = getattr(ctx, "pending", []) + [skip]
+                print("  Không dựng khối chờ xác nhận: %s" % skip)
+            else:
+                out.append((getattr(ctx, "render_quote", None) or render_quote)(b, ctx))
         elif t == "hr":
             out.append("<hr>")
         elif t == "h":
