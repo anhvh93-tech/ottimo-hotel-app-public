@@ -9,7 +9,10 @@
  *   false.
  * - Room 203: a line the manager raised through adjustFolioLine, counted lower → audit on the live replacement,
  *   measured on the root count line.
- * - "Cần chú ý" `line_reduction_count` counts the front-desk re-counts (test threshold 2), not HK's.
+ * - DOM review #133 (133-03, oracle BR-438-08 at v1.0.5): (g) 23:50 → 00:20 / 06:10 (rooms 101, 102), (b) HK lowers its
+ *   own count (301), (e) FDL then MGR on an HK count – [1, 0] audits – and MGR alone (302, 401).
+ * - "Cần chú ý" `line_reduction_count` counts the FD/FDL re-counts only (test threshold 2): HK over the threshold is
+ *   in the filter, never in the count (133-02); each count equals its `reductionsOnly` rows of the month.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomBytes } from 'node:crypto';
@@ -72,9 +75,10 @@ const ROLES = {
   mgr: ['manager'],
   hanh: ['front_desk'],
   lan: ['front_desk'],
+  fdl: ['front_desk_lead'],
   hk: ['housekeeping'],
 };
-const DESK_USERS = ['own', 'mgr', 'hanh', 'lan'];
+const DESK_USERS = ['own', 'mgr', 'hanh', 'lan', 'fdl'];
 const DS_E = JSON.parse(
   readFileSync(join(__dirname, '../../../../tests/fixtures/seed/ds-e.json'), 'utf8'),
 ) as {
@@ -168,8 +172,10 @@ describe.skipIf(!HAS_DB)('V5-16 – minibar re-count audit (FB-R5-SEC-BE-V516-01
     );
     for (const u of DESK_USERS) c[u]!.deviceToken = token;
     for (const u of Object.keys(ROLES)) await setPassword(db, t, u);
-    for (const room of ['201', '202', '203']) stays[room] = await inHouse(room);
-  }, 180_000);
+    for (const room of ['201', '202', '203', '301', '302', '401', '101', '102']) {
+      stays[room] = await inHouse(room);
+    }
+  }, 300_000);
   afterAll(async () => {
     await fa?.close();
     await db?.close();
@@ -443,19 +449,148 @@ describe.skipIf(!HAS_DB)('V5-16 – minibar re-count audit (FB-R5-SEC-BE-V516-01
     });
   });
 
-  it('"Cần chú ý" line_reduction_count: the front-desk re-counts are counted (Hạnh 4 > 2), HK and Lan (1) are not', async () => {
+  // DOM review #133 (133-03, oracle BR-438-08 at v1.0.5 – audit part only): cases (g), (b), (e).
+  it('(g) Lan counts 23:50, counts again 00:20 (same business day) or 06:10 (next one) – two runs from the root: one audit each, sameBusinessDay true / false', async () => {
+    const before20 = stays['101']!;
+    const after06 = stays['102']!;
+    await at('2026-11-21T23:50:00+07:00');
+    await count('lan', before20, { bia: 2 });
+    await count('lan', after06, { bia: 2 });
+    const root20 = await live(before20, 'bia');
+    const root06 = await live(after06, 'bia');
+    await at(`${DEPARTURE}T00:20:00+07:00`);
+    await count('lan', before20, { bia: 1 });
+    await at(`${DEPARTURE}T06:10:00+07:00`);
+    await count('lan', after06, { bia: 1 });
+    for (const [root, sameDay] of [
+      [root20, true],
+      [root06, false],
+    ] as const) {
+      const rows = await adjusted(root.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        actor_user_id: t.users.lan!.id,
+        before: {
+          amountVnd: 2 * BIA,
+          actorRole: 'front_desk',
+          rootLineId: root.id,
+          rootLineManual: true,
+          postedByActor: true,
+          sameBusinessDay: sameDay,
+        },
+        after: { amountVnd: BIA },
+      });
+    }
+  });
+
+  it('(b) HK counts again lower on its own count, twice → one housekeeping audit each, all three facts true', async () => {
+    const b = stays['301']!;
+    await at(`${DEPARTURE}T10:00:00+07:00`);
+    await count('hk', b, { bia: 2 });
+    const first = await live(b, 'bia');
+    await at(`${DEPARTURE}T10:05:00+07:00`);
+    await count('hk', b, { bia: 1 });
+    const second = await live(b, 'bia');
+    await at(`${DEPARTURE}T10:10:00+07:00`);
+    await count('hk', b, {});
+    for (const [line, amount] of [
+      [first, 2 * BIA],
+      [second, BIA],
+    ] as const) {
+      const rows = await adjusted(line.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        actor_user_id: t.users.hk!.id,
+        before: {
+          amountVnd: amount,
+          actorRole: 'housekeeping',
+          rootLineManual: true,
+          postedByActor: true,
+          sameBusinessDay: true,
+        },
+      });
+    }
+  });
+
+  it('(e) on an HK count: FDL lower → front_desk_lead audit; MGR next with the same count keeps the line (R6, no audit) – [1, 0], [70.000, 70.000]; MGR alone → manager audit', async () => {
+    const b = stays['302']!;
+    await at(`${DEPARTURE}T10:20:00+07:00`);
+    await count('hk', b, { bia: 2 });
+    const hkLine = await live(b, 'bia');
+    await at(`${DEPARTURE}T10:25:00+07:00`);
+    await count('fdl', b, { bia: 1 });
+    const fdlLine = await live(b, 'bia');
+    expect(fdlLine.amountVnd).toBe(BIA);
+    await at(`${DEPARTURE}T10:30:00+07:00`);
+    await count('mgr', b, { bia: 1 });
+    expect((await live(b, 'bia')).id).toBe(fdlLine.id);
+    expect((await live(b, 'bia')).amountVnd).toBe(BIA);
+    expect(await adjusted(hkLine.id)).toEqual([
+      expect.objectContaining({
+        actor_user_id: t.users.fdl!.id,
+        before: expect.objectContaining({
+          amountVnd: 2 * BIA,
+          actorRole: 'front_desk_lead',
+          postedByActor: false,
+        }),
+      }),
+    ]);
+    expect(await adjusted(fdlLine.id)).toEqual([]);
+
+    const alone = stays['401']!;
+    await at(`${DEPARTURE}T10:40:00+07:00`);
+    await count('hk', alone, { bia: 2 });
+    const hk401 = await live(alone, 'bia');
+    await at(`${DEPARTURE}T10:45:00+07:00`);
+    await count('mgr', alone, { bia: 1 });
+    expect(await adjusted(hk401.id)).toEqual([
+      expect.objectContaining({
+        actor_user_id: t.users.mgr!.id,
+        before: expect.objectContaining({ actorRole: 'manager', postedByActor: false }),
+      }),
+    ]);
+  });
+
+  it('"Cần chú ý" line_reduction_count: only FD/FDL re-counts are counted – Hạnh 4, Lan 3 (> 2) alert, FDL 1 does not; HK (3 > 2) and MGR never; each count = its reductionsOnly rows of the month', async () => {
     await at(`${DEPARTURE}T12:00:00+07:00`);
     const own = await c.own!.get(url('/attention'));
     expect(own.statusCode, own.body).toBe(200);
     const cut = (own.json().data as any[]).filter(
       (i) => i.kind === 'foc_threshold' && i.params?.check === 'line_reduction_count',
     );
-    expect(cut).toEqual([
-      expect.objectContaining({
-        count: 4,
-        params: { check: 'line_reduction_count', count: 4, max: 2 },
-        link: `/audit?reductionsOnly=true&month=2026-11&actorUserId=${t.users.hanh!.id}`,
-      }),
-    ]);
+    const linkOf = (who: string) =>
+      `/audit?reductionsOnly=true&month=2026-11&actorUserId=${t.users[who]!.id}`;
+    expect(cut).toHaveLength(2);
+    expect(cut).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          count: 4,
+          params: { check: 'line_reduction_count', count: 4, max: 2 },
+          link: linkOf('hanh'),
+        }),
+        expect.objectContaining({
+          count: 3,
+          params: { check: 'line_reduction_count', count: 3, max: 2 },
+          link: linkOf('lan'),
+        }),
+      ]),
+    );
+    // FB-R5-DOM-BE-133-02: HK is over the threshold in the filter, never in the count.
+    const monthRows = async (who: string) => {
+      const r = await c.own!.get(
+        url(
+          `/audit-events?from=2026-11-01&to=2026-11-30&limit=100&reductionsOnly=true&actorUserId=${t.users[who]!.id}`,
+        ),
+      );
+      expect(r.statusCode, r.body).toBe(200);
+      return (r.json().data as any[]).length;
+    };
+    expect(await monthRows('hk')).toBe(3);
+    expect(cut.some((i) => String(i.link).includes(t.users.hk!.id))).toBe(false);
+    expect(cut.some((i) => String(i.link).includes(t.users.mgr!.id))).toBe(false);
+    // The owner clicking the item sees exactly the rows it counts (ARC FB-R5-ARC-BE-B2-01).
+    expect(await monthRows('hanh')).toBe(4);
+    expect(await monthRows('lan')).toBe(3);
+    expect(await monthRows('fdl')).toBe(1);
   });
 });
