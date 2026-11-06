@@ -134,7 +134,7 @@ Ghi chú cột "Đợt": **Ngay** = làm trước khi đội rời Round 4, khô
 - Vấn đề: chú thích hứa "a compromised server cannot wipe this copy". Đúng là không có `--delete`, nhưng `rsync -rt` vẫn **ghi đè** tệp cục bộ khi tệp cùng tên trên máy chủ đổi cỡ hoặc giờ sửa. Kẻ chiếm VPS chỉ cần ghi rác vào các `db-*.dump.age` cũ (giữ tên, đổi nội dung, viết lại `.sha256` cho khớp). Lượt kéo sau sẽ thay bản tốt trên Mac bằng rác, và kiểm checksum vẫn qua, vì `.sha256` cũng lấy từ máy chủ.
 - Vì sao quan trọng: bản ngoài máy là lưới cuối của TM-52 (ransomware hoặc xóa có chủ đích). Khi bị ghi đè như trên, nó mất tác dụng đúng lúc cần nhất. `age` có xác thực nên rác sẽ bị phát hiện, nhưng chỉ lúc giải mã khi khôi phục, tức là quá muộn.
 - Đề xuất sửa: thêm `--ignore-existing`. Tệp sao lưu có tên theo giây UTC và không bao giờ được viết lại; `backup.sh` ghi vào `.tmp-*` rồi mới `mv`. Tùy chọn: so danh sách `.sha256` trên máy chủ với bản cục bộ, khác thì in `WARNING: server copy changed: <tên>` và trả rc ≠ 0. Test: máy chủ giả đổi một tệp cũ → tệp cục bộ giữ nguyên.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed – SEC xác nhận ĐẠT 06/11** (commit `bede5332`, mục "Xác nhận OR-01" cuối tệp)
 
 ### FB-R4-SEC-OPS-OR-02
 - Mức độ: Major
@@ -221,3 +221,63 @@ Ghi chú cột "Đợt": **Ngay** = làm trước khi đội rời Round 4, khô
 - OPS tự phát hiện việc mật khẩu xem trước đi tới api, và đã thử bản sửa ở cả hai môi trường trước khi hỏi.
 - Kiểm sẵn sàng làm hoàn toàn chỉ đọc: `.env` chỉ đọc tên khóa và độ dài, không chạy `ops-check` bằng tay để khỏi gửi webhook. Tệp báo cáo không có IP hay bí mật.
 - `pull-backups.sh` đã đúng hướng ở những chỗ quan trọng: kéo chỉ đọc, không `--delete`, tự cắt 35 ngày, kiểm checksum. Thẻ OR-01 chỉ còn đóng chỗ ghi đè.
+
+---
+
+# Xác nhận OR-01
+
+Round 4 · bước **Phản hồi & sửa → xác nhận của người review** · SEC · 06/11/2026 (tối)
+Đối tượng: commit `bede5332` – `product/infra/server/bin/pull-backups.sh`, `product/infra/server/test/pull-backups.test.sh` (mới), `.github/workflows/ci.yml` job `infra-scripts`, README `infra/server` dòng "Bản sao lưu ngoài máy", `rounds/round-04/responses/OPS-LP-v2.md` (OR-01, OR-L3).
+SEC không SSH, không chạy kéo thật.
+
+## X1. Kết luận: **ĐẠT** – thẻ FB-R4-SEC-OPS-OR-01 **Closed**
+
+Bản sửa đóng đúng lỗ đã nêu: một máy chủ bị chiếm không còn xóa **và** không còn ghi đè được bản sao trên máy nhận, kể cả `.sha256`. Việc máy chủ đổi tệp cũ được báo ra rõ ràng (`WARNING …`, thoát 3, không ghi `.last_pull`). Không có điều kiện chặn. Các gợi ý ở X4 không bắt buộc.
+
+## X2. SEC đã kiểm
+
+| Điểm | Kết quả |
+|---|---|
+| Không bao giờ thay tệp đã có | Lượt kéo thật là `rsync -rt --ignore-existing`, không `--delete` (dòng 63). Bảo vệ không phụ thuộc lượt so trước, nên tệp bị đổi **giữa** lượt so và lượt kéo cũng không thay được bản cục bộ |
+| Phát hiện máy chủ đổi tệp | Lượt chạy thử `-rtn --checksum --itemize-changes` (chỉ đọc hai phía). Bộ lọc `awk` (dòng 60) lấy dòng `>f…` trừ tệp mới `>f+++`. Chỉ đổi giờ (`.f..t`) không bị coi là đổi nội dung. Cùng cỡ, cùng giờ sửa mà khác byte vẫn bị bắt nhờ `--checksum` |
+| Mã thoát và `.last_pull` | 0/1/2/3 ghi ở đầu script và README. `.last_pull` chỉ ghi khi thoát 0 (dòng 95), cũng là điểm 1 của OR-02. Không liệt kê được máy chủ → thoát 2, không kéo gì |
+| Phạm vi tệp | Chỉ `*.age` + `*.age.sha256` ở thư mục gốc. `--exclude '*'` chặn thư mục `.tmp-*` của `backup.sh`. Không có `-l`, nên symlink trên máy chủ không bị kéo (SEC thử thêm, ca B ở X3) |
+| Test | 11 ca, đi qua **rrsync thật `-ro`** sau ssh giả, đúng đường khóa kéo trên VPS. Ca 3/3b/4 là đúng kịch bản TM-52 của thẻ. Theo OPS, script cũ trượt 4 ca |
+| CI | Thêm vào shellcheck và một bước riêng trong `infra-scripts`. Bước này cài `rsync` nếu thiếu và bắt buộc có dòng `== N passed, 0 failed`. Test tự bỏ qua (thiếu rsync 3/rrsync) thì không có dòng đó, nên bước **đỏ**. Shell mặc định của Actions là `bash -eo pipefail`, nên mã thoát của test đi qua `tee` |
+| README | Có mã thoát, câu WARNING, cách xử lý khi cùng tệp vừa `checksum mismatch` vừa WARNING (có thể bản trên Mac mới là bản hỏng: so tay với `.sha256` trên máy chủ), và đánh đổi về tốc độ |
+
+## X3. SEC chạy lại độc lập (06/11, máy SEC, container có sẵn `ottimo-rsync-test:local`, `--pull=never --network none`, rsync 3.2.7 + `/usr/bin/rrsync`, cùng bản với VPS Ubuntu 24.04)
+
+- `pull-backups.test.sh`: **11 passed, 0 failed**, trùng với OPS.
+- Ba ca SEC thêm, script thử để ở scratchpad của SEC, không vào repo:
+
+| Ca | Kết quả | Đánh giá |
+|---|---|---|
+| A – tệp trên Mac hỏng (cùng cỡ), máy chủ vẫn đúng | thoát 3; `checksum mismatch: <tên>.sha256` + `WARNING: server copy changed: <tên>`; bản trên Mac giữ nguyên | Đúng đánh đổi OPS đã nêu; README có cách xử lý |
+| B – máy chủ đặt symlink `db-….dump.age` trỏ ra ngoài thư mục | thoát 0; **không** kéo | Đạt |
+| C – máy chủ đặt tệp mang ngày tương lai `db-2999…` | thoát 0; được kéo và **không bao giờ bị cắt** (tuổi theo tên âm) | Gợi ý X4.1, không chặn |
+
+## X4. Đánh đổi và gợi ý (không bắt buộc)
+
+**Hai đánh đổi OPS nêu – SEC chấp nhận cả hai:**
+- **Không tự sửa bản hỏng trên Mac.** Đây là lựa chọn đúng cho TM-52: máy nhận không được tin máy chủ hơn bản của chính nó. Ổ của Mac có mã hóa và kiểm toàn vẹn, nên hỏng bit là hiếm. Khi xảy ra thì có thoát ≠ 0, không có `.last_pull`, và có ping `/fail` theo OR-02, tức là có người được báo.
+- **`--checksum` đọc hết tệp ở hai phía.** Production hiện khoảng 7,4 MB (OPS `ops-readiness-06-11.md` mục 3), nên không đáng kể. Phía máy chủ chỉ đọc qua `rrsync -ro`. Lần kéo tay tới ghi thời gian chạy như OPS đã hẹn.
+
+**Gợi ý (Suggestion, backlog hoặc cùng đợt OR-02):**
+1. Tên mang ngày lớn hơn hôm nay + 1 ngày (ca C) là bất thường, vì `backup.sh` đặt tên theo giờ UTC lúc chạy. Không kéo tệp đó, in `WARNING: future-dated name`, thoát 3.
+2. Trần cho một lượt kéo, ví dụ quá 50 tệp mới hoặc quá 2 GB theo lượt chạy thử thì dừng, thoát 3. Mục đích: máy chủ bị chiếm không làm đầy ổ máy nhận.
+3. Thêm ca A vào `pull-backups.test.sh`, để ghi lại hành vi "bản trên Mac hỏng".
+4. **Rủi ro còn lại, Thấp, ghi nhận:** máy chủ bị chiếm vẫn có thể đẩy tệp **mới** là rác mã hóa đúng khóa công khai. Không có khóa riêng thì không phát hiện được lúc kéo. Máy nhận cắt bản theo 35 ngày, nên nếu bị chiếm lâu hơn 35 ngày mà không ai thấy, mọi bản tốt sẽ lần lượt bị cắt. Lưới chặn là diễn tập khôi phục ≤ 35 ngày (SR-BAK-05, `ops-check drill` ở v1.0.5 mục 7). SEC đề nghị diễn tập OR-M1 khôi phục từ **bản trên máy nhận** chứ không từ bản trên VPS, để kiểm trọn chuỗi ngoài máy.
+
+## X5. OR-L3 (cùng commit)
+
+**Đạt** theo bằng chứng OPS (`responses/OPS-LP-v2.md`): `ls -l` trước `root root 0644`, sau `ottimo ottimo 0600`; cỡ và giờ sửa không đổi; không xóa, không cắt nội dung. Đúng phạm vi SEC cho phép (B1). Sửa gốc vẫn là README 12.3 (e) ở v1.0.5.
+
+## X6. Còn mở
+
+- **FB-R4-SEC-OPS-OR-02** (Major) vẫn Open: chờ INV đồng ý cài launchd. Khi làm, ping thành công chỉ khi thoát 0 **và** bản `db-*` mới nhất ≤ 36 giờ. Thoát 1/2/3 → `/fail`.
+- Tới khi OR-02 xong: kéo tay ít nhất 2 ngày một lần (B3), ghi thời gian chạy.
+
+## X7. Dòng decision-log đề xuất (ORC chép, SEC là người quyết)
+
+`| 2026-11-06 | 4 | SEC – xác nhận FB-R4-SEC-OPS-OR-01 ĐẠT, thẻ Closed (commit bede5332; rounds/round-04/reviews/SEC-on-bug-r4-054.md mục "Xác nhận OR-01"): pull-backups.sh kéo --ignore-existing, không --delete, so nội dung bằng --checksum --dry-run qua rrsync -ro → WARNING + thoát 3, .last_pull chỉ khi thoát 0; test 11/11 SEC chạy lại độc lập (rrsync 3.2.7, không mạng) + 3 ca thêm (bản Mac hỏng → thoát 3, symlink không kéo, tên ngày tương lai không bị cắt → gợi ý); chấp nhận hai đánh đổi (không tự sửa bản Mac, --checksum đọc hết tệp); rủi ro còn lại Thấp: tệp mới là rác chỉ lộ khi diễn tập – diễn tập OR-M1 khôi phục từ bản trên máy nhận. OR-L3 Đạt. OR-02 vẫn chờ INV | SEC | Quyền SEC (xác nhận bản sửa thẻ bảo mật) |`
