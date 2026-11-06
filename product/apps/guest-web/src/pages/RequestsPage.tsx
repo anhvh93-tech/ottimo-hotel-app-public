@@ -11,7 +11,7 @@ import {
 } from '../app/api';
 import { clockTime, useT } from '../app/i18n';
 import { telHref } from '../app/link';
-import { terminalOf } from '../app/problem';
+import { sensitiveNumberOf, terminalOf } from '../app/problem';
 
 /** The six request types (BR-811) in the order of hi-fi H23 23.2; label keys are literal (guard.test.ts). */
 const TYPES: { type: GuestRequestType; key: string; icon: IconName }[] = [
@@ -348,8 +348,9 @@ function NewRequest({
       key.current = newIdempotencyKey(); // a refused request is a new attempt next time
       if (isApiError(e) && e.code === 'RATE_LIMITED') {
         setError(t('gw.req.too_many', { phone: stay.property.phone ?? '' }));
-      } else if (isApiError(e) && e.code === 'VALIDATION_FAILED') {
+      } else if (isApiError(e) && (e.code === 'VALIDATION_FAILED' || sensitiveNumberOf(e))) {
         const codes = e.fieldErrors.map((f) => f.code);
+        const sensitive = sensitiveNumberOf(e);
         if (codes.includes('FEE_NOT_ACCEPTED')) {
           // The fee changed between opening and sending → show the new one, ask again (H23 23.2).
           setFeeOk(false);
@@ -358,8 +359,10 @@ function NewRequest({
         } else if (codes.includes('REQUEST_TYPE_NOT_AVAILABLE')) {
           await loadOptions();
           setError(t('field.REQUEST_TYPE_NOT_AVAILABLE'));
-        } else if (codes.includes('CARD_NUMBER_DETECTED')) {
+        } else if (sensitive === 'card') {
           setError(t('gw.req.card_detected'));
+        } else if (sensitive === 'id') {
+          setError(t('error.ID_NUMBER_DETECTED')); // V5-46, OpenAPI 0.3.12 (i)
         } else {
           setError(t('gw.req.note_required'));
         }
