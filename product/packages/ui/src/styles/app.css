@@ -529,3 +529,19 @@ body:has(.app-mnav) .toasts {
   border-color: var(--oak-ink);
   box-shadow: 0 0 0 1px var(--oak-ink);
 }
+
+/*
+ * FB-R5-UXD-FE-PR125-04, PR140-01/02 (Desk H15 Nhận phòng, H16 Trả phòng – `.desk-foot` only, never the guest web):
+ * under 600 px the reason a button is locked (`.li-s` between "Quay lại" and the main button) takes a row of its own
+ * above the two buttons (it was squeezed into a ~40 px column at 390 px). From 600 px the footer stays one row, the
+ * main button on the right.
+ */
+@media (max-width: 599px) {
+  .wiz-foot.desk-foot {
+    flex-wrap: wrap;
+  }
+  .wiz-foot.desk-foot > .li-s {
+    flex: 1 0 100%;
+    order: -1;
+  }
+}

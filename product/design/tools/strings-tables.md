@@ -15,6 +15,7 @@
 | `common.required` | Bắt buộc | Required | ⟨chừa chỗ⟩ |  |
 | `common.optional` | Không bắt buộc | Optional | ⟨chừa chỗ⟩ |  |
 | `common.loading` | Đang tải… | Loading… | Загрузка… |  |
+| `common.load_more` | Xem thêm | Show more | ⟨chừa chỗ⟩ | Nút đọc trang kế của danh sách có phân trang (nextCursor). Dùng chung: Nhật ký tiền, Yêu cầu từ website. UXD 07/11 (UXD-on-fe-prs-122-118-102-140, FB-R5-UXD-FE-PR140-04) |
 | `common.saving` | Đang lưu… | Saving… | ⟨chừa chỗ⟩ |  |
 | `common.saved` | Đã lưu | Saved | ⟨chừa chỗ⟩ |  |
 | `common.offline_banner` | Mất kết nối. Thao tác của bạn được giữ lại và sẽ tự gửi khi có mạng. | You're offline. Your changes are kept and will be sent when you're back online. | Нет подключения. Изменения сохранены и будут отправлены, когда связь восстановится. |  |
@@ -2379,6 +2380,11 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `checkin.verify.stay_within_visa` | Ngày đi khai báo không vượt hạn tạm trú | Registered departure within the permitted stay | ⟨chừa chỗ⟩ | stay_within_visa – không chặn |
 | `mlog.date_from` | Từ ngày | From | ⟨chừa chỗ⟩ |  |
 | `mlog.date_to` | Đến ngày | To | ⟨chừa chỗ⟩ |  |
+| `mlog.filter_reductions` | Sửa giảm dòng – 7 ngày | Line reductions – 7 days | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.5 – bộ lọc reductionsOnly ở Nhật ký tiền, chỉ MGR, OWN (US-177 AC7 (i)) |
+| `mlog.who_unlisted` | Người không còn trong danh sách | Someone not on the list | ⟨chừa chỗ⟩ | v1.0.5 US-177 AC7 (i) (UXD-on-fe-prs-125-128, FB-R5-UXD-FE-PR128-01). Lựa chọn của ô Người làm khi liên kết Cần chú ý trỏ tới người không có trong danh sách (đã nghỉ, mất vai) |
+| `mlog.who_error` | Chưa tải được danh sách người làm. Tải lại trang để lọc theo người. | Couldn't load the list of people. Reload the page to filter by person. | ⟨chừa chỗ⟩ | v1.0.5 (FB-R5-UXD-FE-PR128-02). help dưới ô Người làm khi tải danh sách người lỗi; chữ Stone, không Alert. Bảng vẫn chạy |
+| `mlog.empty_reductions_title` | Không có lần sửa giảm dòng nào trong khoảng này | No line reductions in this period | ⟨chừa chỗ⟩ | v1.0.5 (FB-R5-UXD-FE-PR128-03 (a)). Tiêu đề trạng thái rỗng khi công tắc Sửa giảm dòng bật. Thân giữ mlog.empty_body cho MGR, OWN |
+| `mlog.empty_body_dates` | Đổi khoảng ngày để xem thêm. | Change the date range to see more. | ⟨chừa chỗ⟩ | v1.0.5 (FB-R5-UXD-FE-PR128-03 (b)). Thân trạng thái rỗng thay mlog.empty_body khi không có ô Người làm (FD, FDL) |
 | `rooms.future_keep` | Căn còn {n} đơn tương lai – các đơn này giữ nguyên, đổi căn nếu cần. | This room has {n} future booking(s) – they stay as they are; move them if needed. | ⟨chừa chỗ⟩ |  |
 | `bill.ota_prepaid_one` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} night – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
 | `bill.ota_prepaid_few` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} nights – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
@@ -3078,6 +3084,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `attn.room_ooo_rooms` | Căn đang khóa sửa chữa: {rooms} | Rooms blocked for repair: {rooms} | ⟨chừa chỗ⟩ | kind room_ooo – chỉ count + roomNos (không có ngày); {rooms} = 401 · The Pine |
 | `attn.foc_pct` | Miễn phí tháng này bằng {pct}% doanh thu phòng – vượt ngưỡng {threshold}% | Complimentary items this month equal {pct}% of room revenue – over the {threshold}% limit | ⟨chừa chỗ⟩ | foc_threshold, params.check = foc_pct_of_room_revenue: {pct} = params.pct (1 chữ số thập phân theo locale), {threshold} = params.threshold; vắng pct (doanh thu phòng tháng = 0 – EP01 Q-15) → attn.foc_threshold. Khóa thay today.foc_alert_pct của nháp EP01 3.3 (UXD s4 chọn attn.* – BA sửa spec); BE-D không trả số tiền/tháng nên câu không có {foc}/{month} |
 | `attn.foc_count` | Một người đã duyệt hoặc tự áp {count} lần miễn phí tháng này – vượt ngưỡng {max} | One person has approved or self-applied {count} complimentary items this month – over the limit of {max} | ⟨chừa chỗ⟩ | foc_threshold, params.check = foc_count_per_approver – mỗi người một dòng, không tên (link lọc approverId); gồm lần tự áp minibar (DOM D-14 a). Thay today.foc_alert_count của nháp EP01 3.3 |
+| `attn.line_reduction_count` | Một người đã tự sửa giảm dòng {count} lần tháng này – vượt ngưỡng {max} | One person has lowered or cancelled their own lines {count} times this month – over the limit of {max} | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.5 – Cần chú ý foc_threshold, check = line_reduction_count (BR-438 (4)(iii)); không tên, link lọc theo người |
 | `req.desk.no_room` | Chưa gán căn | No room yet | ⟨chừa chỗ⟩ | GuestRequest.roomNo = null (đơn chưa có căn) |
 | `rsv.notice.heading` | CTV/sale đã báo chuyển cọc | Deposit transfer reported | ⟨chừa chỗ⟩ | H11 Xác nhận cọc – Reservation.depositNotices[] bản open (BUG-R2-081) |
 | `rsv.notice.line` | {who} báo đã chuyển {amount} lúc {time} | {who} reported a {amount} transfer at {time} | ⟨chừa chỗ⟩ | {time} = updatedAt (lần báo gần nhất) |
