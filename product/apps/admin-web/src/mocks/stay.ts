@@ -1764,6 +1764,17 @@ export function createStayMock(ctx: Ctx) {
           p.type === 'deposit' &&
           p.status === 'succeeded',
       ),
+    unverifiedDeposit: (r) =>
+      st.payments
+        .filter(
+          (p) =>
+            p.folioId === r.folioId &&
+            p.type === 'deposit' &&
+            // a reversed payment leaves `succeeded` (mock: no separate reversal row)
+            p.status === 'succeeded' &&
+            p.reconciliation === 'pending',
+        )
+        .reduce((a, p) => a + p.amountVnd, 0),
   });
 
   const handlers = [

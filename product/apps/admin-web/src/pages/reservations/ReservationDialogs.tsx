@@ -592,6 +592,9 @@ export function DepositDialog(props: DialogBase) {
   const paidAfter = paidBefore + value;
   const shortfallOffered = mgr && need > 0 && paidAfter > 0 && paidAfter < need;
   const accepting = shortfallOffered && acceptShortfall;
+  // V5-18 (FB-R4-SEC-FE-HOLDS-03, 0.3.13 1.6): of the deposit held, what is not yet on a bank statement – said to the
+  // manager accepting the shortfall. The answer of an action may lack the field: the drawer's fresh read covers it.
+  const unverified = r.depositUnverifiedVnd ?? props.reservation.depositUnverifiedVnd ?? 0;
   const shortfallReasonMissing = accepting && shortfallReason.trim().length < 3;
   const shortfallReasonValue = accepting ? shortfallReason.trim() : undefined;
   /** OWN/MGR accept with no new receipt: confirm on a deposit already received (the API needs a payment). */
@@ -861,6 +864,11 @@ export function DepositDialog(props: DialogBase) {
           <Checkbox checked={acceptShortfall} onChange={setAcceptShortfall}>
             {t('deposit.accept_shortfall')}
           </Checkbox>
+          {acceptShortfall && unverified > 0 ? (
+            <Alert tone="warn" role="status">
+              {t('deposit.accept_shortfall_unverified', { amount: money(unverified) })}
+            </Alert>
+          ) : null}
           {acceptShortfall ? (
             <Field
               label={t('deposit.accept_shortfall_reason')}

@@ -96,6 +96,11 @@ export interface MockReservation extends Reservation {
   originalRoomId?: string;
   /** Mock-only: `room_change_difference` currently on the folio (OTA guest request). */
   roomChangeDifferenceVnd?: number;
+  /**
+   * Mock-only: deposits B4 recorded by hand that wait for reconciliation (transfer, VietQR, or any method from SAL) –
+   * the mock keeps them off the folio's payment list; part of `depositUnverifiedVnd` (V5-18).
+   */
+  manualDepositUnverifiedVnd?: number;
 }
 /** One service line of a folio as `CancellationQuote.serviceLines` shows it (0.3.7 D1, S4-08). */
 export interface MockServiceLine {
@@ -116,6 +121,8 @@ export interface MockFolioPort {
   reverseServiceLines: (r: MockReservation, keep: string[], by: string) => void;
   /** `confirmDeposit.existingPaymentId`: a succeeded deposit payment of this booking's folio. */
   depositPayment: (r: MockReservation, paymentId: string) => boolean;
+  /** V5-18: Σ succeeded, not reversed deposit payments of the folio still `reconciliation = pending`. */
+  unverifiedDeposit: (r: MockReservation) => number;
 }
 interface MockBlock {
   id: string;
@@ -936,7 +943,14 @@ export function createReservationMock(ctx: Ctx) {
       .reduce((a, o) => (o.departureDate > a ? o.departureDate : a), r.departureDate);
   }
   function view(r: MockReservation, user: MockUser, roles: Role[]): Reservation {
-    const rest = strip(r, ['createdBy', 'guestName', 'roomId', 'holdCreatedAt', 'nationality']);
+    const rest = strip(r, [
+      'createdBy',
+      'guestName',
+      'roomId',
+      'holdCreatedAt',
+      'nationality',
+      'manualDepositUnverifiedVnd',
+    ]);
     const out: Reservation = {
       ...rest,
       progress:
@@ -957,6 +971,15 @@ export function createReservationMock(ctx: Ctx) {
         ? { stayDepartureDate: stayDeparture(r) }
         : {}),
       noShowAvailableFrom: noShowFrom(r),
+      // V5-18 (0.3.13 1.6, C0313-13): min(deposit held, Σ deposits waiting for reconciliation) – FD+ only.
+      ...(has(roles, FD_PLUS)
+        ? {
+            depositUnverifiedVnd: Math.min(
+              r.depositPaidVnd,
+              (folioPort?.unverifiedDeposit(r) ?? 0) + (r.manualDepositUnverifiedVnd ?? 0),
+            ),
+          }
+        : {}),
       requestedRoomGroupCode: r.requestedRoomGroupId
         ? groupCode(r.requestedRoomGroupId)
         : undefined,
@@ -1515,6 +1538,12 @@ export function createReservationMock(ctx: Ctx) {
           return validation([{ field: 'payment.amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
         if (body.payment?.method === 'card_pos' && /\d{12,}/.test(body.payment.posAuthCode ?? ''))
           return validation([{ field: 'payment.posAuthCode', code: 'CARD_NUMBER_DETECTED' }]);
+        // V5-18: a receipt typed here waits for reconciliation as on the server (`deposits.service.ts` `desk = !own(c)`,
+        // `reconciliationFor`): a caller with no FD+ role → always; an FD+ caller → transfer and VietQR only.
+        // Mock limit: this receipt is not a row of `st.payments`, so reconciling it in the mock never lowers the number.
+        const method = body.payment?.method ?? '';
+        if (!has(g.roles, FD_PLUS) || method === 'bank_transfer' || method === 'vietqr')
+          r.manualDepositUnverifiedVnd = (r.manualDepositUnverifiedVnd ?? 0) + amount;
         const need = r.depositRequiredVnd ?? 0;
         if (r.depositPaidVnd + amount < need) {
           // 0.3.5 A-13: money recorded → 200, booking stays on hold, client shows the shortfall.
