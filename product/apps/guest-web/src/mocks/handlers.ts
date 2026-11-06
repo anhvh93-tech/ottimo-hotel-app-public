@@ -31,7 +31,7 @@ interface Scenario {
   cleaningFee: number;
   cleaningFeeReason: 'second_full_clean' | 'long_stay_adhoc' | null;
   /** Next createGuestRequest fails with this field code (then clears). */
-  requestFail?: 'FEE_NOT_ACCEPTED' | 'RATE_LIMITED' | 'CARD_NUMBER_DETECTED';
+  requestFail?: 'FEE_NOT_ACCEPTED' | 'RATE_LIMITED' | 'CARD_NUMBER_DETECTED' | 'ID_NUMBER_DETECTED';
   requiredPeople: number;
   latencyMs: number;
 }
@@ -226,6 +226,11 @@ function missingStep(): string | undefined {
 }
 
 const CARD_RE = /\d[\d -]{11,}\d/;
+/**
+ * Stand-in for the server's ID detector (SR-LOG-04, OpenAPI 0.3.12 (i)): a 12-digit CCCD run. The real rule lives
+ * in `services/api/src/shared/sensitive-number.ts`; guest-web never checks this itself (V5-46).
+ */
+const ID_RE = /(?<!\d)\d{12}(?!\d)/;
 
 /** Every OnlineCheckin response carries the 0.3.6-addendum fields (unless a scenario removes them). */
 function oci(): OnlineCheckin {
@@ -317,6 +322,11 @@ export const handlers = [
       if (body.arrivalNote.length > 300 || CARD_RE.test(body.arrivalNote)) {
         return problem(422, 'VALIDATION_FAILED', {
           errors: [{ field: 'arrivalNote', code: 'CARD_NUMBER_DETECTED' }],
+        });
+      }
+      if (ID_RE.test(body.arrivalNote)) {
+        return problem(422, 'VALIDATION_FAILED', {
+          errors: [{ field: 'arrivalNote', code: 'ID_NUMBER_DETECTED' }],
         });
       }
       state.notes.push(body.arrivalNote); // write-only: never echoed back (ĐK-2)
@@ -523,6 +533,11 @@ export const handlers = [
     if (body.note && CARD_RE.test(body.note)) {
       return problem(422, 'VALIDATION_FAILED', {
         errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
+      });
+    }
+    if (body.note && ID_RE.test(body.note)) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'note', code: 'ID_NUMBER_DETECTED' }],
       });
     }
     const created = {

@@ -6,6 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
+import type { LocalDate } from '../../../shared/time';
 import type {
   AmountDueQuery,
   AvailabilityAnswer,
@@ -80,20 +81,31 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
     // BR-429 (a1) v0.3.8 (DOM-S4-04): the quote's calendar price of each night and the % it applied (BR-107 tier
     // or BR-111 return code – `calc.losDiscountPct`) are kept, so a later change re-tiers from the calendar and
     // never discounts a discounted price a second time.
+    // V5-14 (contract 1.17): a night the desk typed in the quote (`nights[].source = manual`) is held at that price as a
+    // `manual` night and the booking is `manual_agreed` (BR-417 (2)); a quote saved before V5-14 has no `nights[]`.
     const quote = input.pricingSnapshot as {
       calendarRatesVnd?: unknown;
       calc?: { losDiscountPct?: unknown };
+      nights?: unknown;
     };
     const calendar = Array.isArray(quote.calendarRatesVnd)
       ? (quote.calendarRatesVnd as unknown[])
       : [];
+    const typed = new Set(
+      (Array.isArray(quote.nights)
+        ? (quote.nights as Array<{ date?: unknown; source?: unknown }>)
+        : []
+      )
+        .filter((n) => n && n.source === 'manual' && typeof n.date === 'string')
+        .map((n) => n.date as LocalDate),
+    );
     const quoteDates = nightDates(input.arrivalDate, input.departureDate);
     const nights: PricedNight[] = input.nightlyRates.map((n) => {
       const c = calendar[quoteDates.indexOf(n.date)];
       return {
         date: n.date,
         amountVnd: n.amountVnd,
-        source: 'calendar',
+        source: typed.has(n.date) ? 'manual' : 'calendar',
         ...(typeof c === 'number' && c > 0 ? { calendarVnd: c } : {}),
       };
     });
@@ -112,6 +124,7 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
       depositRequiredVnd: input.depositRequiredVnd,
       hasPeakNight,
       outOfRange: [],
+      ...(nights.some((n) => n.source === 'manual') ? { agreedRate: true } : {}),
     };
     const snapshot = PricingService.snapshot(p, result, {
       quoteId: input.quoteId,

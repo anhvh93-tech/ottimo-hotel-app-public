@@ -261,3 +261,24 @@ describe('ORC 04/11 – money log: `refund.destination_carried` (BE-D, OpenAPI 0
     expect(within(cell).queryByText('refund.destination_carried')).toBeNull();
   });
 });
+
+describe('OpenAPI 0.3.13 bổ sung 1f – money log: `attention_event.resolved` (SEC ARC-20)', () => {
+  it('"Không thấy tiền" on a deposit_after_cancel item has its own sentence, not "Thao tác tiền khác"', async () => {
+    const mgr = mockControl.db.users.find((u) => u.username === 'qa.mgr')!.id;
+    mockControl.stay.audit.unshift({
+      occurredAt: new Date().toISOString(),
+      actorType: 'user',
+      actorName: 'Quân',
+      actorUserId: mgr,
+      category: 'money',
+      entityType: 'attention_event',
+      entityCode: 'R-TEST',
+      action: 'attention_event.resolved',
+      after: { kind: 'deposit_after_cancel', afterClosure: true },
+    });
+    renderApp('/audit', 'qa.mgr');
+    const cell = (await screen.findByText(tv('mlog.a_money_not_found'))).closest('td')!;
+    expect(cell.textContent).not.toContain(tv('mlog.a_other'));
+    expect(within(cell).queryByText('attention_event.resolved')).toBeNull();
+  });
+});

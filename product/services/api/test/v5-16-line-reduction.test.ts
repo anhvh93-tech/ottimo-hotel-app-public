@@ -3,8 +3,9 @@
  * - what a reduction is (void / lower quantity / lower price of a non-night line; an increase is not);
  * - who is limited (FD/FDL without OWN/MGR);
  * - the facts of the ROOT line: typed by hand (A30 or a minibar count), by the caller, in the current business day (rollover
- *   06:00 – BR-438-03: posted 23:50, 00:20 the next calendar day is the same business day, 06:10 is not);
- * - a late check-out line posted by B15 with source `manual` is NOT an A30 line (BR-438-04, H-08).
+ *   06:00 – BR-438-03: posted 23:50, 00:20 and 05:59 the next calendar day are the same business day, 06:00 and 06:10
+ *   are not – ARC FB-R5-ARC-BE-B1F-01);
+ * - a late check-out line posted by B15 with source `manual` is NOT an A30 line (BR-438-07, H-08).
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -86,17 +87,30 @@ describe('V5-16 – facts of the root line (BR-438 (1) a–b)', () => {
     expect(frontDeskMayReduce(s)).toBe(false);
   });
 
-  it('T16-8 / BR-438-03: posted 23:50 → 00:20 next day is the same business day, 06:10 is not', () => {
+  it('T16-8 / BR-438-03, B1F-01: posted 23:50 → 00:20 and 05:59 next day are the same business day, 06:00 and 06:10 are not', () => {
     const late = root({ category: 'laundry', postedAt: new Date('2026-11-12T23:50:00+07:00') });
-    expect(reductionScope(late, HANH, dayAt('2026-11-13T00:20:00+07:00')).sameBusinessDay).toBe(
+    for (const iso of ['2026-11-13T00:20:00+07:00', '2026-11-13T05:59:00+07:00']) {
+      const s = reductionScope(late, HANH, dayAt(iso));
+      expect(s.sameBusinessDay, iso).toBe(true);
+      expect(frontDeskMayReduce(s), iso).toBe(true);
+    }
+    for (const iso of ['2026-11-13T06:00:00+07:00', '2026-11-13T06:10:00+07:00']) {
+      const next = reductionScope(late, HANH, dayAt(iso));
+      expect(next.sameBusinessDay, iso).toBe(false);
+      expect(frontDeskMayReduce(next), iso).toBe(false);
+    }
+    // The other side of the rollover: a line posted 05:59 belongs to the business day before; 06:00 opens a new one.
+    const early = root({ category: 'laundry', postedAt: new Date('2026-11-13T05:59:00+07:00') });
+    expect(reductionScope(early, HANH, dayAt('2026-11-13T06:00:00+07:00')).sameBusinessDay).toBe(
+      false,
+    );
+    const opening = root({ category: 'laundry', postedAt: new Date('2026-11-13T06:00:00+07:00') });
+    expect(reductionScope(opening, HANH, dayAt('2026-11-14T05:59:00+07:00')).sameBusinessDay).toBe(
       true,
     );
-    const next = reductionScope(late, HANH, dayAt('2026-11-13T06:10:00+07:00'));
-    expect(next.sameBusinessDay).toBe(false);
-    expect(frontDeskMayReduce(next)).toBe(false);
   });
 
-  it('T16-10 / BR-438-04 / H-08: a B15 late check-out line (source manual, posted by the same FD) is a system line', () => {
+  it('T16-10 / BR-438-07 / H-08: a B15 late check-out line (source manual, posted by the same FD) is a system line', () => {
     const s = reductionScope(
       root({ category: 'late_checkout' }),
       HANH,
@@ -124,6 +138,7 @@ describe('V5-16 – facts of the root line (BR-438 (1) a–b)', () => {
       ['manual', 'early_departure_fee'],
       ['guest_app', 'cleaning'],
       ['checkin', 'early_checkin'],
+      // The B18 line is not typed by hand at this level; BR-438-04 itself (that line on a settled folio) is A32.
       ['checkout', 'late_checkout'],
       ['system', 'early_departure_fee'],
       ['system', 'cleaning'],

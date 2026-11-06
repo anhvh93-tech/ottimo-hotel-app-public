@@ -13,7 +13,7 @@
  *   or a minibar count line (`minibar_check`, category `minibar`: the person types what is left in the fridge – the
  *   minibar example of DOM 3.3 / BR-438-01, the desk edit of a count M-1 (e)). A Desk flow that posts its own line
  *   with source `manual` (late check-out of B15/B13/B16 – stay-support.replaceLateCharge) is a system line: it goes to
- *   FOC even when the same front desk pressed the button (BR-438-04, H-08). Guest requests (`guest_app`),
+ *   FOC even when the same front desk pressed the button (BR-438-07, H-08). Guest requests (`guest_app`),
  *   check-in/check-out and system lines are not typed by hand either.
  * - The four facts are audited on every `folio_line.adjusted` (`before.rootLineId`, `rootLineManual`,
  *   `postedByActor`, `sameBusinessDay`): a FD/FDL reduction is allowed exactly when the last three are true.
@@ -24,13 +24,14 @@ import type { Tx } from '../../../db/database';
 import type { FolioLineCategory } from '../../../db/schema/folio';
 import { type ProblemError, problem } from '../../../shared/problem';
 import { type LocalDate, type LocalTime, businessDate } from '../../../shared/time';
+import { NIGHT_LINE_CATEGORIES } from '../../audit/public/line-reductions';
 
-/** Night-derived lines – outside BR-438 (A31 floor–ceiling; nights leave a stay through B7/B8/B16). */
-export const NIGHT_LINE_CATEGORIES: readonly FolioLineCategory[] = [
-  'room',
-  'extra_person',
-  'room_change_difference',
-];
+/**
+ * Night-derived lines – outside BR-438 (A31 floor–ceiling; nights leave a stay through B7/B8/B16). ONE list with the
+ * audit filter and the "Cần chú ý" count (ARC FB-R5-ARC-BE-B2-01): defined in audit/public/line-reductions (audit never
+ * imports folio).
+ */
+export { NIGHT_LINE_CATEGORIES };
 
 /**
  * Categories addFolioLine (A30) posts: the catalogue (adhoc cleaning, laundry, smoking / key card, damage table) and
@@ -75,7 +76,7 @@ export interface ReductionScope {
 /**
  * BR-438 (1)(a): a line a person typed – an A30 line (source `manual`, A30 category) or a minibar count line
  * (`minibar_check`, the count the person typed). Late check-out lines of B15/B13/B16 carry source `manual` too but
- * are posted by the Desk flow: not typed by hand (BR-438-04).
+ * are posted by the Desk flow: not typed by hand (BR-438-07).
  */
 export function typedByHand(source: string, category: FolioLineCategory): boolean {
   return (

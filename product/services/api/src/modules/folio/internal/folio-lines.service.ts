@@ -43,6 +43,7 @@ import {
   reductionScope,
   rootLineOf,
 } from '../public/line-reduction';
+import { readDamageCatalog } from './damage-catalog-read';
 import { StayWaiverAlertService } from './stay-waiver-alert';
 
 export interface ChargeCatalogItem {
@@ -186,21 +187,22 @@ export class FolioLinesService {
         ruleRef,
       });
     }
-    const damage = await this.param<unknown>(tx, 'damage_catalog', today);
-    if (Array.isArray(damage)) {
-      for (const d of damage as Array<{ code?: unknown; name?: unknown; priceVnd?: unknown }>) {
-        if (typeof d.code !== 'string' || typeof d.priceVnd !== 'number') continue;
-        out.push({
-          code: `damage.${d.code}`,
-          category: 'damage',
-          name: typeof d.name === 'string' ? d.name : d.code,
-          defaultUnitPriceVnd: d.priceVnd,
-          unit: 'cái',
-          evidenceRequired: true,
-          priceEditable: false,
-          ruleRef: 'BR-512',
-        });
-      }
+    // V5-25: a broken stored table never fails the catalogue (nor addFolioLine, which reads it) – not a list → no
+    // item, a broken item (null, negative or fractional price, …) → left out, logged once per value.
+    const damage = readDamageCatalog(await this.param<unknown>(tx, 'damage_catalog', today), {
+      propertyId: tx.ctx.propertyId,
+    });
+    for (const d of damage) {
+      out.push({
+        code: `damage.${d.code}`,
+        category: 'damage',
+        name: d.name,
+        defaultUnitPriceVnd: d.priceVnd,
+        unit: 'cái',
+        evidenceRequired: true,
+        priceEditable: false,
+        ruleRef: 'BR-512',
+      });
     }
     out.push(
       {

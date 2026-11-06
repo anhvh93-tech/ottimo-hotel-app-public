@@ -40,7 +40,7 @@ export interface paths {
      *     Tài khoản có 2FA (R3): trả `401 MFA_REQUIRED` kèm `mfaToken` ngắn hạn → gọi `POST /v1/auth/login/mfa`.
      *     **0.3.8 (SEC 06.17, 06.4)**: `mfaToken` ≥ 256 bit, DB chỉ lưu SHA-256, dùng **một lần**, hạn 5 phút, gắn `user_id` + kênh (admin/PWA); không phải phiên, không cookie, không URL/log.
      *     Không có "ghi nhớ thiết bị" để bỏ bước 2 (06.1). Cờ triển khai `MFA_ENFORCED = true` (bắt buộc ở staging/production – server từ chối khởi động production khi `false`) và người có vai
-     *     `owner`/`manager` ở bất kỳ cơ sở nào **chưa** bật 2FA → đăng nhập 200 với **phiên hạn chế** (`Me.mfaEnrollmentRequired = true`): chỉ `getMe`, `getMy2fa`, `startMy2faSetup`,
+     *     `owner`/`manager`/`front_desk_lead` (FDL từ 0.3.13, V5-40) ở bất kỳ cơ sở nào **chưa** bật 2FA → đăng nhập 200 với **phiên hạn chế** (`Me.mfaEnrollmentRequired = true`): chỉ `getMe`, `getMy2fa`, `startMy2faSetup`,
      *     `confirmMy2fa`, `logout`; API khác → `403 MFA_ENROLLMENT_REQUIRED`. `MFA_ENFORCED = false` (dev/CI mặc định): đăng nhập bình thường, `Me.mfaRequiredButMissing = true` để nhắc.
      *     Mật khẩu tạm (`mustChangePassword=true` trong `Me`): mọi API khác trả `403 PASSWORD_CHANGE_REQUIRED` cho tới khi đổi.
      */
@@ -195,13 +195,13 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Trạng thái 2FA của tôi (R3; bắt buộc với owner, manager trước khi đưa dữ liệu thật) */
+    /** Trạng thái 2FA của tôi (R3; bắt buộc với owner, manager, front_desk_lead (từ 0.3.13, V5-40) trước khi đưa dữ liệu thật) */
     get: operations['getMy2fa'];
     put?: never;
     post?: never;
     /**
      * Tắt 2FA (không cho vai bắt buộc) – cần mật khẩu + TOTP; thu hồi mọi phiên (SR-SES-06)
-     * @description 0.3.8 (SEC 06.25): S2 (`MfaConfirmInput` = `StrongReauth`). Vai owner/manager → `403 FORBIDDEN_ACTION`. Thành công: xóa bí mật + mọi mã khôi phục, thu hồi **mọi** phiên kể cả phiên gọi, audit `mfa.disabled`.
+     * @description 0.3.8 (SEC 06.25): S2 (`MfaConfirmInput` = `StrongReauth`). Vai owner/manager/front_desk_lead (FDL từ 0.3.13, V5-40) → `403 FORBIDDEN_ACTION`. Thành công: xóa bí mật + mọi mã khôi phục, thu hồi **mọi** phiên kể cả phiên gọi, audit `mfa.disabled`.
      */
     delete: operations['disableMy2fa'];
     options?: never;
@@ -687,7 +687,19 @@ export interface paths {
      *     - **Kiểm `password`** (BE C0313-16, SEC ARC-04 (b)): rỗng (mạng mở) hoặc 8–63 ký tự ASCII 0x20–0x7E (WPA2-PSK) → khác: 422 `VALUE_OUT_OF_RANGE` (`field` = `password`).
      *       Trùng **mật khẩu đăng nhập của chính người gọi** → 422 `NOT_ALLOWED` (`field` = `password`): một lần argon2 verify trên hash của người gọi, không đếm vào khóa đăng nhập, không log,
      *       không so với tài khoản khác (không thành kênh dò, ngoài SR-AUTH-11).
-     *     - **Lỗi 422 không lặp lại giá trị đã gửi** ở `detail`, `title`, `errors[].message` (chỉ `field`, `code`, `max`). Lỗi kiểm → không ghi `property`, không audit.
+     *     - **Bổ sung 1e – giới hạn phép so (BE C0313-23; SEC SR-RL-15 – bổ sung 1f đổi số, 06/11 ghi SR-RL-10)**, thay "không đếm"; vẫn không cộng vào `login_lockout`:
+     *       - chỉ so (và đếm) khi `password` đã qua kiểm dạng và **khác** mật khẩu Wi-Fi đang lưu; mạng mở hoặc chỉ đổi `ssid` → không so, không đếm;
+     *       - **mỗi lần so đều đếm**, trùng hay không; tối đa **5 lần / 24 giờ / người gọi**; **bổ sung 1f (SEC C0313-24)**: PostgreSQL `rate_limit_counter` (migration 0086), khóa
+     *         `wifi_pw_cmp:<user_id>` (chỉ mã luật và id), cửa sổ cố định 24 giờ (SEC SR-RL-15) – `INSERT … ON CONFLICT (bucket_key, window_start) DO UPDATE SET count = count + 1
+     *         RETURNING count`, cùng hàm UPSERT với trang công khai (không chép câu SQL); không migration; **không** cộng vào `login_lockout`, không khóa tài khoản;
+     *       - trong ngưỡng: so như trên; trùng → 422 `NOT_ALLOWED` + audit `security` `property.wifi_password_matches_login` (không giá trị);
+     *       - quá ngưỡng: **bỏ qua phép so** (lần bị bỏ qua vẫn đếm), mọi kiểm khác vẫn áp, lưu như thường; audit `security` `property.wifi_password_check_skipped` khi `count` = 6
+     *         (đúng một lần mỗi cửa sổ); phản hồi giống hệt bình thường (không 429, không mã mới). **Không** khai `x-rate-limit` ở operation này: có `x-rate-limit` là phải khai `429`,
+     *         mà luật này không bao giờ trả 429;
+     *       - bộ đếm (UPSERT) và audit `security` ghi ở **giao dịch riêng, commit trước khi so và trước khi trả 422** (mẫu `password-reauth.ts`, như bộ đếm sai đăng nhập) – 422 rollback
+     *         giao dịch PUT không được làm mất chúng.
+     *     - **Lỗi 422 không lặp lại giá trị đã gửi** ở `detail`, `title`, `errors[].message` (chỉ `field`, `code`, `max`). Lỗi kiểm → không ghi `property`, không audit – trừ bộ đếm và audit `security` của
+     *       SR-RL-15 ở trên (bổ sung 1f, SEC ARC-22).
      *     - **Phản hồi** (BE C0313-21): `PropertyWifi` **không** có `password` (`passwordSet` thay thế; Desk đã có giá trị vừa gõ). `Cache-Control: no-store` ở cả 200 và 422.
      *     - **Không phát SSE** (không có loại sự kiện cấu hình). Ghi dạng phẳng `{ssid, password}`, `UPDATE … WHERE id = $propertyId` (RLS `property` theo tổ chức); thực thể audit
      *       `property` đăng ký với `ssid`, `passwordChanged`. Không `If-Match`: người sau ghi đè (tần suất rất thấp; audit giữ `before.ssid`).
@@ -769,8 +781,19 @@ export interface paths {
      *       - `arrivalWeekdays` (tùy chọn): `Weekday[]` không trùng, không nhận số → `allowed` = 7 mã; `arrivalOnSpecialDates` (tùy chọn): boolean thật;
      *       - mỗi luật áp vào ít nhất một ngày: `arrivalWeekdays` không rỗng **hoặc** `arrivalOnSpecialDates = true`; không → `field` = `value[<i>]`, `code` = `REQUIRED`.
      *       - **Kiểm ngược** khi lưu `short_stay_max_nights`: nhỏ hơn `nights` lớn nhất của `min_stay` hiệu lực ở `effectiveFrom` hoặc đã lên lịch sau đó → 422 `PARAM_OUT_OF_RANGE`, `min` = số đó.
+     *       - **Bổ sung 1e (ARC review PR #96 mục 1, 7) – thay hai câu luật chéo ở trên:** `min_stay` ↔ `short_stay_max_nights` so với **mọi dòng của khóa kia có hiệu lực trong
+     *         [`effectiveFrom`, ngày hiệu lực của dòng kế tiếp cùng khóa)** của dòng mới. Lưu `min_stay`: `max` = min(7, `short_stay_max_nights` nhỏ nhất trong khoảng). Lưu
+     *         `short_stay_max_nights`: `min` = `nights` lớn nhất trong khoảng. `cancelScheduledParameter` **chưa** kiểm lại luật chéo (0.3.14).
      *       - Bộ đọc phòng thủ (cả báo giá, tạo đơn, giá ước tính web): không phải mảng → không luật; phần tử hỏng → bỏ phần tử, phần tử đúng vẫn áp; log cảnh báo một lần mỗi giá trị; không
      *         500, không số mặc định trong mã. Không mở đường sửa dòng hiệu lực hôm nay (PO để backlog R5-B-06).
+     *     **0.3.13 bổ sung 1e – khóa có bộ kiểm dạng khi lưu (V5-25, PR #96; ARC review PR #96 mục 7)** – không đổi schema:
+     *     - 13 khóa: `weekend_nights`, `min_stay` (như trên), `special_dates`, `los_discount`, `cancel_policy_direct`, `early_checkin_tiers`, `late_checkout_tiers`, `early_departure_refund`,
+     *       `checkout_reminders`, `weekend_uplift_channels`, `special_uplift_channels`, `max_open_holds_per_user`, `lease_terms` (phần báo giá đọc). Dạng và biên từng khóa: `erd.md` 9.1a.
+     *       Các khóa còn lại của R5-B-05 chưa có bộ kiểm dạng.
+     *     - Lỗi: `422 PARAM_OUT_OF_RANGE`; `errors[0]` = điểm sai đầu tiên; `field` = `value` / `value[i]` / `value[i].<khóa>` / `value.<khóa>`; `code` trong bảng mã trường có sẵn: `REQUIRED`,
+     *       `VALIDATION_FAILED` (sai kiểu), `VALUE_OUT_OF_RANGE`, `NOT_IN_LIST`, `DUPLICATE` (gồm hai bậc giờ chồng nhau), `NOT_ALLOWED` (khóa lạ), `DATE_INVALID`, `DATE_ORDER`, `TOO_LONG`;
+     *       trường mở rộng chỉ `min`/`max`/`allowed`. Khóa `json` sai kiểu cũng là `PARAM_OUT_OF_RANGE`; luật số cũ giữ `errors[].code = PARAM_OUT_OF_RANGE`.
+     *     - Đọc phòng thủ chỉ có ở `min_stay` (báo giá, tạo đơn, giá ước tính web). Khóa khác: chỉ kiểm khi lưu.
      *     **0.3.7 bổ sung 2 (SEC ARC-17, C-3 (e))**: `public_booking_requests_enabled` là tham số bảo mật (chỉ OWN, audit `security`). Đặt `true` → server kiểm có dòng `privacy_notice_version`
      *     đang hiệu lực cho mỗi ngôn ngữ landing đang phát hành (`vi`, `en`; `ru` khi có trang RU) và khóa ký form đã nạp – thiếu → 422 `PUBLIC_FORM_NOT_READY` (`missing[]`), giá trị không đổi;
      *     đổi thành công → thông báo `public_booking_toggled` cho OWN + MGR. Đây là **công tắc duy nhất** việc nhận dữ liệu lúc chạy: trang luôn có sẵn mã form, form token 404 → khối Zalo;
@@ -814,6 +837,7 @@ export interface paths {
      * @description **0.3.8**. Xóa dòng `config_parameter` có `effectiveFrom` = ngày gửi và > ngày kinh doanh hiện tại (dòng đang/đã hiệu lực → `409 INVALID_TRANSITION`; không có → 404).
      *     Quyền như `setParameter` theo khóa (khóa chỉ OWN → MGR 403). Khóa `payment_receiving_account`: bắt buộc `reauth` S2 như `setParameter`; audit `money` `config.changed`
      *     (`after.cancelledEffectiveFrom`, số che); thông báo `receiving_account_changed` + email mọi `owner`. Khóa khác: audit `config`/`security` theo khóa.
+     *     **0.3.13 bổ sung 1e (ARC review PR #96)**: hủy dòng đã lên lịch **chưa** kiểm lại luật chéo giữa các khóa (ví dụ `min_stay` ↔ `short_stay_max_nights`) – 0.3.14.
      */
     post: operations['cancelScheduledParameter'];
     delete?: never;
@@ -862,7 +886,8 @@ export interface paths {
      *       `reminded_waiting` > `replied`.
      *     - **Giữ chỗ chưa cọc**: `hold`, ngày đến = `date`, theo hạn giữ chỗ; không có nút.
      *     - `date` khác ngày nghiệp vụ: chỉ xem (`allowedActions` rỗng – EP01 2.4). Số đếm của `getTonightKpi` (`arrivals`, `arrivalsCheckedIn`, `departures`,
-     *       `departuresCheckedOut`) đọc từ **cùng bộ đọc** → "{đã nhận}/{tổng}" luôn khớp danh sách. `balanceDueVnd` = cùng số `getFolio`; `registrationStatus` = cùng nguồn `getReservation`.
+     *       `departuresCheckedOut`) đọc từ **cùng bộ đọc** → "{đã nhận}/{tổng}" luôn khớp danh sách – **trừ** (bổ sung 1f): trong cửa sổ sau nửa đêm
+     *       khi vắng `date`, `departures` của danh sách theo `departuresDate`; số của `getTonightKpi` vẫn theo ngày nghiệp vụ (tới 0.3.14: `TonightKpi.departuresDate`). `balanceDueVnd` = cùng số `getFolio`; `registrationStatus` = cùng nguồn `getReservation`.
      */
     get: operations['getArrivalsDepartures'];
     put?: never;
@@ -1212,7 +1237,7 @@ export interface paths {
      *     `deposit_after_cancel` cho FD, FDL, MGR, OWN ("Tiền về cho đơn đã hủy {code}"); không đổi đơn, không ghi tiền. Mục tự đóng khi đơn có khoản thu ghi sau lúc báo (5B-1, 5B-2), hoặc
      *     FD+ đóng bằng `resolveAttentionEvent` ("Không thấy tiền", ghi chú bắt buộc). Kind đã có trong CHECK DB – không migration. Sale đọc trạng thái đơn ở danh sách của mình.
      *     SEC S7: báo này **không** sinh khoản thu; ảnh gửi kèm không dùng làm chứng từ của khoản thu (`recordPayment` → 422). Audit `deposit_notice.created` thêm `afterClosure: true` (bộ lọc
-     *     `afterClosureOnly`); tin đẩy chỉ có mã đơn.
+     *     `afterClosureOnly`); tin đẩy chỉ có mã đơn. **Bổ sung 1e (BE C0313-22)**: allowlist audit `deposit_notice` thêm `afterClosure`; test đọc lại từ `audit_event`.
      */
     post: operations['createDepositNotice'];
     delete?: never;
@@ -2669,7 +2694,9 @@ export interface paths {
      * Sửa một dòng = bút toán đảo + dòng mới, lý do bắt buộc (BR-008). Folio `settled` chỉ MGR+ (A32, US-038 AC2).
      * @description **0.3.13 bổ sung 1 (V5-16, BR-438 – DOM mục 3, 7.2; SEC FB-R4-SEC-BE-A31-01)** – **sửa giảm** = `voidLine`, giảm `newQuantity` (kể cả về 0) hoặc giảm `newUnitPriceVnd`, trên dòng
      *     khác `room`, `extra_person`, `room_change_difference`, folio chưa `settled`. **FD/FDL** sửa giảm trực tiếp khi đủ cả ba, xét trên **dòng gốc** của chuỗi `related_line_id`:
-     *     (a) dòng gốc `source = manual` (A30) **và** do chính người gọi ghi; (b) ngày nghiệp vụ ghi dòng gốc = ngày nghiệp vụ hiện tại; (c) folio chưa `settled`. Ngoài ra → `403 FORBIDDEN_ACTION`
+     *     (a) dòng gốc **gõ tay** **và** do chính người gọi ghi – **bổ sung 1f (DOM `DOM-on-be-prs-101-108-110.md` 3.1, BR-438 v0.5.14)**: gõ tay = dòng A30 (`addFolioLine`,
+     *     nguồn `manual`, danh mục A30) hoặc dòng đếm minibar (nguồn `minibar_check`); **không** xét riêng mã `source`: phụ thu trả muộn B13/B15/B16 (lưu `manual`) và B18
+     *     (lưu `checkout`) là dòng hệ thống; (b) ngày nghiệp vụ ghi dòng gốc = ngày nghiệp vụ hiện tại; (c) folio chưa `settled`. Ngoài ra → `403 FORBIDDEN_ACTION`
      *     + `requiredFlow: foc_request` + `access.denied`, không ghi gì (kiểm sau khi tải dòng, dưới khóa L3, trước kiểm giá). Dòng hệ thống (phụ thu nhận sớm/trả muộn, phí giữ lại, phí dọn từ
      *     yêu cầu khách) luôn đi FOC, kể cả khi chính lễ tân đó bấm thao tác sinh dòng. Sửa **tăng** không thuộc luật này. OWN/MGR như cũ. Sửa giảm theo luật này không tính FOC tháng,
      *     không tính hạn mức BR-433; mọi lần có audit (xem `listAuditEvents.reductionsOnly`), vào `ShiftReport.lineReductions` và cảnh báo `foc_threshold` `check = line_reduction_count`.
@@ -2785,11 +2812,17 @@ export interface paths {
      *       ảnh hay SMS của khách, không ảnh sale/CTV chuyển tiếp; Desk ghi rõ ở nhãn ô ảnh.
      *     - `reconciliation` luôn `pending`; giữ luật cũ: `note` ≥ 3 ký tự khi thu dư (`REASON_REQUIRED`), khung `receivedAt`.
      *     - Audit `money` `payment.recorded` thêm `afterClosure: true`, `reservationStatus` (`cancelled` | `no_show`); không dữ liệu khách. `Payment.afterClosure` đọc được.
+     *     - **Bổ sung 1e (BE C0313-22; SEC `SEC-responses.md` 1)**: allowlist audit thực thể `payment` thêm `afterClosure`, `reservationStatus` (thiếu khóa thì bị bỏ âm thầm – SR-AUD-03);
+     *       test đọc lại từ bảng `audit_event`, không chỉ phản hồi API. `Payment.afterClosure` **tính lúc đọc, chỉ để hiển thị**: đơn chính của folio đang `cancelled`/`no_show` **và**
+     *       `payment.created_at` (giờ máy chủ, không phải `receivedAt` người dùng nhập) ≥ `cancelled_at`/`no_show_marked_at`. Đơn được khôi phục sau (B12; 5B-2 từ 0.3.14) → đọc `false`; audit giữ
+     *       giá trị lúc ghi. Quyết định lúc ghi (V5-48, 5B-1, S5) đọc trạng thái đơn dưới khóa đơn trong cùng giao dịch, **không** đọc trường này. Không cột mới.
      *     **(B) 5B-1 – thêm khi PO xếp (DOM 11.4 mục 2 (e)–(g), 3, 3a, 3b; SEC S2–S8)**, cùng giao dịch với (A):
      *     - `type` = `deposit` khi `status_before_cancel = hold`, `charge` với đơn khác (gửi khác → 422 `VALIDATION_FAILED`, `errors[{field: type, code: NOT_ALLOWED}]`).
      *     - Tự tạo yêu cầu hoàn `refund`, `reasonCode = payment_after_cancel` ("Tiền về sau khi hủy"), số = phần vượt còn phải thu trước khi ghi (thường 100 %), không phí (BR-308); yêu cầu BR-309
      *       có sẵn của đơn giữ nguyên. **Đứng tên người ghi** và thêm người ghi vào `origin_actor_ids` – người ghi không duyệt, không chi, kể cả khi yêu cầu bị từ chối rồi người khác tạo lại (S2).
-     *       `Payment.refundRequestId` trả id.
+     *       ~~`Payment.refundRequestId` trả id.~~ **Bổ sung 1e (BE C0313-22 ý 2)**: `Payment.refundRequestId` **chưa trả tới 0.3.14** (chưa có cột nối: CHECK 0040 buộc
+     *       `approval_request_id` NULL khi `type <> refund`; yêu cầu hoàn trỏ `target_type = reservation`). Desk tìm yêu cầu qua `openRefunds` (`reasonCode = payment_after_cancel`) và màn
+     *       duyệt hoàn. Cột nối thêm ở migration của 5B-2.
      *     - **Nơi nhận cố định `original_method`** (máy chủ đặt khi tạo – hoàn về đúng tài khoản đã chuyển, S3, DOM 11.4 mục 3): `setRefundDestination` trên yêu cầu này → 409 `INVALID_TRANSITION`
      *       (không đổi nơi nhận, kể cả sang tài khoản khác); `executeCashRefund` → 409 như mọi nơi nhận khác `cash`. MGR/OWN chi bằng `executeRefund` theo dòng sao kê đã khớp; chi chỉ khi khoản thu
      *       `reconciled` (`REFUND_SOURCE_NOT_RECONCILED` có sẵn). Lễ tân không hỏi, không ghi số tài khoản của khách.
@@ -2799,6 +2832,17 @@ export interface paths {
      *       `DUPLICATE_BANK_REFERENCE` (`duplicateReservationCode`), không ghi gì; kiểm dưới khóa tư vấn theo (cơ sở, mã) trong giao dịch – không migration (cột `payment.bank_reference` có từ 0040).
      *       Gửi với phương thức khác → 422 `NOT_ALLOWED`. Desk chỉ gửi khi PR 5B-1 lên. Ô mã giao dịch ở bước đối soát + luật "một dòng sao kê chỉ khớp một khoản" ở máy chủ: **v1.0.6**
      *       (tới đó MGR+ áp bằng tay: dòng đã khớp khoản khác → `disputed`, chép mã vào ghi chú đối soát – DOM 3a).
+     *       **Bổ sung 1e (SEC ARC-15, `SEC-on-contract-0.3.13.md` 5.3)** – cài ở PR-B3:
+     *       - chuẩn hóa trước khi khóa, kiểm và lưu: bỏ khoảng trắng đầu/cuối, lưu và so dạng **chữ hoa** (`abc123` = `ABC123`);
+     *       - **luật số thẻ riêng cho ô mã (bổ sung 1f, SEC C0313-25 – thay V-09 ở ô này)**: giá trị đã qua mẫu `^[A-Za-z0-9./_-]{1,64}$`, bỏ `.` `/` `_` `-`; nếu **toàn bộ**
+     *         phần còn lại là 13–19 chữ số **và** qua Luhn → 422 `CARD_NUMBER_DETECTED` (`field` = `bankReference`; không lặp lại giá trị, không lưu, không log). Còn lại thì nhận: mã có chữ,
+     *         dãy số ngắn hơn 13 hoặc dài hơn 19, dãy số không qua Luhn. **Không** quét đoạn số bên trong chuỗi – `containsCardNumber` (V-09) chỉ giữ cho ô chữ tự do (`note`, lý do…).
+     *         Cùng một hàm (BE đặt tên, ví dụ `isCardNumberReference` trong `shared/validation.ts`) ở `executeRefund`. Câu báo chỉ cách nhập 8 ký tự cuối của mã (UXD); không gợi ý để trống;
+     *       - khóa `pg_advisory_xact_lock(hashtextextended('bank-ref:' || property_id || ':' || <mã đã chuẩn hóa>, 0))` **trước** câu kiểm trùng, cùng giao dịch với `INSERT`, `READ COMMITTED`;
+     *       - chỉ so với **khoản thu** (`type` ∈ `deposit`, `charge`; `reversal_of_id IS NULL`; chưa `reversed`) – mã của khoản chi hoàn không làm khoản thu nhận 409;
+     *       - áp ở **mọi** đường dùng `PaymentCreate` (`recordPayment`, `confirmDeposit`, `checkIn`, `checkOut.finalPayment`, `ReservationCreate.payment`, `GroupDepositInput`);
+     *       - người gọi **không** có vai FD+ (OWN, MGR, FDL, FD) nhận 409 `DUPLICATE_BANK_REFERENCE` **không** có `duplicateReservationCode` (mã đơn có thể ngoài phạm vi – SR-AZ-02);
+     *       - test: hai giao dịch song song cùng mã khác hoa thường → một 201, một 409; mã trùng một khoản chi hoàn → 201. Unique index ở DB: v1.0.6 (không bắt buộc).
      *     - **Lỡ ghi hai lần (DOM 3b):** MGR+ đối soát khoản thừa `disputed`, MGR/OWN `reversePayment` → yêu cầu hoàn đi kèm tự `superseded` (refundPlan, kể cả đã duyệt chưa chi). Không đổi hợp đồng.
      *     - **Trần (S5, nên có):** `amountVnd` > tổng tiền phòng của đơn theo giá đã chốt → FD/FDL 422 `AMOUNT_EXCEEDS_BALANCE` (`max`); MGR/OWN ghi được kèm `note`.
      *     - Mục "Cần chú ý" `deposit_after_cancel` của đơn đóng khi đã hoàn xong (hoặc đã khôi phục **và** khoản thu đã đối soát – 5B-2), hoặc FD+ đóng "Không thấy tiền" (`resolveAttentionEvent`,
@@ -3014,7 +3058,7 @@ export interface paths {
      * @description **0.3.8 bổ sung 3 (ARC 24/10, FB-R3-ARC-FUZZ-01, BR-522 K11-06)**: trên folio `settled`, thao tác này để lại tiền dư chưa có yêu cầu hoàn (`unhandledCreditVnd` > 0) → server tạo **một** yêu cầu hoàn `overpayment` bằng phần chưa yêu cầu (người xin = người thao tác; người duyệt MGR+ khác người xin – SEC F8) và mở "Cần chú ý" `closed_reservation_credit`, **cùng giao dịch**; yêu cầu hoàn đang mở lớn hơn tiền dư → chạy lại `refundPlan` (hủy `superseded` + tạo lại, DOM-S4-14). Không đổi hình dạng phản hồi.
      *     **0.3.3 (E05-02)**. Chỉ giao dịch `method=vietqr`, `status=pending`, `expiresAt` chưa qua; khác → `409 INVALID_TRANSITION` (kèm `currentState`).
      *     **0.3.13 bổ sung 1 (V5-48, SEC B002-01)**: đơn chính của folio `cancelled`/`no_show` → `409 INVALID_TRANSITION` kèm `reservationStatus` (trạng thái **đơn**, không phải của khoản thu), mọi vai
-     *     kể cả OWN và SAL, kiểm dưới khóa đơn trước mọi kiểm khác của khoản thu; không ghi gì. Tiền khách trả theo QR đó ghi bằng `recordPayment` (nhánh đơn đã đóng, có ảnh). Desk (hộp Xác nhận
+     *     kể cả OWN và SAL, kiểm dưới khóa đơn **sau 403 vai và 404 phạm vi** (bổ sung 1e, SEC ARC-17), trước mọi kiểm khác của khoản thu; không ghi gì. Tiền khách trả theo QR đó ghi bằng `recordPayment` (nhánh đơn đã đóng, có ảnh). Desk (hộp Xác nhận
      *     cọc) đọc `reservationStatus` trước `currentState` và hiện câu UXD ("Đơn đã hủy…"). Nên làm cùng (không đổi hợp đồng): J1, B5, B10, B11 cho QR `pending` của đơn hết hạn trong giao dịch hủy.
      *     Server khóa `payment … FOR UPDATE` + `folio … FOR UPDATE`; ghi `receivedAt` (mặc định bây giờ, ≤ bây giờ), `confirmedAt`, `confirmedBy` = người gọi,
      *     `reconciliation=pending` (chờ MGR+ đối soát sao kê – người xác nhận **không** được tự đối soát, A46); "còn phải thu" cập nhật ngay; nhật ký tiền BR-008.
@@ -3134,7 +3178,8 @@ export interface paths {
     /**
      * Sinh chuỗi VietQR đúng số tiền, nội dung = mã đơn/bill không dấu cách (US-120). Chưa cấu hình tài khoản → 409 PAYMENT_NOT_CONFIGURED.
      * @description **0.3.13 bổ sung 1 (V5-48, SEC B002-01)**: đơn `cancelled`/`no_show` → `409 INVALID_TRANSITION` + `reservationStatus`, **mọi** `purpose`, mọi vai kể cả OWN, kể cả khi có `overBalanceReason`;
-     *     kiểm dưới khóa đơn trước mọi kiểm khác; không tạo QR. Tiền khách trả theo QR cũ ghi bằng `recordPayment` (nhánh đơn đã đóng).
+     *     kiểm dưới khóa đơn **sau 403 vai và 404 phạm vi** (bổ sung 1e, SEC ARC-17), trước mọi kiểm khác; không tạo QR. Tiền khách trả theo QR cũ ghi bằng `recordPayment` (nhánh đơn đã đóng).
+     *     Test (PR-B1): SAL với QR/folio của đơn đã hủy của sale khác → 404, thân lỗi không có `reservationStatus`.
      *     **0.3.3 (E05-02, ARC chốt vòng đời giao dịch `pending`)**
      *     - `transferContent`: mã đơn bỏ dấu gạch (`OTM00171`) khi folio `open`; số bill bỏ dấu gạch (`F26000123`) khi folio `settled` (BR-521, US-120 AC1).
      *     - Tạo QR mới cho cùng folio → mọi giao dịch `method=vietqr`, `status=pending` **cũ** của folio → `expired` trong **cùng giao dịch DB** (chỉ một QR chờ/folio).
@@ -5523,7 +5568,7 @@ export interface components {
        * @enum {string}
        */
       reservationStatus?: 'cancelled' | 'no_show';
-      /** @description **0.3.13 bổ sung 1** – `409 DUPLICATE_BANK_REFERENCE`: mã đơn của khoản thu đã mang mã giao dịch này */
+      /** @description **0.3.13 bổ sung 1** – `409 DUPLICATE_BANK_REFERENCE`: mã đơn của khoản thu đã mang mã giao dịch này. **Bổ sung 1f (SEC ARC-21)**: chỉ khi người gọi có vai FD+ (OWN, MGR, FDL, FD); vai khác nhận 409 không có trường này (mã đơn có thể ngoài phạm vi – SR-AZ-02; xem `recordPayment` (B)) */
       duplicateReservationCode?: string;
       /** @description **0.3.13 bổ sung 1 (V5-11)** – cùng lỗi trên khi ngày đi hiệu lực = ngày lịch: dùng Trả phòng (B18), không Trả sớm */
       useCheckout?: boolean;
@@ -5879,7 +5924,7 @@ export interface components {
       /** @description Mật khẩu tạm – chỉ cho đổi mật khẩu (SR-AUTH-05) */
       mustChangePassword?: boolean;
       mfaEnabled?: boolean;
-      /** @description Vai owner/manager chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật). 0.3.8: chỉ có nghĩa khi `MFA_ENFORCED = false` */
+      /** @description Vai owner/manager/front_desk_lead (FDL từ 0.3.13, V5-40) chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật). 0.3.8: chỉ có nghĩa khi `MFA_ENFORCED = false` */
       mfaRequiredButMissing?: boolean;
       /** @description 0.3.8 (SEC 06.4) – phiên hạn chế: chỉ màn đăng ký 2FA; mọi API khác 403 `MFA_ENROLLMENT_REQUIRED` */
       mfaEnrollmentRequired?: boolean;
@@ -6103,7 +6148,7 @@ export interface components {
       arrivals?: number;
       /** @description 0.3.7 (B-19, BA E01-02): trong `arrivals`, số đã nhận phòng – hiện "{đã nhận}/{tổng}" */
       arrivalsCheckedIn?: number;
-      /** @description Đơn có ngày đi = ngày nghiệp vụ, `in_house` hoặc `checked_out` hôm nay (BR-404) (0.3.7 ghi rõ). 0.3.7 bổ sung 1: đơn chính theo **ngày đi hiệu lực** của lượt ở (đơn con gia hạn → ngày đi của đơn con) – cùng bộ đọc với `getArrivalsDepartures.departures` */
+      /** @description Đơn có ngày đi = ngày nghiệp vụ, `in_house` hoặc `checked_out` hôm nay (BR-404) (0.3.7 ghi rõ). 0.3.7 bổ sung 1: đơn chính theo **ngày đi hiệu lực** của lượt ở (đơn con gia hạn → ngày đi của đơn con) – cùng bộ đọc với `getArrivalsDepartures.departures`. **Bổ sung 1f**: trong cửa sổ sau nửa đêm khi vắng `date`, danh sách theo `departuresDate` còn số này vẫn theo ngày nghiệp vụ, nên hai bên có thể lệch (tới 0.3.14) */
       departures?: number;
       /** @description 0.3.7 (B-19): trong `departures`, số đã trả phòng */
       departuresCheckedOut?: number;
@@ -7707,9 +7752,9 @@ export interface components {
       amountDueNowVnd?: components['schemas']['MoneyVnd'];
       /** @description Giao dịch hoàn (`type=refund`): yêu cầu duyệt `refund` đã thực hiện (0.3.6, A-33) */
       approvalRequestId?: components['schemas']['Uuid'];
-      /** @description **0.3.13 bổ sung 1 (V5-5B 5B-1)** – khoản thu trên đơn `cancelled`/`no_show`: yêu cầu hoàn `payment_after_cancel` tạo cùng giao dịch; vắng = khoản thu thường */
+      /** @description **0.3.13 bổ sung 1 (V5-5B 5B-1)** – khoản thu trên đơn `cancelled`/`no_show`: yêu cầu hoàn `payment_after_cancel` tạo cùng giao dịch; vắng = khoản thu thường. **Bổ sung 1e**: chưa trả tới 0.3.14 (BE C0313-22 ý 2) */
       refundRequestId?: components['schemas']['Uuid'];
-      /** @description **0.3.13 bổ sung 1 (V5-48, SEC S6)** – ghi khi đơn đã `cancelled`/`no_show`; màn duyệt hoàn và Nhật ký tiền hiện "Tiền về sau khi đơn đã đóng" */
+      /** @description **0.3.13 bổ sung 1 (V5-48, SEC S6)** – `true` khi đơn chính của folio đang `cancelled`/`no_show` và khoản được ghi sau lúc đóng đơn (tính lúc đọc, xem `recordPayment` – bổ sung 1f, SEC ARC-22); màn duyệt hoàn và Nhật ký tiền hiện "Tiền về sau khi đơn đã đóng". **Bổ sung 1e**: tính lúc đọc, chỉ để hiển thị (xem `recordPayment`); bộ lọc tuần dùng giá trị audit */
       afterClosure?: boolean;
       /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4)** – tính lúc đọc, chỉ khoản `bank_transfer`/`vietqr`: mã đơn của khoản khác chưa đảo, cùng số tiền, `receivedAt` cách ≤ 24 giờ. Rỗng/vắng = không nghi trùng */
       possibleDuplicateCodes?: string[];
@@ -7741,7 +7786,7 @@ export interface components {
       /** @description Mã chuẩn chi máy POS (R-PAY-04) – không nhập số thẻ */
       posAuthCode?: string;
       note?: string;
-      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4, DOM 11.4 3a)** – tùy chọn, mọi đường ghi dùng schema này; chỉ `bank_transfer`/`vietqr` (khác → 422 `NOT_ALLOWED`); trùng khoản thu chưa đảo của cơ sở → 409 `DUPLICATE_BANK_REFERENCE`, không ghi gì. Máy chủ chưa có PR 5B-1 thì từ chối trường lạ – Desk chỉ gửi khi PR đó lên */
+      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4, DOM 11.4 3a)** – tùy chọn, mọi đường ghi dùng schema này; chỉ `bank_transfer`/`vietqr` (khác → 422 `NOT_ALLOWED`); trùng khoản thu chưa đảo của cơ sở → 409 `DUPLICATE_BANK_REFERENCE`, không ghi gì. Máy chủ chưa có PR 5B-1 thì từ chối trường lạ – Desk chỉ gửi khi PR đó lên. **Bổ sung 1e (SEC ARC-15)**: chuẩn hóa chữ hoa, kiểm số thẻ, `duplicateReservationCode` chỉ cho FD+ – xem `recordPayment` (B). **Bổ sung 1f (SEC C0313-25)**: chỉ chặn khi toàn bộ giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số qua Luhn */
       bankReference?: string;
       /** @description Ghi thu kỳ hợp đồng dài hạn (US-119 AC5) – cập nhật `billing_period.paid_amount_vnd`, đủ tiền → kỳ `paid` (T2) */
       billingPeriodId?: components['schemas']['Uuid'];
@@ -7957,7 +8002,7 @@ export interface components {
         | 'debt_on_checkout';
       status: components['schemas']['ApprovalStatus'];
       reservationCode?: string;
-      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4)** – yêu cầu `refund` từ khoản thu nghi trùng (xem `Payment.possibleDuplicateCodes`): Desk hiện "Có thể trùng" ở màn duyệt */
+      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4)** – yêu cầu `refund` từ khoản thu nghi trùng (xem `Payment.possibleDuplicateCodes`): Desk hiện "Có thể trùng" ở màn duyệt. **Bổ sung 1f (SEC ARC-16)**: chỉ FD+ như `Payment.possibleDuplicateCodes` – `listApprovalRequests` mở cho HK, MT, SAL, CTV theo phạm vi, các vai đó không nhận trường này (vắng, không `null`) */
       possibleDuplicateCodes?: string[];
       /** @description **0.3.7 bổ sung 3 (BE-B, sửa mô tả)**: chỉ `type` ∈ `foc`, `special_discount` – **dòng giảm (FOC, số âm) hiện tại** của yêu cầu: dòng `pending_approval` khi chờ duyệt, dòng đang áp khi đã duyệt; đi theo dòng mới khi dòng được giảm bị ghi lại (BR-434 v0.3.5). Dòng được giảm (dòng gốc) = `FolioLine.relatedLineId` của dòng này. Thay câu "dòng gốc hiện tại" của 0.3.7 bổ sung D1 */
       folioLineId?: components['schemas']['Uuid'];
@@ -8084,6 +8129,8 @@ export interface components {
        *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `approval.applied_capped`, `config.changed` (chỉ khóa `payment_receiving_account`).
        *     **0.3.12 (P4-12, ARC plan v1.0.4 quyết định 6.3, SEC-on-plan-v1.0.4 mục 1)**: `refund.destination_carried` – nơi nhận được chép sang yêu cầu hoàn thay thế; `entityType = approval_request`, chỉ mã yêu cầu cũ và mới, không số tài khoản.
        *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`. **ARC 16.31**: nghĩa của mã lý do theo **điều kiện** – công nợ đang mở lúc duyệt < số đã duyệt – không khẳng định nguyên nhân; ở R2 (sau BUG-R2-207, điều kiện OPS của BUG-R2-210) nguyên nhân duy nhất còn lại là khoản thu trong lúc chờ (khoản thu trả công nợ trước – BR-525 G-6). Đường mới làm giảm công nợ đang mở phải thêm mã lý do riêng; Desk gặp mã lạ hiện câu chung.
+       *     **0.3.13 bổ sung 1f (SEC ARC-20; V5-48, SEC S8)**: `attention_event.resolved` – hiện **chỉ** ghi khi FD+ đóng mục "Cần chú ý" `deposit_after_cancel` bằng "Không thấy tiền";
+       *     `entityType = attention_event`; `after` = `{kind, afterClosure}` (không ghi chú tự do, không dữ liệu khách); `category` giữ `money` (vào Nhật ký tiền và bộ lọc tuần `afterClosureOnly`).
        *     `payment.recorded`: phân biệt sale/CTV bằng `after.recordedByRole`; phương thức ở `after.method`, chờ đối soát ở `after.reconciliation`.
        *     **0.3.12 (P4-11 BE-C; P4-10 BE-B HOLDS-02)**: `reservation.early_departure` – `after` thêm `earlyDepartureRule` (`BR-313` | `BR-428`) và `leaseEndDate` (chỉ với HĐ tháng nhập tay,
        *     `externalContract = true`); `reservation.deposit_confirmed` xác nhận sau hạn – `after` thêm `afterDeadline`, `holdExpiredAt`, `paidBeforeVnd`, `unverifiedPaidVnd`, `via` (xem `confirmDeposit`).
@@ -10224,7 +10271,7 @@ export interface operations {
         content: {
           'application/json': {
             enabled: boolean;
-            /** @description Vai owner/manager → true */
+            /** @description Vai owner/manager/front_desk_lead (FDL từ 0.3.13, V5-40) → true */
             required: boolean;
             /** @description 0.3.8 – cờ triển khai `MFA_ENFORCED` (chỉ đọc) */
             enforced?: boolean;
@@ -16368,7 +16415,7 @@ export interface operations {
         'application/json': {
           amountVnd: components['schemas']['MoneyVnd'];
           paidAt: components['schemas']['Instant'];
-          /** @description Mã giao dịch ngân hàng – **bắt buộc** khi nơi nhận `bank_transfer` hoặc hoàn qua POS (`REQUIRED`) – 0.3.6 E15-02 */
+          /** @description Mã giao dịch ngân hàng – **bắt buộc** khi nơi nhận `bank_transfer` hoặc hoàn qua POS (`REQUIRED`) – 0.3.6 E15-02. Máy chủ kiểm mẫu `^[A-Za-z0-9./_-]{1,64}$` sau khi bỏ khoảng trắng đầu/cuối (CHECK 0040; sai → 422). **0.3.13 bổ sung 1f (SEC C0313-25)**: `CARD_NUMBER_DETECTED` **chỉ** khi toàn bộ giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số qua Luhn – cùng hàm với `recordPayment` (B); mã chỉ chứa một đoạn số giống thẻ vẫn nhận. Máy chủ v1.0.4 còn quét cả đoạn bên trong (V-09) – sửa ở v1.0.5 */
           bankReference?: string;
           /** @description Ảnh ủy nhiệm chi / biên nhận ký nhận (`uploadAttachment purpose=refund_proof`) – **bắt buộc** khi `bank_transfer` (`EVIDENCE_REQUIRED`), không bắt buộc với `cash` – 0.3.6 E15-02 */
           attachmentId?: components['schemas']['Uuid'];
@@ -16405,7 +16452,7 @@ export interface operations {
          *     Bộ lọc tuần của quản lý: `category=money&removalsOnly=true&from=…&to=…`. Từ 0.3.13 mọi `folio_line.adjusted` ghi thêm `before.actorRole` (vai lúc sửa), `before.postedByActor`
          *     (`true` = người sửa cũng là người đã ghi dòng) và `before.sameBusinessDay` (dòng ghi cùng ngày nghiệp vụ với lần sửa) – không thêm số tiền nào. FD/FDL vẫn chỉ thấy bản ghi của mình.
          *     **Bổ sung 1 (BE C0313-04, DOM 7.2 ý 2–3)**: `postedByActor`, `sameBusinessDay` tính trên **dòng gốc** của chuỗi `related_line_id` (dòng đầu: `posted_by`, `business_date` của nó);
-         *     thêm `before.rootLineId` (chỉ id) và `before.rootLineManual` (dòng gốc `source = manual`). Allowlist audit `folio_line` thêm `postedByActor`, `sameBusinessDay`, `rootLineId`,
+         *     thêm `before.rootLineId` (chỉ id) và `before.rootLineManual` (dòng gốc **gõ tay** như `adjustFolioLine` (a) – bổ sung 1f: dòng A30 hoặc đếm minibar, không xét riêng `source`). Allowlist audit `folio_line` thêm `postedByActor`, `sameBusinessDay`, `rootLineId`,
          *     `rootLineManual`. Bật bộ lọc này → máy chủ tự ghim `category = money`, `action = folio_line.adjusted` (dùng index có sẵn – BE C0313-20); so jsonb
          *     `(after->>'amountVnd')::numeric = 0`, dòng khác `room`, `extra_person`, `room_change_difference`.
          */
@@ -16418,6 +16465,10 @@ export interface operations {
         /**
          * @description **0.3.13 bổ sung 1 (V5-48, 5B-1, 5B-2; SEC S6, S8; DOM 11.4 mục 10)** – bộ lọc tuần "Tiền về sau khi đơn đã đóng" cho MGR/OWN: `payment.recorded` có `after.afterClosure`, báo
          *     "khách đã chuyển" trên đơn đã đóng, mục `deposit_after_cancel` đóng bằng "Không thấy tiền", và (từ 5B-2) khôi phục đơn đã hủy. Máy chủ tự ghim tập `action` này.
+         *     **Bổ sung 1e (BE C0313-22; SEC `SEC-responses.md` 1.2)**: lọc theo **giá trị audit ghi lúc ghi** (`after.afterClosure = true`), không tính lại từ trạng thái đơn hiện tại –
+         *     chuỗi "hủy → ghi khoản thu muộn → khôi phục" vẫn còn trong bộ lọc. `resolveAttentionEvent` của mục `deposit_after_cancel` ghi audit `money` `attention_event.resolved`
+         *     (`after = { kind, afterClosure: true }`, người bấm, giờ bấm – S8); thực thể audit `attention_event` đăng ký allowlist `kind`, `afterClosure`. Không dữ liệu khách.
+         *     Test: ca h1 của QA trả đúng một dòng; ca khôi phục no-show (B12) – `Payment.afterClosure` đọc `false` nhưng bộ lọc vẫn trả dòng đó.
          */
         afterClosureOnly?: boolean;
         /**
