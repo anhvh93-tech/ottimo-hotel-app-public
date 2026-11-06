@@ -365,6 +365,8 @@ info:
       `payment_after_cancel` đứng tên người ghi, nơi nhận cố định `original_method`, "Có thể trùng" (`possibleDuplicateCodes`), `bankReference` tùy chọn (409 `DUPLICATE_BANK_REFERENCE`),
       `createDepositNotice` trên đơn đã đóng → 202 + `deposit_after_cancel`, `listAuditEvents.afterClosureOnly`. 5B-2 (khôi phục) ở 0.3.14. **V5-25 (BUG-R5-003; DOM mục 12)**: luật lưu
       `min_stay` đầy đủ + kiểm ngược `short_stay_max_nights` – chỉ mô tả, không đổi schema.
+      **Bổ sung 1f (SEC ARC-16, PR riêng trước PR-B3)**: `ApprovalRequest.possibleDuplicateCodes` thêm `x-visible-to: [owner, manager, front_desk_lead, front_desk]` như
+      `Payment.possibleDuplicateCodes` – serializer sinh lại; HK, MT, SAL, CTV đọc `listApprovalRequests` không thấy trường này.
     - **(i) Tin `hold_expired` (DOM mục 9)**: gửi người tạo, người chốt **và** mọi FD, FDL đang hoạt động (bỏ nhánh "chỉ khi không có người tạo"). Không đổi schema.
     - **(k) V5-30, V5-31 (DOM 4, 5, 7.3, 7.4) – cần migration, PR riêng (PR-M)**: `Commission.instalmentNo`, `voidReason`; `getManagerPerformanceBonus` (tính lúc đọc); `AttentionItem.kind`
       `commission_rate_missing`; `GuestRequest.feeFallback`. Khóa mới `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` cần dòng danh mục
@@ -13130,7 +13132,8 @@ components:
         possibleDuplicateCodes:
           type: array
           items: { type: string }
-          description: '**0.3.13 bổ sung 1 (5B-1, SEC S4)** – yêu cầu `refund` từ khoản thu nghi trùng (xem `Payment.possibleDuplicateCodes`): Desk hiện "Có thể trùng" ở màn duyệt'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+          description: '**0.3.13 bổ sung 1 (5B-1, SEC S4)** – yêu cầu `refund` từ khoản thu nghi trùng (xem `Payment.possibleDuplicateCodes`): Desk hiện "Có thể trùng" ở màn duyệt. **Bổ sung 1f (SEC ARC-16)**: chỉ FD+ như `Payment.possibleDuplicateCodes` – `listApprovalRequests` mở cho HK, MT, SAL, CTV theo phạm vi, các vai đó không nhận trường này (vắng, không `null`)'
         folioLineId:
           $ref: '#/components/schemas/Uuid'
           description: '**0.3.7 bổ sung 3 (BE-B, sửa mô tả)**: chỉ `type` ∈ `foc`, `special_discount` – **dòng giảm (FOC, số âm) hiện tại** của yêu cầu: dòng `pending_approval` khi chờ duyệt, dòng đang áp khi đã duyệt; đi theo dòng mới khi dòng được giảm bị ghi lại (BR-434 v0.3.5). Dòng được giảm (dòng gốc) = `FolioLine.relatedLineId` của dòng này. Thay câu "dòng gốc hiện tại" của 0.3.7 bổ sung D1'

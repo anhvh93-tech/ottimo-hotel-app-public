@@ -656,7 +656,7 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
    - `type` = `deposit` nếu hủy lúc còn giữ chỗ, `charge` với đơn khác (DOM 2 (f));
    - yêu cầu hoàn mã **mới** `payment_after_cancel` (không dùng lại `overpayment` – báo cáo và nhãn tách "Tiền về sau khi hủy"; `reason_code` là text), đứng tên **người ghi**, người ghi vào `origin_actor_ids` (S2);
    - nơi nhận cố định `original_method`, `setRefundDestination` → 409, không chi tiền mặt (S3; DOM B002-04 ý 1);
-   - **"Có thể trùng" – bắt buộc khi 5B-1 lên** (DOM B002-04 ý 4): `possibleDuplicateCodes` trên `Payment` và `ApprovalRequest`, tính lúc đọc;
+   - **"Có thể trùng" – bắt buộc khi 5B-1 lên** (DOM B002-04 ý 4): `possibleDuplicateCodes` trên `Payment` và `ApprovalRequest`, tính lúc đọc; **bổ sung 1f (SEC ARC-16, PR riêng gộp trước PR-B3):** cả hai trường `x-visible-to` FD+ (OWN, MGR, FDL, FD) – HK, MT, SAL, CTV đọc `listApprovalRequests` không thấy; test `serializer.test.ts`;
    - **`bankReference` tùy chọn trong `PaymentCreate` – ARC thêm ở 0.3.13**: lễ tân thường không đọc được mã, nên không bắt buộc; có mã mà trùng khoản thu chưa đảo của cơ sở → **409 `DUPLICATE_BANK_REFERENCE`** (mã mới, `duplicateReservationCode`); kiểm dưới khóa tư vấn (cơ sở, mã) trong giao dịch, cột có từ 0040 → không migration;
    - **ô mã giao dịch ở bước đối soát và luật "một dòng sao kê chỉ khớp một khoản" ở máy chủ: v1.0.6** (DOM B002-04 ý 2 – tới đó MGR+ áp bằng tay; người đối soát luôn có sao kê nên chặn ở đó chắc hơn, nhưng đổi `reconcilePayment` thêm một PR vào làn BE-B đang kín);
    - lỡ ghi hai lần: `disputed` → `reversePayment` → yêu cầu hoàn đi kèm `superseded` (DOM đã kiểm `folio.service.ts`) – không đổi hợp đồng;

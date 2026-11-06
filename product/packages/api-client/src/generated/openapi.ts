@@ -7957,7 +7957,7 @@ export interface components {
         | 'debt_on_checkout';
       status: components['schemas']['ApprovalStatus'];
       reservationCode?: string;
-      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4)** – yêu cầu `refund` từ khoản thu nghi trùng (xem `Payment.possibleDuplicateCodes`): Desk hiện "Có thể trùng" ở màn duyệt */
+      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4)** – yêu cầu `refund` từ khoản thu nghi trùng (xem `Payment.possibleDuplicateCodes`): Desk hiện "Có thể trùng" ở màn duyệt. **Bổ sung 1f (SEC ARC-16)**: chỉ FD+ như `Payment.possibleDuplicateCodes` – `listApprovalRequests` mở cho HK, MT, SAL, CTV theo phạm vi, các vai đó không nhận trường này (vắng, không `null`) */
       possibleDuplicateCodes?: string[];
       /** @description **0.3.7 bổ sung 3 (BE-B, sửa mô tả)**: chỉ `type` ∈ `foc`, `special_discount` – **dòng giảm (FOC, số âm) hiện tại** của yêu cầu: dòng `pending_approval` khi chờ duyệt, dòng đang áp khi đã duyệt; đi theo dòng mới khi dòng được giảm bị ghi lại (BR-434 v0.3.5). Dòng được giảm (dòng gốc) = `FolioLine.relatedLineId` của dòng này. Thay câu "dòng gốc hiện tại" của 0.3.7 bổ sung D1 */
       folioLineId?: components['schemas']['Uuid'];

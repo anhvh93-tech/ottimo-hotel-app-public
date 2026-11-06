@@ -100,6 +100,27 @@ describe('role serializer – x-visible-to', () => {
       expect('approverRemainingMonthlyVnd' in ser('ApprovalRequest', approval, [r])).toBe(false);
     }
   });
+  it('SEC ARC-16 (0.3.13 bổ sung 1f): ApprovalRequest.possibleDuplicateCodes only for FD+, like Payment', () => {
+    const refund = { ...approval, type: 'refund', possibleDuplicateCodes: ['OT-TEST-0001'] };
+    for (const r of ['owner', 'manager', 'front_desk_lead', 'front_desk']) {
+      expect(ser('ApprovalRequest', refund, [r]).possibleDuplicateCodes, r).toEqual([
+        'OT-TEST-0001',
+      ]);
+    }
+    for (const r of ['sales_staff', 'collaborator', 'housekeeping', 'maintenance']) {
+      expect('possibleDuplicateCodes' in ser('ApprovalRequest', refund, [r]), r).toBe(false);
+    }
+    // union of roles: SAL + FD sees it
+    expect(
+      ser('ApprovalRequest', refund, ['sales_staff', 'front_desk']).possibleDuplicateCodes,
+    ).toEqual(['OT-TEST-0001']);
+    // the contract and the Payment field carry the same role list
+    const prop = (schema: string) =>
+      (OPENAPI_SCHEMAS.schemas as Record<string, { props?: Record<string, { v?: string[] }> }>)[
+        schema
+      ]?.props?.possibleDuplicateCodes?.v;
+    expect(prop('ApprovalRequest')).toEqual(prop('Payment'));
+  });
 });
 
 describe('role serializer – x-rbac-field (rbac-matrix 6, cells K)', () => {
