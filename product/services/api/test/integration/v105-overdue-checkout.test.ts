@@ -393,13 +393,13 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
     });
 
     it('FB-R5-ARC-BE-A2-04: overdueOnly empty reads as false, like removalsOnly / reductionsOnly (boolQuery)', async () => {
-      const ids = async (qs: string) => {
-        const r = await c.own!.get(url(`/audit-events?from=2029-01-01&to=2029-01-31${qs}`));
-        expect(r.statusCode, r.body).toBe(200);
-        return (r.json().data as Array<{ id: string }>).map((e) => e.id);
-      };
-      expect(await ids('&overdueOnly=')).toEqual(await ids(''));
-      expect(await ids('&overdueOnly=&removalsOnly=&reductionsOnly=')).toEqual(await ids(''));
+      // FB-R5-ARC-BE-135-01: on this block's day (5 rows, 2 overdue) – "empty → true" would leave only the 2.
+      const codes = async (qs: string) => (await list('own', qs)).map((r) => r.entityCode);
+      const all = await codes('');
+      expect(all.length).toBeGreaterThanOrEqual(5);
+      expect(await codes('overdueOnly=')).toEqual(all);
+      expect(await codes('overdueOnly=false')).toEqual(all);
+      expect(await codes('overdueOnly=&removalsOnly=&reductionsOnly=')).toEqual(all);
     });
   });
 
@@ -877,32 +877,39 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
           'if-match': ifMatch,
         });
       // The race of contract 1.18 (an OTA B13 adds an in-house child without bumping the primary's version): the
-      // first read (overdueGate, no lock) says overdue, the read under the locks says not – simulated on that read.
+      // first read (overdueGate, no lock) says overdue, the read under the locks says otherwise – simulated on that
+      // read, both branches of the check: no longer overdue (null), and FB-R5-ARC-BE-135-02 still overdue with
+      // another departure date.
       const proto = CheckoutService.prototype as unknown as {
         overdueStay: (...a: unknown[]) => Promise<unknown>;
       };
       const real = proto.overdueStay;
-      let calls = 0;
-      const spy = vi.spyOn(proto, 'overdueStay').mockImplementation(async function (
-        this: unknown,
-        ...a: unknown[]
-      ) {
-        calls += 1;
-        return calls === 1 ? real.apply(this, a) : null;
-      });
+      const raced = async (locked: unknown) => {
+        let calls = 0;
+        const spy = vi.spyOn(proto, 'overdueStay').mockImplementation(async function (
+          this: unknown,
+          ...a: unknown[]
+        ) {
+          calls += 1;
+          return calls === 1 ? real.apply(this, a) : locked;
+        });
+        try {
+          return { r: await send(), calls };
+        } finally {
+          spy.mockRestore();
+        }
+      };
       const before = await snapshot(s6);
-      let r;
-      try {
-        r = await send();
-      } finally {
-        spy.mockRestore();
+      for (const locked of [null, { departureDate: '2029-01-26', nights: 2 }]) {
+        const { r, calls } = await raced(locked);
+        expect(calls).toBe(2);
+        expect(r.statusCode, r.body).toBe(409);
+        expect(r.json().code).toBe('CONCURRENT_UPDATE');
+        expect(r.headers['retry-after']).toBe('1');
+        expect(r.headers['idempotent-replayed']).toBeUndefined();
+        expect(await snapshot(s6)).toEqual(before);
+        expect(await overdueAudit(s6)).toEqual([]);
       }
-      expect(calls).toBe(2);
-      expect(r.statusCode, r.body).toBe(409);
-      expect(r.json().code).toBe('CONCURRENT_UPDATE');
-      expect(r.headers['retry-after']).toBe('1');
-      expect(await snapshot(s6)).toEqual(before);
-      expect(await overdueAudit(s6)).toEqual([]);
       // Same key, same If-Match: the 409 rolled back with the key – the retry is decided on the state now (overdue,
       // MGR at 1 night) and writes the B18 once; it is not a replay.
       const again = await send();
