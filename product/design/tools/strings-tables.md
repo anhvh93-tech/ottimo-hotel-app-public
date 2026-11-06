@@ -2352,6 +2352,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `refund.execute_transfer` | Ghi đã hoàn chuyển khoản / qua máy POS | Record transfer / card terminal refund | ⟨chừa chỗ⟩ | executeRefund – MGR/OWN (A47) |
 | `refund.proof` | Ảnh chứng từ (ủy nhiệm chi hoặc biên nhận có chữ ký khách) | Proof photo (transfer slip or receipt signed by the guest) | ⟨chừa chỗ⟩ |  |
 | `refund.bank_reference` | Mã giao dịch ngân hàng / mã hoàn POS | Bank transaction ref / card refund code | ⟨chừa chỗ⟩ |  |
+| `pay.bank_reference_card_like` | Mã này trông giống số thẻ thanh toán nên Desk không lưu. Nhập 8 chữ số cuối của mã giao dịch. | This looks like a card number, so Desk can't save it. Enter the last 8 digits of the transaction reference. | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.8 (bản 1.8, C0313-25): 422 CARD_NUMBER_DETECTED có field = bankReference; ô ghi chú giữ error.CARD_NUMBER_DETECTED |
 | `refund.transfer_waits_manager` | Hoàn chuyển khoản do quản lý thực hiện – báo khách thời hạn. | Transfer refunds are made by a manager – tell the guest when to expect it. | ⟨chừa chỗ⟩ |  |
 | `refund.request_overpayment` | Đề nghị hoàn {amount} | Request a refund of {amount} | ⟨chừa chỗ⟩ | Spec ghi {creditVnd} – FE truyền {amount} |
 | `refund.requested` | Đã gửi đề nghị hoàn – chờ quản lý duyệt. | Refund request sent – waiting for a manager to approve. | ⟨chừa chỗ⟩ |  |
