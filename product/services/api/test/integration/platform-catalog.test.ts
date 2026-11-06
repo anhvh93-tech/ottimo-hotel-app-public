@@ -71,7 +71,12 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
       await importRoomCatalog(tx, {
         groups: [{ code: 'X', name: 'Other', sortOrder: 1, baseOccupancy: 2, maxOccupancy: 3 }],
         rooms: [
-          { roomNo: '999', group: 'X', monthlyListPriceVnd: 6_000_000, nightlyListPriceVnd: 500_000 },
+          {
+            roomNo: '999',
+            group: 'X',
+            monthlyListPriceVnd: 6_000_000,
+            nightlyListPriceVnd: 500_000,
+          },
         ],
         activeFrom: '2026-10-01',
         now: T0,

@@ -911,7 +911,10 @@ function validateSeeds() {
   for (const r of rooms.values()) {
     if (!groups.has(r.group)) err(W, `căn ${r.roomNo}: nhóm ${r.group} không tồn tại`);
     if ('expectedNightlyListPriceVnd' in r)
-      err(W, `căn ${r.roomNo}: expectedNightlyListPriceVnd đã bỏ – dùng nightlyListPriceVnd (V5-1A)`);
+      err(
+        W,
+        `căn ${r.roomNo}: expectedNightlyListPriceVnd đã bỏ – dùng nightlyListPriceVnd (V5-1A)`,
+      );
     for (const k of ['monthlyListPriceVnd', 'nightlyListPriceVnd'])
       if (!isPrice(r[k])) err(W, `căn ${r.roomNo}: ${k} phải là số nguyên > 0, bội 1.000 (BR-101)`);
   }

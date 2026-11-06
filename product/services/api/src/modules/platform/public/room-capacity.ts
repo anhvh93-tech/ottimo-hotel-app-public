@@ -38,5 +38,4 @@ export interface RoomCapacityCheck {
  * + `NIGHTLY_PRICE_UNUSUAL` (no `count`) on `updateRoom` and `createRoom` – see `nightlyPriceUnusual` (list-price-check.ts).
  */
 export type RoomWarning =
-  | { code: 'FUTURE_RESERVATIONS_KEEP_ROOM'; count: number }
-  | { code: 'NIGHTLY_PRICE_UNUSUAL' };
+  { code: 'FUTURE_RESERVATIONS_KEEP_ROOM'; count: number } | { code: 'NIGHTLY_PRICE_UNUSUAL' };

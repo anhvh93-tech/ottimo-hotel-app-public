@@ -152,16 +152,7 @@ export async function importRoomCatalog(
       `INSERT INTO room_list_price (id, organization_id, property_id, room_id, effective_from,
          monthly_list_price_vnd, nightly_list_price_vnd, reason, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'seed', $8, $8)`,
-      [
-        uuidv7(),
-        organizationId,
-        propertyId,
-        id,
-        input.activeFrom,
-        monthly,
-        nightly,
-        input.now,
-      ],
+      [uuidv7(), organizationId, propertyId, id, input.activeFrom, monthly, nightly, input.now],
     );
   }
   return {
