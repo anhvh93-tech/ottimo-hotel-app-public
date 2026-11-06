@@ -173,3 +173,22 @@ Chi tiết ở contract 1.30. Chỉ mô tả, không đổi schema.
 | FB-R5-SEC-ARC-1H-02 | Minor | Done (chữ, phương án (a)) – BE làm ở PR-M | Không ghi số thưởng vào audit; 0.3.14 (b), `architecture.md` 5.1 |
 | FB-R5-SEC-ARC-1H-03 | Suggestion | Ý 1, 2 Done (chữ) – BE-H ở `r5-h1c`; ý 3 Deferred 0.3.14 (j) – BA | `access.denied` cả hai nhánh 403; thứ tự 403 → 422 → 409 |
 
+## 12. Bổ sung 1j – sau review #148 và review 1i
+
+Chi tiết ở contract 1.31 và danh sách 0.3.14 (k)–(z) ở 1.26.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-DOM-ARC-148-02 | – | Done (1j, thêm trường) – BE-D2 PR nhỏ sau #148, trước PR Desk 5B-1 | `cancellation.cancelledFrom`, FD+ |
+| FB-R5-BE-ARC-C0313-38 | Minor | Done (1j, chữ DOM 1.3) | #148 không đổi mã |
+| FB-R5-BE-ARC-C0313-34 | Minor | Done (1j) | Kiểm sớm ở cả 5 bộ đọc |
+| FB-R5-SEC-ARC-1I-02 | Minor | Done (1j, một dòng ở 1.30) – OPS #155 | Khối K14 đã ghim |
+| FB-R5-SEC-ARC-1I-01, FB-R5-BE-ARC-1I-02 | Suggestion | Deferred – 0.3.14 (k) | Thứ tự lỗi đầy đủ |
+| FB-R5-BE-ARC-1I-01 | Minor | Deferred – 0.3.14 (l) | `checked_out`: 409 |
+| FB-R5-SEC-ARC-1I-03 | Suggestion | Deferred – 0.3.14 (m) – UXD, FE-A | Câu nhắc dưới ô lý do |
+| FB-R5-BE-ARC-C0313-35, 36, 37 | Suggestion | Deferred – 0.3.14 (o), (p), (q) | – |
+| ARC #154 mục 9 (DOM 154-01, 154-03; SEC 154-01) | – | Deferred – 0.3.14 (k), (r), (s), (t) | (s) mã ở #157 |
+| ARC #148 mục 7 (148-02, 148-04; SEC 148-02, DOM 148-03) | – | Deferred – 0.3.14 (u)–(x) | (x) thiết kế 5B-2 |
+| DOM 148-05, ARC-DOM 148-05 | Suggestion | Deferred – 0.3.14 (y), chờ DOM/PO | – |
+| FB-R5-DOM-ARC-155-05 | Suggestion | Deferred – 0.3.14 (z), chỉ khi K14 > 0 | Đổi schema nếu làm |
+
