@@ -7,10 +7,12 @@
 // Không ghi gì lên stack dùng chung: ca này dừng ở bước xem lại rồi bỏ (không bấm "Lưu Wi-Fi"); phần lưu, 422 và
 // nhật ký nằm ở Vitest (`v5-58-wifi-fe2.test.tsx`, mock theo PR #120). Kiểm tay trên staging (QA): Chrome/Safari có
 // mật khẩu Desk đã lưu không gợi ý điền vào hai ô này. Giá trị gõ là giá trị thử, không phải mạng thật.
-// Skip khi stack chưa có `getPropertyWifi` (máy chủ ở PR #120). axe: 0 critical/serious trên trang và bước xem lại.
-// Project desk-chromium (testMatch ui/).
-import { expect, test } from '@playwright/test';
-import { requireEndpoints } from '../support/api.js';
+// Máy chủ Wi-Fi ở PR #120 ("gộp sau #120"). Tới khi stack đang test có `getPropertyWifi`, lệnh GET đó được
+// `page.route` trả đúng dạng hợp đồng "chưa nhập" (`{ configured: false }`, như cách V5-46 làm) – CI không cho ca UI
+// skip. Mọi lệnh khác (đăng nhập, quyền S36, nhật ký `listAuditEvents`) chạy với stack thật; có endpoint thì không
+// chặn gì. axe: 0 critical/serious trên trang và bước xem lại. Project desk-chromium (testMatch ui/).
+import { expect, test, type Page } from '@playwright/test';
+import { isAvailable } from '../support/api.js';
 import { SEED_PASSWORD } from '../support/env.js';
 import { go, scan } from './axe.js';
 import { UI, signIn, t } from './helpers.js';
@@ -18,16 +20,29 @@ import { UI, signIn, t } from './helpers.js';
 const PATH = '/settings/wifi';
 const NETWORK = 'OTTIMO E2E Test';
 const PHRASE = 'test-wifi-0000';
+const WIFI = /\/v1\/properties\/[^/]+\/wifi$/;
+
+/** Contract shape of `getPropertyWifi` before anything is entered – only while the stack lacks the endpoint. */
+async function stubWifiUntilServer(page: Page): Promise<void> {
+  if (await isAvailable(page.context().request, 'GET', '/v1/properties/{propertyId}/wifi')) return;
+  await page.route(WIFI, (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'cache-control': 'no-store' },
+          body: JSON.stringify({ configured: false }),
+        })
+      : route.continue(),
+  );
+}
 
 test.describe('V5-58 Desk Wi-Fi (S36)', { tag: ['@ui', '@r5'] }, () => {
   test.skip(!UI, 'Chạy với E2E_UI=1');
   test.skip(!SEED_PASSWORD, 'Thiếu QA_SEED_PASSWORD');
 
-  test.beforeEach(async ({ request }) => {
-    await requireEndpoints(request, 'T58-10', [
-      ['GET', '/v1/properties/{propertyId}/wifi', 'getPropertyWifi'],
-      ['PUT', '/v1/properties/{propertyId}/wifi', 'setPropertyWifi'],
-    ]);
+  test.beforeEach(async ({ page }) => {
+    await stubWifiUntilServer(page);
   });
 
   test('T58-10 OWN: hai ô trống, không tự điền, bước xem lại mạng mở – không lưu', async ({
