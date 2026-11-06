@@ -70,7 +70,13 @@ Gạch **Ở đâu** đã dặn "đơn **Đã hủy**, lý do **Hết hạn gi�
   - một giữ chỗ chưa cọc tự hủy;
   - một giữ chỗ có cọc thiếu đã quá hạn;
   - một giữ chỗ còn chờ cọc lúc 12:00 ngày đến.
-- Trạng thái: Open (PO sửa Tờ 2a, BA sửa sổ tay; DOM đọc lại một câu trước khi UXD dựng bản in)
+- Trạng thái: **PO-08 Closed** (phần Tờ 2a) – DOM đọc lại lần cuối 07/11/2026 trên `53bbde7c`:
+  - hai câu ở gạch **Ở đâu** và **Hết hạn, chưa cọc** đúng nguyên văn; phần còn lại của Tờ 2a khớp với hai câu mới (ba mốc rà, có cọc, sổ giao ca, trước khi rời quầy);
+  - DOM sửa thẳng một câu nhỏ ở bảng "Cách in": câu cũ vừa bảo in lại Tờ 2a bản 06/11, vừa bảo in bản 07/11. Nay tách ra: Tờ 1 in bản 06/11, Tờ 2a chỉ in bản 07/11. Không đổi ý.
+  - UXD dựng PDF được.
+  - Phần sổ tay 2.4 và `guides/02-le-tan.md` (BA):
+    - DOM đã xem bản BA đang sửa trong checkout, chưa commit. Bản đó đúng ý thẻ: "Tin không đổ chuông", "Tin chỉ để nhắc", ba loại tin ở v1.0.4, và tách hai trạng thái **Đã hủy** / còn **Giữ chỗ · chờ cọc** kèm câu "**Không** báo khách đơn đã hủy";
+    - phần này đóng khi BA commit; không chặn bản in.
 
 ## 2. BUG-R5-005 – câu cho lễ tân khi khách báo tab Yêu cầu lỗi
 
@@ -121,3 +127,84 @@ Gạch **Ở đâu** đã dặn "đơn **Đã hủy**, lý do **Hết hạn gi�
 2. Push tới điện thoại vẫn là Mock ở v1.0.5. Nếu OPS bật push thật, bỏ vế "Tin không đổ chuông".
 3. Xóa tin có số thẻ trên máy của cơ sở là thực hành chuẩn của ngành lưu trú: không giữ số thẻ nhận qua kênh không an toàn, xóa và báo khách là không nhận. Đây là [GIẢ ĐỊNH] DOM; SEC chốt theo PCI DSS và Nghị định 13/2023.
 4. Tỷ lệ chặn nhầm ở mục 2.1 điểm 3 là ước lượng theo luật Luhn: mỗi đoạn có khoảng 1/10 khả năng qua. Không phải số đo trên dữ liệu khách.
+
+## 4. Lượt 2 – câu BA thêm ở `792e510a` (07/11/2026)
+
+ORC giao 07/11. Đối tượng: `rounds/round-05/outputs/BA/report.md` mục 8. Các đoạn đọc:
+
+- ca đêm: `guides/02-le-tan.md` mục 2, 13.3, 17.6; sổ tay 2.20, 5.6;
+- đóng ca: `02` 2, 12.4, 17.6; sổ tay 2.1, 5.6, 1.1, 1.15; `01` 2.1, 8.1;
+- bổ sung minibar: `03` 7; sổ tay 3.7;
+- giữ chỗ (PO-08): sổ tay 2.4, `02` 4.5.
+
+Đối chiếu mã `main` @ `b121c77b`:
+
+- `MoneyPage.tsx`, cột **Trước → sau** là `before.amountVnd` → `after.amountVnd`;
+- `folio.service.ts`: `reverseLine` ghi `folio.line_reversed`, `postLines` ghi `folio.line_posted`;
+- `minibar.service.ts`: lần đếm lại ghi R7 đảo dòng, lý do `minibar_recount`;
+- `audit-log.controller.ts`: FD/FDL chỉ thấy dòng của mình; bộ lọc 7 ngày chỉ đọc `folio_line.adjusted`;
+- `HousekeepingPage.tsx`: chỉ hiện việc hôm nay.
+
+### 4.1 Kết luận
+
+| Đoạn | Kết luận | Thẻ |
+|---|---|---|
+| Ca đêm rà **Sơ đồ phòng** trước 06:00 | Đúng mã. Hai chỗ chưa đúng thực tế quầy, cả hai từ câu của chính DOM (review #101/#108/#110 mục 4): (1) "kiểm căn hoặc hỏi buồng phòng" lúc nửa đêm là gõ cửa căn có khách, và ban đêm không có buồng phòng; (2) OTTIMO đóng quầy muộn nhất 21:00, nên việc chính phải ở mốc đóng quầy, khi danh sách **Khách đi** vẫn còn đúng | **FB-R5-DOM-BA-02** Minor |
+| Đóng ca – lễ tân ghi dòng tự sửa giảm từ **Nhật ký thao tác tiền** | Giả định BA **đúng** với sửa dòng (A31): hàng **Điều chỉnh dòng folio** có **Trước → sau** đúng số, bỏ dòng hiện "… → 0 đ". Giả định **sai** với đếm lại minibar: lần đếm lại không ghi **Điều chỉnh dòng folio** mà ghi hai hàng **Đảo dòng folio** (lý do **Đếm lại minibar**, "X → —") rồi **Thêm dòng folio** ("— → Y"). Câu bộ lọc 7 ngày ở sổ tay 1.15, `01` 8.1 cũng hứa có lần đếm lại minibar, mà bộ lọc chưa đọc hàng đó | **FB-R5-DOM-BA-03** Minor |
+| Nạp đủ định mức minibar | Đúng nghiệp vụ và đúng lý do ("bấm Làm xong là Desk ghi tủ đã đủ"). Thiếu bước của lễ tân khi buồng phòng báo tủ thiếu hơn số đã tính | **FB-R5-DOM-BA-04** Suggestion |
+| Sổ tay 2.4, `02` 4.5 theo PO-08 | Đúng ý thẻ. DOM sửa thẳng một vế nhỏ ở sổ tay 2.4: đơn còn **Giữ chỗ · chờ cọc** mà chưa nhận đồng nào thì theo Tờ 2a "Quá hạn vài phút…", không theo gạch **Đã nhận cọc**. `02` 4.5 đã tách đúng ý (2)/(3). **PO-08 Closed cả phần sổ tay** | – |
+
+### FB-R5-DOM-BA-02
+- Mức độ: Minor (v1.0.5 tới v1.0.6; không mất tiền, vì sau 06:00 quản lý vẫn trả phòng được theo V5-15)
+- Vị trí:
+  - `guides/02-le-tan.md` 13.3, các bước 1–4 "Từ v1.0.5, tới v1.0.6: rà Sơ đồ phòng trước 06:00";
+  - cùng tệp, mục 2, dòng **Đóng quầy (muộn nhất 21:00)** và dòng **Trước 06:00**;
+  - sổ tay 2.20, 5.6, cùng chữ.
+- Vấn đề:
+  1. Bước 2 "Kiểm căn hoặc hỏi buồng phòng khách còn ở không" là câu DOM đưa, và sai thực tế quầy. Lúc 01:30, kiểm căn nghĩa là gõ cửa hoặc mở cửa căn mà khách có thể đang ngủ, còn buồng phòng không làm ca đêm.
+  2. OTTIMO hiện đóng quầy muộn nhất 21:00 (`02` mục 2, 17.1). Ca 00:00–05:59 chỉ có khi có người trực đêm. Việc của "kiểm toán đêm" phải làm ở mốc đóng quầy. Trước 00:00, danh sách **Khách đi** hôm nay vẫn hiện đúng các căn này.
+- Vì sao quan trọng: gõ cửa khách lúc nửa đêm là lỗi phục vụ nặng ở khách sạn. Người trực đoán "khách đã đi" để bấm Trả phòng thì có thể giao căn đang có khách cho ca sau.
+- Đề xuất sửa (chữ thay):
+  - `02` mục 2, dòng **Đóng quầy**, thêm vào đầu cột việc: "**Khách đi** hôm nay không còn căn chưa trả phòng: khách đã đi thì **Trả phòng** (ghi giờ rời thật), khách ở thêm thì **Gia hạn**."
+  - 13.3 (và sổ tay 2.20), bước 2 và 3 thay bằng:
+    > 2. **Không gõ cửa, không vào căn ban đêm.** Xem dấu hiệu: thẻ, chìa đã trả ở quầy; sổ giao ca; căn đã dọn trong ngày; nhật ký mở cửa trên app khóa, nếu có.
+    > 3. Chắc khách đã đi: **Trả phòng**, ghi giờ khách rời thật. Chắc khách còn ở: **Gia hạn**. Không chắc: để nguyên, ghi sổ giao ca mã đơn; từ 06:00 làm như đơn quá ngày đi.
+  - Bước 1, bước 4 giữ nguyên. Bước 4 thêm: "Người trực hiện giữ vai quản lý nên làm được bằng quyền đó, ghi lý do."
+- Trạng thái: Open (BA)
+
+### FB-R5-DOM-BA-03
+- Mức độ: Minor
+- Vị trí:
+  - `02` 12.4, khối "Dòng tự sửa giảm trong ca", bước 2; sổ tay 2.1 (cuối ca, bước 3), cùng chữ;
+  - sổ tay 1.15 và `01` 8.1, câu bộ lọc **Sửa giảm dòng – 7 ngày** "… đếm lại minibar thấp hơn";
+  - sổ tay 1.1 và `01` 2.1, dòng **Mỗi tuần** "Chú ý dòng minibar đếm lại thấp hơn".
+- Vấn đề:
+  - Lần đếm lại minibar trên `main` không phải `folio_line.adjusted`:
+    - nếu số mới khác số cũ, Desk đảo dòng cũ (`folio.line_reversed`, lý do `minibar_recount`) rồi ghi dòng mới (`folio.line_posted`);
+    - trong **Nhật ký thao tác tiền**, việc đó hiện thành hai hàng. Ví dụ 2 bia (70.000) đếm lại còn 1: hàng **Đảo dòng folio**, cột Trước → sau "70.000 đ → —", lý do **Đếm lại minibar**; rồi hàng **Thêm dòng folio**, "— → 35.000 đ". Đếm lại về 0 thì không có hàng thứ hai.
+  - Lễ tân chỉ tìm hàng **Điều chỉnh dòng folio** sẽ không thấy lần đếm lại.
+  - Bộ lọc 7 ngày (#108) chỉ đọc `folio_line.adjusted`, nên cũng không có hàng này. Chỉ khi BE-A2 làm phần audit của BR-438 (2a) thì mới có.
+- Vì sao quan trọng: đây là đúng loại sửa giảm mà luật muốn người nhận ca và chủ đầu tư thấy. Câu hiện nay hứa có mà Desk không có.
+- Đề xuất sửa:
+  - 12.4 bước 2, thêm sau câu hiện có:
+    > Đếm lại minibar không hiện là **Điều chỉnh dòng folio**: tìm thêm hàng **Đảo dòng folio** có lý do **Đếm lại minibar**; số mới nằm ở hàng **Thêm dòng folio** ngay sau, cùng mã đơn (không có hàng đó thì số mới là 0).
+  - Sổ tay 1.15, `01` 8.1: thay vế "đếm lại minibar thấp hơn" bằng:
+    > Tới khi có bản sửa, lần đếm lại minibar chưa hiện ở bộ lọc này: xem thêm hàng **Đảo dòng folio**, lý do **Đếm lại minibar**, ở **Nhật ký thao tác tiền**.
+
+    Dòng **Mỗi tuần** ở 1.1, `01` 2.1 trỏ về câu đó. Bỏ câu thay thế khi BE-A2 làm xong phần audit (ORC báo).
+  - Xác nhận cho BA: cột **Trước → sau** hiện đúng số trước và sau với hàng **Điều chỉnh dòng folio**, kể cả bỏ dòng ("… → 0 đ"). Lễ tân, lễ tân trưởng chỉ thấy hàng của mình. Tài khoản 6 vai thấy mọi hàng.
+- Trạng thái: Open (BA). Nối với đề xuất minibar ở `rounds/round-05/responses/DOM-responses.md`.
+
+### FB-R5-DOM-BA-04
+- Mức độ: Suggestion
+- Vị trí: `03` mục 7 và sổ tay 3.7, câu "Tủ thiếu nhiều hơn số trên việc: báo lễ tân **trước khi** bấm **Làm xong**". Phía lễ tân (`02` 11, sổ tay 2.14) chưa có bước tiếp theo.
+- Vấn đề: lễ tân nghe báo nhưng chưa có câu dặn làm gì.
+- Đề xuất sửa: thêm vào `02` (gần 11.1) và sổ tay 2.14:
+  > Buồng phòng báo tủ thiếu nhiều hơn số đã tính:
+  > - khách đã trả phòng: **Thêm phát sinh** sau trả phòng trong 24 giờ, kèm ảnh tủ, đúng số món chênh. Quá 24 giờ: ghi sổ giao ca, báo chủ đầu tư;
+  > - khách còn ở: ghi sổ giao ca mã đơn và món, tính ở lần đếm sau.
+  >
+  > Buồng phòng vẫn nạp đủ định mức rồi mới bấm **Làm xong**.
+
+  Đây đúng là luật phát sinh sau trả phòng đã có (sổ tay mục "Phát sinh sau trả phòng").
+- Trạng thái: Open (BA, không chặn v1.0.5)

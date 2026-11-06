@@ -171,3 +171,46 @@ ORC lưu từ báo cáo bàn giao của UXD.
   - (b) "mã giao dịch" theo nhãn ô, thay cho "mã chuyển khoản".
 - Lưu ý cho ORC khi báo INV cách làm tạm (SEC 4.4): trên production, ô mã ở hộp chi hoàn đang hiện câu "Ô ghi chú có dãy số giống số thẻ thanh toán…". Lời dặn nên ghi "nhập 8 chữ số cuối của mã giao dịch", cho khớp câu mới.
 - ESC mới: không có. Chưa sửa mã.
+
+## 10. Cập nhật 07/11 – copy v1.0.5 bản 1.9 (V5-15, điều kiện SEC cho BE PR #99)
+- Mục 9.9 mới, một khóa: `checkout.overdue_reason_help`. Đây là chữ gợi ý D12c dưới ô lý do (`overdueReason`) của hộp Trả phòng quá ngày đi (SEC `SEC-on-be-prs-106-99-checkout.md` mục 2.5).
+  - VI: "Lý do lưu vào nhật ký thay đổi. Không ghi họ tên, số giấy tờ hay thông tin sức khỏe của khách."
+  - EN: "The reason is kept in the change log. Don't write the guest's name, ID numbers or health information."
+- Không dùng lại được câu có sẵn: `crm.note_hint` thiếu họ tên; `webreq.note_hint`, `rsv.after_cancel.note_hint` thiếu giấy tờ hoặc sức khỏe.
+- Hiện bằng `Field help` có sẵn (Stone Grey, 12 px). Không Alert, không thêm màu.
+- Số khóa mục 0: 74/133/7 = **214**.
+- Phát hiện: nhãn ô, 3 lý do gợi ý (DOM 7.1) và tiêu đề hộp chưa có trong `design/copy`. Đề xuất FE-A viết theo chữ DOM rồi UXD duyệt.
+- ESC mới: không có. Chưa sửa mã.
+
+## 11. Cập nhật 07/11 – Phản hồi & sửa: bản in Tờ 2a bản 07/11
+- **Nguồn:** `product/docs/staff-one-pager.md` @ `5bbed1fb`. Đây là bản DOM đọc lần cuối (FB-R5-DOM-PO-08 Closed, `DOM-on-ba-v105-docs.md` mục 1). Bảng "Cách in" theo câu DOM vừa tách: Tờ 1 in bản 06/11, Tờ 2a chỉ in bản 07/11. Chữ giữ nguyên văn, UXD không sửa nguồn.
+- **Dựng bằng cùng bộ dựng:** `product/design/tools/build_print_sheets.py --pdf --only to-2a-giu-cho-qua-han-a4`. Ra hai tệp, ghi đè đúng chỗ bản 06/11:
+  - `product/docs/print/to-2a-giu-cho-qua-han-a4.html`
+  - `product/docs/print/pdf/to-2a-giu-cho-qua-han-a4.pdf`
+- **Khổ:** A4 dọc, một mặt, 2 cột, **11 pt** như bảng "Cách in". Viền Light Oak cách mép 6 mm. Tờ có 1 trang (MediaBox 209,9 × 297 mm).
+- **Chỗ chữ:**
+  - Bản 07/11 dài hơn (hai câu PO-08). Với khoảng cách cũ (dòng 1,3), tờ vừa khít 11 pt và còn 0 mm. In HTML bằng trình duyệt khác có thể làm mất dòng cuối cột mà không báo.
+  - UXD giữ 11 pt. Chỉ đổi khoảng cách, và chỉ ở Tờ 2a (lớp `.snug`):
+    - dòng 1,28;
+    - khe cột 6 mm;
+    - đầu tờ bớt 0,8 mm;
+    - mỗi gạch đầu dòng bớt 0,2 mm.
+  - Đo: còn **6,5 mm mỗi cột** (khoảng 1 dòng). Đã soi ảnh khoảng 420 dpi: dấu chồng (ỗ, ẩ, ắ) không chạm chân chữ dòng trên.
+  - Không cắt câu "Tới v1.0.5…". DOM chỉ cho cắt câu này khi tờ không vừa và v1.0.5 đã lên production.
+- **Chân tờ:**
+  - Ghi "Bản 30/10/2026, sửa 06/11/2026 (…), 07/11/2026 (Tờ 2a: hộp Thông báo trên app nhân viên)". Nhìn chân tờ là phân biệt được với bản 06/11, đúng lời dặn "Không in Tờ 2a bản 06/11".
+  - Tên tờ không còn ngắt giữa cụm: "OTTIMO Desk · Tờ 2a ·" / "Giữ chỗ quá hạn (tạm)".
+- **Kiểm:**
+  - Bộ dựng thoát mã 0: không tràn, 1 trang.
+  - Trích chữ trong PDF bằng PDFKit: đủ 3 133/3 133 ký tự của phần "## Tờ 2a", đúng thứ tự, đủ 17 mũi tên. Không mất dòng.
+  - Không có emoji trong nguồn, HTML và chữ PDF.
+  - Font nhúng: Lora Medium, Be Vietnam Pro Regular/SemiBold, JetBrains Mono (mã `OTM-…`).
+  - Ảnh khổ in (PDF dựng ảnh khoảng 210 dpi, bản màu và bản xám): chữ Ink rõ; viền, chân tờ (Stone Grey) và chấm đầu dòng vẫn thấy khi in đen trắng.
+  - Ảnh màn hình 1440 px và 390 px (giả lập máy, không cuộn ngang): đủ hai cột và chân tờ.
+- **Ảnh kiểm để ngoài repo** (không có dữ liệu khách; repo công khai, tệp lớn): thư mục scratchpad của phiên `…/scratchpad/uxd-2a-0711/final/` gồm `print-a4-color.png`, `print-a4-gray.png`, `desktop-1440.png`, `mobile-390.png`.
+- **Tờ 1:** không dựng lại. Dựng thử ra ngoài repo: thân Tờ 1 giống hệt bản 06/11 đã commit (`bb67605d`). Chỉ khác chân tờ, vì dòng bản in nay có thêm "07/11/2026 (Tờ 2a…)". Bản Tờ 1 06/11 vẫn đúng để in.
+- **Còn từ trước, không mới:** mũi tên "→" in bằng Arial, vì gói Be Vietnam Pro của Google Fonts không có ký tự U+2192. Bản 06/11 của Tờ 1 và Tờ 2a cũng vậy. Ở 11 pt nhìn không ra. Đề xuất v1.0.6: nhúng font đủ ký tự cho tờ nhân viên, như đang làm cho Tờ 4.
+- **Dòng decision-log đề xuất** (ORC ghi):
+  `| 2026-11-07 | 5 | **UXD – dựng lại bản in Tờ 2a bản 07/11** (staff-one-pager.md @ 5bbed1fb, DOM PO-08 Closed): A4 dọc, 2 cột, 11 pt, một trang (product/docs/print/pdf/to-2a-giu-cho-qua-han-a4.pdf). Giữ cỡ 11 pt; riêng Tờ 2a dòng 1,28 và bớt khoảng trắng phụ, còn 6,5 mm mỗi cột (trước đó 0 mm). Không cắt câu nào. Chân tờ ghi bản 07/11. Tờ 1 bản 06/11 không đổi thân, không dựng lại | UXD | Quyền UXD (dàn trang bản in); chữ nguyên văn PO + DOM |`
+- **Việc cho ORC:** báo chủ đầu tư PDF Tờ 2a bản 07/11 đã dựng lại, theo dòng "Cách in" của `staff-one-pager.md`. Gỡ bản cũ cùng lúc.
+- ESC mới: không có. Không sửa nguồn chữ, không dựng HTML sổ tay 1.18 / bộ hướng dẫn 1.16 (chờ DOM đọc câu BA mới).
