@@ -18,6 +18,16 @@
  * OpenAPI 0.3.13 (V5-10, BUG-R4-036/051; BE C0313-01, 07, 08): ONE departure instant (`resolveCheckoutAt`,
  * checkout-at.ts) for the summary (`CheckoutSummary.checkoutAt`), the `check_out` VietQR (cap + `amountDueNow`,
  * TIME_AFTER_ACTION like B18) and B18; the B18 day uses the shared clock rule of shared/business-day.ts.
+ *
+ * OpenAPI 0.3.13 bổ sung 1 / 1d (V5-15 – "Trả phòng quá ngày đi"; contract 1.4, 1.16 H-01…H-04, 1.18; DOM 7.1 (a);
+ * BE C0313-03, 09, 10): a stay past its EFFECTIVE departure is checked out with the time the guest really left
+ * (`checkoutAt`, business date = the departure) and `overdueReason`, by OWN, or MGR while `nightsNotBilled` ≤ 1
+ * (reservations/public/overdue-checkout.ts). The role and the cap are checked on the booking read WITHOUT a lock,
+ * before the body (`overdueGate` – B18, its `lateFeeInsteadOfNight` precheck, the `check_out` VietQR); the 403 carries
+ * `auditReason` and the controller writes the one `access.denied`. No extra night, no late fee of one night; the
+ * minibar count of a business day ≥ the departure counts (`countFrom`). Every B18 with `checkoutAt` writes it as the
+ * actual check-out (reservation, registration → `stay_ended_at`); the recording time stays for the audit and the
+ * post-checkout window.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -48,6 +58,11 @@ import {
   recordChange,
   recordTransition,
 } from '../../reservations/public/stay-port';
+import {
+  assertOverdueCheckoutRole,
+  isOverdue,
+  nightsNotBilled,
+} from '../../reservations/public/overdue-checkout';
 import type {
   DebtAfterReversalInput,
   DebtAfterReversalResult,
@@ -182,6 +197,17 @@ interface CheckoutInput {
   over: { mode: 'refund_request' | 'retain_with_guest_consent'; reason: string } | null;
   debt: { dueDate: LocalDate; reason: string } | null;
   finalPayment: PaymentCreateInput | null;
+  /** V5-15: `overdueReason` (D12c reader) – required on an overdue stay, refused (NOT_ALLOWED) on any other. */
+  overdueReason: string | undefined;
+}
+
+/**
+ * V5-15 (OpenAPI 0.3.13 bổ sung 1): the stay is past its effective departure at the server clock. `nights` =
+ * `nightsNotBilled` (business date now − effective departure, ≥ 1) – from the click, never from `checkoutAt`.
+ */
+export interface OverdueStay {
+  departureDate: LocalDate;
+  nights: number;
 }
 
 /** The departure-day night is required and can be sold (BR-416). */
@@ -665,6 +691,34 @@ export class CheckoutService {
   }
 
   /**
+   * V5-15: the in-house primary booking `row` is past its EFFECTIVE departure (primary + in-house children – BR-422,
+   * BE C0313-09) at the server's business date → its departure and `nightsNotBilled`; else null. Read only.
+   */
+  private async overdueStay(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+  ): Promise<OverdueStay | null> {
+    if (row.status !== 'in_house' || row.parent_reservation_id) return null;
+    const { departureDate } = await this.s.effectiveStay(tx, ctx, row);
+    if (!isOverdue(ctx.today, departureDate)) return null;
+    return { departureDate, nights: nightsNotBilled(ctx.today, departureDate) };
+  }
+
+  /**
+   * V5-15 (contract 1.18 order: Idempotency-Key → booking WITHOUT a lock → role / night cap → body → locks → money):
+   * the role gate of B18, its `lateFeeInsteadOfNight` precheck and the `check_out` VietQR on an overdue stay – OWN;
+   * MGR while `nightsNotBilled` ≤ 1; FDL/FD never (403, `auditReason` OVERDUE_CHECKOUT). Returns the overdue facts, or
+   * null when the stay is not overdue (the usual rules apply).
+   */
+  async overdueGate(tx: Tx, ctx: BookingContext, id: string): Promise<OverdueStay | null> {
+    const row = await loadReservation(tx, id, ctx.actor);
+    const overdue = await this.overdueStay(tx, ctx, row);
+    if (overdue) assertOverdueCheckoutRole(ctx.actor.roles, overdue.nights);
+    return overdue;
+  }
+
+  /**
    * V5-10 (OpenAPI 0.3.13 `checkOut` "Quy đổi giờ trả"; BE C0313-01, 07, 08): the ONE departure instant of the stay for
    * `getCheckoutSummary`, `createVietQr purpose=check_out` (cap and `amountDueNow`) and B18 – `checkoutAt` as sent
    * (checked: 422 DATE_INVALID on another day), else `checkoutTime` ?? agreed late time ?? `checkout_time` resolved
@@ -698,6 +752,24 @@ export class CheckoutService {
       });
     }
     return resolved;
+  }
+
+  /**
+   * V5-15: the `check_out` VietQR of an overdue stay – `checkoutAt` (the time the guest left) is required, and the
+   * options of an added night / a late fee of one night do not exist on this path (422, no QR).
+   */
+  private assertOverdueQr(q: {
+    checkoutAt?: Date | undefined;
+    extraNightRateVnd?: number | undefined;
+    lateFeeAsNight?: boolean | undefined;
+  }): void {
+    const errors: Array<{ field: string; code: string }> = [];
+    if (!q.checkoutAt) errors.push({ field: 'checkoutAt', code: 'REQUIRED' });
+    if (q.extraNightRateVnd !== undefined) {
+      errors.push({ field: 'extraNightRateVnd', code: 'NOT_ALLOWED' });
+    }
+    if (q.lateFeeAsNight) errors.push({ field: 'lateFeeAsNight', code: 'NOT_ALLOWED' });
+    if (errors.length > 0) throw problem('VALIDATION_FAILED', { errors });
   }
 
   /** C0313-01: a QR `check_out` (cap or `amountDueNow`) after server time + tolerance → 422, nothing created. */
@@ -840,20 +912,29 @@ export class CheckoutService {
       lateFeeAsNight?: boolean | undefined;
     },
   ): Promise<number> {
+    // V5-15 (H-03): an overdue stay – same roles and night cap as B18, 403 before the state checks.
+    const overdue = await this.overdueGate(tx, ctx, id);
     const row = await loadReservation(tx, id, ctx.actor);
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     this.primaryFor(row);
     if (!row.folio_id) throw problem('NOT_FOUND');
     const stay = await this.s.effectiveStay(tx, ctx, row);
     const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
-    if (!this.checkoutDayOpen(ctx, rollover, stay.departureDate)) {
+    if (!overdue && !this.checkoutDayOpen(ctx, rollover, stay.departureDate)) {
       throw problem('INVALID_TRANSITION', {
         extras: { currentState: row.status },
         detail: 'check-out QR on the departure business day',
       });
     }
+    if (overdue) this.assertOverdueQr(q);
     const d = await this.departure(tx, ctx, row, undefined, q.checkoutAt);
     this.assertNotAfterNow(d);
+    if (overdue && d.extraNight) {
+      // B18 of an overdue stay never adds a night (contract 1.4): leaving after the last tier = 422, no QR.
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'checkoutAt', code: 'LATE_CHECKOUT_AFTER_LIMIT' }],
+      });
+    }
     const rate = q.extraNightRateVnd;
     if (rate !== undefined) {
       // BUG-R2-139: no extra night to sell (none due, or the room is taken that night) → the option is refused.
@@ -934,8 +1015,10 @@ export class CheckoutService {
     expectedVersion: number,
     body: Record<string, unknown>,
   ): Promise<{ code: string }> {
+    // V5-15: the overdue role gate before the body, as B18 (FD/FDL → 403, never a 422 or a password tried).
+    const overdue = await this.overdueGate(tx, ctx, id);
     const f = new Fields(body);
-    const inp = this.readInput(f, body, ctx.today);
+    const inp = this.readInput(f, body, ctx, overdue);
     f.done();
     const row = await loadReservation(tx, id, ctx.actor);
     this.assertExtraNightRate(row, inp);
@@ -943,7 +1026,7 @@ export class CheckoutService {
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     this.primaryFor(row);
     if (!row.folio_id) throw problem('NOT_FOUND');
-    await this.decide(tx, ctx, row, row.folio_id, inp, f);
+    await this.decide(tx, ctx, row, row.folio_id, inp, f, overdue);
     return { code: row.code };
   }
 
@@ -968,6 +1051,7 @@ export class CheckoutService {
     tx: Tx,
     row: ReservationRow,
     d: Departure,
+    overdue: OverdueStay | null = null,
   ): Promise<
     Array<{
       roomId: string;
@@ -976,9 +1060,12 @@ export class CheckoutService {
     }>
   > {
     const port = this.s.ports.minibar;
+    // V5-15 (BE C0313-10, exception of K11-09): on an overdue stay the desk counts the fridge after the guest has
+    // gone – a count of any business day from the effective departure on counts.
+    const window = overdue ? { countFrom: overdue.departureDate } : {};
     // ARC 16.14: `reason` comes from the inventory port as it is (never_counted / stay_continued / new_fill).
-    if (port.uncheckedRooms) return port.uncheckedRooms(tx, row.id);
-    const st = await port.checkoutStatus(tx, row.id, d.rm.id);
+    if (port.uncheckedRooms) return port.uncheckedRooms(tx, row.id, window);
+    const st = await port.checkoutStatus(tx, row.id, d.rm.id, window);
     return st.required && !st.checked
       ? [{ roomId: d.rm.id, roomNo: d.rm.room_no, reason: 'never_counted' }]
       : [];
@@ -1014,10 +1101,12 @@ export class CheckoutService {
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     if (!row.folio_id) throw problem('NOT_FOUND');
     const d = await this.departure(tx, ctx, row, q.checkoutTime, q.checkoutAt);
+    // V5-15: read by FD+ as before; who may write B18 on it is `allowedActions` (and B18 itself).
+    const overdue = await this.overdueStay(tx, ctx, row);
     const lines = await this.s.folios.lines(tx, row.folio_id);
     const balance = await this.s.folios.balance(tx, row.folio_id);
     const pending = await this.pendingApprovals(tx, d.stay.ids);
-    const unchecked = await this.uncheckedMinibars(tx, row, d);
+    const unchecked = await this.uncheckedMinibars(tx, row, d, overdue);
     const old = await this.s.liveSurchargeLines(tx, row.folio_id, d.stay.ids, 'late_checkout');
     const newVnd = lateChargeOf(d);
     const blockers: Blocker[] = [];
@@ -1041,8 +1130,11 @@ export class CheckoutService {
       serverTime: ctx.iso(ctx.now),
       // 0.3.13 (V5-10): the instant every number below uses – the desk sends exactly this to the QR and to B18.
       checkoutAt: ctx.iso(d.checkout.at),
-      checkoutTimeNoteRequired: d.checkout.noteRequired,
+      // V5-15: an overdue stay takes `overdueReason` instead of the note (the departure is always well before now).
+      checkoutTimeNoteRequired: overdue ? false : d.checkout.noteRequired,
       checkoutAtAfterNow: d.checkout.afterNow,
+      overdue: !!overdue,
+      ...(overdue ? { nightsNotBilled: overdue.nights } : {}),
       amountDueAtCheckoutVnd,
       checkoutTime: d.time,
       standardCheckoutTime: d.quote.standard,
@@ -1095,8 +1187,10 @@ export class CheckoutService {
     body: Record<string, unknown>,
     opts: { approver?: LateFeeApprover | null } = {},
   ): Promise<{ row: ReservationRow; billNo: string; createdTaskIds: string[] }> {
+    // V5-15 (contract 1.18): booking read without a lock → role / night cap → body → locks → money.
+    const overdue = await this.overdueGate(tx, ctx, id);
     const f = new Fields(body);
-    const inp = this.readInput(f, body, ctx.today);
+    const inp = this.readInput(f, body, ctx, overdue);
     f.done();
     const { lateFee, extraNight, timeNote, applyLate, over, debt, finalPayment } = inp;
     const mgr = hasAny(ctx.actor.roles, MGR_PLUS);
@@ -1126,6 +1220,12 @@ export class CheckoutService {
     await this.children(tx, row); // lock the children before reading the stay
     if (!row.folio_id) throw problem('NOT_FOUND');
     const folioId = row.folio_id;
+    // V5-15: the stay read again under the locks – the body was read under the rules of `overdue`; a stay that changed
+    // in between (B13 / B16 of another desk) is a concurrent update, never the other path's rules.
+    const locked = await this.overdueStay(tx, ctx, row);
+    if (!!locked !== !!overdue || (locked && locked.departureDate !== overdue?.departureDate)) {
+      throw problem('CONCURRENT_UPDATE');
+    }
     const { d, typed, decided, surcharge, old, raise } = await this.decide(
       tx,
       ctx,
@@ -1133,6 +1233,7 @@ export class CheckoutService {
       folioId,
       inp,
       f,
+      overdue,
     );
     const fee = decided ? lateFee : null;
     await this.s.occupancy.lockRooms(tx, [d.rm.id]);
@@ -1295,7 +1396,9 @@ export class CheckoutService {
 
     // ── blockers, in order (spec 5.5) ──
     // ARC 16.2 R9 (BUG-R2-136): every minibar of the stay (the old room before a B14 included).
-    if ((await this.uncheckedMinibars(tx, row, d)).length > 0) throw problem('MINIBAR_NOT_CHECKED');
+    if ((await this.uncheckedMinibars(tx, row, d, overdue)).length > 0) {
+      throw problem('MINIBAR_NOT_CHECKED');
+    }
     const pending = await this.pendingApprovals(tx, all);
     if (pending > 0) throw problem('PENDING_APPROVALS', { extras: { pendingApprovals: pending } });
     // x-ota-prepaid-rule safety net (BE-B, re-verification 17/10): the OTA receipt matches the OTA-covered
@@ -1354,8 +1457,12 @@ export class CheckoutService {
     }
 
     // ── state ──
+    // BE C0313-03 (0.3.13 bổ sung 1): a B18 with `checkoutAt` (every path) records it as the actual check-out – the
+    // reservation, the registration (→ `stay_ended_at`, BR-604 declaration, penalty evidence) and the profiles' last
+    // stay. The recording time (`ctx.now`) stays for the audit, the transitions and `post_checkout_window_until`.
+    const departedAt = d.checkout.sent ? d.checkout.at : ctx.now;
     await tx.query(
-      `UPDATE reservation SET status = 'checked_out', actual_checkout_at = $2, checkout_mode = $3,
+      `UPDATE reservation SET status = 'checked_out', actual_checkout_at = $8, checkout_mode = $3,
               debt_due_date = $4, debt_reason = $5, updated_at = $2, version = version + 1,
               -- 0076 (DOM 18/10): a B18 debt opens the cycle with what is owed (openDebtVnd).
               debt_opened_at = CASE WHEN $3 = 'debt' THEN $2::timestamptz END,
@@ -1370,6 +1477,7 @@ export class CheckoutService {
         debt?.reason ?? null,
         debt ? balance.balanceDueVnd : 0,
         debt ? await this.debtReductionsVnd(tx, folioId) : 0,
+        departedAt,
       ],
     );
     // S4-11/32 (BE-C, T05): the last check-out of every guest of the stay (bookers + present members) – the
@@ -1385,7 +1493,7 @@ export class CheckoutService {
     await this.profiles.touchLastStay(
       tx,
       stayGuests.map((g) => g.id),
-      ctx.now,
+      departedAt,
     );
     for (const k of kids) {
       await recordTransition(tx, {
@@ -1451,6 +1559,18 @@ export class CheckoutService {
         checkoutMode: debt ? 'debt' : 'desk',
         ...(d.extraNight ? { extraNight: d.extraNight.date } : {}),
         ...(d.postMidnight ? { postMidnightWindow: true } : {}),
+        // V5-15 (BE C0313-10): the facts the owner reviews (`listAuditEvents.overdueOnly`) – no money, no guest data.
+        ...(overdue
+          ? {
+              overdue: {
+                departureDate: overdue.departureDate,
+                checkoutAt: ctx.iso(departedAt),
+                recordedAt: ctx.iso(ctx.now),
+                reason: inp.overdueReason,
+                nightsNotBilled: overdue.nights,
+              },
+            }
+          : {}),
       },
       ...(debt || (typed.noted && timeNote)
         ? {
@@ -1500,7 +1620,7 @@ export class CheckoutService {
     const refill = await this.s.ports.minibar.onCheckedOut(tx, row.id, d.rm.id);
     if (refill) createdTaskIds.push(refill);
 
-    await this.s.ports.registration.onCheckedOut(tx, row.id, ctx.now);
+    await this.s.ports.registration.onCheckedOut(tx, row.id, departedAt);
     const after = await loadReservation(tx, row.id, ctx.actor);
     await this.s.events.publish(tx, 'reservation.changed', row.id);
     await this.s.stay.emit(tx, 'transitioned', after, 'in_house', 'B18', d.rm.id);
@@ -1628,6 +1748,7 @@ export class CheckoutService {
     folioId: string,
     inp: CheckoutInput,
     f: Fields,
+    overdue: OverdueStay | null = null,
   ): Promise<{
     d: Departure;
     typed: { systemTime: LocalTime; noted: boolean };
@@ -1639,7 +1760,8 @@ export class CheckoutService {
   }> {
     const { lateFee, extraNight, timeNote, applyLate, expected, checkoutAt } = inp;
     const d = await this.departure(tx, ctx, row, inp.checkoutTime, checkoutAt);
-    if (!this.checkoutDayOpen(ctx, d.rollover, d.stay.departureDate)) {
+    // V5-15: an overdue stay is checked out on this path (its `checkoutAt` lies on the departure – departure()).
+    if (!overdue && !this.checkoutDayOpen(ctx, d.rollover, d.stay.departureDate)) {
       throw problem('INVALID_TRANSITION', {
         extras: { currentState: row.status },
         detail: 'check-out on the departure business day (early departure first – B16)',
@@ -1652,7 +1774,8 @@ export class CheckoutService {
     // BUG-R4-038: on an Internal stay that night is 0 ₫, so its late charge of one night is 0 – nothing to charge,
     // nothing for a manager to confirm: B18 goes on without `lateFeeInsteadOfNight` (sending one → NOT_ALLOWED).
     const freeNight = unsellable && !!d.extraNight?.complimentary;
-    const decided = lateFee !== null && unsellable && !freeNight;
+    // V5-15: no late fee of one night on an overdue stay (422 NOT_ALLOWED below) – nothing is decided with it.
+    const decided = !overdue && lateFee !== null && unsellable && !freeNight;
     const surcharge = decided ? lateChargeOf(d) : d.extraNight ? 0 : late.amountVnd;
     const old = await this.s.liveSurchargeLines(tx, folioId, d.stay.ids, 'late_checkout');
     // 409 SURCHARGE_CHANGED before the field checks (contract order): the amount the desk showed.
@@ -1673,15 +1796,26 @@ export class CheckoutService {
 
     // ── field data (422) ──
     // E03-07: the departure instant (V5-10 – sent, or resolved from the typed time) vs the server clock ± tolerance.
-    const typed = { systemTime: this.s.localTime(ctx), noted: d.checkout.noteRequired };
+    // V5-15: on an overdue stay the departure is always well before the action – `overdueReason` replaces the note.
+    const typed = {
+      systemTime: this.s.localTime(ctx),
+      noted: !overdue && d.checkout.noteRequired,
+    };
     if (d.checkout.afterNow) f.add(checkoutAt ? 'checkoutAt' : 'checkoutTime', 'TIME_AFTER_ACTION');
     if (typed.noted && !timeNote) f.add('checkoutTimeNote', 'TIME_NOTE_REQUIRED');
-    if (lateFee && (!unsellable || freeNight)) f.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
-    if (lateFee && extraNight) f.add('extraNight', 'NOT_ALLOWED');
-    if (d.extraNight && !extraNight && !lateFee && !freeNight) {
-      f.add(unsellable ? 'lateFeeInsteadOfNight' : 'extraNight', 'LATE_CHECKOUT_AFTER_LIMIT');
+    if (overdue) {
+      // Contract 1.4: B18 of an overdue stay never adds a night – a night the guest stayed goes through B13 first.
+      if (lateFee) f.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
+      if (extraNight) f.add('extraNight', 'NOT_ALLOWED');
+      if (d.extraNight) f.add('checkoutAt', 'LATE_CHECKOUT_AFTER_LIMIT');
+    } else {
+      if (lateFee && (!unsellable || freeNight)) f.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
+      if (lateFee && extraNight) f.add('extraNight', 'NOT_ALLOWED');
+      if (d.extraNight && !extraNight && !lateFee && !freeNight) {
+        f.add(unsellable ? 'lateFeeInsteadOfNight' : 'extraNight', 'LATE_CHECKOUT_AFTER_LIMIT');
+      }
+      if (!d.extraNight && extraNight) f.add('extraNight', 'NOT_ALLOWED');
     }
-    if (!d.extraNight && extraNight) f.add('extraNight', 'NOT_ALLOWED');
     const raise = surcharge > old.grossVnd;
     if (raise && !applyLate && !decided) {
       f.add('applyLateSurcharge', 'SURCHARGE_DECISION_REQUIRED');
@@ -1784,26 +1918,41 @@ export class CheckoutService {
    * reports them with `f.done()`). B18 and the `lateFeeInsteadOfNight` precheck both read through it, so a body
    * B18 refuses is refused before the approver's password too.
    */
-  private readInput(f: Fields, body: Record<string, unknown>, today: LocalDate): CheckoutInput {
+  private readInput(
+    f: Fields,
+    body: Record<string, unknown>,
+    ctx: BookingContext,
+    overdue: OverdueStay | null = null,
+  ): CheckoutInput {
     const checkoutTime = f.time('checkoutTime');
-    if (body.checkoutTime === undefined || body.checkoutTime === null) {
-      f.add('checkoutTime', 'REQUIRED');
-    }
+    const sent = (k: string) => body[k] !== undefined && body[k] !== null;
     let checkoutAt: Date | undefined;
-    if (body.checkoutAt !== undefined && body.checkoutAt !== null) {
+    if (sent('checkoutAt')) {
       if (typeof body.checkoutAt !== 'string' || Number.isNaN(Date.parse(body.checkoutAt))) {
         f.add('checkoutAt', 'DATE_INVALID');
       } else {
         checkoutAt = new Date(body.checkoutAt);
       }
     }
+    // 0.3.13 bổ sung 1 (BE C0313-03, 10): `checkoutTime` or `checkoutAt` – both absent → REQUIRED on `checkoutTime`;
+    // both sent → `checkoutTime` must be the local time of `checkoutAt`. V5-15: an overdue stay needs `checkoutAt`.
+    if (overdue && !sent('checkoutAt')) f.add('checkoutAt', 'REQUIRED');
+    else if (!sent('checkoutTime') && !sent('checkoutAt')) f.add('checkoutTime', 'REQUIRED');
+    if (checkoutTime && checkoutAt && checkoutTime !== this.s.localTime(ctx, checkoutAt)) {
+      f.add('checkoutTime', 'VALIDATION_FAILED');
+    }
     const timeNote = f.text('checkoutTimeNote', 300, { min: 3 });
+    // V5-15 (bổ sung 1d): the same D12c reader as `checkoutTimeNote` (spaces folded, V-09 card number → 422
+    // CARD_NUMBER_DETECTED); missing on an overdue stay → REASON_REQUIRED; sent on any other stay → NOT_ALLOWED.
+    let overdueReason: string | undefined;
+    if (overdue) overdueReason = f.text('overdueReason', 500, { required: true, min: 3 });
+    else if (sent('overdueReason')) f.add('overdueReason', 'NOT_ALLOWED');
     const extraNight = this.extraNightInput(f, body);
     const lateFee = this.lateFeeInput(f, body);
     const applyLate = f.bool('applyLateSurcharge') ?? false;
     const expected = f.money('expectedSurchargeVnd', { required: false, positive: false });
     const over = this.overpayment(f, body);
-    const debt = this.debt(f, body, today);
+    const debt = this.debt(f, body, ctx.today);
     const finalPayment = this.paymentInput(f, body);
     return {
       checkoutTime,
@@ -1816,6 +1965,7 @@ export class CheckoutService {
       over,
       debt,
       finalPayment,
+      overdueReason,
     };
   }
 

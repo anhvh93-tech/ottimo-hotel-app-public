@@ -4,6 +4,11 @@
  * MGR ≤ 1 night, FDL/FD never; union of roles) and the exact 403 bodies (H-01, H-02, H-04). No database.
  */
 import { describe, expect, it } from 'vitest';
+import { checkOutAction } from '../src/modules/reporting/internal/stay-actions';
+import {
+  type ActionContext,
+  allowedActions,
+} from '../src/modules/reservations/internal/allowed-actions';
 import {
   MGR_OVERDUE_MAX_NIGHTS,
   OVERDUE_CHECKOUT_DENIED,
@@ -85,3 +90,93 @@ describe('V5-15 overdue check-out rules', () => {
     expect(() => assertOverdueCheckoutRole(['manager'], 1)).not.toThrow();
   });
 });
+
+describe('V5-15 allowedActions check_out + overdue (T15-7, T15-15; BE C0313-09)', () => {
+  const OWN = ['owner'];
+  const MGR = ['manager'];
+  const FDL = ['front_desk_lead'];
+  const FD = ['front_desk'];
+  const ctx = (today: string, over: Partial<ActionContext> = {}): ActionContext => ({
+    status: 'in_house',
+    conflictState: 'none',
+    channelGroup: 'direct',
+    arrivalDate: '2026-11-08',
+    departureDate: '2026-11-10',
+    stayDepartureDate: '2026-11-10',
+    today,
+    calendarDate: today,
+    holdExpired: false,
+    holdExtendedCount: 0,
+    own: false,
+    noShowMarkable: false,
+    restoreWithinRules: true,
+    rescheduleCount: 0,
+    rescheduleMaxTimes: 1,
+    ...over,
+  });
+  const co = (roles: string[], c: ActionContext) =>
+    allowedActions(roles, c).filter((a) => a.event === 'check_out');
+  const overdueAction = {
+    event: 'check_out',
+    transition: 'B18',
+    action: 'check-out',
+    overdue: true,
+  };
+
+  it('one night past: OWN and MGR get check_out + overdue, FDL/FD nothing; several roles = union', () => {
+    const c = ctx('2026-11-11');
+    expect(co(OWN, c)).toEqual([overdueAction]);
+    expect(co(MGR, c)).toEqual([overdueAction]);
+    expect(co(FDL, c)).toEqual([]);
+    expect(co(FD, c)).toEqual([]);
+    expect(co(['front_desk', 'manager'], c)).toEqual([overdueAction]);
+  });
+
+  it('two nights past: OWN only (MGR over the cap); the departure day itself never carries overdue', () => {
+    expect(co(OWN, ctx('2026-11-12'))).toEqual([overdueAction]);
+    expect(co(MGR, ctx('2026-11-12'))).toEqual([]);
+    for (const roles of [OWN, MGR, FDL, FD]) {
+      expect(co(roles, ctx('2026-11-10'))).toEqual([
+        { event: 'check_out', transition: 'B18', action: 'check-out' },
+      ]);
+    }
+    // 05:00 on 12/11: business date 11/11 – one night, MGR may (DOM 7.1 example)
+    expect(co(MGR, ctx('2026-11-11', { calendarDate: '2026-11-12' }))).toEqual([overdueAction]);
+  });
+
+  it('T15-15: a primary with an extension child in force – on the primary departure (calendar date) no check_out, no overdue', () => {
+    const c = ctx('2026-11-10', { stayDepartureDate: '2026-11-12' });
+    for (const roles of [OWN, MGR, FDL, FD]) expect(co(roles, c)).toEqual([]);
+    // the night after the primary's departure, still before the child's: nothing either
+    expect(co(OWN, ctx('2026-11-11', { stayDepartureDate: '2026-11-12' }))).toEqual([]);
+    // past the effective departure: counted from the child's departure
+    expect(co(MGR, ctx('2026-11-13', { stayDepartureDate: '2026-11-12' }))).toEqual([
+      overdueAction,
+    ]);
+    // a child booking (no stayDepartureDate): never
+    expect(co(OWN, ctx('2026-11-11', { stayDepartureDate: undefined }))).toEqual([]);
+  });
+
+  it('the "Hôm nay" row offers the same check_out (and overdue) as Reservation.allowedActions', () => {
+    for (const roles of [OWN, MGR, FDL, FD, ['housekeeping'], ['sales_staff']]) {
+      for (const today of ['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13']) {
+        for (const calendarDate of [today, addOne(today)]) {
+          const c = ctx(today, { calendarDate });
+          expect(
+            checkOutAction(roles, {
+              status: 'in_house',
+              departureDate: '2026-11-10',
+              today,
+              calendarDate,
+            }),
+            `${roles.join('+')} ${today} ${calendarDate}`,
+          ).toEqual(co(roles, c));
+        }
+      }
+    }
+  });
+});
+
+function addOne(d: string): string {
+  return new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+}
