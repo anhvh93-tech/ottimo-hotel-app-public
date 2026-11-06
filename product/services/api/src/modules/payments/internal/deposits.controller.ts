@@ -10,7 +10,12 @@ import { Operation } from '../../../shared/http/operation';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { type FieldError, problem } from '../../../shared/problem';
-import { assertNoCardNumber, optionalText, requireReason } from '../../../shared/validation';
+import {
+  assertNoCardNumber,
+  optionalText,
+  readBankReference,
+  requireReason,
+} from '../../../shared/validation';
 import { parseBody } from '../../platform/public/validation';
 import { rejectDryRun } from '../../../shared/http/dry-run';
 import { type DepositPaymentInput, DepositsService } from './deposits.service';
@@ -34,6 +39,8 @@ const paymentCreate = z.object({
   note: z.string().max(300).optional(),
   billingPeriodId: z.string().optional(),
   attachmentId: z.string().optional(),
+  // 0.3.13 bổ sung 1 (PR-B3, FB-R5-ARC-BE-119-01): declared so zod keeps it – read by `readBankReference`.
+  bankReference: z.string().max(64).optional(),
 });
 
 const confirmSchema = z.object({
@@ -89,6 +96,8 @@ export function depositPayment(raw: z.infer<typeof paymentCreate>): DepositPayme
   if (raw.attachmentId !== undefined && !UUID.test(raw.attachmentId)) {
     errors.push({ field: 'payment.attachmentId', code: 'NOT_IN_LIST' });
   }
+  const reference = readBankReference('payment.bankReference', raw.bankReference, raw.method);
+  if (reference.error) errors.push({ field: 'payment.bankReference', code: reference.error });
   if (errors.length) throw problem('VALIDATION_FAILED', { errors });
   return {
     method: raw.method as DepositPaymentInput['method'],
@@ -97,6 +106,7 @@ export function depositPayment(raw: z.infer<typeof paymentCreate>): DepositPayme
     posAuthCode: auth,
     note: optionalText('payment.note', raw.note, 300),
     attachmentId: raw.attachmentId ?? null,
+    ...(reference.value ? { bankReference: reference.value } : {}),
   };
 }
 

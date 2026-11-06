@@ -1,7 +1,8 @@
 /**
  * PR-B3 (Round 5, v1.0.5, BE-D2) – the pure rules of 5B-1 (no DB): the `type` of a receipt after closure, the refund
  * amount max(0, amountVnd − N) (FB-R5-ARC-BE-105-03 step 6), the server-fixed refund destination (SEC S3), the bank
- * code as stored (SEC ARC-15), the weekly filter set and the audit allowlist of "Không thấy tiền" (SEC ARC-20).
+ * code as stored (SEC ARC-15), the weekly filter set and the audit allowlist of "Không thấy tiền" (SEC ARC-20), the
+ * one `PaymentCreate.bankReference` reader of every path (ARC 119-01, SEC 119-02).
  */
 import { describe, expect, it } from 'vitest';
 import '../src/audit-entities';
@@ -16,7 +17,11 @@ import {
   PAYMENT_AFTER_CANCEL,
   serverFixedDestination,
 } from '../src/modules/payments/internal/refunds.service';
-import { normalizeBankReference } from '../src/modules/payments/public/payment.service';
+import {
+  checkPaymentShape,
+  normalizeBankReference,
+} from '../src/modules/payments/public/payment.service';
+import { readBankReference } from '../src/shared/validation';
 
 describe('PR-B3 5B-1 rules', () => {
   it('type: deposit for a booking cancelled while a hold, charge for every other closed booking', () => {
@@ -77,5 +82,60 @@ describe('PR-B3 5B-1 rules', () => {
         note: 'free text never kept',
       }),
     ).toEqual({ kind: 'deposit_after_cancel', afterClosure: true });
+  });
+
+  it('readBankReference: blank = none; pattern → VALIDATION_FAILED; a card number → thrown 422 with the field, before the method; other methods → NOT_ALLOWED', () => {
+    const F = 'payment.bankReference';
+    expect(readBankReference(F, undefined, 'cash')).toEqual({ value: null, error: null });
+    expect(readBankReference(F, null, 'cash')).toEqual({ value: null, error: null });
+    expect(readBankReference(F, '   ', 'cash')).toEqual({ value: null, error: null });
+    expect(readBankReference(F, 4111111111111111, 'bank_transfer')).toEqual({
+      value: null,
+      error: 'VALIDATION_FAILED',
+    });
+    expect(readBankReference(F, 'FT 2611', 'bank_transfer').error).toBe('VALIDATION_FAILED');
+    expect(readBankReference(F, 'A'.repeat(65), 'vietqr').error).toBe('VALIDATION_FAILED');
+    for (const method of ['bank_transfer', 'vietqr', 'cash'])
+      expect(() => readBankReference(F, '4111-1111-1111-1111', method)).toThrow(
+        expect.objectContaining({ code: 'CARD_NUMBER_DETECTED' }),
+      );
+    try {
+      readBankReference(F, '4111111111111111/1228', 'bank_transfer');
+      expect.unreachable();
+    } catch (e) {
+      expect(JSON.stringify(e)).not.toContain('4111111111111111');
+      expect(e).toMatchObject({
+        options: { errors: [{ field: F, code: 'CARD_NUMBER_DETECTED' }] },
+      });
+    }
+    for (const method of ['cash', 'card_pos', 'ota_collect', undefined])
+      expect(readBankReference(F, 'FT2611ABC', method)).toEqual({
+        value: null,
+        error: 'NOT_ALLOWED',
+      });
+    expect(readBankReference(F, '  ft2611abc ', 'vietqr')).toEqual({
+      value: 'ft2611abc',
+      error: null,
+    });
+    expect(readBankReference(F, '41111111111111111228', 'bank_transfer').value).toBe(
+      '41111111111111111228',
+    );
+  });
+
+  it('checkPaymentShape returns the code with its prefix rules (checkOut.finalPayment, checkIn.payment use it)', () => {
+    const base = { type: 'charge', method: 'bank_transfer', amountVnd: 10_000 };
+    expect(checkPaymentShape({ ...base, bankReference: ' ft1 ' }, {}).bankReference).toBe('ft1');
+    expect(
+      checkPaymentShape(
+        { ...base, method: 'cash', bankReference: 'FT1' },
+        { fieldPrefix: 'finalPayment.' },
+      ).errors,
+    ).toEqual([{ field: 'finalPayment.bankReference', code: 'NOT_ALLOWED' }]);
+    expect(() =>
+      checkPaymentShape(
+        { ...base, bankReference: '4111111111111111' },
+        { fieldPrefix: 'payment.' },
+      ),
+    ).toThrow(expect.objectContaining({ code: 'CARD_NUMBER_DETECTED' }));
   });
 });

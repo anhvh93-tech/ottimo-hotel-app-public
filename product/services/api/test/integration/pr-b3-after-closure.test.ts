@@ -146,7 +146,13 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     );
   const record = (b: B, body: Record<string, unknown>, who = 'fd') =>
     x.c[who]!.send('POST', x.url(`/folios/${b.folioId}/payments`), body);
-  const transfer = async (b: B, amountVnd: number, who = 'fd', type = 'charge') =>
+  const transfer = async (
+    b: B,
+    amountVnd: number,
+    who = 'fd',
+    type = 'charge',
+    extra: Record<string, unknown> = {},
+  ) =>
     record(
       b,
       {
@@ -155,6 +161,7 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
         amountVnd,
         note: NOTE,
         attachmentId: await upload(who, b.id),
+        ...extra,
       },
       who,
     );
@@ -564,9 +571,18 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     expect(errorsOf(proof)).toEqual([{ field: 'attachmentId', code: 'NOT_IN_LIST' }]);
   }, 60_000);
 
-  it('DOM 11.4 mục 5 – a receipt recorded after the notice closes the item and the notice (`handled`), refund of the whole amount (N = 0)', async () => {
-    const res = await transfer(hS, 300_000, 'fd', 'deposit');
+  it('DOM 11.4 mục 5 – a receipt recorded after the notice closes the item and the notice (`handled`), refund of the whole amount (N = 0); its bank code may equal a refund pay-out code (ARC-15)', async () => {
+    // The o2 pay-out above carries RF-PRB3-0001: the code of a refund never blocks a receipt (only deposit / charge).
+    const res = await transfer(hS, 300_000, 'fd', 'deposit', { bankReference: 'rf-prb3-0001' });
     expect(res.statusCode, res.body).toBe(201);
+    expect(res.json().bankReference).toBe('RF-PRB3-0001');
+    expect(
+      (
+        await x.q(
+          `SELECT type FROM payment WHERE upper(bank_reference) = 'RF-PRB3-0001' ORDER BY type`,
+        )
+      ).map((r) => r.type),
+    ).toEqual(['deposit', 'refund']);
     const [item] = await x.q(
       `SELECT resolved_at, resolved_by FROM attention_event WHERE dedupe_key = $1`,
       [`deposit_after_cancel:${hS.id}`],
@@ -582,9 +598,9 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     ]);
     // "Có thể trùng" for FD+ only (x-visible-to): the same 300.000 by transfer on another booking within 24 h.
     expect((await transfer(d1, 300_000)).statusCode).toBe(201);
-    expect((await paymentOnFolio(hS, res.json().id, 'fd'))?.possibleDuplicateCodes).toEqual([
-      d1.code,
-    ]);
+    const asFd = await paymentOnFolio(hS, res.json().id, 'fd');
+    expect(asFd?.possibleDuplicateCodes).toEqual([d1.code]);
+    expect(asFd?.bankReference).toBe('RF-PRB3-0001');
     // A sale reading its own (closed) booking's folio never gets the field.
     const asSal = await x.c.sal!.get(x.url(`/folios/${hS.folioId}`));
     expect(asSal.statusCode, asSal.body).toBe(200);

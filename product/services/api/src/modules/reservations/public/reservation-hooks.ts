@@ -352,4 +352,6 @@ export interface InitialPayment {
   posAuthCode?: string | undefined;
   note?: string | undefined;
   attachmentId?: string | undefined;
+  /** 0.3.13 bổ sung 1 (PR-B3): bank code, read by `readBankReference` (`initialPayment.` prefix). */
+  bankReference?: string | undefined;
 }

@@ -12,7 +12,11 @@ import type { Tx } from '../../../db/database';
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { CANCEL_REASON_CODES, type CancelReasonCode } from '../../../db/schema';
 import { ProblemError, problem } from '../../../shared/problem';
-import { assertNoCardNumber, containsCardNumber } from '../../../shared/validation';
+import {
+  assertNoCardNumber,
+  containsCardNumber,
+  readBankReference,
+} from '../../../shared/validation';
 import { type LocalDate, type LocalTime, addDays, atLocal, localDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
@@ -1960,6 +1964,10 @@ export class ReservationsService {
     if (o.attachmentId !== undefined && o.attachmentId !== null) {
       pf.add('attachmentId', 'NOT_ALLOWED');
     }
+    // 0.3.13 bổ sung 1 (PR-B3, FB-R5-ARC-BE-119-01): `ReservationCreate.payment` is a PaymentCreate – the same reader as
+    // every other path (pattern, the reference card rule – thrown, method); duplicates are checked by recordManual.
+    const reference = readBankReference('initialPayment.bankReference', o.bankReference, o.method);
+    if (reference.error) pf.add('bankReference', reference.error);
     for (const e of pf.errors) f.add(`initialPayment.${e.field}`, e.code);
     if (pf.errors.length) return undefined;
     return {
@@ -1969,6 +1977,7 @@ export class ReservationsService {
       ...(typeof o.receivedAt === 'string' ? { receivedAt: o.receivedAt } : {}),
       ...(posAuthCode ? { posAuthCode } : {}),
       ...(note ? { note } : {}),
+      ...(reference.value ? { bankReference: reference.value } : {}),
     };
   }
 

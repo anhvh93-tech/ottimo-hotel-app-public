@@ -61,6 +61,8 @@ export interface DepositPaymentInput {
   note: string | null;
   /** 0.3.6: receipt image (`uploadAttachment purpose=deposit_receipt`, A-17 lifted). */
   attachmentId?: string | null;
+  /** 0.3.13 bổ sung 1 (PR-B3): bank code, read by `readBankReference` (`payment.` prefix); duplicates in recordManual. */
+  bankReference?: string | null;
 }
 
 function own(c: Caller): boolean {
@@ -240,6 +242,7 @@ export class DepositsService {
         receivedAt,
         posAuthCode: input.payment.posAuthCode,
         note: input.payment.note,
+        bankReference: input.payment.bankReference ?? null,
         recordedBy: c.userId,
         // SEC-BE-22 (1): whatever the method, a receipt recorded by a sale waits for the desk/bank check.
         ...(desk ? {} : { reconciliation: 'pending' as const }),

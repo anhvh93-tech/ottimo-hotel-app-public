@@ -6,7 +6,7 @@
  *                   (DocNumberService), recorder role snapshot (A-40), money audit (who, when, amount, method).
  * - recordInTx()    PaymentPort (ARC s3-contract 4.3) = the `recordPayment` rules of EP03-05 2.2 for any caller:
  *                   recordPayment endpoint, BE-A checkIn/checkOut.finalPayment. Validates type/method/amount/
- *                   backdating/POS code/receipt image, then recordManual. Field names carry `fieldPrefix`.
+ *                   backdating/POS code/bank code/receipt image, then recordManual. Field names carry `fieldPrefix`.
  * Reconciliation (BR-527): transfer / VietQR recorded by hand → `pending`; cash, POS slip, OTA → `not_required`;
  * anything a sale/CTV records → `pending` whatever the method (SEC-BE-22, ESC-017 A). Amounts are never
  * updated (reversal = own row, refund = own negative row).
@@ -20,9 +20,12 @@ import type { PaymentMethod, PaymentType } from '../../../db/schema/folio';
 import { type FieldError, problem } from '../../../shared/problem';
 import { localDate } from '../../../shared/time';
 import {
+  BANK_REFERENCE_METHODS,
+  BANK_REFERENCE_PATTERN,
   assertNoCardNumber,
   assertNotCardNumberReference,
   optionalText,
+  readBankReference,
 } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import {
@@ -67,8 +70,9 @@ export interface ManualPaymentInput {
   afterClosure?: { reservationStatus: ClosedReservationStatus };
   /**
    * 0.3.13 bổ sung 1 (5B-1, SEC S4 + ARC-15): the bank's transaction code of a transfer / VietQR receipt, already
-   * shape-checked by the caller (`checkPaymentShape`). Stored upper-case; a code already on a receipt of the property
-   * that is not reversed → 409 DUPLICATE_BANK_REFERENCE (checked here, under an advisory lock, for every path).
+   * read by the caller (`readBankReference`, with the caller's field prefix) and checked again here before the INSERT
+   * (SEC 119-02). Stored upper-case; a code already on a receipt of the property that is not reversed → 409
+   * DUPLICATE_BANK_REFERENCE (checked here, under an advisory lock, for every path).
    */
   bankReference?: string | null;
   requestId?: string;
@@ -111,8 +115,10 @@ export interface PaymentCreateInput {
   billingPeriodId?: string | null;
   attachmentId?: string | null;
   /**
-   * 0.3.13 bổ sung 1 (5B-1, PR-B3 stores it and checks duplicates): optional. Its shape and V-09 reference rule are
-   * checked here for every PaymentCreate path already (C0313-25); the request schemas take it with PR-B3.
+   * 0.3.13 bổ sung 1 (5B-1, PR-B3): optional, `bank_transfer` / `vietqr` only. Every PaymentCreate reader declares it
+   * (FB-R5-ARC-BE-119-01: recordPayment, confirmDeposit, initialPayment, checkIn, checkOut.finalPayment) and
+   * `readBankReference` checks it (pattern, the reference card rule of C0313-25, method); stored upper-case, one
+   * code per non-reversed receipt of the property (`recordManual`).
    */
   bankReference?: string | null;
 }
@@ -152,8 +158,6 @@ export function reconciliationFor(method: PaymentMethod): 'pending' | 'not_requi
 
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** OpenAPI `PaymentCreate.bankReference` pattern (same as `executeRefund`). */
-const BANK_REFERENCE = /^[A-Za-z0-9./_-]{1,64}$/;
 /** R2 receipt types (EP03-05 2.2): security_deposit / deposit_deduction are long-stay (R3); refund only via 2.6. */
 const R2_TYPES = ['deposit', 'charge'] as const;
 /** R2 methods (vnpay / momo – R3). */
@@ -172,8 +176,9 @@ export function parseInstant(field: string, raw: string | null | undefined): Dat
 /**
  * The body checks of one receipt (EP03-05 2.2) – no database, the same answers `recordInTx` gives before it locks
  * the folio: type / method / amount / receivedAt format / POS code (a card number → 422 CARD_NUMBER_DETECTED,
- * thrown) / billing period / attachment id, then the note (thrown, only when the rest is clean). `channelGroup`
- * undefined = the booking is not known yet (the method's channel is checked by `recordInTx`); null = no OTA.
+ * thrown) / billing period / attachment id / bank code (`readBankReference`), then the note (thrown, only when the
+ * rest is clean). `channelGroup` undefined = the booking is not known yet (the method's channel is checked by
+ * `recordInTx`); null = no OTA.
  * BE-A B18 (`checkOut.finalPayment`, BUG-R2-165 / SEC BE-64) reads it with the rest of its body before the approver's
  * password; `recordInTx` runs it again at write.
  */
@@ -185,6 +190,7 @@ export function checkPaymentShape(
   receivedAt: Date | null;
   posAuthCode: string | null;
   note: string | null;
+  bankReference: string | null;
 } {
   const f = (name: string) => `${opts.fieldPrefix ?? ''}${name}`;
   const errors: FieldError[] = [];
@@ -228,17 +234,16 @@ export function checkPaymentShape(
   if (raw.attachmentId !== undefined && raw.attachmentId !== null && !UUID.test(raw.attachmentId)) {
     errors.push({ field: f('attachmentId'), code: 'NOT_IN_LIST' });
   }
-  // C0313-25 (SEC-responses 4.1 (a)): the reference card rule – a whole card number → CARD_NUMBER_DETECTED (thrown),
-  // a bank code with a long digit run is accepted; never the free-text V-09 rule.
-  const reference = typeof raw.bankReference === 'string' ? raw.bankReference.trim() || null : null;
-  if (reference !== null && !BANK_REFERENCE.test(reference)) {
-    errors.push({ field: f('bankReference'), code: 'VALIDATION_FAILED' });
-  } else {
-    assertNotCardNumberReference(f('bankReference'), reference);
+  // C0313-25 (SEC-responses 4.1 (a)) + 0.3.13 bổ sung 1e: the reference card rule – a card number, alone or followed
+  // by expiry / CVV groups → CARD_NUMBER_DETECTED (thrown); a bank code with a long digit run is accepted; never the
+  // free-text V-09 rule. Pattern → VALIDATION_FAILED; cash / card_pos / ota_collect → NOT_ALLOWED.
+  const reference = readBankReference(f('bankReference'), raw.bankReference, raw.method);
+  if (reference.error) errors.push({ field: f('bankReference'), code: reference.error });
+  if (errors.length) {
+    return { errors, receivedAt: null, posAuthCode: null, note: null, bankReference: null };
   }
-  if (errors.length) return { errors, receivedAt: null, posAuthCode: null, note: null };
   const note = optionalText(f('note'), raw.note, 300);
-  return { errors, receivedAt, posAuthCode: auth, note };
+  return { errors, receivedAt, posAuthCode: auth, note, bankReference: reference.value };
 }
 
 @Injectable()
@@ -280,13 +285,25 @@ export class PaymentService {
     }
     const id = uuidv7();
     const now = this.clock.now();
-    const code = await this.docNumbers.allocate(tx, 'payment');
     // ARC-BE-S3-11: every receipt carries the recorder's role (snapshot, A-40) – callers that do not pass it
     // (B2 initialPayment of reservations) get it from the property roles; a sale/CTV receipt always waits
     // for the desk/bank check whatever the method (SEC-BE-22, BR-527, ESC-017 A – A46a cash handover).
     const role = p.recordedByRole ?? (await this.roleOf(tx, p.recordedBy));
     const bankReference = normalizeBankReference(p.bankReference);
-    if (bankReference) await this.assertBankReferenceFree(tx, bankReference, role);
+    if (bankReference) {
+      // FB-R5-SEC-BE-119-02 (2): the one INSERT of a receipt checks the code again, so a receipt path that skips
+      // `checkPaymentShape` / `readBankReference` can never store a card number (the readers answer first, with
+      // their field prefix).
+      const refused = (error: string) =>
+        problem('VALIDATION_FAILED', { errors: [{ field: 'bankReference', code: error }] });
+      if (!BANK_REFERENCE_PATTERN.test(bankReference)) throw refused('VALIDATION_FAILED');
+      assertNotCardNumberReference('bankReference', bankReference);
+      if (!BANK_REFERENCE_METHODS.includes(p.method)) throw refused('NOT_ALLOWED');
+      // Before the document number (ARC-15): the advisory lock is the first lock two receipts with one code meet, so
+      // the second waits on it (not on the PT- counter) and then sees the first one's row.
+      await this.assertBankReferenceFree(tx, bankReference, role);
+    }
+    const code = await this.docNumbers.allocate(tx, 'payment');
     const fromSales = role === 'sales_staff' || role === 'collaborator';
     const reconciliation = fromSales
       ? 'pending'
@@ -540,6 +557,7 @@ export class PaymentService {
       receivedAt: at,
       posAuthCode: auth,
       note,
+      bankReference: shape.bankReference,
       recordedBy: actor.userId,
       ...(desk && !ctx.afterClosure ? {} : { reconciliation: 'pending' as const }),
       recordedByRole: role,

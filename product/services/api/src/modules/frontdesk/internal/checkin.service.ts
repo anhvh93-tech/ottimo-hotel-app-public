@@ -1272,6 +1272,8 @@ export class CheckinService {
       posAuthCode: str('posAuthCode'),
       note: str('note'),
       attachmentId: str('attachmentId'),
+      // PR-B3 (FB-R5-ARC-BE-119-01): read by checkPaymentShape (`payment.` prefix) – a non-string is refused there.
+      bankReference: p.bankReference as string | null | undefined,
     };
   }
 }

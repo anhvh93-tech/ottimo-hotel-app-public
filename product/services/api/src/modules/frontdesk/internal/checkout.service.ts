@@ -2169,6 +2169,8 @@ export class CheckoutService {
       posAuthCode: str('posAuthCode'),
       note: str('note'),
       attachmentId: str('attachmentId'),
+      // PR-B3 (FB-R5-ARC-BE-119-01): read by checkPaymentShape (`finalPayment.` prefix) – a non-string is refused there.
+      bankReference: p.bankReference as string | null | undefined,
     };
     // BUG-R2-165: the receipt's own body checks (PaymentPort, the same function `recordInTx` runs at write) with
     // the rest of the body; the method's channel (`ota_collect`) needs the booking – checked at write.

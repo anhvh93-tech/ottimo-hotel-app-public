@@ -53,6 +53,8 @@ export const paymentCreateSchema = z.object({
   note: z.string().max(300).optional(),
   billingPeriodId: z.string().max(64).optional(),
   attachmentId: z.string().max(64).optional(),
+  // 0.3.13 bổ sung 1 (PR-B3, FB-R5-ARC-BE-119-01): declared so zod keeps it – read by `readBankReference`.
+  bankReference: z.string().max(64).optional(),
 });
 
 const confirmSchema = z
