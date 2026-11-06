@@ -568,6 +568,7 @@ describe.skipIf(!HAS_DB)('BE-B review fixes (R2 Sprint 1)', () => {
         roomNo: '9Q1',
         roomGroupId: groupId,
         monthlyListPriceVnd: 8_000_000,
+        nightlyListPriceVnd: 667_000,
         bedSetup: ' 1 giường đôi 1m8  + sofa giường ',
         bedCount: 2,
         areaM2: 32,
@@ -587,6 +588,7 @@ describe.skipIf(!HAS_DB)('BE-B review fixes (R2 Sprint 1)', () => {
         roomNo: '9Q2',
         roomGroupId: groupId,
         monthlyListPriceVnd: 8_000_000,
+        nightlyListPriceVnd: 667_000,
         bedCount: 11,
       });
       expect(bad.json().errors).toEqual([{ field: 'bedCount', code: 'VALUE_OUT_OF_RANGE' }]);
