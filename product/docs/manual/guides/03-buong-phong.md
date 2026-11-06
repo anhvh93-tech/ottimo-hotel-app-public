@@ -3,7 +3,7 @@
 - Dành cho: **nhân viên buồng phòng (HK)**
 - Thiết bị: **điện thoại**, địa chỉ `staff.ottimo.vn` (app nhân viên, mở bằng trình duyệt, không cần cài từ kho ứng dụng)
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Tệp này bản 1.7 (thuộc bộ hướng dẫn bản 1.16) – 07/11/2026, áp dụng ngay: bổ sung minibar luôn nạp đủ định mức, không theo số món trên việc (mục 7). Bản 1.6 – 07/11/2026: nút **Báo cần dọn** trên app từ v1.0.5 (mục 6). Bản 1.5 (thuộc bộ hướng dẫn bản 1.13, tệp không đổi chữ) – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
+- Lập: BA · 30/10/2026 · Tệp này bản 1.8 (thuộc bộ hướng dẫn bản 1.17) – 07/11/2026, áp dụng ngay: lấy hàng ở kho thì ghi phiếu nạp (mục 7). Bản 1.7 – 07/11/2026, áp dụng ngay: bổ sung minibar luôn nạp đủ định mức, không theo số món trên việc (mục 7). Bản 1.6 – 07/11/2026: nút **Báo cần dọn** trên app từ v1.0.5 (mục 6). Bản 1.5 (thuộc bộ hướng dẫn bản 1.13, tệp không đổi chữ) – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã cửa hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -214,7 +214,8 @@ Lễ tân thấy lý do. Ngày mai vẫn có việc dọn như thường.
 - **Luôn nạp đủ định mức theo bảng trong căn**, không theo số món ghi trên việc.
 - Tủ thiếu nhiều hơn số trên việc: báo lễ tân **trước khi** bấm **Làm xong**.
 - Lý do: bấm **Làm xong** là Desk ghi tủ đã đủ. Tủ còn thiếu thì khách sau bị tính tiền món mình không dùng.
-<!-- Nguồn: DOM-on-be-prs-101-108-110.md mục 3.3 (trả lời SEC FB-R5-SEC-BE-V516-01), BR-702, BR-703. Áp dụng ngay, không phụ thuộc bản. Nút thật là "Làm xong" (hk.task.complete). -->
+- Lấy hàng ở kho để nạp: ghi **phiếu nạp** đặt ở kho, mỗi lần một dòng: ngày, căn, món, số lượng lấy ra. Không ghi tên khách.
+<!-- Nguồn: DOM-on-be-prs-101-108-110.md mục 3.3 (trả lời SEC FB-R5-SEC-BE-V516-01), BR-702, BR-703. Phiếu nạp: K-MB, DOM-responses.md đề xuất (A) 2. Áp dụng ngay, không phụ thuộc bản. Nút thật là "Làm xong" (hk.task.complete). -->
 
 **Khi khách trả phòng:**
 
@@ -364,6 +365,7 @@ Tập trên **app tập** bằng **tài khoản tập** chủ đầu tư đưa t
 
 Chuyển từ dòng **Lập:** đầu tệp (04/11/2026; phần bổ sung 05/11 chuyển vào ngày 05/11, giữ nguyên chữ). Mới nhất ở trên.
 
+- Bản 1.8 – 07/11/2026 (bộ hướng dẫn 1.17), **áp dụng ngay** (BA, theo DOM `DOM-responses.md` đề xuất minibar (A) 2, K-MB): mục 7 – lấy hàng ở kho để nạp thì ghi phiếu nạp, mỗi lần một dòng (ngày, căn, món, số lượng lấy ra), không ghi tên khách.
 - Bản 1.7 – 07/11/2026 (bộ hướng dẫn 1.16), **áp dụng ngay** (BA, theo DOM review PR #101, #108, #110 mục 3.3, trả lời SEC FB-R5-SEC-BE-V516-01): mục 7 – bổ sung minibar luôn nạp đủ định mức theo bảng trong căn, không theo số món trên việc; tủ thiếu nhiều hơn số trên việc thì báo lễ tân trước khi bấm **Làm xong**.
 - Bản 1.6 – 07/11/2026 (bộ hướng dẫn 1.15), **áp dụng từ v1.0.5** (BA, V5-71 phần V5-15; UXD `copy-v1.0.5.md` 9.7): mục 6 – nút **Báo cần dọn** ở màn căn có khách.
 - Bản 1.4 – 04/11/2026, bổ sung 05/11 (**áp dụng ngay**): khách đổi phòng thì đếm minibar căn cũ **trước khi dọn**, báo lễ tân số còn lại từng món, bổ sung đủ tủ căn cũ khi dọn (mục 7; DOM #72 thẻ 02); bản 1.4 **áp dụng từ v1.0.4**: đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục thì chủ đầu tư gặp tận mặt rồi **Đặt lại xác thực 2 bước**, anh/chị giữ tài khoản cũ (mục 1.5; BUG-R4-032; sửa cùng ngày theo review SEC: điện thoại bị lấy cắp hoặc có lưu mật khẩu thì chủ đầu tư đặt lại mật khẩu luôn)
