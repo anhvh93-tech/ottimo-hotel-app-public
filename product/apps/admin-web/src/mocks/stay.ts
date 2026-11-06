@@ -1140,8 +1140,26 @@ export function createStayMock(ctx: Ctx) {
    */
   const postMidnightWindow = (r: MockReservation) =>
     today() === r.departureDate && nowHHmm() < '06:00';
-  function lateSurcharge(r: MockReservation, time: string) {
-    if (postMidnightWindow(r) && time < '06:00') return { tierPct: 0, surchargeVnd: 0, base: 0 };
+  /**
+   * The server's `postMidnight` (checkout-at.ts): the departure INSTANT is in the post-midnight window (calendar date =
+   * departure, before the rollover) or on the evening before (only resolved while the clock is in that window). The
+   * tiers follow the instant, not the clock: 05:30 typed at 07:00 on the departure day is no surcharge (ARC
+   * FB-R5-ARC-FE-125-01), as is 23:50 typed at 01:05 (T10-8). Check-out only (summary, QR, B18): B15 Trả muộn agrees
+   * a later time on the departure day and keeps the clock rule.
+   */
+  const postMidnightAt = (r: MockReservation, time: string, sentAt?: unknown) => {
+    const iso = resolveCheckoutAt(r, time, sentAt).checkoutAt;
+    const day = iso.slice(0, 10);
+    return (
+      (day === r.departureDate && iso.slice(11, 16) < '06:00') ||
+      day === addDays(r.departureDate, -1)
+    );
+  };
+  function lateSurcharge(r: MockReservation, time: string, checkout?: { sentAt?: unknown }) {
+    const noTier = checkout
+      ? postMidnightAt(r, time, checkout.sentAt)
+      : postMidnightWindow(r) && time < '06:00';
+    if (noTier) return { tierPct: 0, surchargeVnd: 0, base: 0 };
     const base =
       r.paymentModel !== 'direct'
         ? (roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000)
@@ -1265,7 +1283,7 @@ export function createStayMock(ctx: Ctx) {
    * step of the longer stay (mock: 10 % from 7 nights), credit taken off, clamped once.
    */
   function dueAtCheckout(r: MockReservation, time: string, rate?: number, lateFee = false) {
-    const s = lateSurcharge(r, time);
+    const s = lateSurcharge(r, time, {});
     const tt = totals(r);
     const live = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
     const lateNew = s.treatAsExtension ? 0 : s.surchargeVnd;
@@ -1296,7 +1314,7 @@ export function createStayMock(ctx: Ctx) {
   /** `CheckoutSummary.lateFeeAsNightVnd`: after the last tier while the night of departure is sold. */
   function lateFeeAsNight(r: MockReservation, time: string) {
     if (st.legacyNoLateFeeAsNight) return undefined;
-    return lateSurcharge(r, time).treatAsExtension && arrivalSameDay(r)
+    return lateSurcharge(r, time, {}).treatAsExtension && arrivalSameDay(r)
       ? extraNightRate(r)
       : undefined;
   }
@@ -3009,7 +3027,7 @@ export function createStayMock(ctx: Ctx) {
       const asked = new URL(request.url).searchParams.get('checkoutTime') ?? undefined;
       const at = resolveCheckoutAt(r, asked);
       const time = asked ?? r.agreedCheckoutTime ?? '12:00';
-      const s = lateSurcharge(r, time);
+      const s = lateSurcharge(r, time, { sentAt: at.checkoutAt });
       const tt = totals(r);
       const f = folioOf(r);
       const blockers: string[] = [];
@@ -3046,7 +3064,7 @@ export function createStayMock(ctx: Ctx) {
         extraNightAvailable: s.treatAsExtension ? !arrivalSameDay(r) : undefined,
         lateFeeAsNightVnd: lateFeeAsNight(r, time),
         minibarUncheckedRooms: unchecked.length ? unchecked : undefined,
-        postMidnightWindow: postMidnightWindow(r),
+        postMidnightWindow: postMidnightAt(r, time, at.checkoutAt),
         // V5-10: the instant every figure here is priced at, and what B18 will say about it.
         checkoutAt: at.checkoutAt,
         checkoutTimeNoteRequired: at.noteRequired,
@@ -3083,7 +3101,7 @@ export function createStayMock(ctx: Ctx) {
             : String(body.checkoutTime ?? '12:00');
         const timeErr = timeCheck(time, body.checkoutTimeNote, 'checkoutTime', 'checkoutTimeNote');
         if (timeErr) return timeErr;
-        const s = lateSurcharge(r, time);
+        const s = lateSurcharge(r, time, { sentAt: body.checkoutAt });
         const extraNight = body.extraNight as { rateVnd?: number } | undefined;
         // BR-416-06 (0.3.7 add. 4): the night of departure is sold → a late fee of one night, confirmed at the
         // desk by an OWN/MGR (password), instead of the extra night.
@@ -4366,7 +4384,14 @@ export function createStayMock(ctx: Ctx) {
           delete out.actorUserId;
           return out;
         });
-      return json({ data, page: { hasMore: false } });
+      // `PageInfo` (Cursor, Limit 1–100, default 50): the cursor is opaque – the mock keeps an offset in it.
+      const limit = Math.min(Math.max(Number(q.get('limit') ?? 50) || 50, 1), 100);
+      const start = Math.max(Number(q.get('cursor') ?? 0) || 0, 0);
+      const more = start + limit < data.length;
+      return json({
+        data: data.slice(start, start + limit),
+        page: { limit, nextCursor: more ? String(start + limit) : null },
+      });
     }),
     http.post('*/v1/me/step-up', async ({ request }) => {
       const g = guard(request, FD_PLUS);

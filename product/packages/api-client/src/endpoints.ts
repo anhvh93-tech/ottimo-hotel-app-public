@@ -18,6 +18,7 @@ import type {
   DepositNoticeBody,
   Locale,
   MarkNoShowBody,
+  ListAuditQuery,
   MovePreview,
   MovePreviewQuery,
   MoveReservationBody,
@@ -170,17 +171,6 @@ export interface ListPaymentsQuery {
   recordedBy?: string;
   recordedByRole?: string;
   method?: PaymentMethod;
-  cursor?: string;
-  limit?: number;
-}
-export interface ListAuditQuery {
-  category?: AuditEvent['category'];
-  actorUserId?: string;
-  /** Calendar dates (property time zone), inclusive – the server's `from`/`to` (it never read `dateFrom`/`dateTo`). */
-  from?: string;
-  to?: string;
-  /** 0.3.13 bổ sung 1 (V5-16, BR-438 (4)): every reduction of a folio line, removals included – MGR/OWN filter. */
-  reductionsOnly?: boolean;
   cursor?: string;
   limit?: number;
 }

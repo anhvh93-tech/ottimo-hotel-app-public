@@ -5,8 +5,10 @@
 // `checkoutTimeNoteRequired` opens the note box, `checkoutAtAfterNow` says why "Tiếp tục" waits. While the time is the
 // one filled in and it costs the guest something, the box stands out for the desk to check (DOM 15.2).
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { todayLocal } from '../app/dates';
+import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { renderApp, tv } from '../test/render';
@@ -203,5 +205,133 @@ describe('V5-10 – one checkoutAt for the bill, the check-out VietQR and B18', 
     expect(box).toHaveAttribute('data-prefilled', 'true');
     expect(box).not.toHaveClass('is-prefilled');
     expect(screen.queryByText(tv('checkout.time_prefilled_help'))).toBeNull();
+  });
+});
+
+/**
+ * FB-R5-ARC-FE-125-01 (Major, before the v1.0.5 tag): the QR and B18 carry the server's `checkoutAt`, never one the
+ * desk works out itself. Both cases below give a different instant – or none – if `checkoutInstant(...)` (the
+ * business-day axis: a time before 06:00 is the next morning) is used instead: that is BUG-R4-051. Phạm Huy has his
+ * room nights to pay, so the bill has a QR to make.
+ */
+describe('V5-10 – the server instant is what goes out (ARC FE-125-01)', () => {
+  async function leaveAt(typed: string, note: string) {
+    const r = res('Phạm Huy');
+    r.departureDate = todayLocal();
+    mockControl.stay.minibarChecks.set(r.id, []);
+    const { reads, writes } = traffic();
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    await typeTime(reads, typed);
+    // well before the click: the server asks for the note before any money (PR125-02)
+    await user.type(await screen.findByLabelText(noteLabel()), note);
+    const go = screen.getByRole('button', { name: tv('co.go_bill') });
+    await waitFor(() => expect(go).not.toHaveAttribute('aria-disabled'));
+    await user.click(go);
+    await user.click(
+      await screen.findByRole('button', {
+        name: new RegExp(`^${tv('pay.vietqr_create', { amount: '' }).trim()}`),
+      }),
+    );
+    await waitFor(() => expect(writes.some((w) => w.path.endsWith('/vietqr'))).toBe(true));
+    await user.click(screen.getByRole('button', { name: tv('pay.cash') }));
+    await user.click(screen.getByRole('button', { name: /^Ghi nhận / }));
+    await waitFor(() => expect(screen.getByText(tv('drawer.folio.settled'))).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /^Đã thu .* – hoàn tất$/ }));
+    const box = await screen.findByRole('alertdialog');
+    await user.click(within(box).getByRole('button', { name: /^Đã thu .* – hoàn tất$/ }));
+    await waitFor(() => expect(res('Phạm Huy').status).toBe('checked_out'));
+    const server = reads.filter((x) => x.asked === typed).at(-1)!.checkoutAt;
+    return {
+      server,
+      qr: writes.find((w) => w.path.endsWith('/vietqr'))!.body,
+      b18: writes.find((w) => w.path.endsWith('/actions/check-out'))!.body,
+    };
+  }
+
+  it('ARC probe: 07:00 on the departure day, typed 05:30 (the guest left early) → the QR and B18 carry 05:30 of TODAY', async () => {
+    at('07:00');
+    const { server, qr, b18 } = await leaveAt('05:30', 'Khach roi luc 05:30');
+    const expected = iso('05:30');
+    expect(server).toBe(expected);
+    expect(qr.checkoutAt).toBe(expected);
+    expect(b18.checkoutAt).toBe(expected);
+    // what the desk would work out on its own (05:30 = the next morning) is never sent
+    expect(b18.checkoutAt).not.toBe(iso('05:30', addDays(todayLocal(), 1)));
+  });
+
+  it('T10-8: 01:05 on the departure day, typed 23:50 (the evening before, accepted in the post-midnight window) → 23:50 of YESTERDAY', async () => {
+    at('01:05');
+    const { server, qr, b18 } = await leaveAt('23:50', 'Khach roi toi qua');
+    const expected = iso('23:50', addDays(todayLocal(), -1));
+    expect(server).toBe(expected);
+    expect(qr.checkoutAt).toBe(expected);
+    expect(b18.checkoutAt).toBe(expected);
+  });
+});
+
+describe('V5-10 – B18 refuses the instant; the note is as long as the server wants (ARC FE-125-02, FE-125-04)', () => {
+  it('FE-125-02: 422 on `checkoutAt` → back at the time with the sentence under it, the summary read again, the next B18 goes through', async () => {
+    at('12:05');
+    const r = prepaid();
+    const { reads, writes } = traffic();
+    let refused = 0;
+    server.use(
+      http.post(
+        '*/v1/properties/:propertyId/reservations/:reservationId/actions/check-out',
+        () => {
+          refused += 1;
+          return HttpResponse.json(
+            {
+              type: 'about:blank',
+              title: 'Validation failed',
+              status: 422,
+              code: 'VALIDATION_FAILED',
+              errors: [{ field: 'checkoutAt', code: 'TIME_AFTER_ACTION' }],
+            },
+            { status: 422 },
+          );
+        },
+        { once: true },
+      ),
+    );
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    await waitFor(() => expect(reads.some((x) => x.asked === '12:05')).toBe(true));
+    await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));
+    await user.click(await screen.findByRole('button', { name: /hoàn tất|Hoàn tất/ }));
+    await user.click(within(await screen.findByRole('alertdialog')).getAllByRole('button')[1]!);
+    await waitFor(() => expect(refused).toBe(1));
+    const readsBefore = reads.length;
+    const box = await timeBox();
+    await waitFor(() => expect(box).toHaveAccessibleDescription(tv('field.TIME_AFTER_ACTION')));
+    expect(box).toHaveAttribute('aria-invalid', 'true');
+    // the summary is asked again for the time on screen (a new `checkoutAt`), not the refused one kept
+    await waitFor(() =>
+      expect(reads.slice(readsBefore - 1).some((x) => x.asked === '12:05')).toBe(true),
+    );
+    await waitFor(() => expect(reads.length).toBeGreaterThan(readsBefore - 1));
+    await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));
+    await user.click(await screen.findByRole('button', { name: /hoàn tất|Hoàn tất/ }));
+    await user.click(within(await screen.findByRole('alertdialog')).getAllByRole('button')[1]!);
+    await waitFor(() => expect(res('Phạm Huy').status).toBe('checked_out'));
+    const b18 = writes.filter((w) => w.path.endsWith('/actions/check-out')).at(-1)!.body;
+    expect(b18.checkoutAt).toBe(reads.filter((x) => x.asked === '12:05').at(-1)!.checkoutAt);
+  });
+
+  it('FE-125-04 / UXD PR125-05: a note under 3 characters keeps "Tiếp tục" locked (the server takes 3–300)', async () => {
+    at('13:00');
+    const r = prepaid();
+    const { reads } = traffic();
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    await typeTime(reads, '12:10');
+    const note = await screen.findByLabelText(noteLabel());
+    const go = screen.getByRole('button', { name: tv('co.go_bill') });
+    await user.type(note, 'ok');
+    expect(go).toHaveAttribute('aria-disabled', 'true');
+    expect(go).toHaveAccessibleDescription(tv('field.TIME_NOTE_REQUIRED'));
+    await user.type(note, '!');
+    await waitFor(() => expect(go).not.toHaveAttribute('aria-disabled'));
   });
 });

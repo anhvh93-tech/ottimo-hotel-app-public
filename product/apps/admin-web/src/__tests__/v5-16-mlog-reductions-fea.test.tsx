@@ -220,3 +220,53 @@ describe('Nhật ký tiền – UXD review #128 (FB-R5-UXD-FE-PR128-01…03)', (
     expect(screen.queryByText(tv('mlog.empty_body'))).toBeNull();
   });
 });
+
+describe('Nhật ký tiền – "Xem thêm" (BA: a month from "Cần chú ý" was cut at the first page)', () => {
+  it('more rows than a page → "Xem thêm" reads the next page with the same filter; the last page → no button', async () => {
+    const { today, asked } = seed();
+    const lan = { id: LAN, name: 'Lan' };
+    for (let i = 0; i < 105; i += 1)
+      mockControl.stay.audit.unshift(
+        adjusted(`OTM-P${String(i).padStart(3, '0')}`, lan, today, 'laundry', 50_000, 20_000),
+      );
+    const { user } = renderApp(
+      `/audit?reductionsOnly=true&month=${today.slice(0, 7)}&actorUserId=${LAN}`,
+      'qa.mgr',
+    );
+    await screen.findByRole('table', { name: tv('moneylog.title') });
+    const shown = () =>
+      within(screen.getByRole('table', { name: tv('moneylog.title') })).getAllByRole('row').length -
+      1;
+    await waitFor(() => expect(shown()).toBe(100));
+    expect(asked[0]!.has('cursor')).toBe(false);
+    await user.click(screen.getByRole('button', { name: tv('webreq.load_more') }));
+    // Lan's 105 + her 2 seeded reductions of this month (OTM-T03 three days ago only when still this month)
+    await waitFor(() => expect(shown()).toBeGreaterThan(100));
+    const second = asked.at(-1)!;
+    expect(second.get('cursor')).toBe('100');
+    expect(second.get('reductionsOnly')).toBe('true');
+    expect(second.get('actorUserId')).toBe(LAN);
+    expect(second.get('from')).toBe(asked[0]!.get('from'));
+    expect(second.get('to')).toBe(asked[0]!.get('to'));
+    expect(screen.queryByRole('button', { name: tv('webreq.load_more') })).toBeNull();
+    // no row twice
+    const codes = codesShown();
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('a filter change starts again from the first page', async () => {
+    const { today, asked } = seed();
+    const lan = { id: LAN, name: 'Lan' };
+    for (let i = 0; i < 101; i += 1)
+      mockControl.stay.audit.unshift(
+        adjusted(`OTM-Q${String(i).padStart(3, '0')}`, lan, today, 'laundry', 50_000, 20_000),
+      );
+    const { user } = renderApp('/audit', 'qa.mgr');
+    await screen.findByRole('table', { name: tv('moneylog.title') });
+    await user.click(await screen.findByRole('button', { name: tv('webreq.load_more') }));
+    await waitFor(() => expect(asked.at(-1)!.get('cursor')).toBe('100'));
+    await user.click(await reductionsSwitch());
+    await waitFor(() => expect(asked.at(-1)!.get('reductionsOnly')).toBe('true'));
+    expect(asked.at(-1)!.has('cursor')).toBe(false);
+  });
+});

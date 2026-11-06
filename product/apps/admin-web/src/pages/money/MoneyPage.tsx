@@ -3,6 +3,7 @@ import {
   isApiError,
   type ApprovalRequest,
   type AuditEvent,
+  type ListAuditQuery,
   type PaymentListItem,
   type RefundDestination,
 } from '@ottimo/api-client';
@@ -255,22 +256,45 @@ function MoneyLog() {
   const [actor, setActor] = useState(mgr ? (search.get('actorUserId') ?? '') : '');
   const [from, setFrom] = useState(month ? `${month}-01` : addDays(today, -7));
   const [to, setTo] = useState(month ? minDay(monthEnd(month), today) : today);
+  const query: ListAuditQuery = {
+    category: 'money',
+    from,
+    to,
+    ...(reductions ? { reductionsOnly: true } : {}),
+    ...(actor ? { actorUserId: actor } : {}),
+  };
   const { state, reload } = useResource(
-    async () =>
-      (
-        await api.listAuditEvents(
-          { propertyId },
-          {
-            category: 'money',
-            from,
-            to,
-            ...(reductions ? { reductionsOnly: true } : {}),
-            ...(actor ? { actorUserId: actor } : {}),
-          },
-        )
-      ).data.data,
+    async () => (await api.listAuditEvents({ propertyId }, query)).data,
+    // `query` is made of these
     [propertyId, from, to, reductions, actor],
   );
+  // BA (v1.0.5): the API pages (100 a page); a whole month from the "Cần chú ý" link was cut at the first page with
+  // nothing said. "Xem thêm" reads the next page with the same filter. The pages read belong to THIS first page –
+  // another filter or a new first page (retry) starts again.
+  const { online } = useOnline();
+  const [more, setMore] = useState<{
+    base: object;
+    rows: AuditEvent[];
+    cursor: string | undefined;
+  } | null>(null);
+  const [moreBusy, setMoreBusy] = useState(false);
+  const first = state.data;
+  const extra = more && first && more.base === first ? more : null;
+  const nextCursor = extra ? extra.cursor : (first?.page.nextCursor ?? undefined);
+  const loadMore = async () => {
+    if (!first || !nextCursor || moreBusy) return;
+    setMoreBusy(true);
+    try {
+      const out = await api.listAuditEvents({ propertyId }, { ...query, cursor: nextCursor });
+      setMore({
+        base: first,
+        rows: [...(extra?.rows ?? []), ...out.data.data],
+        cursor: out.data.page.nextCursor ?? undefined,
+      });
+    } finally {
+      setMoreBusy(false);
+    }
+  };
   // People for the filter: active staff of the property (FD+ may read it – `closer-candidates`, kind staff).
   const people = useResource(
     async () => (mgr ? (await api.listCloserCandidates({ propertyId }, 'staff')).data.data : []),
@@ -284,7 +308,7 @@ function MoneyLog() {
       setTo(today);
     }
   };
-  const rows = state.data ?? [];
+  const rows = [...(first?.data ?? []), ...(extra?.rows ?? [])];
   const amountOfEvent = (o: unknown) => {
     const x = o as Record<string, unknown> | undefined;
     // `approval.applied_capped`: asked (before.amountVnd) → applied (after.appliedVnd).
@@ -404,6 +428,13 @@ function MoneyLog() {
           </table>
         </div>
       )}
+      {nextCursor && rows.length ? (
+        <div>
+          <Button busy={moreBusy} disabled={!online} onClick={() => void loadMore()}>
+            {t('webreq.load_more')}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

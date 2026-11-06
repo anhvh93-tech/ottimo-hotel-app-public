@@ -58,7 +58,7 @@
   - người của liên kết "Cần chú ý" không còn trong danh sách (đã nghỉ) thì ô vẫn lọc theo người đó. Nhãn của lựa chọn này nay là `mlog.who_unlisted` (mục 6, PR128-01), không còn "–".
 
 ## 6. Phản hồi review UXD #128 (`rounds/round-05/reviews/UXD-on-fe-prs-125-128.md`)
-Đã merge main trước (merge, không rebase; strings.js lấy bản của main rồi chạy lại `gen_strings.py`). Bốn khóa mới chép nguyên văn từ tệp review, đặt ngay sau `mlog.filter_reductions` trong `gen_strings.py`.
+Làm ở PR tiếp nối `r5-fe-review-followup`, không đẩy vào #128: ORC giữ #128 chỉ có lượt merge main, để các lượt duyệt ARC, DOM, UXD, SEC còn hiệu lực. Bốn khóa mới chép nguyên văn từ tệp review, đặt ngay sau `mlog.filter_reductions` trong `gen_strings.py`.
 
 | Thẻ | Mức | Trạng thái | Cách làm |
 |---|---|---|---|
@@ -73,4 +73,4 @@ Test thêm 4 ca vitest trong `v5-16-mlog-reductions-fea.test.tsx`:
 - danh sách tải được: không có câu nhắc;
 - FD, khoảng ngày không có dòng nào: tiêu đề thường, thân chỉ nói về ngày.
 
-Hai thẻ DOM (FB-R5-DOM-FE-125-01, FB-R5-DOM-UXD-128-02) không làm trong PR này, theo lệnh ORC: đi PR tiếp nối hoặc v1.0.6.
+Các việc khác của PR tiếp nối (phân trang "Xem thêm", ARC FE-128-02, hai thẻ DOM) ghi ở `r5-fe-review-followup-fea.md`.
