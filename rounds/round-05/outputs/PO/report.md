@@ -125,3 +125,35 @@
   - DOM: đọc lại câu Tờ 2a;
   - UXD: dựng PDF Tờ 2a sau DOM;
   - UXD: dựng HTML sổ tay và bộ hướng dẫn sau khi BA sửa 2.4 và `02` theo thẻ 08.
+
+## Cập nhật 07/11 – Phản hồi & sửa: Giới hạn đã biết v1.0.5, phạm vi thẻ FB-R5-DOM-FE-121-01
+
+- **Đã làm:**
+  - **Release notes v1.0.5:** mục mới **Giới hạn đã biết của v1.0.5 và cách làm ở quầy**, ba dòng:
+    - ca đêm 00:00–05:59: rà **Sơ đồ phòng** trước 06:00, tới v1.0.6 (A4, R5-B-09). Chữ theo BA `792e510a`, sửa theo DOM FB-R5-DOM-BA-02: không gõ cửa ban đêm, việc chính ở mốc đóng quầy (21:00);
+    - đóng ca chưa liệt kê dòng tự sửa giảm, tới v1.0.6 (R5-B-10): lễ tân dùng tab **Nhật ký thao tác tiền** (kể cả hàng **Đảo dòng folio** lý do **Đếm lại minibar**, DOM BA-03); quản lý rà bộ lọc 7 ngày mỗi tuần;
+    - luật "lễ tân không tự hạ số minibar đã đếm" (BR-438 (2a)) chưa có tác dụng thật ở OTTIMO tới khi buồng phòng có màn đếm; kiểm soát thay thế K-MB theo DOM (đếm kho mỗi tuần, so ngẫu nhiên 3 dòng phiếu nạp với **Folio**, lệch quá 2 món/tuần thì hỏi người trực, ghi sổ); điều kiện trước khi giao tài khoản lễ tân riêng. Không số hoa hồng.
+  - Dòng **Lỗi nhỏ ở quầy** v1.0.5 thêm câu cảnh báo giá đêm cao bất thường (V5-5C). v1.0.4 **Giới hạn đã biết** thêm dòng áp dụng ngay "Đổi giá căn: … báo giá thử 1 đêm của căn đó"; bảng "Chưa có" v1.0.4 thêm V5-5C.
+  - **Quyết định FB-R5-DOM-FE-121-01: đưa vào v1.0.5**, thành **V5-5C** (Gói 5, nên có), quyết định 27. Lý do: lỗi giá là loại việc đầu tiên bản bảo trì được làm; Desk là chỗ duy nhất OTTIMO đổi giá; việc nhỏ (khoảng 0,5 ngày FE-A), chữ UXD 9.3 và enum hợp đồng đã có trên `main`, không chờ ai; không có nó thì cảnh báo máy chủ của #121 không tới người dùng. Chỉ nên có vì Minor, có cách kiểm tay, v1.0.4 cũng thiếu biên trên. Thứ tự: sau phần bắt buộc của FE-A, việc đầu trong Gói 5 của FE-A. **Đường cắt 13/11:** chưa mở PR thì sang v1.0.6, giữ mã V5-5C, là việc đầu bản đó; release notes theo 4a T10.
+  - **Plan R5:** dòng V5-5C (Gói 5), lịch 09–14/11, vai FE-A; ĐK-6 ghi sẵn chữ mới và việc "khi #121 gộp: PO sửa ĐK-6 cùng lúc DOM sửa dòng **Đội đề xuất** của từ điển" (DOM #121 mục 1.3); mục 4a sửa T4 (thêm câu đóng ca), T5 (audit vẫn chặn; phần chặn không cần sửa release notes; câu DOM (A) 1 thứ hai chỉ thêm nếu audit không vào tag), T9 (đã làm), thêm **T10** (V5-5C), **T11** (#121 + ĐK-6 + từ điển), thêm một gạch "Thêm khi cắt" về K-MB ở sổ tay; quyết định 27; mục 7 đếm thêm (582 mục: 138 (a), 220 (b), 224 (c); 65 việc V5; Gói 5 có 14 việc); phụ lục I hai dòng.
+  - **Backlog:** **R5-B-15** (B-SAU) màn đếm minibar cho buồng phòng trên app nhân viên, cùng phần chặn SEC V516-01; ghi điều kiện trước ngày giao tài khoản lễ tân riêng. R5-B-09 trỏ thêm dòng release notes. Mục 5.7 ghi FE-121-01 thành V5-5C, không thành dòng backlog. Lịch sử thêm một dòng. Không đổi số story: 177.
+- **File sửa:** `product/docs/release-notes.md`, `rounds/round-05/plan.md`, `03-backlog/backlog.md`, tệp này.
+- **Giả định:**
+  1. ORC gọi là "V5-10 quá ngày đi" là phần Desk của V5-10 và V5-15 (hộp Trả phòng, đơn quá ngày đi); PO xếp V5-5C sau các việc này.
+  2. Phần audit của SEC V516-01 vẫn bắt buộc ở v1.0.5 (SEC, ORC decision-log 07/11), dù DOM nói "đáng làm sớm nếu rẻ". Vì vậy release notes chưa có câu "lần đếm lại chưa hiện trong bộ lọc 7 ngày". SEC, ORC đổi thì thêm câu theo 4a T5.
+  3. Dòng minibar trong release notes đúng cả khi phần chặn của BE-A2 có hay không có trong tag (người trực giữ vai quản lý nên BR-438 không chặn).
+  4. Dòng ca đêm theo DOM BA-02 (đang được BA áp vào sổ tay 2.20 và `02` 13.3, chưa commit lúc PO ghi). BA giữ chữ khác thì PO sửa lại cho khớp khi cắt (4a T9).
+  5. K-MB làm được ngay trên v1.0.4, như BA ghi ở sổ tay ("từ tuần này"); release notes ghi "làm được ngay từ tuần này".
+- **Rủi ro:** làn FE-A dài. V5-5C nhỏ và có đường cắt nên không đẩy phần bắt buộc; rủi ro còn lại là FE-A mở PR sát 13/11 làm UXD, QA dồn việc 15–19/11. Ca thử thật trên staging cần #121 đã gộp.
+- **Chuyển vai khác:**
+  - ORC: giao V5-5C cho FE-A (đầu Gói 5); nhắc PO và DOM sửa ĐK-6 và từ điển trong lượt gộp #121; ghi điều kiện "màn đếm minibar hoặc phiếu đếm giấy có chữ ký" cạnh quyết định INV 29/10; nêu K-MB ở buổi review 20/11 (việc thêm cho chủ đầu tư, đội đề nghị).
+  - BA: câu "Đổi giá xong, báo giá thử 1 đêm của căn đó để kiểm số" ở sổ tay phần Danh mục căn (DOM thẻ 121-01, đề xuất 3).
+  - UXD, QA: đọc chữ và chạy ca 9.3 khi PR V5-5C mở.
+  - SEC: R5-B-15 ghi phần chặn V516-01 đi cùng màn đếm của buồng phòng theo đề xuất DOM; SEC giữ phần chặn ở v1.0.5 thì ORC xếp lại, PO sửa R5-B-15.
+- **ESC mới:** không. Không đổi giá, cọc, hoàn, hủy; phạm vi trong round thuộc quyền PO.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | **PO – quyết định 27 (plan R5): FB-R5-DOM-FE-121-01 vào v1.0.5 thành V5-5C** (Gói 5, nên có): Desk kiểm cả hai biên BR-101 (4) trước khi gửi và đọc warnings[] NIGHTLY_PRICE_UNUSUAL sau khi lưu, theo UXD copy-v1.0.5 9.3; không đổi hợp đồng, máy chủ, chính sách; ước FE-A khoảng 0,5 ngày, sau phần bắt buộc của FE-A, đầu Gói 5; 13/11 chưa mở PR thì sang v1.0.6 (giữ mã, việc đầu bản đó), release notes theo plan 4a T10. Release notes v1.0.5 thêm mục Giới hạn đã biết: ca đêm rà Sơ đồ phòng trước 06:00 tới v1.0.6 (A4, R5-B-09; chữ BA 792e510a + DOM BA-02), đóng ca chưa có dòng tự sửa giảm tới v1.0.6 (R5-B-10; lễ tân dùng Nhật ký thao tác tiền), luật đếm lại minibar thấp hơn (BR-438 (2a)) chưa có tác dụng thật ở OTTIMO, đội đề nghị K-MB (DOM 7496e5bc); v1.0.4 thêm dòng áp dụng ngay "đổi giá xong báo giá thử 1 đêm". Plan 4a sửa T4, T5, T9, thêm T10 (V5-5C), T11 (#121 + ĐK-6 + từ điển); ĐK-6 ghi việc khi #121 gộp (PO sửa ĐK-6 cùng lúc DOM sửa dòng Đội đề xuất). Backlog R5-B-15 (B-SAU): màn đếm minibar cho buồng phòng trên app nhân viên, cùng phần chặn SEC V516-01 (DOM đề xuất, chờ SEC) | PO | Quyền PO (phạm vi trong round, release notes, backlog); không ESC |`
+
+`| 2026-11-07 | 5 | Điều kiện thêm cho quyết định INV 29/10 (một tài khoản 6 vai; "khi có nhân viên lễ tân/buồng phòng thật thì mỗi người một tài khoản, đúng một vai"): trước ngày giao tài khoản lễ tân riêng không giữ vai quản lý, cần màn đếm minibar cho buồng phòng trên app nhân viên (backlog R5-B-15) hoặc phiếu đếm giấy có chữ ký buồng phòng (lễ tân nhập đúng số phiếu, phiếu kẹp sổ giao ca, quản lý so 3 phiếu ngẫu nhiên với bill mỗi tuần); giữ K-MB cả khi đã có (DOM DOM-responses.md (A) 3, 7496e5bc) | DOM / PO | Không ESC; INV đã chấp nhận mô hình 6 vai 29/10 |`
