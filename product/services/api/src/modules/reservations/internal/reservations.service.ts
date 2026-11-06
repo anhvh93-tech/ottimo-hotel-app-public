@@ -4654,7 +4654,7 @@ export class ReservationsService {
       const sp = `hold_${n}`;
       await tx.query(`SAVEPOINT ${sp}`);
       try {
-        const outcome = await this.expireOne(tx, id, now, tz, latest);
+        const outcome = await this.expireOne(tx, id, now, tz, latest, today);
         await tx.query(`RELEASE SAVEPOINT ${sp}`);
         if (outcome === 'expired') expired += 1;
         if (outcome === 'kept_paid') keptPaid += 1;
@@ -4672,6 +4672,7 @@ export class ReservationsService {
     now: Date,
     tz: string,
     latest: LocalTime,
+    today: LocalDate,
   ): Promise<'expired' | 'kept_paid' | 'skipped'> {
     const system = SYSTEM_ACTOR;
     const row = await loadReservation(tx, id, system);
@@ -4770,6 +4771,7 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: 0,
         retainedKind: null,
+        businessDate: today,
         reason: 'hold_expired',
       },
       null,
@@ -4851,6 +4853,7 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: 0,
         retainedKind: null,
+        businessDate: ctx.today,
         reason: 'overbooking_relocated',
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       },
