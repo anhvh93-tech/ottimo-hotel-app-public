@@ -167,7 +167,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     Предложение действительно до {expires}.
     ```
   - Kiểm sau khi áp: `quote-copy.ts` không còn "Депозит".
-- Trạng thái: Open
+- Trạng thái: Fixed (UXD, bản 1.1 của `copy-v1.0.5.md` mục 5.1: dòng 4 RU "Предоплата, чтобы закрепить номер: …", chép toàn bộ `sale.quote_text` RU theo khung của thẻ)
 
 ### FB-R5-CPY-UXD-V105-02
 - Mức độ: Major (phần a); phần b, c có thể Deferred
@@ -212,7 +212,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     - `gw.room` "Phòng", hoặc xóa khóa.
   - Chữ Desk nội bộ giữ "căn".
   - Sau phần (a), FE-B thêm kiểm như thẻ 11.
-- Trạng thái: Open
+- Trạng thái: (a) Fixed – mục 4.20 (a), bắt buộc v1.0.5 · (b) Fixed – mục 4.20 (b) và 5.1, nên có, cùng lượt C5 (PO quyết định 15) · (c) Deferred – v1.0.6, backlog R5-B-03, gộp C6
 
 ### FB-R5-CPY-UXD-V105-03
 - Mức độ: Minor
@@ -227,7 +227,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     - VI: "Phí trả phòng sớm (báo trước {noticeDays} ngày)";
     - EN: "Early departure fee ({noticeDays} day's notice)" / "({noticeDays} days' notice)".
   - Trong 2 ví dụ trên, `\u00A0` chỉ chỗ đặt ký tự U+00A0, không gõ 6 ký tự này vào nguồn. Test so chữ lấy bằng `tv(key)`.
-- Trạng thái: Open
+- Trạng thái: Fixed (mục 4.1: U+00A0 sau `{noticeDays}` ở VI và EN của `_notice_one`, `_notice_other`)
 
 ### FB-R5-CPY-UXD-V105-04
 - Mức độ: Minor
@@ -242,7 +242,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     - `bill.line.late_fee_after_limit`: VI "Phụ thu trả muộn (rời sau mốc trả muộn)", EN "Late check-out fee (after the late check-out limit)";
     - cùng khuôn với `bill.line.extra_night`.
   - Không chặn v1.0.5 nếu V5-16 chưa lên cùng bản.
-- Trạng thái: Open
+- Trạng thái: Open – chờ DOM (ORC đã hỏi). UXD đã soạn sẵn khóa dự phòng `bill.line.late_fee_after_limit` theo chữ CPY ở mục 4.8, chưa đếm. DOM trả lời "chỉ giảm bằng FOC" thì đóng thẻ
 
 ### FB-R5-CPY-UXD-V105-05
 - Mức độ: Suggestion
@@ -250,7 +250,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
 - Vấn đề: các dòng phiếu cùng họ đặt phần giải thích trong ngoặc: "Phụ thu trả muộn ({time})", "Phí trả phòng sớm (báo trước…)". Bản EN mới cũng dùng ngoặc. Riêng bản VI viết liền "…trả muộn bằng giá 1 đêm".
 - Vì sao quan trọng: nhất quán trên cùng một phiếu; người đọc tách tên khoản và cách tính dễ hơn.
 - Đề xuất sửa: VI "Phụ thu trả muộn (bằng giá 1 đêm)". Chữ trên Desk (`co.*`) có thể giữ như cũ.
-- Trạng thái: Open
+- Trạng thái: Fixed (mục 4.8: VI "Phụ thu trả muộn (bằng giá 1 đêm)")
 
 ### FB-R5-CPY-UXD-V105-06
 - Mức độ: Minor (là điều kiện của C5)
@@ -265,7 +265,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - VI: "Chào {name}, OTTIMO đã nhận được tin báo phòng {room} không có nước nóng. Kỹ thuật viên sẽ đến trước {time}. Xin lỗi bạn vì sự bất tiện này."
   - RU: "Здравствуйте, {name}! Мы получили сообщение об отсутствии горячей воды в номере {room}. Техник придёт до {time}. Приносим извинения за неудобства."
   - Nếu PO chưa nhận phần (b) của thẻ 02, bản VI tạm giữ "căn {room}" thay "phòng {room}". Phần còn lại vẫn áp.
-- Trạng thái: Open
+- Trạng thái: Fixed (mục 5.1: 3 câu EN, VI, RU theo chữ CPY; VI dùng "phòng {room}" vì 02 (b) đã nhận). Nên có, cùng lượt C5
 
 ### FB-R5-CPY-UXD-V105-07
 - Mức độ: Minor
@@ -285,7 +285,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - `msg.bill` RU: "Спасибо, что остановились в OTTIMO, {name}. Счёт {bill_no}: {amount}. Подробнее: {link}"
   - `guest.late.done_title`: EN "All set. Your door code is ready", VI "Đã xong. Mã cửa của bạn đã sẵn sàng".
   - Thời điểm: cùng lượt C5 nếu PO nhận, vì cùng nhóm `TEMPLATES` và đều rẻ. Không thì chuyển B-SAU cùng story nối mẫu tin (plan mục 6, quyết định PO số 14 – R1 của UXD).
-- Trạng thái: Open
+- Trạng thái: Fixed (mục 4.21: `msg.house_rules_smoking` 3 ngôn ngữ, `msg.bill` RU, `guest.late.done_title` EN/VI). Nên có, cùng lượt C5; không kịp thì US-125
 
 ### FB-R5-CPY-UXD-V105-08
 - Mức độ: Minor
@@ -295,7 +295,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - Khách RU có thể đọc là khoản trả trước **còn phải trả**, cộng với "остаток".
 - Vì sao quan trọng: câu tiền trong tin xác nhận. Đọc nhầm thì khách chuyển khoản lần hai, hoặc nhắn hỏi lại.
 - Đề xuất sửa: "Предоплата {deposit} получена, остаток {balance} — при заселении." Phần còn lại của tin giữ như C1. Mẫu chưa nối mã, nên làm cùng C1 hoặc C5, không gấp.
-- Trạng thái: Open
+- Trạng thái: Fixed (mục 5.1: "Предоплата {deposit} получена, остаток {balance} — при заселении.")
 
 ### FB-R5-CPY-UXD-V105-09
 - Mức độ: Minor
@@ -309,7 +309,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - RU: "При долгом проживании уборка не входит в стоимость. Каждая уборка стоит {amount}." Đúng BR-204, BR-506: thuê tháng dọn theo lượt, giá theo hạng.
   - Tùy chọn: EN "Your long-stay rent doesn't include cleaning." → "Cleaning isn't included in long stays. Each clean costs {amount}." VI có thể giữ.
   - Không thêm "аренд" vào danh sách chặn, vì hợp đồng dài hạn dùng đúng chữ này. Chỉ tránh trên chữ khách đọc.
-- Trạng thái: Open
+- Trạng thái: Fixed (mục 5.1, khóa thứ 8 của V5-24: RU theo chữ CPY; UXD nhận cả bản EN tùy chọn; VI giữ)
 
 ### FB-R5-CPY-UXD-V105-10
 - Mức độ: Suggestion
@@ -324,7 +324,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - RU "Язык выбран автоматически".
   - FE-B dùng khóa này ở dòng 66. Câu không nói nguồn chọn, nên vẫn đúng tinh thần BUG-R2-218.
   - Để PO và UXD chọn v1.0.5 hay sau.
-- Trạng thái: Open
+- Trạng thái: Fixed (mục 4.6: khóa mới `gw.lang_auto_sr` cho `#gw-lang-state`, vào v1.0.5)
 
 ### FB-R5-CPY-UXD-V105-11
 - Mức độ: Suggestion
@@ -336,7 +336,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - VI: `/(?<!\p{L})căn(?!\p{L})/iu`, sau phần (a) và (b) của thẻ 02, giống `dist-checks.mjs` dòng 281. Thêm `/phụ thu/iu` sau C6;
   - mọi ngôn ngữ: không "!" và không emoji. RU chừa đúng mẫu lời chào `^Здравствуйте, \{name\}!`, cho tới khi người bản xứ trả lời mục 3 câu 2.
   - Bật dần theo từng thẻ đã áp, để CI không đỏ vì phần còn Deferred.
-- Trạng thái: Open
+- Trạng thái: Fixed (phần UXD: mục 5.3 có 5 bước bật dần, mục 6 có dòng FE-B). Việc FE-B xếp sau 02 (a), (b) theo PO
 
 ---
 
@@ -377,3 +377,35 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - phiếu in không có RU;
   - RU mới không ghép số với danh từ đếm.
 - [x] Đã liệt kê câu cho người bản xứ (mục 3, xếp theo rủi ro) và câu cho SEC, luật sư (không có câu mới).
+
+---
+
+## 8. Phản hồi của UXD (Round 5 – Phản hồi & sửa, 06/11/2026)
+
+- Người trả lời: UXD. Tệp đã sửa: `rounds/round-05/outputs/UXD/copy-v1.0.5.md`, **bản 1.1**.
+- Phạm vi theo PO: plan R5 mục 6, quyết định 15; `rounds/round-05/responses/PO-responses.md` (commit `8c828036`).
+- Số khóa sau khi sửa: **150** (69 sửa, 72 mới, 9 xóa); bản 1.0 có 143.
+  - V5-23: thêm 6 khóa, gồm `gw.req.clean_makeup_free`, `gw.req.clean_second_fee`, `gw.lang_auto_sr` và 3 khóa ở 4.21.
+  - V5-24: thêm `gw.req.clean_long_fee`.
+  - Một khóa dự phòng của thẻ 04 chưa đếm.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-CPY-UXD-V105-01 | Fixed | Mục 5.1: `sale.quote_text` RU dòng 4 "Предоплата, чтобы закрепить номер: {deposit}. …". Có khung chữ đầy đủ. BE chạy lại `gen-quote-copy.mjs`. Mục 8 kiểm `quote-copy.ts` không còn "Депозит". Bước 2 của 5.3 chặn từ này quay lại |
+| FB-R5-CPY-UXD-V105-02 (a) | Fixed | Mục 4.20 (a): "căn" thành "phòng" ở `sale.quote_text` VI dòng 2, `gw.req.clean_makeup_free`, `gw.req.clean_second_fee`. Bắt buộc v1.0.5 |
+| FB-R5-CPY-UXD-V105-02 (b) | Fixed | Mục 4.20 (b) và chữ đầy đủ ở 5.1: `msg.booking_confirmed`, `msg.deposit_received`, `msg.hot_water_issue` dùng "phòng {room}". Nên có, cùng lượt C5 |
+| FB-R5-CPY-UXD-V105-02 (c) | Deferred | v1.0.6, backlog R5-B-03, gộp C6. Mục 4.20 (c) ghi danh sách khóa. `gw.room` xóa ở lượt đó |
+| FB-R5-CPY-UXD-V105-03 | Fixed | Mục 4.1: U+00A0 đặt ngay sau `{noticeDays}` ở cả VI và EN. Ghi chú cho FE gõ thẳng ký tự, so test bằng `tv(key)` |
+| FB-R5-CPY-UXD-V105-04 | Open – chờ DOM | Mục 4.8: chờ DOM xác nhận ca sửa giảm thẳng (BR-438 (3)). Khóa dự phòng `bill.line.late_fee_after_limit` đã soạn theo chữ CPY, chỉ thêm khi DOM xác nhận. Không chặn v1.0.5 nếu V5-16 không lên cùng bản |
+| FB-R5-CPY-UXD-V105-05 | Fixed | UXD nhận. VI "Phụ thu trả muộn (bằng giá 1 đêm)", cùng khuôn ngoặc với các dòng phiếu khác và bản EN |
+| FB-R5-CPY-UXD-V105-06 | Fixed | Mục 5.1: 3 câu của CPY, nguyên văn. Đây là điều kiện của C5. Giữ lời chào RU "!" |
+| FB-R5-CPY-UXD-V105-07 | Fixed | Mục 4.21: 3 khóa, chữ của CPY. Nên có, cùng lượt C5. `msg.checkout_reminder` vẫn ở B-SAU |
+| FB-R5-CPY-UXD-V105-08 | Fixed | Mục 5.1, `msg.booking_confirmed` RU: "Предоплата {deposit} получена, остаток {balance} — при заселении." |
+| FB-R5-CPY-UXD-V105-09 | Fixed | Mục 5.1: RU "При долгом проживании…". UXD nhận cả bản EN tùy chọn ("Cleaning isn't included in long stays…") để EN cũng bỏ "rent"; VI giữ. "аренд" không vào danh sách chặn |
+| FB-R5-CPY-UXD-V105-10 | Fixed | UXD nhận vào v1.0.5 (a11y, việc nhỏ). Khóa `gw.lang_auto_sr` chỉ dùng ở `#gw-lang-state`. `gw.lang_auto` giữ cho dòng chữ hiện ở HomePage |
+| FB-R5-CPY-UXD-V105-11 | Fixed (phần UXD) | Mục 5.3: 5 bước bật dần, kèm điều kiện bật từng bước. Mục 6 có dòng FE-B. Theo PO, FE-B làm sau 02 (a), (b) |
+
+Ghi chú khác của CPY:
+- Danh sách cho người bản xứ (mục 3): UXD không đổi gì, INV chuyển. Nếu người bản xứ đổi câu nào, UXD cập nhật bảng.
+- Thứ tự số và tên phòng theo BR-012 (mục 5): PO và ARC xem cùng story mẫu tin. Bảng chữ không đổi cách ghép `{room} {room_name}`.
+- Không có ESC mới.

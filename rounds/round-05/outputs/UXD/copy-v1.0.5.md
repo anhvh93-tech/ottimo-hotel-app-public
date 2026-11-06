@@ -1,6 +1,12 @@
 # Bảng chữ v1.0.5 – Gói 2 "Chữ và tham số theo bảng giá 01/11"
 
-- Lập: UXD · Round 5 – Sản xuất · 06/11/2026 · Bản 1.0 (chờ review).
+- Lập: UXD · Round 5 – Sản xuất · 06/11/2026 · Bản 1.0 (`6b3700c6`).
+- Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.1**: áp review CPY (`rounds/round-05/reviews/CPY-on-uxd-copy-v1.0.5.md`, 11 thẻ). Chỗ đổi gồm:
+  - mục 0 (số khóa);
+  - 4.1 (U+00A0), 4.6 (`gw.lang_auto_sr`), 4.8 (ngoặc ở VI, ca chờ DOM);
+  - 4.20 ("căn" trên chữ VI gửi khách), 4.21 (dấu "!" khác, chờ PO);
+  - 5.1 ("Предоплата", 3 câu `msg.*`, `gw.req.clean_long_fee`), 5.3 (kiểm tự động);
+  - mục 6, 7, 8.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -31,11 +37,18 @@
 | V5-20 Bỏ chữ theo mức giá cũ | 12 | 5 | 5 | **22** | Thêm 3 chỗ chỉ đổi cách hiện (FE) |
 | V5-21 Tham số trên Desk | 1 | 38 | 0 | **39** | Gồm 29 tên `params.k.*` |
 | V5-22 Hộp Đặt phòng mới | 2 | 6 | 0 | **8** | |
-| V5-23 Chữ sai sự thật | 41 | 22 | 4 | **67** | Gồm 25 khóa EN thêm U+2011. 3 khóa ở mục 4.19 là phát hiện thêm, PO quyết |
-| V5-24 Tiếng Nga | 7 | 0 | 0 | **7** | Chỉ cột RU. Kèm yêu cầu font (mục 5.2) |
-| **Tổng** | **63** | **71** | **9** | **143** | |
+| V5-23 Chữ sai sự thật | 46 | 23 | 4 | **73** | Gồm 25 khóa EN thêm U+2011. 3 khóa ở mục 4.19 là phát hiện thêm, PO quyết. Bản 1.1 thêm 6 khóa: `gw.req.clean_makeup_free` và `gw.req.clean_second_fee` (4.20 a, bắt buộc), `gw.lang_auto_sr` (4.6), 3 khóa ở 4.21 (nên có) |
+| V5-24 Tiếng Nga | 8 | 0 | 0 | **8** | Bản 1.1 thêm `gw.req.clean_long_fee`. `sale.quote_text`, `msg.booking_confirmed`, `msg.deposit_received`, `msg.hot_water_issue` đổi thêm cột VI và/hoặc EN, vẫn đếm một lần ở đây. Kèm yêu cầu font (mục 5.2) |
+| **Tổng** | **69** | **72** | **9** | **150** | Bản 1.0: 143 |
 
-Chỗ cần CPY duyệt trước khi FE áp: mục 7. Yêu cầu cho FE, BE: mục 6.
+Mức theo PO (plan R5 mục 6, quyết định 15):
+- **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
+- **Nên có, làm cùng lượt C5:** 4.20 (b), 4.21, thẻ 06 và 08 ở 5.1. Không kịp thì chuyển US-125 (B-SAU). Không chặn QC.
+- **Xếp sau:** 5.3 (kiểm tự động).
+- **Chưa đếm, chờ DOM:** khóa `bill.line.late_fee_after_limit` (4.8).
+- **v1.0.6:** 4.20 (c) và C6.
+
+Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
 ---
 
@@ -256,8 +269,10 @@ Dòng phiếu này là chữ khách cầm, nên CPY duyệt (mục 7).
 | Khóa | Kiểu | Chữ cũ | Chữ mới VI | Chữ mới EN |
 |---|---|---|---|---|
 | `bill.line.early_departure_fee_same_day` | Mới | (ra "báo trước 0 ngày") | Phí trả phòng sớm (báo trong ngày rời) | Early departure fee (same-day notice) |
-| `bill.line.early_departure_fee_notice_one` | Mới | – | Phí trả phòng sớm (báo trước {noticeDays} ngày) | Early departure fee ({noticeDays} day's notice) |
-| `bill.line.early_departure_fee_notice_other` | Mới | – | Phí trả phòng sớm (báo trước {noticeDays} ngày) | Early departure fee ({noticeDays} days' notice) |
+| `bill.line.early_departure_fee_notice_one` | Mới | – | Phí trả phòng sớm (báo trước {noticeDays} ngày) | Early departure fee ({noticeDays} day's notice) |
+| `bill.line.early_departure_fee_notice_other` | Mới | – | Phí trả phòng sớm (báo trước {noticeDays} ngày) | Early departure fee ({noticeDays} days' notice) |
+
+Bản 1.1 (FB-R5-CPY-UXD-V105-03): ở cả VI và EN của `_notice_one` và `_notice_other`, khoảng trắng ngay sau `{noticeDays}` là **U+00A0** (khoảng trắng không ngắt). Hai dòng trên đã dùng U+00A0 ở đúng chỗ đó. Trong `gen_strings.py`, gõ thẳng ký tự này như 3 chỗ U+00A0 đã có, không gõ 6 ký tự `\u00A0`. Test so chữ lấy bằng `tv(key)`.
 | `bill.line.early_departure_fee_notice` | Xóa | Phí trả phòng sớm (báo trước {noticeDays} ngày) / ({noticeDays} days' notice) | – | – |
 
 FE (`app/folio.ts`, `VARIANT` và `lineLabel`) chọn khóa như sau:
@@ -305,7 +320,17 @@ Câu cũ nói ngôn ngữ chọn theo trình duyệt. Thực tế ngôn ngữ tr
 |---|---|---|---|---|---|
 | `gw.lang_auto` | Sửa | EN: Language set from your browser – you can change it at the top. · VI: Ngôn ngữ theo trình duyệt của bạn – bạn có thể đổi ở đầu trang. · RU: Язык выбран по настройкам браузера – его можно сменить вверху. | You can change the language at the top of the page. | Bạn có thể đổi ngôn ngữ ở đầu trang. | Язык можно сменить вверху страницы. |
 
-Chỗ dùng: GuestShell 66, HomePage 52 (khi khách chưa tự chọn ngôn ngữ). Ca `TC-L7-053` (`ui/guest-web.h18.spec.ts:293`) đang đánh dấu `test.fail` cho lỗi này. Khi chữ mới lên, QA bỏ đánh dấu và so bằng `tv('gw.lang_auto')`.
+Chỗ dùng:
+- HomePage 52 (dòng chữ dưới lời chào, khi khách chưa tự chọn ngôn ngữ);
+- GuestShell 66: trước bản 1.1, câu này còn làm mô tả cho trình đọc màn hình của ô chọn ngôn ngữ (xem dòng `gw.lang_auto_sr` bên dưới).
+
+Ca `TC-L7-053` (`ui/guest-web.h18.spec.ts:293`) đang đánh dấu `test.fail` cho lỗi này. Khi chữ mới lên, QA bỏ đánh dấu và so bằng `tv('gw.lang_auto')`.
+
+Bản 1.1 (FB-R5-CPY-UXD-V105-10, a11y, UXD nhận vào v1.0.5): GuestShell 66 dùng câu này làm `aria-describedby` của chính ô chọn ngôn ngữ (`#gw-lang-state`). Người dùng trình đọc màn hình đang đứng ở ô đó mà nghe "có thể đổi ở đầu trang" thì không hợp, và không biết trạng thái hiện tại. Câu cặp `gw.lang_chosen` thì nói trạng thái ("Language you chose").
+
+| Khóa | Kiểu | Chữ mới EN | Chữ mới VI | Chữ mới RU | Chỗ dùng |
+|---|---|---|---|---|---|
+| `gw.lang_auto_sr` | Mới | Language selected for you | Ngôn ngữ đã chọn sẵn cho bạn | Язык выбран автоматически | Chỉ trong `span.sr-only#gw-lang-state` (GuestShell 66), thay `gw.lang_auto` khi `!chosen`. Câu không nói nguồn chọn, nên vẫn đúng tinh thần BUG-R2-218. Chữ do CPY viết |
 
 ### 4.7 BUG-R3-028 – Chữ lộ "Round", nhãn sai, hạn báo giá
 
@@ -338,9 +363,21 @@ Chữ khách cầm, CPY duyệt (mục 7).
 
 | Khóa | Kiểu | VI | EN |
 |---|---|---|---|
-| `bill.line.late_fee_as_night` | Mới | Phụ thu trả muộn bằng giá 1 đêm | Late check-out fee (one night's rate) |
+| `bill.line.late_fee_as_night` | Mới | Phụ thu trả muộn (bằng giá 1 đêm) | Late check-out fee (one night's rate) |
+
+Bản 1.1 (FB-R5-CPY-UXD-V105-05, UXD nhận): bản VI đặt phần cách tính trong ngoặc, cùng khuôn các dòng phiếu khác ("Phụ thu trả muộn ({time})", "Phí trả phòng sớm (báo trước…)") và cùng khuôn bản EN. Chữ Desk `co.late_fee_*` giữ nguyên. "Phụ thu" giữ trong v1.0.5 cho cùng họ với các dòng cũ. Đổi cả họ ở v1.0.6 (C6, mục 7).
 
 BE-B (`folio/public/line-labels.ts`, case `late_checkout`): dòng có `chargeCode = 'late_fee_as_night'` trả `labelKey: 'bill.line.late_fee_as_night'`, không kèm `time`. Bỏ giờ khỏi dòng này vì khoản tính bằng giá một đêm, không theo giờ. Như vậy cũng hết ca "00:15" dễ đọc thành sáng của ngày dịch vụ. FE không cần sửa: `lineLabel` dùng `labelKey` khi `hasKey`.
+
+**Chờ DOM (FB-R5-CPY-UXD-V105-04).** Nhãn này khẳng định số tiền bằng giá một đêm. Điều đó đúng khi dòng do B18 ghi và khi miễn/giảm đi bằng dòng FOC riêng (BR-416, BR-433). Nhưng nếu BR-438 (3) cho quản lý **sửa giảm thẳng** dòng này, mà dòng thay thế vẫn giữ `chargeCode = 'late_fee_as_night'`, thì nhãn sai. ORC đã hỏi DOM.
+- Nếu DOM trả lời "chỉ giảm bằng FOC": giữ nguyên, đóng thẻ.
+- Nếu DOM trả lời "được sửa thẳng": BE-B trả nhãn không nói số tiền cho dòng thay thế có số < `limit_ref_vnd`. Khóa dự phòng, chưa đếm ở mục 0, chỉ thêm khi DOM xác nhận:
+
+| Khóa | Kiểu | VI | EN |
+|---|---|---|---|
+| `bill.line.late_fee_after_limit` | Mới (chờ DOM) | Phụ thu trả muộn (rời sau mốc trả muộn) | Late check-out fee (after the late check-out limit) |
+
+Không chặn v1.0.5 nếu V5-16 (sửa giảm thẳng dòng phát sinh) không lên cùng bản.
 
 ### 4.9 BUG-R3-051 – Banner công tắc ghi "mở chat Zalo"
 
@@ -461,6 +498,54 @@ Ghi cho DOM (V5-30): hai nhãn này khẳng định cơ sở tính là "tiền p
 | `desk_code.channel_off` | Sửa | Gửi qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số › Kênh gửi mã. | Gửi qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số quy tắc › Bảo mật › Kênh được gửi mã cho khách. | Sending by message is off. The owner can turn it on in Rule settings › Security › Channels allowed to send guest codes. | Đường dẫn cũ không có trên Desk. Tên mới khớp `nav.params`, `params.grp_security`, `params.k.guest_verify_code_channels` |
 | `error.DELIVERY_CHANNEL_DISABLED` | Sửa | Gửi mã qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số › Kênh gửi mã, hoặc đọc mã cho khách. | Gửi mã qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số quy tắc › Bảo mật › Kênh được gửi mã cho khách, hoặc đọc mã cho khách. | Sending codes by message is off. The owner can turn it on in Rule settings › Security › Channels allowed to send guest codes, or read the code to the guest. | Như trên |
 
+### 4.20 Chữ "căn" trong chuỗi VI gửi khách (FB-R5-CPY-UXD-V105-02, bản 1.1)
+
+"Căn" là từ nội bộ, gợi "căn hộ", trái với FB-INV-002. Landing đã chặn từ này (`dist-checks.mjs` dòng 281), trang khách đã dùng nhãn "Phòng" (`gw.room_label`), và bản EN đều là "Room". Chữ Desk nội bộ **giữ** "căn". Phạm vi theo PO (plan R5 mục 6, quyết định 15; `rounds/round-05/responses/PO-responses.md`).
+
+**(a) Bắt buộc ở v1.0.5.** Chữ của CPY.
+
+| Khóa | Kiểu | Chữ VI cũ | Chữ VI mới | Ghi chú |
+|---|---|---|---|---|
+| `sale.quote_text` (dòng 2) | Sửa (đã đếm ở 5.1) | Căn {room} {room_name}, {from} → {to} ({nights_text}), {guests}. | Phòng {room} {room_name}, {from} → {to} ({nights_text}), {guests}. | Báo giá VI gửi khách. Các dòng khác giữ nguyên. Sinh lại `quote-copy.ts` cùng lượt với bản RU. BA sửa sổ tay nếu có trích báo giá mẫu (V5-71) |
+| `gw.req.clean_makeup_free` | Sửa | Hôm nay căn chưa được dọn – lần dọn này miễn phí. | Hôm nay phòng chưa được dọn – lần dọn này miễn phí. | Trang khách, xin dọn phòng. EN, RU giữ nguyên |
+| `gw.req.clean_second_fee` | Sửa | Căn đã được dọn đầy đủ lúc {time} hôm nay. Dọn đầy đủ thêm lần nữa có phí {amount}. | Phòng đã được dọn đầy đủ lúc {time} hôm nay. Dọn đầy đủ thêm lần nữa có phí {amount}. | Như trên |
+
+Toàn bộ `sale.quote_text` VI sau khi sửa (dòng nối bằng `\n` như hiện tại):
+
+```
+OTTIMO Boutique Stay – Báo giá {code}
+Phòng {room} {room_name}, {from} → {to} ({nights_text}), {guests}.
+Tiền phòng: {room_total}{discount_note}.
+Cọc giữ phòng: {deposit}. Phần còn lại thanh toán khi nhận phòng.
+Báo giá có hiệu lực đến {expires}.
+```
+
+**(b) Nên có ở v1.0.5, cùng lượt C5.** 3 mẫu tin đổi "căn {room}" thành "phòng {room}". Chữ đầy đủ ở mục 5.1, cùng chỗ với bản RU. Ba khóa này đã đếm ở 5.1. Không kịp thì chuyển US-125 (B-SAU). Phần này không chặn QC.
+
+**(c) v1.0.6 (backlog R5-B-03, gộp C6):** các dòng phiếu `bill.line.room_night_room`, `bill.line.extra_night_room`, `bill.line.room_change`, và các khóa chưa dùng `guest.stay.room`, `guest.late.how_1`, `gw.room`. Câu CPY đã đề xuất nằm ở thẻ 02 (c). Không đổi ở bản này.
+
+### 4.21 Dấu "!" ở các chuỗi khách khác (FB-R5-CPY-UXD-V105-07, bản 1.1)
+
+Nên có ở v1.0.5, cùng lượt C5 (PO quyết định 15). Không kịp thì chuyển US-125. Không chặn QC. Chữ của CPY.
+- Guideline tránh từ cảm thán, và landing đã chặn "!" bằng test.
+- "a friendly reminder" là cụm sáo.
+- `msg.bill` RU còn lệch ý EN: EN cảm ơn vì đã ở, RU lại cảm ơn vì đã chọn.
+
+| Khóa | Kiểu | Ngôn ngữ | Chữ cũ | Chữ mới |
+|---|---|---|---|---|
+| `msg.house_rules_smoking` | Sửa | EN | Hi {name}, a friendly reminder: smoking is allowed on the balcony only. Smoking indoors incurs an odour-treatment fee under our house rules. Thank you! | Hi {name}, a reminder from OTTIMO: smoking is allowed on the balcony only. Smoking indoors incurs an odour-treatment fee under our house rules. Thank you. |
+| | | VI | Chào {name}, OTTIMO xin nhắc: chỉ hút thuốc ở ban công. Hút trong phòng sẽ tính phí khử mùi theo nội quy. Cảm ơn bạn! | Chào {name}, OTTIMO xin nhắc: chỉ hút thuốc ở ban công. Hút thuốc trong phòng sẽ tính phí khử mùi theo nội quy. Cảm ơn bạn. |
+| | | RU | Здравствуйте, {name}! Напоминаем: курить можно только на балконе. За курение в номере взимается плата за удаление запаха согласно правилам проживания. Спасибо! | Здравствуйте, {name}! Напоминаем: курить можно только на балконе. За курение в номере взимается плата за удаление запаха согласно правилам проживания. Спасибо. |
+| `msg.bill` | Sửa | RU | Спасибо, что выбрали OTTIMO, {name}! Счёт {bill_no}: {amount}. Подробнее: {link} | Спасибо, что остановились в OTTIMO, {name}. Счёт {bill_no}: {amount}. Подробнее: {link} |
+| `guest.late.done_title` | Sửa | EN | All set! Your door code is ready | All set. Your door code is ready |
+| | | VI | Xong! Mã cửa của bạn đã sẵn sàng | Đã xong. Mã cửa của bạn đã sẵn sàng |
+
+Ghi chú:
+- Lời chào RU "Здравствуйте, {name}!" **giữ** ở mọi mẫu. Đây là dấu câu quy ước sau lời chào có tên, đã đưa vào danh sách cho người bản xứ (CPY mục 3, câu 2).
+- `guest.late.done_title` hiện chưa có mã nào dùng trong `apps/guest-web`. Vẫn sửa ở nguồn.
+- Các bản RU vào danh sách cho người bản xứ.
+- `msg.checkout_reminder` (giờ viết cứng) vẫn ở B-SAU. Không đổi ở đây.
+
 ---
 
 ## 5. V5-24 – Tiếng Nga
@@ -473,20 +558,67 @@ Từ thay là **"номер"** (phòng khách sạn), từ CPY đã dùng và IN
 
 **0 trên 7 chuỗi nằm trong bản thông báo dữ liệu**, vì đó là các khóa `gw.notice_*`, và CPY xác nhận các khóa đó không có từ cấm. Như vậy không có chuỗi nào phải chờ B-PN, cả 7 vào v1.0.5.
 
-| Khóa | Chữ RU cũ | Chữ RU mới (đề xuất, CPY duyệt) | Chỗ dùng |
+CPY đã duyệt (C1, có điều kiện là thẻ 01; điều kiện đã áp ở bản 1.1).
+
+| Khóa | Chữ RU cũ | Chữ RU mới | Chỗ dùng |
 |---|---|---|---|
 | `guest.stay.checkin_time` | Заезд с {time} (апартаменты всегда готовы к 14:00) | Заезд с {time} (номер всегда готов к 14:00) | Trang khách, trong lưu trú |
 | `guest.oci.done_body` | Заезд с {time}, если апартаменты уже готовы; к 14:00 они готовы всегда. Код от двери администратор выдаст при заезде. | Заезд с {time}, если номер уже готов; к 14:00 он готов всегда. Код от двери администратор выдаст при заезде. | Trang khách, xong làm thủ tục trước |
-| `gw.room` | Апартаменты | Номер | Nhãn ô căn, trang khách |
-| `sale.quote_text` (dòng 2) | Апартаменты {room} {room_name}, {from} → {to} ({nights_text}), {guests}. | Номер {room} {room_name}, {from} → {to} ({nights_text}), {guests}. | Báo giá gửi khách RU. Các dòng khác giữ nguyên. Chạy lại `gen-quote-copy.mjs` (`services/api/src/generated/quote-copy.ts`) |
-| `msg.booking_confirmed` | … бронирование {code}: апартаменты {room}, {from} → {to} ({nights_text}). Заезд с {checkin_time} (апартаменты всегда готовы к 14:00), выезд до {checkout_time}. … | … бронирование {code}: номер {room}, {from} → {to} ({nights_text}). Заезд с {checkin_time} (номер всегда готов к 14:00), выезд до {checkout_time}. … | Mẫu tin (mục `TEMPLATES`). Phần còn lại giữ nguyên |
-| `msg.deposit_received` | … по бронированию {code} (апартаменты {room}, {from} → {to}). … | … по бронированию {code} (номер {room}, {from} → {to}). … | Mẫu tin |
-| `msg.hot_water_issue` | … об отсутствии горячей воды в апартаментах {room}. … | … об отсутствии горячей воды в номере {room}. … | Mẫu tin |
+| `gw.room` | Апартаменты | Номер | Không còn mã nào dùng (trang khách dùng `gw.room_label`). Vẫn sửa ở nguồn; xóa khóa ở v1.0.6 (4.20 c) |
+| `sale.quote_text` (dòng 2 và 4) | Dòng 2: Апартаменты {room} {room_name}, … · Dòng 4: Депозит для бронирования: {deposit}. Остальное оплачивается при заселении. | Toàn bộ chữ mới ở khung dưới bảng | Báo giá gửi khách RU. Chạy lại `gen-quote-copy.mjs` (`services/api/src/generated/quote-copy.ts`) |
+| `msg.booking_confirmed` | … бронирование {code}: апартаменты {room}, … (апартаменты всегда готовы к 14:00) … Предоплата {deposit}, остаток {balance} при заселении. … | Toàn bộ chữ mới ở khung dưới bảng | Mẫu tin (mục `TEMPLATES`) |
+| `msg.deposit_received` | … по бронированию {code} (апартаменты {room}, {from} → {to}). … | Toàn bộ chữ mới ở khung dưới bảng | Mẫu tin |
+| `msg.hot_water_issue` | … в апартаментах {room}. Техник придёт до {time}. Приносим извинения за неудобства! | Toàn bộ chữ mới ở khung dưới bảng | Mẫu tin |
+
+**Chữ đầy đủ sau bản 1.1.** Có 3 thay đổi so với bản 1.0:
+- `sale.quote_text` dòng 4 đổi "Депозит" thành "Предоплата" (thẻ 01, Major, bắt buộc);
+- `msg.booking_confirmed` RU ghi rõ "получена" (thẻ 08);
+- `msg.hot_water_issue` đổi cả 3 ngôn ngữ (thẻ 06, điều kiện C5).
+
+Phần VI của 3 mẫu tin đổi "căn" thành "phòng" theo 4.20 (b). Thẻ 06, 08 và 4.20 (b) là mức nên có, làm cùng lượt C5. Không kịp thì chuyển US-125.
+
+`sale.quote_text` RU:
+```
+OTTIMO Boutique Stay – предложение {code}
+Номер {room} {room_name}, {from} → {to} ({nights_text}), {guests}.
+Стоимость проживания: {room_total}{discount_note}.
+Предоплата, чтобы закрепить номер: {deposit}. Остальное оплачивается при заселении.
+Предложение действительно до {expires}.
+```
+
+`msg.booking_confirmed`:
+- RU: Здравствуйте, {name}! OTTIMO подтверждает бронирование {code}: номер {room}, {from} → {to} ({nights_text}). Заезд с {checkin_time} (номер всегда готов к 14:00), выезд до {checkout_time}. Предоплата {deposit} получена, остаток {balance} — при заселении. Отмена: {cancel_policy_short}. Онлайн-регистрация для быстрого заселения: {link}
+- VI: Chào {name}, OTTIMO xác nhận đặt phòng {code}: phòng {room}, {from} → {to} ({nights_text}). Nhận phòng từ {checkin_time} (phòng luôn sẵn sàng lúc 14:00), trả phòng trước {checkout_time}. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}
+- EN: giữ nguyên.
+
+`msg.deposit_received`:
+- RU: Здравствуйте, {name}! OTTIMO получил предоплату {deposit} по бронированию {code} (номер {room}, {from} → {to}). Остаток {balance} оплачивается при заселении. Отмена: {cancel_policy_short}
+- VI: Chào {name}, OTTIMO đã nhận cọc {deposit} cho đơn {code} (phòng {room}, {from} → {to}). Còn {balance} thanh toán khi nhận phòng. Chính sách hủy: {cancel_policy_short}
+- EN: giữ nguyên.
+
+`msg.hot_water_issue`:
+- EN: Hi {name}, we've received your report of no hot water in room {room}. Our technician will be there by {time}. We're sorry for the inconvenience.
+- VI: Chào {name}, OTTIMO đã nhận được tin báo phòng {room} không có nước nóng. Kỹ thuật viên sẽ đến trước {time}. Xin lỗi bạn vì sự bất tiện này.
+- RU: Здравствуйте, {name}! Мы получили сообщение об отсутствии горячей воды в номере {room}. Техник придёт до {time}. Приносим извинения за неудобства.
+
+Nếu lượt C5 không kịp v1.0.5, phải tách theo mức bắt buộc:
+- `sale.quote_text` (thẻ 01 và 4.20 a) và 3 chuỗi trang khách (`guest.stay.checkin_time`, `guest.oci.done_body`, `gw.room`) vẫn **bắt buộc**;
+- riêng 3 mẫu tin thì tối thiểu thay "апартаменты" bằng "номер" như bản 1.0.
 
 Ghi chú:
-- Bốn chuỗi `msg.*` hiện **chưa có mã nào gọi**: rà `services`, `apps`, `packages` không thấy chỗ dùng, chúng chỉ nằm trong thư viện mẫu tin và content-guide. Vẫn sửa ở nguồn để lần nối mẫu tin sau không mang từ cấm.
-- Câu hỏi giọng văn cho CPY, không tính vào số khóa: `msg.hot_water_issue` kết bằng "!" ở cả 3 ngôn ngữ ("Приносим извинения за неудобства!", "Sorry for the inconvenience!", "Xin lỗi vì bất tiện!"). Giọng OTTIMO là điềm tĩnh, nên UXD nghiêng về dấu chấm. "Здравствуйте, {name}!" là cách chào chuẩn trong tiếng Nga, nên UXD đề nghị giữ.
-- Đề nghị FE-B thêm một kiểm tự động: các khóa RU `guest.*`, `gw.*`, `msg.*` và `sale.quote_text` không khớp `/апартамент|квартир|посуточн/iu`, giống `landing-web/scripts/dist-checks.mjs:324`. Mục đích là không để từ cấm quay lại.
+- Bốn chuỗi `msg.*` hiện **chưa có mã nào gọi**: rà `services`, `apps`, `packages` không thấy chỗ dùng. Chúng chỉ nằm trong thư viện mẫu tin và content-guide. Vẫn sửa ở nguồn để lần nối mẫu tin sau không mang chữ cũ.
+- Lời chào "Здравствуйте, {name}!" giữ "!". Đây là dấu câu quy ước sau lời chào có tên, đã đưa vào danh sách cho người bản xứ.
+- Danh sách câu RU cho người bản xứ (11 câu, xếp theo rủi ro) nằm ở mục 3 của tệp review CPY. INV chuyển.
+
+**Bản 1.1, thêm 1 khóa RU (FB-R5-CPY-UXD-V105-09).** "аренда" là chữ của thuê nhà, thuê căn hộ, cùng nhóm nghĩa với từ cấm "квартир". Câu cạnh nó (`gw.req.clean_fee_rule`) đã dùng "Долгосрочное проживание".
+
+| Khóa | Kiểu | Ngôn ngữ | Chữ cũ | Chữ mới | Ghi chú |
+|---|---|---|---|---|---|
+| `gw.req.clean_long_fee` | Sửa | RU | Долгосрочная аренда не включает уборку. Каждая уборка стоит {amount}. | При долгом проживании уборка не входит в стоимость. Каждая уборка стоит {amount}. | Đang chạy (`RequestsPage.tsx` 262). Đúng BR-204, BR-506 |
+| | | EN | Your long-stay rent doesn't include cleaning. Each clean costs {amount}. | Cleaning isn't included in long stays. Each clean costs {amount}. | Tùy chọn của CPY, UXD nhận để EN bỏ cùng chữ "rent" như RU |
+| | | VI | Gói thuê dài hạn của bạn chưa gồm dọn phòng. Mỗi lần dọn có phí {amount}. | (giữ) | CPY: VI có thể giữ |
+
+"аренд" **không** vào danh sách chặn tự động, vì hợp đồng dài hạn dùng đúng chữ này. Chỉ tránh trên chữ khách đọc.
 
 ### 5.2 Font chữ Nga ở ô mã và Wi-Fi bị CSP chặn (BUG-R4-017)
 
@@ -501,6 +633,21 @@ Yêu cầu cho FE-A (`apps/admin-web`), MOB (`apps/mobile`, PWA nhân viên) và
    - trang khách RU: phần tử `.mono` có chữ Kirin hiện bằng JetBrains Mono, ví dụ `document.fonts.check('500 14px "JetBrains Mono"', 'Ж')` trả `true` sau khi tải;
    - chụp ảnh 390 px, có thẻ Wi-Fi.
 6. Không đổi token, cỡ chữ hay màu.
+
+
+### 5.3 Kiểm tự động chữ khách (FB-R5-CPY-UXD-V105-11, bản 1.1)
+
+Yêu cầu cho FE-B, xếp **sau** khi đã áp 4.20 (a) và (b) (PO quyết định 15). Kiểm trên các khóa hướng khách `guest.*`, `gw.*`, `msg.*`, `sale.quote_text*`, `bill.line.*` của `strings-{vi,en,ru}.json`. Bật dần từng mẫu theo phần đã áp, để CI không đỏ vì phần còn Deferred.
+
+| Bước | Mẫu | Ngôn ngữ | Bật khi |
+|---|---|---|---|
+| 1 | `/апартамент\|квартир\|посуточн/iu` (cùng danh sách `landing-web/scripts/dist-checks.mjs:324`) | RU | Ngay khi áp 5.1 |
+| 2 | `/депозит/iu` | RU | Ngay khi áp thẻ 01 |
+| 3 | `/(?<!\p{L})căn(?!\p{L})/iu` (giống `dist-checks.mjs` dòng 281) | VI | Sau 4.20 (a) và (b). Chừa các khóa 4.20 (c) cho tới v1.0.6 |
+| 4 | không "!" và không emoji | mọi ngôn ngữ | Sau 4.21 và thẻ 06. RU chừa đúng mẫu `^Здравствуйте, \{name\}!` cho tới khi người bản xứ trả lời |
+| 5 | `/phụ thu/iu` | VI | Sau C6 (v1.0.6) |
+
+Ghi chú: trong bảng, `\|` là dấu "hoặc" của regex, viết thoát để không vỡ bảng Markdown. Trong mã, viết `|`.
 
 ---
 
@@ -518,11 +665,13 @@ Yêu cầu cho FE-A (`apps/admin-web`), MOB (`apps/mobile`, PWA nhân viên) và
 | FE-A | `app/folio.ts` | Biến thể phí trả sớm (`_same_day`, số nhiều) | 4.1 |
 | FE-A | `reservations/ReservationsPage.tsx`, `ReservationDialogs.tsx`, `pages/UsersPage.tsx`, `UserEmailDialog.tsx`, `webreq/*` | `rsv.list_empty_body_sales`; `money()` trong `DEPOSIT_INSUFFICIENT`; `INVALID_TRANSITION_generic(_reloaded)`; `users.email_purpose`; `webreq.pii_erased` | 4.7, 4.10, 4.12, 4.13, 4.16 |
 | FE-A | test | Sửa các test nhắc khóa bị xóa hoặc chữ cũ, ví dụ `v104-rate-source-typed.test.tsx` (`bk.src_weekend`), test so `error.DEPOSIT_INSUFFICIENT`, `sale.hold_next` | 1.3, 4.13, 4.14 |
-| FE-B | `apps/guest-web` | `gw.lang_auto` 3 ngôn ngữ; 3 chuỗi RU trang khách; kiểm từ cấm RU; font (5.2) | 4.6, 5 |
+| FE-B | `apps/guest-web` | `gw.lang_auto` 3 ngôn ngữ; `gw.lang_auto_sr` ở `#gw-lang-state` (GuestShell 66); 3 chuỗi RU trang khách; `gw.req.clean_*` (4.20 a, 5.1); font (5.2) | 4.6, 4.20, 5.1, 5.2 |
+| FE-B | test chữ khách (`apps/guest-web` hoặc `packages/i18n`) | Kiểm tự động 5 bước ở mục 5.3, bật dần. Làm **sau** 4.20 (a), (b) | 5.3 |
 | MOB | `apps/mobile` | Font (5.2). Kiểm các chuỗi U+2011 trên thẻ 362 px | 4.15, 5.2 |
 | BE-A | `reservations.service.ts` 739–743 | `min`, `max` trong Problem `RATE_OUT_OF_RANGE` (theo ARC 0.3.13) | 3 |
 | BE-B | `folio/public/line-labels.ts` | `bill.line.late_fee_as_night` cho `chargeCode = 'late_fee_as_night'`, không có `time` | 4.8 |
-| BE | `services/api/scripts/gen-quote-copy.mjs` | Chạy lại sau khi đổi `sale.quote_text` RU | 5.1 |
+| BE | `services/api/scripts/gen-quote-copy.mjs` | Chạy lại sau khi đổi `sale.quote_text` (RU dòng 2 và 4, VI dòng 2). `quote-copy.ts` không còn "Апартаменты", "Депозит", "Căn " | 4.20, 5.1 |
+| BE-B (chờ DOM) | `folio/public/line-labels.ts` | Chỉ khi DOM xác nhận sửa giảm thẳng: `bill.line.late_fee_after_limit` cho dòng thay thế có số < `limit_ref_vnd` | 4.8 |
 | UXD | `design/content-guide.md` | Sau khi FE áp: đồng bộ mục 8 theo `strings-tables.md`, ghi phiên bản v0.4.7, xóa dòng `fo.tabs.holds`, sửa ô `bk.src_weekend` trong `hifi/09-booking.html` | 1.3, 4.18 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
@@ -531,23 +680,29 @@ Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): val
 
 Hôm nay INV không cần sửa tham số này (mức tăng = 0, hướng dẫn chuyển giá giữ FRI/SAT), nên chưa gây sai tiền. Nhưng đây là bẫy. Đề xuất: BE đổi validator sang tập `MON…SUN`, và `allowed` trả các mã này.
 
-## 7. Cần CPY duyệt trước khi FE áp
+## 7. CPY duyệt (kết quả review 06/11, `rounds/round-05/reviews/CPY-on-uxd-copy-v1.0.5.md`)
 
-| # | Khóa | Lý do |
-|---|---|---|
-| C1 | 7 chuỗi RU ở mục 5.1 | Chữ khách. CPY viết lại nếu cần; người bản xứ đọc nếu có |
-| C2 | `gw.lang_auto` (EN, VI, RU) | Chữ khách trên trang khách |
-| C3 | `bill.line.early_departure_fee_same_day`, `bill.line.early_departure_fee_notice_one` / `_other` | Dòng phiếu khách cầm |
-| C4 | `bill.line.late_fee_as_night` | Dòng phiếu khách cầm. Bản EN theo đề xuất QA |
-| C5 | Dấu "!" ở `msg.hot_water_issue` (3 ngôn ngữ) | Giọng văn. Không tính vào số khóa |
-| C6 | (để sau, không thuộc v1.0.5) chữ "phụ thu" ở các dòng `bill.line.*` hiện có | Từ hạn chế với khách. Dòng mới C4 giữ cùng từ với các dòng phiếu cũ cho nhất quán. Nếu CPY đổi thì đổi cả họ trong một lượt |
+| # | Khóa | Kết quả CPY | Đã áp ở bản 1.1 |
+|---|---|---|---|
+| C1 | 7 chuỗi RU ở mục 5.1 | Duyệt có điều kiện (thẻ 01) | Thẻ 01: "Предоплата" ở dòng 4 `sale.quote_text` (5.1) |
+| C2 | `gw.lang_auto` (EN, VI, RU) | Duyệt | Thêm `gw.lang_auto_sr` (thẻ 10, 4.6) |
+| C3 | `bill.line.early_departure_fee_same_day`, `_notice_one`, `_notice_other` | Duyệt | Thẻ 03: U+00A0 sau `{noticeDays}` (4.1) |
+| C4 | `bill.line.late_fee_as_night` | Duyệt | Thẻ 05: VI có ngoặc. Thẻ 04 chờ DOM (4.8) |
+| C5 | Dấu "!" ở `msg.hot_water_issue` | Duyệt có điều kiện (thẻ 06) | 3 câu của CPY (5.1). Mức nên có, cùng lượt với 4.20 (b), 4.21, thẻ 08 |
+| C6 | "phụ thu" ở họ `bill.line.*` | Đồng ý để sau | v1.0.6, gộp 4.20 (c) (backlog R5-B-03). Hướng VI đã có ở mục 2 của tệp review CPY |
+
+Các khóa khách CPY viết thêm trong review: 4.20, 4.21, `gw.req.clean_long_fee` (5.1), `gw.lang_auto_sr` (4.6). Khi áp thì không cần CPY duyệt lại. UXD kiểm khớp nguyên văn khi review PR.
 
 Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol.
 
 ## 8. Kiểm sau khi áp (QA, UXD review PR)
 
 - `grep` trên `strings-vi.json` và `strings-en.json`: không còn "28 đêm", "28 nights", "7 đêm", "7+ nights", "+15", "trước giảm theo số đêm", "before length-of-stay", "(R2)", "R2:", "Round 3", "Cả 10 căn", "All 10 rooms".
-- `strings-ru.json` và `quote-copy.ts`: không còn "апартамент".
+- `strings-ru.json` và `quote-copy.ts`: không còn "апартамент", "Депозит". `gw.req.clean_long_fee` RU không còn "аренда".
+- `quote-copy.ts` VI và `gw.req.clean_makeup_free`, `gw.req.clean_second_fee`: không còn "căn" đứng riêng. Nếu lượt C5 đã áp thì 3 mẫu `msg.*` VI cũng không còn.
+- Nếu lượt C5 đã áp: `msg.hot_water_issue`, `msg.house_rules_smoking`, `guest.late.done_title`, `msg.bill` RU không còn "!", trừ lời chào RU "Здравствуйте, {name}!".
+- Phiếu VI/EN: `bill.line.early_departure_fee_notice_*` có U+00A0 sau số (soát bằng `tv(key)`, không gõ lại). Ở khung 362 px, số và chữ "ngày"/"days'" không tách dòng.
+- Trình đọc màn hình (VoiceOver hoặc NVDA) ở ô chọn ngôn ngữ trang khách: đọc "Language selected for you" khi khách chưa tự chọn.
 - Đổi thử tham số trên stack QA: `long_stay_required_from_nights` = 21, `checkout_time` = 11:00, `los_discount` có 1 bậc, `weekend_uplift_pct` = 10. Chữ theo đúng số mới:
   - hộp thuê dài hạn;
   - gợi ý trả muộn;
