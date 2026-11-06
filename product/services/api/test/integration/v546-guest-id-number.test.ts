@@ -12,6 +12,7 @@
  * Fake clock (T0 = 15/10/2026 09:00 VN). FAKE numbers only (`079000000000` – the FE test constant – and a
  * made-up passport / MRZ line).
  */
+import { randomUUID } from 'node:crypto';
 import { Writable } from 'node:stream';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
@@ -56,8 +57,13 @@ const CLEAN_TEXTS = [
   'Gọi tôi số +84 905 111 222',
   'Mã đặt chỗ Agoda 482913',
 ];
-/** What must never leave the request in any form. */
-const SECRETS = [FAKE_CCCD, '079 000 000 000', FAKE_PASSPORT, '9001019'];
+/**
+ * ARC FB-R5-ARC-BE-113-01: known over-blocks, accepted by SEC since PR #24 (G2) – three room numbers with no word
+ * between them, and a bare 9-digit number. Refused as an ID on purpose: pinned so a change of the detector shows here.
+ */
+const KNOWN_OVERBLOCK = ['phòng 201 202 203 cần thêm khăn', 'Booking 123456789'];
+/** Sample (fake) numbers that must never leave the request in any form – not secrets (SEC FB-R5-SEC-BE-113-01). */
+const MUST_NOT_APPEAR = [FAKE_CCCD, '079 000 000 000', FAKE_PASSPORT, '9001019'];
 
 const TABLES = [
   'guest_request',
@@ -167,7 +173,7 @@ describe.skipIf(!HAS_DB)('V5-46 – ID numbers refused in guest-typed notes (BE-
     expect(
       (r.json().errors as Array<Record<string, unknown>>).map((e) => Object.keys(e).sort()),
     ).toEqual([['code', 'field']]);
-    for (const s of SECRETS) expect(r.body).not.toContain(s);
+    for (const s of MUST_NOT_APPEAR) expect(r.body).not.toContain(s);
   };
 
   it('setup 15/10 09:00: an in-house stay (requests) and a stay arriving today (online check-in)', async () => {
@@ -203,7 +209,7 @@ describe.skipIf(!HAS_DB)('V5-46 – ID numbers refused in guest-typed notes (BE-
        UNION ALL SELECT note FROM hk_task WHERE note IS NOT NULL
        UNION ALL SELECT description FROM work_order WHERE description IS NOT NULL`,
     );
-    for (const s of SECRETS) {
+    for (const s of MUST_NOT_APPEAR) {
       expect(notes.some((n) => (n.note ?? '').includes(s))).toBe(false);
       expect(text).not.toContain(s);
     }
@@ -288,7 +294,7 @@ describe.skipIf(!HAS_DB)('V5-46 – ID numbers refused in guest-typed notes (BE-
     expect(await row()).toEqual(stored);
     expect(await writes()).toEqual(counted);
     expect(await counts()).toEqual(before);
-    for (const s of SECRETS) expect(text).not.toContain(s);
+    for (const s of MUST_NOT_APPEAR) expect(text).not.toContain(s);
     for (const arrivalNote of [CARD_AND_ID, CARD_OLD_RULE_ONLY]) {
       const card = await guest(fa, arriving.sid, 'PUT', '/v1/guest/online-checkin', {
         json: { etaTime: '21:30', arrivalNote },
@@ -317,5 +323,54 @@ describe.skipIf(!HAS_DB)('V5-46 – ID numbers refused in guest-typed notes (BE-
       [arriving.reservationId],
     );
     expect(saved?.arrival_note).toBe('Đến bằng xe khách đêm, phòng 2 người');
+  });
+
+  it('ARC 113-01: known over-blocks (SEC PR24 G2 – chặn thừa đã chấp nhận) → 422 ID_NUMBER_DETECTED on both guest fields', async () => {
+    for (const text of KNOWN_OVERBLOCK) {
+      refusedAsId(
+        await guest(fa, inHouse.sid, 'POST', '/v1/guest/requests', {
+          json: { type: 'other', note: text },
+        }),
+        'note',
+      );
+      refusedAsId(
+        await guest(fa, arriving.sid, 'PUT', '/v1/guest/online-checkin', {
+          json: { arrivalNote: text },
+        }),
+        'arrivalNote',
+      );
+    }
+  });
+
+  it('SEC 113-01: a refused createGuestRequest leaves no idempotency_key row (no request hash of a body with an ID number); the same key with a clean text then goes through', async () => {
+    // idempotency_key is per organization (RLS), not per property – read by the key the test sent. Only
+    // createGuestRequest takes an Idempotency-Key; the online check-in PUT does not (its refusal is pinned by the
+    // row comparison of the arrivalNote case above).
+    const keys = async (key: string) =>
+      (
+        await q<{ n: number }>('SELECT count(*)::int AS n FROM idempotency_key WHERE key = $1', [
+          key,
+        ])
+      )[0]!.n;
+    const reqKey = randomUUID();
+    refusedAsId(
+      await guest(fa, inHouse.sid, 'POST', '/v1/guest/requests', {
+        json: { type: 'other', note: ID_TEXTS[0] },
+        idem: reqKey,
+      }),
+      'note',
+    );
+    expect(await keys(reqKey)).toBe(0);
+    const reqOk = await guest(fa, inHouse.sid, 'POST', '/v1/guest/requests', {
+      json: { type: 'other', note: CLEAN_TEXTS[0] },
+      idem: reqKey,
+    });
+    expect(reqOk.statusCode, reqOk.body).toBe(201);
+    expect(await keys(reqKey)).toBe(1);
+    const stored = await q<{ request_hash: string; response_body: unknown }>(
+      'SELECT request_hash, response_body FROM idempotency_key WHERE key = $1',
+      [reqKey],
+    );
+    for (const s of MUST_NOT_APPEAR) expect(JSON.stringify(stored)).not.toContain(s);
   });
 });

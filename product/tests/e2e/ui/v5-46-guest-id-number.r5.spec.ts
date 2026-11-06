@@ -173,7 +173,8 @@ test.describe(
       const after = await guestCall(request, 'GET', EP3.getOnlineCheckin[1], g.cookie);
       expect(after.status, JSON.stringify(after.body)).toBe(200);
       expect(after.body).toMatchObject({ currentStep: 'eta' });
-      expect(after.body.etaTime ?? null).toBeNull();
+      // ARC FB-R5-ARC-BE-113-01: no ETA stored = the field is absent (the API omits it), not "empty or renamed".
+      expect(after.body).not.toHaveProperty('etaTime');
       await scan(page, info, 'V5-46-eta-id-number');
 
       // The guest removes the number: the sentence goes, the real server takes the step.
@@ -214,7 +215,8 @@ test.describe(
       expect(g.status, `openGuestSession: ${JSON.stringify(g.body)}`).toBe(200);
       const mine = await guestCall(request, 'GET', '/v1/guest/requests', g.cookie);
       expect(mine.status, JSON.stringify(mine.body)).toBe(200);
-      expect((mine.body as { data?: unknown[] }).data ?? []).toEqual([]);
+      // ARC 113-01: the list shape is pinned (`{ data: [] }`) – a renamed field or another body shape fails here.
+      expect(mine.body).toMatchObject({ data: [] });
       await scan(page, info, 'V5-46-request-id-number');
       await page.context().close();
     });
