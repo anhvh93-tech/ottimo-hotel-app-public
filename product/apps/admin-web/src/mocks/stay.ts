@@ -5090,6 +5090,16 @@ export function createStayMock(ctx: Ctx) {
     if (kind === 'transfer' && dest === 'bank_transfer' && !String(body.bankReference ?? '').trim())
       errors.push({ field: 'bankReference', code: 'REQUIRED' });
     if (errors.length) return problem(422, 'VALIDATION_FAILED', { errors, max: left });
+    // C0313-25 (SEC-responses 4.1 (a), BE PR #119 `assertNotCardNumberReference`): a reference that IS a card number
+    // as a whole – 13–19 digits once `.` `/` `_` `-` are removed, Luhn – is refused; a bank code with letters or a
+    // long digit run that fails Luhn is accepted. Nothing is stored and the value is never echoed.
+    const refDigits = String(body.bankReference ?? '')
+      .trim()
+      .replace(/[./_-]/g, '');
+    if (/^\d{13,19}$/.test(refDigits) && luhn(refDigits))
+      return problem(422, 'CARD_NUMBER_DETECTED', {
+        errors: [{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }],
+      });
     const r = rsv().state.reservations.find((x) => x.folioId === a.folioId)!;
     const p: MockPayment = {
       id: uid(95_000 + next()),

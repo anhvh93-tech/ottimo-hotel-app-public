@@ -2088,6 +2088,7 @@
   "refund.execute_transfer": "Ghi đã hoàn chuyển khoản / qua máy POS",
   "refund.proof": "Ảnh chứng từ (ủy nhiệm chi hoặc biên nhận có chữ ký khách)",
   "refund.bank_reference": "Mã giao dịch ngân hàng / mã hoàn POS",
+  "pay.bank_reference_card_like": "Mã này trông giống số thẻ thanh toán nên Desk không lưu. Nhập 8 chữ số cuối của mã giao dịch.",
   "refund.transfer_waits_manager": "Hoàn chuyển khoản do quản lý thực hiện – báo khách thời hạn.",
   "refund.request_overpayment": "Đề nghị hoàn {amount}",
   "refund.requested": "Đã gửi đề nghị hoàn – chờ quản lý duyệt.",
