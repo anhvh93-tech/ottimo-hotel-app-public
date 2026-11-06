@@ -11,3 +11,19 @@
 | SEC mục 5 ý 1 (runbook SR-INC-01) | Accepted | PO xếp **V5-74**, Gói 6, bắt buộc, SEC viết (OPS góp phần kỹ thuật), OPS và DOM review. Hạn 14/11, review 15–16/11 (plan R5 mục 2 Gói 6, mục 6 quyết định 11). Tới khi có, sổ vận hành dùng lớp tạm của FB-R5-SEC-BA-04 |
 
 Tờ 2a: SEC cho in. Phần giữ chỗ chờ DOM đọc; thẻ DOM (nếu có) trả lời ở tệp này khi ORC chuyển tới.
+
+## Review CPY chữ v1.0.5 (`rounds/round-05/reviews/CPY-on-uxd-copy-v1.0.5.md`) – PO chốt phạm vi
+
+Các thẻ dưới gửi UXD. PO chỉ chốt phạm vi (plan R5 mục 6, quyết định 15). UXD sửa rồi đổi trạng thái thẻ thành Fixed.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-CPY-UXD-V105-02 (a) | Accepted – v1.0.5, bắt buộc | V5-23. `sale.quote_text` VI dòng 2, `gw.req.clean_makeup_free`, `gw.req.clean_second_fee`: "căn" → "phòng" theo chữ CPY, cùng lượt sinh lại `quote-copy.ts`. BA sửa sổ tay nếu có trích báo giá mẫu (V5-71) |
+| FB-R5-CPY-UXD-V105-02 (b) | Accepted – v1.0.5 cùng lượt C5, nên có | V5-23. `msg.booking_confirmed`, `msg.deposit_received`, `msg.hot_water_issue` dùng "phòng {room}". Không chặn QC; không kịp thì chuyển US-125 (B-SAU) |
+| FB-R5-CPY-UXD-V105-02 (c) | Deferred – v1.0.6 | Backlog R5-B-03 (B-QUAY), gộp với C6: dòng phiếu `bill.line.*` và khóa chưa dùng `guest.stay.room`, `guest.late.how_1`, `gw.room` |
+| FB-R5-CPY-UXD-V105-06 | Accepted – v1.0.5 cùng lượt C5 | Điều kiện của C5: áp đúng 3 câu EN, VI, RU của CPY. Vì phần (b) thẻ 02 đã nhận, bản VI dùng "phòng {room}" |
+| FB-R5-CPY-UXD-V105-07 | Accepted – v1.0.5 cùng lượt C5, nên có | `msg.house_rules_smoking` (3 ngôn ngữ), `msg.bill` RU, `guest.late.done_title` EN/VI theo chữ CPY. RU vào danh sách người bản xứ (CPY mục 3). Không chặn QC; không kịp thì US-125 |
+| FB-R5-CPY-UXD-V105-08 | Accepted – v1.0.5 cùng lượt C5 (hoặc C1), nên có | `msg.booking_confirmed` RU: "Предоплата {deposit} получена, остаток {balance} — при заселении." Vào danh sách người bản xứ |
+| CPY C6 (ý kiến ngắn) | Deferred – v1.0.6 | Backlog R5-B-03: đổi cả họ `bill.line.*` VI một lượt ("phụ thu" → "phí"), `sale.quote_text_extra_guest_*` (CPY sửa), BA sửa sổ tay cùng lúc. Chữ Desk nội bộ giữ |
+| CPY mục 5 – BR-012 thứ tự tên, số phòng | Deferred – B-SAU | Backlog R5-B-04, cùng US-125. PO + ARC xem cách ghép ở `quotes.service.ts` |
+| CPY mục 5 – `msg.checkout_reminder` | Đã có quyết định | B-SAU với `{checkout_time}` (plan R5 quyết định 14) |

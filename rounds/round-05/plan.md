@@ -7,6 +7,7 @@
   - V5-08 mở rộng theo ĐK-5 và theo việc BA đã làm; V5-53 bỏ BUG-R3-047 (đã sửa ở v1.0.4);
   - Phản hồi & sửa theo SEC (06/11 tối): thêm V5-74 (runbook sự cố SR-INC-01), quyết định 11;
   - theo báo cáo UXD Gói 2 (06/11 tối): 3 khóa mục 4.19 vào V5-23, thêm V5-25 (`weekend_nights`), R1 và R4 vào backlog (quyết định 12–14);
+  - theo review CPY chữ v1.0.5 (06/11 tối): quyết định 15, V5-23 thêm chữ khách "căn" → "phòng" và mẫu tin `msg.*`;
   - mục 6 thêm quyết định 6–10; phụ lục I (điều chỉnh sau cổng QC, gồm hai cảnh báo Dependabot). Bảng đếm mục 7 giữ số QC đã kiểm, tác động ghi ngay dưới bảng.
 - Chế độ: **vận hành thực tế**. Đây là round bảo trì đầu tiên. Chủ đầu tư (INV) chỉ review định kỳ để cải thiện hoặc sửa lỗi. Nguyên văn 06/11: "project này kéo dài quá rồi".
 - Đầu vào:
@@ -120,7 +121,7 @@ UXD duyệt mọi chữ. CPY duyệt chữ hướng khách (EN dẫn, VI hỗ tr
 | V5-20 | Bỏ chữ theo mức cũ:<ul><li>"Từ 28 đêm…" (`field.LONG_STAY_REQUIRES_CONTRACT`, `bk.long_body`, `stay.long_hint`);</li><li>"trước giảm theo số đêm";</li><li>nhãn `bk.src_weekend` "+15 %";</li><li>`sale.nights_all`.</li></ul>Báo giá không tách đêm thứ Sáu, thứ Bảy. Đổi số người thì bảng tổng tính lại. | H10, FB-R4-UXD-FE-PR82-02, FB-R4-ARC-FE-PR82-02 | UXD → FE-A → DOM, UXD, QA |
 | V5-21 | **Tham số trên Desk:**<ul><li>tên tiếng Việt cho các khóa còn hiện mã. Ưu tiên khóa INV phải chỉnh: B2–B11 của hướng dẫn chuyển giá, `rounding.*`, `early_checkin_tiers`; lấy tên từ từ điển;</li><li>câu "nằm ngoài khoảng" cho giá trị dạng chữ;</li><li>`ota_base_rate`: hiện tên và câu "Không cần nhập – đơn OTA lấy giá đêm niêm yết". **Không làm trình nhập theo nhóm căn** (quyết định PO, mục 6).</li></ul> | H10 (`params.k.*`), backlog 5.6b, việc ORC 06/11 (`ota_base_rate`) | UXD → FE-A → DOM, UXD |
 | V5-22 | Hộp **Đặt phòng mới**:<ul><li>câu giá ngoài sàn–trần có số thật;</li><li>ô OTA để trống nói rõ hệ quả;</li><li>không hiện "0 đ" khi máy chủ sẽ tính theo lịch giá;</li><li>phần còn lại của UXD-FE-PR70-02, nếu UXD thấy còn.</li></ul> | BUG-R4-040, FB-R4-UXD-FE-PR70-03/04/06 | ARC (trường `min`/`max`) → BE + FE-A → UXD, QA |
-| V5-23 | **Một lượt sửa chữ sai sự thật** (gom các chỗ dưới đây):<ul><li>phí trả sớm báo trong ngày rời (FB-R4-DOM-UXD-PR89-02);</li><li>BUG-R2-094, 096, 098, 100;</li><li>BUG-R2-218 (trang khách);</li><li>BUG-R3-028, 035, 051, 055;</li><li>`folio.adjust_night_help_internal`;</li><li>khóa chung `error.INVALID_TRANSITION_generic`;</li><li>đơn vị tiền trong `error.DEPOSIT_INSUFFICIENT` (UXD P440-06);</li><li>hộp xanh "Gửi mã QR…" khi chưa cài tài khoản nhận;</li><li>U+2011 cho "2-step" (CPY P401-11);</li><li>câu mục đích xử lý dữ liệu cạnh ô email nhân viên (FB-R4-SEC-ARC-EM-13, Nghị định 13);</li><li>câu "Bạn nhận (…)" đủ đuôi cho CTV và sale (FB-R4-UXD-BA-PR89-01);</li><li>UXD dọn câu cũ `rooms.night_auto` ở `design/content-guide.md` dòng 1335 và khóa thừa `fo.tabs.holds` ở `gen_strings.py` (ghi chú QA bug list v1.0.4);</li><li>3 khóa Desk UXD phát hiện thêm (`rounds/round-05/outputs/UXD/copy-v1.0.5.md` mục 4.19; PO đưa vào 06/11 tối, quyết định 12): `fo.rack.empty_body` (viết cứng "10 căn"), `desk_code.channel_off` và `error.DELIVERY_CHANNEL_DISABLED` (chỉ tới "Tham số › Kênh gửi mã", chỗ không có trên Desk).</li></ul> | các nguồn ghi trong cột Việc | UXD (+ CPY chữ khách) → FE-A/FE-B/MOB → UXD, QA |
+| V5-23 | **Một lượt sửa chữ sai sự thật** (gom các chỗ dưới đây):<ul><li>phí trả sớm báo trong ngày rời (FB-R4-DOM-UXD-PR89-02);</li><li>BUG-R2-094, 096, 098, 100;</li><li>BUG-R2-218 (trang khách);</li><li>BUG-R3-028, 035, 051, 055;</li><li>`folio.adjust_night_help_internal`;</li><li>khóa chung `error.INVALID_TRANSITION_generic`;</li><li>đơn vị tiền trong `error.DEPOSIT_INSUFFICIENT` (UXD P440-06);</li><li>hộp xanh "Gửi mã QR…" khi chưa cài tài khoản nhận;</li><li>U+2011 cho "2-step" (CPY P401-11);</li><li>câu mục đích xử lý dữ liệu cạnh ô email nhân viên (FB-R4-SEC-ARC-EM-13, Nghị định 13);</li><li>câu "Bạn nhận (…)" đủ đuôi cho CTV và sale (FB-R4-UXD-BA-PR89-01);</li><li>UXD dọn câu cũ `rooms.night_auto` ở `design/content-guide.md` dòng 1335 và khóa thừa `fo.tabs.holds` ở `gen_strings.py` (ghi chú QA bug list v1.0.4);</li><li>3 khóa Desk UXD phát hiện thêm (`rounds/round-05/outputs/UXD/copy-v1.0.5.md` mục 4.19; PO đưa vào 06/11 tối, quyết định 12): `fo.rack.empty_body` (viết cứng "10 căn"), `desk_code.channel_off` và `error.DELIVERY_CHANNEL_DISABLED` (chỉ tới "Tham số › Kênh gửi mã", chỗ không có trên Desk).</li><li>chữ khách theo CPY review (`rounds/round-05/reviews/CPY-on-uxd-copy-v1.0.5.md`; PO chốt 06/11 tối, quyết định 15):<ul><li><b>bắt buộc</b> – thẻ 02 (a): "căn" → "phòng" ở `sale.quote_text` VI dòng 2, `gw.req.clean_makeup_free`, `gw.req.clean_second_fee`, cùng lượt sinh lại `quote-copy.ts`. Sổ tay trích báo giá mẫu thì BA sửa cùng bản (V5-71);</li><li><b>nên có, không chặn QC</b> – mẫu tin `msg.*` cùng lượt C5: thẻ 02 (b), 06, 07 (gồm `guest.late.done_title`), 08. Chỉ đổi chuỗi; chưa có mã nào gọi các mẫu này. Không kịp thì chuyển US-125 (B-SAU).</li></ul></li></ul> | các nguồn ghi trong cột Việc | UXD (+ CPY chữ khách) → FE-A/FE-B/MOB → UXD, QA |
 | V5-24 | **Tiếng Nga:**<ul><li>7 chuỗi hướng khách có từ cấm "апартаменты" (CPY);</li><li>font chữ Nga ở ô mã và Wi-Fi bị CSP chặn.</li></ul>Chuỗi nằm trong bản thông báo dữ liệu thì để tới bản thông báo kế tiếp (backlog B-PN). | decision-log 04/11, BUG-R4-017 | CPY → FE-B/MOB → SEC (font, CSP), UXD |
 | V5-25 | **`weekend_nights`: Desk không lưu được dạng đang chạy** (BE, cùng đợt V5-21).<ul><li>Validator `product/services/api/src/modules/platform/internal/parameter-rules.ts` dòng 180–187 chỉ nhận số 1–7.</li><li>Giá trị đang chạy, `production-defaults.ts` và hai bộ tính giá (`pricing.service.ts` dòng 165, `quote-pricing.ts` dòng 305) dùng `Weekday[]` (`["FRI","SAT"]`).</li><li>Hậu quả: lưu đúng mức từ điển đề xuất (`["FRI","SAT"]`) bị 422. Lưu dạng số thì lưu được, nhưng bộ tính giá không còn nhận ra đêm cuối tuần.</li><li>Sửa: validator nhận `Weekday[]` (MON…SUN, không trùng, ít nhất 1); dạng số bị từ chối với câu báo đúng. Test: lưu `["FRI","SAT"]` qua API tham số được; lưu `[5,6]` bị 422; báo giá thử sau khi lưu vẫn nhận thứ Sáu, thứ Bảy là cuối tuần. ARC xem có cần ghi rõ kiểu trong hợp đồng 0.3.13 không.</li></ul>Hiện chưa sai tiền vì `weekend_uplift_pct` = 0 %. **Phải lên trước khi chủ đầu tư chỉnh tham số cuối tuần.** Mã lỗi: QA ghi (PO dẫn khi có). | Báo cáo UXD Round 5 mục 4 ý R5 (`rounds/round-05/outputs/UXD/report.md`), ORC kiểm mã 06/11 | ARC (hợp đồng, nếu cần) → BE → DOM, QA |
 
@@ -327,6 +328,12 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
     - R4: cột Giá trị ở **Tham số quy tắc** hiện `true`/`false` và JSON thô → B-QUAY. Không sai sự thật; tên tiếng Việt và câu báo ở V5-21 đủ cho lần chỉnh tham số sắp tới.
     - R1: `msg.checkout_reminder` viết cứng "(trước 12:00)" → B-SAU, làm cùng story mẫu tin nhắn. Chưa có mã nào gọi 4 mẫu `msg.*` (UXD G5), giờ trả phòng đang là 12:00, nên không có chữ sai trước mắt. Khi nối mẫu tin thì dùng `{checkout_time}`, CPY duyệt.
 
+15. **Chữ khách theo CPY review (06/11 tối):**
+    - Thẻ 02 (a) vào v1.0.5, bắt buộc, trong V5-23. Báo giá VI gửi khách mỗi ngày, và chữ "căn" ngược FB-INV-002 (không để khách hiểu là căn hộ dịch vụ).
+    - Thẻ 02 (b), 06, 07, 08 (mẫu tin `msg.*`, dấu "!", RU) làm cùng lượt C5 trong v1.0.5, mức nên có. Lý do: UXD đang sửa đúng nhóm `TEMPLATES` cho C5, chữ CPY đã viết xong, tách ra thì phải sửa cùng tệp hai lần. Không chặn QC vì chưa có mã nào gọi các mẫu này. UXD R1 (`msg.checkout_reminder`) vẫn ở B-SAU, vì cần mã truyền `{checkout_time}`.
+    - Thẻ 02 (c) và C6 (họ `bill.line.*`, "phụ thu" → "phí", "căn" trên dòng phiếu, khóa chưa dùng) vào backlog R5-B-03, đích v1.0.6. Đổi cả họ một lượt, BA sửa sổ tay cùng lúc.
+    - BR-012 (khách thấy "The Pine · 401", tên trước số) vào backlog R5-B-04 (B-SAU, cùng US-125). PO và ARC xem cách ghép ở `quotes.service.ts`.
+
 ## 7. Tổng hợp xếp loại (đếm từ phụ lục)
 
 Đếm bằng script trên các bảng A–G của phụ lục. Mỗi mã ở cột đầu là một mục. Dòng ghi "đã đếm ở…" và mã trùng giữa các mục không đếm lại.
@@ -348,9 +355,10 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
 - thêm 2 mục (b): hai cảnh báo Dependabot;
 - thêm 1 mục (a): runbook sự cố SR-INC-01 (V5-74);
 - thêm 4 mục (a) từ báo cáo UXD: 3 khóa mục 4.19 (vào V5-23), `weekend_nights` (V5-25);
-- thêm 2 mục (b) từ báo cáo UXD: R4 (B-QUAY), R1 (B-SAU).
+- thêm 2 mục (b) từ báo cáo UXD: R4 (B-QUAY), R1 (B-SAU);
+- thêm 2 mục (a) và 2 mục (b) từ review CPY (quyết định 15).
 
-Khi đó có 562 mục: 131 (a), 207 (b), 224 (c). Số việc V5 thành 61.
+Khi đó có 566 mục: 133 (a), 209 (b), 224 (c). Số việc V5 vẫn 61.
 
 126 mục (a) được gom thành 59 việc V5-xx ở mục 2. Gói 5 có 12 việc (gồm V5-19) và không chặn QC; riêng V5-19 có điều kiện kích hoạt. Mục (c) "QA xác nhận" chỉ đóng hẳn khi QA chuyển Closed ở V5-02.
 
@@ -806,4 +814,8 @@ Không cộng vào bảng mục 7 (bảng đó giữ số QC đã kiểm); tác 
 | UXD-R5 `weekend_nights` | Validator nhận số 1–7, giá trị đang chạy và bộ tính giá dùng `["FRI","SAT"]` | (a) | V5-25 (quyết định 13). Mã lỗi QA ghi sau |
 | UXD-R4 | Cột Giá trị ở Tham số quy tắc hiện `true`/`false` và JSON thô | (b) | B-QUAY (quyết định 14) |
 | UXD-R1 | `msg.checkout_reminder` viết cứng "(trước 12:00)" | (b) | B-SAU, cùng story mẫu tin nhắn (quyết định 14) |
+| FB-R5-CPY-UXD-V105-02 (a) | "căn" trong chuỗi VI đang gửi khách: `sale.quote_text` dòng 2, `gw.req.clean_makeup_free`, `gw.req.clean_second_fee` | (a) | V5-23, bắt buộc (quyết định 15) |
+| FB-R5-CPY-UXD-V105-02 (b), 06, 07, 08 | Mẫu tin `msg.*`: "căn", dấu "!", RU "Предоплата … получена"; `guest.late.done_title` | (a) | V5-23 cùng lượt C5, nên có, không chặn QC; không kịp thì US-125 |
+| FB-R5-CPY-UXD-V105-02 (c) + C6 | Họ `bill.line.*` VI ("phụ thu" → "phí", "căn" → "phòng"), `sale.quote_text_extra_guest_*`, khóa chưa dùng `guest.stay.room`, `guest.late.how_1`, `gw.room` | (b) | Backlog R5-B-03, B-QUAY, đích v1.0.6 |
+| CPY-BR012-order | Báo giá ghép "{room} {room_name}" (số trước), BR-012 ghi "The Pine · 401" | (b) | Backlog R5-B-04, B-SAU cùng US-125; PO + ARC |
 | US-146…154 | 9 story website LP-v1 (lên ottimo.vn 25/10) | – | Backlog ghi **Xong (production)** ngày 06/11 (V5-06). Các story này không nằm trong bảng B1 nên không đổi số đếm |
