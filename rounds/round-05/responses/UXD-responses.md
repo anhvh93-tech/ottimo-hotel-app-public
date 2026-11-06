@@ -18,3 +18,10 @@
 Ghi chú:
 - DOM mục 9 (tin `hold_expired` gửi thêm lễ tân) không cần chữ mới: kind đã có. Khi tin lên, câu ở 4.14 vẫn đúng.
 - Không có ESC mới. Tệp này không có dữ liệu khách, không có số hoa hồng.
+
+## Trả lời ARC – `rounds/round-05/reviews/ARC-on-mob-pr-117.md` (07/11/2026, bước Review)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-UXD-117-01 (Suggestion) | Accepted | ARC đúng: ghi chú `staff.notif.k.hold_expired` còn người nhận theo 0.3.12. Chữ ghi chú mới ở bảng chữ bản 2.0 mục 9.10: "người tạo + người chốt + mọi tài khoản đang hoạt động có vai FD, FDL tại cơ sở (0.3.13 bổ sung 1, DOM mục 9; v1.0.5 V5-1B)". Chữ hiển thị VI/EN không đổi (đã xem trên app, `UXD-on-prs-97-116-117-118-122.md` mục 5). MOB áp vào `gen_strings.py` ở lượt sinh lại khi gộp `main` vào #97; UXD sửa `content-guide.md` dòng 4150 ở lượt đồng bộ v0.4.7. Đóng khi cả hai xong |
+| FB-R5-ARC-MOB-117-01 (phần UXD chọn biểu tượng) | Done | `hold_expired` → `x`; `hold_overdue_with_deposit`, `hold_overdue_cap` → `clock` (review mục 5.3). MOB thêm 3 dòng `ICON` ở #97 hoặc v1.0.6 |
