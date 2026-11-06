@@ -426,7 +426,7 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
     expect(before).toMatchObject({ paidVnd: deposit, refundedVnd: 0 });
   });
 
-  it('BUG-R5-006 / C0313-25 (SEC-responses 4.3): executeRefund bankReference – a whole card number (public test number, with - . _) → 422 CARD_NUMBER_DETECTED, nothing paid; a bank code with a long digit run, 16 digits failing Luhn, 12 digits and the last 8 characters are paid; a card in the note → 422 (free-text rule unchanged)', async () => {
+  it('BUG-R5-006 / C0313-25 (SEC-responses 4.3) + SEC 119-01: executeRefund bankReference – a card number (public test number, with - . _, or followed by expiry / CVV) → 422 CARD_NUMBER_DETECTED, nothing paid; a bank code with a long digit run, 16 digits failing Luhn, 12 digits and the last 8 characters are paid; a card in the note → 422 (free-text rule unchanged)', async () => {
     const { reservationId, approvalId } = await cancelledWithRefund('2026-11-30', '2026-12-07');
     const dest = await destination('fd', approvalId, {
       method: 'bank_transfer',
@@ -456,6 +456,8 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
       '4111-1111-1111-1111',
       '4111.1111.1111.1111',
       '4111_1111_1111_1111',
+      '4111111111111111/1228', // 119-01: card + expiry
+      '4111-1111-1111-1111-123', // 119-01: card + CVV
     ]) {
       const r = await pay(ref);
       expect(r.statusCode, `${ref} ${r.body}`).toBe(422);
@@ -479,6 +481,8 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
       '4111111111111112',
       '202611070001',
       '00000000',
+      '20261107-000123', // 119-01: two groups, not Luhn
+      'FT2629-0012345671', // 119-01: letters
     ];
     for (const ref of accepted) {
       const r = await pay(ref);

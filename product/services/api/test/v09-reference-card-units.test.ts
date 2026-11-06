@@ -1,8 +1,9 @@
 /**
- * BUG-R5-006 (P2) / C0313-25 (SEC-responses 4.1 option (a), 4.3) – V-09 for a bank transfer reference field: only a value that IS a card
- * number as a whole (13–19 digits once `.` `/` `_` `-` are removed, Luhn) → 422 CARD_NUMBER_DETECTED; bank codes with a
- * long digit run, short / long digit runs and digits failing Luhn are references. Free text keeps the general rule.
- * `4111111111111111` and `4222222222222` are the public test card numbers, not real cards.
+ * BUG-R5-006 (P2) / C0313-25 (SEC-responses 4.1 option (a), 4.3) + FB-R5-SEC-BE-119-01 – V-09 for a bank transfer
+ * reference field: a value without letters whose digit groups, joined from the start, reach 13–19 digits passing Luhn
+ * at a group boundary → 422 CARD_NUMBER_DETECTED (a whole card number, or one followed by expiry / CVV groups); bank
+ * codes with a long digit run, short / long digit runs and digits failing Luhn are references. Free text keeps the
+ * general rule. Every card number here is a public test number (4111…, 4222…, 5555…, 4012…, 3782…, 6011…).
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -25,7 +26,23 @@ const CARDS = [
   '4111-1111.1111_1111',
   '4222222222222', // 13 digits
   '4111111111111111110', // 19 digits
+  // FB-R5-SEC-BE-119-01 (SEC script): a card followed by expiry / CVV groups – v1.0.4 refused these.
+  '4111111111111111/1228',
+  '4111.1111.1111.1111.12.28',
+  '4111-1111-1111-1111-123',
+  '5555555555554444-123',
+  // Deliberate false hit (SEC 119-01): two groups → 14 digits passing Luhn; the way out is the last 8 characters.
+  '20261107-000105',
 ];
+/** Public test card numbers (15 and 16 digits) for the "card + expiry / CVV" sweep (119-01). */
+const TEST_CARDS = [
+  '4111111111111111',
+  '5555555555554444',
+  '4012888888881881',
+  '378282246310005',
+  '6011111111111117',
+];
+const CARD_SUFFIXES = ['-123', '/1228', '.12.28', '_0000', '-12-28-123'];
 /** BUG-R5-006 regression (QA table): refused before by a Luhn window inside, accepted now. */
 const BUG_R5_006 = ['2026110700000000', '26110700000004', 'FT26110700000000'];
 /** Accepted: references. */
@@ -42,11 +59,22 @@ const REFERENCES = [
   '41111111111111111115', // 20 digits, Luhn
   '11111111', // the last 8 characters of a refused one (SEC 4.2)
   'REF4111111111111111', // SEC accepted residual risk: a card behind letters
+  '20261107-000123', // 119-01: two groups, 14 digits, not Luhn
+  'FT2629-0012345671', // 119-01: letters – the group rule does not apply
 ];
 
 describe('isCardNumberReference (C0313-25)', () => {
   it.each(CARDS)('%s → card', (v) => expect(isCardNumberReference(v)).toBe(true));
   it.each(REFERENCES)('%s → reference', (v) => expect(isCardNumberReference(v)).toBe(false));
+
+  it('119-01: every public test card followed by an expiry / CVV group is refused', () => {
+    for (const card of TEST_CARDS) {
+      expect(isCardNumberReference(card), card).toBe(true);
+      for (const suffix of CARD_SUFFIXES) {
+        expect(isCardNumberReference(card + suffix), card + suffix).toBe(true);
+      }
+    }
+  });
 
   it.each(BUG_R5_006)(
     'BUG-R5-006: %s was a card for the free-text rule (the bug), is a reference now',
@@ -121,7 +149,7 @@ describe('every bank reference goes through the reference rule (architecture)', 
         return statSync(p).isDirectory() ? files(p) : p.endsWith('.ts') ? [p] : [];
       });
     const bad = files(root).filter((f) =>
-      /(containsCardNumber|looksLikeCardNumber|assertNoCardNumber)\([^)]*[Rr]eference/.test(
+      /(containsCardNumber|looksLikeCard\w*|assertNoCardNumber)\([^)]*[Rr]eference/.test(
         readFileSync(f, 'utf8'),
       ),
     );
