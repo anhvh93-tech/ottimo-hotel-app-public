@@ -92,9 +92,12 @@
 #               Every run that finds new changes sends its own webhook (the 6 h de-duplication does not apply): the
 #               number of changes and the newest value (true/false/other) only. First run: the newest id becomes the
 #               mark, nothing is reported. The next run without a change sends the recovery once
-#   sshkeys     v1.0.5 V5-65 (SEC FB-R4-SEC-OPS-OR-03): every key line of the deploy user's authorized_keys (and
-#               authorized_keys2, which sshd also reads by default) has a forced command – both `command="…"` and
-#               `restrict` in its options, like the CI key (deploy-from-ci.sh) and the backup-pull key (rrsync -ro).
+#   sshkeys     v1.0.5 V5-65 (SEC FB-R4-SEC-OPS-OR-03, FB-R5-SEC-OPS-93-02): every key line of the deploy user's
+#               authorized_keys (and authorized_keys2, which sshd also reads by default) is one of the two known forced
+#               commands with `restrict`: command="/opt/<stack>/infra/server/bin/deploy-from-ci.sh" (CI key) or
+#               command="/usr/bin/rrsync -ro /var/backups/<stack>" (backup-pull key), <stack> = ottimo | ottimo-prod.
+#               FAIL as well when an option re-opens what restrict closed (pty, port-forwarding, agent-forwarding,
+#               X11-forwarding, user-rc), and when authorized_keys or .ssh is writable by group or others.
 #               A person key (bootstrap --deploy-key, first boot only) gives a shell in the docker group = root
 #               without a sudo log line: people go through ottimo-admin + sudo. Counts only – no key, fingerprint or
 #               comment is printed. authorized_keys missing or unreadable is a FAIL. OPS_CHECK_SSH_DIR = another
@@ -104,17 +107,21 @@
 #               FAIL when: a running container of this stack does not log to journald; the journal cannot be read
 #               (the ops-check unit runs with SupplementaryGroups=systemd-journal); the oldest entry is > 91 days old
 #               (the 90-day cap is not applied); /var/log/journal is not root:systemd-journal or a journal file is
-#               readable by everyone; a group that can read the logs (adm, systemd-journal; docker through
-#               `docker logs`) has a member outside the allowed list (LOG_READER_USERS in .env, default
-#               "syslog ottimo-admin"; docker: the deploy user only). WARN (alert once, run still passes) when: the
+#               readable by everyone, or its ACL names a user or a group other than adm / wheel / systemd-journal
+#               (getfacl; skipped without it); a group that can read the logs (adm, systemd-journal; sudo, wheel, which
+#               read anything; docker through `docker logs`) has a member outside the allowed list (LOG_READER_USERS
+#               in .env, default "syslog ottimo-admin"; SUDO_USERS, default "ottimo-admin"; docker: the deploy user
+#               only). WARN (alert once per set of reasons, run still passes – SEC FB-R5-SEC-OPS-93-01) when: the
 #               oldest entry is younger than min(90, days since state/journald_since) − 1 – rotated early, i.e.
 #               SystemMaxUse reached or a log flood (reset state/journald_since after looking); journald wrote
 #               "Suppressed N messages" in the last 24 h (RateLimitBurst reached – lines were dropped). Counts and ages
-#               only. OPS_CHECK_JOURNALCTL / _JOURNAL_DIR / _JOURNAL_OWNER / _GETENT = stand-ins (tests)
+#               only. OPS_CHECK_JOURNALCTL / _JOURNAL_DIR / _JOURNAL_OWNER / _GETENT / _GETFACL = stand-ins (tests)
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
-# (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
-# changes state (OK→FAIL, FAIL→OK) and again every 6 h while it stays failing. Exit 1 when any check fails.
+# (journalctl -t ottimo-alert -p warning: FAIL at level err, WARN at level warning – `-p err` alone hides every WARN);
+# plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check changes state (OK→WARN→FAIL→OK), when the
+# set of reasons of a WARN/FAIL changes (journal), and again every 6 h while it stays failing. Exit 1 when any check
+# fails.
 # HEARTBEAT_URL (optional, .env – e.g. a free healthchecks.io check): pinged after every full run, `<url>/fail` when a
 # check failed. The service e-mails INV/OPS when a ping says fail OR when pings stop (server down, timer stopped) –
 # the alert path that does not depend on this server being alive. Only check names are sent.
@@ -177,9 +184,11 @@ host_name=$(hostname -s 2>/dev/null || echo server)
 app_env=$(envval APP_ENV)
 
 notify() { # check status message [force – send the webhook even if the status did not change, e.g. a new event]
-  local check="$1" status="$2" msg="$3" force="${4:-}" file="$state/$1" prev="" last=0 now
+  #          [reasons – fixed keys of what is wrong, comma separated, no numbers or names: a change re-sends, so a new
+  #           cause behind a WARN/FAIL that is already lit is never hidden (SEC FB-R5-SEC-OPS-93-01)]
+  local check="$1" status="$2" msg="$3" force="${4:-}" reasons="${5:-}" file="$state/$1" prev="" last=0 prev_reasons="" now
   now=$(date -u +%s)
-  if [ -r "$file" ]; then read -r prev last < "$file" || true; fi
+  if [ -r "$file" ]; then read -r prev last prev_reasons < "$file" || true; fi
   if [ "$status" = "FAIL" ]; then
     logger -t ottimo-alert -p user.err -- "[$app_env] $check FAIL: $msg" 2>/dev/null || true
     echo "FAIL $check: $msg"
@@ -193,6 +202,7 @@ notify() { # check status message [force – send the webhook even if the status
   local send=0
   if [ "$status" != "${prev:-OK}" ]; then send=1; fi
   if [ "$force" = force ]; then send=1; fi
+  if [ "$status" != "OK" ] && [ "$reasons" != "$prev_reasons" ]; then send=1; fi
   if [ "$status" = "FAIL" ] && [ $((now - ${last:-0})) -ge "$REMIND_SECONDS" ]; then send=1; fi
   local url
   url=$(envval ALERT_WEBHOOK_URL)
@@ -202,7 +212,7 @@ notify() { # check status message [force – send the webhook even if the status
       --data "$(jq -cn --arg t "$text" '{text: $t}')" "$url" >/dev/null || logger -t ottimo-alert -- "webhook failed" || true
     last=$now
   fi
-  echo "$status ${last:-0}" > "$file"
+  echo "$status ${last:-0}${reasons:+ $reasons}" > "$file"
 }
 
 # Every database check (SEC PR32-S1, ARC PR30-09): role ottimo_readonly, READ ONLY transaction (any write is refused
@@ -781,35 +791,57 @@ SQL
 }
 
 check_sshkeys() {
-  local dir="${OPS_CHECK_SSH_DIR:-}" f line opts n=0 bad=0 files=()
+  local dir="${OPS_CHECK_SSH_DIR:-}" f line field rest tok name cmd restrict ro n=0 bad=0 unknown=0 reopen=0 wr=0 files=()
+  local field_re='^([^"[:space:]]|"[^"]*")+' tok_re='^([^",]|"[^"]*")+' quoted_re='^"[^"]*"$'
+  local ci_re='^/opt/(ottimo|ottimo-prod)/infra/server/bin/deploy-from-ci\.sh$' pull_re='^/usr/bin/rrsync -ro /var/backups/(ottimo|ottimo-prod)$'
   if [ -z "$dir" ]; then dir="$(getent passwd ottimo | cut -d: -f6)/.ssh"; fi
   if [ ! -r "$dir/authorized_keys" ]; then notify sshkeys FAIL "authorized_keys of the deploy user missing or unreadable"; return 1; fi
   files=("$dir/authorized_keys"); [ -e "$dir/authorized_keys2" ] && files+=("$dir/authorized_keys2")
+  # anyone in the group (or anyone at all) who can write the file or the directory can add a key of their own
+  [ -z "$(find "$dir" -maxdepth 0 -perm /022 2>/dev/null)" ] || wr=$((wr + 1))
   for f in "${files[@]}"; do
     [ -r "$f" ] || { notify sshkeys FAIL "authorized_keys2 of the deploy user unreadable"; return 1; }
+    [ -z "$(find "$f" -maxdepth 0 -perm /022 2>/dev/null)" ] || wr=$((wr + 1))
     while IFS= read -r line || [ -n "$line" ]; do
       line=${line%$'\r'}; line="${line#"${line%%[![:space:]]*}"}"
       case "$line" in '' | '#'*) continue ;; esac
       n=$((n + 1))
-      # Options = everything before the first space outside quotes; quoted values are blanked first, so a command
-      # text that happens to contain ",restrict," is never read as the option itself.
-      opts=$(sed -E 's/"[^"]*"/Q/g; s/[[:space:]].*$//' <<<"$line")
-      case "$opts" in ssh-* | ecdsa-* | sk-*) bad=$((bad + 1)); continue ;; esac
-      case ",$opts," in *,command=Q,*) ;; *) bad=$((bad + 1)); continue ;; esac
-      case ",$opts," in *,restrict,*) ;; *) bad=$((bad + 1)) ;; esac
+      # Options = everything before the first blank outside quotes, split at commas outside quotes, so a command text
+      # that happens to contain ",restrict," is never read as the option itself.
+      field=""; [[ "$line" =~ $field_re ]] && field="${BASH_REMATCH[0]}"
+      case "$field" in '' | ssh-* | ecdsa-* | sk-*) bad=$((bad + 1)); continue ;; esac
+      cmd="" restrict=0 ro=0 rest="$field"
+      while [[ "$rest" =~ $tok_re ]]; do
+        tok="${BASH_REMATCH[0]}"; rest="${rest:${#tok}}"; rest="${rest#,}"
+        name="${tok%%=*}"; name="${name,,}"
+        case "$name" in
+          command) cmd="${tok#*=}"; if [[ "$cmd" =~ $quoted_re ]]; then cmd="${cmd:1:${#cmd}-2}"; else cmd=""; fi ;;
+          restrict) restrict=1 ;;
+          # each of these re-opens what restrict closed (a terminal, forwarding, ~/.ssh/rc)
+          pty | port-forwarding | agent-forwarding | x11-forwarding | user-rc) reopen=$((reopen + 1)); ro=1 ;;
+        esac
+      done
+      [ -z "$rest" ] || { bad=$((bad + 1)); continue; }
+      if [ "$restrict" -eq 1 ] && [ "$ro" -eq 0 ] && { [[ "$cmd" =~ $ci_re ]] || [[ "$cmd" =~ $pull_re ]]; }; then continue; fi
+      bad=$((bad + 1))
+      [ -z "$cmd" ] || [[ "$cmd" =~ $ci_re ]] || [[ "$cmd" =~ $pull_re ]] || unknown=$((unknown + 1))
     done < "$f"
   done
+  local msg=""
   if [ "$bad" -gt 0 ]; then
-    notify sshkeys FAIL "$bad of $n key line(s) of the deploy user have no forced command (command=…,restrict) – person keys go through ottimo-admin + sudo; remove the line (runbook v1.0.5)"
-    return 1
+    msg="$bad of $n key line(s) of the deploy user are not a known forced command with restrict ($unknown unknown command(s), $reopen option(s) re-opening pty/forwarding/user-rc) – only deploy-from-ci.sh and rrsync -ro are allowed, person keys go through ottimo-admin + sudo; remove or fix the line (runbook v1.0.5)"
   fi
-  notify sshkeys OK "$n key line(s) of the deploy user, all with a forced command"
+  if [ "$wr" -gt 0 ]; then
+    msg="${msg:+$msg; }authorized_keys or .ssh of the deploy user writable by group or others ($wr) – chmod 0600 / 0700"
+  fi
+  if [ -n "$msg" ]; then notify sshkeys FAIL "$msg"; return 1; fi
+  notify sshkeys OK "$n key line(s) of the deploy user, all a known forced command with restrict"
 }
 
 check_journal() {
   local jc="${OPS_CHECK_JOURNALCTL:-journalctl}" jdir="${OPS_CHECK_JOURNAL_DIR:-/var/log/journal}"
   local ge="${OPS_CHECK_GETENT:-getent}" now ids id t n_other=0 first age since_s since_d expect sup
-  local g gid members m extra allowed fails=() warns=() own
+  local g gid members m extra allowed fails=() warns=() keys=() own acl facl="${OPS_CHECK_GETFACL:-getfacl}"
   now=$(date -u +%s)
   # 1. every running container of this stack logs to journald (the switch needs a re-created container)
   if ! ids=$(dc ps --quiet 2>"$cmd_err"); then notify journal FAIL "$(compose_failed)"; return 1; fi
@@ -817,35 +849,47 @@ check_journal() {
     t=$(docker inspect --format '{{.HostConfig.LogConfig.Type}}' "$id" 2>/dev/null || echo unknown)
     [ "$t" = journald ] || n_other=$((n_other + 1))
   done
-  [ "$n_other" -eq 0 ] || fails+=("$n_other running container(s) of the stack do not log to journald – re-create them (runbook v1.0.5 W6)")
+  [ "$n_other" -eq 0 ] || { fails+=("$n_other running container(s) of the stack do not log to journald – re-create them (runbook v1.0.5 W6)"); keys+=(containers); }
   # 2. age of the oldest entry: journalctl starts at the oldest one; head stops it after one line
   # (--system: without the group journalctl would fall back to this user's own journal and look "young")
   first=$( { "$jc" --system -q --no-pager -o short-unix 2>/dev/null || true; } | head -n 1 | cut -d' ' -f1 | cut -d. -f1)
   if [[ ! "$first" =~ ^[0-9]{9,11}$ ]]; then
-    fails+=("journal unreadable (the ops-check unit needs SupplementaryGroups=systemd-journal)")
+    fails+=("journal unreadable (the ops-check unit needs SupplementaryGroups=systemd-journal)"); keys+=(unreadable)
   else
     age=$(( (now - first) / 86400 ))
-    if [ "$age" -gt 91 ]; then fails+=("oldest journal entry is $age days old (cap 90 days: MaxRetentionSec not applied)"); fi
+    if [ "$age" -gt 91 ]; then fails+=("oldest journal entry is $age days old (cap 90 days: MaxRetentionSec not applied)"); keys+=(cap); fi
     since_s=$(head -n 1 "$OTTIMO_HOME/state/journald_since" 2>/dev/null || true)
     if [[ "$since_s" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && since_d=$(date -u -d "$since_s" +%s 2>/dev/null); then
       expect=$(( (now - since_d) / 86400 )); [ "$expect" -le 90 ] || expect=90
       if [ "$age" -lt $((expect - 1)) ]; then
-        warns+=("journal rotated early: oldest entry $age days old, expected at least $((expect - 1)) – SystemMaxUse reached or a log flood; look, then reset state/journald_since")
+        warns+=("journal rotated early: oldest entry $age days old, expected at least $((expect - 1)) – SystemMaxUse reached or a log flood; look, then reset state/journald_since"); keys+=(rotated)
       fi
     else
-      warns+=("state/journald_since missing or not YYYY-MM-DD – early rotation not checked")
+      warns+=("state/journald_since missing or not YYYY-MM-DD – early rotation not checked"); keys+=(since_missing)
     fi
     sup=$( { "$jc" --system -q --no-pager --since -24h -t systemd-journald -o cat 2>/dev/null || true; } | grep -c '^Suppressed ' || true)
-    [ "${sup:-0}" -eq 0 ] || warns+=("journald dropped lines $sup time(s) in 24 h (Suppressed … messages: RateLimitBurst reached)")
+    [ "${sup:-0}" -eq 0 ] || { warns+=("journald dropped lines $sup time(s) in 24 h (Suppressed … messages: RateLimitBurst reached)"); keys+=(suppressed); }
   fi
-  # 3. who can read the logs: the journal directory and files, and the members of adm, systemd-journal, docker
+  # 3. who can read the logs: the journal directory and files, its ACL, and the members of the groups that read it –
+  # adm, systemd-journal (and wheel, which Ubuntu's tmpfiles also give a read ACL), sudo (reads anything), docker
   own=$(stat -c '%U:%G' "$jdir" 2>/dev/null || echo unknown)
-  [ "$own" = "${OPS_CHECK_JOURNAL_OWNER:-root:systemd-journal}" ] || fails+=("$jdir is $own (must be root:systemd-journal)")
+  [ "$own" = "${OPS_CHECK_JOURNAL_OWNER:-root:systemd-journal}" ] || { fails+=("$jdir is $own (must be root:systemd-journal)"); keys+=(owner); }
   if [ -n "$(find "$jdir" -type f -name '*.journal*' -perm -o=r 2>/dev/null | head -n 1)" ]; then
-    fails+=("journal file(s) readable by everyone under $jdir")
+    fails+=("journal file(s) readable by everyone under $jdir"); keys+=(world)
   fi
-  for g in adm systemd-journal docker; do
-    if [ "$g" = docker ]; then allowed="ottimo"; else allowed="$(envval LOG_READER_USERS)"; allowed="${allowed:-syslog ottimo-admin}"; fi
+  # -perm does not see ACLs: a named user, or a group other than adm/wheel/systemd-journal, in the ACL of the directory
+  # (or its default ACL, inherited by new files) reads the logs too. No getfacl (package acl) → not checked.
+  if command -v "$facl" >/dev/null 2>&1; then
+    acl=$( { "$facl" -p --omit-header "$jdir" 2>/dev/null || true; } | grep -E '^(default:)?(user|group):[^:]+:' \
+      | grep -Evc '^(default:)?group:(adm|wheel|systemd-journal):' || true)
+    [ "${acl:-0}" -eq 0 ] || { fails+=("$acl ACL entr(y/ies) on $jdir for a named user or another group (they can read the logs)"); keys+=(acl); }
+  fi
+  for g in adm systemd-journal wheel sudo docker; do
+    case "$g" in
+      docker) allowed="ottimo" ;;
+      sudo | wheel) allowed="$(envval SUDO_USERS)"; allowed="${allowed:-ottimo-admin}" ;;
+      *) allowed="$(envval LOG_READER_USERS)"; allowed="${allowed:-syslog ottimo-admin}" ;;
+    esac
     gid=$("$ge" group "$g" 2>/dev/null | cut -d: -f3) || true
     [ -n "$gid" ] || continue
     members="$("$ge" group "$g" | cut -d: -f4 | tr ',' ' ') $("$ge" passwd | awk -F: -v g="$gid" '$4 == g { print $1 }' | tr '\n' ' ')"
@@ -853,14 +897,15 @@ check_journal() {
     for m in $members; do
       case " root $allowed " in *" $m "*) ;; *) extra=$((extra + 1)) ;; esac
     done
-    [ "$extra" -eq 0 ] || fails+=("group $g has $extra member(s) outside the allowed list (they can read the logs)")
+    [ "$extra" -eq 0 ] || { fails+=("group $g has $extra member(s) outside the allowed list (they can read the logs)"); keys+=("group-$g"); }
   done
-  local msg
+  local msg rk
+  rk=$(IFS=,; printf '%s' "${keys[*]}")
   if [ "${#fails[@]}" -gt 0 ]; then
-    msg=$(printf '%s; ' "${fails[@]}" "${warns[@]}"); notify journal FAIL "${msg%; }"; return 1
+    msg=$(printf '%s; ' "${fails[@]}" "${warns[@]}"); notify journal FAIL "${msg%; }" "" "$rk"; return 1
   fi
   if [ "${#warns[@]}" -gt 0 ]; then
-    msg=$(printf '%s; ' "${warns[@]}"); notify journal WARN "${msg%; }"; return 0
+    msg=$(printf '%s; ' "${warns[@]}"); notify journal WARN "${msg%; }" "" "$rk"; return 0
   fi
   notify journal OK "oldest entry $age days (cap 90), no dropped lines in 24 h, containers on journald, log readers as allowed"
 }

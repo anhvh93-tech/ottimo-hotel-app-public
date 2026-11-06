@@ -141,7 +141,7 @@ Nếu chọn Resend hoặc SMTP khác: thay khuôn theo hướng dẫn của hã
 
 ## 8. Giám sát (R2: kiểm tra trên máy; R3: theo dõi từ bên ngoài)
 
-- **Đã có (R2 S3):** `infra/server/bin/ops-check.sh` chạy 30 phút/lần (systemd timer `ottimo-ops-check.timer`), cảnh báo vào journal (`journalctl -t ottimo-alert`), `systemctl --failed` và webhook tùy chọn (`ALERT_WEBHOOK_URL`, chỉ khi đổi trạng thái + nhắc 6 giờ/lần, không dữ liệu cá nhân):
+- **Đã có (R2 S3):** `infra/server/bin/ops-check.sh` chạy 30 phút/lần (systemd timer `ottimo-ops-check.timer`), cảnh báo vào journal (`journalctl -t ottimo-alert -p warning`: FAIL ở mức `err`, WARN ở mức `warning`, đọc `-p err` thì không thấy WARN), `systemctl --failed` và webhook tùy chọn (`ALERT_WEBHOOK_URL`, chỉ khi đổi trạng thái, khi đổi tập lý do của một WARN/FAIL (`journal`), + nhắc 6 giờ/lần với FAIL, không dữ liệu cá nhân):
   - **J16 (SEC C6, SR-RET-03):** với mỗi cơ sở `active`, lượt `retention_run` policy `J16` trạng thái `done` gần nhất phải < 26 giờ (cơ sở tạo chưa đủ 26 giờ thì chưa xét), và không có lượt `failed` trong 26 giờ. J16 chạy hằng giờ trong worker, mỗi lượt luôn ghi một dòng `J16` (kể cả 0 mục) → 26 giờ không có dòng = worker/job hỏng, ảnh giấy tờ có thể sống quá hạn xóa. Truy vấn bằng superuser qua socket trong container postgres (không mật khẩu, không đi qua RLS), chỉ đọc id cơ sở + thời gian. Lưu ý: staging bật `CLOCK_MODE=mutable` (đồng hồ giả) thì cảnh báo J16 trong lúc QA dời đồng hồ là bình thường.
   - sao lưu thành công gần nhất < 14 giờ (từ v1.0.5: hai lượt cách 12 giờ, lỡ một lượt là FAIL trong khoảng 2 giờ; trước đó 26 giờ); đĩa < 80 %; chứng chỉ TLS còn > 14 ngày; postgres/api/worker/web đang chạy, api `/health` ok.
 - Theo dõi `/health` mỗi 1 phút từ bên ngoài (Uptime Kuma tự chạy trên máy staging, hoặc dịch vụ miễn phí – chỉ gọi `/health`, không có dữ liệu cá nhân); cảnh báo qua email/Zalo nhóm vận hành.
@@ -153,7 +153,8 @@ Nếu chọn Resend hoặc SMTP khác: thay khuôn theo hướng dẫn của hã
 | Bí mật | Môi trường | Chủ sở hữu | Nơi giữ | Chu kỳ xoay / khi nào xoay |
 |---|---|---|---|---|
 | `DATA_KEK_CURRENT` (+ `DATA_KEK_VERSION`) | mỗi môi trường một khóa | INV + OPS | Docker secret trên máy chủ; bản ngoại tuyến do INV giữ (production) | Khi nghi lộ hoặc người có quyền nghỉ việc; xoay = thêm phiên bản mới, bọc lại DEK (ADR-013) |
-| `ID_HASH_KEY`, `LOG_IP_HMAC_KEY` | mỗi môi trường | OPS | Docker secret | Khi nghi lộ (xoay `ID_HASH_KEY` cần băm lại – runbook R2) |
+| `ID_HASH_KEY` (khóa chỉ mục mù số giấy tờ; sinh khóa HKDF `guest_doc`, `child_name`, `web_request_contact`, `public_estimate`, `idempotency`) | mỗi môi trường | INV + OPS | Docker secret trên máy chủ; bản ngoại tuyến do INV giữ (production), **cùng chỗ với bản KEK, khác phong bì với khóa riêng `age`** (SEC FB-R5-SEC-OPS-95-07, luật A8 của `b2-runbook.md`). Cất theo khuôn G4-8, INV tự gõ | Khi nghi lộ (xoay cần băm lại – runbook R2; làm lại bản ngoại tuyến, hủy bản cũ sau khi băm lại xong) |
+| `LOG_IP_HMAC_KEY` | mỗi môi trường | OPS | Docker secret | Khi nghi lộ |
 | `GUEST_CODE_SIGNING_KEY` (HMAC mã xác minh khách – khóa riêng, ADR-013 điểm 5, BUG-R1-SEC-07) | mỗi môi trường | OPS | Docker secret (`GUEST_CODE_SIGNING_KEY_FILE`), ≥ 32 ký tự | Khi nghi lộ; xoay = mọi mã đang chờ (≤ 30 phút) hết hiệu lực, không cần băm lại |
 | `SESSION_SECRET` | mỗi môi trường | OPS | Docker secret | 12 tháng hoặc khi nghi lộ (mọi phiên bị đăng xuất) |
 | Mật khẩu DB `ottimo_migrator`, `ottimo_app`, superuser (`ottimo_owner` NOLOGIN – không có mật khẩu; `ottimo_readonly` chỉ đặt mật khẩu tạm theo runbook) | mỗi môi trường | OPS | Docker secret | 12 tháng hoặc khi người có quyền nghỉ việc |

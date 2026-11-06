@@ -5,6 +5,8 @@
 # unique ("Key (email)=(…) already exists"), CHECK and NOT NULL ("Failing row contains (…)"). The statements use the
 # extended protocol with bound parameters, like the api (node-postgres), so STATEMENT lines hold `$1`, not values.
 # Control run: the same errors WITHOUT the setting must show the values – otherwise the test proves nothing.
+# SEC FB-R5-SEC-OPS-93-03: the container also answers pg_settings for the five pinned settings – each must have its
+# pinned value AND source "command line" (the control run shows "default", e.g. log_parameter_max_length = -1).
 #   bash infra/server/test/postgres-log-terse.test.sh   (needs docker; PG_IMAGE=postgres:17-alpine PG_PULL=never
 #   to use a local image instead of the pinned digest)
 set -Eeuo pipefail
@@ -29,6 +31,7 @@ args=()
 while IFS= read -r a; do [ -n "$a" ] && args+=("$a"); done < <(tr ',' '\n' <<<"$cmdline" | sed -E "s/^ *'//; s/' *$//")
 [ "${args[0]}" = postgres ] && ok "compose: postgres command = ${args[*]}" || ko "compose: command does not start postgres: ${args[*]}"
 case " ${args[*]} " in *" log_error_verbosity=terse "*) ok "compose: log_error_verbosity=terse" ;; *) ko "compose: no log_error_verbosity=terse" ;; esac
+pins="log_error_verbosity=terse log_min_duration_statement=-1 log_parameter_max_length=0 log_parameter_max_length_on_error=0 log_statement=none"
 
 secret="guest.terse-$$@example.invalid" phone="0900$$"
 provoke() { # name args… → prints the container log
@@ -43,6 +46,9 @@ INSERT INTO guest VALUES (\$1, \$2) \bind '$secret' '$phone' \g
 INSERT INTO guest VALUES (\$1, \$2) \bind 'other-$secret' '12' \g
 INSERT INTO guest (email) VALUES (\$1) \bind 'third-$secret' \g
 SQL
+  docker exec "$name" psql -X -q -tA -U postgres -d postgres -c "SELECT 'SETTING ' || name || '=' || setting || ' ' || source
+    FROM pg_settings WHERE name IN ('log_error_verbosity', 'log_min_duration_statement', 'log_parameter_max_length',
+    'log_parameter_max_length_on_error', 'log_statement') ORDER BY name" 2>&1 || true
   sleep 1
   docker logs "$name" 2>&1
   docker rm -f "$name" >/dev/null
@@ -56,11 +62,18 @@ grep -q 'violates not-null constraint' <<<"$log" && ok "terse: the NOT NULL erro
 if grep -Fq "$secret" <<<"$log" || grep -Fq "$phone" <<<"$log" || grep -Eq 'DETAIL:|Failing row|Key \(' <<<"$log"; then
   ko "terse: a row value or a DETAIL line reached the log"
 else ok "terse: no e-mail, no phone, no DETAIL in the server log"; fi
+for p in $pins; do
+  if grep -Fxq "SETTING $p command line" <<<"$log"; then ok "pinned on the command line: $p"
+  else ko "not pinned: $p (got: $(grep "^SETTING ${p%%=*}=" <<<"$log" || echo none))"; fi
+done
 
 ctl=$(provoke "ottimo-verbose-$$" postgres)
 if grep -Fq "$secret" <<<"$ctl" && grep -q 'Failing row contains' <<<"$ctl"; then
   ok "control: without the setting the same errors log the e-mail and the failing row (the test can see a leak)"
 else ko "control: the default run did not show the values – the test would not catch a regression"; fi
+if grep -Fxq "SETTING log_parameter_max_length=-1 default" <<<"$ctl" && ! grep -q ' command line$' <<<"$ctl"; then
+  ok "control: without the pins the settings come from the defaults (log_parameter_max_length -1 = bound values logged)"
+else ko "control: unexpected settings in the default run: $(grep '^SETTING ' <<<"$ctl" | tr '\n' ' ')"; fi
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

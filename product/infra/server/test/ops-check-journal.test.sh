@@ -11,6 +11,10 @@
 # file → FAIL · output and state hold no member name · `journal` in the full run · bundle: compose + edge on journald
 # without max-size/max-file, postgres log_error_verbosity=terse, daemon.json journald, 50-ottimo.conf caps, the
 # ops-check units get the group.
+# + SEC FB-R5-SEC-OPS-93-01: a WARN that is already lit ("rotated early") and then gains a new cause ("Suppressed")
+# sends a second webhook; the same causes again send nothing; the state file keeps fixed reason keys, no numbers.
+# + SEC FB-R5-SEC-OPS-93-04: an extra member of sudo / wheel → FAIL; a named user or another group in the ACL of the
+# journal directory → FAIL, Ubuntu's own adm/wheel ACL → ok.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -62,12 +66,29 @@ case "$1 ${2:-}" in
   "group adm") echo "adm:x:4:${FAKE_ADM-syslog,ottimo-admin}" ;;
   "group systemd-journal") echo "systemd-journal:x:999:${FAKE_SJ-}" ;;
   "group docker") echo "docker:x:998:${FAKE_DOCKER-ottimo}" ;;
+  "group sudo") echo "sudo:x:27:${FAKE_SUDO-ottimo-admin}" ;;
+  "group wheel") [ -n "${FAKE_WHEEL:-}" ] || exit 2; echo "wheel:x:10:$FAKE_WHEEL" ;;
   "passwd ")
     printf 'root:x:0:0::/root:/bin/bash\nsyslog:x:104:110::/home/syslog:/usr/sbin/nologin\nottimo:x:2001:2001::/home/ottimo:/bin/bash\n'
     [ -n "${FAKE_PASSWD_EXTRA:-}" ] && printf '%s\n' "$FAKE_PASSWD_EXTRA" ;;
   *) exit 2 ;;
 esac
 STUB
+cat > "$T/fake/getfacl" <<'STUB'
+#!/usr/bin/env bash
+[ "$1 $2" = "-p --omit-header" ] || { echo "stub getfacl: unexpected $*" >&2; exit 9; }
+printf '%s\n' user::rwx group::r-x group:adm:r-x group:wheel:r-x mask::r-x other::r-x \
+  default:user::rwx default:group::r-x default:group:adm:r-x default:group:wheel:r-x default:mask::r-x default:other::r-x
+[ -n "${FAKE_ACL_EXTRA:-}" ] && printf '%s\n' "$FAKE_ACL_EXTRA"; exit 0
+STUB
+# fake curl: keeps what would go to the alert webhook (one line per post)
+cat > "$T/fake/curl" <<STUB
+#!/usr/bin/env bash
+while [ "\$#" -gt 0 ]; do [ "\$1" = --data ] && { printf '%s\n' "\$2" >> "$T/webhook.log"; shift; }; shift; done
+STUB
+if ! command -v jq >/dev/null; then # ubuntu:24.04 has no jq: enough of it for notify's one call
+  printf '#!/usr/bin/env bash\nprintf '"'"'{"text":"%%s"}\\n'"'"' "$4"\n' > "$T/fake/jq"
+fi
 chmod +x "$T/bin/dc" "$T/bin/ops-check.sh" "$T/fake/"*
 touch "$T/journal/m1/system.journal"; chmod 0640 "$T/journal/m1/system.journal"
 owner=$(stat -c '%U:%G' "$T/journal")
@@ -78,7 +99,8 @@ out="" rc=0
 jrun() { # env… → $out, $rc
   rc=0
   out=$(env -i PATH="$T/fake:$PATH" HOME="$T" OTTIMO_HOME="$T/home" OPS_CHECK_JOURNALCTL="$T/fake/journalctl" \
-    OPS_CHECK_GETENT="$T/fake/getent" OPS_CHECK_JOURNAL_DIR="$T/journal" OPS_CHECK_JOURNAL_OWNER="$owner" "$@" \
+    OPS_CHECK_GETENT="$T/fake/getent" OPS_CHECK_GETFACL="$T/fake/getfacl" OPS_CHECK_JOURNAL_DIR="$T/journal" \
+    OPS_CHECK_JOURNAL_OWNER="$owner" "$@" \
     bash "$T/bin/ops-check.sh" journal 2>&1) || rc=$?
 }
 expect() { # name rc regex env…
@@ -120,6 +142,32 @@ expect "15 a journal file readable by everyone → FAIL" 1 '^FAIL journal: journ
 chmod 0640 "$T/journal/m1/system.journal"
 expect "16 FAIL and WARN together → FAIL with both" 1 '^FAIL journal: 1 running container.*; journald dropped lines 1 time' FAKE_DRIVER_c1=local FAKE_SUP=1
 
+# SEC 93-04: sudo, wheel, ACL
+expect "25 sudo has a member besides ottimo-admin → FAIL" 1 '^FAIL journal: group sudo has 1 member\(s\) outside the allowed list' FAKE_SUDO=ottimo-admin,ubuntu
+expect "25b wheel (when it exists) has a member → FAIL" 1 '^FAIL journal: group wheel has 1 member\(s\)' FAKE_WHEEL=ubuntu
+expect "25c wheel with ottimo-admin only → ok" 0 '^ok   journal:' FAKE_WHEEL=ottimo-admin
+expect "26 a named user in the journal ACL → FAIL, count only" 1 '^FAIL journal: 1 ACL entr\(y/ies\) on .* for a named user or another group' FAKE_ACL_EXTRA=user:guestops:r-x
+expect "26b another group in the default ACL → FAIL" 1 '^FAIL journal: 1 ACL entr' FAKE_ACL_EXTRA=default:group:staff:r-x
+if grep -q 'guestops' <<<"$out$(cat "$T/home/state/ops-check/journal")"; then ko "26c an ACL user name is printed: $out"; else ok "26c ACL: output and state hold no user name"; fi
+
+# SEC 93-01: a new cause behind a WARN that is already lit is sent again
+since 40; rm -f "$T/home/state/ops-check/journal" "$T/webhook.log"
+printf 'APP_ENV=production\nALERT_WEBHOOK_URL=https://alerts.example.invalid/hook\nHEARTBEAT_URL=\n' > "$T/home/.env"
+hooks() { if [ -f "$T/webhook.log" ]; then wc -l < "$T/webhook.log" | tr -d ' '; else echo 0; fi; }
+expect "27 rotated early → WARN" 0 '^WARN journal: journal rotated early' FAKE_OLDEST_DAYS=20
+[ "$(hooks)" = 1 ] && ok "27b first WARN → one webhook" || ko "27b webhooks after the first WARN: $(hooks)"
+expect "27c rotated early again → WARN" 0 '^WARN journal: journal rotated early' FAKE_OLDEST_DAYS=20
+[ "$(hooks)" = 1 ] && ok "27d same cause again → no new webhook" || ko "27d webhooks: $(hooks)"
+expect "28 rotated early + Suppressed → WARN with both" 0 '^WARN journal: journal rotated early.*; journald dropped lines 3 time' FAKE_OLDEST_DAYS=20 FAKE_SUP=3
+[ "$(hooks)" = 2 ] && grep -q 'dropped lines 3' "$T/webhook.log" && ok "28b new cause → second webhook (SEC 93-01)" || ko "28b webhooks: $(hooks)"
+st=$(cat "$T/home/state/ops-check/journal")
+[[ "$st" =~ ^WARN\ [0-9]+\ rotated,suppressed$ ]] && ok "28c state keeps fixed reason keys, no counts" || ko "28c state: $st"
+expect "28d Suppressed count changes, same causes → WARN" 0 '^WARN journal:.*dropped lines 5 time' FAKE_OLDEST_DAYS=20 FAKE_SUP=5
+[ "$(hooks)" = 2 ] && ok "28e only the count changed → no new webhook" || ko "28e webhooks: $(hooks)"
+expect "29 back to good → ok" 0 '^ok   journal:' FAKE_OLDEST_DAYS=39
+[ "$(hooks)" = 3 ] && ok "29b recovery → one webhook" || ko "29b webhooks: $(hooks)"
+printf 'APP_ENV=production\nALERT_WEBHOOK_URL=\nHEARTBEAT_URL=\n' > "$T/home/.env"
+
 # Wiring and bundle
 ocs="$src/bin/ops-check.sh"
 if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* sshkeys journal\)' "$ocs" && grep -q '^    journal) check_journal' "$ocs"; then ok "17 journal in the full run"; else ko "17 journal missing from the full run"; fi
@@ -129,7 +177,7 @@ if [ "$(grep -c '^    driver: journald$' "$prod")" = 1 ] && ! nocomment "$prod" 
   ok "18 compose: the shared logging block is journald, no max-size/max-file"; else ko "18 compose logging"; fi
 if grep -q '^      driver: journald$' "$edge" && ! nocomment "$edge" | grep -Eq 'driver: local|max-size|max-file'; then
   ok "19 edge compose: journald, no max-size/max-file"; else ko "19 edge logging"; fi
-if grep -Fq "command: ['postgres', '-c', 'log_error_verbosity=terse']" "$prod"; then ok "20 postgres runs log_error_verbosity=terse"; else ko "20 postgres command"; fi
+if grep -Eq "^    command: \['postgres', '-c', 'log_error_verbosity=terse'(, '-c', '[a-z_]+=[a-z0-9-]+')*\]$" "$prod"; then ok "20 postgres runs log_error_verbosity=terse"; else ko "20 postgres command"; fi
 if grep -q '"log-driver": "journald"' "$src/bootstrap-vps.sh" && ! grep -Eq '"max-size"|"max-file"' "$src/bootstrap-vps.sh"; then
   ok "21 daemon.json: journald, no max-size/max-file (dockerd would not start)"; else ko "21 daemon.json"; fi
 conf="$src/journald/50-ottimo.conf" good=1
