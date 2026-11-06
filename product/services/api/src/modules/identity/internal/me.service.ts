@@ -9,7 +9,7 @@ import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type Tx } from '../../../db/database';
 import { PropertyContextService } from '../../platform/public/property-context';
 import { IDENTITY_OPTIONS, type IdentityOptions } from '../public/identity-options';
-import { MfaStore } from '../public/mfa-store';
+import { MfaStore, isMfaRequiredRole } from '../public/mfa-store';
 import { sha256Hex } from '../../../shared/http/auth.guard';
 import { SessionService } from '../public/session.service';
 import { screensFor } from './screens';
@@ -205,14 +205,12 @@ export class MeService {
       properties,
       mustChangePassword: u.must_change_password,
       mfaEnabled: u.mfa_enabled,
-      // R3 (SR-AUTH-06): owner/manager must enable 2FA before real data – flag only in R2.
-      mfaRequiredButMissing: !u.mfa_enabled && (allRoles.has('owner') || allRoles.has('manager')),
-      // Same rule as the AuthGuard: flagged session, or MFA_ENFORCED + owner/manager without 2FA (SEC 06.4).
+      // R3 (SR-AUTH-06): a mandatory role (owner/manager; front_desk_lead from v1.0.5 – V5-40) must enable 2FA.
+      mfaRequiredButMissing: !u.mfa_enabled && isMfaRequiredRole(allRoles),
+      // Same rule as the AuthGuard: flagged session, or MFA_ENFORCED + a mandatory role without 2FA (SEC 06.4).
       mfaEnrollmentRequired:
         u.enrollment_only === true ||
-        (this.options.mfaEnforced === true &&
-          !u.mfa_enabled &&
-          (allRoles.has('owner') || allRoles.has('manager'))),
+        (this.options.mfaEnforced === true && !u.mfa_enabled && isMfaRequiredRole(allRoles)),
       ...(allRoles.has('owner') ? { soleOwner: u.other_owners === 0 } : {}),
       recoveryCodesLow: MfaStore.recoveryCodesLow(u.recovery_left, u.mfa_enabled),
       email: u.email,
