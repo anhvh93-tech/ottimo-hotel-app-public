@@ -1,12 +1,11 @@
 /**
  * platform (US-004 room catalogue, US-005 rule parameters) on Nest/Fastify + PostgreSQL:
- * BR-101 nightly price, ESC-014 MAX_OCCUPANCY_RANGE, DUPLICATE, 412, effective-dated price, catalogue
- * import (seed), RLS between two properties, parameter visibility/owner-only keys/bounds/audit.
+ * BR-101 list prices (both given – V5-1A), ESC-014 MAX_OCCUPANCY_RANGE, DUPLICATE, 412, effective-dated price,
+ * catalogue import (seed), RLS between two properties, parameter visibility/owner-only keys/bounds/audit.
  */
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
-import { ParameterService } from '../../src/modules/platform/public/parameter.service';
 import { importRoomCatalog } from '../../src/modules/platform/public/room-catalog-import';
 import {
   Client,
@@ -39,10 +38,9 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
     await seedSprint1Params(db, t, 0);
     await seedSprint1Params(db, t, 1);
     fa = await startFeatureApp(db);
-    // Catalogue of property 0 through the same import the DS-E seed uses (BR-101 checked on the way).
+    // Catalogue of property 0 through the same import the DS-E seed uses (both list prices given – V5-1A).
     await db.withContext(t.ctx(0), async (tx) => {
-      const params = fa.app.get(ParameterService);
-      const r = await importRoomCatalog(tx, params, {
+      const r = await importRoomCatalog(tx, {
         groups: [
           { code: 'L12', name: 'Lầu 1–2', sortOrder: 1, baseOccupancy: 2, maxOccupancy: 3 },
           { code: 'N', name: 'Căn N', sortOrder: 2, baseOccupancy: 4, maxOccupancy: 5 },
@@ -53,26 +51,28 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
             name: 'The Amber',
             group: 'L12',
             monthlyListPriceVnd: 8_000_000,
-            expectedNightlyListPriceVnd: 667_000,
+            nightlyListPriceVnd: 667_000,
           },
           {
             roomNo: '401',
             name: 'The Pine',
             group: 'N',
             monthlyListPriceVnd: 12_500_000,
-            expectedNightlyListPriceVnd: 1_042_000,
+            nightlyListPriceVnd: 1_042_000,
           },
         ],
         activeFrom: '2026-10-01',
         now: T0,
       });
-      expect(r).toEqual({ groups: 2, rooms: 2 });
+      expect(r).toEqual({ groups: 2, rooms: 2, unpriced: [], nightlyPriceUnusual: [] });
     });
     // Property 1 has its own group/room – must never be visible from property 0.
     await db.withContext(t.ctx(1), async (tx) => {
-      await importRoomCatalog(tx, fa.app.get(ParameterService), {
+      await importRoomCatalog(tx, {
         groups: [{ code: 'X', name: 'Other', sortOrder: 1, baseOccupancy: 2, maxOccupancy: 3 }],
-        rooms: [{ roomNo: '999', group: 'X', monthlyListPriceVnd: 6_000_000 }],
+        rooms: [
+          { roomNo: '999', group: 'X', monthlyListPriceVnd: 6_000_000, nightlyListPriceVnd: 500_000 },
+        ],
         activeFrom: '2026-10-01',
         now: T0,
       });
@@ -83,24 +83,21 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
     await db.close();
   });
 
-  it('importRoomCatalog refuses a nightly price that does not match BR-101', async () => {
+  it('importRoomCatalog refuses a room with the monthly price only (V5-1A, BR-101 (5)) – nothing kept', async () => {
     await expect(
       db.withContext(t.ctx(0), (tx) =>
-        importRoomCatalog(tx, fa.app.get(ParameterService), {
+        importRoomCatalog(tx, {
           groups: [{ code: 'Z', name: 'Z', sortOrder: 9, baseOccupancy: 2, maxOccupancy: 3 }],
-          rooms: [
-            {
-              roomNo: '777',
-              group: 'Z',
-              monthlyListPriceVnd: 8_000_000,
-              expectedNightlyListPriceVnd: 666_000,
-            },
-          ],
+          rooms: [{ roomNo: '777', group: 'Z', monthlyListPriceVnd: 8_000_000 }],
           activeFrom: '2026-10-01',
           now: T0,
         }),
       ),
-    ).rejects.toThrow(/BR-101/);
+    ).rejects.toThrow(/both required/);
+    const left = await db.withContext(t.ctx(0), (tx) =>
+      tx.query(`SELECT 1 FROM room_group WHERE code = 'Z'`),
+    );
+    expect(left.rows).toHaveLength(0);
   });
 
   it('listRoomGroups / listRooms: catalogue of the property only, current list price (BR-101)', async () => {
@@ -150,13 +147,14 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
     expect(none.rows).toHaveLength(0);
   });
 
-  it('createRoom: defaults from the group, nightly computed; MAX_OCCUPANCY_RANGE; DUPLICATE; unknown group', async () => {
+  it('createRoom: defaults from the group, both prices as given; MAX_OCCUPANCY_RANGE; DUPLICATE; unknown group', async () => {
     const owner = Client.of(fa, t, 'owner');
     const res = await owner.send('POST', `${P(t)}/rooms`, {
       roomNo: '202',
       name: 'The Valley',
       roomGroupId: groupL12,
       monthlyListPriceVnd: 9_500_000,
+      nightlyListPriceVnd: 792_000,
     });
     expect(res.statusCode).toBe(201);
     expect(res.json()).toMatchObject({
@@ -172,6 +170,7 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
       baseOccupancy: 2,
       maxOccupancy: 4,
       monthlyListPriceVnd: 9_500_000,
+      nightlyListPriceVnd: 792_000,
     });
     expect(bad.statusCode).toBe(422);
     expect(bad.json().errors).toEqual([{ field: 'maxOccupancy', code: 'MAX_OCCUPANCY_RANGE' }]);
@@ -179,6 +178,7 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
       roomNo: '202',
       roomGroupId: groupL12,
       monthlyListPriceVnd: 9_500_000,
+      nightlyListPriceVnd: 792_000,
     });
     expect(dup.statusCode).toBe(422);
     expect(dup.json().errors).toEqual([{ field: 'roomNo', code: 'DUPLICATE' }]);
@@ -186,6 +186,7 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
       roomNo: '204',
       roomGroupId: uuidv7(),
       monthlyListPriceVnd: 9_500_000,
+      nightlyListPriceVnd: 792_000,
     });
     expect(noGroup.statusCode).toBe(422);
     expect(noGroup.json().errors).toEqual([{ field: 'roomGroupId', code: 'NOT_IN_LIST' }]);
@@ -195,6 +196,7 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
           roomNo: '205',
           roomGroupId: groupL12,
           monthlyListPriceVnd: 9_500_000,
+          nightlyListPriceVnd: 792_000,
         })
       ).statusCode,
     ).toBe(403);
@@ -225,6 +227,7 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
         listPrice: {
           effectiveFrom: '2026-10-14',
           monthlyListPriceVnd: 8_400_000,
+          nightlyListPriceVnd: 700_000,
           reason: 'Điều chỉnh',
         },
       },
@@ -246,6 +249,7 @@ describe.skipIf(!HAS_DB)('platform – rooms and parameters', () => {
         listPrice: {
           effectiveFrom: '2026-11-01',
           monthlyListPriceVnd: 8_400_000,
+          nightlyListPriceVnd: 700_000,
           reason: 'Giá mùa cao điểm',
         },
       },

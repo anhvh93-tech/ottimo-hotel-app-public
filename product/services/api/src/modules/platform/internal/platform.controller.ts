@@ -104,6 +104,8 @@ const roomInput = z.object({
   bedCount: bedCount.optional(),
   areaM2: areaM2.optional(),
   monthlyListPriceVnd: money,
+  // OpenAPI 0.3.13 (V5-1A, BUG-R4-057): both prices required – missing → 422 REQUIRED, no room (BR-101 (1), (5)).
+  nightlyListPriceVnd: money,
   activeFrom: localDateSchema.optional(),
 });
 
@@ -126,7 +128,8 @@ const roomPatch = z.object({
     .object({
       effectiveFrom: localDateSchema,
       monthlyListPriceVnd: money,
-      nightlyListPriceVnd: money.optional(),
+      // OpenAPI 0.3.13 (V5-1A): required – missing → 422 `listPrice.nightlyListPriceVnd` REQUIRED, nothing written.
+      nightlyListPriceVnd: money,
       reason: reasonSchema,
     })
     .optional(),
