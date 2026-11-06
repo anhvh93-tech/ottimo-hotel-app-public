@@ -212,3 +212,27 @@ Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | **PO – quyết định 30 (plan R5): bảng kiểm cắt tag 4a thêm T16 (#127 + FE-A V5-10 #125) và T17 (#114 + FE-A V5-11), không chặn; release notes v1.0.5 thêm dòng ngày ghi phí** (theo DOM DOM-on-be-a1-prs-127-114.md mục 1, 2.2, 3.4, 4). Thiếu #125: Giới hạn đã biết v1.0.5 thêm "Lúc 00:00–05:59, khách đã đi từ tối hôm trước: VietQR trả phòng báo lỗi; trả phòng vẫn làm được, còn nợ thì ghi công nợ", BUG-R4-051 đổi đích v1.0.6. Thiếu FE V5-11: bỏ câu "Trả sớm 00:00–05:59 đặt sẵn đúng ngày", thêm "chọn Ngày rời mới là ngày hôm nay theo lịch", lời dặn v1.0.4 tách đích (máy chủ v1.0.5, Desk v1.0.6); Desk V5-11 không vào tag thiếu #114. Phần FE trễ vẫn cần dòng decision-log PO + ORC (Gói 1, QC điều 1). Release notes: phí trả sớm, phí hủy, phí không đến ghi vào ngày thao tác (ngày nghiệp vụ, đổi 06:00), không đổi số tiền (BR-010 v0.5.12); bỏ nếu thiếu #114. T15 có hiệu lực từ khi #99 gộp. 07/11: FE V5-11 chưa có PR, chưa có nhánh | PO | Quyền PO (release notes, bảng kiểm cắt bản); không ESC |`
+
+## Cập nhật 07/11 (lượt 5) – T5 theo #133, thêm T18, T19 (theo DOM, ARC, SEC review BE-H #110/#131)
+
+- **Đã làm:**
+  - Plan R5 mục 4a:
+    - **T5**: điều kiện là **PR #133 @ `0636f2fc`** (BE-A2 `r5-v516-minibar`, xếp trên #110), thay commit `0b2ebb45`. Kiểm lúc cắt: `git merge-base --is-ancestor 0636f2fc <tag>`. #110 một mình không ghi gì cho lần đếm lại (DOM 110-02). Head #133 nay `1082cb82`, vẫn chứa `0636f2fc`.
+    - **T18** (chặn tag): PR "audit visibility" của BE-H (SEC 131-01 + ARC 131-01), cổng chung `audit/public/audit-visibility.ts` cho `listAuditEvents` và `getReservationHistory`, trên `main` trước khi cắt tag.
+    - **T19** (chặn PR-M, hạn 01/12): `r5-h1c` (DOM 131-01 + ARC 131-02). Chưa gộp lúc cắt tag thì thêm dòng **Giới hạn đã biết** "Sửa người chốt" (chữ ghi sẵn ở T19).
+    - Quyết định 31.
+  - Release notes v1.0.5, chú thích nguồn **Giới hạn đã biết**: điều kiện là #133.
+  - Sổ tay `01` mục 8.1 (PO làm thay BA): chú thích nguồn theo #133 (DOM 110-02); hai câu của DOM 110-04 ở gạch "Không gồm tiền đêm" và "Mở từ dòng Cần chú ý"; lịch sử tệp bản 1.16, bổ sung lượt 5.
+  - `responses/PO-responses.md`: DOM 110-02, 110-04 và ARC mục 7 là Done.
+- **File sửa:** `rounds/round-05/plan.md`, `product/docs/release-notes.md`, `product/docs/manual/guides/01-chu-dau-tu-quan-ly.md`, `rounds/round-05/responses/PO-responses.md`, tệp này.
+- **Giả định:**
+  - #133 gộp bằng merge commit như các PR khác. Gộp squash thì lệnh `merge-base` báo thiếu dù đã có; T5 ghi cách kiểm thay.
+  - T19 không chặn tag v1.0.5 khi tag không có PR-M: lỗi đổi người chốt có từ trước #131 (DOM 131-01), đã có cách làm tạm.
+- **Rủi ro cho ORC (không ESC):**
+  - 07/11 chưa có PR cho T18 và chưa có nhánh `r5-h1c`. T18 cần #110 gộp trước, rồi SEC và ARC review.
+  - Chú thích nguồn ở `02-le-tan.md` và `user-manual-v1.0.md` vẫn lấy #110 làm điều kiện. Chữ chủ đầu tư đọc không sai; BA sửa khi mở tệp lần tới.
+- **ESC mới:** không.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | **PO – quyết định 31 (plan R5): bảng kiểm cắt tag 4a – T5 theo PR #133 @ 0636f2fc, thêm T18, T19** (theo DOM DOM-on-be-h-prs-110-131.md thẻ 110-02, 110-04; ARC ARC-on-be-h-prs-110-123-131.md mục 4, 7; SEC thẻ FB-R5-SEC-BE-131-01). T5: lần đếm lại minibar vào bộ lọc 7 ngày nhờ #133, không nhờ #110; kiểm lúc cắt git merge-base --is-ancestor 0636f2fc <tag>; chữ chủ đầu tư đọc giữ nguyên, lối lùi d467578b khi thiếu #133. T18 chặn tag: PR che hoa hồng trong audit (audit/public/audit-visibility.ts cho listAuditEvents và getReservationHistory) trên main trước tag. T19 chặn PR-M, hạn 01/12: r5-h1c (đổi người chốt đồng bộ hoa hồng; sau nhận phòng chỉ OWN, có closerChangeReason, bổ sung 1h). Sổ tay 01 mục 8.1 thêm hai câu DOM 110-04 | PO | Quyền PO (bảng kiểm cắt bản, release notes); không ESC |`

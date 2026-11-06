@@ -167,6 +167,7 @@ describe.skipIf(!HAS_DB)('rbac-cases.json – Sprint 1 operations (BE-B)', () =>
         roomNo: `${Math.floor(Math.random() * 900) + 100}`,
         roomGroupId: ids.roomGroupId,
         monthlyListPriceVnd: 9_000_000,
+        nightlyListPriceVnd: 800_000,
       },
       updateRoom: { name: 'X' },
       setParameter: { value: 12, effectiveFrom: '2026-10-20', reason: 'Kiểm thử vai' },

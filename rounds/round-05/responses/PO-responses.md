@@ -78,3 +78,16 @@ Câu SEC gửi DOM ở cuối lượt 3 (tiền về trước hạn mà chưa ai
 | ID | Trạng thái mới | Ghi chú |
 |---|---|---|
 | FB-R5-ARC-PO-112-01 | Done | Plan R5 mục 4a thêm **T12** (#112 + FE V5-13 + FE V5-18: thiếu FE thì bỏ hai câu ở dòng **Trả phòng và tiền ở quầy**; thiếu FE V5-13 thì lời dặn v1.0.4 "hỏi quản lý" – ca CO-01b – thành giới hạn của v1.0.5, đích v1.0.6) và **T13** (chặn: Desk đọc `lockReason` không vào tag thiếu #112). Quyết định 28 |
+
+## Review DOM BE-H #110/#131 (`rounds/round-05/reviews/DOM-on-be-h-prs-110-131.md`) – Phản hồi & sửa, 07/11/2026
+
+PO làm luôn phần sửa của BA ở sổ tay `01` (ORC giao). Commit `8f875e29`.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-DOM-BE-110-02 | Done | Plan R5 mục 4a **T5**: điều kiện là **PR #133 @ `0636f2fc`** (BE-A2 `r5-v516-minibar`, xếp trên #110), thay commit `0b2ebb45`; kiểm lúc cắt `git merge-base --is-ancestor 0636f2fc <tag>`; head #133 nay `1082cb82`, vẫn chứa `0636f2fc`. Release notes v1.0.5, chú thích nguồn **Giới hạn đã biết** (dòng Đóng ca, dòng Minibar): điều kiện là #133. Sổ tay `01` mục 8.1, chú thích nguồn: "#133 (BE-A2 `r5-v516-minibar`, xếp trên #110) có trong tag"; lối lùi `d467578b` khi thiếu #133, áp ở mục 8.1, dòng đầu tệp và dòng "Mỗi tuần" 2.1. Chữ chủ đầu tư đọc không đổi. Quyết định 31 |
+| FB-R5-DOM-BE-110-04 | Done | Sổ tay `01` mục 8.1, khối **Từ v1.0.5 – bộ lọc Sửa giảm dòng – 7 ngày**: gạch "Mở từ dòng **Cần chú ý**" thêm câu tháng lên v1.0.5; gạch "Không gồm tiền đêm" thêm câu phụ thu trả muộn tính lại khi đổi giờ trả. Đúng chữ DOM, đặt cuối mỗi gạch. Lịch sử tệp: bản 1.16, bổ sung lượt 5 |
+| ARC mục 7 (PO thêm hai dòng vào plan 4a) | Done | **T18** (chặn tag): PR "audit visibility" của BE-H, SEC 131-01 + ARC 131-01. **T19** (chặn PR-M, hạn 01/12): `r5-h1c`, DOM 131-01 + ARC 131-02. Cùng ở quyết định 31 |
+
+- Còn lại cho BA: chú thích nguồn ở `02-le-tan.md` (khối đếm lại minibar) và `user-manual-v1.0.md` (mục bộ lọc 7 ngày, khối đếm lại minibar) vẫn lấy #110 làm điều kiện. Chữ chủ đầu tư đọc không sai; chỉ sửa chú thích khi BA mở tệp lần tới.
+- DOM 131-01 ý 4 (dòng **Giới hạn đã biết** "Sửa người chốt"): PO thêm lúc cắt tag nếu `r5-h1c` chưa gộp. Chữ đã ghi sẵn ở plan 4a T19.

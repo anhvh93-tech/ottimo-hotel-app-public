@@ -24,6 +24,15 @@
 /product/services/api/src/shared/serialization/field-policy.ts @anhvh93-tech
 # SEC – the pinned list of SELF_DATA_FIELDS (018-01): the pin only blocks when the test itself is SEC-owned.
 /product/services/api/test/serializer.test.ts @anhvh93-tech
+# SEC – the two files the V5-43 scan test trusts to apply the field policy to every response (SEC FB-R5-SEC-BE-D1-04).
+/product/services/api/src/shared/serialization/serializer.ts @anhvh93-tech
+/product/services/api/src/shared/serialization/serialize.interceptor.ts @anhvh93-tech
+# SEC – the 2FA gate (MFA_ENROLLMENT_REQUIRED) and the list of roles that must enrol (D1-04; SQL twin in 0079, D1-05).
+/product/services/api/src/shared/http/auth.guard.ts @anhvh93-tech
+/product/services/api/src/modules/identity/public/mfa-roles.ts @anhvh93-tech
+# SEC – SQL run on production (gate (b)): read-only checks ORC runs by a SEC-pinned SHA-256, e.g. the V5-25 shape
+# check (SEC FB-R5-SEC-OPS-V525-02 point 1). Changing one byte voids the pin.
+/product/services/api/scripts/*.sql @anhvh93-tech
 
 # SEC – shared-mailbox rule for staff security e-mail (SENT-02, ARC M18-01).
 /product/services/api/src/modules/identity/public/shared-mailboxes.ts @anhvh93-tech
@@ -69,3 +78,12 @@
 /product/infra/server/bin/requeue-email-changed.sh @anhvh93-tech
 # SEC (+ OPS) – the G2 gate itself (SEC-on-commission-numbers G2): editing the path list switches the CI job off.
 /product/infra/ci/check-confidential-paths.sh @anhvh93-tech
+# SEC (+ OPS owns the code) – the evidence for SEC-ARC-08 and SEC-OPS-93-03: Postgres logs carry no row value and the 5
+# log settings stay pinned on the command line. An edit can weaken it unseen, e.g. drop the control run or loosen a
+# grep (ARC FB-R5-ARC-OPS-126-01).
+/product/infra/server/test/postgres-log-terse.test.sh @anhvh93-tech
+# SEC (+ BE owns the code) – admin commands run on production (gate (b)): the 2FA reset when no owner can sign in
+# (SR-AUTH-06 06.33) and the first-owner bootstrap (prints a one-time password). The wrappers are scripts/*.sh, the
+# code is src/admin/ (SEC FB-R5-SEC-OPS-126-01). Not the whole scripts/ folder: the .mjs generators are not SEC paths.
+/product/services/api/scripts/*.sh @anhvh93-tech
+/product/services/api/src/admin/ @anhvh93-tech

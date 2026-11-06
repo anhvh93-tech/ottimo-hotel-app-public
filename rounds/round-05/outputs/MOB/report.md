@@ -29,3 +29,14 @@ Mobile 14 tệp / 166 ca qua; ESLint, prettier, typecheck sạch; `gen_strings.p
 
 ## Còn lại
 Sau khi #102 gộp, merge main vào #97 và giữ đúng một dòng `hk.action.needs_cleaning` (FB-R5-ARC-FE-MRG-01): giữ dòng của #102, nối thêm vế ghi chú về app nhân viên, chạy lại `gen_strings.py`. Merge, không rebase. Thứ tự gộp #102 → #98 → #97.
+
+### Phản hồi & sửa – PR #97 sau review UXD, ARC, QA (07/11)
+- FB-R5-UXD-MOB-PR97-01 và FB-R5-ARC-MOB-97-01 (Major): **Đã sửa** ở `f6a5b7f6`. Nút phụ trong thân màn, trên "Báo sự cố căn này". Ca chạm lần hai sau 150 ms. Ca Dọn xong căn có khách, chờ 11 giây, chân màn trống.
+- FB-R5-UXD-MOB-PR97-02 (Minor): **Đã sửa**, `hk.queue.r.time_report`, 1 ca.
+- FB-R5-UXD-MOB-PR97-03 (Suggestion): **Đã làm**, `hk.needs_cleaning_help`.
+- FB-R5-ARC-MOB-97-02 (Minor) và FB-R5-QA-MOB-97-02: **Đã sửa**. Mock theo `scopeRooms` và thứ tự kiểm của máy chủ. 4 ca: 404 ngoài phạm vi; việc giao người khác; việc hôm trước; R8a không thêm việc. Thêm 1 ca phiên chỉ đọc với `allowedEventsOf`.
+- FB-R5-QA-MOB-97-01 (Minor): **Đã làm**. P1 hai lệnh đúng thứ tự; P2 chạm đúp mất mạng 20 phút, `performedAt` = giờ chạm; P3 404 → "Cần xem lại".
+- FB-R5-ARC-UXD-117-01: **Đã áp** ghi chú `hold_expired`. FB-R5-ARC-MOB-117-01: **Đã làm** biểu tượng `x` / `clock`.
+- FB-R5-ARC-MOB-97-03: **Chưa làm**, chờ DOM, v1.0.6. UXD PR117-01 (`hold_expiring`) cũng sang v1.0.6.
+- Mock: căn 301 có `currentGuest` (UXD mục 7).
+- Head PR sau merge main của ORC: `3cc9c1e6`. Mobile 193/193, 12 đột biến bị bắt. Khi #102 gộp: bỏ dòng `hk.action.needs_cleaning` trùng rồi sinh lại chữ (FB-R5-ARC-FE-MRG-01).
