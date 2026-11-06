@@ -286,7 +286,7 @@ ORC giao 07/11, hai việc gom một lượt:
   - Cho UXD khi làm thẻ Wi-Fi (không chặn): in tháng in nhỏ ở góc thẻ, để buồng phòng nhận ra thẻ mới.
   - CPY mục 1, gạch **Lúc gửi**: "mọi khách đang ở" thêm vế loại trừ như bước 4 trên. ORC chuyển CPY, chỉ một dòng.
 - **Việc của DOM:** ghi khung 13:00–17:00, việc thay thẻ và cách tính tin vào BR-012 (7) ở bản BR kế tiếp. Ghi thêm BR-973 (4) cho ca đổi gấp.
-- **Trạng thái:** Open (BA, khi bật khối; CPY một dòng).
+- **Trạng thái:** **Closed** phần BA 07/11 (mục 6): BA áp ở `da596507`, DOM đọc lại đạt. Còn một dòng của CPY (mục 1, gạch **Lúc gửi**), không đổi chữ sổ tay.
 
 ### FB-R5-DOM-BA-06
 
@@ -313,7 +313,7 @@ ORC giao 07/11, hai việc gom một lượt:
   - Thay gạch "Đơn, báo giá, hợp đồng tạo trước ngày hiệu lực giữ giá cũ" (sổ tay 1.3, `01` 9.1) và câu trả lời hỏi đáp bằng:
     > Đơn, báo giá, hợp đồng **đã tạo trước lúc lưu** giá mới giữ giá lúc tạo. Từ lúc lưu, đơn và báo giá mới cho các đêm từ ngày hiệu lực trở đi lấy giá mới, kể cả khi tạo trước ngày đó. Web cũng bán các đêm đó với giá mới ngay từ lúc lưu.
   - `so-van-hanh.md` 4.1 bước 7: "báo giá thử 1 đêm của căn đó **từ ngày hiệu lực trở đi**".
-- **Trạng thái:** Open (BA).
+- **Trạng thái:** **Closed** 07/11 (mục 6): BA áp ở `da596507`, DOM đọc lại đạt.
 
 ### FB-R5-DOM-BA-07
 
@@ -333,7 +333,7 @@ ORC giao 07/11, hai việc gom một lượt:
   - Món hết hạn hay vỡ giữ lại vỏ hoặc chai tới lần đếm tuần, rồi bỏ.
   - Dòng **Mỗi tuần**: "so với tổng phiếu nạp, **gồm cả dòng không vào tủ**". Món nào tuần nào cũng có dòng "dùng khác": chủ đầu tư xem lại.
   - Lúc đếm kho thì xem hạn dùng, món còn dưới 1 tháng thì nạp trước.
-- **Trạng thái:** Open (BA, không chặn v1.0.5).
+- **Trạng thái:** **Closed** 07/11 (mục 6): BA áp ở `da596507`, DOM đọc lại đạt.
 
 ### FB-R5-DOM-BA-08
 
@@ -372,3 +372,40 @@ ORC giao 07/11, hai việc gom một lượt:
 Dòng decision-log đề xuất (ORC ghi):
 
 `| 2026-11-07 | 5 | DOM – lượt 3 tài liệu BA (d467578b, df271ee7) và câu Wi-Fi CPY (12d71871): BA-02, 03, 04 Closed; Wi-Fi (BA-05): đổi mật khẩu trong 13:00–17:00 (trong BR-973, cách TP-06 10:00 và R-1 20:00 ≥ 3 giờ nên BR-974 không gộp), in sẵn thẻ 10 căn + 2 dự phòng, căn có khách thay thẻ ở lần dọn tới, khách hỏi trước thì đưa thẻ ở quầy, khách dài hạn không dọn trong 3 ngày thì hẹn giờ hoặc đưa thẻ tự thay; tin tính vào trần BR-974, không gửi khách đi hôm nay, khách nhận phòng sau giờ đổi, đơn đã có 2 tin; đổi gấp do chủ đầu tư quyết là tin sự cố; câu 4 CPY giữ nguyên; BA-06: báo giá thử 1 đêm từ ngày hiệu lực trở đi, "tạo trước ngày hiệu lực giữ giá cũ" sửa thành "tạo trước lúc lưu", sửa giá sai hôm nay hay ngày sau bằng lưu lại cùng ngày hiệu lực; BA-07 phiếu nạp K-MB có dòng không vào tủ; BA-08 khách gửi ảnh giấy tờ qua chat (Suggestion, SEC xác nhận); UXD dựng HTML sổ tay 1.19 và bộ hướng dẫn 1.17 sau khi BA áp BA-06, khối Wi-Fi chờ ORC | DOM | Không ESC; DOM-on-ba-v105-docs mục 5 |`
+
+## 6. Lượt 4 – BA `da596507` (07/11/2026)
+
+ORC giao 07/11: xác nhận BA đã đóng BA-06, BA-07 và áp BA-05 (bước 1, 4, 5 cùng câu CPY `12d71871`). UXD đang dựng HTML sổ tay 1.19 từ commit này.
+
+Đã đọc diff `da596507`:
+
+- sổ tay: 1.1, 1.3, 1.4, 1.15, 1.16, 2.1 (cuối ca bước 3), 2.14, 3.4, 3.7, 5.4, dòng lịch sử 1.19;
+- `01`: 2.1, 9.1, 9.2, 13, bảng tình huống;
+- `02`: 11.1, 12.4;
+- `03`: 7, 11.2;
+- `so-van-hanh.md`: 1.2, 4.1 bước 7.
+
+### 6.1 Kết luận
+
+| Thẻ | Kết luận |
+|---|---|
+| **BA-05** (Wi-Fi) | **Closed** phần BA. Có đủ các phần sau:<br>- bước 1: khung 13:00–17:00, in sẵn thẻ 10 căn và 2 thẻ dự phòng trong ngăn quầy;<br>- bước 4: câu CPY dán nguyên văn (bản đầy đủ và bản Zalo, EN và VI), ba nhóm không gửi, một tin cho người liên hệ, đổi gấp là tin sự cố;<br>- bước 5: thay đủ 10 căn, có ca khách dài hạn, ghi sổ số căn chưa thay, thẻ cũ cắt nhỏ;<br>- buồng phòng (sổ tay 3.4, `03` 11.2) thay thẻ ở lần dọn đầu, thêm "không chụp, không nhắn mật khẩu".<br>Bước 2, 3, 6 giữ nguyên, đúng. Câu 4 của CPY khớp bước 5.<br>Chỉ còn dòng **Lúc gửi** ở CPY mục 1 ("mọi khách đang ở"). Dòng đó chưa thêm ba nhóm không gửi, nhưng không phải chữ của sổ tay; ORC chuyển CPY khi tiện |
+| **BA-06** (báo giá thử, giá theo lúc lưu) | **Closed.** Đúng chữ DOM ở sổ tay 1.3, `01` 9.1, `so-van-hanh.md` 4.1 bước 7. Câu "tạo trước ngày hiệu lực giữ giá cũ" đã thay ở cả 1.3, 5.4 (hỏi đáp) và bảng tình huống của `01`. Không còn chỗ nào giữ câu cũ |
+| **BA-07** (phiếu nạp có dòng không vào tủ) | **Closed.** Đúng chữ DOM ở sổ tay 1.1, 1.16, 3.7, `01` 2.1, 13, `03` 7 và `so-van-hanh.md` 1.2. Có cả việc xem hạn dùng lúc đếm |
+| BA-08 (ảnh giấy tờ qua chat) | Vẫn Open. Lượt sau, chờ CPY và SEC. Không chặn HTML |
+
+Ngoài ba thẻ, BA còn đổi phần đếm lại minibar theo ORC (BE-A2 `0b2ebb45`): lần đếm thấp hơn hiện là **Điều chỉnh dòng folio** và có trong bộ lọc 7 ngày; khối "có chốt chặn" đã bỏ. Góc quầy:
+
+- Đọc đúng. Lễ tân chỉ ghi hàng **Điều chỉnh dòng folio**, không ghi riêng hàng **Đảo dòng folio** và **Thêm dòng folio** của cùng lần đếm. Như vậy mỗi lần đếm chỉ một dòng sổ giao ca.
+- Câu nằm trong khối "(từ v1.0.5, tới v1.0.6)" và có chú thích trả lại câu BA-03 cũ nếu #110 trượt tag. ORC giữ nhắc việc này lúc cắt bản.
+- Không thẻ.
+
+### 6.2 UXD
+
+**Không có thẻ nào đổi chữ sổ tay.** UXD dựng HTML sổ tay 1.19 và bộ hướng dẫn 1.17 từ `da596507` được ngay. Điều kiện ở mục 5.2 (BA áp BA-06) đã xong.
+
+Khối [Chờ xác nhận – Wi-Fi trên Desk] vẫn theo chú thích của BA: không dựng tới khi ORC báo bản của phần Desk V5-58.
+
+Dòng decision-log đề xuất (ORC ghi):
+
+`| 2026-11-07 | 5 | DOM – lượt 4 tài liệu BA (da596507): BA-05 Closed phần BA (Wi-Fi 13:00–17:00, in sẵn thẻ, câu CPY nguyên văn, ba nhóm không gửi, thay đủ 10 căn, buồng phòng thay ở lần dọn đầu; còn một dòng Lúc gửi ở CPY mục 1, không đổi sổ tay), BA-06 Closed (báo giá thử từ ngày hiệu lực, giá theo lúc lưu ở 1.3, 5.4, 01 9.1, sổ vận hành 4.1), BA-07 Closed (phiếu nạp có dòng không vào tủ), BA-08 còn Open; đọc đúng phần đếm lại minibar theo 0b2ebb45 (điều kiện #110 trong tag); không thẻ đổi chữ, UXD dựng HTML sổ tay 1.19 từ da596507 được, khối Wi-Fi chờ ORC | DOM | Không ESC; DOM-on-ba-v105-docs mục 6 |`
