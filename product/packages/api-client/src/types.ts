@@ -221,6 +221,8 @@ export type HkTaskStatus = Schemas['HkTaskStatus'];
 export type HkTaskSummary = ResponseOf<'listHkTasks'>['summary'];
 export type CreateHkTaskBody = BodyOf<'createHkTask'>;
 export type TransitionHkTaskBody = BodyOf<'transitionHkTask'>;
+/** R1/R2/R3/R8 (0.3.7): `expectedFrom` instead of If-Match; V5-15 Desk sends R8 `needs_cleaning` (0.3.13 1.4). */
+export type TransitionRoomStatusBody = BodyOf<'transitionRoomStatus'>;
 export type WorkOrder = Schemas['WorkOrder'];
 export type WorkOrderCreate = Schemas['WorkOrderCreate'];
 export type WorkOrderStatus = Schemas['WorkOrderStatus'];

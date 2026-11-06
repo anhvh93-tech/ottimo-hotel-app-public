@@ -1774,6 +1774,7 @@ g("R2 hi-fi Sprint 4 – PWA buồng phòng (H19–H21)", [
     ("hk.done_at", "Xong lúc {time}", "Done at {time}"),
     ("hk.action.start_cleaning", "Bắt đầu dọn", "Start cleaning", None, "event start_cleaning (R1)"),
     ("hk.action.finish_cleaning", "Dọn xong", "Finished cleaning", None, "event finish_cleaning (R2/R3)"),
+    ("hk.action.needs_cleaning", "Cần dọn", "Needs cleaning", None, "event needs_cleaning (R8, OC → OD). v1.0.5 V5-15: nút trên Desk (S10 Trạng thái buồng) – tên nút theo plan R5; app nhân viên dùng chung khóa này. Chờ UXD duyệt"),
     ("hk.empty_title", "Hết việc rồi!", "All done!"),
     ("hk.empty_body", "Không còn việc nào hôm nay. Có việc mới sẽ hiện ở đây.", "No more tasks today. New ones will appear here."),
     ("hk.error_title", "Chưa tải được việc hôm nay", "Couldn't load today's tasks"),
@@ -4180,6 +4181,12 @@ g("v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm k
 g("v1.0.4 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều tủ – nút chính nêu tủ kế tiếp, toast khi đã lưu một tủ. Chữ của UXD (UXD-on-v104-pr81-minibar-race, 05/11)", [
     ("co.go_next_cabinet", "Tiếp tục: Tủ căn {room}", "Continue: Room {room} minibar", None, "H16 bước 1, nút chính thay co.go_extras khi sau tủ đang hiện vẫn còn tủ khác (bản tóm tắt mới nhất, bỏ tủ đã đếm trên trang và tủ đang hiện). {room} = căn của tủ kế tiếp. Hết tủ thì co.go_extras. Nhãn busy như #67"),
     ("co.minibar_cabinet_saved", "Đã lưu số đếm tủ căn {room}.", "Room {room} minibar count saved.", None, "H16 bước 1, toast của DS sau 201 khi trang chuyển sang tủ khác. {room} = tủ vừa đếm (không phải tủ đang hiện). Sang thẳng bước 2 thì không có toast"),
+])
+
+# ---------- v1.0.5 V5-15 – nút Cần dọn trên Desk (S10 Trạng thái buồng) ----------
+g("v1.0.5 V5-15 – FE-A: nút Cần dọn trên Desk (R8 needs_cleaning, ARC 0.3.13 mục 1.4). Chờ UXD duyệt", [
+    ("hk.desk.needs_cleaning_toast", "Căn {room} chuyển cần dọn và có việc dọn.", "Room {room} needs cleaning and gets a cleaning task.", None, "Toast sau transitionRoomStatus needs_cleaning 200 (OC → OD; máy chủ tạo việc dọn ở lại nếu căn chưa có). Cùng câu với stay.change_effect_old của UXD. {room} = số căn"),
+    ("error.INVALID_TRANSITION_generic_reloaded", "Dữ liệu vừa thay đổi nên thao tác này không còn dùng được. Danh sách đã tải lại.", "This just changed, so the action no longer applies. The list has been reloaded.", None, "Câu UXD copy-v1.0.5 mục 4.12 (UXD-F1-01), nguyên văn. 409 INVALID_TRANSITION ở chỗ tự tải lại: nút Cần dọn (trạng thái căn đã đổi – Desk tải lại danh sách căn). Làn Gói 2 không thêm lại khóa này"),
 ])
 
 def build():

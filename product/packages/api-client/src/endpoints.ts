@@ -71,6 +71,7 @@ import type {
   RoomStatusEntry,
   TransitionGuestRequestBody,
   TransitionHkTaskBody,
+  TransitionRoomStatusBody,
   TransitionWorkOrderBody,
   UpdateWorkOrderBody,
   WorkOrder,
@@ -968,6 +969,20 @@ export function createEndpoints(api: ApiClient) {
           query: { filter },
         },
       ),
+    /**
+     * R1/R2/R3/R8 on one room (US-053; V5-15 Desk "Cần dọn" = R8 `needs_cleaning`, OC → OD – 0.3.13 1.4). No If-Match:
+     * the server checks `expectedFrom` and answers 409 INVALID_TRANSITION (+ `currentState`) when the room changed.
+     */
+    transitionRoomStatus: (
+      { propertyId, roomId }: P & { roomId: string },
+      body: TransitionRoomStatusBody,
+      idem: string,
+    ) =>
+      r<RoomStatusEntry>('POST', '/v1/properties/{propertyId}/rooms/{roomId}/status-transitions', {
+        path: { propertyId, roomId },
+        body,
+        idempotencyKey: idem,
+      }),
     /** US-054: today's tasks sorted by BR-807 rank + `summary {done, total}`. */
     listHkTasks: ({ propertyId }: P, query: { date?: string; status?: HkTaskStatus } = {}) =>
       r<{ data: HkTask[]; summary: HkTaskSummary }>('GET', '/v1/properties/{propertyId}/hk-tasks', {
