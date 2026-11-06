@@ -214,7 +214,7 @@ export class FolioController {
       tz,
       inv ? invoiceDto(inv) : null,
       await this.bills.labelContext(tx, folio),
-      await this.folios.openRefundVnd(tx, folio.id, lines),
+      await this.folios.openRefundsByReason(tx, folio.id, lines),
       actor ? await this.folios.qrDueNow(tx, actor, folio.id, payments) : new Map(),
     );
   }

@@ -127,7 +127,7 @@
     - tóm tắt không gửi giờ → 422 `field = checkoutAt`;
     - đếm lại `audit_event`, `payment`: không đổi.
   - Làm cùng commit merge `main` sắp tới, nếu kịp. Không chặn gộp.
-- Trạng thái: Open
+- Trạng thái: Done – BE-A1 @ `ad507f94` (unit + integration), ARC kiểm ở mục 9
 
 ### 1.4 Ghi chú cho vai khác (không phải thẻ)
 
@@ -186,7 +186,7 @@
   - Integration: thêm mảng `KNOWN_OVERBLOCK` (hai chuỗi trên) với `expect` 422 `ID_NUMBER_DETECTED`, kèm chú thích "chặn thừa đã chấp nhận, SEC PR24 G2".
   - CPY/UXD (không phải việc BE): câu `error.ID_NUMBER_DETECTED` trên trang khách có thể thêm gợi ý "viết số phòng cách nhau bằng dấu phẩy". Theo hướng thẻ SEC PR24-03 cho website.
   - Làm khi tiện, hoặc v1.0.6.
-- Trạng thái: Open
+- Trạng thái: Done (phần BE) – PR #143 @ `d574b518`, ARC kiểm ở mục 10. Gợi ý chữ cho CPY/UXD để v1.0.6
 
 ---
 
@@ -319,3 +319,169 @@ Bổ sung và làm rõ danh sách ở `ARC-on-be-pr-106-99-checkout.md` mục 4.
 - Mỗi luật một chỗ: biên giờ nhận phòng và cờ `typed` nằm trong `resolveCheckoutAt`; W và ngày lịch tối thiểu nằm trong `shared/business-day.ts`. Bên gọi chỉ truyền dữ liệu. Đường quá ngày đi của #99 tự hưởng biên mới, không phải sửa gì.
 - Test đọc lại DB và log, không chỉ đọc phản hồi: đếm 6 bảng và `write_count` sau mỗi lần chặn, bắt log pino mức `trace`, đọc `audit_event.reason` sau khi bỏ ký tự ẩn, đọc oracle BR từ `br-examples.json`. 13/15 đột biến bị bắt.
 - `Fields.text` sửa một lần cho 38 chỗ gọi, đúng bản SEC đã thử. Ca hồi quy thẻ ở #113 tự kiểm điều kiện của nó (`looksLikeCard = false`), nên ca không mất nghĩa khi bộ dò đổi.
+
+---
+
+## 9. Delta #127 @ `ad507f94` (đọc sau khi đã gộp)
+
+- Lời giao: ORC, sau lượt review ở trên. #127 @ `ad507f94` đã vào `main` qua merge `17cbcd6f` (03:20:49). Merge này ngoài ý muốn: một lệnh `git pull` trong thư mục chung gặp `FETCH_HEAD` có `refs/pull/127/head`. Vì vậy đây là review sau gộp; lỗi nếu có sẽ đi bằng PR sửa tiếp.
+- **Kết luận: DUYỆT @ `ad507f94`.** 0 Blocker, 0 Major, không thẻ mới. Không cần PR sửa tiếp.
+- Delta so với `5c66ca15` (ARC đã duyệt), theo first-parent:
+
+  | Commit | Nội dung | Kiểm |
+  |---|---|---|
+  | `15c9cb85` | merge `main` @ `be756770` (có #99) | `git show --remerge-diff`: chỉ `frontdesk/audit-entities.ts` xung đột, gỡ đúng mục 0.2 – giữ 3 khóa B18 (`systemTime`, `extraNight`, `postMidnightWindow`) và `overdue`; chú thích thêm "next to `overdue`" |
+  | `56b1ae66` | ca `overdueReason` chỉ có ký tự ẩn, hoặc dưới 3 ký tự sau khi bỏ → 422 `REASON_REQUIRED` | test |
+  | `3075a6b1` | merge `main` | remerge-diff rỗng (không sửa tay) |
+  | `6a670f3a` | SEC 127-01: một bộ lọc ký tự ẩn cho mọi chữ tự do, kể cả `arrivalNote` | mục 9.1 |
+  | `ad6b40ab` | merge `main` @ `74189d2c` (có #105, #113) | remerge-diff rỗng |
+  | `ad507f94` | test cho ARC 127-01 | mục 9.2 |
+
+### 9.1 Bộ lọc ký tự ẩn (SEC 127-01)
+
+- `shared/validation.ts`: `CONTROL_CHARS = /[^\P{Cc}\t\n\r]|[\p{Cf}\p{Default_Ignorable_Code_Point}\p{Cs}]/gu`.
+  - Bỏ: mọi Cc trừ tab, LF, CR; mọi Cf; mọi Default_Ignorable; surrogate lẻ.
+  - Có cờ `u`, nên cặp surrogate hợp lệ (emoji) là một code point, không khớp `\p{Cs}`. Chỉ surrogate lẻ bị bỏ.
+  - Dấu thanh tiếng Việt dạng NFD (Mn) giữ nguyên.
+- Sáu ký tự ARC ghi ở mục 1.4 (U+061C, U+2060, U+00AD, U+180E, U+2061, U+FFF9) nay đều bị bỏ. Ghi chú đó đóng.
+- Chấp nhận, không thẻ:
+  - ZWJ U+200D là Cf, nên chuỗi emoji ghép (gia đình…) tách thành từng emoji;
+  - ZWNJ U+200C bị bỏ (dùng cho tiếng Ba Tư, Hindi; không thuộc 5 ngôn ngữ OTTIMO);
+  - VS16 bị bỏ, ký hiệu giữ nguyên.
+- `guest-portal.service.ts`: bỏ bản `stripControl` riêng (chỉ C0 + DEL); `arrivalNote` dùng chung `stripControlChars`. Đúng hướng "mỗi luật một chỗ".
+- Tác động rộng: `stripControlChars` còn được gọi ở housekeeping, work order, refund, guest request, items, folio line. Mọi chỗ đó nay dùng bộ lọc rộng hơn; toàn bộ API vẫn xanh (dưới đây).
+- Surrogate lẻ trước đây làm 500 (22P02 khi ghi jsonb audit). Nay hết ở mọi đường qua `Fields.text`/`stripControlChars`. Đường chữ tự do nào không qua hàm này vẫn có thể 500; SEC 127-02 (bộ lọc `accountHolder` của refund) là một ca như thế, SEC đang theo.
+
+### 9.2 Test cho FB-R5-ARC-BE-127-01
+
+Đúng đề xuất của thẻ, và đủ các ý ORC nêu:
+- Unit: đi 24/11, nhận phòng 13:00 ngày 24/11, giờ máy chủ 14:00 → gõ 12:00 (`typed: true`) và không gõ (`typed: false`) đều `null`; ca đối chứng 13:30 vẫn ra giờ.
+- Integration `v105-checkout-at.test.ts`: đơn 30/11 → 01/12, `setStayStatus(… actualCheckinAt 01/12 13:00)`, đồng hồ 01/12 14:00:
+  - B18 chỉ gửi `checkoutTime: '12:00'` → 422 `[{ field: checkoutTime, code: DATE_INVALID }]`;
+  - tóm tắt `?checkoutTime=12:00` → `checkoutTime`;
+  - tóm tắt không giờ, và QR `check_out` không giờ → `checkoutAt`;
+  - B18 gửi `checkoutAt` 12:30 (trước giờ nhận phòng) → `checkoutAt`;
+  - đếm `audit_event`, `payment` và trạng thái đơn trước/sau: không đổi;
+  - đối chứng: tóm tắt `checkoutTime=13:45` qua.
+
+Đột biến (worktree tạm, PostgreSQL 17 riêng; mỗi lần một chỗ, chạy 5 tệp: units, `v105-checkout-at`, `v105-overdue-checkout`, `v546-guest-id-number`, `guest-portal`):
+
+| # | Đột biến | Kết quả |
+|---|---|---|
+| F1 | `field` luôn `checkoutAt` (M4 cũ của thẻ 127-01) | Đỏ (ca ARC 127-01) – đúng như BE-A1 nói |
+| F2 | `field` bỏ qua `checkoutAt` đã gửi | Đỏ (2 ca, gồm PU1 của SEC A1A-01) |
+| F3 | Nhánh "không còn ứng viên" trả ứng viên đầu thay vì `null` | Đỏ (unit + integration) |
+| S1 | Trả về regex cũ | Đỏ (3 ca) |
+| S2 | Bỏ `\p{Cs}` | Đỏ (2 ca, gồm T15-5 ghi lý do có surrogate lẻ) |
+| S3 | `arrivalNote` không qua `stripControlChars` | Đỏ (`guest-portal`) |
+
+Chạy trên `ad507f94`: `tsc --noEmit` sạch; 6 tệp liên quan 82/82; **toàn bộ API (trừ `production-bootstrap`): 193 tệp qua, 2 tự bỏ qua, 4828 ca qua, 0 hỏng.**
+
+## 10. PR #143 `r5-v5-46-tests` @ `d574b518` (BE-A1, chỉ test) – cho FB-R5-ARC-BE-113-01
+
+- **Kết luận: DUYỆT @ `d574b518`.** 0 Blocker, 0 Major, không thẻ mới. Điều kiện gộp: CI xanh, **gồm job E2E** (spec `v5-46-guest-id-number.r5.spec.ts` chạy với máy chủ thật; ARC không chạy Playwright tại máy).
+- 2 tệp, +64/−7, không chạm mã sản phẩm.
+
+| Ý của thẻ 113-01 | #143 | Kiểm |
+|---|---|---|
+| E2E `?? null` | `expect(after.body).not.toHaveProperty('etaTime')` | Đúng hơn đề xuất của ARC: máy chủ bỏ hẳn trường khi chưa có giờ đến (`guest-portal.service.ts` 460: `...(row?.eta_time ? { etaTime } : {})`), và hợp đồng khai `etaTime` là `LocalTime`, không nullable |
+| E2E `?? []` | `expect(mine.body).toMatchObject({ data: [] })` | `toMatchObject` so mảng đúng độ dài, nên ghim được cả dạng thân lẫn danh sách rỗng |
+| Ghim chặn thừa đã biết | `KNOWN_OVERBLOCK` = "phòng 201 202 203 cần thêm khăn", "Booking 123456789" → 422 `ID_NUMBER_DETECTED` ở **cả** `note` (`createGuestRequest`) và `arrivalNote` (online check-in) | `refusedAsId` so đúng `errors[{ field, code }]` và không có số nào trong thân phản hồi. Chú thích ghi rõ "SEC PR24 G2, chặn thừa đã chấp nhận" |
+| (SEC 113-01, cùng PR) | lệnh bị từ chối không để lại dòng `idempotency_key`; cùng khóa với chữ sạch → 201, đúng 1 dòng; `request_hash`/`response_body` không chứa số mẫu | Đúng SR về idempotency: lệnh bị từ chối ở khâu đọc thân không tiêu khóa |
+| Gợi ý chữ cho khách (dấu phẩy giữa số phòng) | không có | Việc của CPY/UXD, v1.0.6 – không thuộc PR này |
+
+Đột biến trên bộ dò (`shared/sensitive-number.ts` `idIn`), chạy tệp integration của #143 và bản trên `main` để so:
+
+| # | Đột biến | #143 | Bản trên `main` |
+|---|---|---|---|
+| K1 | Bỏ luật 9 chữ số | Đỏ (ca ARC 113-01) | Xanh |
+| K2 | Ba nhóm 3 chữ số không còn là giấy tờ | Đỏ (ca ARC 113-01) | Xanh |
+
+→ Đổi bộ dò ở hai ca này giờ hiện ra trong CI. Trước #143 thì không.
+
+Chạy: `v546-guest-id-number.test.ts` 8/8 trên `d574b518`, PostgreSQL 17 mới.
+
+## 11. Dòng decision-log đề xuất cho mục 9–10 (ORC ghi khi commit)
+
+`| 2026-11-07 | 5 | ARC – #127 delta @ ad507f94 (đọc sau gộp, merge 17cbcd6f ngoài ý muốn) DUYỆT, không cần PR sửa tiếp: remerge-diff 15c9cb85 chỉ audit-entities.ts, giữ 3 khóa B18 và overdue; 3075a6b1, ad6b40ab không sửa tay; bộ lọc ký tự ẩn chung (Cc trừ tab/LF/CR, Cf, Default_Ignorable, surrogate lẻ) cho mọi chữ tự do kể cả arrivalNote; test 127-01 đủ (gõ giờ → checkoutTime; không giờ, QR, checkoutAt gửi lên → checkoutAt; không ghi gì), F1/F2/F3/S1–S3 đều đỏ; toàn bộ API 4828 ca qua. ARC 127-01 Done. PR #143 @ d574b518 (chỉ test) DUYỆT: not.toHaveProperty('etaTime') đúng máy chủ và hợp đồng, toMatchObject({ data: [] }), KNOWN_OVERBLOCK ghim ở note và arrivalNote (K1/K2 đỏ trên #143, xanh trên main), lệnh bị từ chối không tiêu Idempotency-Key; điều kiện gộp CI xanh gồm E2E. ARC 113-01 Done phần BE, gợi ý chữ cho CPY/UXD để v1.0.6 | ARC | rounds/round-05/reviews/ARC-on-be-a1-prs-127-113-114.md |`
+
+---
+
+## 12. Delta #114 @ `e9dcef63` (đọc lại sau lượt duyệt `f730b691`)
+
+- Lời giao: ORC, bước Review round 5. Chỉ đọc delta `f730b691..e9dcef63`. Head không đổi trong lúc review (kiểm bằng `gh pr view` lúc ghi).
+- **Kết luận: DUYỆT @ `e9dcef63`.** 0 Blocker, 0 Major, không thẻ mới.
+  - Thẻ ARC: **114-01 Done**, **114-02 Done**.
+  - **DOM PR114-01: test đúng đề xuất của DOM. DOM không cần đọc lại.**
+  - Điều kiện gộp: CI xanh ở `e9dcef63`. Lúc ghi, các job đã xong đều xanh, kể cả `format · lint · audit · test · build`. Chỉ còn job `docker images build · E2E smoke` đang chạy.
+  - #127 và #113 đã ở trên `main`, nên #114 gộp được ngay khi E2E xanh. #142 (Desk V5-11) gộp **sau** #114, như cũ.
+- Delta theo first-parent:
+
+  | Commit | Nội dung | Kiểm |
+  |---|---|---|
+  | `6a086d41` | DOM PR114-01: đơn do sale chốt, B16 lúc 03:00 ngày 21/10 | mục 12.3 |
+  | `04934006` | merge `main` (có #99) | mục 12.1 |
+  | `8a5f8145` | ARC 114-01: ca "≤" | mục 12.2 |
+  | `9aafc549` | ARC 114-02: `businessDate` bắt buộc | mục 12.2 |
+  | `e9dcef63` | merge `main` @ `c174acc3` (có #127 `17cbcd6f`, gồm `e0566ea6`) | mục 12.1 |
+
+### 12.1 Hai commit merge: gỡ đúng bảng 0.2, không rơi gì của `main`
+
+| Merge | `git show --remerge-diff` | Đúng bảng 0.2? |
+|---|---|---|
+| `04934006` | Chỉ `reservations/internal/allowed-actions.ts` xung đột. Bản gỡ giữ `checkOutOverdueOpen` và chú thích V5-15 của #99. Chú thích một dòng cũ của `earlyDepartureOpen` thay bằng chú thích V5-11 bốn dòng. Thân hàm không đổi | Đúng dòng 2 |
+| `e9dcef63` | Chỉ `test/be-a1-v105-units.test.ts` xung đột. Giữ cả hai khối `describe`: V5-11 `allowedActions.early_departure` và SEC A1B-01 `Fields.text`. Chỉ thêm hai dòng đóng `});` cho khối V5-11 | Đúng dòng 3 |
+
+- **Không rơi gì của `main`:**
+  - `git diff c174acc3 e9dcef63` chỉ chạm đúng 8 tệp của PR, +685/−9;
+  - kết quả này bằng `git diff <gốc gộp> e9dcef63`, tức không tệp nào của `main` bị đảo ngược;
+  - trong 6 tệp mã PR sửa, diff so với `main` chỉ gồm dòng của PR. Phần của `main` còn nguyên, ví dụ `checkOutOverdueOpen` (#99) trong `allowed-actions.ts`. `checkout.service.ts` (có #99, #127) chỉ đổi đúng một dòng `serviceDate` của `deposit_forfeit`.
+- `git merge-tree` với `main` hiện tại: sạch, không xung đột.
+- Ghi chú nhỏ, không phải thẻ: commit `04934006` ghi "merge main @ a2c039ef", nhưng cha thứ hai là `7e1b6aa1`. Hai commit chênh lệch chỉ là tài liệu (log của SEC và ORC). Merge sau đã đưa cả hai vào.
+
+### 12.2 Thẻ ARC 114-01 và 114-02
+
+| Thẻ | Mã / test @ `e9dcef63` | Kiểm của ARC |
+|---|---|---|
+| **114-01** (Minor) | Ca mới "ARC 114-01 (≤, not =)", hai lượt lúc 03:00 ngày 21/10:<br>– đơn 19–20/10, ngày đi = ngày nghiệp vụ D;<br>– đơn 18–19/10, đã quá ngày đi.<br>Mỗi lượt gọi cả `dryRun` lẫn lần ghi → 409 `INVALID_TRANSITION` + `currentState: in_house` + `useCheckout: true`, **không có** `minNewDepartureDate`. `footprint` (đơn, đêm, dòng folio, yêu cầu duyệt, audit) trước = sau | Đột biến M10 (`<=` → `===`): **đỏ** (ca 114-01). Ở `f730b691` M10 sống. Đủ cả hai ý của thẻ, kể cả ca quá ngày đi. **Done** |
+| **114-02** (Suggestion) | `VoidStayInput.businessDate: LocalDate` (bắt buộc). Bốn chỗ gọi `money.voided` đều truyền:<br>– hủy và đánh dấu không đến: `ctx.today`;<br>– hết hạn giữ chỗ: `today` của job;<br>– chuyển phòng khi quá tải: `ctx.today`.<br>`today` của job = `businessDate(now, tz, business_day_rollover)` (`jobs/reservation-jobs.ts`), tức ngày nghiệp vụ thật, không phải ngày lịch. Dòng `throw` ở `voidStay` giữ làm lưới cuối | Bỏ `businessDate` ở chỗ gọi hết hạn giữ chỗ, hoặc ở chỗ chuyển phòng → `tsc` báo **TS2345** đúng dòng đó. Lỗi quên truyền nay hiện lúc build, không còn là 500 ở production. Không đổi hành vi: hai chỗ này có `retainedVnd: 0`. **Done** |
+
+### 12.3 DOM PR114-01: test đúng đề xuất, DOM không cần đọc lại
+
+| Ý trong đề xuất của DOM | Ca "DOM PR114-01" | Khớp |
+|---|---|---|
+| Đơn có người hưởng (sale hoặc CTV) | `directSource: 'sales_staff'`, `closerUserId` = sale của tenant test. Dòng hoa hồng `payee_type: staff` | Có |
+| Cùng số oracle BR-428-14 | Mọi số đọc từ `br-examples.json` (`oracle('BR-428-14')`), không gõ tay | Có |
+| Chỉ dùng tỷ lệ test (`test_rate_short`), không số thật | Tham số `short_stay_commission_pct` đặt bằng một hằng số giả trong tệp test, hiệu lực trước ngày đặt | Có (SEC G3) |
+| Sau B16 lúc 03:00 ngày 21/10: `projected`, cơ sở = 700.000 (đêm 20/10) | Trước B16: một dòng, cơ sở = 2 đêm. Sau B16: một dòng `projected`, cơ sở = 1 đêm × giá oracle; `amount` = `applyPct(cơ sở, tỷ lệ test)` | Có |
+| Không gồm 1.050.000 phí trả sớm | So bằng tuyệt đối với 1 đêm. Đọc thêm dòng `early_departure_fee` = số oracle, để chắc phí đã được ghi | Có |
+
+Đột biến (PostgreSQL 17 riêng, tệp `v105-early-hours.test.ts`):
+
+| # | Đột biến | Bản `e9dcef63` | Bản `f730b691` của tệp test |
+|---|---|---|---|
+| D2 | Hoa hồng không ghi lại khi cơ sở đổi (`syncCommission` coi cơ sở cũ là khớp) | **Đỏ** (ca DOM) | Xanh |
+| D1 | Cơ sở cộng thêm dòng `early_departure_fee` | Xanh | Xanh |
+
+- D1 xanh là **tương đương ở thời điểm B16**: `stay.service.ts` gọi `resyncStay` trước khi ghi dòng phí, nên lần tính lại này không thấy phí.
+- Ca của DOM khóa cơ sở ngay sau B16. Đó đúng là điều thẻ yêu cầu.
+- Một lần tính lại **sau đó** (ví dụ khi đổi cơ sở cho đơn hủy và không đến ở V5-30, như DOM lo ở BR-903 (2)) chưa có ca nào khóa. Đây là việc của PR V5-30 (BE-H), không phải của #114. ARC ghi để BE-H và DOM biết, không lập thẻ.
+
+### 12.4 Chạy trên `e9dcef63`
+
+- Môi trường:
+  - worktree tạm trong scratchpad, `pnpm install --offline`;
+  - PostgreSQL `17-alpine` dùng một lần, chỉ nghe `127.0.0.1`;
+  - vai tạo bằng `02-roles.sh` với mật khẩu CI công khai của repo; `db:migrate` như CI.
+- `tsc --noEmit`: sạch.
+- `v105-early-hours` + `be-a1-v105-units`: **35/35**. Tệp integration có 10 ca (8 ca cũ, cộng ca 114-01 và ca DOM).
+- **Toàn bộ API Vitest:**
+  - 194 tệp qua, 2 tự bỏ qua, 4870 ca qua, 2 ca hỏng;
+  - hai ca hỏng là ca nhạy tải: `s438r4-money` (ca deadlock, chạm mốc 30 giây) và `reservations` (US-016 AC4, p95 < 200 ms). Lúc đó máy chung có tải khoảng 25 trên 10 nhân, và ARC chạy song song bộ #139;
+  - chạy lại riêng hai tệp đó trên cùng cây và cùng DB: **34/34 qua**;
+  - vậy cây gộp xanh: **4872 ca qua, 0 hỏng thật**.
+- Dọn dẹp: đã xóa worktree, ref tạm và container.
+
+### 12.5 Dòng decision-log đề xuất (ORC ghi khi commit)
+
+`| 2026-11-07 | 5 | ARC – #114 delta f730b691..e9dcef63 DUYỆT @ e9dcef63 (0 Blocker/Major, không thẻ mới). Hai merge gỡ đúng bảng 0.2: 04934006 chỉ allowed-actions.ts, giữ checkOutOverdueOpen của #99; e9dcef63 chỉ be-a1-v105-units.test.ts, giữ cả khối V5-11 lẫn SEC A1B-01. Diff so với main chỉ 8 tệp của PR, không rơi gì của main, merge-tree với main hiện tại sạch. ARC 114-01 Done: ca ≤ gồm ngày đi = ngày nghiệp vụ và đơn quá ngày đi, dryRun và lần ghi → 409 useCheckout, không minNewDepartureDate, không ghi gì; M10 (=== thay <=) nay đỏ. ARC 114-02 Done: VoidStayInput.businessDate bắt buộc, job hết hạn giữ chỗ truyền ngày nghiệp vụ của job, chuyển phòng truyền ctx.today; quên truyền → tsc TS2345. DOM PR114-01 có test đúng đề xuất (đơn sale, số oracle BR-428-14, tỷ lệ test; cơ sở hoa hồng sau B16 = 1 đêm, không gồm phí trả sớm; đột biến không ghi lại hoa hồng đỏ), DOM không cần đọc lại. tsc sạch; toàn bộ API 4872 ca qua (2 ca nhạy tải chạy lại riêng 34/34). Gộp khi E2E xanh; #142 gộp sau #114 | ARC | rounds/round-05/reviews/ARC-on-be-a1-prs-127-113-114.md |`
