@@ -56,7 +56,7 @@ import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/t
 /** Test-only rates (SEC G3) – odd values unrelated to any real table. */
 const test_rate_short = 1.37;
 const test_rate_short_2 = 2.41;
-const KEY = 'short_stay_commission_pct';
+const RATE_PARAM = 'short_stay_commission_pct';
 
 class DocsOk implements FrontdeskRegistrationPort {
   async checkinDocumentStatus(): Promise<CheckinDocumentStatus> {
@@ -116,7 +116,7 @@ describe.skipIf(!HAS_DB)(
     beforeAll(async () => {
       db = appDatabase(10);
       t = await createTenant(db, { users: ROLES });
-      ids = await seedBooking(db, t, 0, { skipParams: [KEY] });
+      ids = await seedBooking(db, t, 0, { skipParams: [RATE_PARAM] });
       guest = await seedGuestRow(db, t, { name: 'Khách Hoa Hồng' });
       fa = await startFeatureApp(db, {
         override: (b) =>
@@ -172,7 +172,7 @@ describe.skipIf(!HAS_DB)(
         amountVnd,
       });
     const putRate = (value: unknown, effectiveFrom: string, who = 'owner') =>
-      c[who]!.send('PUT', url(`/parameters/${KEY}`), {
+      c[who]!.send('PUT', url(`/parameters/${RATE_PARAM}`), {
         value,
         effectiveFrom,
         reason: 'Bảng nội bộ thử nghiệm',
@@ -337,7 +337,7 @@ describe.skipIf(!HAS_DB)(
         expect(r.statusCode, `${JSON.stringify(value)} ${r.body}`).toBe(422);
         expect(r.json()).toMatchObject({ code: 'PARAM_OUT_OF_RANGE', errors: [{ field, code }] });
       }
-      expect(await q(`SELECT 1 FROM config_parameter WHERE key = $1`, [KEY])).toEqual([]);
+      expect(await q(`SELECT 1 FROM config_parameter WHERE key = $1`, [RATE_PARAM])).toEqual([]);
       const ok = await putRate(
         { staff: test_rate_short, collaborator: test_rate_short },
         '2026-10-23',
@@ -350,29 +350,29 @@ describe.skipIf(!HAS_DB)(
         (r.json().data as Array<{ key: string }>).map((p) => p.key);
       const fdl = await c.fdl!.get(url('/parameters'));
       expect(fdl.statusCode, fdl.body).toBe(200);
-      expect(keysOf(fdl)).not.toContain(KEY);
+      expect(keysOf(fdl)).not.toContain(RATE_PARAM);
       expect(keysOf(fdl).length).toBeGreaterThan(0);
       expect(fdl.json()).not.toHaveProperty('missing');
-      const fdlHistory = await c.fdl!.get(url(`/parameters/${KEY}`));
+      const fdlHistory = await c.fdl!.get(url(`/parameters/${RATE_PARAM}`));
       expect(fdlHistory.statusCode, fdlHistory.body).toBe(404);
       expect(fdlHistory.json().code).toBe('NOT_FOUND');
       // Same answer as a key that does not exist (no existence probe).
       expect((await c.fdl!.get(url('/parameters/no_such_key'))).statusCode).toBe(404);
       // As of a date before the table: OWN/MGR read the name in missing[], FDL still nothing.
       const before = await c.fdl!.get(url('/parameters?asOf=2026-10-20'));
-      expect(keysOf(before)).not.toContain(KEY);
+      expect(keysOf(before)).not.toContain(RATE_PARAM);
       expect(before.json()).not.toHaveProperty('missing');
       for (const who of ['owner', 'mgr']) {
         const list = await c[who]!.get(url('/parameters'));
         const row = (list.json().data as Array<{ key: string; value: unknown }>).find(
-          (p) => p.key === KEY,
+          (p) => p.key === RATE_PARAM,
         );
         expect(row?.value, who).toEqual({ staff: test_rate_short, collaborator: test_rate_short });
-        const h = await c[who]!.get(url(`/parameters/${KEY}`));
+        const h = await c[who]!.get(url(`/parameters/${RATE_PARAM}`));
         expect(h.statusCode, `${who} ${h.body}`).toBe(200);
         expect(h.json().history).toHaveLength(1);
         expect((await c[who]!.get(url('/parameters?asOf=2026-10-20'))).json().missing).toContain(
-          KEY,
+          RATE_PARAM,
         );
       }
     });
