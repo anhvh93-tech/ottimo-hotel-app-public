@@ -7,7 +7,8 @@
   - `rounds/round-05/reviews/BE-on-contract-0.3.13.md` (`32fab4d0`): FB-R5-BE-ARC-C0313-01…21;
   - BA `rounds/round-05/outputs/BA/report.md` (`5f4a1080`): A07b/A33, ghi chú 46b;
   - QA `rounds/round-05/qa/bug-list.md` (`233b9b5d`): BUG-R5-001, 002, 003 (phần hợp đồng);
-  - DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 2–5, 7, 9, 11 (trả lời các mục ARC chờ).
+  - DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 2–5, 7, 9, 11, 12 (trả lời các mục ARC chờ; `e9e0e2e4`, `5ad26fc1`);
+  - SEC `rounds/round-05/reviews/SEC-on-bug-r5-002.md` (`406af104`): FB-R5-SEC-BE-B002-01, FB-R5-SEC-ARC-B002-02, 03.
 - Không có dữ liệu khách, tỷ lệ/số tiền hoa hồng, mật khẩu Wi-Fi hay bí mật trong tệp này.
 
 ## 1. SEC – FB-R5-SEC-ARC
@@ -72,9 +73,19 @@
 | Bug | Trạng thái (phần ARC) | Ghi chú |
 |---|---|---|
 | BUG-R5-001 `weekend_nights` | Done | Như BE 18. Không đổi schema |
-| BUG-R5-002 tiền về sau tự hủy (V5-5B) | Done (quyết định, theo DOM 11.4 bản khuya `e9e0e2e4`) | Bản đầu của ARC (đóng đường cũ) **bỏ**. 5B-1 = **nhánh trong `recordPayment`** cho mọi đơn `cancelled`/`no_show`: FD+, chỉ `bank_transfer`/`vietqr` (**tiền mặt bị từ chối ở API** – 422 `NOT_ALLOWED` ở `method`), ảnh bắt buộc, luôn chờ đối soát, `type` = `deposit` khi hủy lúc còn giữ chỗ, yêu cầu hoàn `payment_after_cancel` cùng giao dịch (`Payment.refundRequestId`), chi chỉ sau đối soát. `createDepositNotice` trên đơn đã đóng → **202** + `deposit_after_cancel` (thay 409). 5B-2 (0.3.14, v1.0.6): `recordPayment.restoreHold`, căn đã bán → 409 `ROOM_UNAVAILABLE` như B12, qua ngày đến → 409 `INVALID_TRANSITION`, rollback cả giao dịch; **không migration** cả 5B-1 lẫn 5B-2. Contract 1.21 |
+| BUG-R5-002 tiền về sau tự hủy (V5-48, V5-5B) | Done (quyết định) | Theo DOM 11.4 (`e9e0e2e4`, `5ad26fc1`) và SEC `SEC-on-bug-r5-002.md`; bản đầu của ARC (đóng đường) bỏ. Chi tiết mục 6 dưới và contract 1.21 |
 | BUG-R5-003 `min_stay` | Done | V5-25 **chỉ thêm dòng mô tả `setParameter`**; không schema mới, không trường mở rộng mới (`PARAM_OUT_OF_RANGE` có sẵn `min`, `max`, `allowed[]`, `errors[]`). Luật DOM 12.1 (0–20 luật, khóa cho phép, `nights` ≤ min(7, `short_stay_max_nights`), `channels` bắt buộc không `internal`, mỗi luật áp ít nhất một ngày, `[]` hợp lệ) + kiểm ngược `short_stay_max_nights`; lỗi báo điểm sai đầu tiên `errors[0].field = value[i].<khóa>` với mã trường có sẵn; bộ đọc phòng thủ bỏ luật hỏng, không 500 |
 
 ## 5. DOM – các mục ARC chờ
 
 Đã làm hết (contract mục 3). Hai điểm nhỏ đề nghị DOM ghi rõ ở 7.1 (ngày nghiệp vụ lúc bấm; ngày đi hiệu lực của lượt có đơn con) và một câu thêm cho BR-428 (trong W dùng Trả phòng) – không chặn.
+
+## 6. SEC – BUG-R5-002 (`SEC-on-bug-r5-002.md`) và DOM B002-04
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-SEC-BE-B002-01 | Major | Done (hợp đồng) – BE-B làm | V5-48 vào 0.3.13 (không giữ #94): trên đơn `cancelled`/`no_show`, mọi vai kể cả OWN – `recordPayment` chỉ `bank_transfer`/`vietqr` (422 `NOT_IN_LIST` ở `method`), thiếu ảnh 422 `REQUIRED`, ảnh của báo sale 422 `NOT_IN_LIST`, luôn `pending`, audit `afterClosure` + `reservationStatus`; `confirmPaymentReceived` và `createVietQr` → 409 `INVALID_TRANSITION` + trường mới `reservationStatus`; lỗi không ghi gì; SAL giữ mã chặn hiện nay. Làn PR-B1, tách riêng nếu PR-B1 trễ |
+| FB-R5-SEC-ARC-B002-02 | Major | Done (hướng chốt 06/11, trước hạn 10/11) | 5B-1 = nhánh `recordPayment` + S1–S8: hoàn `payment_after_cancel` đứng tên người ghi, người ghi vào `origin_actor_ids` (S2); nơi nhận cố định `original_method`, `setRefundDestination` → 409, không chi tiền mặt (S3); `possibleDuplicateCodes` trên `Payment`, `ApprovalRequest` – bắt buộc khi 5B-1 lên (S4 tối thiểu); `bankReference` tùy chọn, trùng → 409 `DUPLICATE_BANK_REFERENCE` (S4 bản tốt, không migration); trần S5 nên có; `Payment.afterClosure` + `listAuditEvents.afterClosureOnly` (S6); `createDepositNotice` đơn đã đóng → 202 + `deposit_after_cancel`, ảnh không dùng làm chứng từ, audit (S7); "Không thấy tiền" có ghi chú + audit (S8). 5B-2 theo SEC mục 4 (FD/FDL/MGR/OWN không cần duyệt chỉ khi đủ 3 điều kiện, không SAL/CTV, không khi còn yêu cầu hoàn mở, audit `cancelled → hold/confirmed`, báo OWN và MGR) – 0.3.14, có migration nhỏ (kind thông báo) |
+| FB-R5-SEC-ARC-B002-03 | Minor | Deferred – v1.0.6 | Tách nhiệm người ghi khoản thu trên mọi folio, thu dư tiền mặt/thẻ qua API trên đơn mở, chi tiền mặt chỉ khi có tiền mặt đủ – ARC đưa vào hợp đồng 0.3.14 cùng ô mã giao dịch ở bước đối soát |
+| DOM B002-04 ý 1–4 | – | Done | (1) hoàn chỉ chuyển khoản về tài khoản đã chuyển, không đổi nơi nhận – đã ở `setRefundDestination`; (2) lỡ ghi hai lần qua `disputed` → `reversePayment` → `superseded`, không đổi hợp đồng; luật "một dòng sao kê một khoản" ở máy chủ cùng ô mã đối soát: **v1.0.6**; (3) chứng từ là thông báo tiền vào tài khoản OTTIMO – ghi ở mô tả, nhãn UXD; (4) S4 tối thiểu bắt buộc; **`bankReference` tùy chọn thêm ở 0.3.13** |
+

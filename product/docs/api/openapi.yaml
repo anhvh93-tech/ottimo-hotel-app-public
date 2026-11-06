@@ -128,6 +128,7 @@ info:
     | ROOM_NOT_SELLABLE | 409 | Căn ngừng bán (US-004) |
     | ROOM_OCCUPIED | 409 | Khóa phòng (`createRoomBlock`, `updateRoomBlock`, `createWorkOrder.block`) giao đơn đang ở (`in_house`) – đổi phòng cho khách trước (BR-804, BR-424); kèm `conflicts[]` (0.3.5) |
     | INVALID_TRANSITION | 409 | Chuyển trạng thái không hợp lệ với trạng thái hiện tại |
+    | DUPLICATE_BANK_REFERENCE | 409 | **0.3.13 bổ sung 1 (5B-1, SEC S4, DOM 11.4 3a)** – `recordPayment.bankReference` đã có ở một khoản thu chưa đảo của cơ sở – kèm `duplicateReservationCode` |
     | VERSION_CONFLICT | 412 | `If-Match` lệch |
     | PRECONDITION_REQUIRED | 428 | Thiếu `If-Match` hoặc `Idempotency-Key` |
     | IDEMPOTENCY_KEY_REUSED | 422 | Cùng key, khác body |
@@ -221,6 +222,8 @@ info:
     | FORBIDDEN_ACTION – B18/QR `check_out` đơn quá ngày đi, MGR, `nightsNotBilled` > 1 (0.3.13 bổ sung 1, V5-15) | `requiredRole` (= `owner`), `nightsNotBilled` |
     | FORBIDDEN_ACTION – `adjustFolioLine` sửa giảm ngoài phạm vi BR-438 (0.3.13 bổ sung 1, V5-16) | `requiredFlow` (= `foc_request`) |
     | INVALID_TRANSITION – `earlyDeparture` trong 00:00–05:59 (0.3.13 bổ sung 1, V5-11) | `minNewDepartureDate`, `useCheckout` |
+    | INVALID_TRANSITION – `confirmPaymentReceived`, `createVietQr` trên đơn đã đóng (0.3.13 bổ sung 1, V5-48) | `reservationStatus` (`cancelled` \| `no_show`) |
+    | DUPLICATE_BANK_REFERENCE (0.3.13 bổ sung 1) | `duplicateReservationCode` (chỉ mã đơn) |
     | PARAM_OUT_OF_RANGE | `min`, `max`, `allowed[]` |
     | 422 có `HOLD_LIMIT_REACHED` | `max` |
     | 422 có `MIN_STAY_NOT_MET` | `minStayNights`, `suggestions[]` với `orphanNight=true` (BR-113 a) |
@@ -357,10 +360,11 @@ info:
     - **(h) Khác (BE C0313-11…19)**: `lockReason` + `invoice_issued`; `depositUnverifiedVnd` có chặn trên; `OpenRefund.reasonCode` mọi mã lý do hoàn; trigger 0094 bắt theo SQLSTATE +
       tiền tố câu; `setParameter` ghi dạng `weekend_nights` (`Weekday[]`), `min_stay` (`MinStayRule[]`); `listParameters.missing[]` lọc vai như `data`; cảnh báo tỷ lệ giá đêm/giá tháng
       (`NIGHTLY_PRICE_UNUSUAL`, SEC ARC-12).
-    - **(h2) V5-5B 5B-1 (BUG-R5-002; DOM 11.4 bản 06/11 khuya)**: `recordPayment` có **nhánh đơn đã đóng** (`cancelled`/`no_show`, mọi lý do): FD+, chỉ `bank_transfer`/`vietqr`,
-      ảnh bắt buộc, luôn chờ đối soát, tự tạo yêu cầu hoàn `payment_after_cancel` cùng giao dịch (`Payment.refundRequestId`); `createDepositNotice` trên đơn đã đóng → 202 + "Cần chú ý"
-      `deposit_after_cancel` (thay 409). 5B-2 (khôi phục) ở 0.3.14. **V5-25 (BUG-R5-003; DOM mục 12)**: luật lưu `min_stay` đầy đủ + kiểm ngược `short_stay_max_nights` – chỉ mô tả,
-      không đổi schema.
+    - **(h2) Khoản thu trên đơn đã đóng (BUG-R5-002; DOM 11.4; SEC `SEC-on-bug-r5-002.md`)**: **V5-48** (bắt buộc v1.0.5) – `recordPayment` trên đơn `cancelled`/`no_show`, mọi vai: chỉ
+      `bank_transfer`/`vietqr`, ảnh bắt buộc, luôn chờ đối soát, audit `afterClosure`; `confirmPaymentReceived`, `createVietQr` → 409 + `reservationStatus`. **5B-1** (khi PO xếp): yêu cầu hoàn
+      `payment_after_cancel` đứng tên người ghi, nơi nhận cố định `original_method`, "Có thể trùng" (`possibleDuplicateCodes`), `bankReference` tùy chọn (409 `DUPLICATE_BANK_REFERENCE`),
+      `createDepositNotice` trên đơn đã đóng → 202 + `deposit_after_cancel`, `listAuditEvents.afterClosureOnly`. 5B-2 (khôi phục) ở 0.3.14. **V5-25 (BUG-R5-003; DOM mục 12)**: luật lưu
+      `min_stay` đầy đủ + kiểm ngược `short_stay_max_nights` – chỉ mô tả, không đổi schema.
     - **(i) Tin `hold_expired` (DOM mục 9)**: gửi người tạo, người chốt **và** mọi FD, FDL đang hoạt động (bỏ nhánh "chỉ khi không có người tạo"). Không đổi schema.
     - **(k) V5-30, V5-31 (DOM 4, 5, 7.3, 7.4) – cần migration, PR riêng (PR-M)**: `Commission.instalmentNo`, `voidReason`; `getManagerPerformanceBonus` (tính lúc đọc); `AttentionItem.kind`
       `commission_rate_missing`; `GuestRequest.feeFallback`. Khóa mới `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` cần dòng danh mục
@@ -2938,6 +2942,8 @@ paths:
         **0.3.13 bổ sung 1 (V5-5B 5B-1, DOM 11.4 mục 5; QA BUG-R5-002 ca (f))**: đơn `cancelled`/`no_show` (mọi lý do) → **202** như đơn `hold` (thay 409): lưu báo `open` và mở "Cần chú ý"
         `deposit_after_cancel` cho FD, FDL, MGR, OWN ("Tiền về cho đơn đã hủy {code}"); không đổi đơn, không ghi tiền. Mục tự đóng khi đơn có khoản thu ghi sau lúc báo (5B-1, 5B-2), hoặc
         FD+ đóng bằng `resolveAttentionEvent` ("Không thấy tiền", ghi chú bắt buộc). Kind đã có trong CHECK DB – không migration. Sale đọc trạng thái đơn ở danh sách của mình.
+        SEC S7: báo này **không** sinh khoản thu; ảnh gửi kèm không dùng làm chứng từ của khoản thu (`recordPayment` → 422). Audit `deposit_notice.created` thêm `afterClosure: true` (bộ lọc
+        `afterClosureOnly`); tin đẩy chỉ có mã đơn.
       x-roles: [sales_staff, collaborator]
       x-scope: { sales_staff: own, collaborator: own }
       x-rbac: [A53]
@@ -5781,23 +5787,37 @@ paths:
         mà J15 (mỗi giờ) chưa chạy và chưa có công nợ → 409 `FOLIO_LOCKED` tới lần chạy J15 kế tiếp (N-15 – chấp nhận ở R2, khoảng hở ≤ 1 giờ).
         **0.3.12 (FB-R4-SEC-BE-HOLDS-01, SEC-on-v104-holds mục 3)**: folio của giữ chỗ đã quá `holdExpiresAt`: người gọi không có vai FD+ (SAL) nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì.
         FD+ ghi được như cũ. Không có trường mới.
-        **0.3.13 bổ sung 1 – V5-5B 5B-1: tiền về cho đơn đã đóng (BUG-R5-002; DOM 11.4 bản 06/11 khuya; BR-522, BR-527, BR-308)** – **nhánh trong thao tác này**, không đường riêng
-        (một khoản tiền một đường: cùng số PT-, audit, đối soát, hoàn). Áp cho **mọi** khoản thu trên folio có đơn `cancelled` hoặc `no_show`, **mọi lý do hủy**; đơn đang mở giữ luật cũ.
-        Kiểm theo thứ tự, lỗi nào cũng không ghi gì:
-        - Vai: FD+ (SAL bị chặn như hiện nay, mã không đổi; CTV không có trong `x-roles`).
-        - `method` chỉ `bank_transfer` hoặc `vietqr` (tiền đã vào tài khoản) – khác (tiền mặt, POS, ví, `ota_collect`) → 422 `VALIDATION_FAILED` (`errors[{field: method, code: NOT_ALLOWED}]`).
-          Khách đứng ở quầy: tạo đơn mới và thu trên đơn mới.
-        - `attachmentId` bắt buộc (ảnh `deposit_receipt`; vắng → 422 `REQUIRED`, `field` = `attachmentId`); `note` bắt buộc (→ 422 `REASON_REQUIRED` như ghi vượt).
-        - `type`: `deposit` khi đơn bị hủy lúc còn là giữ chỗ (`status_before_cancel = hold` – để 5B-2 dùng lại khoản này), `charge` với đơn khác; gửi khác → 422 `VALIDATION_FAILED`
-          (`errors[{field: type, code: NOT_ALLOWED}]`). Desk chọn theo đơn.
-        - `receivedAt` từ lúc tạo đơn tới giờ server (+ dung sai) – khác → 422 `DATE_INVALID`.
-        Kết quả, cùng một giao dịch: khoản thu `succeeded`, `reconciliation = pending` (luôn); đơn, folio không đổi trạng thái, không sinh dòng phí (BR-522 ghi chú 18/10). Yêu cầu hoàn
-        (`ApprovalRequest` loại `refund`, `reasonCode = payment_after_cancel` – "Tiền về sau khi hủy") số = `amountVnd` − phần trả cho còn phải thu trước khi ghi (thường = 100 %), không phí
-        (BR-308); người xin = người ghi, không tự duyệt; MGR/OWN duyệt; **chi chỉ khi khoản thu đã `reconciled`** (BR-522). `Payment.refundRequestId` trả id yêu cầu. Yêu cầu hoàn BR-309 có sẵn
-        của đơn giữ nguyên. Mục "Cần chú ý" `deposit_after_cancel` đang mở của đơn đóng lại. Audit `money` `payment.recorded` thêm `afterCancel: true`. Một ảnh chỉ gắn một giao dịch
-        và `Idempotency-Key` – một khoản tiền chỉ ghi một lần; khách muốn đặt lại khi 5B-2 chưa có: **không** ghi ở đơn cũ (Desk nói rõ trong hộp ghi).
-        `createVietQr` trên đơn đã đóng: không nhận `overBalanceReason` (không tạo QR mới vượt còn phải thu).
-        **5B-2 (khôi phục giữ chỗ, v1.0.6 – 0.3.14)**: phác ở `contract-0.3.13.md` mục 1.21.
+        **0.3.13 bổ sung 1 – khoản thu trên đơn đã đóng (BUG-R5-002; DOM 11.4 `e9e0e2e4`, `5ad26fc1`; SEC `SEC-on-bug-r5-002.md` B002-01, B002-02)** – **nhánh trong thao tác này**, không đường
+        riêng (một khoản tiền một đường: cùng số PT-, audit, đối soát, hoàn). Áp khi đơn chính của folio `cancelled` hoặc `no_show` (**mọi lý do**), đọc dưới khóa đơn; đơn đang mở giữ luật cũ.
+        **(A) V5-48 – bắt buộc v1.0.5, mọi vai kể cả OWN, không migration.** Thứ tự: 403 theo vai → 404 theo phạm vi → luật đơn đã đóng → các luật còn lại của thân lệnh. Lỗi nào cũng không ghi
+        gì (không `payment`, không audit, folio không đổi `version`, ảnh không bị gắn).
+        - SAL: bị chặn như hiện nay (422 `AMOUNT_EXCEEDS_BALANCE`, hoặc 404 ngoài phạm vi) – giữ mã; CTV không có trong `x-roles`.
+        - `method` khác `bank_transfer`, `vietqr` (tiền mặt, `card_pos`, ví, `ota_collect`) → 422 `VALIDATION_FAILED` (`errors[{field: method, code: NOT_IN_LIST}]`). Khách ở quầy: thu trên đơn mới.
+        - `attachmentId` vắng → 422 `REQUIRED` (`field` = `attachmentId`); ảnh qua kiểm sẵn có (`deposit_receipt`, đúng đơn, một ảnh một khoản). Ảnh đã gắn vào một báo "khách đã chuyển"
+          (`createDepositNotice`) **không** dùng được → 422 `NOT_IN_LIST` (`attachmentId`). Chứng từ là **thông báo tiền vào tài khoản OTTIMO** do OWN/MGR gửi (DOM 11.4 2(c), SEC 4.3) – không
+          ảnh hay SMS của khách, không ảnh sale/CTV chuyển tiếp; Desk ghi rõ ở nhãn ô ảnh.
+        - `reconciliation` luôn `pending`; giữ luật cũ: `note` ≥ 3 ký tự khi thu dư (`REASON_REQUIRED`), khung `receivedAt`.
+        - Audit `money` `payment.recorded` thêm `afterClosure: true`, `reservationStatus` (`cancelled` | `no_show`); không dữ liệu khách. `Payment.afterClosure` đọc được.
+        **(B) 5B-1 – thêm khi PO xếp (DOM 11.4 mục 2 (e)–(g), 3, 3a, 3b; SEC S2–S8)**, cùng giao dịch với (A):
+        - `type` = `deposit` khi `status_before_cancel = hold`, `charge` với đơn khác (gửi khác → 422 `VALIDATION_FAILED`, `errors[{field: type, code: NOT_ALLOWED}]`).
+        - Tự tạo yêu cầu hoàn `refund`, `reasonCode = payment_after_cancel` ("Tiền về sau khi hủy"), số = phần vượt còn phải thu trước khi ghi (thường 100 %), không phí (BR-308); yêu cầu BR-309
+          có sẵn của đơn giữ nguyên. **Đứng tên người ghi** và thêm người ghi vào `origin_actor_ids` – người ghi không duyệt, không chi, kể cả khi yêu cầu bị từ chối rồi người khác tạo lại (S2).
+          `Payment.refundRequestId` trả id.
+        - **Nơi nhận cố định `original_method`** (máy chủ đặt khi tạo – hoàn về đúng tài khoản đã chuyển, S3, DOM 11.4 mục 3): `setRefundDestination` trên yêu cầu này → 409 `INVALID_TRANSITION`
+          (không đổi nơi nhận, kể cả sang tài khoản khác); `executeCashRefund` → 409 như mọi nơi nhận khác `cash`. MGR/OWN chi bằng `executeRefund` theo dòng sao kê đã khớp; chi chỉ khi khoản thu
+          `reconciled` (`REFUND_SOURCE_NOT_RECONCILED` có sẵn). Lễ tân không hỏi, không ghi số tài khoản của khách.
+        - **Có thể trùng (S4 tối thiểu – bắt buộc khi 5B-1 lên, DOM 3a):** `Payment.possibleDuplicateCodes[]`, `ApprovalRequest.possibleDuplicateCodes[]` (tính lúc đọc) = mã đơn của khoản
+          chuyển khoản/VietQR khác, chưa đảo, cùng số tiền, `receivedAt` cách ≤ 24 giờ, ở đơn khác – chỉ mã đơn, không chặn. Màn duyệt hoàn và màn đối soát hiện "Có thể trùng".
+        - **`bankReference` (tùy chọn, mọi khoản `bank_transfer`/`vietqr`, không riêng đơn đã đóng):** lễ tân gõ khi ảnh có mã. Có mã đã nằm ở một khoản thu chưa đảo của cơ sở → 409
+          `DUPLICATE_BANK_REFERENCE` (`duplicateReservationCode`), không ghi gì; kiểm dưới khóa tư vấn theo (cơ sở, mã) trong giao dịch – không migration (cột `payment.bank_reference` có từ 0040).
+          Gửi với phương thức khác → 422 `NOT_ALLOWED`. Desk chỉ gửi khi PR 5B-1 lên. Ô mã giao dịch ở bước đối soát + luật "một dòng sao kê chỉ khớp một khoản" ở máy chủ: **v1.0.6**
+          (tới đó MGR+ áp bằng tay: dòng đã khớp khoản khác → `disputed`, chép mã vào ghi chú đối soát – DOM 3a).
+        - **Lỡ ghi hai lần (DOM 3b):** MGR+ đối soát khoản thừa `disputed`, MGR/OWN `reversePayment` → yêu cầu hoàn đi kèm tự `superseded` (refundPlan, kể cả đã duyệt chưa chi). Không đổi hợp đồng.
+        - **Trần (S5, nên có):** `amountVnd` > tổng tiền phòng của đơn theo giá đã chốt → FD/FDL 422 `AMOUNT_EXCEEDS_BALANCE` (`max`); MGR/OWN ghi được kèm `note`.
+        - Mục "Cần chú ý" `deposit_after_cancel` của đơn đóng khi đã hoàn xong (hoặc đã khôi phục **và** khoản thu đã đối soát – 5B-2), hoặc FD+ đóng "Không thấy tiền" (`resolveAttentionEvent`,
+          ghi chú bắt buộc, audit người và giờ – S8). Bộ lọc tuần: `listAuditEvents.afterClosureOnly` (S6). Tin đẩy, audit, log chỉ có mã đơn.
+        - Khách muốn đặt lại khi 5B-2 chưa có: **không** ghi ở đơn cũ; hộp ghi nhắc tìm đơn mới của khách trước (DOM 3b).
+        **(C) 5B-2 (khôi phục, v1.0.6 – 0.3.14)**: phác ở `contract-0.3.13.md` mục 1.21.
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff]
       x-scope: { sales_staff: own_deposit_only }
       x-rbac: [A33]
@@ -6196,6 +6216,9 @@ paths:
       description: |
         **0.3.8 bổ sung 3 (ARC 24/10, FB-R3-ARC-FUZZ-01, BR-522 K11-06)**: trên folio `settled`, thao tác này để lại tiền dư chưa có yêu cầu hoàn (`unhandledCreditVnd` > 0) → server tạo **một** yêu cầu hoàn `overpayment` bằng phần chưa yêu cầu (người xin = người thao tác; người duyệt MGR+ khác người xin – SEC F8) và mở "Cần chú ý" `closed_reservation_credit`, **cùng giao dịch**; yêu cầu hoàn đang mở lớn hơn tiền dư → chạy lại `refundPlan` (hủy `superseded` + tạo lại, DOM-S4-14). Không đổi hình dạng phản hồi.
         **0.3.3 (E05-02)**. Chỉ giao dịch `method=vietqr`, `status=pending`, `expiresAt` chưa qua; khác → `409 INVALID_TRANSITION` (kèm `currentState`).
+        **0.3.13 bổ sung 1 (V5-48, SEC B002-01)**: đơn chính của folio `cancelled`/`no_show` → `409 INVALID_TRANSITION` kèm `reservationStatus` (trạng thái **đơn**, không phải của khoản thu), mọi vai
+        kể cả OWN và SAL, kiểm dưới khóa đơn trước mọi kiểm khác của khoản thu; không ghi gì. Tiền khách trả theo QR đó ghi bằng `recordPayment` (nhánh đơn đã đóng, có ảnh). Desk (hộp Xác nhận
+        cọc) đọc `reservationStatus` trước `currentState` và hiện câu UXD ("Đơn đã hủy…"). Nên làm cùng (không đổi hợp đồng): J1, B5, B10, B11 cho QR `pending` của đơn hết hạn trong giao dịch hủy.
         Server khóa `payment … FOR UPDATE` + `folio … FOR UPDATE`; ghi `receivedAt` (mặc định bây giờ, ≤ bây giờ), `confirmedAt`, `confirmedBy` = người gọi,
         `reconciliation=pending` (chờ MGR+ đối soát sao kê – người xác nhận **không** được tự đối soát, A46); "còn phải thu" cập nhật ngay; nhật ký tiền BR-008.
         Giao dịch của cổng (VNPay/MoMo – R3) chỉ chuyển `succeeded` qua IPN đã xác thực, không qua endpoint này. Không cần `If-Match` (một chuyển trạng thái
@@ -6383,6 +6406,8 @@ paths:
       operationId: createVietQr
       summary: Sinh chuỗi VietQR đúng số tiền, nội dung = mã đơn/bill không dấu cách (US-120). Chưa cấu hình tài khoản → 409 PAYMENT_NOT_CONFIGURED.
       description: |
+        **0.3.13 bổ sung 1 (V5-48, SEC B002-01)**: đơn `cancelled`/`no_show` → `409 INVALID_TRANSITION` + `reservationStatus`, **mọi** `purpose`, mọi vai kể cả OWN, kể cả khi có `overBalanceReason`;
+        kiểm dưới khóa đơn trước mọi kiểm khác; không tạo QR. Tiền khách trả theo QR cũ ghi bằng `recordPayment` (nhánh đơn đã đóng).
         **0.3.3 (E05-02, ARC chốt vòng đời giao dịch `pending`)**
         - `transferContent`: mã đơn bỏ dấu gạch (`OTM00171`) khi folio `open`; số bill bỏ dấu gạch (`F26000123`) khi folio `settled` (BR-521, US-120 AC1).
         - Tạo QR mới cho cùng folio → mọi giao dịch `method=vietqr`, `status=pending` **cũ** của folio → `expired` trong **cùng giao dịch DB** (chỉ một QR chờ/folio).
@@ -6431,7 +6456,7 @@ paths:
                   minLength: 3
                   maxLength: 300
                   x-rbac-field: D12c
-                  description: '0.3.6 (DOM G-4, BA E15-03): **FD+** cho QR vượt còn phải thu khi "thu trước dịch vụ/ký quỹ"; SAL/CTV gửi → 403. Không có lý do mà vượt → 422 `AMOUNT_EXCEEDS_BALANCE`. **0.3.13 bổ sung 1 (BUG-R5-002)**: đơn `cancelled`/`no_show` không nhận trường này – vượt → 422 `AMOUNT_EXCEEDS_BALANCE` (tiền về cho đơn đã đóng ghi bằng nhánh 5B-1 của `recordPayment`)'
+                  description: '0.3.6 (DOM G-4, BA E15-03): **FD+** cho QR vượt còn phải thu khi "thu trước dịch vụ/ký quỹ"; SAL/CTV gửi → 403. Không có lý do mà vượt → 422 `AMOUNT_EXCEEDS_BALANCE`. **0.3.13 bổ sung 1 (V5-48)**: đơn `cancelled`/`no_show` → 409 `INVALID_TRANSITION` (`reservationStatus`) trước kiểm trường này – xem mô tả operation'
       responses:
         '201':
           description: Giao dịch `pending` + chuỗi QR
@@ -7005,6 +7030,7 @@ paths:
         0.3.6 (A-33). Chỉ yêu cầu `type=refund` chưa thực hiện (khác → `409 INVALID_TRANSITION`). `accountNo` mã hóa DEK riêng
         (`approval_request.refund_account_enc`), Luhn đạt → 422 `CARD_NUMBER_DETECTED` (không nhận số thẻ). Đổi nơi nhận khi yêu cầu đã `approved`
         → yêu cầu về `pending`, phải duyệt lại (F8). Tiền thu qua cổng (`vnpay`, `momo`) chỉ được `original_method`.
+        **0.3.13 bổ sung 1 (5B-1, SEC S3, DOM 11.4 mục 3)**: yêu cầu `reasonCode = payment_after_cancel` có nơi nhận cố định `original_method` do máy chủ đặt → gọi thao tác này → `409 INVALID_TRANSITION`.
         **0.3.7 bổ sung D1 (S4-43, P-S4-6)**: FD/FDL nhập được nơi nhận cho yêu cầu **người khác tạo** (mọi đơn trong cơ sở – thấy ở hàng chờ `listApprovalRequests`); người đặt nơi nhận
         chuyển khoản không được là người duyệt hay người chi (BR-522, SEC-37 – server kiểm khi duyệt/chi, không đổi).
         **0.3.12 (P4-12, FB-R4-DOM-BA-025-02; ARC plan v1.0.4 quyết định 6.3; SEC đồng ý có điều kiện 04/11) – yêu cầu hoàn thay thế mang nơi nhận**: khi `refundPlan` đóng các yêu cầu hoàn
@@ -7212,6 +7238,12 @@ paths:
           description: |
             **0.3.13 bổ sung 1 (V5-16, DOM 7.2 ý 1, BR-438 (4))** – mọi lần **sửa giảm** một dòng phát sinh (bỏ dòng, giảm số lượng, giảm đơn giá: `after.amountVnd < before.amountVnd`),
             gồm cả `removalsOnly`. Bộ lọc "Sửa giảm dòng – 7 ngày" của quản lý (theo người: `actorUserId`). Ghim `category`, `action` như `removalsOnly`. FD/FDL chỉ thấy của mình.
+          schema: { type: boolean, default: false }
+        - name: afterClosureOnly
+          in: query
+          description: |
+            **0.3.13 bổ sung 1 (V5-48, 5B-1, 5B-2; SEC S6, S8; DOM 11.4 mục 10)** – bộ lọc tuần "Tiền về sau khi đơn đã đóng" cho MGR/OWN: `payment.recorded` có `after.afterClosure`, báo
+            "khách đã chuyển" trên đơn đã đóng, mục `deposit_after_cancel` đóng bằng "Không thấy tiền", và (từ 5B-2) khôi phục đơn đã hủy. Máy chủ tự ghim tập `action` này.
           schema: { type: boolean, default: false }
         - name: overdueOnly
           in: query
@@ -10648,6 +10680,11 @@ components:
         minNewDepartureDate:
           $ref: '#/components/schemas/LocalDate'
           description: '**0.3.13 bổ sung 1 (V5-11)** – `409 INVALID_TRANSITION` của `earlyDeparture` trong 00:00–05:59: ngày rời mới nhỏ nhất (ngày lịch D+1)'
+        reservationStatus:
+          type: string
+          enum: [cancelled, no_show]
+          description: '**0.3.13 bổ sung 1 (V5-48)** – `409 INVALID_TRANSITION` của `confirmPaymentReceived`/`createVietQr`: trạng thái **đơn** đã đóng (khác `currentState` của khoản thu)'
+        duplicateReservationCode: { type: string, description: '**0.3.13 bổ sung 1** – `409 DUPLICATE_BANK_REFERENCE`: mã đơn của khoản thu đã mang mã giao dịch này' }
         useCheckout:
           type: boolean
           description: '**0.3.13 bổ sung 1 (V5-11)** – cùng lỗi trên khi ngày đi hiệu lực = ngày lịch: dùng Trả phòng (B18), không Trả sớm'
@@ -12785,6 +12822,13 @@ components:
           description: '0.3.7 bổ sung 4 (DOM (f)): chỉ giao dịch VietQR `pending` – số còn phải thu **lúc đọc** theo mục đích QR (xem `confirmPaymentReceived`). `amountVnd` > số này → Desk hiện cảnh báo vượt và ô `note` bắt buộc trước khi xác nhận'
         approvalRequestId: { $ref: '#/components/schemas/Uuid', description: 'Giao dịch hoàn (`type=refund`): yêu cầu duyệt `refund` đã thực hiện (0.3.6, A-33)' }
         refundRequestId: { $ref: '#/components/schemas/Uuid', description: '**0.3.13 bổ sung 1 (V5-5B 5B-1)** – khoản thu trên đơn `cancelled`/`no_show`: yêu cầu hoàn `payment_after_cancel` tạo cùng giao dịch; vắng = khoản thu thường' }
+        afterClosure: { type: boolean, description: '**0.3.13 bổ sung 1 (V5-48, SEC S6)** – ghi khi đơn đã `cancelled`/`no_show`; màn duyệt hoàn và Nhật ký tiền hiện "Tiền về sau khi đơn đã đóng"' }
+        possibleDuplicateCodes:
+          type: array
+          items: { type: string }
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+          description: '**0.3.13 bổ sung 1 (5B-1, SEC S4)** – tính lúc đọc, chỉ khoản `bank_transfer`/`vietqr`: mã đơn của khoản khác chưa đảo, cùng số tiền, `receivedAt` cách ≤ 24 giờ. Rỗng/vắng = không nghi trùng'
+        bankReference: { type: string, x-visible-to: [owner, manager, front_desk_lead, front_desk], description: '**0.3.13 bổ sung 1** – mã giao dịch ngân hàng (nếu có)' }
         reconciliationNote:
           type: string
           description: 'Ghi chú đối soát (bắt buộc khi `disputed`) – 0.3.3'
@@ -12818,6 +12862,10 @@ components:
         receivedAt: { $ref: '#/components/schemas/Instant' }
         posAuthCode: { type: string, maxLength: 12, description: 'Mã chuẩn chi máy POS (R-PAY-04) – không nhập số thẻ', x-rbac-field: D14 }
         note: { type: string, maxLength: 300 }
+        bankReference:
+          type: string
+          pattern: '^[A-Za-z0-9./_-]{1,64}$'
+          description: '**0.3.13 bổ sung 1 (5B-1, SEC S4, DOM 11.4 3a)** – tùy chọn, mọi đường ghi dùng schema này; chỉ `bank_transfer`/`vietqr` (khác → 422 `NOT_ALLOWED`); trùng khoản thu chưa đảo của cơ sở → 409 `DUPLICATE_BANK_REFERENCE`, không ghi gì. Máy chủ chưa có PR 5B-1 thì từ chối trường lạ – Desk chỉ gửi khi PR đó lên'
         billingPeriodId:
           $ref: '#/components/schemas/Uuid'
           description: 'Ghi thu kỳ hợp đồng dài hạn (US-119 AC5) – cập nhật `billing_period.paid_amount_vnd`, đủ tiền → kỳ `paid` (T2)'
@@ -13073,6 +13121,10 @@ components:
           enum: [foc, special_discount, refund, contract_override, checkin_room_not_ready, late_checkout_conflict, meter_lower_than_previous, stocktake_variance, damage_pricing, quote_extension, no_show_restore, debt_on_checkout]
         status: { $ref: '#/components/schemas/ApprovalStatus' }
         reservationCode: { type: string }
+        possibleDuplicateCodes:
+          type: array
+          items: { type: string }
+          description: '**0.3.13 bổ sung 1 (5B-1, SEC S4)** – yêu cầu `refund` từ khoản thu nghi trùng (xem `Payment.possibleDuplicateCodes`): Desk hiện "Có thể trùng" ở màn duyệt'
         folioLineId:
           $ref: '#/components/schemas/Uuid'
           description: '**0.3.7 bổ sung 3 (BE-B, sửa mô tả)**: chỉ `type` ∈ `foc`, `special_discount` – **dòng giảm (FOC, số âm) hiện tại** của yêu cầu: dòng `pending_approval` khi chờ duyệt, dòng đang áp khi đã duyệt; đi theo dòng mới khi dòng được giảm bị ghi lại (BR-434 v0.3.5). Dòng được giảm (dòng gốc) = `FolioLine.relatedLineId` của dòng này. Thay câu "dòng gốc hiện tại" của 0.3.7 bổ sung D1'

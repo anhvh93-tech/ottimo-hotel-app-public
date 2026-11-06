@@ -83,6 +83,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         nightsNotBilled: { s: { k: 'scalar' } },
         requiredFlow: { s: { k: 'scalar' } },
         minNewDepartureDate: { s: { k: 'ref', name: 'LocalDate' } },
+        reservationStatus: { s: { k: 'scalar' } },
+        duplicateReservationCode: { s: { k: 'scalar' } },
         useCheckout: { s: { k: 'scalar' } },
       },
       open: true,
@@ -2036,6 +2038,15 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         amountDueNowVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         approvalRequestId: { s: { k: 'ref', name: 'Uuid' } },
         refundRequestId: { s: { k: 'ref', name: 'Uuid' } },
+        afterClosure: { s: { k: 'scalar' } },
+        possibleDuplicateCodes: {
+          s: { k: 'array', items: { k: 'scalar' } },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        bankReference: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         reconciliationNote: {
           s: { k: 'scalar' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],
@@ -2089,6 +2100,15 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         amountDueNowVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         approvalRequestId: { s: { k: 'ref', name: 'Uuid' } },
         refundRequestId: { s: { k: 'ref', name: 'Uuid' } },
+        afterClosure: { s: { k: 'scalar' } },
+        possibleDuplicateCodes: {
+          s: { k: 'array', items: { k: 'scalar' } },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        bankReference: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         reconciliationNote: {
           s: { k: 'scalar' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],
@@ -2114,6 +2134,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         receivedAt: { s: { k: 'ref', name: 'Instant' } },
         posAuthCode: { s: { k: 'scalar' }, f: 'D14' },
         note: { s: { k: 'scalar' } },
+        bankReference: { s: { k: 'scalar' } },
         billingPeriodId: { s: { k: 'ref', name: 'Uuid' } },
         attachmentId: { s: { k: 'ref', name: 'Uuid' } },
       },
@@ -2400,6 +2421,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         type: { s: { k: 'scalar' } },
         status: { s: { k: 'ref', name: 'ApprovalStatus' } },
         reservationCode: { s: { k: 'scalar' } },
+        possibleDuplicateCodes: { s: { k: 'array', items: { k: 'scalar' } } },
         folioLineId: { s: { k: 'ref', name: 'Uuid' } },
         amountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         effectiveAmountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },

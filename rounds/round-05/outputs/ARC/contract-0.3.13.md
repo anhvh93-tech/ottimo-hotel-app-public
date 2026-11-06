@@ -42,7 +42,7 @@
 | V5-31 | **Bổ sung 1**: khóa `long_stay_cleaning_fee_by_room` (DOM 5, 7.4) | `GuestRequest.feeFallback` | **Có** – cùng PR-M | Đã chốt |
 | V5-11 | **Bổ sung 1**: review DOM 2 – B16 trong 00:00–05:59 | 409 `INVALID_TRANSITION` + `minNewDepartureDate`, `useCheckout` | Không | Đã chốt (1.21) |
 | V5-25 | **Bổ sung 1**: dạng lưu `weekend_nights`, `min_stay` (BUG-R5-001, BUG-R5-003) | Chỉ mô tả `setParameter`; **không đổi schema, không trường mở rộng mới** | Không | DOM viết luật lưu; ARC chốt điểm còn mở (1.24) |
-| V5-5B (BUG-R5-002) | **Bổ sung 1**: 5B-1 = nhánh đơn đã đóng trong `recordPayment` (DOM 11.4 bản khuya); 5B-2 khôi phục ở 0.3.14 | Mô tả `recordPayment`, `createDepositNotice` (202); `Payment.refundRequestId`; mã hoàn `payment_after_cancel` | Không (cả 5B-2) | Đã chốt (1.21) |
+| V5-48, V5-5B (BUG-R5-002) | **Bổ sung 1**: V5-48 (bắt buộc) + 5B-1 = nhánh đơn đã đóng trong `recordPayment`; `confirmPaymentReceived`, `createVietQr` → 409; 5B-2 khôi phục ở 0.3.14 | Mô tả 5 operation; `Payment.afterClosure`, `refundRequestId`, `possibleDuplicateCodes`, `bankReference`; `ApprovalRequest.possibleDuplicateCodes`; mã `DUPLICATE_BANK_REFERENCE`; `reservationStatus`; `afterClosureOnly` | V5-48, 5B-1: không; 5B-2: có (kind thông báo) | Đã chốt (1.21) |
 | Chung | **Bổ sung 1**: `x-write-roles` (SEC ARC-02), id `rbac-cases` ổn định (SEC ARC-13), `x-round: R5` | Phần mở rộng mới; bộ sinh | Không | – |
 | V5-44 | `Problem.lockReason`. Lỗi trigger 0094 → 409 | Thêm trường mở rộng, đổi 500 → 409 | Không | Không |
 | V5-46 | Đã có từ 0.3.12 (i) | Không đổi | Không | Không |
@@ -66,6 +66,7 @@ Chưa chạy local: `openapi-spec-validator`, vì máy này không có gói đó
 **Bổ sung 1 – đã chạy lại trên nhánh (sau khi gộp `main` vào nhánh):** sinh lại meta, schemas, api-client, `rbac-cases` (2310 ca + 21 `fieldCases`), `traceability.md`; Redocly 0 lỗi, 6 cảnh báo;
 `gen_traceability.py --strict` exit 0 (0 operation lệch, 1 trường lệch có sẵn); `gen_rbac_cases.py --check` OK; `gen-openapi-meta --check` OK; `turbo typecheck` 13/13; unit API 51 tệp, 1123 ca
 (gồm `contract.test.ts`); api-client 37 ca; admin-web 88 tệp, 994 ca; prettier sạch.
+Lần chạy lại sau bổ sung 1b/1c (V5-48, 5B-1, V5-25, ARC-09; gộp `main` @ `e56c8513`): cùng kết quả – Redocly 0 lỗi/6 cảnh báo, traceability exit 0, hai `--check` OK, typecheck 13/13, unit API 1123, api-client 37, admin-web 994, prettier sạch.
 
 ---
 
@@ -638,25 +639,36 @@ Thay T14-4 cũ ("kênh Nội bộ theo BR-421") bằng T14-8.
 
 **Tin `hold_expired` (DOM 9):** người tạo + người chốt + mọi FD, FDL đang hoạt động; một lần mỗi đơn, mỗi người một dòng. Không đổi schema; mô tả `StaffNotification` đã sửa.
 
-**Tiền về cho đơn đã đóng – V5-5B (DOM 11.4 bản 06/11 khuya `e9e0e2e4`, BUG-R5-002) – ARC chốt cách làm:**
+**Khoản thu trên đơn đã đóng – V5-48 + V5-5B (BUG-R5-002; DOM 11.4 `e9e0e2e4`, `5ad26fc1`; SEC `SEC-on-bug-r5-002.md` B002-01, B002-02) – ARC chốt:**
 
-DOM quyết dùng lại `recordPayment`, áp cho mọi đơn `cancelled`/`no_show`. Bản trước của mục này (đóng đường, làm thao tác riêng) **bỏ**.
+Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. Hợp đồng: mô tả `recordPayment` (A), (B), (C); `confirmPaymentReceived`; `createVietQr`; `createDepositNotice`; `setRefundDestination`.
 
-1. **5B-1 = một nhánh trong `recordPayment`**, không thao tác bọc. Lý do: một khoản tiền một đường (số PT-, audit, đối soát, đóng ca, báo cáo đọc một nguồn); thao tác bọc vẫn phải gọi cùng hàm nhưng thêm một route, một dòng rbac, một bộ ca quyền. Nhánh vào khi folio có đơn `cancelled`/`no_show`:
-   - FD+ (SAL vẫn bị chặn, mã như hiện nay);
-   - `method` chỉ `bank_transfer`, `vietqr`; **tiền mặt bị từ chối ở API** (hiện nay nhận) cùng POS, ví, `ota_collect` → 422 `VALIDATION_FAILED` (`method`, `NOT_ALLOWED`);
-   - `attachmentId` bắt buộc (422 `REQUIRED`); `note` bắt buộc (422 `REASON_REQUIRED`);
-   - `type` = `deposit` khi `status_before_cancel = hold`, `charge` với đơn khác (sai → 422 `NOT_ALLOWED` ở `type`) – trả lời DOM 2 (f);
-   - `receivedAt` từ lúc tạo đơn tới bây giờ;
-   - kết quả cùng giao dịch: `reconciliation = pending`; yêu cầu hoàn `refund` mã lý do **mới** `payment_after_cancel` (không dùng lại `overpayment`: báo cáo và nhãn Desk cần tách "Tiền về sau khi hủy"; `reason_code` là text, không migration), số = phần vượt còn phải thu (thường 100 %), không phí; `Payment.refundRequestId`; chi chỉ khi khoản thu `reconciled`; người ghi không tự duyệt; mục `deposit_after_cancel` đóng; audit `afterCancel: true`; đơn, folio không đổi trạng thái.
-   - BE kiểm khi làm: (i) chặn "chi trước đối soát" đã có ở đường hoàn chưa – chưa có thì thêm 409 `INVALID_TRANSITION` ở bước thực hiện hoàn; (ii) giao dịch VietQR `pending` tạo trước khi đơn bị hủy rồi khách trả sau: hướng ARC – `confirmPaymentReceived` trên đơn đã đóng đi cùng nhánh 5B-1 (ảnh, hoàn 100 %), không có đường thứ hai.
-2. **`createDepositNotice` trên đơn đã đóng (QA ca (f)):** **202** như đơn `hold`, lưu báo `open`, mở `deposit_after_cancel` cho FD, FDL, MGR, OWN; sale không cần biết thêm (thấy trạng thái đơn ở danh sách). Mục đóng khi có khoản thu ghi sau lúc báo, hoặc FD+ `resolveAttentionEvent` "Không thấy tiền" kèm ghi chú. Kind đã có trong CHECK DB – không migration.
-3. **Migration 5B-1:** không. **PR:** PR-B1 (BE-B) nếu PO xếp v1.0.5; tới đó QA ca (a'')…(e') chờ.
-4. **5B-2 – khôi phục giữ chỗ (v1.0.6, hợp đồng 0.3.14), phác:**
-   - Thân `recordPayment` thêm `restoreHold: true` (FD+, chỉ đơn `cancelled` có `status_before_cancel = hold`; đơn khác → 422 `NOT_ALLOWED`). Cùng giao dịch: ghi khoản thu `deposit`, đơn `cancelled → hold` (cùng mã, căn, giá đã giữ), xác nhận cọc bằng chính khoản này (như `confirmDeposit.existingPaymentId`), **không** tạo yêu cầu hoàn. Đủ cọc → `confirmed`; thiếu → giữ chỗ có cọc một phần quá hạn (BR-303).
-   - **Căn đã bán** (một đêm bất kỳ trùng): 409 `ROOM_UNAVAILABLE` + `conflicts[]`, `suggestions[]` – **cùng mã với khôi phục B12** (`restoreNoShow`), như DOM gợi ý. **Đã qua ngày đến:** 409 `INVALID_TRANSITION`. Lỗi nào cũng rollback cả giao dịch – khoản thu không ghi nửa chừng; lễ tân chọn lại lối hoàn (5B-1) hoặc mời căn khác.
-   - **Tồn phòng song song (QA ca (b)):** đặt lại `room_occupancy.active = true` trong cùng giao dịch; ràng buộc `room_occupancy_no_overlap` (EXCLUDE, ADR-009) quyết người thắng – bên thua nhận 23P01 → 409 `ROOM_UNAVAILABLE`. Không cần khóa thêm ngoài khóa đơn như B12.
-   - **Migration: không** – không có trigger chặn chuyển `cancelled → hold`; `reservation_cancelled_check` chỉ ràng khi `status = cancelled`; `cancel_reason_code`, `cancelled_at` giữ lại để tra (hoặc xóa – BE chọn, ghi audit). Máy trạng thái SM-01 thêm chuyển `cancelled → hold` (BA). SEC xem ai được khôi phục (DOM đề xuất FD+).
+1. **Cách làm: một nhánh trong `recordPayment`**, không thao tác bọc. Lý do: một khoản tiền một đường (số PT-, audit, đối soát, đóng ca, báo cáo đọc một nguồn); thao tác bọc thêm route, dòng rbac, bộ ca quyền mà không thêm chặn nào.
+2. **V5-48 – bắt buộc v1.0.5, BE-B (PR-B1), không migration.** Đơn chính của folio `cancelled`/`no_show`, mọi vai kể cả OWN, đọc dưới khóa đơn:
+   - `recordPayment`: `method` khác `bank_transfer`/`vietqr` → 422 `VALIDATION_FAILED` (`method`, `NOT_IN_LIST`) – **tiền mặt bị từ chối ở API**; thiếu ảnh → 422 `REQUIRED` (`attachmentId`); ảnh đã gắn vào báo của sale → 422 `NOT_IN_LIST`; luôn `pending`; audit `afterClosure: true` + `reservationStatus`; `Payment.afterClosure`. SAL giữ mã chặn hiện nay (422 hoặc 404).
+   - `confirmPaymentReceived` → 409 `INVALID_TRANSITION` + `reservationStatus` (mọi vai, cả SAL); `createVietQr` → 409 `INVALID_TRANSITION` + `reservationStatus` (mọi mục đích, cả khi có `overBalanceReason`).
+   - Mã lỗi: giữ `INVALID_TRANSITION` (không thêm mã mới) và thêm trường mở rộng `reservationStatus` để Desk không đọc nhầm `currentState` là trạng thái khoản thu (SEC 3.1).
+   - Thứ tự: 403 vai → 404 phạm vi → luật đơn đã đóng → phần còn lại; lỗi không ghi gì.
+   - Nên làm cùng (không đổi hợp đồng): J1, B5, B10, B11 cho QR `pending` của đơn hết hạn trong giao dịch hủy.
+3. **5B-1 – nên có (PO xếp, cắt được), BE-B (PR-B3), không migration.** Cùng giao dịch với V5-48:
+   - `type` = `deposit` nếu hủy lúc còn giữ chỗ, `charge` với đơn khác (DOM 2 (f));
+   - yêu cầu hoàn mã **mới** `payment_after_cancel` (không dùng lại `overpayment` – báo cáo và nhãn tách "Tiền về sau khi hủy"; `reason_code` là text), đứng tên **người ghi**, người ghi vào `origin_actor_ids` (S2);
+   - nơi nhận cố định `original_method`, `setRefundDestination` → 409, không chi tiền mặt (S3; DOM B002-04 ý 1);
+   - **"Có thể trùng" – bắt buộc khi 5B-1 lên** (DOM B002-04 ý 4): `possibleDuplicateCodes` trên `Payment` và `ApprovalRequest`, tính lúc đọc;
+   - **`bankReference` tùy chọn trong `PaymentCreate` – ARC thêm ở 0.3.13**: lễ tân thường không đọc được mã, nên không bắt buộc; có mã mà trùng khoản thu chưa đảo của cơ sở → **409 `DUPLICATE_BANK_REFERENCE`** (mã mới, `duplicateReservationCode`); kiểm dưới khóa tư vấn (cơ sở, mã) trong giao dịch, cột có từ 0040 → không migration;
+   - **ô mã giao dịch ở bước đối soát và luật "một dòng sao kê chỉ khớp một khoản" ở máy chủ: v1.0.6** (DOM B002-04 ý 2 – tới đó MGR+ áp bằng tay; người đối soát luôn có sao kê nên chặn ở đó chắc hơn, nhưng đổi `reconcilePayment` thêm một PR vào làn BE-B đang kín);
+   - lỡ ghi hai lần: `disputed` → `reversePayment` → yêu cầu hoàn đi kèm `superseded` (DOM đã kiểm `folio.service.ts`) – không đổi hợp đồng;
+   - chứng từ = thông báo tiền vào tài khoản OTTIMO do OWN/MGR gửi (DOM B002-04 ý 3) – nhãn ô ảnh (UXD), không kiểm được ở máy chủ;
+   - trần S5 (nên có); `createDepositNotice` trên đơn đã đóng → **202** + `deposit_after_cancel`, ảnh của báo không dùng làm chứng từ, audit `afterClosure` (S7); "Không thấy tiền" = `resolveAttentionEvent` có ghi chú, audit (S8); `listAuditEvents.afterClosureOnly` (S6).
+4. **5B-2 – khôi phục giữ chỗ (v1.0.6, hợp đồng 0.3.14), theo SEC mục 4:**
+   - Thân `recordPayment` thêm `restoreHold: true`. Ai: FD, FDL, MGR, OWN tự làm, **không** cần duyệt, **chỉ khi** đủ ba điều kiện DOM: (1) đơn bị hủy lúc còn là giữ chỗ (J1 `hold_expired` hoặc B5); (2) căn cũ còn trống đủ các đêm; (3) ngày nghiệp vụ chưa qua ngày đến. Thiếu một điều kiện → không khôi phục, **kể cả OWN**, không có nhánh xin duyệt. SAL, CTV: không bao giờ.
+   - Chỉ cùng một giao dịch với khoản thu V5-48 (chuyển khoản/VietQR, ảnh, chờ đối soát): ghi khoản thu `deposit` → đơn `cancelled → hold` (cùng mã, căn, giá snapshot) → xác nhận cọc bằng khoản này; không yêu cầu hoàn. Đủ cọc → `confirmed`; thiếu → giữ chỗ có cọc một phần quá hạn (BR-303), không cho gia hạn thêm.
+   - Kiểm dưới khóa căn (`occupancy.lockRooms`, như B12, J1); `room_occupancy_no_overlap` (EXCLUDE) giữ hai thao tác song song – bên thua 409.
+   - Đơn cũ còn yêu cầu hoàn chưa đóng → 409 `INVALID_TRANSITION` (`currentState: refund_pending`), tới khi yêu cầu đó bị từ chối/hủy; số đã chi hoàn trước không tính vào cọc (BE test).
+   - Lý do bắt buộc (dùng `note` của khoản thu).
+   - Lỗi: **căn đã bán** → 409 `ROOM_UNAVAILABLE` + `conflicts[]`, `suggestions[]` (cùng mã khôi phục B12); **đã qua ngày đến** hoặc đơn không hủy lúc giữ chỗ → 409 `INVALID_TRANSITION`; rollback cả giao dịch, không ghi nửa chừng; không tự đổi căn.
+   - Audit `state` `reservation.restored_after_cancel` (`cancelled → hold` hoặc `→ confirmed`): người làm, lý do, `cancel_reason_code` cũ, hạn giữ chỗ cũ, mã khoản thu; `payment.recorded` có `afterClosure`; vào `afterClosureOnly`. Báo OWN và MGR (không gửi người làm), tin chỉ mã đơn; `deposit_after_cancel` đóng khi đã khôi phục **và** khoản thu đã đối soát.
+   - **Migration: có, nhỏ** – kind thông báo mới `reservation_restored_after_cancel` phải nới `staff_notification_kind_check` (như 0093). Chuyển `cancelled → hold` không cần migration (không trigger chặn; `reservation_cancelled_check` chỉ ràng khi `status = cancelled`). Vì có migration, 5B-2 theo QC R4 ĐK-2 (sau V5-61); 5B-1 lên trước được. SM-01 thêm chuyển (BA).
 
 ### 1.22 V5-30, V5-31 – cấu trúc và migration (DOM 4, 5, 7.3, 7.4)
 
@@ -728,8 +740,8 @@ Chia BE theo module là đề xuất của ARC; ORC đổi người làm đượ
 | 1b | BE-A2 | **PR-A1b**: V5-15 (+ trần MGR, BE 03, 09, 10, cổng minibar) | 1.4, 1.18, 1.16 H-01…H-04 | PR-0; rebase theo PR-A1a nếu cùng chạm `checkout.service.ts` (gộp sau PR-A1a) | Người giữ inventory review cổng minibar |
 | 1c | BE-D | **PR-D1**: V5-40, V5-43 + `departuresDate` (BE 02) | 1.19 | PR-0 | |
 | 2 | BE-A | **PR-A2**: V5-11 | 1.21 | PR-A1a | Hàm "ngày lịch tối thiểu" dùng chung |
-| 1d | BE-B | **PR-B1**: V5-13 + V5-18 + V5-44 (a) + V5-16 (lọc, `reductionsOnly`) + BE 11, 13, 14 | 1.2, 1.6, 1.11 (a), 1.5, 1.20, 1.24 | PR-0 | |
-| 2 | BE-B | **PR-B3**: V5-5B 5B-1 (nhánh đơn đã đóng, `createDepositNotice` 202, `deposit_after_cancel`) | 1.21 | PR-B1 | Nếu PO xếp v1.0.5; FE nút trên khung đơn đã đóng |
+| 1d | BE-B | **PR-B1**: V5-13 + V5-18 + V5-44 (a) + V5-16 (lọc, `reductionsOnly`) + BE 11, 13, 14 + **V5-48** | 1.2, 1.6, 1.11 (a), 1.5, 1.20, 1.21 ý 2, 1.24 | PR-0 | V5-48 bắt buộc v1.0.5; nếu PR-B1 trễ thì tách V5-48 thành PR riêng, không chờ phần khác |
+| 2 | BE-B | **PR-B3**: V5-5B 5B-1 (hoàn tự tạo, `original_method`, "Có thể trùng", `bankReference`, `createDepositNotice` 202, `deposit_after_cancel`, `afterClosureOnly`) | 1.21 ý 3 | PR-B1 (V5-48) | Hướng chốt trước 10/11 (SEC B002-02); lên v1.0.5 nếu PO xếp; FE nút trên khung đơn đã đóng |
 | 2 | BE-B | **PR-B2**: V5-16 phần chặn BR-438 + `lineReductions` + `foc_threshold` `line_reduction_count` | 1.20 | PR-B1 | |
 | 1e | BE-S | **PR-S1**: V5-14 + V5-22 + guard `x-write-roles` | 1.3, 1.9, 1.16, 1.17 | PR-0 | **≤ 08/11** (BE 05) |
 | 1f | BE-C | **PR-C1**: V5-1A (+ cảnh báo tỷ lệ, bootstrap) + V5-44 (b) + V5-58 (+ bổ sung) | 1.8, 1.11 (b), 1.13, 1.23, 1.24 | PR-0; **V5-73 gộp trước** | |
@@ -741,7 +753,7 @@ Chia BE theo module là đề xuất của ARC; ORC đổi người làm đượ
 | – | FE-B | V5-18, V5-13 (khung đơn), V5-46 | 1.6, 1.2, 1.12 | PR-B1 (V5-18, 13); V5-46 không chờ | V5-46 bật cùng tag máy chủ |
 | – | MOB | Nút Cần dọn trên app nhân viên (V5-15); V5-46 nếu thuộc app khách | 1.4, 1.12 | Không | Hàng đợi offline như R8 |
 | – | OPS | V5-62, V5-63 (+ SEC ARC-07, 08) | 1.14, 1.15 | Không | SEC review; ARC review cấu hình |
-| sau | BE | 0.3.14: 5B-2 khôi phục (`recordPayment.restoreHold`) | 1.21 | PR-B3 | v1.0.6 |
+| sau | BE | 0.3.14: 5B-2 khôi phục (`recordPayment.restoreHold`) + migration kind thông báo | 1.21 ý 4 | PR-B3; V5-61 | v1.0.6 |
 
 "Thứ tự" cùng số = chạy song song. Gộp PR-A1a trước PR-A1b vì cùng tệp.
 
@@ -763,7 +775,7 @@ Luật chung:
 | V5-11 | Luật W (2, 7.6) | 1.21 | DOM thêm câu BR-428 nếu đồng ý nhận xét 1.21 |
 | V5-31 | Khóa theo căn (5, 7.4) | 1.22 (PR-M) | – |
 | V5-58 (phụ) | FD đọc (7.5) | 1.23 | **BA** thêm dòng rbac; ARC thêm vai |
-| 11.4 / V5-5B | Dùng lại `recordPayment`, mọi đơn đã đóng; 5B-2 khôi phục cùng đơn | 1.21 (5B-1 vào 0.3.13; 5B-2 phác 0.3.14) | SEC chốt ai được khôi phục; PO xếp bản |
+| 11.4 / V5-5B, V5-48 | Dùng lại `recordPayment`, mọi đơn đã đóng; hoàn về tài khoản đã chuyển; S4 tối thiểu bắt buộc; 5B-2 khôi phục cùng đơn | 1.21 (V5-48, 5B-1 vào 0.3.13; 5B-2 phác 0.3.14 theo SEC mục 4) | PO xếp 5B-1; ô mã đối soát ở v1.0.6 |
 | V5-25 | Luật lưu `min_stay` (mục 12), `weekend_nights` (8.4) | 1.24, mô tả `setParameter` | – |
 | BR-101 (4) | – | Biên dưới giá tháng ÷ 30 | **DOM chốt biên trên** (ARC giả định ÷ 3) |
 
@@ -773,13 +785,13 @@ Luật chung:
 
 ## 4. Mục có migration (QC R4 ĐK-2: không phát hành production có migration trước khi diễn tập khôi phục xong)
 
-- **Không migration:** V5-10, 11, 13, 14, 15 (cả trần MGR), 16 (cả BR-438), 18, 1A, 22, 25, 44, 58, V5-5B (5B-1 và 5B-2), tin `hold_expired`, `x-write-roles`; V5-62/63 (hạ tầng).
+- **Không migration:** V5-10, 11, 13, 14, 15 (cả trần MGR), 16 (cả BR-438), 18, 1A, 22, 25, 44, 48, 58, V5-5B 5B-1 (cả `bankReference` – cột có từ 0040), tin `hold_expired`, `x-write-roles`; V5-62/63 (hạ tầng).
 - **Có migration – gom vào một PR riêng PR-M** (trả lời ORC: V5-30, V5-31 **có** migration):
   - `config_parameter_def`: `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` (không giá trị mặc định – SEC G3);
   - `commission.instalment_no` + unique mới (1.22).
   - Không có kind thông báo/"Cần chú ý" mới cần nới CHECK: `commission_rate_missing` là mục `computed` (không lưu).
 - **Đề xuất tách bản:** PR-M chỉ gộp vào `main` khi PO xếp nó vào v1.0.5 **và** V5-61 xong; nếu V5-61 chưa xong thì v1.0.5 lên không có PR-M, H2 lên ở bản kế (hạn 01/12). Các PR khác không phụ thuộc PR-M.
-- **Có thể có migration, chờ BE xác nhận:** 5B-2 (ARC thấy không cần – 1.21 ý 4).
+- **5B-2 (v1.0.6): có migration nhỏ** – nới `staff_notification_kind_check` cho kind `reservation_restored_after_cancel` (1.21 ý 4). Theo ĐK-2.
 - **Ngoài hợp đồng, có thể có migration dữ liệu:** V5-17 (tính lại `is_complimentary`). ARC review khi DATA và BE đưa cách làm.
 
 ---
@@ -811,7 +823,8 @@ Luật chung:
 - G9. Biên trên cảnh báo giá đêm = giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt]; biên dưới ÷ 30 theo BR-101 (4).
 - G10. Ứng viên thứ ba của "Quy đổi giờ trả" (BE 07) giữ hành vi hiện có, không phải luật nghiệp vụ mới; DOM V5-11 luật 3 cùng hướng.
 - G11. Bộ đọc `min_stay` phòng thủ coi giá trị hỏng như không có luật trong ngày đó (thà mất luật tối thiểu đêm một ngày hơn là dừng bán cả ngày).
-- G12. V5-5B: 5B-1 là nhánh trong `recordPayment`; 5B-2 khôi phục **cùng đơn**; không migration (BE xác nhận ràng buộc `payment`, chặn chi trước đối soát).
+- G12. V5-48 và 5B-1 là nhánh trong `recordPayment`; 5B-2 khôi phục **cùng đơn**, có migration nhỏ (kind thông báo). "Chi trước đối soát" đã chặn sẵn (`REFUND_SOURCE_NOT_RECONCILED`, SEC 1.3).
+- G15. `bankReference` kiểm trùng bằng khóa tư vấn trong giao dịch, không unique index – đủ cho 10 căn; nếu SEC muốn ràng ở DB thì thêm partial unique index ở v1.0.6 (migration).
 - G13. `x-write-roles` chỉ gắn cho luật mới của 0.3.13; luật trường cũ chuyển sang ở 0.3.14.
 - G14. Từ chối tiền mặt trên đơn đã đóng không làm mất việc nào đang làm trên Desk (Desk không có nút ghi thu cho đơn đã hủy – QA BUG-R5-002); khách ở quầy thu trên đơn mới (DOM 2 (b)).
 
@@ -833,4 +846,4 @@ Luật chung:
 
 `| 2026-11-06 | 5 | **ARC – hợp đồng OpenAPI 0.3.13-draft cho v1.0.5** (rounds/round-05/outputs/ARC/contract-0.3.13.md; PR r5-contract-0313): V5-10 máy chủ quy đổi giờ trả theo một luật, CheckoutSummary.checkoutAt dùng chung cho tóm tắt, QR, B18; V5-13 openRefunds[] theo lý do (FD+); V5-14 QuoteInput.nightlyRates, createHoldFromQuote nhận trường giá → 422; V5-15 B18 đơn quá ngày đi chỉ OWN/MGR, checkoutAt + overdueReason; V5-16 lọc action/removalsOnly (phần chặn chờ DOM); V5-18 depositUnverifiedVnd; V5-1A giá đêm bắt buộc (đổi phá vỡ có chủ đích, BUG-R4-057); V5-22 min/max; V5-30 commission.status + listParameters.missing (cấu trúc H2 chờ DOM, không số); V5-44 Problem.lockReason, trigger 0094 → 409; V5-58 getPropertyWifi/setPropertyWifi; V5-62 lượt hai production 15:00, staging 15:30 (RPO 12 giờ); V5-63 journald + MaxRetentionSec=90day. Không migration ở các mục đã chốt | ARC | Quyền ARC (hợp đồng API, kiến trúc) |`
 
-`| 2026-11-06 | 5 | **ARC – 0.3.13-draft bổ sung 1** (contract-0.3.13.md mục 1.16–1.24; responses/ARC-on-contract-0.3.13-reviews.md): x-write-roles (403 trước mọi kiểm thân lệnh, hợp quyền nhiều vai); báo giá chỉ kênh direct/agent, nightlyRates như B1; V5-15 MGR ≤ 1 đêm, từ 2 đêm chỉ OWN, overdueOnly; V5-16 BR-438 (dòng gốc nhập tay của chính mình, trong ngày nghiệp vụ; khác → FOC); V5-11 minNewDepartureDate/useCheckout; hold_expired gửi cả FD, FDL; V5-5B 5B-1 nhánh đơn đã đóng trong recordPayment (FD+, chỉ chuyển khoản/VietQR, ảnh bắt buộc, chờ đối soát, hoàn 100 % payment_after_cancel), createDepositNotice đơn đã đóng → 202 + deposit_after_cancel, 5B-2 khôi phục cùng đơn ở 0.3.14 (409 ROOM_UNAVAILABLE như B12, không migration); V5-25 luật lưu min_stay theo DOM 12, không đổi schema; V5-30/31 có migration – PR-M riêng, tách bản được nếu V5-61 chưa xong; id rbac-cases ổn định | ARC | Quyền ARC (hợp đồng API, kiến trúc) |`
+`| 2026-11-06 | 5 | **ARC – 0.3.13-draft bổ sung 1** (contract-0.3.13.md mục 1.16–1.24; responses/ARC-on-contract-0.3.13-reviews.md): x-write-roles (403 trước mọi kiểm thân lệnh, hợp quyền nhiều vai); báo giá chỉ kênh direct/agent, nightlyRates như B1; V5-15 MGR ≤ 1 đêm, từ 2 đêm chỉ OWN, overdueOnly; V5-16 BR-438 (dòng gốc nhập tay của chính mình, trong ngày nghiệp vụ; khác → FOC); V5-11 minNewDepartureDate/useCheckout; hold_expired gửi cả FD, FDL; V5-48 (bắt buộc v1.0.5): đơn đã đóng – recordPayment chỉ chuyển khoản/VietQR, ảnh bắt buộc, chờ đối soát, audit afterClosure; confirmPaymentReceived, createVietQr → 409 + reservationStatus; V5-5B 5B-1 cùng nhánh: hoàn payment_after_cancel đứng tên người ghi, nơi nhận original_method, Có thể trùng, bankReference tùy chọn (409 DUPLICATE_BANK_REFERENCE), createDepositNotice → 202 + deposit_after_cancel; 5B-2 ở 0.3.14 theo SEC mục 4 (FD+ chỉ khi đủ 3 điều kiện, 409 ROOM_UNAVAILABLE như B12, migration nhỏ kind thông báo); V5-25 luật lưu min_stay theo DOM 12, không đổi schema; V5-30/31 có migration – PR-M riêng, tách bản được nếu V5-61 chưa xong; id rbac-cases ổn định | ARC | Quyền ARC (hợp đồng API, kiến trúc) |`
