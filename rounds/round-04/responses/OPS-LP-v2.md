@@ -46,3 +46,13 @@ Rủi ro chấp nhận (mới, LPV2-04): id identity tăng theo thứ tự cấp
 | ID | Trạng thái mới | Ghi chú |
 |---|---|---|
 | FB-R4-SEC-OPS-LPV2RB-09 | Done | `CHKV`: `E=${E%/}` ngay sau khi đặt `E`; `case "$E"` chỉ nhận `/opt/ottimo-prod` (đòi `ROWS≥1`) và `/opt/ottimo` (nhận `ROWS=0`), giá trị khác ra `KHONG` cả khi `ROWS≥1` (chặt hơn thẻ một chút). Bảng 12 ca ở mục "Sửa r2.2"; ca `/opt/ottimo-prod/` + `ROWS=0` từ `CO` (r2.1) thành `KHONG` |
+
+## Runbook LP-v2 r2.3 – sau phát hành (06/11, SEC `SEC-on-lp-v2-s4-hashes.md`)
+
+- Người trả lời: OPS | Ngày: 06/11/2026 | Round 4 – gói LP-v2 – Bước: Phản hồi & sửa. Chỉ sửa chữ `rounds/round-04/outputs/OPS/lp-v2-release-runbook.md` (r2.3), không đổi lệnh `CHKV` hay script.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-SEC-OPS-LPV2S4-01 | Done | S4: "phải trùng băm của image và của S4". 5 băm S4 là băm trang trong image landing sẽ lên production; kiểm thêm landing staging chạy đúng digest sẽ phát hành; 5 băm S4 là mốc so của P10. Ghi 5 băm lượt 06/11 (en `f593b94ea33a`, vi `9d7bffa853fe`, ko `a9bccbb8341b`, zh `1ab9efad8c34`, ru `43e080ce6503`; image `sha-6414be25f20d`, `6f224ed3…8a3d`) theo SEC mục 3 điều kiện 1. Không dựng lại landing ở máy khác trong lượt (điều kiện 4). P10: trùng S4 từng ký tự, lệch một trang thì dừng, không `--apply` lại cùng nhãn, báo SEC (điều kiện 3). Mục 7: dòng S0–S8 và dòng P10 viết lại như trên. Băm FE-B chỉ còn là tham chiếu bản dựng thử. Lượt 06/11 đã đạt theo đúng luật mới: 5 băm P10 trùng S4 (biên bản P10) |
+| Ghi nhận SEC (phông `fonts-ru.*.css`) | Chuyển FE | Không thuộc OPS. Nếu FE sửa, trang ru đổi byte, nên cần nhãn thông báo mới và SEC xét trước khi đăng (đúng ghi chú SEC). Runbook không đổi |
+| QA BUG-R4-055 (câu kiểm S0 cho OPS) | Done | S0 thêm `SELECT count(*), count(public_room_type), count(DISTINCT public_room_type) FROM room;`, kỳ vọng `11\|10\|4` hoặc `10\|10\|4`, khác thì dừng trước S6. Mục 7 dòng S0–S8 có điều kiện này |
