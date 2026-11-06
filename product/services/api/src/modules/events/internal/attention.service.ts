@@ -15,6 +15,8 @@
  * - 0.3.13 bổ sung 1e (BE C0313-22 ý 3, SEC 1.2 – S8): closing a `deposit_after_cancel` item ("Không thấy tiền" – the
  *   money of a closed booking never arrived) needs a `note` and writes the money audit `attention_event.resolved`
  *   (`after = { kind, afterClosure: true }`, actor and time from the transaction) – in `afterClosureOnly`.
+ *   The action enters the closed `money` set (MONEY_AUDIT_ACTIONS, contract list, `mlog.a_*`) with ARC's contract PR
+ *   (SEC ARC-16/ARC-20), merged before this one; no `deposit_after_cancel` item is opened before 5B-1 (PR-B3).
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Tx } from '../../../db/database';

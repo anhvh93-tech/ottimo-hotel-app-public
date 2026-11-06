@@ -63,8 +63,6 @@ export const MONEY_AUDIT_ACTIONS = [
   'approval.cancelled',
   // FB-R2-SEC-BE-80 (BR-525): a debt write-off applied only up to the open debt left at the decision.
   'approval.applied_capped',
-  // 0.3.13 bổ sung 1e (BE C0313-22 ý 3, SEC S8): "Không thấy tiền" closes a `deposit_after_cancel` item (V5-48/5B-1).
-  'attention_event.resolved',
   'config.changed',
 ] as const;
 
