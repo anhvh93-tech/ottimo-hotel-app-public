@@ -258,6 +258,7 @@ jobs:
             product/infra/server/test/restore-drill-privacy.test.sh product/infra/server/privacy-log-check.sh \
             product/infra/server/test/mail-test-send.test.sh product/infra/server/test/requeue-email-changed.test.sh \
             product/infra/server/test/ops-check-price.test.sh product/infra/server/test/publish-privacy-notice.test.sh \
+            product/infra/server/test/pull-backups.test.sh \
             product/infra/ci/check-confidential-paths.sh product/infra/ci/test-confidential-paths.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
@@ -315,6 +316,14 @@ jobs:
       # R4 LP-v2 (SEC SR-PE-16, ARC L9): price-estimate refusals, public_price_missing, public_show_prices changes.
       - name: ops-check LP-v2 price alerts (counts only, no log text forwarded)
         run: bash product/infra/server/test/ops-check-price.test.sh
+      # SEC FB-R4-SEC-OPS-OR-01 (TM-52): the off-site copy never replaces a file it holds (a compromised VPS rewriting an
+      # old backup + its .sha256), warns + exit 3, no .last_pull. Real rrsync -ro behind a fake ssh; a skip is a failure here.
+      - name: pull-backups.sh (never overwrites local copies, server change → WARNING + exit 3)
+        run: |
+          command -v rrsync >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq rsync; }
+          rsync --version | sed -n 1p
+          bash product/infra/server/test/pull-backups.test.sh | tee "$RUNNER_TEMP/pull-backups.out"
+          grep -q '^== [0-9]* passed, 0 failed$' "$RUNNER_TEMP/pull-backups.out"
 
   confidential-paths:
     # SEC FB-R4-SEC-OPS-01 / SEC-on-commission-numbers G2: INV's internal pricing / commission tables never enter this
