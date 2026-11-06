@@ -242,7 +242,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     - `bill.line.late_fee_after_limit`: VI "Phụ thu trả muộn (rời sau mốc trả muộn)", EN "Late check-out fee (after the late check-out limit)";
     - cùng khuôn với `bill.line.extra_night`.
   - Không chặn v1.0.5 nếu V5-16 chưa lên cùng bản.
-- Trạng thái: Open – chờ DOM (ORC đã hỏi). UXD đã soạn sẵn khóa dự phòng `bill.line.late_fee_after_limit` theo chữ CPY ở mục 4.8, chưa đếm. DOM trả lời "chỉ giảm bằng FOC" thì đóng thẻ → CPY lượt 2: vẫn **Open**, chờ DOM. Chữ khóa dự phòng trong bản 1.1 đúng nguyên văn CPY
+- Trạng thái: Fixed (bản 1.2 của `copy-v1.0.5.md` mục 4.8: DOM xác nhận ca sửa thẳng xảy ra được, `rules-v1.0.5.md` mục 10. `bill.line.late_fee_after_limit` vào bảng chính theo chữ CPY; BE-B chọn nhãn theo `amount_vnd` so với `limit_ref_vnd`, mục 6)
 
 ### FB-R5-CPY-UXD-V105-05
 - Mức độ: Suggestion
@@ -384,7 +384,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
 
 - Người trả lời: UXD. Tệp đã sửa: `rounds/round-05/outputs/UXD/copy-v1.0.5.md`, **bản 1.1**.
 - Phạm vi theo PO: plan R5 mục 6, quyết định 15; `rounds/round-05/responses/PO-responses.md` (commit `8c828036`).
-- Số khóa sau khi sửa: **150** (69 sửa, 72 mới, 9 xóa); bản 1.0 có 143.
+- Số khóa sau khi sửa: **150** (69 sửa, 72 mới, 9 xóa) ở bản 1.1; bản 1.0 có 143. Bản 1.2 (áp trả lời DOM, cùng ngày): **146** (71 sửa, 68 mới, 7 xóa), gồm khóa của thẻ 04.
   - V5-23: thêm 6 khóa, gồm `gw.req.clean_makeup_free`, `gw.req.clean_second_fee`, `gw.lang_auto_sr` và 3 khóa ở 4.21.
   - V5-24: thêm `gw.req.clean_long_fee`.
   - Một khóa dự phòng của thẻ 04 chưa đếm.
@@ -396,7 +396,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
 | FB-R5-CPY-UXD-V105-02 (b) | Fixed | Mục 4.20 (b) và chữ đầy đủ ở 5.1: `msg.booking_confirmed`, `msg.deposit_received`, `msg.hot_water_issue` dùng "phòng {room}". Nên có, cùng lượt C5 |
 | FB-R5-CPY-UXD-V105-02 (c) | Deferred | v1.0.6, backlog R5-B-03, gộp C6. Mục 4.20 (c) ghi danh sách khóa. `gw.room` xóa ở lượt đó |
 | FB-R5-CPY-UXD-V105-03 | Fixed | Mục 4.1: U+00A0 đặt ngay sau `{noticeDays}` ở cả VI và EN. Ghi chú cho FE gõ thẳng ký tự, so test bằng `tv(key)` |
-| FB-R5-CPY-UXD-V105-04 | Open – chờ DOM | Mục 4.8: chờ DOM xác nhận ca sửa giảm thẳng (BR-438 (3)). Khóa dự phòng `bill.line.late_fee_after_limit` đã soạn theo chữ CPY, chỉ thêm khi DOM xác nhận. Không chặn v1.0.5 nếu V5-16 không lên cùng bản |
+| FB-R5-CPY-UXD-V105-04 | Fixed (bản 1.2) | DOM xác nhận (`rules-v1.0.5.md` mục 10): quản lý, chủ đầu tư sửa thẳng đơn giá hoặc số lượng được, thường trên folio `settled` sau trả phòng. Mục 4.8: `bill.line.late_fee_after_limit` vào bảng chính, chữ CPY nguyên văn. BE-B (mục 6): `amount_vnd` bằng `limit_ref_vnd` thì ra `late_fee_as_night`, khác thì ra `late_fee_after_limit`. FOC riêng không đổi nhãn |
 | FB-R5-CPY-UXD-V105-05 | Fixed | UXD nhận. VI "Phụ thu trả muộn (bằng giá 1 đêm)", cùng khuôn ngoặc với các dòng phiếu khác và bản EN |
 | FB-R5-CPY-UXD-V105-06 | Fixed | Mục 5.1: 3 câu của CPY, nguyên văn. Đây là điều kiện của C5. Giữ lời chào RU "!" |
 | FB-R5-CPY-UXD-V105-07 | Fixed | Mục 4.21: 3 khóa, chữ của CPY. Nên có, cùng lượt C5. `msg.checkout_reminder` vẫn ở B-SAU |
@@ -494,3 +494,18 @@ Thứ tự: câu rủi ro nhất trước. Mỗi mục gồm câu tiếng Nga, n
     - Hỏi: nên thống nhất một cách nói không? Nếu có, chọn cách nào?
 
 Người bản xứ sửa câu nào thì INV gửi lại nguyên văn. UXD cập nhật bảng chữ, CPY đọc lại.
+
+---
+
+## 11. Phản hồi của UXD sau lượt 2 (bản 1.2, 06/11/2026)
+
+- Người trả lời: UXD. Tệp đã sửa: `rounds/round-05/outputs/UXD/copy-v1.0.5.md` **bản 1.2**, áp trả lời DOM (`rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 8 và 10).
+- Số khóa bản 1.2: **146** (71 sửa, 68 mới, 7 xóa).
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-CPY-UXD-V105-04 | Fixed | DOM xác nhận ca sửa thẳng xảy ra được (mục 10). `bill.line.late_fee_after_limit` vào bảng chính ở 4.8, chữ CPY nguyên văn, đã đếm. BE-B: `amount_vnd` bằng `limit_ref_vnd` thì ra `late_fee_as_night`, khác thì ra `late_fee_after_limit`; FOC riêng không đổi nhãn. Mục 8 có ca kiểm của DOM. Nhờ CPY đóng thẻ |
+
+Nhờ CPY đọc thêm (chữ mới, không phải thẻ của CPY):
+- 3 câu `sale.hold_next`, `sale.hold_next_ctv`, `sale.hold_next_no_qr` (bảng chữ 4.14), sửa theo thẻ DOM FB-R5-DOM-UXD-01 (Major). Câu bỏ vế "Bạn sẽ được nhắc…", vì sale và CTV không có chỗ nào nhận tin nhắc. Thay vào đó là giờ hạn và việc người tạo phải làm. Đây là chữ Desk cho sale và CTV (VI, EN), không phải chữ cho khách. FE áp được ngay; CPY sửa chữ thì UXD chỉ đổi bảng.
+- `stay.charge_penalty_note` (4.3): chữ Desk nội bộ, câu do DOM đề xuất ("Phí phạt và tiền bồi thường hư hỏng không tính vào doanh thu phòng."). CPY xem thêm nếu muốn.
