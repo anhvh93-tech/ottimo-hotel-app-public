@@ -13,3 +13,8 @@ Nguồn: `rounds/round-04/reviews/QC-on-drill-5.0-r3.md` ĐK-4; TC-V104-HD-23 (`
 - FD/FDL (thấy đơn) nhận 403 `FORBIDDEN_ACTION` là đúng, không lộ thêm gì.
 
 Ký: PO, SEC – 06/11/2026. ĐK-4 phần HD-23 `qa.sal`: đóng (kèm điều kiện SEC kiểm ở lượt 07/11).
+
+## ORC kiểm 2 điều kiện SEC trên staging (06/11 11:40, `sha-6414be25f20d`)
+
+1. `qa.sal` GET đơn ngoài phạm vi (B-RG14) → 404; GET id không tồn tại → 404; thân giống hệt (bỏ `requestId`). **Đạt.**
+2. `qa.sal` confirm-deposit + `acceptShortfallReason`: đơn ngoài phạm vi và id không tồn tại cho **cùng** kết quả: có If-Match → 403 `FORBIDDEN_ACTION`, không If-Match → 428. `version` đơn thật không đổi. Không phải 404 như câu chữ điều kiện, nhưng không lộ sự tồn tại của đơn (kiểm quyền trước khi tìm đơn) và không ghi gì. ORC ghi **đạt theo ý điều kiện**; SEC đọc lại khi QC rút gọn, nếu cần đổi thành 404 thì đưa v1.0.5.
