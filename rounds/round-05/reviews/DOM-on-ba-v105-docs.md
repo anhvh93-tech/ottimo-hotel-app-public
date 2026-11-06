@@ -70,7 +70,13 @@ Gạch **Ở đâu** đã dặn "đơn **Đã hủy**, lý do **Hết hạn gi�
   - một giữ chỗ chưa cọc tự hủy;
   - một giữ chỗ có cọc thiếu đã quá hạn;
   - một giữ chỗ còn chờ cọc lúc 12:00 ngày đến.
-- Trạng thái: Open (PO sửa Tờ 2a, BA sửa sổ tay; DOM đọc lại một câu trước khi UXD dựng bản in)
+- Trạng thái: **PO-08 Closed** (phần Tờ 2a) – DOM đọc lại lần cuối 07/11/2026 trên `53bbde7c`:
+  - hai câu ở gạch **Ở đâu** và **Hết hạn, chưa cọc** đúng nguyên văn; phần còn lại của Tờ 2a khớp với hai câu mới (ba mốc rà, có cọc, sổ giao ca, trước khi rời quầy);
+  - DOM sửa thẳng một câu nhỏ ở bảng "Cách in": câu cũ vừa bảo in lại Tờ 2a bản 06/11, vừa bảo in bản 07/11. Nay tách ra: Tờ 1 in bản 06/11, Tờ 2a chỉ in bản 07/11. Không đổi ý.
+  - UXD dựng PDF được.
+  - Phần sổ tay 2.4 và `guides/02-le-tan.md` (BA):
+    - DOM đã xem bản BA đang sửa trong checkout, chưa commit. Bản đó đúng ý thẻ: "Tin không đổ chuông", "Tin chỉ để nhắc", ba loại tin ở v1.0.4, và tách hai trạng thái **Đã hủy** / còn **Giữ chỗ · chờ cọc** kèm câu "**Không** báo khách đơn đã hủy";
+    - phần này đóng khi BA commit; không chặn bản in.
 
 ## 2. BUG-R5-005 – câu cho lễ tân khi khách báo tab Yêu cầu lỗi
 
@@ -121,3 +127,248 @@ Gạch **Ở đâu** đã dặn "đơn **Đã hủy**, lý do **Hết hạn gi�
 2. Push tới điện thoại vẫn là Mock ở v1.0.5. Nếu OPS bật push thật, bỏ vế "Tin không đổ chuông".
 3. Xóa tin có số thẻ trên máy của cơ sở là thực hành chuẩn của ngành lưu trú: không giữ số thẻ nhận qua kênh không an toàn, xóa và báo khách là không nhận. Đây là [GIẢ ĐỊNH] DOM; SEC chốt theo PCI DSS và Nghị định 13/2023.
 4. Tỷ lệ chặn nhầm ở mục 2.1 điểm 3 là ước lượng theo luật Luhn: mỗi đoạn có khoảng 1/10 khả năng qua. Không phải số đo trên dữ liệu khách.
+
+## 4. Lượt 2 – câu BA thêm ở `792e510a` (07/11/2026)
+
+ORC giao 07/11. Đối tượng: `rounds/round-05/outputs/BA/report.md` mục 8. Các đoạn đọc:
+
+- ca đêm: `guides/02-le-tan.md` mục 2, 13.3, 17.6; sổ tay 2.20, 5.6;
+- đóng ca: `02` 2, 12.4, 17.6; sổ tay 2.1, 5.6, 1.1, 1.15; `01` 2.1, 8.1;
+- bổ sung minibar: `03` 7; sổ tay 3.7;
+- giữ chỗ (PO-08): sổ tay 2.4, `02` 4.5.
+
+Đối chiếu mã `main` @ `b121c77b`:
+
+- `MoneyPage.tsx`, cột **Trước → sau** là `before.amountVnd` → `after.amountVnd`;
+- `folio.service.ts`: `reverseLine` ghi `folio.line_reversed`, `postLines` ghi `folio.line_posted`;
+- `minibar.service.ts`: lần đếm lại ghi R7 đảo dòng, lý do `minibar_recount`;
+- `audit-log.controller.ts`: FD/FDL chỉ thấy dòng của mình; bộ lọc 7 ngày chỉ đọc `folio_line.adjusted`;
+- `HousekeepingPage.tsx`: chỉ hiện việc hôm nay.
+
+### 4.1 Kết luận
+
+| Đoạn | Kết luận | Thẻ |
+|---|---|---|
+| Ca đêm rà **Sơ đồ phòng** trước 06:00 | Đúng mã. Hai chỗ chưa đúng thực tế quầy, cả hai từ câu của chính DOM (review #101/#108/#110 mục 4): (1) "kiểm căn hoặc hỏi buồng phòng" lúc nửa đêm là gõ cửa căn có khách, và ban đêm không có buồng phòng; (2) OTTIMO đóng quầy muộn nhất 21:00, nên việc chính phải ở mốc đóng quầy, khi danh sách **Khách đi** vẫn còn đúng | **FB-R5-DOM-BA-02** Minor |
+| Đóng ca – lễ tân ghi dòng tự sửa giảm từ **Nhật ký thao tác tiền** | Giả định BA **đúng** với sửa dòng (A31): hàng **Điều chỉnh dòng folio** có **Trước → sau** đúng số, bỏ dòng hiện "… → 0 đ". Giả định **sai** với đếm lại minibar: lần đếm lại không ghi **Điều chỉnh dòng folio** mà ghi hai hàng **Đảo dòng folio** (lý do **Đếm lại minibar**, "X → —") rồi **Thêm dòng folio** ("— → Y"). Câu bộ lọc 7 ngày ở sổ tay 1.15, `01` 8.1 cũng hứa có lần đếm lại minibar, mà bộ lọc chưa đọc hàng đó | **FB-R5-DOM-BA-03** Minor |
+| Nạp đủ định mức minibar | Đúng nghiệp vụ và đúng lý do ("bấm Làm xong là Desk ghi tủ đã đủ"). Thiếu bước của lễ tân khi buồng phòng báo tủ thiếu hơn số đã tính | **FB-R5-DOM-BA-04** Suggestion |
+| Sổ tay 2.4, `02` 4.5 theo PO-08 | Đúng ý thẻ. DOM sửa thẳng một vế nhỏ ở sổ tay 2.4: đơn còn **Giữ chỗ · chờ cọc** mà chưa nhận đồng nào thì theo Tờ 2a "Quá hạn vài phút…", không theo gạch **Đã nhận cọc**. `02` 4.5 đã tách đúng ý (2)/(3). **PO-08 Closed cả phần sổ tay** | – |
+
+### FB-R5-DOM-BA-02
+- Mức độ: Minor (v1.0.5 tới v1.0.6; không mất tiền, vì sau 06:00 quản lý vẫn trả phòng được theo V5-15)
+- Vị trí:
+  - `guides/02-le-tan.md` 13.3, các bước 1–4 "Từ v1.0.5, tới v1.0.6: rà Sơ đồ phòng trước 06:00";
+  - cùng tệp, mục 2, dòng **Đóng quầy (muộn nhất 21:00)** và dòng **Trước 06:00**;
+  - sổ tay 2.20, 5.6, cùng chữ.
+- Vấn đề:
+  1. Bước 2 "Kiểm căn hoặc hỏi buồng phòng khách còn ở không" là câu DOM đưa, và sai thực tế quầy. Lúc 01:30, kiểm căn nghĩa là gõ cửa hoặc mở cửa căn mà khách có thể đang ngủ, còn buồng phòng không làm ca đêm.
+  2. OTTIMO hiện đóng quầy muộn nhất 21:00 (`02` mục 2, 17.1). Ca 00:00–05:59 chỉ có khi có người trực đêm. Việc của "kiểm toán đêm" phải làm ở mốc đóng quầy. Trước 00:00, danh sách **Khách đi** hôm nay vẫn hiện đúng các căn này.
+- Vì sao quan trọng: gõ cửa khách lúc nửa đêm là lỗi phục vụ nặng ở khách sạn. Người trực đoán "khách đã đi" để bấm Trả phòng thì có thể giao căn đang có khách cho ca sau.
+- Đề xuất sửa (chữ thay):
+  - `02` mục 2, dòng **Đóng quầy**, thêm vào đầu cột việc: "**Khách đi** hôm nay không còn căn chưa trả phòng: khách đã đi thì **Trả phòng** (ghi giờ rời thật), khách ở thêm thì **Gia hạn**."
+  - 13.3 (và sổ tay 2.20), bước 2 và 3 thay bằng:
+    > 2. **Không gõ cửa, không vào căn ban đêm.** Xem dấu hiệu: thẻ, chìa đã trả ở quầy; sổ giao ca; căn đã dọn trong ngày; nhật ký mở cửa trên app khóa, nếu có.
+    > 3. Chắc khách đã đi: **Trả phòng**, ghi giờ khách rời thật. Chắc khách còn ở: **Gia hạn**. Không chắc: để nguyên, ghi sổ giao ca mã đơn; từ 06:00 làm như đơn quá ngày đi.
+  - Bước 1, bước 4 giữ nguyên. Bước 4 thêm: "Người trực hiện giữ vai quản lý nên làm được bằng quyền đó, ghi lý do."
+- Trạng thái: **Closed** 07/11 (lượt 3, mục 5): BA áp ở `d467578b`, DOM đọc lại đạt.
+
+### FB-R5-DOM-BA-03
+- Mức độ: Minor
+- Vị trí:
+  - `02` 12.4, khối "Dòng tự sửa giảm trong ca", bước 2; sổ tay 2.1 (cuối ca, bước 3), cùng chữ;
+  - sổ tay 1.15 và `01` 8.1, câu bộ lọc **Sửa giảm dòng – 7 ngày** "… đếm lại minibar thấp hơn";
+  - sổ tay 1.1 và `01` 2.1, dòng **Mỗi tuần** "Chú ý dòng minibar đếm lại thấp hơn".
+- Vấn đề:
+  - Lần đếm lại minibar trên `main` không phải `folio_line.adjusted`:
+    - nếu số mới khác số cũ, Desk đảo dòng cũ (`folio.line_reversed`, lý do `minibar_recount`) rồi ghi dòng mới (`folio.line_posted`);
+    - trong **Nhật ký thao tác tiền**, việc đó hiện thành hai hàng. Ví dụ 2 bia (70.000) đếm lại còn 1: hàng **Đảo dòng folio**, cột Trước → sau "70.000 đ → —", lý do **Đếm lại minibar**; rồi hàng **Thêm dòng folio**, "— → 35.000 đ". Đếm lại về 0 thì không có hàng thứ hai.
+  - Lễ tân chỉ tìm hàng **Điều chỉnh dòng folio** sẽ không thấy lần đếm lại.
+  - Bộ lọc 7 ngày (#108) chỉ đọc `folio_line.adjusted`, nên cũng không có hàng này. Chỉ khi BE-A2 làm phần audit của BR-438 (2a) thì mới có.
+- Vì sao quan trọng: đây là đúng loại sửa giảm mà luật muốn người nhận ca và chủ đầu tư thấy. Câu hiện nay hứa có mà Desk không có.
+- Đề xuất sửa:
+  - 12.4 bước 2, thêm sau câu hiện có:
+    > Đếm lại minibar không hiện là **Điều chỉnh dòng folio**: tìm thêm hàng **Đảo dòng folio** có lý do **Đếm lại minibar**; số mới nằm ở hàng **Thêm dòng folio** ngay sau, cùng mã đơn (không có hàng đó thì số mới là 0).
+  - Sổ tay 1.15, `01` 8.1: thay vế "đếm lại minibar thấp hơn" bằng:
+    > Tới khi có bản sửa, lần đếm lại minibar chưa hiện ở bộ lọc này: xem thêm hàng **Đảo dòng folio**, lý do **Đếm lại minibar**, ở **Nhật ký thao tác tiền**.
+
+    Dòng **Mỗi tuần** ở 1.1, `01` 2.1 trỏ về câu đó. Bỏ câu thay thế khi BE-A2 làm xong phần audit (ORC báo).
+  - Xác nhận cho BA: cột **Trước → sau** hiện đúng số trước và sau với hàng **Điều chỉnh dòng folio**, kể cả bỏ dòng ("… → 0 đ"). Lễ tân, lễ tân trưởng chỉ thấy hàng của mình. Tài khoản 6 vai thấy mọi hàng.
+- Trạng thái: **Closed** 07/11 (lượt 3, mục 5): BA áp ở `d467578b`, DOM đọc lại đạt. Nối với đề xuất minibar ở `rounds/round-05/responses/DOM-responses.md`.
+
+### FB-R5-DOM-BA-04
+- Mức độ: Suggestion
+- Vị trí: `03` mục 7 và sổ tay 3.7, câu "Tủ thiếu nhiều hơn số trên việc: báo lễ tân **trước khi** bấm **Làm xong**". Phía lễ tân (`02` 11, sổ tay 2.14) chưa có bước tiếp theo.
+- Vấn đề: lễ tân nghe báo nhưng chưa có câu dặn làm gì.
+- Đề xuất sửa: thêm vào `02` (gần 11.1) và sổ tay 2.14:
+  > Buồng phòng báo tủ thiếu nhiều hơn số đã tính:
+  > - khách đã trả phòng: **Thêm phát sinh** sau trả phòng trong 24 giờ, kèm ảnh tủ, đúng số món chênh. Quá 24 giờ: ghi sổ giao ca, báo chủ đầu tư;
+  > - khách còn ở: ghi sổ giao ca mã đơn và món, tính ở lần đếm sau.
+  >
+  > Buồng phòng vẫn nạp đủ định mức rồi mới bấm **Làm xong**.
+
+  Đây đúng là luật phát sinh sau trả phòng đã có (sổ tay mục "Phát sinh sau trả phòng").
+- Trạng thái: **Closed** 07/11 (lượt 3, mục 5): BA áp ở `d467578b`, DOM đọc lại đạt.
+
+## 5. Lượt 3 – BA `d467578b`, `df271ee7`; CPY `12d71871` (07/11/2026)
+
+ORC giao 07/11, hai việc gom một lượt:
+
+1. Đọc góc quầy phần BA đã áp ở `rounds/round-05/outputs/BA/report.md` mục 8, "Bổ sung lượt 3" và "phần 2":
+   - thẻ BA-02, 03, 04 (mục 4 tệp này);
+   - K-MB: sổ tay 1.1, 1.16, 3.7; `01` 2.1, 13; `03` 7;
+   - câu "đổi giá xong báo giá thử 1 đêm": sổ tay 1.3, `01` 9.1, `so-van-hanh.md` 4.1 bước 7;
+   - khối [Chờ xác nhận – Wi-Fi trên Desk]: sổ tay 1.4, `01` 9.2;
+   - 5 việc SEC 6.5.6 về khách lỡ gửi số thẻ: sổ tay 2.21, 2.4; `02` 16.1, 4.1.
+
+   Bản đã đọc: sổ tay 1.19, bộ hướng dẫn 1.17, sổ vận hành 1.7.
+2. Chốt 3 điểm CPY hỏi trong `rounds/round-05/outputs/CPY/guest-notice-wifi-change.md` (`12d71871`), mục 5 và 6.
+
+Đối chiếu mã `main` @ `74001ded`:
+
+- `quote-pricing.ts` `listPrices`, `pricing.service.ts`, `public-rate.ts`: báo giá ở quầy, form đặt phòng và web khách đều lấy giá niêm yết **của từng đêm**, tức dòng có `effective_from` gần nhất mà không sau đêm đó;
+- `rooms.service.ts`: không sửa được dòng giá đã qua (`DATE_IN_PAST`). Lưu một giá có cùng ngày hiệu lực, hôm nay hay ngày sau, thì **thay** dòng đó;
+- `0094_room_list_price_append_only.sql`: chỉ chặn **xóa** dòng đã áp, không chặn thay;
+- `guest-messaging-journey.md` (Round 2): TP-06 hỏi thăm lúc 10:00, TP-07 nhắc trả phòng R-1 lúc 20:00 và R lúc 09:00; BR-973, BR-974, BR-204, BR-808.
+
+### 5.1 Kết luận
+
+| Đoạn | Kết luận | Thẻ |
+|---|---|---|
+| BA-02: ca đêm, đóng quầy | Đúng chữ DOM ở `02` mục 2, 13.3 và sổ tay 2.1, 2.20, 5.1: không gõ cửa; không chắc thì để từ 06:00. **Closed** | – |
+| BA-03: đếm lại minibar thành hai hàng | Đúng ở `02` 12.4, sổ tay 2.1, 1.15, 1.1 và `01` 8.1, 2.1. #128 cũng hiện đúng hai hàng khi tắt công tắc (`DOM-on-prs-105-125-128.md`). **Closed** | – |
+| BA-04: tủ thiếu nhiều hơn số đã tính | Đúng chữ DOM ở sổ tay 2.14, `02` 11.1. **Closed** | – |
+| K-MB | Đúng ý đề xuất (A) 2: kho có khóa, sổ kho, phiếu nạp không ghi tên khách, so 3 dòng với **Folio**, lệch quá 2 món thì hỏi. Thiếu một loại dòng: hàng ra kho mà không vào tủ | **FB-R5-DOM-BA-07** Minor |
+| Đổi giá xong, báo giá thử 1 đêm | Đúng ý, nhưng thiếu **đêm nào**: với giá hiệu lực từ ngày sau, báo giá cho đêm nay vẫn ra giá cũ, nên báo giá thử "đạt" trong khi giá sai đã lên lịch và web đã bán đêm đó. Câu cũ sát bên ("tạo trước ngày hiệu lực giữ giá cũ") cũng chưa đúng mã | **FB-R5-DOM-BA-06** Minor |
+| Khối [Chờ xác nhận – Wi-Fi trên Desk] | Đúng DOM-on-be-pr-120 mục 3. Chốt 3 điểm CPY hỏi; bước 1, 4, 5 thay chữ; thêm bước in thẻ và việc của buồng phòng | **FB-R5-DOM-BA-05** Minor |
+| SEC 6.5.6, năm việc | Góc quầy không có gì sai. Câu nào dùng cho kênh nào rõ; hướng dẫn xóa theo từng kênh làm được trên điện thoại cơ sở; kênh không xóa được là ca thường, không đánh dấu spam; ca phải gọi ngay hẹp lại đúng. Tắt tự lưu ảnh mở ra một ca quầy chưa có dòng: khách gửi ảnh giấy tờ qua chat | **FB-R5-DOM-BA-08** Suggestion |
+
+### FB-R5-DOM-BA-05
+
+- **Mức độ:** Minor. Khối này còn chờ phần Desk của V5-58. BA cần các quyết định dưới đây trước khi bật khối.
+- **Vị trí:**
+  - sổ tay 1.4 và `01` 9.2, khối [Chờ xác nhận – Wi-Fi trên Desk], mục **Đổi mật khẩu Wi-Fi**, bước 1, 4, 5;
+  - `03` (buồng phòng) 11.2, 12, các chỗ đã ghi trong chú thích "Chờ ORC" của khối;
+  - CPY `guest-notice-wifi-change.md` mục 1, gạch **Lúc gửi**.
+- **Quyết định DOM cho 3 điểm CPY hỏi:**
+  1. **Bước 5: đồng ý với CPY.**
+     - Mọi căn đều được thay thẻ trong căn.
+     - Căn có khách thì thay ở lần dọn tới. Khách hỏi trước lúc đó thì lễ tân đưa thẻ mới ở quầy, và thẻ trong căn vẫn thay ở lần dọn tới.
+     - Vì vậy câu 4 của CPY ("We will also replace the Wi-Fi card in your room; until then, it shows the previous password.") giữ nguyên.
+     - Thêm ca khách dài hạn. Lịch dọn của khách này đặt theo lượt (BR-204), nên có khi vài tuần không có lần dọn.
+  2. **Giờ đổi: 13:00–17:00, không phải cả khung 08:00–21:00.** Nên làm đầu khung.
+     - Nằm trong khung tin chủ động của BR-973.
+     - Cách tin hỏi thăm 10:00 (TP-06) và tin nhắc trả phòng 20:00 (TP-07 R-1) ít nhất 3 giờ. Vì thế BR-974 không gộp tin Wi-Fi với tin lịch, và lễ tân đếm trần dễ.
+     - Khách đi hôm nay đã trả phòng (12:00), nên căn trống nhiều nhất.
+     - Buồng phòng đang dọn căn trống cho khách nhận lúc 14:00, nên thay thẻ ngay trong lần dọn đó. Khách nhận phòng sau giờ đổi vào căn đã có thẻ mới, trang khách cũng đã có mật khẩu mới.
+     - Quầy còn người ít nhất 4 giờ (đóng quầy muộn nhất 21:00), đỡ được khách không vào được mạng.
+     - Đổi ngoài khung chỉ khi chủ đầu tư quyết, vì mạng bị dùng sai hay lộ ra ngoài mà không chờ được tới hôm sau. Khi đó tin báo là tin sự cố (BR-973 (4)): gửi ngay mọi giờ, không tính trần.
+  3. **Tin này tính vào trần 2 tin chủ động mỗi ngày mỗi đơn (BR-974): đồng ý với CPY.** Ở quầy:
+     - Chỉ gửi cho đơn **đang ở và không đi hôm nay**.
+     - Khách đi hôm nay (kể cả trả muộn): không gửi, vì ngày đi đã có 2 tin. Khách hỏi thì đọc mật khẩu ở quầy.
+     - Khách nhận phòng sau giờ đổi: không gửi.
+     - Đơn hôm nay đã có 2 tin chủ động (xem hội thoại với khách): không gửi tin thứ ba. Ghi sổ giao ca mã đơn, báo khi khách hỏi hoặc ghé quầy. Trong khung 13:00–17:00 ca này hiếm.
+     - Một khách có nhiều căn (đoàn, gia đình): một tin cho người liên hệ của đơn.
+- **Đề xuất sửa (chữ thay cho BA):**
+  - Bước 1, thay "Chọn giờ vắng khách" bằng:
+    > 1. Đổi trong **13:00–17:00**, nên đầu khung. Trước đó in sẵn **thẻ Wi-Fi mới** cho 10 căn và 2 thẻ dự phòng để ở quầy. Ngoài khung giờ này chỉ đổi khi chủ đầu tư quyết vì mạng bị dùng sai.
+  - Bước 4: thay bằng dòng CPY mục 6 (bản đầy đủ và bản ngắn Zalo, nguyên văn), và thêm:
+    > Không gửi cho khách đi hôm nay, khách nhận phòng sau giờ đổi, và đơn hôm nay đã có 2 tin chủ động: các khách này được báo ở quầy khi hỏi (ghi sổ giao ca mã đơn). Đổi gấp ngoài khung giờ: tin này là tin sự cố, gửi ngay.
+  - Bước 5, thay bằng:
+    > 5. Thay **thẻ Wi-Fi trong căn**, đủ 10 căn:
+    > - căn trống: thay ngay, trước khách nhận phòng kế tiếp;
+    > - căn có khách: buồng phòng thay ở lần dọn tới. Khách hỏi trước lúc đó: lễ tân đưa thẻ mới ở quầy; thẻ trong căn vẫn thay ở lần dọn tới;
+    > - khách dài hạn không có lần dọn trong 3 ngày: hẹn khách một giờ để thay, chỉ vào căn khi khách đồng ý. Khách không muốn ai vào căn: đưa thẻ mới để khách tự thay, xin lại thẻ cũ;
+    > - ghi sổ giao ca **số căn** chưa thay (không ghi mật khẩu), gạch khi xong. Thẻ cũ mang về quầy, cắt nhỏ rồi bỏ.
+  - `03` 11.2 hoặc 12: thêm một dòng:
+    > Sau khi chủ đầu tư đổi mật khẩu Wi-Fi: ở lần dọn đầu của mỗi căn, thay thẻ Wi-Fi bằng thẻ mới lễ tân đưa, mang thẻ cũ về quầy, báo lễ tân để gạch sổ.
+
+    Đây là điểm "thẻ chào + Wi-Fi" trong lần kiểm 12 điểm (BR-808).
+  - Cho UXD khi làm thẻ Wi-Fi (không chặn): in tháng in nhỏ ở góc thẻ, để buồng phòng nhận ra thẻ mới.
+  - CPY mục 1, gạch **Lúc gửi**: "mọi khách đang ở" thêm vế loại trừ như bước 4 trên. ORC chuyển CPY, chỉ một dòng.
+- **Việc của DOM:** ghi khung 13:00–17:00, việc thay thẻ và cách tính tin vào BR-012 (7) ở bản BR kế tiếp. Ghi thêm BR-973 (4) cho ca đổi gấp.
+- **Trạng thái:** Open (BA, khi bật khối; CPY một dòng).
+
+### FB-R5-DOM-BA-06
+
+- **Mức độ:** Minor. Lời dặn đang **áp dụng ngay**, nên cần đúng từ bây giờ.
+- **Vị trí:**
+  - sổ tay 1.3, gạch **Desk chưa cảnh báo khi giá đêm cao bất thường** và gạch "Đơn, báo giá, hợp đồng tạo **trước** ngày hiệu lực **giữ giá cũ**";
+  - `01` 9.1, hai gạch cùng chữ;
+  - `so-van-hanh.md` 4.1 bước 7, vế "Giá căn: báo giá thử 1 đêm…";
+  - hỏi đáp: sổ tay "Tôi đổi giá nhưng đơn cũ không đổi?" và `01` bảng tình huống, cùng dòng.
+- **Vấn đề:**
+  1. **Báo giá thử chưa nói đêm nào.** Báo giá và web lấy giá theo từng đêm. Lưu giá 8.000.000 hiệu lực từ ngày 20 rồi báo giá thử đêm nay, Desk ra giá cũ, đúng, nên chủ đầu tư yên tâm. Trong khi đó, từ lúc lưu, web đã bán đêm 20 trở đi với giá sai.
+  2. **"Tạo trước ngày hiệu lực giữ giá cũ" chưa đúng mã.**
+     - Đơn và báo giá giữ giá **lúc tạo** (BR-006). Vậy cái quyết là đơn tạo trước hay sau **lúc lưu** giá mới, không phải trước hay sau ngày hiệu lực.
+     - Đơn tạo hôm nay, sau khi lưu giá hiệu lực từ ngày 20, cho đêm 21, lấy **giá mới**.
+     - Chủ đầu tư đọc câu cũ sẽ nghĩ "tới ngày 20 mới bán giá mới", và lễ tân báo giá khách sai kỳ vọng.
+  3. BA ghi giả định "sổ tay chỉ có cách sửa giá tương lai". Mã cho thay cả giá hiệu lực **hôm nay**: lưu lại với cùng **Hiệu lực từ** là hôm nay.
+- **Vì sao quan trọng:** đây là lớp chặn duy nhất cho lỗi gõ thừa số 0, tới khi có V5-5C. Báo giá thử sai đêm thì lớp chặn không bắt được lỗi.
+- **Đề xuất sửa (chữ thay):**
+  - Sổ tay 1.3, `01` 9.1, thay câu in đậm và vế "Ra số lạ" bằng:
+    > **Đổi giá xong, báo giá thử 1 đêm của căn đó, chọn một đêm từ ngày hiệu lực trở đi** (không lưu báo giá). Báo giá cho đêm trước ngày hiệu lực vẫn ra giá cũ, không kiểm được gì. Ra số lạ:
+    > - giá đã hiện trên web: tắt `public_show_prices` trước (mục 1.4);
+    > - mở **Sửa**, chọn **đúng ngày hiệu lực** của giá sai (hôm nay hay ngày sau đều được), nhập giá đúng, **Lưu**. Desk thay giá của ngày đó;
+    > - xem các đơn và báo giá tạo từ lúc lưu giá sai tới lúc sửa: các đơn này giữ giá sai. Báo quản lý xem lại từng đơn, hoặc báo đội.
+  - Thay gạch "Đơn, báo giá, hợp đồng tạo trước ngày hiệu lực giữ giá cũ" (sổ tay 1.3, `01` 9.1) và câu trả lời hỏi đáp bằng:
+    > Đơn, báo giá, hợp đồng **đã tạo trước lúc lưu** giá mới giữ giá lúc tạo. Từ lúc lưu, đơn và báo giá mới cho các đêm từ ngày hiệu lực trở đi lấy giá mới, kể cả khi tạo trước ngày đó. Web cũng bán các đêm đó với giá mới ngay từ lúc lưu.
+  - `so-van-hanh.md` 4.1 bước 7: "báo giá thử 1 đêm của căn đó **từ ngày hiệu lực trở đi**".
+- **Trạng thái:** Open (BA).
+
+### FB-R5-DOM-BA-07
+
+- **Mức độ:** Minor
+- **Vị trí:**
+  - sổ tay 1.16 và `01` 13, gạch **Kho minibar (K-MB)**: "người nạp tủ ghi mỗi lần một dòng (ngày, căn, món, số lượng lấy ra)";
+  - dòng **Mỗi tuần** ở sổ tay 1.1, `01` 2.1: "tồn đầu tuần + nhập − tồn cuối = số đã lấy ra; so với tổng phiếu nạp";
+  - sổ tay 3.7, `03` 7.
+- **Vấn đề:** hàng ra kho còn có đường không vào tủ:
+  - hết hạn, vỡ, hỏng;
+  - chủ đầu tư lấy dùng hay biếu khách;
+  - đổi món cho khách theo yêu cầu.
+
+  Phiếu nạp chỉ có dòng theo căn. Vì vậy mỗi tuần sổ kho lệch phiếu dù không ai sai, và ngưỡng "lệch quá 2 món" kêu nhầm. Hai, ba tuần kêu nhầm là người đếm thôi tin con số.
+- **Đề xuất sửa:**
+  - Phiếu nạp nhận cả dòng **không vào tủ**: ngày, món, số lượng, lý do (**hết hạn** / **vỡ, hỏng** / **dùng khác**: ghi ngắn), cột căn để "–".
+  - Món hết hạn hay vỡ giữ lại vỏ hoặc chai tới lần đếm tuần, rồi bỏ.
+  - Dòng **Mỗi tuần**: "so với tổng phiếu nạp, **gồm cả dòng không vào tủ**". Món nào tuần nào cũng có dòng "dùng khác": chủ đầu tư xem lại.
+  - Lúc đếm kho thì xem hạn dùng, món còn dưới 1 tháng thì nạp trước.
+- **Trạng thái:** Open (BA, không chặn v1.0.5).
+
+### FB-R5-DOM-BA-08
+
+- **Mức độ:** Suggestion. Không chặn v1.0.5. SEC xác nhận vế xóa.
+- **Vị trí:** sổ tay 2.21 và `02` 16.1, bảng tình huống, ngay dưới hai dòng "Khách lỡ gửi số thẻ"; luật ở sổ tay 2.4, `02` 4.1 (tắt tự lưu ảnh); `02` dòng "Không chụp giấy tờ khách, không gửi giấy tờ qua Zalo/Messenger".
+- **Vấn đề:**
+  - Khách Việt rất hay gửi ảnh CCCD, khách nước ngoài gửi ảnh hộ chiếu qua Zalo hay WhatsApp trước ngày đến, "để quầy làm sẵn".
+  - Từ khi tắt tự lưu ảnh, muốn đưa ảnh đó lên Desk thì lễ tân phải tự lưu ảnh về máy rồi tải lên. Ảnh giấy tờ vì thế nằm trong thư viện ảnh của điện thoại cơ sở, đúng điều luật mới muốn tránh.
+  - Sổ tay chưa có dòng cho ca này.
+- **Đề xuất sửa:** thêm một dòng vào bảng:
+  > **Khách gửi ảnh giấy tờ (CCCD, hộ chiếu) qua Zalo, WhatsApp, Telegram, Viber, email**
+  > - Không lưu ảnh về máy, không chuyển tiếp, không tải từ chat lên Desk.
+  > - Trả lời khách: đơn đã xác nhận thì gửi link check-in online (mục 17.3); chưa thì mời khách mang bản gốc khi nhận phòng.
+  > - Xóa tin có ảnh theo cách xóa của kênh, như dòng số thẻ. Kênh không xóa được: để nguyên, không chuyển tiếp.
+
+  CPY viết câu trả lời khách. SEC xác nhận vế xóa và vế "không tải từ chat lên Desk".
+- **Trạng thái:** Open (BA, CPY, SEC; lượt sau).
+
+### 5.2 UXD dựng HTML được chưa
+
+**UXD dựng HTML được** sổ tay 1.19 và bộ hướng dẫn 1.17 (`00`, `01` 1.16, `02` 1.16, `03` 1.8), với một điều kiện: **BA áp xong FB-R5-DOM-BA-06** trước, vài câu ở sổ tay 1.3, `01` 9.1 và hỏi đáp.
+
+- Các câu đó đang áp dụng ngay. Dựng HTML với chữ cũ thì phải dựng lại.
+- Khối [Chờ xác nhận – Wi-Fi trên Desk] vẫn **không dựng** cho tới khi ORC báo, như chú thích của BA. BA-05 chỉ đổi chữ trong khối này.
+- BA-07 và BA-08 không chặn HTML; vào bản kế tiếp.
+- Khối câu trả lời số thẻ ở 2.21 và 16.1: góc quầy đạt, giữ nguyên văn như BA dặn.
+
+### 5.3 Giả định
+
+1. Lịch tin TP-05, TP-06, TP-07 như `guest-messaging-journey.md` Round 2 và BR-425: hỏi thăm 10:00, nhắc trả phòng 20:00 và 09:00. Nếu INT hay PO đổi giờ các tin này, khung 13:00–17:00 xem lại cho giữ cách 3 giờ.
+2. Buồng phòng làm ca chiều tới khoảng 17:00, đủ để thay thẻ căn trống trong ngày đổi.
+3. Thẻ Wi-Fi in rời, chủ đầu tư hay quầy in được. Chưa có mẫu in trong `product/docs/print`.
+4. Hai thẻ dự phòng ở quầy là thẻ khách, không trái bước 6 (không ghi mật khẩu vào sổ, tin nội bộ). Thẻ cất trong ngăn quầy, không để trên mặt quầy.
+5. Không ESC mới. Các điểm trên đều là luật vận hành trong phạm vi DOM, không đổi tiền, không đổi quyền.
+
+Dòng decision-log đề xuất (ORC ghi):
+
+`| 2026-11-07 | 5 | DOM – lượt 3 tài liệu BA (d467578b, df271ee7) và câu Wi-Fi CPY (12d71871): BA-02, 03, 04 Closed; Wi-Fi (BA-05): đổi mật khẩu trong 13:00–17:00 (trong BR-973, cách TP-06 10:00 và R-1 20:00 ≥ 3 giờ nên BR-974 không gộp), in sẵn thẻ 10 căn + 2 dự phòng, căn có khách thay thẻ ở lần dọn tới, khách hỏi trước thì đưa thẻ ở quầy, khách dài hạn không dọn trong 3 ngày thì hẹn giờ hoặc đưa thẻ tự thay; tin tính vào trần BR-974, không gửi khách đi hôm nay, khách nhận phòng sau giờ đổi, đơn đã có 2 tin; đổi gấp do chủ đầu tư quyết là tin sự cố; câu 4 CPY giữ nguyên; BA-06: báo giá thử 1 đêm từ ngày hiệu lực trở đi, "tạo trước ngày hiệu lực giữ giá cũ" sửa thành "tạo trước lúc lưu", sửa giá sai hôm nay hay ngày sau bằng lưu lại cùng ngày hiệu lực; BA-07 phiếu nạp K-MB có dòng không vào tủ; BA-08 khách gửi ảnh giấy tờ qua chat (Suggestion, SEC xác nhận); UXD dựng HTML sổ tay 1.19 và bộ hướng dẫn 1.17 sau khi BA áp BA-06, khối Wi-Fi chờ ORC | DOM | Không ESC; DOM-on-ba-v105-docs mục 5 |`

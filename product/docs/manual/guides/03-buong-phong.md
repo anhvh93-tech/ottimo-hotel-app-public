@@ -3,7 +3,7 @@
 - Dành cho: **nhân viên buồng phòng (HK)**
 - Thiết bị: **điện thoại**, địa chỉ `staff.ottimo.vn` (app nhân viên, mở bằng trình duyệt, không cần cài từ kho ứng dụng)
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Tệp này bản 1.6 (thuộc bộ hướng dẫn bản 1.15) – 07/11/2026: nút **Báo cần dọn** trên app từ v1.0.5 (mục 6). Bản 1.5 (thuộc bộ hướng dẫn bản 1.13, tệp không đổi chữ) – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
+- Lập: BA · 30/10/2026 · Tệp này bản 1.8 (thuộc bộ hướng dẫn bản 1.17) – 07/11/2026, áp dụng ngay: lấy hàng ở kho thì ghi phiếu nạp, cả hàng không vào tủ (mục 7); thay thẻ Wi-Fi ở lần dọn đầu sau khi chủ đầu tư đổi mật khẩu (mục 11.2). Bản 1.7 – 07/11/2026, áp dụng ngay: bổ sung minibar luôn nạp đủ định mức, không theo số món trên việc (mục 7). Bản 1.6 – 07/11/2026: nút **Báo cần dọn** trên app từ v1.0.5 (mục 6). Bản 1.5 (thuộc bộ hướng dẫn bản 1.13, tệp không đổi chữ) – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã cửa hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -211,6 +211,11 @@ Lễ tân thấy lý do. Ngày mai vẫn có việc dọn như thường.
 ## 7. Minibar
 
 **Bổ sung minibar:** việc ghi **Bổ sung minibar: …** kèm tên món và số lượng. Bổ sung xong bấm **Làm xong**.
+- **Luôn nạp đủ định mức theo bảng trong căn**, không theo số món ghi trên việc.
+- Tủ thiếu nhiều hơn số trên việc: báo lễ tân **trước khi** bấm **Làm xong**.
+- Lý do: bấm **Làm xong** là Desk ghi tủ đã đủ. Tủ còn thiếu thì khách sau bị tính tiền món mình không dùng.
+- Lấy hàng ở kho để nạp: ghi **phiếu nạp** đặt ở kho, mỗi lần một dòng: ngày, căn, món, số lượng lấy ra. Không ghi tên khách. Hàng lấy ra mà không vào tủ (hết hạn, vỡ, hỏng, dùng khác): vẫn ghi một dòng, cột căn để "–", ghi lý do ngắn. Món hết hạn hay vỡ giữ lại vỏ hoặc chai ở kho tới lần đếm tuần.
+<!-- Nguồn: DOM-on-be-prs-101-108-110.md mục 3.3 (trả lời SEC FB-R5-SEC-BE-V516-01), BR-702, BR-703. Phiếu nạp: K-MB, DOM-responses.md đề xuất (A) 2. Áp dụng ngay, không phụ thuộc bản. Nút thật là "Làm xong" (hk.task.complete). -->
 
 **Khi khách trả phòng:**
 
@@ -282,6 +287,7 @@ Chuông **Thông báo**: **Phiếu sửa mới**, **Việc gấp đã lên đầ
 | Có người nói "tôi quên mã, mở cửa giúp" | **Không mở.** Mời ra quầy hoặc gọi lễ tân, kể cả khi họ biết tên khách |
 | Khách hỏi mã cửa | Mời khách ra quầy hoặc gọi lễ tân. Không đọc, không nhắn mã |
 | Khách hỏi Wi-Fi | Chỉ thẻ Wi-Fi trong căn |
+| Chủ đầu tư vừa đổi mật khẩu Wi-Fi | Ở lần dọn đầu của mỗi căn, thay thẻ Wi-Fi bằng thẻ mới lễ tân đưa, mang thẻ cũ về quầy, báo lễ tân để gạch sổ. Không chụp, không nhắn mật khẩu |
 | Căn treo biển "Không làm phiền" | Không vào. Bấm **Khách không muốn dọn** (mục 5.2) |
 | Không thấy giấy tờ của khách trên app | Đúng như thiết kế |
 | Việc biến mất, có thông báo **Việc đã được hủy vì đơn thay đổi** | Đơn đổi (khách đổi phòng, rời sớm). Làm việc tiếp theo |
@@ -360,6 +366,8 @@ Tập trên **app tập** bằng **tài khoản tập** chủ đầu tư đưa t
 
 Chuyển từ dòng **Lập:** đầu tệp (04/11/2026; phần bổ sung 05/11 chuyển vào ngày 05/11, giữ nguyên chữ). Mới nhất ở trên.
 
+- Bản 1.8 – 07/11/2026 (bộ hướng dẫn 1.17), **áp dụng ngay** (BA, theo DOM `DOM-responses.md` đề xuất minibar (A) 2, K-MB): mục 7 – lấy hàng ở kho để nạp thì ghi phiếu nạp, mỗi lần một dòng (ngày, căn, món, số lượng lấy ra), không ghi tên khách. **Bổ sung cùng ngày, lượt 3** (DOM `DOM-on-ba-v105-docs.md` mục 5, `b0fa79ff`): mục 7 – hàng lấy ra không vào tủ vẫn ghi phiếu nạp (BA-07); mục 11.2 – thay thẻ Wi-Fi ở lần dọn đầu sau khi chủ đầu tư đổi mật khẩu (BA-05).
+- Bản 1.7 – 07/11/2026 (bộ hướng dẫn 1.16), **áp dụng ngay** (BA, theo DOM review PR #101, #108, #110 mục 3.3, trả lời SEC FB-R5-SEC-BE-V516-01): mục 7 – bổ sung minibar luôn nạp đủ định mức theo bảng trong căn, không theo số món trên việc; tủ thiếu nhiều hơn số trên việc thì báo lễ tân trước khi bấm **Làm xong**.
 - Bản 1.6 – 07/11/2026 (bộ hướng dẫn 1.15), **áp dụng từ v1.0.5** (BA, V5-71 phần V5-15; UXD `copy-v1.0.5.md` 9.7): mục 6 – nút **Báo cần dọn** ở màn căn có khách.
 - Bản 1.4 – 04/11/2026, bổ sung 05/11 (**áp dụng ngay**): khách đổi phòng thì đếm minibar căn cũ **trước khi dọn**, báo lễ tân số còn lại từng món, bổ sung đủ tủ căn cũ khi dọn (mục 7; DOM #72 thẻ 02); bản 1.4 **áp dụng từ v1.0.4**: đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục thì chủ đầu tư gặp tận mặt rồi **Đặt lại xác thực 2 bước**, anh/chị giữ tài khoản cũ (mục 1.5; BUG-R4-032; sửa cùng ngày theo review SEC: điện thoại bị lấy cắp hoặc có lưu mật khẩu thì chủ đầu tư đặt lại mật khẩu luôn)
 - Bản 1.3 – 04/11/2026, **áp dụng từ v1.0.4** (bản đang chạy là v1.0.3): app nhân viên có bước nhập mã 2 bước, đổi mật khẩu tạm ngay trên app, bật 2 bước làm trên Desk, bật hay không là tùy chọn (mặc định đội chọn, sửa theo review DOM cùng ngày; mục 1.6, 5.1, 12) (mục 1.2, 1.6, 12)
