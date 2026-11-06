@@ -18,6 +18,9 @@
  *   `reductionsOnly` – every reduction (`after.amountVnd < before.amountVnd`), removals included. Both pin
  *   `category = money` + `action = folio_line.adjusted` (index audit_event_property_category_idx) and leave out the
  *   room money (room, extra_person, room_change_difference). The scope stays: FD/FDL see their own rows only.
+ * - 0.3.13 bổ sung 1 `afterClosureOnly` (V5-48; SEC S6, SEC-responses 1.2): the weekly "Tiền về sau khi đơn đã đóng"
+ *   filter – the server pins the action set (AFTER_CLOSURE_ACTIONS) and keeps the rows whose `after.afterClosure` is
+ *   true, i.e. the flag written AT WRITE TIME: a booking restored afterwards (B12, 5B-2) never drops a row.
  */
 import { Controller, Get, Inject, Query, Req } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -82,6 +85,17 @@ function actionQuery(raw: unknown): string[] {
 const amountOf = (side: 'before' | 'after') =>
   `(CASE WHEN jsonb_typeof(e.${side}->'amountVnd') = 'number' THEN (e.${side}->>'amountVnd')::numeric END)`;
 
+/**
+ * 0.3.13 bổ sung 1 (V5-48, 5B-1, 5B-2; SEC S6, S8): actions whose `after.afterClosure` marks money (or a report of
+ * money) that came for a booking already `cancelled`/`no_show`. 5B-1 adds the "Không thấy tiền" closing of
+ * `deposit_after_cancel`; 5B-2 adds `reservation.restored_after_cancel`.
+ */
+export const AFTER_CLOSURE_ACTIONS: readonly string[] = [
+  'payment.recorded',
+  'deposit_notice.created',
+  'deposit_notice.updated',
+];
+
 interface Row {
   id: number;
   occurred_at: Date;
@@ -132,6 +146,7 @@ export class AuditLogController {
     @Query('action') actionRaw?: string | string[],
     @Query('removalsOnly') removalsOnlyRaw?: string,
     @Query('reductionsOnly') reductionsOnlyRaw?: string,
+    @Query('afterClosureOnly') afterClosureOnlyRaw?: string,
   ) {
     const p = req.ottimoAuth?.principal;
     if (!p?.propertyId) throw problem('UNAUTHENTICATED');
@@ -152,6 +167,7 @@ export class AuditLogController {
     const actions = actionQuery(actionRaw);
     const removalsOnly = boolQuery('removalsOnly', removalsOnlyRaw);
     const reductionsOnly = boolQuery('reductionsOnly', reductionsOnlyRaw);
+    const afterClosureOnly = boolQuery('afterClosureOnly', afterClosureOnlyRaw);
     const n = parseLimit(limit, 50);
     const c = decodeCursor(cursor, 2);
     const full = p.roles.includes('owner') || p.roles.includes('manager');
@@ -216,6 +232,10 @@ export class AuditLogController {
           );
           if (removalsOnly) where.push(`${amountOf('after')} = 0`);
           if (reductionsOnly) where.push(`${amountOf('after')} < ${amountOf('before')}`);
+        }
+        if (afterClosureOnly) {
+          where.push(`e.action = ANY(${ph([...AFTER_CLOSURE_ACTIONS])}::text[])`);
+          where.push(`(e.after->>'afterClosure') = 'true'`);
         }
         if (c) {
           where.push(
