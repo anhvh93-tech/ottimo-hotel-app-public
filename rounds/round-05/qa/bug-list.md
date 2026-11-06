@@ -604,6 +604,11 @@
   - V-09 / R-PAY-07; SEC-BE-44;
   - `PaymentCreate.bankReference` (PR-B3, hợp đồng 0.3.13 bổ sung 1e, ARC-15);
   - thẻ FB-R5-BE-ARC-C0313-25; SEC-responses mục 4.
+  - **Cập nhật 07/11 (QA, ORC giao sau ARC #111 và BE-D):**
+    - hợp đồng 0.3.13 bổ sung 1f mục 1.26 (PR #111 @ `90adc56d`, gộp `ce404dd6`) ghi luật C0313-25: chỉ chặn khi **toàn bộ** giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số qua Luhn. Đúng "Kết quả mong đợi" dưới đây; QA không đổi mức hay ca;
+    - SEC ghi ngoại lệ này ở SR-PAY-10 (`441502cd`);
+    - máy chủ v1.0.4 vẫn quét mọi đoạn số bên trong mã (SEC 4.4). Lỗi còn **Mở** tới khi PR `r5-v09-reference` gộp và ca hồi quy (a)–(g) xanh;
+    - chữ hợp đồng 1.26 ghi câu UXD là "nhập 8 ký tự cuối", còn UXD (`dcfca8b1`) và ORC chốt "8 **chữ số** cuối". SEC đã đưa việc sửa chữ vào 0.3.14 (thẻ FB-R5-SEC-ARC-24). QA kiểm theo "8 chữ số cuối".
 - **Chỗ lỗi trong mã:**
   - `product/services/api/src/modules/payments/internal/refunds.service.ts` `payOut`:
     - dòng 668–672: mẫu `^[A-Za-z0-9./_-]{1,64}$`;
