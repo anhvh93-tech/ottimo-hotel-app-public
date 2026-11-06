@@ -3,10 +3,10 @@
 #   ops-check.sh            run every check, alert on failures
 #   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead |
 #                           email_missing | email_changes | email_ascii | email_config | pricelimit | pricegap |
-#                           priceswitch | db_triggers)
+#                           priceswitch | db_triggers | sshkeys)
 #
 # R4 v1.0.4 (P4-04; SEC FB-R4-SEC-OPS-PR32-S1, ARC FB-R4-ARC-OPS-PR30-09): EVERY database check (j16, email_*,
-# priceswitch, db_triggers) runs as the role ottimo_readonly (NOLOGIN, BYPASSRLS, SELECT only – taken at connect with
+# pricegap (static part), priceswitch, db_triggers) runs as the role ottimo_readonly (NOLOGIN, BYPASSRLS, SELECT only – taken at connect with
 # PGOPTIONS "-c role=ottimo_readonly") inside a READ ONLY transaction. Each session first answers a guard row: current
 # role = ottimo_readonly, BYPASSRLS, not superuser, transaction read only. Anything else (role missing, a role without
 # BYPASSRLS whose counts would silently read 0) is never parsed: the check FAILs "unexpected answer". No check uses
@@ -19,7 +19,8 @@
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
 #               may have status failed in the last 26 h. J16 runs hourly in the worker; one missed hour is normal,
 #               a whole day means the worker or the job is broken – documents would outlive their deletion date.
-#   backup      last successful backup.sh < 26 h (state/backup.last_ok)
+#   backup      last successful backup.sh < BACKUP_MAX_HOURS (default 14 h – v1.0.5 V5-62: runs at 03:00 + 15:00,
+#               staging 03:30 + 15:30, 12 h apart; one missed run is a FAIL within about 2 h) (state/backup.last_ok)
 #   disk        root filesystem < 80 % (hosting-plan 8)
 #   mem         MemAvailable ≥ MEM_MIN_AVAIL_PCT (default 10 %) of RAM – staging + production share 4.8 GB (v1-production 3)
 #   tls         certificate of DESK/STAFF/GUEST host valid > 14 days (Caddy renews at 30 days; this means renewal fails)
@@ -74,15 +75,30 @@
 #               GET /v1/public/properties/<slug>/price-estimate in the last 60 min < PRICE_REFUSED_MAX (default 200)
 #               – a scraper or a flood keeps the price block hidden for real guests (the form itself keeps working).
 #               Only when a landing is deployed. Counted from the landing Caddy access log (query already masked)
-#   pricegap    R4 LP-v2 (ARC L9 – no Desk notification in LP-v2): the api logged `public_price_missing` in the last
-#               24 h = a room without a list price for a night is left out of the website estimate (BE logs it once
-#               per room and business day). The alert says only how many rooms – no id, no log line is forwarded
+#   pricegap    R4 LP-v2 (ARC L9 – no Desk notification in LP-v2), two independent parts – FAIL when either is > 0:
+#               log: the api logged `public_price_missing` in the last 24 h = a room without a list price for a night
+#               was left out of the website estimate (BE logs it once per room and business day);
+#               static (v1.0.5 V5-73, SEC FB-R4-SEC-OPS-S6D-01, SEC-on-lp-v2-s6d.md 6.4): READ ONLY count of rooms
+#               that are sellable, have a website room type, start within 365 days (the web arrival window, BR-112)
+#               and have not ended, yet have NO list price row effective on their first sellable day from today
+#               (greatest(active_from, today), today in the property's time zone) – such a gap only shows in the log
+#               when a guest happens to ask for that type and date. Prices are append-only and a later row replaces
+#               an earlier one, so one row on that day covers every later night. One number only – no id selected.
+#               The alert says only how many rooms; a failed query or an answer that is not a number is a FAIL,
+#               never read as 0
 #   priceswitch R4 LP-v2 (SEC SR-PE-16, Should; SEC FB-R4-SEC-OPS-LPV2-04): the Desk switch `public_show_prices` was
 #               changed since the last run (audit `config.changed`, entity config_parameter, followed by audit id in
 #               state/ops-check/priceswitch.last_id – no time window, so a late or skipped timer run misses nothing).
 #               Every run that finds new changes sends its own webhook (the 6 h de-duplication does not apply): the
 #               number of changes and the newest value (true/false/other) only. First run: the newest id becomes the
 #               mark, nothing is reported. The next run without a change sends the recovery once
+#   sshkeys     v1.0.5 V5-65 (SEC FB-R4-SEC-OPS-OR-03): every key line of the deploy user's authorized_keys (and
+#               authorized_keys2, which sshd also reads by default) has a forced command – both `command="…"` and
+#               `restrict` in its options, like the CI key (deploy-from-ci.sh) and the backup-pull key (rrsync -ro).
+#               A person key (bootstrap --deploy-key, first boot only) gives a shell in the docker group = root
+#               without a sudo log line: people go through ottimo-admin + sudo. Counts only – no key, fingerprint or
+#               comment is printed. authorized_keys missing or unreadable is a FAIL. OPS_CHECK_SSH_DIR = another
+#               .ssh directory (tests)
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
@@ -133,7 +149,7 @@ compose_failed() { echo "docker compose failed, container state unknown: $(cmd_f
 envval() { sed -n "s/^$1=//p" "$OTTIMO_HOME/.env" | tail -n 1 | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'; }
 
 J16_MAX_HOURS="${J16_MAX_HOURS:-26}"
-BACKUP_MAX_HOURS="${BACKUP_MAX_HOURS:-26}"
+BACKUP_MAX_HOURS="${BACKUP_MAX_HOURS:-14}"
 DISK_MAX_PCT="${DISK_MAX_PCT:-80}"
 TLS_MIN_DAYS="${TLS_MIN_DAYS:-14}"
 REMIND_SECONDS="${REMIND_SECONDS:-21600}"
@@ -664,18 +680,52 @@ check_pricelimit() {
 }
 
 check_pricegap() {
-  local logs n rooms
-  if ! logs=$(dc logs --no-color --no-log-prefix --since 24h api 2>"$cmd_err"); then
-    notify pricegap FAIL "$(compose_failed)"; return 1
+  local logs n rooms="" out static="" err_log="" err_static=""
+  # Part 1 – log of the last 24 h. Only counts leave this function: the log line itself (internal ids) is never forwarded.
+  if logs=$(dc logs --no-color --no-log-prefix --since 24h api 2>"$cmd_err"); then
+    n=$(grep -c 'public_price_missing' <<<"$logs" || true)
+    if [ "${n:-0}" -gt 0 ]; then
+      rooms=$(grep 'public_price_missing' <<<"$logs" | grep -oE 'room=[0-9a-zA-Z-]+' | sort -u | grep -c . || true)
+      rooms=${rooms:-0}
+    fi
+  else
+    err_log="api log unreadable – $(compose_failed)"
   fi
-  # Only counts leave this function: the log line itself (internal ids) is never forwarded.
-  n=$(grep -c 'public_price_missing' <<<"$logs" || true)
-  rooms=$(grep 'public_price_missing' <<<"$logs" | grep -oE 'room=[0-9a-zA-Z-]+' | sort -u | grep -c . || true)
-  if [ "${n:-0}" -gt 0 ]; then
-    notify pricegap FAIL "${rooms:-0} room(s) left out of the website price estimate in 24 h: no list price for a night – OWN: check list prices on Desk"
+  # Part 2 – static (SEC-on-lp-v2-s6d.md 6.4): one count, READ ONLY as ottimo_readonly. Constant SQL text.
+  if out=$(psql_ro <<'SQL' 2>"$cmd_err"
+SELECT count(*)
+  FROM room r
+  JOIN property p ON p.id = r.property_id
+ CROSS JOIN LATERAL (SELECT (now() AT TIME ZONE p.timezone)::date AS today) d
+ WHERE r.is_sellable
+   AND r.public_room_type IS NOT NULL
+   AND r.active_from <= d.today + 365
+   AND (r.active_to IS NULL OR r.active_to >= d.today)
+   AND NOT EXISTS (SELECT 1 FROM room_list_price lp
+                    WHERE lp.room_id = r.id AND lp.effective_from <= greatest(r.active_from, d.today));
+SQL
+  ); then
+    static=$(tail -n 1 <<<"$out")
+    [[ "$static" =~ ^[0-9]{1,6}$ ]] || { static=""; err_static="static check: unexpected answer"; }
+  else
+    err_static="static check query failed: $(cmd_failed)"
+  fi
+  local fails=()
+  [ -n "$rooms" ] && fails+=("${rooms} room(s) left out of the website price estimate in 24 h: no list price for a night")
+  [ -n "$static" ] && [ "$static" -gt 0 ] \
+    && fails+=("${static} sellable room(s) with a website room type have no list price from their first sellable day (next 365 days)")
+  [ -n "$err_log" ] && fails+=("$err_log")
+  [ -n "$err_static" ] && fails+=("$err_static")
+  if [ "${#fails[@]}" -gt 0 ]; then
+    local msg="" f
+    for f in "${fails[@]}"; do msg+="${msg:+; }$f"; done
+    if [ -n "$rooms" ] || { [ -n "$static" ] && [ "$static" -gt 0 ]; }; then
+      msg+=" – OWN: enter the list price of that room on Desk; OPS: find where the room came from (bootstrap or direct DB edit)"
+    fi
+    notify pricegap FAIL "$msg"
     return 1
   fi
-  notify pricegap OK "every room had a list price for the website estimate (24 h)"
+  notify pricegap OK "every room had a list price for the website estimate (24 h); 0 sellable rooms without a list price (365 days)"
 }
 
 check_priceswitch() {
@@ -714,8 +764,35 @@ SQL
   notify priceswitch OK "public_show_prices not changed since the last check"
 }
 
-# Full run (timer): v1.0.3 checks first, then the LP-v2 price checks (merge lp-v2-main, ARC 04/11), then v1.0.4 (P4-04).
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch email_config db_triggers); full=1; fi
+check_sshkeys() {
+  local dir="${OPS_CHECK_SSH_DIR:-}" f line opts n=0 bad=0 files=()
+  if [ -z "$dir" ]; then dir="$(getent passwd ottimo | cut -d: -f6)/.ssh"; fi
+  if [ ! -r "$dir/authorized_keys" ]; then notify sshkeys FAIL "authorized_keys of the deploy user missing or unreadable"; return 1; fi
+  files=("$dir/authorized_keys"); [ -e "$dir/authorized_keys2" ] && files+=("$dir/authorized_keys2")
+  for f in "${files[@]}"; do
+    [ -r "$f" ] || { notify sshkeys FAIL "authorized_keys2 of the deploy user unreadable"; return 1; }
+    while IFS= read -r line || [ -n "$line" ]; do
+      line=${line%$'\r'}; line="${line#"${line%%[![:space:]]*}"}"
+      case "$line" in '' | '#'*) continue ;; esac
+      n=$((n + 1))
+      # Options = everything before the first space outside quotes; quoted values are blanked first, so a command
+      # text that happens to contain ",restrict," is never read as the option itself.
+      opts=$(sed -E 's/"[^"]*"/Q/g; s/[[:space:]].*$//' <<<"$line")
+      case "$opts" in ssh-* | ecdsa-* | sk-*) bad=$((bad + 1)); continue ;; esac
+      case ",$opts," in *,command=Q,*) ;; *) bad=$((bad + 1)); continue ;; esac
+      case ",$opts," in *,restrict,*) ;; *) bad=$((bad + 1)) ;; esac
+    done < "$f"
+  done
+  if [ "$bad" -gt 0 ]; then
+    notify sshkeys FAIL "$bad of $n key line(s) of the deploy user have no forced command (command=…,restrict) – person keys go through ottimo-admin + sudo; remove the line (runbook v1.0.5)"
+    return 1
+  fi
+  notify sshkeys OK "$n key line(s) of the deploy user, all with a forced command"
+}
+
+# Full run (timer): v1.0.3 checks first, then the LP-v2 price checks (merge lp-v2-main, ARC 04/11), then v1.0.4 (P4-04),
+# then v1.0.5 (sshkeys).
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch email_config db_triggers sshkeys); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -737,6 +814,7 @@ for c in "${checks[@]}"; do
     pricelimit) check_pricelimit || ok=0 ;;
     pricegap) check_pricegap || ok=0 ;;
     priceswitch) check_priceswitch || ok=0 ;;
+    sshkeys) check_sshkeys || ok=0 ;;
     *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
   if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi
