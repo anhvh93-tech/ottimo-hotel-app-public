@@ -1,5 +1,5 @@
 {
- "version": "0.2.7",
+ "version": "0.2.8",
  "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
  "generated": "2026-11-06",
  "author": "BA",
@@ -229,9 +229,9 @@
    "trusted_device_required": false,
    "c3_access_log": false,
    "operationIds": [
-    "updateReservation",
-    "channelWebhook"
-   ]
+    "updateReservation"
+   ],
+   "note": "Đường OTA của hệ thống: webhookPost/webhookGet (x-roles [system], R3) – không gán vào dòng này; channelWebhook không có trong OpenAPI (bỏ ở 0.2.8 theo hợp đồng 0.3.13-draft)."
   },
   {
    "id": "A08",
@@ -598,9 +598,9 @@
    "trusted_device_required": false,
    "c3_access_log": false,
    "operationIds": [
-    "recordPayment",
-    "paymentCallback"
-   ]
+    "recordPayment"
+   ],
+   "note": "Đường cổng thanh toán của hệ thống: webhookPost/webhookGet (x-roles [system], R3) – không gán vào dòng này; paymentCallback không có trong OpenAPI (bỏ ở 0.2.8). recordPayment.restoreHold (SM-01 B19, hợp đồng 0.3.14 / v1.0.6): chỉ owner, manager, front_desk_lead, front_desk; sales_staff, collaborator không được."
   },
   {
    "id": "A34",
@@ -1810,6 +1810,21 @@
    "note": "BUG-R1-SEC-02; rbac-matrix.md 4.7 dòng A119"
   },
   {
+   "id": "A120",
+   "name_vi": "Xem thưởng hiệu suất quản lý theo tháng",
+   "event": "view_manager_performance_bonus",
+   "roles": {
+    "owner": "allow",
+    "manager": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "getManagerPerformanceBonus"
+   ],
+   "note": "Ghi chú 48 (hợp đồng 0.3.13-draft mục 1.22, V5-30, PR-M): owner xem mọi quản lý; manager chỉ của chính mình (x-scope { manager: own }); tính lúc đọc, không lưu bản ghi. ARC gắn x-rbac [A120]."
+  },
+  {
    "id": "G-L1",
    "name_vi": "App khách mức 1 (Wi-Fi, nội quy, yêu cầu, check-in online)",
    "event": "guest_level1",
@@ -1868,6 +1883,7 @@
  "screen_scope_notes": {
   "S25": "listRooms/listRoomGroups: owner, manager đầy đủ; front_desk_lead, front_desk, sales_staff, collaborator x-scope catalog_only (số căn, tầng, nhóm, tên, sức chứa, giá niêm yết hiện hành); housekeeping, maintenance KHÔNG được gọi – dùng listHkTasks/listRoomStatuses/listWorkOrders/getRack; maxOccupancy, baseOccupancy, giá = K với HK/MT (rbac ghi chú 25a, BUG-R1-005). 0.3.9 (ARC, BUG-R3-018): Room.scheduledListPrices (giá đã lên lịch) chỉ owner, manager; cancelScheduledRoomListPrice owner, manager (sửa giá S25, như updateRoom)",
   "S23": "listApprovalRequests (0.3.7 + D1): front_desk own_or_refund_queue, front_desk_lead within_limit_or_own_or_refund_queue = phạm vi cũ + hàng chờ chi hoàn (S4-40) + yêu cầu refund chưa có nơi nhận (S4-43); chuyển khoản dạng che (D15), chỉ OWN/MGR chi (A47); FD/FDL chi tiền mặt (A47a) – rbac ghi chú 41",
-  "S35": "Yêu cầu đặt phòng từ website (US-155): owner, manager, front_desk_lead, front_desk mọi yêu cầu; sales_staff unassigned_or_own; collaborator, housekeeping, maintenance 403 – rbac ghi chú 42"
+  "S35": "Yêu cầu đặt phòng từ website (US-155): owner, manager, front_desk_lead, front_desk mọi yêu cầu; sales_staff unassigned_or_own; collaborator, housekeeping, maintenance 403 – rbac ghi chú 42",
+  "S36": "Xem Wi-Fi cơ sở (V5-58, getPropertyWifi, Cache-Control no-store): owner, manager, front_desk_lead, front_desk chỉ xem (R); housekeeping, maintenance, sales_staff, collaborator 403; sửa = A101 (setPropertyWifi, owner, manager) – rbac ghi chú 47. Áp khi 0.3.13 gộp: x-rbac của getPropertyWifi đổi S24 → S36, thêm front_desk."
  }
 }
