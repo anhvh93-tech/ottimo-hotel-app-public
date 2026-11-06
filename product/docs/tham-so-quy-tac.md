@@ -1,8 +1,8 @@
 # Từ điển tham số quy tắc – OTTIMO Desk
 
-- Lập: DOM · Round 4 – Sản xuất · 06/11/2026 · Bản 1.0
+- Lập: DOM · Round 4 – Sản xuất · 06/11/2026 · Bản 1.0. Sửa: DOM · Round 5 – Sản xuất · 06/11/2026 · **Bản 1.1** (mục `night_from_month_divisor` theo QC Round 4 ĐK-6; thêm mục [Sắp có ở v1.0.5](#sap-co-v105))
 - Dành cho: chủ đầu tư và quản lý, khi đọc và sửa **Quản trị → Tham số quy tắc** trên Desk.
-- Phạm vi: đủ **198 tham số** trong danh mục của Desk (bản v1.0.4 trên production). Bản máy đọc: `product/docs/tham-so-quy-tac.json` (cùng nội dung).
+- Phạm vi: đủ **198 tham số** trong danh mục của Desk (bản v1.0.4 trên production). Bản máy đọc: `product/docs/tham-so-quy-tac.json` (cùng nội dung cho 198 tham số; mục "Sắp có ở v1.0.5" chỉ có ở bản này vì các khóa đó chưa có trên Desk).
 - Căn cứ: `business-rules.md` (BR, mục 13), sổ tay vận hành bản 1.10 (v1.0.4, PR #85), `decision-log.md` (ESC-004, 006, 007, 043, 045, 050), hướng dẫn chuyển giá `rounds/round-04/outputs/DOM/inv-price-switch-guide.md`, mã Desk (`paramCatalog.ts`, `ParamDialog.tsx`, `parameters.service.ts`).
 - Tài liệu này **không ghi giá trị đang chạy** trên Desk, không ghi tỷ lệ hoa hồng, không ghi thông tin tài khoản ngân hàng. Giá trị đang chạy xem ngay trên Desk, cột **Giá trị**.
 
@@ -41,6 +41,7 @@ Ký hiệu: **[Bảo mật]** = tham số bảo mật – chỉ sửa khi đội
 6. [Nhóm "Bảo mật" (8 tham số)](#g-security)
 7. [Nhóm "Khác" (166 tham số)](#g-other)
 8. [Tham số trên production lệch sổ tay](#lech-so-tay)
+9. [Sắp có ở v1.0.5 (chưa có trên Desk)](#sap-co-v105)
 
 Trong nhóm **Khác** (Desk gom mọi tham số chưa xếp nhóm vào đây), tham số được chia thêm theo chủ đề để dễ tìm.
 
@@ -322,7 +323,7 @@ Các tham số khác cũng làm đổi tiền nhưng ở bước khác: phí, ph
 - **Giới hạn:** Từ 1 đến 1.000 · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** 10: quản lý duyệt lần thứ 11 trong tháng → cảnh báo chủ đầu tư.
 - **Ảnh hưởng:** Cần chú ý. **Đi kèm:** `foc_alert_pct_of_room_revenue`
-- **Đội đề xuất:** 10 – INV-007.
+- **Đội đề xuất:** 10 – INV-007. Từ v1.0.5 (BR-438, V5-16) ngưỡng này cũng áp cho số lần một lễ tân tự sửa giảm dòng mình ghi trong tháng.
 - **Lưu ý khi sửa:** Áp từ ngày hiệu lực cho việc phát sinh từ ngày đó; không đổi số tiền đã ghi. Chỉ chủ đầu tư. Ai sửa: Chủ đầu tư. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
 
 <a id="k-foc-alert-pct-of-room-revenue"></a>
@@ -405,7 +406,7 @@ Các tham số khác cũng làm đổi tiền nhưng ở bước khác: phí, ph
 - **Đơn vị:** Không ghi ở tài liệu
 - **Giới hạn, mặc định, ví dụ:** không ghi ở tài liệu này (hoa hồng hoặc thông tin tài khoản).
 - **Ảnh hưởng:** Folio, báo cáo hoa hồng. **Đi kèm:** `commission_payable_day`, `commission_pay_by_day`
-- **Đội đề xuất:** Theo bảng nội bộ của chủ đầu tư. – INV 01/11 (BR-903). Không ghi số trong kho mã.
+- **Đội đề xuất:** Theo bảng nội bộ của chủ đầu tư. – INV 01/11 (BR-903). Không ghi số trong kho mã. Từ v1.0.5 (H2, V5-30): mã không còn số mặc định; thiếu tỷ lệ thì Desk báo "chưa có tỷ lệ hoa hồng", không tính bằng 0; cơ sở tính theo bảng nội bộ (xem mục [Sắp có ở v1.0.5](#sap-co-v105)).
 - **Lưu ý khi sửa:** Đơn đã tạo giữ tỷ lệ lúc tạo (BR-006). Chỉ chủ đầu tư. Không gửi con số cho đội. Đơn đã tạo giữ tỷ lệ lúc tạo (BR-006). Ai sửa: Chủ đầu tư. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
 
 <a id="k-vat-rate"></a>
@@ -1181,16 +1182,16 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Lưu ý khi sửa:** Bản Desk hiện tại chưa đọc tham số này: sửa chưa đổi gì trên Desk. Giữ đúng giá trị để bản sau dùng. Bản Desk hiện tại chưa đọc tham số này. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
 
 <a id="k-night-from-month-divisor"></a>
-#### `night_from_month_divisor` [Đã bỏ]
+#### `night_from_month_divisor` [Giá]
 
-- **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-101
-- **Ý nghĩa:** Cách cũ: giá đêm = giá tháng ÷ số này. Đã bỏ.
-- **Đơn vị:** Số
+- **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-101 (5)
+- **Ý nghĩa:** **Còn tác dụng ở đường gọi API, không ở thao tác trên Desk.** Khi một lệnh tạo căn hoặc đổi giá căn **không gửi giá đêm**, máy chủ tự tính giá đêm = giá tháng ÷ số này, làm tròn theo `rounding.night_rate`, và **không cảnh báo** (BUG-R4-057). Ba đường đi qua khóa này: (1) lệnh đổi giá căn qua API chỉ gửi giá tháng; (2) lệnh tạo căn mới qua API (bản hiện tại chưa nhận giá đêm, luôn tính theo khóa này); (3) công cụ nhập danh mục căn. Trên Desk, màn **Danh mục căn** luôn gửi đủ giá tháng và giá đêm, nên anh/chị sửa giá trên Desk không đi đường này.
+- **Đơn vị:** Số (chia giá tháng)
 - **Giới hạn:** Từ 1 đến 31 · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
-- **Ví dụ:** 12: 9.000.000 ÷ 12 = 750.000 (cách cũ).
-- **Ảnh hưởng:** Chỉ còn đường nhập danh mục căn cũ. **Đi kèm:** –
-- **Đội đề xuất:** Không dùng. – Đã bỏ từ v1.0.1 (FB-INV-005): giá đêm và giá tháng nhập riêng.
-- **Lưu ý khi sửa:** Tham số đã bỏ, không còn tác dụng. Không sửa. Đội sẽ ẩn khỏi màn hình. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
+- **Ví dụ:** 12: căn 102 giá tháng 9.000.000, một lệnh API đổi giá chỉ gửi giá tháng → máy chủ ghi giá đêm 9.000.000 ÷ 12 = **750.000**, trong khi bảng giá 01/11 là **800.000**. Báo giá Desk và giá web 2 đêm thành 1.500.000 thay vì 1.600.000, không có thông báo nào.
+- **Ảnh hưởng:** Giá đêm niêm yết của căn khi căn được tạo hoặc đổi giá ngoài Desk mà thiếu giá đêm → báo giá Desk, giá ước tính trên web, đơn OTA để trống giá, phiếu thanh toán. **Đi kèm:** `rounding.night_rate`
+- **Đội đề xuất:** Giữ **12**, không sửa. – Đổi số này không làm giá đúng hơn; cách đúng là mọi lệnh đổi giá luôn gửi đủ hai giá. v1.0.5 (V5-1A) gỡ đường này: thiếu giá đêm thì máy chủ báo lỗi (422), tạo căn và công cụ nhập danh mục nhận giá đêm. Từ bản đó khóa không còn được đọc và đội ẩn khỏi màn hình.
+- **Lưu ý khi sửa:** **Không sửa.** Sửa số này đổi giá đêm của mọi căn tạo mới hoặc đổi giá qua API mà thiếu giá đêm. Tới khi v1.0.5 lên: (a) script của đội gọi API đổi giá luôn gửi đủ hai giá và đọc lại giá sau khi ghi; (b) căn mới tạo bằng API hoặc công cụ nhập danh mục thì ngay sau đó anh/chị mở **Danh mục căn**, kiểm và nhập lại giá đêm theo bảng giá. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
 
 <a id="k-rent-overdue-alert-days"></a>
 #### `rent_overdue_alert_days` [Chưa dùng]
@@ -1603,7 +1604,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Giới hạn:** Từ 0 đến 5.000.000 · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** 100.000: khách ngắn ngày xin dọn thêm buổi chiều → 100.000.
 - **Ảnh hưởng:** Yêu cầu từ trang khách, folio. **Đi kèm:** –
-- **Đội đề xuất:** 100.000 – INV-005 (BR-506). Khách thuê tháng dùng phí dọn theo hạng (bản sau, H3).
+- **Đội đề xuất:** 100.000 – INV-005 (BR-506). Khách thuê tháng: phí dọn theo hạng có khóa riêng từ v1.0.5 (H3, V5-31 – xem mục [Sắp có ở v1.0.5](#sap-co-v105)); tới khi anh/chị nhập khóa đó, lễ tân thêm dòng phí phần chênh.
 - **Lưu ý khi sửa:** Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
 
 <a id="k-damage-catalog"></a>
@@ -2576,8 +2577,56 @@ Trong khi phần B chưa xong, Desk và web ra số lai (ví dụ đơn 7 đêm 
 
 Các tham số còn lại khớp mức đề xuất, hoặc chưa có giá trị riêng và đang dùng mặc định đúng. Riêng `id_image_retention_days_after_checkout`: 90 ngày theo ý anh/chị cần đội nới giới hạn ở bản sau.
 
+<a id="sap-co-v105"></a>
+
+## Sắp có ở v1.0.5 (chưa có trên Desk)
+
+Các khóa dưới đây **chưa có** trên Desk v1.0.4. Tên khóa là tên đội đề xuất; ARC chốt tên thật ở hợp đồng 0.3.13. Khi v1.0.5 lên production, đội cập nhật mục này theo tên thật và chuyển từng khóa vào nhóm của nó. **Mã không có số mặc định** cho các khóa này: anh/chị tự nhập trên Desk sau khi bản lên (đội không đổi tham số giá trên production). Luật chi tiết và ca kiểm: `rounds/round-05/outputs/DOM/rules-v1.0.5.md`.
+
+### Phí dọn theo lượt cho khách thuê tháng (H3, V5-31)
+
+#### `long_stay_cleaning_fee_by_room` [Giá] (tên đề xuất)
+
+- **Tên trên Desk (đề xuất):** Phí dọn theo lượt – khách thuê tháng · **Quy tắc:** BR-204, BR-506
+- **Ý nghĩa:** Giá một lượt dọn cho khách **thuê tháng** (đơn dài hạn), theo hạng của căn. Khách ngắn ngày vẫn dùng `adhoc_cleaning_fee`.
+- **Đơn vị:** Danh sách theo số căn: {"số căn": VND mỗi lượt}
+- **Giới hạn:** Mỗi số từ 0 đến 5.000.000, bội 1.000; số căn phải có trong Danh mục căn. · **Mặc định:** Không có.
+- **Ví dụ:** Khách thuê tháng căn 203 gọi dọn 2 lần trong tháng → 2 × 120.000 = **240.000** (Desk v1.0.4 tính 2 × 100.000 = 200.000).
+- **Ảnh hưởng:** Giá "Dọn thêm" trên trang khách của khách thuê tháng, dòng dọn phòng trên folio, mục **Thêm phát sinh**. **Đi kèm:** `adhoc_cleaning_fee`
+- **Đội đề xuất:** Theo bảng giá 01/11 (Studio City 100.000 · Studio Garden 120.000 · Premium 130.000 · Signature 150.000), dán nguyên dòng: `{"101":100000,"201":100000,"102":120000,"103":120000,"202":120000,"203":120000,"302":130000,"402":130000,"301":150000,"401":150000}`
+- **Lưu ý khi sửa:** Căn chưa có trong danh sách → Desk tạm tính theo `adhoc_cleaning_fee` và báo "Chưa có phí dọn thuê tháng cho căn này" để lễ tân thêm dòng phần chênh như hiện nay. Đổi hạng một căn thì sửa số của căn đó cùng lúc với giá căn. Yêu cầu dọn khách đã gửi giữ giá lúc gửi. Ai sửa: Chủ đầu tư, Quản lý.
+
+### Hoa hồng và thưởng (H2, V5-30) – mục này không ghi số
+
+#### `short_stay_commission_pct` (đã có – đổi cách tính ở v1.0.5)
+
+- Giữ khóa và hai khóa con (`staff`, `collaborator`); bảng nội bộ có một mức cho cả nhân viên sale và CTV, anh/chị nhập cùng một số.
+- Từ v1.0.5, cơ sở tính theo bảng nội bộ 01/11 mục 5.1: tiền phòng **và** phụ thu người (sau miễn, giảm); không gồm phụ thu nhận sớm, trả muộn, F&B, dịch vụ. Đơn hủy hoặc không đến mà khách đã trả: tính trên số OTTIMO giữ lại. Người hưởng phải có trên đơn **trước khi khách nhận phòng**.
+- Mã không còn số mặc định. Thiếu tỷ lệ → Desk báo "Chưa có tỷ lệ hoa hồng", không tính bằng 0.
+
+#### `long_stay_commission` (tên đề xuất)
+
+- **Ý nghĩa:** Tỷ lệ hoa hồng HĐ thuê tháng theo **khoảng kỳ hạn** và theo **khách VN / khách NN** (BR-009), và tỷ lệ chi ở đợt 1.
+- **Đơn vị:** `{"bands":[{"fromMonths": số, "toMonths": số hoặc null, "vnPct": %, "foreignPct": %}], "firstInstalmentPct": %}`
+- **Giới hạn:** Tỷ lệ 0–100, tối đa 2 chữ số thập phân. Các khoảng nối liền nhau từ 1 tháng, không chồng nhau; khoảng cuối để `toMonths` = null (không giới hạn). Desk từ chối lưu nếu còn kỳ hạn không thuộc khoảng nào. · **Mặc định:** Không có.
+- **Ví dụ:** (không ghi số) HĐ 6 tháng, khách hộ chiếu nước ngoài → Desk lấy `foreignPct` của khoảng chứa 6 tháng.
+- **Đội đề xuất:** Theo bảng nội bộ 01/11 mục 5.2. Kỳ hạn bảng nội bộ không ghi riêng: xem ESC-051 câu 2 (đề xuất A: áp dòng ngắn hơn liền kề, như ESC-045 câu 2).
+- **Lưu ý khi sửa:** Chỉ chủ đầu tư. Không gửi số cho đội. HĐ giữ tỷ lệ của ngày ký.
+
+#### `manager_performance_bonus_pct` (tên đề xuất)
+
+- **Ý nghĩa:** Tỷ lệ thưởng hiệu suất tháng cho quản lý, tính trên tiền phòng đã thu của tháng (định nghĩa cơ sở: ESC-051 câu 3).
+- **Đơn vị:** % · **Giới hạn:** 0–100, tối đa 2 chữ số thập phân · **Mặc định:** Không có.
+- **Đội đề xuất:** Theo bảng nội bộ 01/11 mục 6.
+- **Lưu ý khi sửa:** Tỷ lệ có hiệu lực ngày 1 của tháng áp cho cả tháng đó. Chỉ chủ đầu tư.
+
+#### `commission_payable_day`, `commission_pay_by_day` (đã có)
+
+- Bảng nội bộ ghi "trả cùng kỳ lương". Anh/chị kiểm hai ngày này khớp ngày trả lương; đổi thì lưu với Hiệu lực từ trước ngày chốt.
+
 ## Lịch sử
 
 | Ngày | Bản | Người | Nội dung |
 |---|---|---|---|
 | 06/11/2026 | 1.0 | DOM | Bản đầu, 198 tham số theo danh mục production 06/11. |
+| 06/11/2026 | 1.1 | DOM | QC Round 4 ĐK-6, V5-1A: `night_from_month_divisor` đổi nhãn thành [Giá]. Khóa vẫn có tác dụng ở đường API (tạo căn, đổi giá thiếu giá đêm, công cụ nhập danh mục – BUG-R4-057); giữ 12, không sửa; gỡ ở v1.0.5. Ghi chú v1.0.5 ở `adhoc_cleaning_fee`, `short_stay_commission_pct`, `foc_alert_count_per_approver` (BR-438). Thêm mục "Sắp có ở v1.0.5" (H2, H3; không số hoa hồng; ESC-051). Bản `.json` sửa cùng mục `night_from_month_divisor` và ba ghi chú. |

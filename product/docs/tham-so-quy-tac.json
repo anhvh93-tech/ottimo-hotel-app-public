@@ -12,7 +12,7 @@
   "affects": "Yêu cầu từ trang khách, folio.",
   "related": [],
   "recommended": "100.000",
-  "recommended_reason": "INV-005 (BR-506). Khách thuê tháng dùng phí dọn theo hạng (bản sau, H3).",
+  "recommended_reason": "INV-005 (BR-506). Khách thuê tháng: phí dọn theo hạng có khóa riêng từ v1.0.5 (H3, V5-31 – xem mục Sắp có ở v1.0.5 trong tham-so-quy-tac.md); tới khi anh/chị nhập khóa đó, lễ tân thêm dòng phí phần chênh.",
   "caution": "Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner",
@@ -1379,7 +1379,7 @@
    "foc_alert_pct_of_room_revenue"
   ],
   "recommended": "10",
-  "recommended_reason": "INV-007.",
+  "recommended_reason": "INV-007. Từ v1.0.5 (BR-438, V5-16) ngưỡng này cũng áp cho số lần một lễ tân tự sửa giảm dòng mình ghi trong tháng.",
   "caution": "Áp từ ngày hiệu lực cho việc phát sinh từ ngày đó; không đổi số tiền đã ghi. Chỉ chủ đầu tư. Ai sửa: Chủ đầu tư. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner"
@@ -2854,24 +2854,26 @@
   "name": null,
   "group": "Khác",
   "topic": "Thuê tháng",
-  "meaning": "Cách cũ: giá đêm = giá tháng ÷ số này. Đã bỏ.",
-  "unit": "Số",
+  "meaning": "Còn tác dụng ở đường gọi API, không ở thao tác trên Desk. Khi một lệnh tạo căn hoặc đổi giá căn không gửi giá đêm, máy chủ tự tính giá đêm = giá tháng ÷ số này, làm tròn theo `rounding.night_rate`, và không cảnh báo (BUG-R4-057). Ba đường đi qua khóa này: (1) lệnh đổi giá căn qua API chỉ gửi giá tháng; (2) lệnh tạo căn mới qua API (bản hiện tại chưa nhận giá đêm, luôn tính theo khóa này); (3) công cụ nhập danh mục căn. Trên Desk, màn Danh mục căn luôn gửi đủ giá tháng và giá đêm, nên anh/chị sửa giá trên Desk không đi đường này.",
+  "unit": "Số (chia giá tháng)",
   "bounds": "Từ 1 đến 31",
   "default": "Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).",
-  "example": "12: 9.000.000 ÷ 12 = 750.000 (cách cũ).",
-  "affects": "Chỉ còn đường nhập danh mục căn cũ.",
-  "related": [],
-  "recommended": "Không dùng.",
-  "recommended_reason": "Đã bỏ từ v1.0.1 (FB-INV-005): giá đêm và giá tháng nhập riêng.",
-  "caution": "Tham số đã bỏ, không còn tác dụng. Không sửa. Đội sẽ ẩn khỏi màn hình. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
+  "example": "12: căn 102 giá tháng 9.000.000, một lệnh API đổi giá chỉ gửi giá tháng → máy chủ ghi giá đêm 9.000.000 ÷ 12 = 750.000, trong khi bảng giá 01/11 là 800.000. Báo giá Desk và giá web 2 đêm thành 1.500.000 thay vì 1.600.000, không có thông báo nào.",
+  "affects": "Giá đêm niêm yết của căn khi căn được tạo hoặc đổi giá ngoài Desk mà thiếu giá đêm → báo giá Desk, giá ước tính trên web, đơn OTA để trống giá, phiếu thanh toán.",
+  "related": [
+   "rounding.night_rate"
+  ],
+  "recommended": "Giữ 12, không sửa.",
+  "recommended_reason": "Đổi số này không làm giá đúng hơn; cách đúng là mọi lệnh đổi giá luôn gửi đủ hai giá. v1.0.5 (V5-1A) gỡ đường này: thiếu giá đêm thì máy chủ báo lỗi (422), tạo căn và công cụ nhập danh mục nhận giá đêm. Từ bản đó khóa không còn được đọc và đội ẩn khỏi màn hình.",
+  "caution": "Không sửa. Sửa số này đổi giá đêm của mọi căn tạo mới hoặc đổi giá qua API mà thiếu giá đêm. Tới khi v1.0.5 lên: (a) script của đội gọi API đổi giá luôn gửi đủ hai giá và đọc lại giá sau khi ghi; (b) căn mới tạo bằng API hoặc công cụ nhập danh mục thì ngay sau đó anh/chị mở Danh mục căn, kiểm và nhập lại giá đêm theo bảng giá. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner",
    "manager"
   ],
   "security": false,
-  "price_related": false,
+  "price_related": true,
   "br_ref": "BR-101",
-  "in_use": false
+  "in_use": true
  },
  {
   "key": "no_deposit_hold_until",
@@ -4215,7 +4217,7 @@
    "commission_pay_by_day"
   ],
   "recommended": "Theo bảng nội bộ của chủ đầu tư.",
-  "recommended_reason": "INV 01/11 (BR-903). Không ghi số trong kho mã.",
+  "recommended_reason": "INV 01/11 (BR-903). Không ghi số trong kho mã. Từ v1.0.5 (H2, V5-30): mã không còn số mặc định; thiếu tỷ lệ thì Desk báo \"chưa có tỷ lệ hoa hồng\", không tính bằng 0; cơ sở tính theo bảng nội bộ (xem mục Sắp có ở v1.0.5 trong tham-so-quy-tac.md).",
   "caution": "Đơn đã tạo giữ tỷ lệ lúc tạo (BR-006). Chỉ chủ đầu tư. Không gửi con số cho đội. Đơn đã tạo giữ tỷ lệ lúc tạo (BR-006). Ai sửa: Chủ đầu tư. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner"
