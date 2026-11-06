@@ -16,6 +16,11 @@ import {
   redactAuditFields,
   seesFullAudit,
 } from '../src/modules/audit/public/audit-visibility';
+import { applyPct } from '../src/modules/reservations/public/pricing';
+
+/** Test-only rate (SEC G3) – an odd value unrelated to any real table; the room amount is an odd test value too. */
+const test_rate_short = 1.37;
+const test_room_vnd = 1_234_500;
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -97,12 +102,19 @@ describe('manager-only audit gate (SEC 131-01, ARC 131-01)', () => {
       expect(params[0]).toContain('commission');
     }
 
-    const line = { roomVnd: 1_400_000, nights: 2, commissionVnd: 70_000, sync: 'confirmed' };
-    const row = { status: 'projected', ratePct: 5, baseVnd: 1_400_000, amountVnd: 70_000 };
+    // SEC G3 (FB-R5-SEC-BE-149-01): the named test rate, the amounts computed from it – only the keys matter here.
+    const commissionVnd = applyPct(test_room_vnd, test_rate_short, 1);
+    const line = { roomVnd: test_room_vnd, nights: 2, commissionVnd, sync: 'confirmed' };
+    const row = {
+      status: 'projected',
+      ratePct: test_rate_short,
+      baseVnd: test_room_vnd,
+      amountVnd: commissionVnd,
+    };
     expect(redactAuditFields('folio', line, ['manager'])).toBe(line);
     expect(redactAuditFields('commission', row, ['owner'])).toBe(row);
     expect(redactAuditFields('folio', line, ['front_desk'])).toEqual({
-      roomVnd: 1_400_000,
+      roomVnd: test_room_vnd,
       nights: 2,
       sync: 'confirmed',
     });
