@@ -8,7 +8,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { getResponse, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { ApiError } from '@ottimo/api-client';
-import { minCalendarDay, todayLocal } from '../app/dates';
+import { inEarlyHours, minCalendarDay, todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { handlers, mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
@@ -139,29 +139,31 @@ async function toStep2(user: User, dlg: HTMLElement) {
 const generic = () => tv('error.INVALID_TRANSITION', { status: '§' }).split('§')[0]!;
 
 describe('V5-11 – minCalendarDay and the 409 hint order', () => {
-  it('the floor is the calendar day from 00:00 to the rollover, the business day after it', () => {
+  it('the floor is max(business day, calendar day) like the server minCalendarDate; W is before the rollover AND business day < calendar day', () => {
     const t = (iso: string) => new Date(iso);
-    expect(minCalendarDay('2026-10-20', undefined, t('2026-10-21T03:00:00+07:00'))).toBe(
-      '2026-10-21',
-    );
-    expect(minCalendarDay('2026-10-20', undefined, t('2026-10-21T05:59:00+07:00'))).toBe(
-      '2026-10-21',
-    );
-    expect(minCalendarDay('2026-10-21', undefined, t('2026-10-21T06:00:00+07:00'))).toBe(
-      '2026-10-21',
-    );
-    expect(minCalendarDay('2026-10-20', undefined, t('2026-10-20T23:59:00+07:00'))).toBe(
-      '2026-10-20',
-    );
-    // another property rollover (Me.businessDayRollover)
-    expect(minCalendarDay('2026-10-20', undefined, t('2026-10-21T04:30:00+07:00'), '04:00')).toBe(
-      '2026-10-20',
-    );
-    // FB-R5-DOM-FE-142-01: W needs the business day before the calendar day too – the server already at 06:01
-    // (business day 21/10), the desk clock at 05:59 on 21/10 → 21/10, not 22/10
-    expect(minCalendarDay('2026-10-21', undefined, t('2026-10-21T05:59:00+07:00'))).toBe(
-      '2026-10-21',
-    );
+    const tz = undefined;
+    // W (business day 20/10, calendar 21/10): the calendar day
+    expect(minCalendarDay('2026-10-20', tz, t('2026-10-21T00:00:00+07:00'))).toBe('2026-10-21');
+    expect(minCalendarDay('2026-10-20', tz, t('2026-10-21T03:00:00+07:00'))).toBe('2026-10-21');
+    expect(minCalendarDay('2026-10-20', tz, t('2026-10-21T05:59:00+07:00'))).toBe('2026-10-21');
+    expect(inEarlyHours('2026-10-20', tz, t('2026-10-21T00:00:00+07:00'))).toBe(true);
+    expect(inEarlyHours('2026-10-20', tz, t('2026-10-21T05:59:00+07:00'))).toBe(true);
+    // from the rollover and before 00:00: the business day, not W
+    expect(minCalendarDay('2026-10-21', tz, t('2026-10-21T06:00:00+07:00'))).toBe('2026-10-21');
+    expect(minCalendarDay('2026-10-20', tz, t('2026-10-20T23:59:00+07:00'))).toBe('2026-10-20');
+    expect(inEarlyHours('2026-10-21', tz, t('2026-10-21T06:00:00+07:00'))).toBe(false);
+    expect(inEarlyHours('2026-10-20', tz, t('2026-10-20T23:59:00+07:00'))).toBe(false);
+    // another property rollover (Me.businessDayRollover 04:00): consistent inputs on both sides of it
+    expect(inEarlyHours('2026-10-20', tz, t('2026-10-21T03:30:00+07:00'), '04:00')).toBe(true);
+    expect(inEarlyHours('2026-10-21', tz, t('2026-10-21T04:30:00+07:00'), '04:00')).toBe(false);
+    expect(minCalendarDay('2026-10-21', tz, t('2026-10-21T04:30:00+07:00'))).toBe('2026-10-21');
+    // DOM-142-01 / ARC P1: the server already at 06:01 (business day 21/10), the desk clock at 05:59 → 21/10, not W
+    expect(minCalendarDay('2026-10-21', tz, t('2026-10-21T05:59:00+07:00'))).toBe('2026-10-21');
+    expect(inEarlyHours('2026-10-21', tz, t('2026-10-21T05:59:00+07:00'))).toBe(false);
+    // DOM-142-02 (a): a business day a day behind still gives the calendar day; after 06:00 it is not W
+    expect(minCalendarDay('2026-10-19', tz, t('2026-10-21T03:00:00+07:00'))).toBe('2026-10-21');
+    expect(minCalendarDay('2026-10-20', tz, t('2026-10-21T06:30:00+07:00'))).toBe('2026-10-21');
+    expect(inEarlyHours('2026-10-20', tz, t('2026-10-21T06:30:00+07:00'))).toBe(false);
   });
 
   it('useCheckout before minNewDepartureDate; any other 409 is not a hint', () => {
@@ -646,9 +648,50 @@ describe('V5-11 – Trả sớm from 00:00 to 06:00 (Desk)', () => {
     expect(await within(dlg).findByText(tv('early_departure.use_checkout'))).toBeInTheDocument();
     expect(r.departureDate).toBe(D);
     expect(r.status).toBe('in_house');
-    expect(cap.writes().length).toBeLessThanOrEqual(1);
+    expect(cap.writes()).toHaveLength(1); // ARC 142-01: the write went out, the 409 came back
     expect(
       await within(dlg).findByRole('button', { name: tv('early_departure.checkout_now') }),
     ).toBeInTheDocument();
+  });
+
+  it('FB-R5-ARC-FE-142-01: 409 useCheckout on the write while the Desk is still out of W (its clock 23:58, the server already past 00:00): one write, the alert takes the focus, no blocking error, one re-read', async () => {
+    at('23:58', Y);
+    const r = directStay();
+    const cap = captureB16();
+    const reads: string[] = [];
+    const onRead = ({ request }: { request: Request }) => {
+      const path = new URL(request.url).pathname;
+      if (request.method === 'GET' && path.endsWith(`/reservations/${r.id}`)) reads.push(path);
+    };
+    server.events.on('request:start', onRead);
+    onTestFinished(() => {
+      server.events.removeListener('request:start', onRead);
+    });
+    const { user, dlg } = await openDialog('Trần Thu Nga');
+    await toStep2(user, dlg);
+    // only the server knows: the write answers 409 useCheckout, the Desk clock never leaves 23:58
+    mockControl.failNext(/\/actions\/early-departure:POST$/, 409, {
+      code: 'INVALID_TRANSITION',
+      currentState: 'in_house',
+      useCheckout: true,
+    });
+    const before = reads.length;
+    await user.click(confirmBtn(dlg));
+    const alert = await within(dlg).findByText(tv('early_departure.use_checkout'));
+    await waitFor(() => expect(alert.closest('[tabindex="-1"]')).toHaveFocus());
+    expect(cap.writes()).toHaveLength(1);
+    expect(within(dlg).queryByText(new RegExp(`^${esc(generic())}`))).toBeNull();
+    expect(within(dlg).queryByRole('button', { name: tv('early_departure.confirm') })).toBeNull();
+    expect(r.departureDate).toBe(addDays(D, 2)); // nothing written
+    await waitFor(() => expect(reads.length - before).toBe(1));
+    await new Promise((x) => setTimeout(x, 400));
+    expect(reads.length - before).toBe(1);
+    // the re-read booking leaves on D + 2: no check_out yet, so only Đóng
+    expect(
+      within(dlg).queryByRole('button', { name: tv('early_departure.checkout_now') }),
+    ).toBeNull();
+    expect(within(dlg).getAllByRole('button', { name: tv('common.close') }).length).toBeGreaterThan(
+      0,
+    );
   });
 });

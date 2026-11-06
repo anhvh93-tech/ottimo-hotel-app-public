@@ -16,6 +16,7 @@ import { useCatalog } from '../../app/catalog';
 import {
   DEFAULT_ROLLOVER,
   daysBetween,
+  inEarlyHours,
   minCalendarDay,
   msUntilNextRollover,
   timeHHmm,
@@ -111,17 +112,23 @@ export function EarlyDepartureDialog({
     const id = setTimeout(() => setMidnight((x) => x + 1), msUntilNextRollover(TZ, '00:00') + 250);
     return () => clearTimeout(id);
   }, [midnight]);
-  const estimate = minCalendarDay(today, TZ, new Date(), rollover);
+  // ARC review #142 §3: floor = max(business day, calendar day), the server's `minCalendarDate`.
+  const estimate = minCalendarDay(today, TZ, new Date());
+  /** W: before the rollover AND business day < calendar day (UXD 9.13, DOM-142-01; server `inEarlyHours`). */
+  const night = inEarlyHours(today, TZ, new Date(), rollover);
   // …and on the next focus too (a timer late after sleep): a field the desk enters re-reads the clock.
   useEffect(() => {
     const recheck = () => {
-      if (minCalendarDay(today, TZ, new Date(), rollover) !== estimate) setMidnight((x) => x + 1);
+      const now = new Date();
+      if (
+        minCalendarDay(today, TZ, now) !== estimate ||
+        inEarlyHours(today, TZ, now, rollover) !== night
+      )
+        setMidnight((x) => x + 1);
     };
     document.addEventListener('focusin', recheck);
     return () => document.removeEventListener('focusin', recheck);
-  }, [today, rollover, estimate]);
-  /** W: the business day is still yesterday (UXD 9.13: business day < calendar day, same rollover as `checkoutInstant`). */
-  const night = estimate > today;
+  }, [today, rollover, estimate, night]);
   const floor = serverMin ?? estimate;
   const minDate = floor > r.arrivalDate ? floor : addDays(r.arrivalDate, 1);
   /** Order of UXD 9.13 for a 409 `INVALID_TRANSITION` (preview and write): useCheckout → minNewDepartureDate → generic. */
