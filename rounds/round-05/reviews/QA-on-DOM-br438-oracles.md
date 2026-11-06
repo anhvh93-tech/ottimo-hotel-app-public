@@ -32,4 +32,7 @@
 - Tới khi DOM trả lời:
   - QA đã đổi `source` của BR-438-04 thành `checkout` như DOM yêu cầu. `expected` không đổi. Ghi chú của dòng nêu lệch này;
   - ca staging TC-V105-B438-04 (`rounds/round-05/qa/v1.0.5-test-cases.md` mục 2) chỉ kiểm `allowed` và ghi lại thân 403.
-- Trạng thái: Open
+- Trạng thái: **Closed** (07/11). DOM chọn **A** (`rounds/round-05/responses/DOM-responses.md`, `5bbed1fb`; BR v0.5.15 sửa ví dụ, không đổi luật). QA đã làm:
+  - `br-examples.json` BR-438-04: ca A32 trên folio `settled`; FD/FDL 403 `FORBIDDEN_ACTION`, `requiredFlowInBody: false`, không `access.denied` lý do `BR-438`; MGR được với các khóa BR-433 (e); bỏ `hint`, bỏ `pendingFix` (mã HEAD đáp ứng), thêm nhãn INV-007;
+  - BR-438-07: thêm `carryToCheckout` (FOC đã duyệt trên dòng B15 đi sang dòng B18, tối đa bằng dòng mới – giả định DOM, chưa có test BE);
+  - `v1.0.5-test-cases.md` bản 0.3: TC-V105-B438-04 kiểm thân 403 không `requiredFlow`; thêm TC-V105-B438-19; mục 2.3 thêm hai ca integration cho BE-H.

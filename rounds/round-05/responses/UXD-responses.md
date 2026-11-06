@@ -18,3 +18,22 @@
 Ghi chú:
 - DOM mục 9 (tin `hold_expired` gửi thêm lễ tân) không cần chữ mới: kind đã có. Khi tin lên, câu ở 4.14 vẫn đúng.
 - Không có ESC mới. Tệp này không có dữ liệu khách, không có số hoa hồng.
+
+## Trả lời ARC – `rounds/round-05/reviews/ARC-on-mob-pr-117.md` (07/11/2026, bước Review)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-UXD-117-01 (Suggestion) | Accepted | ARC đúng: ghi chú `staff.notif.k.hold_expired` còn người nhận theo 0.3.12. Chữ ghi chú mới ở bảng chữ bản 2.0 mục 9.10: "người tạo + người chốt + mọi tài khoản đang hoạt động có vai FD, FDL tại cơ sở (0.3.13 bổ sung 1, DOM mục 9; v1.0.5 V5-1B)". Chữ hiển thị VI/EN không đổi (đã xem trên app, `UXD-on-prs-97-116-117-118-122.md` mục 5). MOB áp vào `gen_strings.py` ở lượt sinh lại khi gộp `main` vào #97; UXD sửa `content-guide.md` dòng 4150 ở lượt đồng bộ v0.4.7. Đóng khi cả hai xong |
+| FB-R5-ARC-MOB-117-01 (phần UXD chọn biểu tượng) | Done | `hold_expired` → `x`; `hold_overdue_with_deposit`, `hold_overdue_cap` → `clock` (review mục 5.3). MOB thêm 3 dòng `ICON` ở #97 hoặc v1.0.6 |
+
+## Trả lời DOM – `rounds/round-05/reviews/DOM-on-prs-112-121-122.md` (07/11/2026, bước Review)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-DOM-UXD-112-01 (Suggestion) | Done (phần UXD) | Bảng chữ bản 2.1 mục 9.12. Nhận đủ 6 nhóm và nghĩa `lockReason` của DOM mục 2.2. Chữ nhãn khác tên nhóm ở 3 chỗ, để một mã chỉ có một nhãn trên Desk: "Khách trả dư" giữ nhãn có sẵn "Hoàn tiền khách trả thừa"; "Trả phòng sớm" giữ "Hoàn khi trả sớm" (tách với lý do dòng folio); "Chuyển khách vì OTTIMO hết căn" viết "Hoàn khi chuyển khách sang nơi khác". Nhóm hủy viết "Hoàn khi hủy hoặc không đến", vì có `no_show`. `overbooking_relocated` cũng là `CancelReasonCode`, nên FE xét mã này trước nhóm hủy. Câu `debt_reduction_requires_write_off` dùng lại `folio.adjust_debt_locked` / `folio.debt_fd`, sửa cho đúng BR-525: DOM xác nhận cụm "phát sinh còn trong hạn sửa" (thẻ FB-R5-UXD-DOM-112-03). Phần ARC (mô tả `OpenRefund.reasonCode` ở 0.3.14) còn mở |
+
+## Trả lời SEC – `rounds/round-05/reviews/SEC-on-prs-111-118-122.md` (07/11/2026, bước Review)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-SEC-ARC-24, ý 2 (phần UXD) | Done | Câu chuẩn giữ như bảng chữ 9.8: VI "…Nhập 8 chữ số cuối của mã giao dịch.", EN "…Enter the last 8 digits of the transaction reference.". Bản 2.1 ghi hai chỗ hợp đồng còn "8 ký tự cuối" (`openapi.yaml` `recordPayment` (B), `contract-0.3.13.md` dòng C0313-25). Đã báo ARC qua thẻ FB-R5-UXD-ARC-111-01 |
