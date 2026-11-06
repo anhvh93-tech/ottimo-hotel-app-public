@@ -9,10 +9,15 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 16 | 2 (BUG-R3-032, BUG-R3-042 – đích v1.0.3) | 0 | 14 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6; BUG-R3-057 Closed 03/11 trên `main` `e5fffe05`) |
-| P2 | 17 | 10 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046, 052, 053, 056) | 0 | 7 (+ phần v1.0.0 của 021, 023 đã Closed; BUG-R3-058 Closed 03/11 trên `main` `e5fffe05`) |
-| P3 | 22 | 21 (016; 024–031; 034; 035; 036; 040; 045; 047; 048; 049; 050; 051; 054; 055) | 0 | 1 |
-| **Tổng** | **58** | **33** | **0** | **25** |
+| P1 | 16 | 0 | 1 (BUG-R3-032 – đã xác nhận trên production, chờ SEC V3-07) | 15 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6; BUG-R3-057 Closed 03/11 trên `main` `e5fffe05`; BUG-R3-042 Closed 06/11 V5-02) |
+| P2 | 17 | 3 (BUG-R3-021 ô nhập Wi-Fi trên Desk – V5-58; BUG-R3-023 lọc căn chưa dọn – V5-50; BUG-R3-056 – V5-56) | 0 | 14 (+ phần v1.0.0 của 021, 023 đã Closed; BUG-R3-058 Closed 03/11 trên `main` `e5fffe05`; BUG-R3-018, 041, 043, 044, 046, 052, 053 Closed 06/11 V5-02) |
+| P3 | 22 | 16 (016; 025–028; 030; 031; 034; 035; 036; 047; 048; 049; 051; 054; 055) | 0 | 6 (BUG-R3-024, 029, 040, 045, 050 Closed 06/11 V5-02) |
+| **Tổng** | **58** | **19** | **1** | **38** |
+
+Cập nhật 06/11 (QA, Round 5 – bước Sản xuất, V5-02 = QC Round 4 ĐK-7; kiểm trên v1.0.4 `6414be25`, chỉ đọc mã, test và biên bản). Dọn 14 dòng mà phụ lục A3 của `rounds/round-05/plan.md` xếp (c):
+- **13 dòng → Closed:** P1 042; P2 018 (phần 1), 041, 043, 044, 046, 052, 053; P3 024, 029, 040, 045, 050. Lý do và bằng chứng ở cột Trạng thái và mục chi tiết; tổng hợp ở `rounds/round-05/qa/v5-02-closeout.md` mục 6.
+- **BUG-R3-032 → Fixed (chưa Closed).** Phụ lục A3 ghi "Sửa ở v1.0.3", đúng về mã. Nhưng QC v1.0.3 đặt điều kiện đóng là K8 và SEC V3-07, và V3-07 chưa có. ESC-040 không cần báo lại: điều kiện "đã sửa" (v1.0.3 trên production, INV nhận thư ở K8) đã đủ trước hạn 09/11.
+- Cột Fixed dùng lại cho 032. Các dòng còn Open đều đã có mã việc V5 hoặc nhóm backlog ở phụ lục A3.
 
 Cập nhật 03/11 15:25 (QA, Round 4 – v1.0.2, bước Kiểm thử, QC ĐK7 (b) của `rounds/round-04/qc/v1.0.2-gate.md`; `main` @ `e5fffe05`, staging `sha-e5fffe05ed55`):
 - **BUG-R3-057 → Closed.** PR #16 gộp `main` (`8111d5d6`, head gộp `98ff43bb` = head QA đã test lại 31/10), là tổ tiên của `e5fffe05`.
@@ -163,21 +168,21 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-015 | P3 | **Bộ test**: không chạy được trên stack `MFA_ENFORCED=true` (staging, production): (1) `freshSession` không có bước TOTP cho DS-E OWN/MGR đã bật 2FA; (2) `createThrowawayUser` gửi S2 chỉ có mật khẩu; (3) `ensureReceivingAccount` (R3-Q51) gọi `/health` + `/__test__/clock` vô điều kiện; (4) `s2Context` dùng `qa.owner` – phiên hạn chế làm ca bỏ qua với lý do sai "DS-E chưa nạp đủ 10 căn" | QA | **Closed** 26/10 – harness trong repo (`totp-store.ts`, `E2E_TOTP_DIR`, `seedReauthFor`, `E2E_LOCAL_CLOCK`, mã TOTP theo đồng hồ stack); chạy trên staging rc.2 (smoke-prod, các ca rc.2) và stack bật 2FA; CI push `4629e6e` xanh |
 | BUG-R3-016 | P3 | Khách **đến hôm nay**: báo giá đã lưu không chuyển được thành đơn. H12 chỉ báo "Sale/CTV: nhắn lễ tân tạo đơn đã thu"; lễ tân nhập lại H09 từ đầu – mặc định 2 người lớn trong khi báo giá 1 người lớn, không mang khách/giá của báo giá, không nối báo giá với đơn | PO (+ FE-A, UXD) | Open |
 | BUG-R3-017 | **P1** | Trả phòng H16 bước 3, phụ thu trả muộn bằng 1 đêm (BR-416-06 – mọi lượt ESC-031 trên production): thu **tiền mặt** (hoặc thẻ POS) 792.000 → `recordPayment` 422 `note REASON_REQUIRED` (số > còn phải thu lúc đó vì phụ thu chỉ ghi khi B18); màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng không có ô ghi → không thu được, B18 tiếp theo 409 `BALANCE_DUE`. VietQR (gửi ngữ cảnh trả phòng) và chuyển khoản (có ô ghi chú) đi được | FE-A (+ BE-B) | **Closed** 26/10 – FE-A `64bf5c0` + `67fc853` gộp `main`, có trong `v1.0.0-rc.2` (`4629e6e`, CI push xanh); QA kiểm trên nhánh 4/4 (tiền mặt/thẻ POS, ESC-031 và đêm thêm) |
-| BUG-R3-018 | P2 | Desk "Danh mục căn" (FB-INV-005): giá đêm đã **lên lịch** cho ngày sau không hiện ở ngăn kéo/bảng. OWN gõ lại đúng giá đang dùng để hủy lịch thì ô ngày hiệu lực/lý do ẩn, nút Lưu khóa ("không đổi") → không gỡ được giá sai đã lên lịch trên Desk | FE-A (+ BE-A nếu cần API xem/hủy lịch) | **Phần 2 Closed** 27/10 – QA kiểm trên staging `v1.0.0-rc.3` (`70fe734`): Desk lưu lại được giá đang dùng với ngày hiệu lực sau hôm nay; toast ghi ngày áp dụng; báo giá về đúng giá (`qa3-rc1.md` mục 15). **Phần 1 Open – dời v1.0.1**: hiện danh sách giá đã lên lịch + hủy lịch (hợp đồng 0.3.9 `Room.scheduledListPrices`, ARC/BE-A/FE-A) |
+| BUG-R3-018 | P2 | Desk "Danh mục căn" (FB-INV-005): giá đêm đã **lên lịch** cho ngày sau không hiện ở ngăn kéo/bảng. OWN gõ lại đúng giá đang dùng để hủy lịch thì ô ngày hiệu lực/lý do ẩn, nút Lưu khóa ("không đổi") → không gỡ được giá sai đã lên lịch trên Desk | FE-A (+ BE-A nếu cần API xem/hủy lịch) | **Closed** 06/11 (V5-02: phần 1 – danh sách giá hẹn và hủy lịch – có từ v1.0.2, PR #22 `4ace6073`, nằm trong v1.0.4 `6414be25`; test `v101-scheduled-prices-fea` (admin-web) và `rooms-scheduled-prices-v101` (api) chạy trong CI `41999716963`; staging TC-V104-PR-02, PR-03 ĐẠT 05/11). Trước đó: **Phần 2 Closed** 27/10 – QA kiểm trên staging `v1.0.0-rc.3` (`70fe734`): Desk lưu lại được giá đang dùng với ngày hiệu lực sau hôm nay; toast ghi ngày áp dụng; báo giá về đúng giá (`qa3-rc1.md` mục 15). **Phần 1 Open – dời v1.0.1**: hiện danh sách giá đã lên lịch + hủy lịch (hợp đồng 0.3.9 `Room.scheduledListPrices`, ARC/BE-A/FE-A) |
 | BUG-R3-019 | **P1** | "Đơn dài hạn nhập tay" không tạo được: `createReservation` 422 `directSource REQUIRED` – form dài hạn không có/không gửi Nguồn, quy tắc từ US-155 (`5820a97`) | FE-A (+ BE-D) | **Closed** 28/10 – QA kiểm trên staging rc.4 `d12cda6`: rack và H09 ≥ 28 đêm đều tạo được (OTM-00363 `walk_in`, OTM-00364 `zalo_phone`), cờ HĐ ngoài hệ thống, không có "Sale nội bộ" (`qa3-rc1.md` 17.2) |
 | BUG-R3-020 | P2 | "In phiếu" (`window.print()`) in cả khung Desk (danh sách, ngăn kéo, lớp mờ, nút) – admin-web không có CSS in | FE-A (+ UXD) | **Closed** 28/10 – rc.4: 1 tờ A4 chỉ có phiếu, 11 pt / 9 pt, chỉ màu brand, VI và VI–EN (Chromium chế độ in + `page.pdf`; máy in quầy chưa thử) (17.4) |
 | BUG-R3-021 | P2 | Không có chỗ nhập Wi-Fi trên Desk (`property.wifi_info_i18n` chỉ sửa được ở DB); trang khách báo "Hiện ở đây vào ngày nhận phòng (27/10)" ngay trong ngày 27/10 | PO + FE-A/BE-A (+ OPS) | **Phần trang khách Closed** 28/10 – rc.4: ngày đến/đang ở hiện "hỏi lễ tân" EN/VI/RU, trước ngày đến giữ câu cũ (17.7). **Phần ô nhập Wi-Fi trên Desk Open – dời v1.0.1** (khóa tham số Wi-Fi, ARC/BE/FE-A) |
 | BUG-R3-022 | P2 | Không ghi được phát sinh sau trả phòng trên Desk: "Thêm phát sinh" chỉ hiện khi `in_house`, dù máy chủ có cửa sổ BR-427 (c) | FE-A | **Closed** 28/10 – rc.4: nút hiện ở folio `settled`; ghi thử Giặt ủi rồi MGR đảo, số dư về như cũ; folio quá cửa sổ → 409 `FOLIO_LOCKED`, không ghi (17.5). Ca `closed` chưa kiểm được trên staging (không có folio `closed`) |
 | BUG-R3-023 | P2 | Hộp Đổi phòng (đang ở) liệt kê căn **VD** (401 "Trống, cần dọn") trong "Căn mới (đã dọn hoặc đã kiểm)"; nhãn nhóm hiện mã nội bộ L12/N/NPLUS | FE-A / BE-A | **Phần nhãn nhóm + câu `ready_only` Closed** 28/10 – rc.4 (17.6); chọn căn VD → 409 `ROOM_NOT_READY`, không lưu. **Phần lọc căn chưa dọn Open – dời v1.0.1** (ARC chọn (a)/(b)) |
-| BUG-R3-024 | P3 | `/reservations/{id}/check-out` mở được trước ngày đi; mỗi lần qua bước Minibar ghi thêm một `minibar-checks`; hoàn tất 409 (B16) nhưng Desk báo sai "Đơn vừa chuyển sang 'Đang ở'…" | FE-A | Open |
+| BUG-R3-024 | P3 | `/reservations/{id}/check-out` mở được trước ngày đi; mỗi lần qua bước Minibar ghi thêm một `minibar-checks`; hoàn tất 409 (B16) nhưng Desk báo sai "Đơn vừa chuyển sang 'Đang ở'…" | FE-A | **Closed** 06/11 (V5-02: PR #64 `9fded27f` trong `6414be25`; unit `v104-checkout-feb` khối BUG-R3-024 và `checkout.test` chạy trong CI `41999716963`; TC-V104-CO-02 STG chưa có kết quả ghi). Trước đó: Open |
 | BUG-R3-025 | P3 | Hộp "Xác nhận cọc" không có ô Mã giao dịch / ghi chú (form Đặt phòng mới và Thu công nợ có) → cột Mã giao dịch ở Chờ đối soát trống | FE-A (+ UXD) | Open |
 | BUG-R3-026 | P3 | App nhân viên "Báo sự cố" thiếu loại "Tắc thoát nước", "Wi-Fi" (Desk "Phiếu sửa mới" có 8 loại) | MOB | Open |
 | BUG-R3-027 | P3 | Trang khách: mở lại link giữa chừng sau khi chọn "Bổ sung tại quầy" → app quay lại bước Xác nhận nhưng mất danh sách bổ sung → `complete` 409 `INVALID_TRANSITION` (documents), về bước Giấy tờ không thông báo | FE (guest-web) | Open |
 | BUG-R3-028 | P3 | Chữ giao diện: lộ "Round 3 / R2 / R3" cho nhân viên; nhãn sai ở Thêm người đi cùng, Xác nhận giờ trả, chữ phụ ô Căn; hạn báo giá 00:00 vs 23:59 | UXD + FE-A | Open |
-| BUG-R3-029 | P3 | App nhân viên: OWN/MGR đăng nhập thấy cùng lúc "Nhập mã trong ứng dụng xác thực…" và "Đăng nhập 2 bước sẽ có ở bản sau", không có ô mã | UXD + MOB | Open |
+| BUG-R3-029 | P3 | App nhân viên: OWN/MGR đăng nhập thấy cùng lúc "Nhập mã trong ứng dụng xác thực…" và "Đăng nhập 2 bước sẽ có ở bản sau", không có ô mã | UXD + MOB | **Closed** 06/11 (V5-02: PR #39 `0aec8b7a` trong `6414be25`, app nhân viên có đăng nhập 2 bước (ARC-RN103-02); unit mobile `v104-mfa-signin` khẳng định không còn câu "Đăng nhập 2 bước sẽ có ở bản sau"; mobile 162/162 trên mã cắt `0d11db20`). Trước đó: Open |
 | BUG-R3-030 | P3 | Folio ở màn Trả phòng hiện dòng miễn "Bị từ chối" kèm số âm −210.000 (không được trừ nhưng trông như đã trừ) | FE-A | Open |
 | BUG-R3-031 | P3 | Nút "Hoàn tác nhận phòng" (MGR) mở cả khi folio đã có dòng sau nhận phòng; xác nhận thì 409 "reverse the lines posted since check-in first" | FE-A | Open |
-| BUG-R3-032 | **P1** | Thư "Security notice" (đổi tài khoản nhận tiền, dùng mã khôi phục, đặt lại 2 bước) **không tới ai**: `production-bootstrap` không đặt email cho chủ, API/Desk không có trường email người dùng → outbox `staff.email` `dead NO_RECIPIENT` (staging 0/27 người có email). Thiếu kênh ngoài app của SEC Q51-6 / 06.15 | BE-A + ARC (hợp đồng), OPS (`ops-check`) | Open – sửa ở **v1.0.1** (04/11). SEC chấp nhận chạy D 02/11 với biện pháp bù B1–B6; quá 09/11 → ESC |
+| BUG-R3-032 | **P1** | Thư "Security notice" (đổi tài khoản nhận tiền, dùng mã khôi phục, đặt lại 2 bước) **không tới ai**: `production-bootstrap` không đặt email cho chủ, API/Desk không có trường email người dùng → outbox `staff.email` `dead NO_RECIPIENT` (staging 0/27 người có email). Thiếu kênh ngoài app của SEC Q51-6 / 06.15 | BE-A + ARC (hợp đồng), OPS (`ops-check`) | **Fixed – đã xác nhận trên production, chờ SEC V3-07 để Closed** (V5-02 06/11: PR #31 `958e8da0` có trong v1.0.3, production từ 04/11; K8 04/11 07:14 INV đã nhận thư; E1 05/11 11:50: `email_dead` 0 trong 24 giờ, nhưng `email_missing` = 1 vì tài khoản quản lý chưa nhập email. QC v1.0.3 ghi "chỉ đóng sau K8 và SEC V3-07". Điều kiện "đã sửa" của ESC-040 (hạn 09/11) đã đủ: v1.0.3 chạy production và K8 đã nhận thư). Trước đó: Open – sửa ở **v1.0.1** (04/11). SEC chấp nhận chạy D 02/11 với biện pháp bù B1–B6; quá 09/11 → ESC |
 | BUG-R3-033 | P2 | Trả phòng xong, khung Folio vẫn hiện số dự tính trước khi trả ("Còn phải thu 792.000 đ" dù máy chủ còn 0) | FE-A | **Closed** 28/10 – rc.4: sau B18 Desk đọc lại folio máy chủ, hiện "Đã thu −880.000 · Còn phải thu 0 đ" (OTM-00365, `qa3-rc1.md` 17.3). Đường `postReview` chưa chạy lại trên staging (chỉ sau 18:00) |
 | BUG-R3-034 | P3 | Đơn đã trả phòng, chi hoàn đủ mà mục "tiền dư đơn đã đóng" vẫn còn tới khi J15 đóng folio | BE-B | Open |
 | BUG-R3-035 | P3 | Phiếu ghi "Phụ thu trả muộn (00:15)" cho khoản phụ thu bằng 1 đêm | BE-B + UXD | Open |
@@ -185,22 +190,22 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-037 | P1 | J15 `folio.close` không đóng được folio nào trong worker. rc.4: không đăng ký job. rc.5: đã đăng ký và chạy, nhưng lỗi `AuditEntityNotRegisteredError` ở mọi folio. Folio quá cửa sổ 24 giờ không đóng, công nợ sau trả phòng không được ghi | BE-B (+ ARC, OPS) | **Closed** 30/10 – rc.6: staging 5/5 folio `closed` + 5 audit `folio.closed`, OTM-00297 không thêm công nợ, 3 nhịp 0 lỗi (OPS `j15-folio-close-check.md` mục 12); production rc.6 chạy sạch (mục 14, chưa có folio). Lịch sử: mở lại 29/10 vì rc.5 không đạt |
 | BUG-R3-038 | P1 | `payment.expire` `job failed` mỗi nhịp trong worker (từ rc.4): allowlist audit `payment` không có trong tiến trình worker → payment `pending` quá `expires_at` không bao giờ thành `expired`. Cùng gốc BUG-R3-037; production rc.3 có nguy cơ | BE-B (+ ARC, OPS) | **Closed** 30/10 – rc.6: staging PT-000444, PT-000458 → `expired` + 2 audit `payment.expired` + 2 SM-12, 0 `job failed` (OPS mục 12); production rc.6 chạy sạch (mục 14, chưa có payment). Chưa tạo VietQR mới để thử (ORC cấm VietQR) |
 | BUG-R3-039 | P1 | J1 `hold.expire` không hủy được hold nào trong worker: ghi audit `reservation` ném `AuditEntityNotRegisteredError`, từng hold rollback; worker thiếu 3 listener `transitioned` (registration K11, front desk B-13, reporting). Hold quá hạn giữ căn mãi → mất bán. Cùng gốc BUG-R3-037/038; production rc.3 cùng mã | BE-B (+ ARC thẻ 05, OPS) | **Closed** 30/10 – rc.6 staging (`qa3-rc1.md` 19.6 OPS DB/log + 19.7 QA): OTM-00367 hủy 07:04:15 bởi `system`, căn 101 nhả 2 đêm, `stay_night` và registration `void`, 1 audit, cọc sau hạn 409 `INVALID_TRANSITION`; OTM-00368 có cọc vẫn giữ; log 0 lỗi. Production rc.6 mới chứng minh chạy sạch (0 hold). Thông báo J1 tách thành BUG-R3-041 |
-| BUG-R3-040 | P3 | CLI `production-bootstrap` ghi audit `production.bootstrapped` thiếu trường `rooms`/`channels` (CLI không nạp allowlist của platform). Bản ghi B2 28/10 trên production đã thiếu, không sửa được (audit chỉ ghi thêm); dữ liệu phòng/kênh đúng | BE-B | Open – ghi nhận. Ngăn tái phát trong PR #14; bản ghi cũ giữ nguyên |
-| BUG-R3-041 | P2 | Thông báo của J1 (`hold_expired`, `hold_overdue_with_deposit`, `hold_overdue_cap`) chỉ ghi outbox `staff.push`. Topic này không có bộ phát, nên không vào hộp thư, không phát SSE, không lên "Cần chú ý". Hold có cọc quá hạn chỉ còn đồng hồ "0h00" đỏ trên Rack/Hôm nay | BE-B + ARC | Open (30/10, staging rc.6) |
-| BUG-R3-042 | **P1** | Giữ chỗ **có cọc** đã quá hạn không xác nhận được: `confirm` trả 409 `HOLD_EXPIRED` khi giờ nhận tiền ≥ hạn, áp cho mọi hold (US-085 AC4/SEC-BE-22 viết cho hold chưa cọc); Desk không gửi `receivedAt` nên ghi tay sau hạn luôn bị từ chối, nút **Xác nhận đã nhận cọc** vẫn hiện. Trái BR-303 (1); đơn không thành Đã xác nhận → không nhận phòng được trên đơn gốc (V1) | BE-B + ARC (FE-A ô giờ nhận tiền; SEC xem SEC-BE-22) | Open – xác minh bằng mã `8b3aec8`, tái hiện staging sau. Đích **v1.0.1** |
-| BUG-R3-043 | P2 | Desk không có ô/nút **"Chấp nhận cọc thiếu – lý do"** cho OWN/MGR, dù API `confirmDeposit` nhận `acceptShortfallReason` (B-29): `grep acceptShortfallReason product/apps` = 0. BR-303 (2) không làm được ở v1.0.0, trước hay sau hạn (V2) | FE-A + UXD | Open – xác minh bằng mã. Đích **v1.0.1** |
-| BUG-R3-044 | P2 | Desk trình bày giữ chỗ có cọc như chưa cọc: khung đơn quá hạn hiện "Giữ chỗ đã hết hạn lúc … – **đơn đã tự hủy**" (đơn vẫn `hold`, căn vẫn giữ); `error.HOLD_EXPIRED` nói "căn đã **mở bán lại**"; hộp Hủy giữ chỗ ghi "Không thu phí (giữ chỗ chưa cọc)" và không hiện số sẽ hoàn (M13-03, V3) | FE-A + UXD | Open – phần 3 (hộp hủy) tái hiện staging 30/10 (`qa3-rc1.md` 20); phần 1–2 xác minh bằng mã. Đích **v1.0.1** |
-| BUG-R3-045 | P3 | `error.FOLIO_LOCKED` ghi "Chỉ quản lý ghi được bút toán điều chỉnh" nhưng folio khóa thì quản lý cũng bị 409; **Folio & điều chỉnh** vẫn hiện nút **Điều chỉnh** cho MGR trên folio `closed`/quá cửa sổ (M13-04) | UXD + FE-A | Open – câu đã thấy trên staging rc.4 (17.5); phần nút xác minh bằng mã. Đích **v1.0.1** |
-| BUG-R3-046 | P2 | Desk: hủy đơn với lý do **Khác (ghi rõ)** không làm được – bản tính thử của hộp hủy không gửi `note`, máy chủ trả 422 `note` `REASON_REQUIRED`, nút hủy khóa kể cả khi đã gõ ghi chú và bấm **Thử lại**. Sổ tay 2.4 dặn dùng lý do này | FE-A (BE-B xem phía máy chủ) | Open – tái hiện staging rc.6 30/10. Đích **v1.0.1**; tài liệu đổi trước C3a |
+| BUG-R3-040 | P3 | CLI `production-bootstrap` ghi audit `production.bootstrapped` thiếu trường `rooms`/`channels` (CLI không nạp allowlist của platform). Bản ghi B2 28/10 trên production đã thiếu, không sửa được (audit chỉ ghi thêm); dữ liệu phòng/kênh đúng | BE-B | **Closed** 06/11 (V5-02: ghi nhận; bản ghi cũ không sửa được vì audit chỉ ghi thêm. Ngăn tái phát ở PR #14 `8b3aec89`: 2 CLI `import '../audit-entities'`, test `worker-audit-registry` (a) chạy trong CI `41999716963`). Trước đó: Open – ghi nhận. Ngăn tái phát trong PR #14; bản ghi cũ giữ nguyên |
+| BUG-R3-041 | P2 | Thông báo của J1 (`hold_expired`, `hold_overdue_with_deposit`, `hold_overdue_cap`) chỉ ghi outbox `staff.push`. Topic này không có bộ phát, nên không vào hộp thư, không phát SSE, không lên "Cần chú ý". Hold có cọc quá hạn chỉ còn đồng hồ "0h00" đỏ trên Rack/Hôm nay | BE-B + ARC | **Closed** 06/11 (V5-02: PR #50 `4f9267d9` trong `6414be25`; staging HD-09…HD-13 ĐẠT 05/11, HD-27 ĐẠT 06/11 (hộp thư và Cần chú ý; SSE: giới hạn đo)). Trước đó: Open (30/10, staging rc.6) |
+| BUG-R3-042 | **P1** | Giữ chỗ **có cọc** đã quá hạn không xác nhận được: `confirm` trả 409 `HOLD_EXPIRED` khi giờ nhận tiền ≥ hạn, áp cho mọi hold (US-085 AC4/SEC-BE-22 viết cho hold chưa cọc); Desk không gửi `receivedAt` nên ghi tay sau hạn luôn bị từ chối, nút **Xác nhận đã nhận cọc** vẫn hiện. Trái BR-303 (1); đơn không thành Đã xác nhận → không nhận phòng được trên đơn gốc (V1) | BE-B + ARC (FE-A ô giờ nhận tiền; SEC xem SEC-BE-22) | **Closed** 06/11 (V5-02: PR #50 và #54 `e5fb9578` trong `6414be25`; HD-05…HD-08 đạt trên head đã gộp, unit `v104-holds-feb`, `v104-holds` chạy trong CI `41999716963`; staging HD-20 ĐẠT 05/11 và 06/11). Trước đó: Open – xác minh bằng mã `8b3aec8`, tái hiện staging sau. Đích **v1.0.1** |
+| BUG-R3-043 | P2 | Desk không có ô/nút **"Chấp nhận cọc thiếu – lý do"** cho OWN/MGR, dù API `confirmDeposit` nhận `acceptShortfallReason` (B-29): `grep acceptShortfallReason product/apps` = 0. BR-303 (2) không làm được ở v1.0.0, trước hay sau hạn (V2) | FE-A + UXD | **Closed** 06/11 (V5-02: PR #54 trong `6414be25`; staging HD-23/HD-26, HD-24, HD-25 ĐẠT 05/11). Trước đó: Open – xác minh bằng mã. Đích **v1.0.1** |
+| BUG-R3-044 | P2 | Desk trình bày giữ chỗ có cọc như chưa cọc: khung đơn quá hạn hiện "Giữ chỗ đã hết hạn lúc … – **đơn đã tự hủy**" (đơn vẫn `hold`, căn vẫn giữ); `error.HOLD_EXPIRED` nói "căn đã **mở bán lại**"; hộp Hủy giữ chỗ ghi "Không thu phí (giữ chỗ chưa cọc)" và không hiện số sẽ hoàn (M13-03, V3) | FE-A + UXD | **Closed** 06/11 (V5-02: PR #54 trong `6414be25`; staging HD-19 ĐẠT 05/11, HD-29 và HD-31 ĐẠT 06/11; HD-22 (đồng hồ giả) đạt trên head đã gộp). Trước đó: Open – phần 3 (hộp hủy) tái hiện staging 30/10 (`qa3-rc1.md` 20); phần 1–2 xác minh bằng mã. Đích **v1.0.1** |
+| BUG-R3-045 | P3 | `error.FOLIO_LOCKED` ghi "Chỉ quản lý ghi được bút toán điều chỉnh" nhưng folio khóa thì quản lý cũng bị 409; **Folio & điều chỉnh** vẫn hiện nút **Điều chỉnh** cho MGR trên folio `closed`/quá cửa sổ (M13-04) | UXD + FE-A | **Closed** 06/11 (V5-02: PR #52 `386672a6` trong `6414be25`; unit `v104-money-labels-fea` khối BUG-R3-045 chạy trong CI `41999716963`; TC-V104-ML-06, 07 STG chưa có kết quả ghi). Trước đó: Open – câu đã thấy trên staging rc.4 (17.5); phần nút xác minh bằng mã. Đích **v1.0.1** |
+| BUG-R3-046 | P2 | Desk: hủy đơn với lý do **Khác (ghi rõ)** không làm được – bản tính thử của hộp hủy không gửi `note`, máy chủ trả 422 `note` `REASON_REQUIRED`, nút hủy khóa kể cả khi đã gõ ghi chú và bấm **Thử lại**. Sổ tay 2.4 dặn dùng lý do này | FE-A (BE-B xem phía máy chủ) | **Closed** 06/11 (V5-02: PR #54 trong `6414be25`; staging HD-30 ĐẠT 05/11 và 06/11, HD-32 ĐẠT 05/11). Trước đó: Open – tái hiện staging rc.6 30/10. Đích **v1.0.1**; tài liệu đổi trước C3a |
 | BUG-R3-047 | P3 | Khung đơn **giữ chỗ** hiện nút **Tạo link check-in online** và **Thu hồi link**, máy chủ chỉ cấp link cho `confirmed`/`in_house` (409 `INVALID_TRANSITION`) | FE-A | Open – thấy trên staging rc.6 30/10. Đích v1.0.1 |
 | BUG-R3-048 | P3 | Máy **chưa** cấp quyền: **Nhật ký tiền → Hoàn tiền → Nhập nơi nhận hoàn → Lưu** bị 403 `DEVICE_NOT_TRUSTED` (đúng), nhưng toast dùng câu chung "Máy này chưa được cấp quyền **xem giấy tờ và mã cửa**…"; nút và hộp vẫn hiện như máy đã cấp | UXD + FE-A | Open – thấy trên staging rc.6 30/10 12:19. Đích v1.0.1 |
 | BUG-R3-049 | P3 | Desk S35: SĐT nước ngoài hiển thị sai nhóm số – `phoneDisplay` lấy mã nước 1–3 số "tham lam" (`+12025550123` → "+120 255 501 23"); giá trị sao chép và nút **Gọi** vẫn đúng E.164 | FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10. Đích v1.0.1 |
-| BUG-R3-050 | P3 | Yêu cầu website tiếng Anh → **Báo giá**: hồ sơ khách tạo nhanh chỉ điền tên – SĐT/kênh trống, ngôn ngữ Tiếng Việt, quốc tịch **Việt Nam**; mở lại báo giá sau đó thì mẫu tin là **Tiếng Việt** – trái US-155 AC2 | FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10. Đích v1.0.1 |
+| BUG-R3-050 | P3 | Yêu cầu website tiếng Anh → **Báo giá**: hồ sơ khách tạo nhanh chỉ điền tên – SĐT/kênh trống, ngôn ngữ Tiếng Việt, quốc tịch **Việt Nam**; mở lại báo giá sau đó thì mẫu tin là **Tiếng Việt** – trái US-155 AC2 | FE-B | **Closed** 06/11 (V5-02, thay thế: phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá đã xác nhận ở R4 lượt 3; phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch) ở `rounds/round-04/qa/bug-list.md`). Trước đó: Open – thấy trên stack thử ảnh `v1.0.0` 30/10. Đích v1.0.1 |
 | BUG-R3-051 | P3 | S35 khi công tắc tắt: banner ghi "Khách bấm Đặt phòng sẽ mở chat Zalo" – sai khi landing đã có form (khách thấy form và dòng "tạm dừng") | UXD + FE-B | Open – thấy trên staging `v1.0.0` 30/10. Đích: trước khi phát hành landing có form, hoặc v1.0.1 |
 | BUG-R3-054 | P3 | **Cần chú ý** (Hôm nay/Tổng quan): yêu cầu website đã quá hạn trả lời vẫn ghi "Trả lời trước {giờ}", chỉ khác màu viền – báo quá hạn chỉ bằng màu | UXD + FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10 15:03. Đích v1.0.1 |
 | BUG-R3-055 | P3 | Sau **Xóa theo yêu cầu người gửi**, ngăn chi tiết ghi "Thông tin liên hệ đã xóa theo hạn lưu ({ngày})" – sai lý do (đầu ngăn ghi đúng "Đã xóa theo yêu cầu của người gửi") | UXD + FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10 15:05. Đích v1.0.1 |
-| BUG-R3-052 | P2 | App nhân viên: đăng nhập bằng mật khẩu tạm (hoặc vai quản lý chưa bật 2 bước) vào được nhưng không có màn đổi mật khẩu / bật 2 bước; mọi màn báo "Chưa tải được … Có thể do mạng yếu" (máy chủ 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`) | MOB + UXD | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: đổi mật khẩu tạm trên Desk. Đích v1.0.1 |
-| BUG-R3-053 | P2 | Desk, vai **chỉ Bảo trì**: hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** có ô **Căn** trống (GET `rooms` 403 `FORBIDDEN_ACTION`) → không tạo được phiếu hay khóa phòng, dù API cho vai bảo trì khóa phòng | FE-A + BE-A (ARC chọn cách) | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: lễ tân/người trực khóa trên Desk. Đích v1.0.1 |
+| BUG-R3-052 | P2 | App nhân viên: đăng nhập bằng mật khẩu tạm (hoặc vai quản lý chưa bật 2 bước) vào được nhưng không có màn đổi mật khẩu / bật 2 bước; mọi màn báo "Chưa tải được … Có thể do mạng yếu" (máy chủ 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`) | MOB + UXD | **Closed** 06/11 (V5-02: PR #39 trong `6414be25`; app có màn đổi mật khẩu tạm và bật 2 bước; unit mobile `v104-mfa-signin` khối BUG-R3-052 chạy trong CI `41999716963`; TC-V104-MF-07, 08 STG chưa có kết quả ghi). Trước đó: Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: đổi mật khẩu tạm trên Desk. Đích v1.0.1 |
+| BUG-R3-053 | P2 | Desk, vai **chỉ Bảo trì**: hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** có ô **Căn** trống (GET `rooms` 403 `FORBIDDEN_ACTION`) → không tạo được phiếu hay khóa phòng, dù API cho vai bảo trì khóa phòng | FE-A + BE-A (ARC chọn cách) | **Closed** 06/11 (V5-02: PR #44 `c280617b` trong `6414be25`; unit `v104-maint-rooms-fea` chạy trong CI `41999716963`; TC-V104-MT-01 STG chưa có kết quả ghi). Trước đó: Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: lễ tân/người trực khóa trên Desk. Đích v1.0.1 |
 | BUG-R3-056 | P2 | S35, yêu cầu **Đã đóng**: chủ đầu tư không tìm thấy **Xóa theo yêu cầu người gửi** (quyền xóa của người gửi sau khi đóng). Mã `main` vẫn cho xóa; nghi do khó tìm (rời danh sách mặc định, nút giữa thân ngăn). Thiếu test xóa từ **Đã đóng** | FE-B + UXD (QA tái hiện, BE thêm test) | Open – báo từ production 30/10 ~17:50 (khói L, REQ-84EKR1V6). Chưa tái hiện. Cách tạm: tìm theo mã hoặc **Tìm theo liên hệ**. Đích v1.0.1; nâng P1 nếu tái hiện được "OWN không có nút" |
 | BUG-R3-057 | **P1** | Tin Google Chat **mức C** (PR #16): `chatSafeText` kiểm số giấy tờ/thẻ trước khi bỏ ký tự Cf và đổi `_*~` → CCCD/số thẻ bị tách bằng ZWSP, WJ, gạch nối mềm hoặc `_` qua được form và hiện **liền mạch** trong tin. Chữ số toàn độ rộng cũng lọt. Dữ liệu C3 ra bên thứ ba | BE (PR #16 `chat-message.ts`) | **Closed** 03/11 – PR #16 gộp `main` (`8111d5d6`), CI `e5fffe05` run 41594706912 xanh (api 3695/0 lỗi, `gchat-units` 92/92). Đã xác nhận 31/10 trên PR #16 `98ff43bb` (35 chuỗi bị che, SĐT vẫn hiện) |
 | BUG-R3-058 | P2 | Form website (US-155 AC5) nhận và lưu CCCD/số thẻ tách bằng ZWSP, WJ, gạch nối mềm, NBSP (lời nhắn), `_`, `/`, `,` hoặc chữ số toàn độ rộng: `normalizeFreeText` chỉ bỏ Cc + bidi; `GROUPED_DIGITS` chỉ nhận 1 dấu cách, chấm hoặc gạch | BE-D (`website-request-rules.ts` → `sensitive-number.ts`, PR #24) | **Closed** 03/11 – PR #24 gộp `main` (`dea48d69`), CI `e5fffe05` run 41594706912 xanh (`text-safety-units` 235/235). Đã xác nhận 01/11 trên PR #24 `b89dbde4` (167 chuỗi qua form + Chat C; `(+84) 905-111-222` qua) và lượt 2–3 (`f8080499`, `80a73367`). Che thừa mới → BUG-R4-016 (số cũ 014) |
@@ -679,7 +684,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Đơn OTM-00355 (đêm 28/10, 667.000) không đổi.
   - Ca: scratchpad `qa-r6/src-rc3/product/tests/e2e/ui/qa-rc3.spec.ts`. Nhật ký và ảnh: `qa-r6/rc3/`.
 - **Thêm vào mong đợi phần 1 (v1.0.1):** Desk luôn gửi cả giá tháng và giá đêm, điền sẵn theo giá **hôm nay**. Nếu dòng đã lên lịch ngày D đổi cả hai giá mà OWN chỉ sửa một giá cho D, giá kia của dòng D sẽ bị ghi đè về giá hôm nay mà không báo. Khi chọn ngày có dòng lên lịch, Desk nên điền sẵn giá của dòng đó, hoặc nói rõ cả hai giá sẽ bị thay. Trong rc.3, chữ phụ `price_same_future` chỉ nói "giá đã lên lịch đúng ngày đó sẽ được thay".
-- **Trạng thái:** **Phần 2 Closed** 27/10 (QA tự kiểm lại trên rc.3). **Phần 1 Open, dời v1.0.1.**
+- **Trạng thái:** **Closed** 06/11 (V5-02: phần 1 – danh sách giá hẹn và hủy lịch – có từ v1.0.2, PR #22 `4ace6073`, nằm trong v1.0.4 `6414be25`; test `v101-scheduled-prices-fea` (admin-web) và `rooms-scheduled-prices-v101` (api) chạy trong CI `41999716963`; staging TC-V104-PR-02, PR-03 ĐẠT 05/11). Trước đó: **Phần 2 Closed** 27/10 (QA tự kiểm lại trên rc.3). **Phần 1 Open, dời v1.0.1.**
 
 ### BUG-R3-019 – Không tạo được "Đơn dài hạn nhập tay"
 
@@ -778,7 +783,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Trang Trả phòng chặn ngay khi chưa tới ngày đi, với câu đúng (v1.0.1 có nút Trả phòng sớm).
   - Không ghi `minibar-checks` thừa.
 - **Vai:** FE-A.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #64 `9fded27f` trong `6414be25`; unit `v104-checkout-feb` khối BUG-R3-024 và `checkout.test` chạy trong CI `41999716963`; TC-V104-CO-02 STG chưa có kết quả ghi). Trước đó: Open.
 
 ### BUG-R3-025 – Hộp "Xác nhận cọc" không có ô mã giao dịch
 
@@ -835,7 +840,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Thực tế:** đăng nhập `qa.mgr`, màn hiện "Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập." và ngay dưới "Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập." Không có ô nhập mã.
 - **Mong đợi:** chỉ một câu: "Tài khoản chủ đầu tư/quản lý chưa đăng nhập được app nhân viên ở bản này. Dùng Desk."
 - **Vai:** UXD + MOB.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #39 `0aec8b7a` trong `6414be25`, app nhân viên có đăng nhập 2 bước (ARC-RN103-02); unit mobile `v104-mfa-signin` khẳng định không còn câu "Đăng nhập 2 bước sẽ có ở bản sau"; mobile 162/162 trên mã cắt `0d11db20`). Trước đó: Open.
 
 ### BUG-R3-030 – Folio ở màn Trả phòng hiện số âm cho dòng miễn bị từ chối
 
@@ -877,7 +882,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Kiểm lại:**
   - QA trên staging: OWN có email → đổi tài khoản nhận → thư tới; đổi email không S2 → 401; MGR đổi email OWN → 403.
   - Production: INV xác nhận nhận được thư.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Fixed – đã xác nhận trên production, chờ SEC V3-07 để Closed** (V5-02 06/11: PR #31 `958e8da0` có trong v1.0.3, production từ 04/11; K8 04/11 07:14 INV đã nhận thư; E1 05/11 11:50: `email_dead` 0 trong 24 giờ, nhưng `email_missing` = 1 vì tài khoản quản lý chưa nhập email. QC v1.0.3 ghi "chỉ đóng sau K8 và SEC V3-07". Điều kiện "đã sửa" của ESC-040 (hạn 09/11) đã đủ: v1.0.3 chạy production và K8 đã nhận thư). Trước đó: Open.
 
 ### BUG-R3-033 – Trả phòng xong, khung Folio vẫn báo "Còn phải thu"
 
@@ -1136,7 +1141,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Không sửa được bản ghi cũ:** audit chỉ cho ghi thêm. Không ghi bản bù để tránh tạo bản ghi `production.bootstrapped` thứ hai.
 - **Ngăn tái phát:** PR #14 cho `production-bootstrap-cli.ts` và `mfa-operator-reset-cli.ts` nạp `src/audit-entities.ts`; test (a) khẳng định 2 CLI có import tệp gom. QA kiểm phần này qua CI, không chạy lại CLI trên môi trường nào.
 - **Vai:** BE-B.
-- **Trạng thái:** Open – ghi nhận. Đóng khi PR #14 vào `main` và test (a) xanh; bản ghi production giữ nguyên.
+- **Trạng thái:** **Closed** 06/11 (V5-02: ghi nhận; bản ghi cũ không sửa được vì audit chỉ ghi thêm. Ngăn tái phát ở PR #14 `8b3aec89`: 2 CLI `import '../audit-entities'`, test `worker-audit-registry` (a) chạy trong CI `41999716963`). Trước đó: Open – ghi nhận. Đóng khi PR #14 vào `main` và test (a) xanh; bản ghi production giữ nguyên.
 
 ### BUG-R3-041 – Thông báo của J1 không tới nhân viên (chỉ ghi outbox `staff.push`)
 
@@ -1162,7 +1167,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** `qa3-rc1.md` 19.7 dòng 5b. Kết quả thô `qa-r6/j1/after-notif100.json` và `after-attention.json` (scratchpad phiên QA). OPS có thể xác nhận dòng outbox `staff.push` với dedupe `hold_overdue_partial:01a1878b-7988-…` và `hold_expired:01a1878b-7812-…` (19.6).
 - **Vai:** BE-B (đổi sang `events.notify` hoặc `notifyStaff`, thêm kind vào CHECK `staff_notification`, thêm mục "Cần chú ý" nếu DOM đồng ý) + ARC (hợp đồng kind thông báo). DOM xác nhận ai nhận.
 - **Đề xuất:** sửa ở v1.0.1. Trước đó, ghi vào hướng dẫn vận hành Day D: lễ tân rà Rack/Hôm nay đầu mỗi ca và xử lý mọi hold "0h00" đỏ.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #50 `4f9267d9` trong `6414be25`; staging HD-09…HD-13 ĐẠT 05/11, HD-27 ĐẠT 06/11 (hộp thư và Cần chú ý; SSE: giới hạn đo)). Trước đó: Open.
 
 ### BUG-R3-042 – Giữ chỗ có cọc đã quá hạn không xác nhận được (`HOLD_EXPIRED`)
 
@@ -1189,7 +1194,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** đọc mã `8b3aec8`: `product/services/api/src/modules/payments/internal/deposits.service.ts` dòng 129–180; `product/apps/admin-web/src/pages/reservations/ReservationDialogs.tsx` dòng 580–599; `product/services/api/src/modules/reservations/internal/allowed-actions.ts` dòng 52–71. Review: BA M13-01, DOM DOC-01, DOM A.3a V1.
 - **Tái hiện staging (sau):** tạo hold 12 giờ trên căn trống, ghi cọc tiền mặt một phần (dữ liệu staging, không VietQR). Sau hạn, đọc lại đơn (vẫn `hold`), rồi ghi tiền mặt phần còn lại qua Desk. Kỳ vọng ở `v1.0.0`: 409 `HOLD_EXPIRED`. Kỳ vọng ở v1.0.1: 200, `confirmed`, rồi **Nhận phòng** mở vào ngày đến. Ca phụ cho v1.0.1: hold chưa cọc quá hạn, ghi tiền với `receivedAt` trước hạn → 200; sau hạn → `HOLD_EXPIRED`. Dọn: hủy và hoàn trên Desk như 19.8.
 - **Đề xuất:** sửa ở **v1.0.1** (04/11), cùng BUG-R3-041. Tới lúc đó dùng cách tạm DOM A.2 + A.3. Release notes "Giới hạn đã biết" cần một dòng cho lỗi này (DOM DOC-01 (3), PO).
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #50 và #54 `e5fb9578` trong `6414be25`; HD-05…HD-08 đạt trên head đã gộp, unit `v104-holds-feb`, `v104-holds` chạy trong CI `41999716963`; staging HD-20 ĐẠT 05/11 và 06/11). Trước đó: Open.
 
 ### BUG-R3-043 – Desk không có "Chấp nhận cọc thiếu" (BR-303 (2))
 
@@ -1204,7 +1209,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** FE-A (+ UXD đặt chữ). API đã sẵn, ARC chỉ cần xác nhận hợp đồng không đổi.
 - **Bằng chứng:** đọc mã như trên. Review: BA M13-01 gạch 2, DOM DOC-02, DOM A.3a V2.
 - **Tái hiện staging (sau):** hold có cọc thiếu, đăng nhập `qa.mgr`, mở **Xác nhận cọc**: kỳ vọng ở `v1.0.0` không có ô; ở v1.0.1 có ô, xác nhận được, Nhật ký tiền ghi "đã chấp nhận cọc thiếu". Kiểm thêm `qa.fd` không thấy ô.
-- **Trạng thái:** Open – đích **v1.0.1**.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #54 trong `6414be25`; staging HD-23/HD-26, HD-24, HD-25 ĐẠT 05/11). Trước đó: Open – đích **v1.0.1**.
 
 ### BUG-R3-044 – Desk trình bày giữ chỗ có cọc như giữ chỗ chưa cọc
 
@@ -1222,7 +1227,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** FE-A + UXD. BE không phải đổi, trừ khi FE cần thêm `extras` trong `HOLD_EXPIRED` (ARC xem).
 - **Bằng chứng:** đọc mã `8b3aec8`: `ReservationDrawer.tsx` dòng 465–481; `ReservationDialogs.tsx` dòng 297–355; `product/design/copy/strings-vi.json` dòng 117, 159, 397, 1941, 2444. Review: BA M13-03, M13-01 gạch 1 và 4; DOM A.3a V3.
 - **Tái hiện staging (sau):** cùng hold của ca BUG-R3-042. Sau hạn mở khung đơn và chụp hộp đỏ (chụp xong che tên khách). Ghi tiền để thấy câu `HOLD_EXPIRED`. Mở **Hủy giữ chỗ** để chụp hộp. Rồi hủy, vào **Nhật ký tiền → Hoàn tiền** xem yêu cầu hoàn đúng số đã nhận.
-- **Trạng thái:** Open – đích **v1.0.1** (DOM: "Nên có v1.0.1"). Tới lúc đó, sổ tay 2.4 và 5.6 phải nói rõ ba câu này sai với đơn có cọc (BA M13-03 đề xuất).
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #54 trong `6414be25`; staging HD-19 ĐẠT 05/11, HD-29 và HD-31 ĐẠT 06/11; HD-22 (đồng hồ giả) đạt trên head đã gộp). Trước đó: Open – đích **v1.0.1** (DOM: "Nên có v1.0.1"). Tới lúc đó, sổ tay 2.4 và 5.6 phải nói rõ ba câu này sai với đơn có cọc (BA M13-03 đề xuất).
 - **Tái hiện staging 30/10 (`qa3-rc1.md` 20.3):** phần 3 đúng như mô tả, **trước hạn**. OTM-00369 (giữ chỗ, cọc 200.000 tiền mặt, bản ghi thử) – hộp **Hủy giữ chỗ** ghi "Căn 202 sẽ mở bán lại từ 09/11 đến 11/11 trên mọi kênh…" và "Không thu phí (giữ chỗ chưa cọc)", không có dòng hoàn (bản tính thử: `refundRequestVnd` = `refundableVnd` = 200.000 nên dòng `cancel.refund_request` ẩn). Hủy xong, máy chủ tạo yêu cầu hoàn 200.000 (`requiredRole: manager`). Ảnh `qa-r6/hf/shots/a1-cancel.png` (scratchpad). Phần 1–2 cần hold quá hạn: staging không có đồng hồ giả (`/v1/__test__/clock` → 404), chưa tái hiện.
 
 ### BUG-R3-045 – Câu `FOLIO_LOCKED` nói "chỉ quản lý" trong khi quản lý cũng bị khóa
@@ -1239,7 +1244,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** UXD (chữ) + FE-A (ẩn nút).
 - **Bằng chứng:** `qa3-rc1.md` 17.5 (câu trên staging). Đọc mã `8b3aec8`: `folio-lines.service.ts` dòng 481–501; `FolioDialog.tsx` dòng 62–63; `strings-vi.json` dòng 410. Review: BA M13-04.
 - **Tái hiện staging (sau):** đơn đã trả phòng quá 24 giờ, folio `closed` (staging có OTM-00239, 00294, 00297, 00357, 00365 đã `closed` từ 30/10). `qa.mgr` mở **Folio & điều chỉnh** → **Điều chỉnh** một dòng → kỳ vọng ở `v1.0.0`: nút hiện, 409, câu "chỉ quản lý…". Chỉ thao tác trên dữ liệu staging.
-- **Trạng thái:** Open – đích **v1.0.1**. Sổ tay 1.11 sửa theo BA M13-04 (PO), không chờ bản vá.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #52 `386672a6` trong `6414be25`; unit `v104-money-labels-fea` khối BUG-R3-045 chạy trong CI `41999716963`; TC-V104-ML-06, 07 STG chưa có kết quả ghi). Trước đó: Open – đích **v1.0.1**. Sổ tay 1.11 sửa theo BA M13-04 (PO), không chờ bản vá.
 
 ### BUG-R3-046 – Hủy đơn với lý do "Khác (ghi rõ)" không làm được trên Desk
 
@@ -1264,7 +1269,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Cách tạm tới v1.0.1 (PO/DOM chốt chữ trong sổ tay trước C3a):** chọn một lý do có sẵn, ví dụ **Không liên lạc được** khi gọi không được, **Khách đổi ý** khi khách đổi ý. Ghi điều cần nói ("Hết hạn giữ chỗ – có cọc", "Tạo lại khi khách đến – thay bằng OTM-…") vào sổ giao ca.
 - **Vai:** FE-A (hoặc BE-B theo phương án ARC chọn).
 - **Bằng chứng:** ảnh `qa-r6/hf/shots/a2-cancel-other-note.png`, `a1-cancel-other.png`; mạng `qa-r6/hf/a2-other.json` (scratchpad, ngoài repo; tên khách trên ảnh là khách giả). `qa3-rc1.md` 20.3.
-- **Trạng thái:** Open – đích **v1.0.1**.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #54 trong `6414be25`; staging HD-30 ĐẠT 05/11 và 06/11, HD-32 ĐẠT 05/11). Trước đó: Open – đích **v1.0.1**.
 
 ### BUG-R3-047 – Khung đơn giữ chỗ hiện nút link check-in online mà máy chủ luôn từ chối
 
@@ -1313,7 +1318,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Mong đợi (US-155 AC2):** "mở US-080/US-084 điền sẵn ngày, số người, hạng phòng, **ngôn ngữ, kênh liên hệ**". Hồ sơ tạo nhanh từ yêu cầu điền sẵn SĐT/email, kênh và ngôn ngữ của yêu cầu; quốc tịch để trống thay vì Việt Nam; mẫu tin báo giá theo ngôn ngữ yêu cầu (`en`).
 - **Vai:** FE-B (đường **Tạo đơn** đã điền SĐT/email theo báo cáo FE-B, đường **Báo giá** thì chưa).
 - **Bằng chứng:** `us155-e2e/23-desk-bao-gia-tu-yeu-cau.png`, `24-bao-gia-tieng-viet-mac-dinh.png`; `qa3-rc1.md` 21.3 dòng 6–8.
-- **Trạng thái:** Open – đích v1.0.1.
+- **Trạng thái:** **Closed** 06/11 (V5-02, thay thế: phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá đã xác nhận ở R4 lượt 3; phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch) ở `rounds/round-04/qa/bug-list.md`). Trước đó: Open – đích v1.0.1.
 
 ### BUG-R3-051 – Banner "form đang tắt" trên S35 nói sai điều khách thấy khi landing đã có form
 
@@ -1337,7 +1342,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** MOB (màn + xử lý mã lỗi), UXD (chữ).
 - **Bằng chứng:** `qa3-rc1.md` 22.2; ảnh `qa-r6/g/shots/Q2-qa.g.mt1-staff-temp.png`, chữ `qa-r6/g/raw/q2-*.txt`, `q6-staff-*.txt` (scratchpad phiên, ngoài repo, dữ liệu giả).
 - **Cách tạm (ngày D):** hướng dẫn 03, 04 mục 1.2 bước A (đổi trên Desk trước) – giữ, và thêm dòng "App báo 'Chưa tải được … mạng yếu' ngay lần đầu: chưa đổi mật khẩu tạm – làm bước A".
-- **Trạng thái:** Open – đích v1.0.1.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #39 trong `6414be25`; app có màn đổi mật khẩu tạm và bật 2 bước; unit mobile `v104-mfa-signin` khối BUG-R3-052 chạy trong CI `41999716963`; TC-V104-MF-07, 08 STG chưa có kết quả ghi). Trước đó: Open – đích v1.0.1.
 
 ### BUG-R3-053 – Vai Bảo trì không chọn được căn trên Desk (Phiếu sửa mới, Khóa phòng có kế hoạch)
 
@@ -1349,7 +1354,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** FE-A + BE-A (ARC chọn cách).
 - **Bằng chứng:** `qa3-rc1.md` 22.4; `qa-r6/g/raw/q4c-qa.g.mt1-*.png`, `q4-qa.g.mt1-*.txt` (scratchpad, ngoài repo).
 - **Cách tạm (ngày D):** hướng dẫn 04 mục 1.1, 1.3 (phần Desk), 5 và 01 mục 1.9 (bảng vai): khóa phòng có kế hoạch do lễ tân/người trực làm; bảo trì báo bằng app.
-- **Trạng thái:** Open – đích v1.0.1.
+- **Trạng thái:** **Closed** 06/11 (V5-02: PR #44 `c280617b` trong `6414be25`; unit `v104-maint-rooms-fea` chạy trong CI `41999716963`; TC-V104-MT-01 STG chưa có kết quả ghi). Trước đó: Open – đích v1.0.1.
 
 ### BUG-R3-054 – "Cần chú ý" báo yêu cầu website quá hạn chỉ bằng màu
 

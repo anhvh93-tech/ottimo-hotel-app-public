@@ -1,4 +1,4 @@
-# Daily encrypted backup of the stack /opt/%i (R3 v1.0: production = ottimo-backup@ottimo-prod.timer). Staging keeps
+# Encrypted backup of the stack /opt/%i, twice a day (ottimo-backup@.timer) (R3 v1.0: production = ottimo-backup@ottimo-prod.timer). Staging keeps
 # the plain ottimo-backup.service (/opt/ottimo). Installed by bootstrap-vps.sh.
 [Unit]
 Description=OTTIMO encrypted backup of /opt/%i (database, blobs, purge_journal, counts)

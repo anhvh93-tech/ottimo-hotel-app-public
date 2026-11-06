@@ -6,8 +6,8 @@
     "version": "0.5.3",
     "date": "2026-11-04"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C; v0.5.2 DOM 04/11 (Round 4 v1.0.4 gói P4-20, DOM kiêm QA – `rounds/round-04/outputs/DOM/v1.0.4-p4-20-br-fixtures.md`): hoa hồng cũ BR-212-01/02, 326-01, 903-01…04 thêm supersededBy + validUntil, BR-309-26, 525-04/10/14, 527-05/06 thêm oldCommissionFigures (không đổi, không thêm số); BR-313-01, 403-01, 501-01 thêm supersededBy; INV-043 cho dòng lấy số từ bảng giá 01/11; GIẢ ĐỊNH BR-114-01, 207-02, 208-01/02, 210-04; BR-114-02 thêm INV-045, PHÁP LÝ; BR-103-04 thêm NGÀNH; BR-115-05/06/08 bỏ INV-045; calc cho dòng bảng giá 01/11 (calcPending cho hàm test BE còn đọc DS-E); thêm BR-110-21/22, BR-202-06…12, BR-206-04, BR-428-10…13; retiredIds; v0.5.3 BE 04/11 (Round 4 v1.0.4, BUG-R4-039 – ORC giao; BR-402 v0.5.3 DOM): thêm BR-402-03 (ví dụ căn 202, ngày là giả định QA), BR-402-04 (mốc biên theo trạng thái buồng); v0.5.6 BE 05/11 (#74 C1, DOM lượt 7 mục 2 – rounds/round-04/reviews/DOM-on-v104-pr68-docs.md): ghi chú BR-402-04 thay bằng câu DOM; thêm BR-402-05 (ví dụ căn 301 – lượt quá ngày đi + CL, ngày giờ là giả định QA, QA rà); QA2 05/11: rà BR-402-04 (ghi chú mới) và BR-402-05 trên #74 @ 0950313e – đúng; bỏ nhãn GIẢ ĐỊNH QA của BR-402-05",
-  "updated": "2026-11-04",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C; v0.5.2 DOM 04/11 (Round 4 v1.0.4 gói P4-20, DOM kiêm QA – `rounds/round-04/outputs/DOM/v1.0.4-p4-20-br-fixtures.md`): hoa hồng cũ BR-212-01/02, 326-01, 903-01…04 thêm supersededBy + validUntil, BR-309-26, 525-04/10/14, 527-05/06 thêm oldCommissionFigures (không đổi, không thêm số); BR-313-01, 403-01, 501-01 thêm supersededBy; INV-043 cho dòng lấy số từ bảng giá 01/11; GIẢ ĐỊNH BR-114-01, 207-02, 208-01/02, 210-04; BR-114-02 thêm INV-045, PHÁP LÝ; BR-103-04 thêm NGÀNH; BR-115-05/06/08 bỏ INV-045; calc cho dòng bảng giá 01/11 (calcPending cho hàm test BE còn đọc DS-E); thêm BR-110-21/22, BR-202-06…12, BR-206-04, BR-428-10…13; retiredIds; v0.5.3 BE 04/11 (Round 4 v1.0.4, BUG-R4-039 – ORC giao; BR-402 v0.5.3 DOM): thêm BR-402-03 (ví dụ căn 202, ngày là giả định QA), BR-402-04 (mốc biên theo trạng thái buồng); v0.5.6 BE 05/11 (#74 C1, DOM lượt 7 mục 2 – rounds/round-04/reviews/DOM-on-v104-pr68-docs.md): ghi chú BR-402-04 thay bằng câu DOM; thêm BR-402-05 (ví dụ căn 301 – lượt quá ngày đi + CL, ngày giờ là giả định QA, QA rà); QA2 05/11: rà BR-402-04 (ghi chú mới) và BR-402-05 trên #74 @ 0950313e – đúng; bỏ nhãn GIẢ ĐỊNH QA của BR-402-05; v0.5.13 DOM 06/11 (Round 5 Phản hồi & sửa, BUG-R5-003 – ORC giao; rules-v1.0.5 mục 12): thêm BR-113-06…BR-113-30 (luật lưu min_stay cho V5-25 và đọc phòng thủ; calc null, pendingFix BUG-R5-003); thêm channels \"all\" vào params min_stay của BR-113-01/02/03/05 cho đúng dạng bắt buộc; v0.5.14 BE 06/11 (Round 5 Sản xuất, V5-25 – BUG-R5-003 đóng ở PR V5-25): bỏ pendingFix BUG-R5-003 ở BR-113-06…BR-113-30 (test BE `test/v5-25-parameter-shapes.test.ts` đọc theo id, integration `test/integration/v5-25-parameter-save.test.ts`)",
+  "updated": "2026-11-06",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
     "percent": "Basis point số nguyên (khóa kết thúc 'Bp'): 10% = 1000. Tham số giữ đơn vị như BR mục 13; số lẻ (15,5) ghi dạng chuỗi",
@@ -1061,7 +1061,7 @@
     {
       "id": "BR-101-16",
       "br": "BR-101",
-      "case": "Đường tạm tới v1.0.1: API đổi giá không gửi giá đêm → server tính 8.000.000 ÷ 12 = 666.667 → 667.000",
+      "case": "Đường tạm tới v1.0.5 (BUG-R4-057, V5-1A): API đổi giá không gửi giá đêm → server tính 8.000.000 ÷ 12 = 666.667 → 667.000",
       "origin": "rule-boundary",
       "labels": ["NGÀNH"],
       "params": {
@@ -1076,7 +1076,37 @@
       "expected": {
         "nightlyListPriceVnd": 667000
       },
-      "note": "BR-101 (5). Bỏ dòng này khi BE bắt buộc giá đêm (v1.0.1); BE test reservations-pricing byCalc('nightlyListPrice') đang đọc dòng này"
+      "note": "BR-101 (5) – mô tả hành vi HEAD tới v1.0.5, không phải luật đích. Khi BE gỡ `nightlyFromMonthly` (V5-1A), đưa id này vào retiredIds cùng lúc sửa test reservations-pricing byCalc('nightlyListPrice') đang đọc dòng này; luật đích ở BR-101-17"
+    },
+    {
+      "id": "BR-101-17",
+      "br": "BR-101",
+      "case": "(v0.5.12, V5-1A) API đổi giá căn 102 chỉ gửi giá tháng 9.000.000, thiếu giá đêm → 422, giá căn giữ nguyên 9.000.000 · 800.000",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "pendingFix": "BUG-R4-057",
+      "calc": null,
+      "input": {
+        "roomNo": "102",
+        "before": {
+          "monthlyListPriceVnd": 9000000,
+          "nightlyListPriceVnd": 800000
+        },
+        "request": {
+          "op": "updateRoomPrice",
+          "monthlyListPriceVnd": 9000000
+        }
+      },
+      "expected": {
+        "httpStatus": 422,
+        "errorField": "nightlyListPriceVnd",
+        "after": {
+          "monthlyListPriceVnd": 9000000,
+          "nightlyListPriceVnd": 800000
+        },
+        "wrongNightlyBeforeFixVnd": 750000
+      },
+      "note": "Mã lỗi, tên trường và chỉ dẫn: ARC chốt ở hợp đồng 0.3.13 (số HTTP ở đây theo luật DOM 06/11). Cùng luật cho tạo căn (`createRoom`) và công cụ nhập danh mục căn thiếu giá đêm. Gửi đủ hai giá → 200, ghi đúng hai giá. Thiếu giá đêm không được là 500."
     },
     {
       "id": "BR-102-01",
@@ -2699,11 +2729,13 @@
         "min_stay": [
           {
             "arrivalWeekdays": ["FRI", "SAT"],
-            "nights": 2
+            "nights": 2,
+            "channels": "all"
           },
           {
             "arrivalOnSpecialDates": true,
-            "nights": 2
+            "nights": 2,
+            "channels": "all"
           }
         ],
         "min_stay_orphan_night_exception": true,
@@ -2732,11 +2764,13 @@
         "min_stay": [
           {
             "arrivalWeekdays": ["FRI", "SAT"],
-            "nights": 2
+            "nights": 2,
+            "channels": "all"
           },
           {
             "arrivalOnSpecialDates": true,
-            "nights": 2
+            "nights": 2,
+            "channels": "all"
           }
         ],
         "min_stay_orphan_night_exception": true
@@ -2764,11 +2798,13 @@
         "min_stay": [
           {
             "arrivalWeekdays": ["FRI", "SAT"],
-            "nights": 2
+            "nights": 2,
+            "channels": "all"
           },
           {
             "arrivalOnSpecialDates": true,
-            "nights": 2
+            "nights": 2,
+            "channels": "all"
           }
         ],
         "min_stay_orphan_night_exception": true
@@ -2820,11 +2856,13 @@
         "min_stay": [
           {
             "arrivalWeekdays": ["FRI", "SAT"],
-            "nights": 2
+            "nights": 2,
+            "channels": "all"
           },
           {
             "arrivalOnSpecialDates": true,
-            "nights": 2
+            "nights": 2,
+            "channels": "all"
           }
         ],
         "specialDates": "DS-E special_dates (cần dòng 2027-09-01)"
@@ -2839,6 +2877,701 @@
         "accepted": false,
         "minStayNights": 2
       }
+    },
+    {
+      "id": "BR-113-06",
+      "br": "BR-113",
+      "case": "Lưu lại đúng giá trị production 06/11 (2 luật: đến thứ Sáu, thứ Bảy; đến ngày đặc biệt; 2 đêm, mọi kênh) → nhận",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekdays": ["FRI", "SAT"]
+          },
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalOnSpecialDates": true
+          }
+        ]
+      },
+      "expected": {
+        "accepted": true
+      },
+      "note": "rules-v1.0.5 mục 12.4. Cùng giá trị ở production-defaults.ts và DS-E. Luật mới phải nhận giá trị này"
+    },
+    {
+      "id": "BR-113-07",
+      "br": "BR-113",
+      "case": "Lưu số 2 (không phải danh sách) → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": 2
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true
+      },
+      "note": "BUG-R5-003 bước 3: v1.0.4 nhận, rồi mọi báo giá và đơn trực tiếp mới 500"
+    },
+    {
+      "id": "BR-113-08",
+      "br": "BR-113",
+      "case": "Lưu một đối tượng {\"nights\":2} → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": {
+          "nights": 2
+        }
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true
+      }
+    },
+    {
+      "id": "BR-113-09",
+      "br": "BR-113",
+      "case": "Lưu null → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": null
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true
+      }
+    },
+    {
+      "id": "BR-113-10",
+      "br": "BR-113",
+      "case": "Lưu danh sách rỗng [] → nhận: không có ở tối thiểu ngày nào",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": []
+      },
+      "expected": {
+        "accepted": true
+      },
+      "note": "rules-v1.0.5 mục 12.2: [] = tắt ở tối thiểu, cho lưu. Sau khi có hiệu lực: báo giá Trực tiếp đến thứ Sáu 13/11/2026, 1 đêm → không bị chặn ở tối thiểu (minStayNights = 0)"
+    },
+    {
+      "id": "BR-113-11",
+      "br": "BR-113",
+      "case": "nights = 0 → 422 (min 1)",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 0,
+            "channels": "all",
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "min": 1,
+          "max": 7
+        }
+      },
+      "note": "BUG-R5-003 bước 2: v1.0.4 nhận [{\"nights\":0}]"
+    },
+    {
+      "id": "BR-113-12",
+      "br": "BR-113",
+      "case": "nights = 8 → 422 (trần 7)",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 8,
+            "channels": "all",
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "min": 1,
+          "max": 7
+        }
+      }
+    },
+    {
+      "id": "BR-113-13",
+      "br": "BR-113",
+      "case": "Biên trên: nights = 7 → nhận",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 7,
+            "channels": "all",
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "BR-113-14",
+      "br": "BR-113",
+      "case": "Biên dưới: nights = 1 → nhận (luật 1 đêm = không có tối thiểu những ngày đó)",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 1,
+            "channels": "all",
+            "arrivalWeekdays": ["SAT"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "BR-113-15",
+      "br": "BR-113",
+      "case": "nights lớn hơn short_stay_max_nights đang hiệu lực (số thử 4) → 422, max = 4",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 4
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 5,
+            "channels": "all",
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "min": 1,
+          "max": 4
+        }
+      },
+      "note": "Số 4 là số thử của ca, không phải đề xuất; production đang 29 nên trần thực tế là 7"
+    },
+    {
+      "id": "BR-113-16",
+      "br": "BR-113",
+      "case": "nights là chữ \"2\" → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": "2",
+            "channels": "all",
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true
+      }
+    },
+    {
+      "id": "BR-113-17",
+      "br": "BR-113",
+      "case": "Mã thứ sai \"FRX\" → 422, allowed = 7 mã thứ",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekdays": ["FRX"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "allowed": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+        }
+      }
+    },
+    {
+      "id": "BR-113-18",
+      "br": "BR-113",
+      "case": "Mã thứ trùng [\"FRI\",\"FRI\"] → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekdays": ["FRI", "FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "allowed": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+        }
+      }
+    },
+    {
+      "id": "BR-113-19",
+      "br": "BR-113",
+      "case": "Thứ dạng số [5,6] → 422 (chỉ nhận mã chữ, như weekend_nights – BUG-R5-001)",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekdays": [5, 6]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "allowed": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+        }
+      }
+    },
+    {
+      "id": "BR-113-20",
+      "br": "BR-113",
+      "case": "Luật không áp vào ngày nào (arrivalWeekdays rỗng, không arrivalOnSpecialDates) → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekdays": []
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true
+      }
+    },
+    {
+      "id": "BR-113-21",
+      "br": "BR-113",
+      "case": "arrivalWeekdays rỗng nhưng arrivalOnSpecialDates = true → nhận (áp cho ngày đặc biệt)",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekdays": [],
+            "arrivalOnSpecialDates": true
+          }
+        ]
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "BR-113-22",
+      "br": "BR-113",
+      "case": "arrivalOnSpecialDates là chữ \"true\" → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalOnSpecialDates": "true"
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true
+      }
+    },
+    {
+      "id": "BR-113-23",
+      "br": "BR-113",
+      "case": "Thiếu channels → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "allowed": ["all", "direct", "agent", "ota"]
+        }
+      },
+      "note": "v1.0.4: lưu được, rồi bộ tính giá ném lỗi khi đọc channels (inScope) → 500"
+    },
+    {
+      "id": "BR-113-24",
+      "br": "BR-113",
+      "case": "channels = [\"internal\"] → 422 (BR-113 không áp cho kênh Nội bộ)",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": ["internal"],
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "allowed": ["all", "direct", "agent", "ota"]
+        }
+      }
+    },
+    {
+      "id": "BR-113-25",
+      "br": "BR-113",
+      "case": "channels là chuỗi lẻ \"direct\" (không phải \"all\", không phải danh sách) → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "direct",
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "allowed": ["all", "direct", "agent", "ota"]
+        }
+      }
+    },
+    {
+      "id": "BR-113-26",
+      "br": "BR-113",
+      "case": "channels = [\"direct\",\"agent\"] → nhận",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": ["direct", "agent"],
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "BR-113-27",
+      "br": "BR-113",
+      "case": "Khóa lạ (gõ sai arrivalWeekday) → 422",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "min_stay",
+        "value": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekday": ["FRI"]
+          }
+        ]
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true
+      },
+      "note": "Không chặn thì luật không áp vào ngày nào mà không ai biết"
+    },
+    {
+      "id": "BR-113-28",
+      "br": "BR-113",
+      "case": "Chiều ngược: lưu short_stay_max_nights = 1 khi min_stay đang hiệu lực có luật 2 đêm → 422 (min 2)",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "min_stay": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekdays": ["FRI", "SAT"]
+          },
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalOnSpecialDates": true
+          }
+        ]
+      },
+      "calc": null,
+      "input": {
+        "operation": "setParameter",
+        "key": "short_stay_max_nights",
+        "value": 1
+      },
+      "expected": {
+        "accepted": false,
+        "problemCode": "PARAM_OUT_OF_RANGE",
+        "activeValueUnchanged": true,
+        "extras": {
+          "min": 2
+        }
+      },
+      "note": "rules-v1.0.5 mục 12.2: nights ≤ short_stay_max_nights, kiểm cả hai chiều như các cặp giờ"
+    },
+    {
+      "id": "BR-113-29",
+      "br": "BR-113",
+      "case": "Đọc phòng thủ: DB đã có giá trị hỏng 2 (chèn thẳng, bỏ qua bộ kiểm) → báo giá Trực tiếp đến thứ Sáu 13/11/2026, 1 đêm không 500; không có ở tối thiểu",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "min_stay": 2
+      },
+      "calc": null,
+      "input": {
+        "operation": "calculateQuote",
+        "channel": "direct",
+        "arrivalDate": "2026-11-13",
+        "nights": 1
+      },
+      "expected": {
+        "httpStatus": 200,
+        "minStayNights": 0,
+        "warningLogged": true
+      },
+      "note": "rules-v1.0.5 mục 12.3: cũng áp cho createReservation và giá ước tính web (public-rate)"
+    },
+    {
+      "id": "BR-113-30",
+      "br": "BR-113",
+      "case": "Đọc phòng thủ: một luật hỏng (thiếu channels) nằm cạnh luật đúng → bỏ luật hỏng, luật đúng vẫn chặn",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "min_stay": [
+          {
+            "nights": 2,
+            "channels": "all",
+            "arrivalWeekdays": ["FRI", "SAT"]
+          },
+          {
+            "nights": 3,
+            "arrivalWeekdays": ["FRI"]
+          }
+        ]
+      },
+      "calc": null,
+      "input": {
+        "operation": "calculateQuote",
+        "channel": "direct",
+        "arrivalDate": "2026-11-13",
+        "nights": 1
+      },
+      "expected": {
+        "httpStatus": 422,
+        "problemCode": "MIN_STAY_NOT_MET",
+        "minStayNights": 2,
+        "warningLogged": true
+      },
+      "note": "Luật hỏng 3 đêm bị bỏ qua nên số tối thiểu là 2 của luật đúng, không phải 3"
     },
     {
       "id": "BR-114-01",
@@ -6501,6 +7234,29 @@
       }
     },
     {
+      "id": "BR-309-27",
+      "br": "BR-309",
+      "case": "(v0.5.12 (viii), V5-11) Hủy 01:30 ngày 22/10 (ngày nghiệp vụ 21/10), đơn trực tiếp đến 25/10, cọc 700.000 → báo trước 4 ngày, hoàn 350.000; dòng phí hủy 350.000 mang ngày dịch vụ 21/10",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "BUG-R3-036",
+      "calc": null,
+      "input": {
+        "arrivalDate": "2026-10-25",
+        "depositCollectedVnd": 700000,
+        "requiredDepositVnd": 700000,
+        "cancelledAt": "2026-10-22T01:30:00+07:00"
+      },
+      "expected": {
+        "businessDate": "2026-10-21",
+        "noticeDays": 4,
+        "refundVnd": 350000,
+        "cancellationFeeVnd": 350000,
+        "feeServiceDate": "2026-10-21"
+      },
+      "note": "Mã HEAD (`folio.service.ts` dòng phí giữ lại, `serviceDate: localDate(now)`) ghi 2026-10-22. Báo cáo doanh thu khác theo ngày (K-22e) phải đếm phí này vào 21/10."
+    },
+    {
       "id": "BR-310-01",
       "br": "BR-310",
       "case": "Booking trả trước hủy, OTA giữ 900.000 → phí hủy là doanh thu khác, ghi folio (v0.3.4 bổ sung)",
@@ -6640,6 +7396,27 @@
         "autoRefundRequestVnd": 300000
       },
       "note": "Cùng quy tắc với BR-309-10 (B10 và B11 một cơ sở phí). BE-A đã cài cùng DOM-S4-14"
+    },
+    {
+      "id": "BR-311-04",
+      "br": "BR-311",
+      "case": "(v0.5.12, V5-11) Đơn trực tiếp đến 20/10, cọc 500.000, đánh dấu không đến 00:40 ngày 21/10 (ngày nghiệp vụ 20/10) → giữ 500.000; dòng phí không đến mang ngày dịch vụ 20/10",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "BUG-R3-036",
+      "calc": null,
+      "input": {
+        "arrivalDate": "2026-10-20",
+        "depositCollectedVnd": 500000,
+        "requiredDepositVnd": 500000,
+        "markedNoShowAt": "2026-10-21T00:40:00+07:00"
+      },
+      "expected": {
+        "businessDate": "2026-10-20",
+        "noShowFeeVnd": 500000,
+        "feeServiceDate": "2026-10-20"
+      },
+      "note": "Cùng đoạn mã với BR-309-27."
     },
     {
       "id": "BR-312-01",
@@ -10985,6 +11762,91 @@
       "note": "Biên đổi ngày nghiệp vụ 06:00 (BR-010) đi qua earlyDeparture (FB-R4-QA-DOM-PR25-05 (3))"
     },
     {
+      "id": "BR-428-14",
+      "br": "BR-428",
+      "case": "(v0.5.12, V5-11) Khách đi lúc 03:00 ngày 21/10 (ngày nghiệp vụ 20/10), Ngày rời mới 21/10 (ngày lịch) → giữ đêm 20/10 đã ở, bỏ 21, 22, 23, báo trước 1 ngày → hoàn 1.050.000",
+      "origin": "rule-boundary",
+      "labels": ["INV-006", "NGÀNH"],
+      "calc": "earlyDeparture",
+      "input": {
+        "arrivalDate": "2026-10-20",
+        "departureDate": "2026-10-24",
+        "nightRateVnd": 700000,
+        "notifiedAt": "2026-10-21T03:00:00+07:00",
+        "newDepartureDate": "2026-10-21"
+      },
+      "expected": {
+        "noticeDays": 1,
+        "cancelledNights": ["2026-10-21", "2026-10-22", "2026-10-23"],
+        "refundVnd": 1050000,
+        "keptNights": ["2026-10-20"],
+        "earlyDepartureFeeVnd": 1050000
+      },
+      "note": "Luật DOM 04/11 (BR-428 v0.5.12). Ngày dịch vụ của dòng phí: BR-428-16. Desk v1.0.5 đặt sẵn Ngày rời mới = ngày lịch 21/10."
+    },
+    {
+      "id": "BR-428-15",
+      "br": "BR-428",
+      "case": "(v0.5.12, V5-11, RN-05) Đơn 19–24/10 × 700.000, 03:00 ngày 21/10 (ngày nghiệp vụ 20/10) lệnh Trả sớm gửi Ngày rời mới 20/10 → 409, đơn và folio không đổi (không bỏ đêm 20/10 khách đã ở)",
+      "origin": "rule-boundary",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "FB-R4-ARC-DOM-B16-01",
+      "calc": null,
+      "input": {
+        "arrivalDate": "2026-10-19",
+        "departureDate": "2026-10-24",
+        "nightRateVnd": 700000,
+        "actionAt": "2026-10-21T03:00:00+07:00",
+        "newDepartureDate": "2026-10-20",
+        "dryRun": [true, false]
+      },
+      "expected": {
+        "httpStatus": 409,
+        "bookingChanged": false,
+        "folioChanged": false,
+        "hintNewDepartureDate": "2026-10-21"
+      },
+      "note": "Mã lỗi, tên trường và chỉ dẫn: ARC chốt ở hợp đồng 0.3.13 (số HTTP ở đây theo luật DOM 06/11). Mã HEAD nhận Ngày rời mới = ngày nghiệp vụ (`nd < ctx.today` mới chặn) nên bỏ cả đêm 20/10. Cả xem trước (dryRun) lẫn ghi đều 409. Trong 00:00–05:59 xét điều kiện này trước các kiểm tra ngày khác, để đơn đến 20/10 cũng nhận 409 kèm chỉ dẫn."
+    },
+    {
+      "id": "BR-428-16",
+      "br": "BR-428",
+      "case": "(v0.5.12, V5-11 – BUG-R3-036) Dòng phí trả phòng sớm của BR-428-14 (ghi lúc 03:00 ngày 21/10) mang ngày dịch vụ 20/10 (ngày nghiệp vụ), không phải 21/10",
+      "origin": "rule-boundary",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "BUG-R3-036",
+      "calc": null,
+      "input": {
+        "sameAs": "BR-428-14",
+        "postedAt": "2026-10-21T03:00:00+07:00"
+      },
+      "expected": {
+        "earlyDepartureFeeVnd": 1050000,
+        "feeServiceDate": "2026-10-20"
+      }
+    },
+    {
+      "id": "BR-428-17",
+      "br": "BR-428",
+      "case": "(v0.5.12, V5-11) Đơn 20–21/10, khách đi 03:00 ngày 21/10 (đúng ngày đi) → không phải trả sớm: Trả sớm từ chối kèm chỉ dẫn sang Trả phòng; Trả phòng có từ 00:00 (V5-10)",
+      "origin": "rule-boundary",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "FB-R4-ARC-DOM-B16-01",
+      "calc": null,
+      "input": {
+        "arrivalDate": "2026-10-20",
+        "departureDate": "2026-10-21",
+        "actionAt": "2026-10-21T03:00:00+07:00"
+      },
+      "expected": {
+        "earlyDepartureAllowed": false,
+        "hint": "checkout",
+        "checkoutAvailable": true,
+        "extraNightChargeVnd": 0
+      },
+      "note": "Mã lỗi, tên trường và chỉ dẫn: ARC chốt ở hợp đồng 0.3.13 (số HTTP ở đây theo luật DOM 06/11). Phần nút Trả phòng 00:00–05:59 thuộc V5-10 (BUG-R4-036)."
+    },
+    {
       "id": "BR-429-01",
       "br": "BR-429",
       "case": "Mã lý do đổi căn/đổi ngày theo tình huống (v0.3.2)",
@@ -13221,6 +14083,187 @@
       "qaAssumption": "Giờ mất/khôi phục đăng nhập"
     },
     {
+      "id": "BR-438-01",
+      "br": "BR-438",
+      "case": "(v0.5.12, V5-16) Lễ tân sửa giảm dòng minibar do chính mình nhập tay cùng ngày nghiệp vụ → được, có lý do; vào danh sách đóng ca; không cộng FOC",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R4-SEC-BE-A31-01",
+      "calc": null,
+      "input": {
+        "actorRole": "front_desk",
+        "line": {
+          "category": "minibar",
+          "source": "manual",
+          "rootPostedBy": "actor",
+          "rootPostedAt": "2026-11-12T10:15:00+07:00",
+          "quantity": 3,
+          "unitPriceVnd": 35000
+        },
+        "action": {
+          "newQuantity": 2,
+          "at": "2026-11-12T10:20:00+07:00",
+          "reason": "ghi nhầm"
+        },
+        "folioStatus": "open"
+      },
+      "expected": {
+        "allowed": true,
+        "beforeVnd": 105000,
+        "afterVnd": 70000,
+        "shiftCloseListed": true,
+        "focMonthDeltaVnd": 0,
+        "audited": true
+      }
+    },
+    {
+      "id": "BR-438-02",
+      "br": "BR-438",
+      "case": "(v0.5.12, V5-16) Lễ tân ca sau sửa giảm dòng người khác ghi → bị chặn, chỉ sang FOC; FOC minibar 35.000 tự áp trong hạn mức BR-436",
+      "origin": "example",
+      "labels": ["NGÀNH", "INV-007"],
+      "pendingFix": "FB-R4-SEC-BE-A31-01",
+      "calc": null,
+      "params": {
+        "foc_self_apply.front_desk.per_time": 100000,
+        "foc_self_apply.front_desk.per_month": 500000
+      },
+      "input": {
+        "actorRole": "front_desk",
+        "line": {
+          "category": "minibar",
+          "source": "manual",
+          "rootPostedBy": "other",
+          "rootPostedAt": "2026-11-12T10:15:00+07:00",
+          "quantity": 3,
+          "unitPriceVnd": 35000
+        },
+        "action": {
+          "newQuantity": 2,
+          "at": "2026-11-12T15:00:00+07:00"
+        },
+        "focRequest": {
+          "category": "minibar",
+          "amountVnd": 35000,
+          "monthToDateVnd": 0
+        }
+      },
+      "expected": {
+        "allowed": false,
+        "httpStatus": 403,
+        "hint": "foc_request",
+        "focSelfApplied": true,
+        "billLines": {
+          "minibarVnd": 105000,
+          "focVnd": -35000
+        }
+      },
+      "note": "Mã lỗi, tên trường và chỉ dẫn: ARC chốt ở hợp đồng 0.3.13 (số HTTP ở đây theo luật DOM 06/11). "
+    },
+    {
+      "id": "BR-438-03",
+      "br": "BR-438",
+      "case": "(v0.5.12, V5-16) Dòng ghi 23:50 ngày 12/11: bỏ lúc 00:20 ngày 13/11 (ngày nghiệp vụ 12/11) → được; bỏ lúc 06:10 ngày 13/11 → bị chặn",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R4-SEC-BE-A31-01",
+      "calc": null,
+      "input": {
+        "actorRole": "front_desk",
+        "line": {
+          "category": "laundry",
+          "source": "manual",
+          "rootPostedBy": "actor",
+          "rootPostedAt": "2026-11-12T23:50:00+07:00"
+        },
+        "voidAt": ["2026-11-13T00:20:00+07:00", "2026-11-13T06:10:00+07:00"]
+      },
+      "expected": {
+        "allowed": [true, false],
+        "businessDateAtVoid": ["2026-11-12", "2026-11-13"]
+      }
+    },
+    {
+      "id": "BR-438-04",
+      "br": "BR-438",
+      "case": "(v0.5.12, V5-16) Dòng hệ thống tự ghi (phụ thu trả muộn ghi khi chính lễ tân đó bấm Trả phòng) → lễ tân bỏ dòng bị chặn; lễ tân trưởng cũng bị chặn; quản lý được",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R4-SEC-BE-A31-01",
+      "calc": null,
+      "input": {
+        "line": {
+          "category": "late_checkout",
+          "source": "system",
+          "postedBy": "actor"
+        },
+        "actorRoles": ["front_desk", "front_desk_lead", "manager"]
+      },
+      "expected": {
+        "allowed": [false, false, true],
+        "hint": "foc_request"
+      }
+    },
+    {
+      "id": "BR-438-05",
+      "br": "BR-438",
+      "case": "(v0.5.12, V5-16) Chuỗi sửa xét theo dòng gốc: lễ tân B sửa tăng dòng của lễ tân A (1 → 2) rồi bỏ dòng thay thế → bị chặn; A (người ghi dòng gốc) giảm về 1 cùng ngày → được",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R4-SEC-BE-A31-01",
+      "calc": null,
+      "input": {
+        "root": {
+          "category": "minibar",
+          "source": "manual",
+          "postedBy": "A",
+          "postedAt": "2026-11-12T09:00:00+07:00",
+          "quantity": 1,
+          "unitPriceVnd": 35000
+        },
+        "steps": [
+          {
+            "by": "B",
+            "newQuantity": 2,
+            "at": "2026-11-12T09:30:00+07:00"
+          },
+          {
+            "by": "B",
+            "voidLine": true,
+            "at": "2026-11-12T09:40:00+07:00"
+          },
+          {
+            "by": "A",
+            "newQuantity": 1,
+            "at": "2026-11-12T09:45:00+07:00"
+          }
+        ]
+      },
+      "expected": {
+        "allowed": [true, false, true],
+        "amountsVnd": [70000, 70000, 35000]
+      }
+    },
+    {
+      "id": "BR-438-06",
+      "br": "BR-438",
+      "case": "(v0.5.12, V5-16) Lễ tân sửa giảm lần thứ 11 trong tháng 11 (ngày nghiệp vụ) → cảnh báo chủ đầu tư theo ngưỡng `foc_alert_count_per_approver` 10",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH", "INV-007"],
+      "pendingFix": "FB-R4-SEC-BE-A31-01",
+      "calc": null,
+      "params": {
+        "foc_alert_count_per_approver": 10
+      },
+      "input": {
+        "actorRole": "front_desk",
+        "reductionsThisMonth": [10, 11]
+      },
+      "expected": {
+        "ownerAlert": [false, true]
+      }
+    },
+    {
       "id": "BR-501-01",
       "br": "BR-501",
       "case": "Daniel tháng 10: 142 kWh, 8 m³",
@@ -13357,6 +14400,72 @@
         }
       },
       "note": "Mã HEAD: FULL_CLEAN_TYPES có priority_clean → 100.000"
+    },
+    {
+      "id": "BR-506-04",
+      "br": "BR-506",
+      "case": "(v0.5.12, H3 – V5-31) Khách thuê tháng: giá lượt dọn theo căn; căn chưa có trong khóa → phí dọn lẻ kèm báo; HĐ nhập tay giữ phí dọn lẻ; khách ngắn ngày không đổi",
+      "origin": "example",
+      "labels": ["INV-005", "INV-043"],
+      "pendingFix": "V5-31",
+      "calc": null,
+      "params": {
+        "adhoc_cleaning_fee": 100000,
+        "long_stay_cleaning_fee_by_room": {
+          "101": 100000,
+          "201": 100000,
+          "102": 120000,
+          "103": 120000,
+          "202": 120000,
+          "203": 120000,
+          "302": 130000,
+          "402": 130000,
+          "301": 150000,
+          "401": 150000
+        }
+      },
+      "input": {
+        "cases": [
+          {
+            "stayType": "long",
+            "roomNo": "101",
+            "cleans": 3
+          },
+          {
+            "stayType": "long",
+            "roomNo": "203",
+            "cleans": 3
+          },
+          {
+            "stayType": "long",
+            "roomNo": "401",
+            "cleans": 1
+          },
+          {
+            "stayType": "long",
+            "roomNo": "203",
+            "cleans": 1,
+            "keyMissingRoom": true
+          },
+          {
+            "stayType": "long",
+            "roomNo": "203",
+            "cleans": 1,
+            "legacyManualContract": true
+          },
+          {
+            "stayType": "short",
+            "roomNo": "203",
+            "cleans": 1,
+            "secondFullCleanSameDay": true
+          }
+        ]
+      },
+      "expected": {
+        "feeVnd": [300000, 360000, 150000, 100000, 100000, 100000],
+        "warning": [false, false, false, true, false, false]
+      },
+      "note": "Bảng giá INV 01/11 mục 4 (giá công khai, đã có ở BR-204). Desk v1.0.4 ghi 100.000 mỗi lượt cho mọi căn. Giá chụp lúc gửi yêu cầu: đổi khóa sau đó không đổi yêu cầu đã gửi."
     },
     {
       "id": "BR-507-01",

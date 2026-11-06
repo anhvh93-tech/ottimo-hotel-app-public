@@ -75,8 +75,12 @@ FONT_CACHE = {}
 JOBS = [
     {"file": "to-1-quay-le-tan", "page": "A4", "w": 210, "h": 297, "sheets": ["1"],
      "title": "Tờ 1 – Quầy lễ tân"},
-    {"file": "to-2a-2b-a4-cat-doi", "page": "A4 landscape", "w": 297, "h": 210, "sheets": ["2a", "2b"],
-     "title": "Tờ 2a + 2b – in chung A4, cắt đôi"},
+    # 06/11/2026 (Round 5, V5-08): Tờ 2a không còn vừa A5 (chữ gấp ba sau thẻ DOM, SEC; A5 chỉ vừa ở 8 pt) nên in
+    # riêng A4 dọc, 2 cột. Tờ 2b không đổi chữ: in 2 bản trên A4 ngang, cắt đôi (giữ một, một bản dự phòng).
+    {"file": "to-2a-giu-cho-qua-han-a4", "page": "A4", "w": 210, "h": 297, "sheets": ["2a"],
+     "title": "Tờ 2a – Giữ chỗ quá hạn (tạm), A4"},
+    {"file": "to-2b-a4-2-ban", "page": "A4 landscape", "w": 297, "h": 210, "sheets": ["2b", "2b"],
+     "title": "Tờ 2b – 2 bản trên A4, cắt đôi"},
     {"file": "to-3-buong-phong", "page": "A4", "w": 210, "h": 297, "sheets": ["3"],
      "title": "Tờ 3 – Buồng phòng"},
     {"file": "to-4-your-id-details-a5", "page": "A5", "w": 148, "h": 210, "sheets": ["4"], "embed": NOTICE_FONTS,
@@ -96,8 +100,11 @@ JOBS = [
 
 # Quy cách từng tờ (UXD-on-PO-v1.0.0-docs.md mục 1.3 và mục 2).
 SPEC = {
-    "1": {"size": "a4", "fs": 9.0, "cols": 2, "dense": True, "where": "Phía trong quầy, chỗ nhân viên"},
-    "2a": {"size": "a5", "fs": 10.0, "cols": 1, "frame": True, "snug": True, "where": "Cạnh Tờ 1, phía nhân viên"},
+    # Tờ 1: 9 pt tới bản 30/10. Bản 06/11 (check-in online, "Gửi nhầm người", dòng Cọc) chỉ vừa A4 một mặt ở 8,25 pt
+    # (đo 06/11: 9 pt tràn; bớt khoảng cách vẫn chỉ vừa 8,5 pt và còn 1,5 mm). Giữ chữ nguyên văn, hạ cỡ.
+    "1": {"size": "a4", "fs": 8.25, "cols": 2, "dense": True, "where": "Phía trong quầy, chỗ nhân viên"},
+    # Tờ 2a: A5 10 pt tới bản 30/10. Bản 06/11 in A4 dọc, 2 cột, 11 pt (vừa tới 11,75 pt; còn ~36 mm mỗi cột).
+    "2a": {"size": "a4", "fs": 11.0, "cols": 2, "frame": True, "snug": True, "where": "Cạnh Tờ 1, phía nhân viên"},
     "2b": {"size": "a5", "fs": 12.0, "cols": 1, "where": "Kẹp sau Tờ 1 hoặc trong bìa quầy"},
     "3": {"size": "a4", "fs": 12.0, "cols": 2, "where": "Phòng buồng / kho đồ vải"},
     "4": {"size": "a5", "fs": 10.0, "fs_vi": 9.5, "where": "Khung mica trên quầy, mặt quay ra khách"},
@@ -354,13 +361,13 @@ code{font-family:var(--mono);font-size:.92em;font-weight:400;letter-spacing:0}
 .flow ol{padding-left:1.5em}
 .flow ol>li::marker{font-weight:600;color:var(--earth)}
 .flow table{width:100%;border-collapse:collapse;margin:0 0 1.6mm;break-inside:avoid}
-.flow th,.flow td{text-align:left;vertical-align:top;padding:.55mm 1.4mm;border-bottom:0.3pt solid #CFC8BA}
+.flow th,.flow td{text-align:left;vertical-align:top;padding:.55mm 1.4mm;border-bottom:0.25pt solid var(--stone)}
 .flow th{background:var(--cream);font-weight:600}
 .flow td:first-child{white-space:nowrap;font-weight:600}
 .flow li,.flow p,.flow tr{orphans:2;widows:2}
 .note{border-left:0.8pt solid var(--oak);padding-left:2mm}
 .sfoot{flex:0 0 auto;display:flex;justify-content:space-between;gap:6mm;margin-top:2mm;padding-top:1.4mm;
-  border-top:0.3pt solid #CFC8BA;font-size:8pt;line-height:1.3;color:var(--stone)}
+  border-top:0.25pt solid var(--stone);font-size:8pt;line-height:1.3;color:var(--stone)}
 .a5 .sfoot{font-size:7.5pt}
 .sfoot span:last-child{text-align:right}
 

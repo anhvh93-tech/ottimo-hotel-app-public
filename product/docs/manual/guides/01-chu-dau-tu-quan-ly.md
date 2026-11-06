@@ -2,8 +2,8 @@
 
 - Dành cho: **chủ đầu tư (OWN)**, **quản lý (MGR)**, và người làm **kế toán/đối soát** cùng chủ đầu tư
 - Thiết bị: **máy tính hoặc laptop riêng** của anh/chị, địa chỉ `desk.ottimo.vn`. Máy quầy chỉ dùng khi duyệt tại quầy, xong đăng xuất ngay.
-- Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.10 – 04/11/2026 (gộp sau bản 1.9), **áp dụng từ v1.0.4**: Desk chặn cả `booking@` (mục 1.6a, 1.9); Desk giữ ngày kết thúc HĐ khi gia hạn, **Trả sớm** chọn đúng nhánh (mục 7.3); lễ tân có thể hỏi anh/chị số chờ hoàn của **Trả sớm** do người khác tạo (mục 7.3); sửa theo review DOM: câu in đậm "Tới v1.0.3, Desk chỉ chặn được `info@`" (mục 1.6a), v1.0.5 hiện tổng số đang chờ hoàn (mục 7.3); sửa theo DOM lượt 3: bảng duyệt – **Nhận phòng khi buồng chưa sẵn sàng** chỉ cho căn `VD`, `CL`, căn có khách thì từ chối (mục 4); bổ sung 05/11 (DOM lượt 5): căn còn đơn khác đang ở cũng từ chối, từ v1.0.4 Desk chặn (mục 4); bổ sung 05/11 sau khi gộp main: mục 14.1 thêm 3 tình huống – đơn Nội bộ có đêm miễn phí chờ sửa 0 đ (từ v1.0.4), yêu cầu giảm 100 % "Quên bấm Trả phòng", căn vẫn hiện có khách sau khi đơn trước đã trả phòng; sửa theo review #72: sửa đêm miễn phí về 0 trước khi người ở nhận phòng và kiểm người cho (BR-105 v0.5.9), duyệt giảm 100 % "Quên bấm" khi có ít nhất hai dấu hiệu, từ 2 đêm quản lý không bấm **Duyệt**, duyệt nhận phòng buồng chưa sẵn sàng chỉ khi **Lý do** ghi đã kiểm căn (mục 4, 14.1); bản 1.9 – 04/11/2026, **áp dụng từ v1.0.4**: khối **Đặt lại xác thực 2 bước** cho người đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục, thay cách khóa tài khoản rồi tạo tài khoản mới; nút **Khác…** ở **Người dùng & vai** (mục 1.6a, 1.7, 1.8, 1.9, 14.1, 17, 18.2; BUG-R4-032; sửa cùng ngày theo review SEC, PO: chỉ quản lý và lễ tân trưởng phải bật lại ngay, sale/CTV nên bật, buồng phòng/bảo trì tùy chọn, đặt lại mật khẩu luôn khi điện thoại bị lấy cắp hoặc có lưu mật khẩu, khóa cũng đăng xuất mọi máy, một tài khoản chủ đầu tư, câu báo khi 2 bước đã đổi ở chỗ khác; sửa theo SEC lượt 2: không phải chủ đầu tư đổi thì đặt lại mật khẩu ngay, tài khoản chủ đầu tư thứ hai chỉ cho người khác); bản 1.6 – 04/11/2026, **áp dụng từ v1.0.4** (bản đang chạy là v1.0.3; tới khi chủ đầu tư báo v1.0.4 đã lên, làm như cũ): tiêu đề thư bảo mật mới theo CPY ("Security notice: 2-step verification was reset", "Security notice: receiving account update", thư hủy lịch đổi tài khoản nhận cùng tiêu đề), app nhân viên có bước nhập mã 2 bước, đổi mật khẩu tạm ngay trên app, bật 2 bước làm trên Desk, yêu cầu hoàn thay thế giữ nơi nhận khi các yêu cầu cũ chung một nơi nhận do một người nhập; sửa cùng ngày theo review DOM: khối **Ngày cuối của người nghỉ** (mục 1.9, áp dụng ngay), tham số `privacy_notice_version` chỉ đổi đúng ngày thay tờ v2 (9.2), yêu cầu hoàn thay thế (4), mặc định 2 bước và kiểm căn trên app (1.8, 1.9); sửa theo DOM lượt 2 và SEC: khối **Ngày cuối của người nghỉ** có thứ tự riêng cho người bị cho thôi việc, không Mở khóa lại, chìa/mã/mật khẩu dùng chung, đăng xuất app nhân viên, căn HĐ thuê tháng đổi mã trong 7 ngày (1.9); gọi người trực trước mọi lần Lưu `privacy_notice_version` (9.2); sửa theo DOM lượt 3 và SEC: gỡ phòng Google Chat theo thứ tự mục 1.9 (12.1), người nghỉ êm Đăng xuất app trước bước 3 (1.9); áp dụng ngay: người nghỉ hẳn thì Khóa tài khoản rồi Xóa email, Tạm khóa do sai mật khẩu vẫn nhận thư (SEC M18-08) (mục 1.6a, 1.8, 1.9, 4); bản 1.5 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat, xóa theo yêu cầu người gửi, phòng Báo động theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và đếm yêu cầu theo ngôn ngữ – mục 9.1a – áp dụng khi gói website LP-v2 phát hành; bản 1.5 ngày 03/11 viết lại mục 7.3 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2 và bảng quyết định ký quỹ HĐ thuê tháng theo ESC-048, mục 15.5; bản 1.6 ngày 04/11 thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3, mục 1.6, 1.6a, 1.9, 15.1; bản 1.7 ngày 03/11, áp dụng cùng 1.6 khi v1.0.3 lên: sửa theo review DOM và ARC – bảng **Thư nào – làm gì** cho 4 loại thư, chọn hộp thư riêng, Desk chỉ chặn `info@`, kiểm sáng tới khi đội bảo mật báo bỏ, thứ tự nhập email, vai dùng app nhân viên chưa bật 2 bước, mất cả điện thoại lẫn mã khôi phục thì gặp tận mặt và tạo tài khoản mới theo SEC – mục 1.6a, 1.7, 1.9, 2.2, 10.1, 15.1; bản 1.8 ngày 04/11, áp dụng ngay: một đơn có thể có hơn một yêu cầu hoàn – cộng các yêu cầu còn mở (chờ duyệt và đã duyệt chưa chi), đối chiếu với dòng **Hoàn lại khách** trên Phiếu thanh toán trước khi từ chối; yêu cầu thay thế kiểm nơi nhận trước khi duyệt; đơn HĐ thuê tháng không hoàn theo khối này; trả phòng không tạo lại khoản Trả sớm – mục 4, 7.3; BUG-R4-025, sửa cùng ngày theo review DOM; sửa cùng ngày theo QA đọc staging: nhận ra yêu cầu thay thế theo cặp dòng **Đã tự đóng** – **Gửi yêu cầu duyệt** ở Nhật ký thao tác tiền, không theo chữ "trả thừa" (cột lý do có thể hiện mã `overpayment`, BUG-R4-026), Desk có thể đóng cả yêu cầu đã duyệt chưa chi và xóa nơi nhận – mục 4 bước 4–5; sửa theo DOM lượt 2: người gửi/người làm "thường", ca người vừa sửa folio không tự duyệt, dòng BUG-R4-026 ở mục 15.6)
+- Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
+- Lập: BA · 30/10/2026 · Tệp này bản 1.13 (thuộc bộ hướng dẫn bản 1.14) – 06/11/2026, áp dụng ngay tới khi v1.0.5 lên: không bấm **Lưu thay đổi** ở `weekend_nights` và `min_stay` (mục 9.2, 15.6, 17). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -28,7 +28,7 @@
 | Mọi việc quản lý, duyệt, đối soát, cài đặt | `desk.ottimo.vn` | **Máy riêng** (laptop/máy tính của anh/chị) |
 | Duyệt tại quầy khi lễ tân cần ngay | `desk.ottimo.vn` | Máy quầy: đăng nhập, duyệt, **đăng xuất ngay** (mục 1.5) |
 | Cấp quyền máy quầy (chỉ chủ đầu tư) | `desk.ottimo.vn` | Ngồi tại **chính máy cần cấp** (mục 1.10) |
-| App nhân viên `staff.ottimo.vn` | – | **Chưa đăng nhập được** ở v1.0 (mục 1.8) |
+| App nhân viên (kiểm phòng) | `staff.ottimo.vn` | **Điện thoại riêng**: mật khẩu rồi mã 6 số (mục 1.8) |
 
 - Chỉ vào bằng cách **gõ địa chỉ** hoặc **dấu trang**. Không bấm link đăng nhập gửi qua Zalo, email, tin nhắn – kể cả thư báo bảo mật.
 - Trình duyệt hỏi **Lưu mật khẩu?**: luôn chọn **Không bao giờ**, nhất là trên máy quầy.
@@ -122,14 +122,14 @@ OTTIMO gửi thư báo tới địa chỉ này khi có việc quan trọng với
 **Chọn hộp thư nào:**
 - Dùng **email riêng chỉ anh/chị đọc**, ví dụ `ten.rieng@example.test`.
 - **Không dùng hộp thư chung** của cơ sở: `info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho Booking.com/Agoda/Airbnb, hộp thư của quầy, email của người nhà. Lý do: ai đọc được hộp thư chung cũng đọc và xóa được thư báo của anh/chị.
-- **Tới v1.0.3, Desk chỉ chặn được `info@`.** **Từ v1.0.4** chặn cả `booking@` của cơ sở, kể cả dạng có dấu cộng như `info+…@`, `booking+…@`. Các hộp thư chung khác (Gmail dùng cho OTA, hộp thư của quầy…) Desk không nhận ra, anh/chị phải tự tránh.
+- **Desk chặn `info@` và `booking@` của cơ sở**, kể cả dạng có dấu cộng như `info+…@`, `booking+…@`. Các hộp thư chung khác (Gmail dùng cho OTA, hộp thư của quầy…) Desk không nhận ra, anh/chị phải tự tránh.
 - Hộp thư này **không đăng nhập trên máy quầy, máy tính bảng của cơ sở** hay máy dùng chung, và **không cài tự chuyển tiếp** sang hộp thư khác. Nên bật đăng nhập 2 bước cho chính hộp thư đó.
 
 **Tự nhập email của mình** (mỗi người tự làm, không nhờ người khác gõ hộ):
 1. Bấm **tên của mình → Bảo mật tài khoản**. Khối **Email nhận thông báo bảo mật** ở dưới khối **Xác thực 2 bước**. Góc phải khối ghi **Chưa có** hoặc **Đã có**.
 2. Chưa có email: nhập vào ô **Email**, rồi bấm **Thêm email**. Đã có: bấm **Đổi email**, nhập địa chỉ mới, bấm **Lưu email**.
 3. Hộp **Lưu email nhận thông báo bảo mật** hiện **Địa chỉ mới**. Đọc lại từng ký tự. Nhập **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. Bấm **Lưu email**.
-   - Địa chỉ là `info@` (từ v1.0.4: cả `booking@`): **sau khi** bấm **Lưu email**, Desk báo dưới ô **Email**: "Đây là hộp thư chung của cơ sở. Thông báo bảo mật cần tới một email riêng." Mật khẩu và mã **không bị tính là sai**, mã chưa bị dùng. Nhập một email riêng khác.
+   - Địa chỉ là `info@` hoặc `booking@`: **sau khi** bấm **Lưu email**, Desk báo dưới ô **Email**: "Đây là hộp thư chung của cơ sở. Thông báo bảo mật cần tới một email riêng." Mật khẩu và mã **không bị tính là sai**, mã chưa bị dùng. Nhập một email riêng khác.
 4. Desk báo "Đã lưu. Thông báo đã gửi tới địa chỉ này. Sau 15 phút chưa thấy thư, hãy xem mục Spam hoặc kiểm tra lại địa chỉ." (lần đầu thêm) hoặc "Đã lưu. Thông báo đã gửi tới địa chỉ mới và địa chỉ cũ. Sau 15 phút chưa thấy thư, hãy xem mục Spam hoặc kiểm tra lại địa chỉ." (khi đổi). Mở hộp thư trên máy hoặc điện thoại riêng, tìm thư **OTTIMO – Security notice: notification email changed**. Thư nằm trong Spam: đánh dấu **Không phải thư rác**.
 
 [ẢNH: C0-12-Khối Email nhận thông báo bảo mật]
@@ -172,8 +172,8 @@ Thư không ghi địa chỉ email, không có link, không hỏi mật khẩu h
 |---|---|
 | Quản lý quên mật khẩu | **Báo chủ đầu tư.** Desk không có nút "quên mật khẩu". Chủ đầu tư **Đặt lại mật khẩu**, đưa mật khẩu tạm tận tay |
 | Chủ đầu tư hoặc quản lý mất điện thoại, còn mã khôi phục | Ở màn nhập mã, bấm **Mất điện thoại? Dùng mã khôi phục**, nhập một mã, bấm **Đăng nhập bằng mã khôi phục**. Desk mở **Đăng ký lại trên điện thoại mới**: làm lại như mục 1.3, trên máy riêng. **Làm xong đăng ký lại ngay, không bỏ dở.** Quản lý: rồi **báo chủ đầu tư** để **Đặt lại mật khẩu** cho mình (Desk đăng xuất trên mọi máy, kể cả máy bị mất) |
-| Quản lý (người trực) mất cả điện thoại lẫn mã khôi phục | Người đó **báo chủ đầu tư**, không xin mã của người khác. Chủ đầu tư **gặp tận mặt** người đó rồi mới làm, **không làm theo tin nhắn** hay cuộc gọi (người giả danh cũng nhắn xin được). Chưa gặp được ngay: **Khóa tài khoản** của người đó trước (mục 1.9; khóa cũng đăng xuất người đó trên mọi máy, kể cả điện thoại bị mất), gặp rồi mới làm tiếp. **Từ v1.0.4:** chủ đầu tư, trên máy riêng, lúc người đó ngồi cùng, bấm **Đặt lại xác thực 2 bước** cho người đó (mục 1.9, khối **Đặt lại xác thực 2 bước**); đã khóa thì **Mở khóa** sau đó. Người đó **giữ tài khoản cũ** (tên đăng nhập, vai, email, lịch sử thao tác), đăng nhập ngay trên laptop riêng bằng mật khẩu của mình. Desk mở **Bật xác thực 2 bước**: người đó bật lại trên điện thoại mới, cất 10 mã khôi phục mới (mục 1.3), xong mới rời đi. **Ở v1.0.3** (tới khi chủ đầu tư báo v1.0.4 đã lên) chưa có nút này. Chủ đầu tư, trên máy riêng: (1) **Khóa tài khoản** của người đó ngay; (2) **Thêm người dùng** mới cho chính người đó, **tên đăng nhập mới**, đúng các vai cũ (mục 1.9); (3) đưa mật khẩu tạm tận tay; người đó đăng nhập lần đầu trên laptop riêng và bật 2 bước trên điện thoại mới; (4) **ngay sau khi bật 2 bước**, người đó nhập **email nhận thông báo** ở **tên của mình → Bảo mật tài khoản** (mục 1.6a; vai quản lý bắt buộc có email). Tài khoản cũ để khóa, không xóa (giữ nhật ký). Ở cả hai bản: **không nhờ đội kỹ thuật đặt lại 2 bước**; **Đặt lại mật khẩu không gỡ 2 bước** |
-| Buồng phòng, bảo trì, lễ tân trưởng (dùng app nhân viên) đã bật 2 bước rồi mất cả điện thoại lẫn mã khôi phục | Gặp tận mặt như dòng trên (chưa gặp được ngay: **Khóa tài khoản** trước). **Từ v1.0.4:** **Đặt lại xác thực 2 bước** cho người đó (mục 1.9). Người đó giữ tài khoản cũ, đăng nhập lại Desk và app nhân viên bằng tên đăng nhập, mật khẩu của mình; Desk và app không hỏi mã nữa. **Lễ tân trưởng:** bật lại 2 bước trên Desk ngay buổi đó (bắt buộc – mặc định đội chọn, mục 1.9 bước 8; anh/chị đổi được). **Buồng phòng, bảo trì:** bật lại chỉ khi người đó muốn (tùy chọn). **Ở v1.0.3:** bước (1)–(3) ở dòng trên, tên đăng nhập mới, đúng các vai cũ. Ở tài khoản mới, người đó **không bật 2 bước** (mục 1.9 bước 8) và đăng nhập app nhân viên bằng tên đăng nhập mới. Bước (4) không bắt buộc; lễ tân trưởng nên nhập email (mục 1.6a). Không nhờ đội đặt lại |
+| Quản lý (người trực) mất cả điện thoại lẫn mã khôi phục | Người đó **báo chủ đầu tư**, không xin mã của người khác. Chủ đầu tư **gặp tận mặt** người đó rồi mới làm, **không làm theo tin nhắn** hay cuộc gọi (người giả danh cũng nhắn xin được). Chưa gặp được ngay: **Khóa tài khoản** của người đó trước (mục 1.9; khóa cũng đăng xuất người đó trên mọi máy, kể cả điện thoại bị mất), gặp rồi mới làm tiếp. Chủ đầu tư, trên máy riêng, lúc người đó ngồi cùng, bấm **Đặt lại xác thực 2 bước** cho người đó (mục 1.9, khối **Đặt lại xác thực 2 bước**); đã khóa thì **Mở khóa** sau đó. Người đó **giữ tài khoản cũ** (tên đăng nhập, vai, email, lịch sử thao tác), đăng nhập ngay trên laptop riêng bằng mật khẩu của mình. Desk mở **Bật xác thực 2 bước**: người đó bật lại trên điện thoại mới, cất 10 mã khôi phục mới (mục 1.3), xong mới rời đi. **Không nhờ đội kỹ thuật đặt lại 2 bước**; **Đặt lại mật khẩu không gỡ 2 bước** |
+| Buồng phòng, bảo trì, lễ tân trưởng (dùng app nhân viên) đã bật 2 bước rồi mất cả điện thoại lẫn mã khôi phục | Gặp tận mặt như dòng trên (chưa gặp được ngay: **Khóa tài khoản** trước), rồi **Đặt lại xác thực 2 bước** cho người đó (mục 1.9). Người đó giữ tài khoản cũ, đăng nhập lại Desk và app nhân viên bằng tên đăng nhập, mật khẩu của mình; Desk và app không hỏi mã nữa. **Lễ tân trưởng:** bật lại 2 bước trên Desk ngay buổi đó (bắt buộc – mặc định đội chọn, mục 1.9 bước 8; anh/chị đổi được, báo đội). **Buồng phòng, bảo trì:** bật lại chỉ khi người đó muốn (tùy chọn). Không nhờ đội đặt lại |
 | Chủ đầu tư mất cả điện thoại lẫn mã khôi phục | Làm theo thủ tục khôi phục riêng đã diễn tập với đội kỹ thuật (không ghi trong tài liệu này) |
 | Chủ đầu tư quên mật khẩu | Ở v1.0 **chưa có cách khôi phục**: không ai trong Desk đặt lại được mật khẩu cho chủ đầu tư, thủ tục khôi phục riêng cũng không đổi mật khẩu. Vì vậy: lưu mật khẩu Desk trong **trình quản lý mật khẩu** ngay khi đặt (không lưu trên trình duyệt). Gõ sai **2 lần** thì dừng, mở trình quản lý mật khẩu xem lại: gõ sai tiếp Desk sẽ khóa, và chỉ một chủ đầu tư khác mới mở được. Đã quên hẳn: gọi đội kỹ thuật, không tự thử tiếp. |
 | Mất điện thoại hoặc máy tính bảng có **app khóa cửa** | Chủ đầu tư **ngay** đổi mật khẩu tài khoản app khóa và thu hồi quyền của máy đó |
@@ -188,17 +188,13 @@ OTTIMO chỉ có một tài khoản chủ đầu tư, nên không ai trong Desk 
 
 ### 1.8 App nhân viên
 
-Chủ đầu tư và quản lý (có 2 bước) **chưa đăng nhập được app nhân viên** `staff.ottimo.vn` ở v1.0. App báo "Đăng nhập 2 bước sẽ có ở bản sau" (cùng lúc hiện câu "Nhập mã…" nhưng không có ô nhập mã – lỗi chữ, đang sửa).
-
-Hệ quả cho OTTIMO hiện nay: tài khoản người trực giữ vai quản lý nên **không vào được app nhân viên**. Việc dọn đánh dấu trên Desk (**Vận hành → Buồng phòng → Làm xong**), phiếu sửa làm trên Desk (**Vận hành → Bảo trì**). **Không ai bấm kiểm phòng được** (`VC` → `VI`). Người trực tự đi kiểm căn theo 12 mục rồi mới bấm **Làm xong** (`02` mục 13.2a). Lễ tân nhận khách vào căn `VC` như thường.
-
-> **Áp dụng từ v1.0.4** (khi chủ đầu tư báo v1.0.4 đã lên; tới lúc đó làm như trên). Quyết định ORC 04/11, MOB P4-50:
-> - **App nhân viên có bước nhập mã.** Tài khoản đã bật 2 bước (chủ đầu tư, quản lý, người trực 6 vai, và ai đã bật) đăng nhập app bằng mật khẩu rồi **mã 6 số** trong ứng dụng xác thực. Mất điện thoại: **Mất điện thoại? Dùng mã khôi phục**. Sai 5 lần hoặc quá 5 phút: app báo "Bước nhập mã đã hết hạn. Đăng nhập lại bằng mật khẩu."
-> - **Mật khẩu tạm đổi ngay trên app**: màn **Đặt mật khẩu của bạn** (**Mật khẩu hiện tại** là mật khẩu tạm, **Mật khẩu mới**, **Nhập lại mật khẩu mới**, bấm **Lưu và vào ứng dụng**). Không cần đổi trên Desk trước.
-> - **Bật 2 bước chỉ làm trên Desk** (trên máy tính, quét mã bằng chính điện thoại của người đó, cất 10 mã khôi phục). App không có màn bật. Tài khoản phải có 2 bước mà chưa bật, hoặc vừa vào app bằng mã khôi phục: app báo "Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc." và "Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây."
-> - Lời dặn "không bật 2 bước ở v1.0.x" cho buồng phòng, bảo trì, lễ tân trưởng **hết hiệu lực**. **Mặc định đội chọn** (anh/chị đổi được, báo đội): **lễ tân trưởng bắt buộc** bật 2 bước; **buồng phòng, bảo trì tùy chọn**. Cách làm ở mục 1.9 bước 8.
-> - Người trực có vai quản lý vào được app. **Mặc định đội chọn** (anh/chị muốn giữ cách cũ thì báo đội): người trực **kiểm căn trên app** (tệp 02 mục 14.2), khoảng 1–2 phút mỗi căn, giữ mốc 11:00 và 14:00. Desk ghi ai kiểm, lúc nào, mục nào chưa đạt; căn chưa đạt tự có việc dọn lại. Cách tự kiểm rồi chỉ bấm **Làm xong** (tệp 02 mục 13.2a) chỉ dùng khi không vào được app, và ghi sổ giao ca.
-> - **Sau khi chủ đầu tư Đặt lại xác thực 2 bước** cho một người (mục 1.9): app trên mọi máy của người đó về màn đăng nhập. Tài khoản có vai chủ đầu tư hoặc quản lý: app báo "Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc." Bật lại trên Desk trước, rồi đăng nhập app với mã 6 số mới. Vai khác: đăng nhập app bằng mật khẩu, app không hỏi mã cho tới khi người đó bật lại.
+**Đăng nhập 2 bước trên app nhân viên** (quyết định ORC 04/11, MOB P4-50):
+- **App nhân viên có bước nhập mã.** Tài khoản đã bật 2 bước (chủ đầu tư, quản lý, người trực 6 vai, và ai đã bật) đăng nhập app bằng mật khẩu rồi **mã 6 số** trong ứng dụng xác thực. Mất điện thoại: **Mất điện thoại? Dùng mã khôi phục**. Sai 5 lần hoặc quá 5 phút: app báo "Bước nhập mã đã hết hạn. Đăng nhập lại bằng mật khẩu."
+- **Mật khẩu tạm đổi ngay trên app**: màn **Đặt mật khẩu của bạn** (**Mật khẩu hiện tại** là mật khẩu tạm, **Mật khẩu mới**, **Nhập lại mật khẩu mới**, bấm **Lưu và vào ứng dụng**). Không cần đổi trên Desk trước.
+- **Bật 2 bước chỉ làm trên Desk** (trên máy tính, quét mã bằng chính điện thoại của người đó, cất 10 mã khôi phục). App không có màn bật. Tài khoản phải có 2 bước mà chưa bật, hoặc vừa vào app bằng mã khôi phục: app báo "Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc." và "Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây."
+- **Ai bật 2 bước** – mặc định đội chọn (anh/chị đổi được, báo đội): **lễ tân trưởng bắt buộc**, không tự tắt; **buồng phòng, bảo trì tùy chọn**; sale nội bộ, CTV nên bật. Cách làm ở mục 1.9 bước 8.
+- Người trực có vai quản lý vào được app. **Mặc định đội chọn** (anh/chị muốn giữ cách cũ thì báo đội): người trực **kiểm căn trên app** (tệp 02 mục 14.2), khoảng 1–2 phút mỗi căn, giữ mốc 11:00 và 14:00. Desk ghi ai kiểm, lúc nào, mục nào chưa đạt; căn chưa đạt tự có việc dọn lại. Cách tự kiểm rồi chỉ bấm **Làm xong** (tệp 02 mục 13.2a) chỉ dùng khi không vào được app, và ghi sổ giao ca.
+- **Sau khi chủ đầu tư Đặt lại xác thực 2 bước** cho một người (mục 1.9): app trên mọi máy của người đó về màn đăng nhập. Tài khoản có vai chủ đầu tư hoặc quản lý: app báo "Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc." Bật lại trên Desk trước, rồi đăng nhập app với mã 6 số mới. Vai khác: đăng nhập app bằng mật khẩu, app không hỏi mã cho tới khi người đó bật lại.
 
 ### 1.9 Cấp đăng nhập cho nhân viên (chỉ chủ đầu tư)
 
@@ -208,10 +204,10 @@ Hệ quả cho OTTIMO hiện nay: tài khoản người trực giữ vai quản 
 |---|---|---|---|
 | **Chủ đầu tư** | Chủ đầu tư | Bắt buộc | Desk |
 | **Quản lý** | Quản lý | Bắt buộc | Desk |
-| **Lễ tân trưởng** | Thêm quyền duyệt trong hạn mức, nhận phòng ngoại lệ, kiểm phòng | Chưa (từ v1.0.4: **bắt buộc** – mặc định đội chọn, anh/chị đổi được; Desk tự ép dự kiến từ v1.0.5) | Desk + app nhân viên |
+| **Lễ tân trưởng** | Thêm quyền duyệt trong hạn mức, nhận phòng ngoại lệ, kiểm phòng | **Bắt buộc** – mặc định đội chọn, anh/chị đổi được (báo đội); Desk tự ép dự kiến từ v1.0.5 | Desk + app nhân viên |
 | **Lễ tân** | Lễ tân, người trực đêm | Chưa | Desk |
-| **Buồng phòng** | Nhân viên buồng phòng | Chưa (từ v1.0.4: tùy chọn) | App nhân viên |
-| **Bảo trì** | Kỹ thuật | Chưa (từ v1.0.4: tùy chọn) | App nhân viên |
+| **Buồng phòng** | Nhân viên buồng phòng | Tùy chọn | App nhân viên |
+| **Bảo trì** | Kỹ thuật | Tùy chọn | App nhân viên |
 | **Sale nội bộ** | Nhân viên bán hàng của OTTIMO | Không bắt buộc – nên bật | Desk (điện thoại hoặc máy tính) |
 | **CTV / môi giới** | Cộng tác viên ngoài | Không bắt buộc – nên bật | Desk (điện thoại hoặc máy tính) |
 
@@ -225,21 +221,25 @@ Một người có thể có nhiều vai. Không có vai "Kế toán" riêng (m�
 5. Xác nhận bằng mật khẩu và mã 6 số.
 6. Desk hiện **Mật khẩu tạm của …** **một lần**. Đưa tận tay người dùng. Không gửi qua chat.
 7. Ngồi cùng người đó lần đăng nhập đầu: đổi mật khẩu tạm. Người có vai quản lý: làm trên laptop riêng (không phải máy quầy), bật 2 bước trên điện thoại riêng của họ, cất mã khôi phục như mục 1.3 bước 5.
-8. **Buồng phòng, bảo trì, lễ tân trưởng dùng app nhân viên: dặn họ không bật đăng nhập 2 bước ở v1.0.x.** App nhân viên chưa đăng nhập được bằng 2 bước (app báo "…Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập."): bật thì người đó mất app nhân viên. **Lỡ bật:** đăng nhập Desk bằng mật khẩu và mã → **tên của mình → Bảo mật tài khoản → Tắt xác thực 2 bước** (xác nhận bằng mật khẩu và mã) → đăng nhập lại app bằng mật khẩu như cũ. Người đó mất cả điện thoại lẫn mã khôi phục: anh/chị **gặp tận mặt**, khóa tài khoản cũ, tạo tài khoản mới (tên đăng nhập mới, không bật 2 bước) theo mục 1.7. Không nhờ đội đặt lại 2 bước, không làm theo tin nhắn. Sale nội bộ, CTV chỉ dùng Desk: tự bật được, nên bật. **Từ v1.0.4** lời dặn này hết hiệu lực: app đăng nhập được bằng 2 bước, mật khẩu tạm đổi ngay trên app; bật 2 bước vẫn chỉ làm trên Desk (mục 1.8). **Từ v1.0.4, mặc định đội chọn** (anh/chị đổi được, báo đội): **Lễ tân trưởng bắt buộc 2 bước.** Desk chưa tự ép (dự kiến v1.0.5), nên anh/chị làm 3 việc: tạo tài khoản; ngồi cùng người đó bật 2 bước trên Desk ngay buổi đầu (quét mã bằng điện thoại riêng của họ, cất 10 mã khôi phục như mục 1.3); nhìn tận mắt khối **Xác thực 2 bước** ở trang **Bảo mật tài khoản** của họ đã bật, rồi mới giao việc. **Buồng phòng, bảo trì: tùy chọn.** Chỉ bật khi người đó có điện thoại riêng và giữ được mã khôi phục; không cần khuyến khích. Người đã bật mà mất cả điện thoại lẫn mã khôi phục: anh/chị gặp tận mặt rồi **Đặt lại xác thực 2 bước** cho người đó (khối **Đặt lại xác thực 2 bước** cuối mục này), không tạo tài khoản mới.
+8. **Đăng nhập 2 bước theo vai** (mặc định đội chọn; anh/chị đổi được, báo đội). App nhân viên đăng nhập được bằng 2 bước và đổi mật khẩu tạm ngay trên app; bật 2 bước chỉ làm trên Desk (mục 1.8).
+   - **Lễ tân trưởng: bắt buộc.** Desk chưa tự ép (dự kiến v1.0.5), nên anh/chị làm 3 việc: tạo tài khoản; ngồi cùng người đó bật 2 bước trên Desk ngay buổi đầu (quét mã bằng điện thoại riêng của họ, cất 10 mã khôi phục như mục 1.3); nhìn tận mắt khối **Xác thực 2 bước** ở trang **Bảo mật tài khoản** của họ đã bật, rồi mới giao việc. Dặn lễ tân trưởng **không tự tắt** 2 bước (Desk chưa chặn tới v1.0.5); cần tắt thì hỏi anh/chị.
+   - **Buồng phòng, bảo trì: tùy chọn.** Chỉ bật khi người đó có điện thoại riêng và giữ được mã khôi phục; không cần khuyến khích.
+   - **Sale nội bộ, CTV** chỉ dùng Desk: tự bật được, nên bật.
+   - Người đã bật mà mất cả điện thoại lẫn mã khôi phục: anh/chị **gặp tận mặt** rồi **Đặt lại xác thực 2 bước** cho người đó (khối **Đặt lại xác thực 2 bước** cuối mục này), không tạo tài khoản mới. Không nhờ đội đặt lại 2 bước, không làm theo tin nhắn.
 
 [ẢNH: C1-07-Người dùng và vai]
 [ẢNH: C1-08-Thêm người dùng]
 [ẢNH: C1-09-Mật khẩu tạm hiện một lần]
 
-Nhân viên buồng phòng, bảo trì (và lễ tân trưởng dùng app): lần đầu, và sau mỗi lần **Đặt lại mật khẩu**, đổi mật khẩu tạm trên `desk.ottimo.vn` trước, rồi mới đăng nhập app nhân viên (tệp 03, 04 mục 1). App chưa có màn đổi mật khẩu tạm: còn mật khẩu tạm mà vào app thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (mục 15.6). **Từ v1.0.4**: đổi mật khẩu tạm ngay trên app, không cần Desk trước (mục 1.8).
+Nhân viên buồng phòng, bảo trì (và lễ tân trưởng dùng app): lần đầu, và sau mỗi lần **Đặt lại mật khẩu**, đổi mật khẩu tạm ngay trên app nhân viên, không cần lên Desk trước (mục 1.8; tệp 03, 04 mục 1).
 
-> **Áp dụng từ v1.0.4** (khi chủ đầu tư báo v1.0.4 đã lên; tới lúc đó các nút nằm thẳng trên dòng như danh sách dưới): cột **Thao tác** chỉ còn **Sửa vai** và **Khác…**. Tài khoản đã khóa có thêm nút **Mở khóa** ngay sau **Khác…**. Bấm **Khác…** để mở **Đặt lại mật khẩu**, **Khóa tài khoản** (chỉ hiện với tài khoản đang dùng) và **Đặt lại xác thực 2 bước** (chỉ hiện với người đã bật 2 bước). Dòng của chính anh/chị không có **Khác…**: không ai tự đặt lại 2 bước cho mình. Mất mạng thì các nút này mờ.
+Cột **Thao tác** có **Sửa vai** và **Khác…**. Tài khoản đã khóa có thêm nút **Mở khóa** ngay sau **Khác…**. Bấm **Khác…** để mở **Đặt lại mật khẩu**, **Khóa tài khoản** (chỉ hiện với tài khoản đang dùng) và **Đặt lại xác thực 2 bước** (chỉ hiện với người đã bật 2 bước). Dòng của chính anh/chị không có **Khác…**: không ai tự đặt lại 2 bước cho mình. Mất mạng thì các nút này mờ.
 
 **Các việc khác** (cột **Thao tác** ở dòng người dùng):
 - **Sửa vai** → chọn vai → **Lưu vai**. Người đó bị đăng xuất ngay trên mọi máy.
 - **Đặt lại mật khẩu**: dùng khi nhân viên quên mật khẩu, nghi lộ mật khẩu, mất điện thoại. Desk hỏi **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. Người đó bị đăng xuất trên mọi máy và phải đổi mật khẩu tạm ở lần đăng nhập tới. **Đặt lại mật khẩu không gỡ khóa và không gỡ 2 bước**: tài khoản đang bị khóa thì bấm **Mở khóa**; người có 2 bước mất cả điện thoại lẫn mã khôi phục thì làm theo mục 1.7 (từ v1.0.4: **Đặt lại xác thực 2 bước**).
 - **Khóa tài khoản**: dùng khi nghỉ việc, hết hợp tác CTV, hoặc mất điện thoại. Desk hỏi **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. **Mở khóa** khi cần dùng lại.
-- **Đặt lại xác thực 2 bước** (từ v1.0.4, trong **Khác…**): dùng khi người đã bật 2 bước mất cả điện thoại lẫn mã khôi phục. Xem khối **Đặt lại xác thực 2 bước** cuối mục này.
+- **Đặt lại xác thực 2 bước** (trong **Khác…**): dùng khi người đã bật 2 bước mất cả điện thoại lẫn mã khôi phục. Xem khối **Đặt lại xác thực 2 bước** cuối mục này.
 - **Sửa email** (có từ v1.0.3, chỉ chủ đầu tư): đặt email nhận thông báo bảo mật cho nhân viên. Xem bên dưới.
 - Trạng thái **Tạm khóa do sai mật khẩu**: chờ hết thời gian khóa, hoặc bấm **Mở khóa**. Người đó nói không gõ sai: hỏi lại, rồi đổi mật khẩu cho họ (**Đặt lại mật khẩu**) và xem **Cần chú ý**.
 - Trạng thái **Chờ đổi mật khẩu tạm**: người đó chưa đăng nhập lần đầu.
@@ -258,7 +258,7 @@ Nhân viên buồng phòng, bảo trì (và lễ tân trưởng dùng app): lầ
    - yêu cầu hoàn **còn mở** do người đó tạo (mục 8.3): nơi nhận còn trống thì người khác nhập, không phải người nghỉ. Chỉ còn anh/chị thì nhập **Chuyển khoản** rồi duyệt và chi; anh/chị nhập **Tiền mặt** thì không tự duyệt được khoản đó.
 3. **Khóa tài khoản** (dòng **Khóa tài khoản** ở trên). Tài khoản người nghỉ hẳn **không Mở khóa lại**: mật khẩu, 2 bước và mã khôi phục cũ vẫn còn hiệu lực. Tuyển lại thì tạo tài khoản mới (tên đăng nhập mới, mật khẩu tạm mới, bật 2 bước lại nếu vai cần).
 4. **Xóa email** của người đó (phần **Đặt email cho nhân viên** ngay dưới: mở hộp, bấm **Xóa email**, xác nhận bằng mật khẩu và mã 6 số). Sau bước 3, tài khoản này không nhận thư bảo mật về chính mình nữa, **trừ một** thư **Security notice: notification email changed** gửi tới địa chỉ cũ ở bước này (thư không có dữ liệu khách). Người nghỉ êm: báo trước cho người đó về thư này. Anh/chị cũng nhận một bản; các chủ đầu tư vẫn nhận bản của mình.
-5. **Google Chat:** gỡ người đó khỏi phòng "OTTIMO – Yêu cầu đặt phòng" (mục 12.1). Khóa Desk **không** gỡ người đó khỏi phòng. Người đó có tài khoản `@ottimo.vn` riêng: tạm ngưng tài khoản đó trong Admin console.
+5. **Google Chat:** gỡ người đó khỏi phòng "OTTIMO – Yêu cầu đặt phòng" (mục 12.1), và phòng "OTTIMO – Báo động" nếu người đó là người thứ hai (mục 17.1). Khóa Desk **không** gỡ người đó khỏi phòng. Người đó có tài khoản `@ottimo.vn` riêng: tạm ngưng tài khoản đó trong Admin console.
 6. **Chìa, mã, mật khẩu dùng chung** (những thứ người đó biết hoặc được giao):
    - thu chìa cơ, thẻ tổng, thẻ nhân viên của khóa;
    - app khóa: gỡ tài khoản ủy quyền của người đó, vô hiệu mã/thẻ nhân viên trên khóa;
@@ -293,7 +293,7 @@ Người nghỉ là người trực duy nhất: anh/chị sắp xếp người t
 - Quản lý không thấy cột **Email** và không đặt email cho người khác. Quản lý tự nhập email của mình ở mục 1.6a.
 - Lễ tân trưởng: email không bắt buộc, nhưng **khuyến khích** thêm (vai này có quyền duyệt trong hạn mức, nhận phòng ngoại lệ).
 
-**Đặt lại xác thực 2 bước** (có từ v1.0.4, chỉ chủ đầu tư, trên máy riêng). Dùng khi một người **đã bật 2 bước** mà mất cả điện thoại (hoặc ứng dụng xác thực) lẫn mã khôi phục. Người đó **giữ tài khoản cũ**: tên đăng nhập, vai, email và lịch sử thao tác không đổi. Người còn mã khôi phục thì tự vào bằng mã (mục 1.7), không cần khối này. Ở v1.0.3 chưa có nút: làm theo dòng **Ở v1.0.3** ở mục 1.7.
+**Đặt lại xác thực 2 bước** (chỉ chủ đầu tư, trên máy riêng). Dùng khi một người **đã bật 2 bước** mà mất cả điện thoại (hoặc ứng dụng xác thực) lẫn mã khôi phục. Người đó **giữ tài khoản cũ**: tên đăng nhập, vai, email và lịch sử thao tác không đổi. Người còn mã khôi phục thì tự vào bằng mã (mục 1.7), không cần khối này.
 
 Trước khi bấm:
 - **Gặp tận mặt** người đó. Không làm theo tin nhắn, cuộc gọi hay email, kể cả khi người nhắn biết tên đăng nhập hoặc xưng là đội kỹ thuật.
@@ -325,7 +325,7 @@ Trước khi bấm:
 **Người đó làm tiếp, ngay lúc ngồi cùng anh/chị:**
 1. Đăng nhập Desk trên laptop riêng bằng tên đăng nhập và mật khẩu của mình (vừa **Đặt lại mật khẩu** thì đổi mật khẩu tạm trước).
 2. **Vai quản lý (kể cả người trực):** Desk tự mở **Bật xác thực 2 bước**. Làm lại mục 1.3 trên điện thoại mới, cất 10 mã khôi phục mới. Chưa xong thì Desk chưa cho làm việc khác.
-3. **Lễ tân trưởng:** Desk không tự mở. Vào **tên của mình → Bảo mật tài khoản**, khối **Xác thực 2 bước** → **Bật ngay**, làm như mục 1.3 (bắt buộc – mặc định đội chọn, bước 8 ở trên; anh/chị đổi được). Anh/chị nhìn tận mắt khối **Xác thực 2 bước** đã bật rồi mới giao việc.
+3. **Lễ tân trưởng:** Desk không tự mở. Vào **tên của mình → Bảo mật tài khoản**, khối **Xác thực 2 bước** → **Bật ngay**, làm như mục 1.3 (bắt buộc – mặc định đội chọn, bước 8 ở trên; anh/chị đổi được, báo đội). Anh/chị nhìn tận mắt khối **Xác thực 2 bước** đã bật rồi mới giao việc.
 4. **Sale nội bộ, CTV:** đăng nhập bằng mật khẩu, Desk không hỏi mã. **Nên bật lại ngay buổi đó** như bước 3 (không bắt buộc), khi người đó có điện thoại riêng và cất được 10 mã khôi phục.
 5. **Buồng phòng, bảo trì:** tùy chọn. Không bật lại thì tài khoản chỉ có mật khẩu, như trước khi bật; Desk và app không hỏi mã. Bật lại như bước 3 chỉ khi người đó muốn, có điện thoại riêng và giữ được mã khôi phục.
 6. App nhân viên: người vừa bật lại đăng nhập app sau khi bật xong, app hỏi mã 6 số mới. Người không bật lại đăng nhập app bằng mật khẩu (mục 1.8).
@@ -431,7 +431,7 @@ Yêu cầu đi tới **mọi người có quyền duyệt**. Người gửi khô
 3. Tổng ở bước 1 **bằng** số ở bước 2: **không có hoàn trùng**. Không từ chối chỉ vì đơn có hai yêu cầu: từ chối nhầm thì khách mất tiền. Vẫn đọc lý do từng yêu cầu như mọi yêu cầu hoàn (FOC đã duyệt, trả sớm, cọc lớn hơn bill). Lý do không khớp folio thì hỏi người tạo trước khi duyệt.
 4. Tổng **lớn hơn** số ở bước 2 (thường vì có phát sinh mới sau khi tạo yêu cầu, ví dụ minibar lúc trả phòng): không từ chối, bấm **Duyệt** từng yêu cầu. Desk không cho duyệt quá số còn nợ khách: yêu cầu vượt thì Desk báo "Yêu cầu không còn cần duyệt nên đã tự đóng." và tự tạo **yêu cầu thay thế** đúng số còn lại.
    - Desk có thể đóng **cả các yêu cầu khác đang chờ** của đơn và gộp thành **một** yêu cầu thay thế. Riêng phần **đã duyệt chưa chi** đã vượt số còn nợ khách thì Desk đóng cả yêu cầu **đã duyệt** (mới nhất trước) và **xóa nơi nhận đã nhập** của yêu cầu đó (từ v1.0.4: nơi nhận chuyển sang yêu cầu thay thế, xem gạch **Trước khi duyệt yêu cầu thay thế**). Duyệt theo thứ tự nào thì số tiền cuối vẫn đúng.
-   - **Nhận ra yêu cầu thay thế**: hàng **Cần duyệt** và **Hoàn tiền** không ghi lý do; người gửi thường là người tạo yêu cầu cũ, giờ gửi là lúc Desk tự đóng yêu cầu cũ. Mở **Nhật ký tiền → Nhật ký thao tác tiền**, tìm mã đơn: có cặp dòng **cùng phút**, **Đã tự đóng** (số cũ, "Yêu cầu không còn cần duyệt nên đã tự đóng.") rồi **Gửi yêu cầu duyệt** (số mới). Cột lý do của dòng sau có thể hiện mã `overpayment` (lỗi chữ đã biết, sửa ở v1.0.4, mục 15.6). Cột người làm thường ghi người bấm **Duyệt**, hoặc người vừa sửa folio, không phải người tạo. Đó là yêu cầu thay thế, không phải yêu cầu lạ. Desk cũng tự đóng khi có người sửa folio đã chốt: khi đó người gửi yêu cầu thay thế có thể là người vừa sửa. Người gửi là chính anh/chị (vừa sửa folio) thì người khác duyệt (hiện là chủ đầu tư).
+   - **Nhận ra yêu cầu thay thế**: hàng **Cần duyệt** và **Hoàn tiền** ghi lý do **Hoàn tiền khách trả thừa**, cùng chữ với mọi khoản hoàn tiền trả thừa, nên chưa đủ để nhận ra; người gửi thường là người tạo yêu cầu cũ, giờ gửi là lúc Desk tự đóng yêu cầu cũ. Mở **Nhật ký tiền → Nhật ký thao tác tiền**, tìm mã đơn: có cặp dòng **cùng phút**, **Đã tự đóng** (số cũ, "Yêu cầu không còn cần duyệt nên đã tự đóng.") rồi **Gửi yêu cầu duyệt** (số mới). Cột lý do của dòng sau ghi **Hoàn tiền khách trả thừa**. Cột người làm thường ghi người bấm **Duyệt**, hoặc người vừa sửa folio, không phải người tạo. Đó là yêu cầu thay thế, không phải yêu cầu lạ. Desk cũng tự đóng khi có người sửa folio đã chốt: khi đó người gửi yêu cầu thay thế có thể là người vừa sửa. Người gửi là chính anh/chị (vừa sửa folio) thì người khác duyệt (hiện là chủ đầu tư).
    - Yêu cầu **đã duyệt** đang chờ chi mà không còn ở **Hoàn tiền** (Nhật ký thao tác tiền có dòng **Đã tự đóng** cho số đó): không chi theo số cũ; tìm yêu cầu thay thế của cùng mã đơn, làm như gạch dưới.
    - **Trước khi duyệt yêu cầu thay thế**: **Nhật ký tiền → Hoàn tiền** → dòng của mã đơn → kiểm **Cách hoàn** của **yêu cầu mới**. Ở v1.0.3, yêu cầu thay thế **không mang nơi nhận** của yêu cầu cũ, nên thường hiện "—" và nút **Nhập nơi nhận hoàn**. **Áp dụng từ v1.0.4** (khi chủ đầu tư báo v1.0.4 đã lên; tới lúc đó làm như câu trước): yêu cầu thay thế **giữ nơi nhận** (**Cách hoàn**) của yêu cầu bị đóng, nếu các yêu cầu cũ chỉ có **một** nơi nhận, do **một** người nhập. Yêu cầu cũ **không có** nơi nhận thì không tính: một yêu cầu có nơi nhận, một yêu cầu trống thì yêu cầu mới vẫn giữ nơi nhận đó. Vẫn **kiểm Cách hoàn** của yêu cầu mới và đối chiếu với nơi nhận khách đã đưa trước khi duyệt. Người đã nhập nơi nhận ở yêu cầu cũ vẫn **không** duyệt được yêu cầu mới, **trừ chủ đầu tư với khoản chuyển khoản** (như cũ: chủ đầu tư tự nhập chuyển khoản rồi vẫn duyệt và chi được). Các yêu cầu cũ có **2 nơi nhận khác nhau**, hoặc nơi nhận do **2 người khác nhau** nhập: yêu cầu mới **không có** nơi nhận (—), phải **Nhập nơi nhận hoàn** lại. Dòng ghi "Cách hoàn: …" thì đối chiếu với nơi nhận khách đã đưa. Dòng không có cách hoàn (—) thì **Nhập nơi nhận hoàn** trước (mục 8.3), trên máy đã cấp quyền: chuyển khoản thì chủ đầu tư tự nhập rồi vẫn duyệt và chi được; tiền mặt thì người tạo yêu cầu cũ nhập (người nhập nơi nhận tiền mặt không duyệt được khoản đó). Từ v1.0.4 thêm:
      - **Duyệt không mang sang.** Yêu cầu cũ đã duyệt (chưa chi) bị đóng thì yêu cầu thay thế ở **Chờ duyệt**: duyệt lại như mọi yêu cầu. Đây không phải lỗi.
@@ -560,8 +560,6 @@ Tháng lịch cuối của HĐ = tháng chứa ngày kết thúc HĐ (HĐ kết 
 
 [ẢNH: C1-18-Nhật ký thao tác tiền]
 
-> **Lỗi nhỏ đã biết (sửa ở v1.0.4):** cột lý do có thể hiện **mã lý do thô** (chữ tiếng Anh nối bằng gạch dưới). Đọc phần lý do người làm tự ghi, bỏ qua mã.
-
 ### 8.2 Đối soát chuyển khoản (mỗi ngày)
 
 1. Mở tab **Chờ đối soát**. Mở sao kê ngân hàng cùng lúc.
@@ -655,6 +653,8 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 **Đếm khách theo ngôn ngữ** (website có 5 ngôn ngữ từ 06/11): **Yêu cầu từ website** → lọc theo **Ngôn ngữ**, kết hợp lọc trạng thái (gồm cả đã thành đơn, đã đóng) → Desk hiện tổng số yêu cầu khớp lọc. Số chỉ gồm yêu cầu còn trên Desk. Báo cáo, xuất dữ liệu theo ngôn ngữ: dự kiến v1.2. Cách lễ tân trả lời khách tiếng Hàn, Trung, Nga (tiếng Anh, được dùng Google Dịch trên mọi màn hình Desk theo quyết định của anh/chị ngày 01/11): tệp 02 mục 13.1d.
 
 ### 9.2 Tham số quy tắc
+
+> **Lỗi đang sửa – hai tham số (sửa ở v1.0.5):** **Tới khi v1.0.5 lên**, không bấm **Lưu thay đổi** ở hai dòng `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**), nhóm **Khác**: Desk v1.0.4 nhận cả giá trị sai dạng, lưu sai thì Desk không nhận ra đêm cuối tuần, hoặc mọi báo giá và đơn trực tiếp mới báo lỗi, không gỡ được trong ngày (BUG-R5-001, BUG-R5-003). Buộc phải đổi: nhắn đội trước, chọn **Hiệu lực từ** từ ngày mai để còn **Hủy lịch** được. Lỡ lưu: báo đội ngay, coi là **P0** (chủ đầu tư gõ `/feedback P0`, quản lý gọi chủ đầu tư).
 
 1. **Quản trị → Tham số quy tắc**. Tham số chia nhóm: **Giữ chỗ, cọc, hủy** · **Số người & phụ thu** · **Giờ nhận/trả** · **FOC, hoa hồng, phí kênh** · **Bảo mật** · **Khác**.
 2. Bấm **Sửa** ở tham số cần đổi.
@@ -873,14 +873,14 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 | Lễ tân hỏi cách ghi trễ ngày đi trên cổng khai báo lưu trú (đơn quá ngày đi, khách đã đi) | Ghi ngay trong ngày phát hiện, đúng ngày khách rời thật (ngày đi trên đơn cũ), không dán ô ngày đi Desk đang hiện. Ghi sổ giao ca. Hạn ghi trễ: đội đang hỏi luật sư (BR mục 15). Tới khi có câu trả lời, vẫn ghi ngay trong ngày phát hiện và báo chủ đầu tư (tệp 02 mục 11.1, **Đơn quá ngày đi**) |
 | Lễ tân báo căn vẫn hiện có khách mà đơn trước đã **Đã trả phòng** | Không có ngoại lệ nhận phòng. Lễ tân đổi khách sang căn trống sẵn sàng khác (cùng hạng, không có thì nâng hạng, OTTIMO chịu chênh). Nhắn đội kỹ thuật số căn và mã đơn trước để sửa trạng thái căn; không còn căn nào thì gọi đội trong ca. Không dùng **Khóa phòng** (`OOO`) để đặt lại trạng thái (tệp 02 mục 7.4) |
 | Khách yêu cầu xem/xóa dữ liệu | Xử lý tay, không hứa ngày (mục 12) |
-| Lễ tân lỡ gửi link check-in online | Ghi nhận mã đơn từ sổ giao ca; đội đối chiếu mỗi sáng (mục 15.3) |
+| Lễ tân gửi nhầm link check-in online cho người khác | Lễ tân **Thu hồi link** ngay, tạo link mới gửi đúng khách, ghi sổ giao ca, báo anh/chị trong ngày (tệp 02 mục 17.3). Anh/chị: đọc dòng sổ giao ca. Báo đội bằng `/feedback` (không cần P0): mã đơn, giờ gửi, giờ thu hồi, kênh, đơn có hiện **Đã làm thủ tục trước** trước giờ thu hồi không. Không ghi tên khách hay người nhận nhầm. Đội bảo mật trả lời trong ngày có cần làm gì thêm. Không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị |
 | Nhân viên quên mật khẩu | **Đặt lại mật khẩu** (mục 1.9) |
-| Nhân viên mất điện thoại | Không có 2 bước: **Đặt lại mật khẩu** hoặc **Khóa tài khoản**. Có 2 bước mà mất cả mã khôi phục: gặp tận mặt; từ v1.0.4 **Đặt lại xác thực 2 bước** (mục 1.9), ở v1.0.3 làm theo mục 1.7 |
+| Nhân viên mất điện thoại | Không có 2 bước: **Đặt lại mật khẩu** hoặc **Khóa tài khoản**. Có 2 bước mà mất cả mã khôi phục: gặp tận mặt rồi **Đặt lại xác thực 2 bước** (mục 1.9) |
 | Nhân viên bị khóa do sai mật khẩu | **Mở khóa** (mục 1.9). Người đó nói không gõ sai: **Đặt lại mật khẩu**, xem **Cần chú ý** |
 
 ### 14.2 Không được làm
 
-- Không bật 2 bước, không in hay tải mã khôi phục trên máy quầy.
+- Trên máy quầy: không bật 2 bước, không in hay tải mã khôi phục.
 - Không đọc mật khẩu qua điện thoại, không đưa mật khẩu cho lễ tân gõ hộ, không gõ mật khẩu của mình vào phiên của người khác.
 - Không gửi mật khẩu tạm qua chat.
 - Không cấp quyền máy cho điện thoại cá nhân.
@@ -897,7 +897,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 
 ## 15. Tạm thời tới v1.0.3 và các bản sau
 
-Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/chị (chủ đầu tư) báo bản có sửa đã lên. Thư bảo mật, giữ chỗ quá hạn, check-in online sửa ở **v1.0.3** (dự kiến 07/11; thư bảo mật chậm nhất 09/11). Các lỗi ở mục 15.6 sửa ở v1.0.3 hoặc bản vá sau. Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
+Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/chị (chủ đầu tư) báo bản có sửa đã lên. Thư bảo mật, giữ chỗ quá hạn sửa ở **v1.0.3** (dự kiến 07/11; thư bảo mật chậm nhất 09/11). Check-in online đã mở lại từ 06/11/2026 (mục 15.4). Các lỗi ở mục 15.6 sửa ở v1.0.3 hoặc bản vá sau. Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
 
 ### 15.1 Kiểm bảo mật mỗi sáng trước 09:00
 
@@ -922,11 +922,11 @@ Ngày v1.0.3 lên (mục 1.6a):
 - Không dùng lý do hủy **Khác (ghi rõ)** (Desk khóa nút hủy). Chọn **Không liên lạc được** hoặc **Khách đổi ý**; lý do thật ghi sổ giao ca.
 - Anh/chị xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca cùng lượt kiểm sáng. Báo người trực khi v1.0.3 lên.
 
-### 15.4 Check-in online tạm dừng
+### 15.4 Check-in online – đã mở lại 06/11/2026
 
-- Không tạo, không gửi link check-in online cho khách thật. Mọi khách làm giấy tờ tại quầy, được xem tờ **Your ID details** trước khi đưa giấy tờ.
-- Đội kiểm mỗi sáng số link mới tạo trên Desk thật; khác 0 thì đội báo anh/chị mã đơn để đối chiếu với sổ giao ca.
-- Anh/chị báo "mở lại check-in online" chỉ khi đội báo bản v1.0.3 đã có thông báo xử lý dữ liệu mới và bảo mật đã kiểm xong.
+- Từ 06/11/2026 (v1.0.4), lễ tân gửi link check-in online cho khách thật, chỉ với đơn đã xác nhận (tệp 02 mục 17.3). Trang khách có thông báo xử lý dữ liệu bản 2, cùng nội dung tờ **Your ID details** v2 ở quầy. Cách tạm cũ (không gửi link, đội đếm link mỗi sáng) đã bỏ.
+- Sale, CTV vẫn không cấp, không gửi link.
+- Đội có thể báo dừng lại khi kiểm thấy lỗi, ví dụ ở lượt đồng ý thật đầu tiên. Khi đó anh/chị báo người trực "dừng check-in online": ngừng tạo, ngừng gửi link, mọi khách làm giấy tờ tại quầy tới khi đội báo mở lại. Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi.
 
 ### 15.5 Khách trả phòng sớm
 
@@ -936,16 +936,13 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 
 | Lỗi | Cách tạm |
 |---|---|
+| Desk v1.0.4 nhận giá trị sai dạng ở `weekend_nights` và `min_stay` (BUG-R5-001, BUG-R5-003; sửa ở v1.0.5; mục 9.2) | **Tới khi v1.0.5 lên**, không bấm **Lưu thay đổi** ở hai dòng `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**), nhóm **Khác**: Desk v1.0.4 nhận cả giá trị sai dạng, lưu sai thì Desk không nhận ra đêm cuối tuần, hoặc mọi báo giá và đơn trực tiếp mới báo lỗi, không gỡ được trong ngày (BUG-R5-001, BUG-R5-003). Buộc phải đổi: nhắn đội trước, chọn **Hiệu lực từ** từ ngày mai để còn **Hủy lịch** được. Lỡ lưu: báo đội ngay, coi là **P0** (chủ đầu tư gõ `/feedback P0`, quản lý gọi chủ đầu tư). |
 | Thư báo bảo mật chưa gửi tới chủ đầu tư (sửa ở v1.0.3: nhập email ở mục 1.6a) | Kiểm bảo mật mỗi sáng (mục 2.2) tới khi đội bảo mật báo bỏ |
 | Danh sách và nút hủy giá đã lên lịch: có từ v1.0.2 | Tới khi v1.0.2 lên: ghi sổ mỗi lần lên lịch giá (mục 9.1) |
 | Chưa nhập được Wi-Fi trên Desk | Thẻ Wi-Fi trong căn |
 | Câu gợi ý "tạo mã VietQR nhỏ và quét thử" | Không tạo mã thử (mục 10.1) |
 | Folio đã khóa: câu báo ghi "Chỉ quản lý ghi được…" (sai) | Bỏ qua vế đó; không ai sửa được sau 24 giờ |
 | **Hoàn tác nhận phòng** bị từ chối khi folio có dòng mới | Bỏ dòng mới và đảo khoản thu trước (mục 7.1) |
-| Cột lý do trong Nhật ký tiền hiện mã thô | Đọc phần lý do người làm tự ghi |
-| Yêu cầu hoàn thay thế (Desk tạo sau khi tự đóng yêu cầu cũ): hàng **Cần duyệt** và **Hoàn tiền** không ghi lý do; **Nhật ký thao tác tiền** hiện mã `overpayment` ở cột lý do (sửa ở v1.0.4) | Nhận ra theo cặp dòng **Đã tự đóng** – **Gửi yêu cầu duyệt** cùng phút, cùng mã đơn. Kiểm **Cách hoàn** của yêu cầu mới; "—" thì **Nhập nơi nhận hoàn** rồi mới duyệt (mục 4 bước 4) |
-| Chủ đầu tư/quản lý chưa đăng nhập được app nhân viên | Đánh dấu dọn và phiếu sửa trên Desk; người trực tự kiểm căn rồi mới bấm **Làm xong** (mục 1.8) |
-| App nhân viên chưa có màn đổi mật khẩu tạm (BUG-R3-052) | Nhân viên mới, và sau mỗi lần **Đặt lại mật khẩu**: đổi mật khẩu tạm trên Desk trước rồi mới vào app (mục 1.9) |
 | Tài khoản chỉ có vai Bảo trì không chọn được căn trên Desk: không tạo phiếu, không khóa phòng được (BUG-R3-053) | Lễ tân hoặc người trực tạo phiếu, khóa phòng trên Desk; bảo trì báo trên app hoặc nhắn ngày, căn, lý do |
 
 ---
@@ -979,9 +976,10 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 | Sự cố | Ai báo | Anh/chị làm gì |
 |---|---|---|
 | Desk báo lỗi, không đặt / nhận / trả phòng / thu tiền được, hoặc **sai tiền** | Lễ tân trưởng → quản lý → chủ đầu tư | Chủ đầu tư gõ `/feedback` với chữ **"P0"** ở đầu, **chỉ ghi mã đơn**, không ghi tên khách – đội sửa trong ngày. Lễ tân ghi sổ giấy, nhập bù |
+| Lỡ bấm **Lưu thay đổi** ở `weekend_nights` hoặc `min_stay` (tới khi v1.0.5 lên), hoặc mọi báo giá trên Desk báo lỗi | Người lưu → chủ đầu tư ngay | Chủ đầu tư gõ `/feedback` với chữ **"P0"** ở đầu: tên dòng tham số, giờ lưu, **Hiệu lực từ**. Không lưu lại khi đội chưa hướng dẫn. Người trực ghi sổ giấy đơn, báo giá chưa làm được, nhập bù khi Desk chạy lại (mục 9.2) |
 | Lỗi nhỏ, chữ sai, góp ý | Ai cũng được, qua chủ đầu tư | Chủ đầu tư gõ `/feedback <mô tả>`. Bản vá hằng tuần thứ Tư 09:30–10:30 |
 | Mất điện quá 4 giờ | Quản lý → chủ đầu tư | Quyết đổi phòng hoặc bù (**Bù sự cố**) |
-| Quên mật khẩu, mất điện thoại, tài khoản bị khóa (nhân viên) | Nhân viên → chủ đầu tư | **Đặt lại mật khẩu** / **Mở khóa** / **Khóa tài khoản** (mục 1.9). Người có 2 bước mất cả điện thoại lẫn mã khôi phục: gặp tận mặt; từ v1.0.4 **Đặt lại xác thực 2 bước** (mục 1.9), ở v1.0.3 khóa tài khoản cũ, tạo tài khoản mới (mục 1.7) |
+| Quên mật khẩu, mất điện thoại, tài khoản bị khóa (nhân viên) | Nhân viên → chủ đầu tư | **Đặt lại mật khẩu** / **Mở khóa** / **Khóa tài khoản** (mục 1.9). Người có 2 bước mất cả điện thoại lẫn mã khôi phục: gặp tận mặt rồi **Đặt lại xác thực 2 bước** (mục 1.9) |
 | Nghi lộ mật khẩu hoặc tài khoản lạ đăng nhập | Bất kỳ ai → chủ đầu tư ngay | **Đặt lại mật khẩu** người đó (Desk đăng xuất trên mọi máy) hoặc **Khóa tài khoản** |
 | Dòng **Đã lên lịch** lạ ở tài khoản nhận, dấu hiệu ai dùng mã khôi phục của mình | Chủ đầu tư | Mục 10.2, gọi đội ngay |
 | Mã VietQR hiện "Tài khoản nhận vừa đổi" mà chưa báo lễ tân | Lễ tân → chủ đầu tư | Xác nhận hoặc làm theo mục 10.2 |
@@ -990,9 +988,11 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 
 Khi báo lỗi cho đội: theo mục 12 – mô tả bằng lời, mã đơn, mã tham chiếu; không tên khách, không ảnh có dữ liệu khách.
 
-### 17.1 Phòng Google Chat "OTTIMO – Báo động" (chỉ chủ đầu tư)
+### 17.1 Phòng Google Chat "OTTIMO – Báo động" (chủ đầu tư và tối đa một người thứ hai)
 
-- Phòng cảnh báo kỹ thuật, **chỉ chủ đầu tư** ở trong phòng; không thêm người trực hay nhân viên. Tin không có dữ liệu khách.
+- Phòng cảnh báo kỹ thuật. Trong phòng có chủ đầu tư, và tối đa **một** người thứ hai anh/chị chọn. Đội đề xuất quản lý hoặc lễ tân trưởng, tài khoản `@ottimo.vn`. Không thêm ai khác. Tin chỉ có tên mục kiểm và số đếm, không có dữ liệu khách.
+- Thêm người thứ hai: điện thoại người đó đã cài theo mục 12.1. Mở phòng trong Google Chat, thêm người đó bằng tài khoản `@ottimo.vn` là **thành viên** (không làm quản lý phòng). Không thêm ứng dụng hay webhook nào khác vào phòng. Cho người đó đọc sổ vận hành mục 2.3 bước 6 (lễ tân trưởng: tệp 02 mục 13.5). Rồi nhắn đội "đã thêm người thứ hai vào phòng Báo động – vai …" (không ghi tên, email). Người đó nghỉ việc: gỡ khỏi phòng cùng ngày. Cách làm đầy đủ: sổ vận hành `product/docs/so-van-hanh.md` mục 7.2.
+- Người thứ hai nhận **FAIL**: mở thử `desk.ottimo.vn` trên 4G. Không vào được: gọi anh/chị ngay, người trực ghi sổ giấy (tệp 02 mục 15). Vào được: nhắn anh/chị trong ngày. Anh/chị báo đội như dưới đây.
 - Nhận gì: tin **FAIL** khi máy chủ hoặc một dịch vụ có lỗi (ví dụ sao lưu, ổ đĩa, bộ nhớ, lỗi máy chủ), nhắc lại mỗi 6 giờ khi lỗi còn; tin **OK** khi đã hồi phục. Thêm **email** từ **Healthchecks.io** (máy chủ báo lỗi hoặc im lặng quá 1 giờ) và **UptimeRobot** (trang không mở được từ bên ngoài) về `info@ottimo.vn`.
 - Nhận **FAIL**: mở thử `desk.ottimo.vn` bằng dấu trang. **Không vào được**: báo đội ngay bằng `/feedback` có chữ **"P0"**, ghi **giờ nhận tin** và tên mục trong tin; người trực ghi sổ giấy (tệp 02 mục 15). Vào được: người trực làm việc bình thường; anh/chị vẫn báo đội trong ngày kèm giờ nhận tin.
 - **Không tự sửa máy chủ**, không đăng nhập máy chủ. Tin **OK** sau FAIL: không cần làm gì.
@@ -1048,7 +1048,7 @@ Bài tập chủ đầu tư, quản lý:
 3. Duyệt và từ chối một yêu cầu miễn phí ở **Cần duyệt**.
 4. Xem lại một phụ thu trả muộn bằng giá 1 đêm: **Mở folio** → **Đã xem**.
 5. Đối soát một khoản ở **Chờ đối soát**.
-6. Chủ đầu tư: thêm một người dùng giả, **Đặt lại mật khẩu**, **Mở khóa** tài khoản bị khóa tạm, **Khóa tài khoản**. Từ v1.0.4: **Đặt lại xác thực 2 bước** cho một người dùng giả đã bật 2 bước, rồi cùng người đó bật lại (mục 1.9). Nói được cách làm khi người trực mất cả điện thoại lẫn mã khôi phục (mục 1.7).
+6. Chủ đầu tư: thêm một người dùng giả, **Đặt lại mật khẩu**, **Mở khóa** tài khoản bị khóa tạm, **Khóa tài khoản**. **Đặt lại xác thực 2 bước** cho một người dùng giả đã bật 2 bước, rồi cùng người đó bật lại (mục 1.9). Nói được cách làm khi người trực mất cả điện thoại lẫn mã khôi phục (mục 1.7).
 7. Duyệt và chi một khoản hoàn do người khác tạo.
 8. Trên điện thoại của mình: kiểm 3 cài đặt Google Chat ở mục 12.1 (khóa màn hình, ẩn nội dung trên màn hình khóa, tắt email thông báo). Nói được 5 bước xóa tin Chat khi người gửi form xin xóa (mục 12.2) và việc cần làm khi nhận tin **FAIL** (mục 17.1).
 
@@ -1063,3 +1063,16 @@ Bài tập kế toán: cùng chủ đầu tư đọc **Nhật ký tiền** một
 | | | | | | |
 | | | | | | |
 | | | | | | |
+
+## Lịch sử tệp
+
+Chuyển từ dòng **Lập:** đầu tệp (04/11/2026; phần bổ sung 05/11 chuyển vào ngày 05/11, giữ nguyên chữ). Mới nhất ở trên.
+
+- Bản 1.13 – 06/11/2026 (bộ hướng dẫn 1.14), **áp dụng ngay, tới khi v1.0.5 lên**: lời dặn không bấm **Lưu thay đổi** ở `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**); buộc phải đổi thì **Hiệu lực từ** từ ngày mai; lỡ lưu thì báo đội, coi là P0 (mục 9.2, 15.6, 17; BUG-R5-001, BUG-R5-003). Gỡ khi v1.0.5 lên.
+- Bản 1.12 – 06/11/2026 (bộ hướng dẫn 1.13), áp dụng ngay: các mục ghi ở `00` mục 7, hai khối "Sửa 06/11/2026" (check-in online mở lại, gửi nhầm link, website theo thực tế 06/11).
+- Bản 1.11 – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12); sửa theo SEC: bảng thiết bị mục 1.1 (app nhân viên đăng nhập bằng mã 6 số), mục 14.2 ("Trên máy quầy: …").
+
+- Bản 1.10 – 04/11/2026 (gộp sau bản 1.9), **áp dụng từ v1.0.4**: Desk chặn cả `booking@` (mục 1.6a, 1.9); Desk giữ ngày kết thúc HĐ khi gia hạn, **Trả sớm** chọn đúng nhánh (mục 7.3); lễ tân có thể hỏi anh/chị số chờ hoàn của **Trả sớm** do người khác tạo (mục 7.3); sửa theo review DOM: câu in đậm "Tới v1.0.3, Desk chỉ chặn được `info@`" (mục 1.6a), v1.0.5 hiện tổng số đang chờ hoàn (mục 7.3); sửa theo DOM lượt 3: bảng duyệt – **Nhận phòng khi buồng chưa sẵn sàng** chỉ cho căn `VD`, `CL`, căn có khách thì từ chối (mục 4); bổ sung 05/11 (DOM lượt 5): căn còn đơn khác đang ở cũng từ chối, từ v1.0.4 Desk chặn (mục 4); bổ sung 05/11 sau khi gộp main: mục 14.1 thêm 3 tình huống – đơn Nội bộ có đêm miễn phí chờ sửa 0 đ (từ v1.0.4), yêu cầu giảm 100 % "Quên bấm Trả phòng", căn vẫn hiện có khách sau khi đơn trước đã trả phòng; sửa theo review #72: sửa đêm miễn phí về 0 trước khi người ở nhận phòng và kiểm người cho (BR-105 v0.5.9), duyệt giảm 100 % "Quên bấm" khi có ít nhất hai dấu hiệu, từ 2 đêm quản lý không bấm **Duyệt**, duyệt nhận phòng buồng chưa sẵn sàng chỉ khi **Lý do** ghi đã kiểm căn (mục 4, 14.1)
+- Bản 1.9 – 04/11/2026, **áp dụng từ v1.0.4**: khối **Đặt lại xác thực 2 bước** cho người đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục, thay cách khóa tài khoản rồi tạo tài khoản mới; nút **Khác…** ở **Người dùng & vai** (mục 1.6a, 1.7, 1.8, 1.9, 14.1, 17, 18.2; BUG-R4-032; sửa cùng ngày theo review SEC, PO: chỉ quản lý và lễ tân trưởng phải bật lại ngay, sale/CTV nên bật, buồng phòng/bảo trì tùy chọn, đặt lại mật khẩu luôn khi điện thoại bị lấy cắp hoặc có lưu mật khẩu, khóa cũng đăng xuất mọi máy, một tài khoản chủ đầu tư, câu báo khi 2 bước đã đổi ở chỗ khác; sửa theo SEC lượt 2: không phải chủ đầu tư đổi thì đặt lại mật khẩu ngay, tài khoản chủ đầu tư thứ hai chỉ cho người khác)
+- Bản 1.6 – 04/11/2026, **áp dụng từ v1.0.4** (bản đang chạy là v1.0.3; tới khi chủ đầu tư báo v1.0.4 đã lên, làm như cũ): tiêu đề thư bảo mật mới theo CPY ("Security notice: 2-step verification was reset", "Security notice: receiving account update", thư hủy lịch đổi tài khoản nhận cùng tiêu đề), app nhân viên có bước nhập mã 2 bước, đổi mật khẩu tạm ngay trên app, bật 2 bước làm trên Desk, yêu cầu hoàn thay thế giữ nơi nhận khi các yêu cầu cũ chung một nơi nhận do một người nhập; sửa cùng ngày theo review DOM: khối **Ngày cuối của người nghỉ** (mục 1.9, áp dụng ngay), tham số `privacy_notice_version` chỉ đổi đúng ngày thay tờ v2 (9.2), yêu cầu hoàn thay thế (4), mặc định 2 bước và kiểm căn trên app (1.8, 1.9); sửa theo DOM lượt 2 và SEC: khối **Ngày cuối của người nghỉ** có thứ tự riêng cho người bị cho thôi việc, không Mở khóa lại, chìa/mã/mật khẩu dùng chung, đăng xuất app nhân viên, căn HĐ thuê tháng đổi mã trong 7 ngày (1.9); gọi người trực trước mọi lần Lưu `privacy_notice_version` (9.2); sửa theo DOM lượt 3 và SEC: gỡ phòng Google Chat theo thứ tự mục 1.9 (12.1), người nghỉ êm Đăng xuất app trước bước 3 (1.9); áp dụng ngay: người nghỉ hẳn thì Khóa tài khoản rồi Xóa email, Tạm khóa do sai mật khẩu vẫn nhận thư (SEC M18-08) (mục 1.6a, 1.8, 1.9, 4)
+- Bản 1.5 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat, xóa theo yêu cầu người gửi, phòng Báo động theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và đếm yêu cầu theo ngôn ngữ – mục 9.1a – áp dụng khi gói website LP-v2 phát hành; bản 1.5 ngày 03/11 viết lại mục 7.3 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2 và bảng quyết định ký quỹ HĐ thuê tháng theo ESC-048, mục 15.5; bản 1.6 ngày 04/11 thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3, mục 1.6, 1.6a, 1.9, 15.1; bản 1.7 ngày 03/11, áp dụng cùng 1.6 khi v1.0.3 lên: sửa theo review DOM và ARC – bảng **Thư nào – làm gì** cho 4 loại thư, chọn hộp thư riêng, Desk chỉ chặn `info@`, kiểm sáng tới khi đội bảo mật báo bỏ, thứ tự nhập email, vai dùng app nhân viên chưa bật 2 bước, mất cả điện thoại lẫn mã khôi phục thì gặp tận mặt và tạo tài khoản mới theo SEC – mục 1.6a, 1.7, 1.9, 2.2, 10.1, 15.1; bản 1.8 ngày 04/11, áp dụng ngay: một đơn có thể có hơn một yêu cầu hoàn – cộng các yêu cầu còn mở (chờ duyệt và đã duyệt chưa chi), đối chiếu với dòng **Hoàn lại khách** trên Phiếu thanh toán trước khi từ chối; yêu cầu thay thế kiểm nơi nhận trước khi duyệt; đơn HĐ thuê tháng không hoàn theo khối này; trả phòng không tạo lại khoản Trả sớm – mục 4, 7.3; BUG-R4-025, sửa cùng ngày theo review DOM; sửa cùng ngày theo QA đọc staging: nhận ra yêu cầu thay thế theo cặp dòng **Đã tự đóng** – **Gửi yêu cầu duyệt** ở Nhật ký thao tác tiền, không theo chữ "trả thừa" (cột lý do có thể hiện mã `overpayment`, BUG-R4-026), Desk có thể đóng cả yêu cầu đã duyệt chưa chi và xóa nơi nhận – mục 4 bước 4–5; sửa theo DOM lượt 2: người gửi/người làm "thường", ca người vừa sửa folio không tự duyệt, dòng BUG-R4-026 ở mục 15.6)
