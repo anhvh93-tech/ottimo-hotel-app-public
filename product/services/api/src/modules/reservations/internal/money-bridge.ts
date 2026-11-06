@@ -133,6 +133,7 @@ export class MoneyBridge {
       receivedAt: payment.receivedAt ? new Date(payment.receivedAt) : now,
       posAuthCode: payment.posAuthCode ?? null,
       note: payment.note ?? null,
+      bankReference: payment.bankReference ?? null,
       recordedBy: userId,
       ...(requestId ? { requestId } : {}),
     });

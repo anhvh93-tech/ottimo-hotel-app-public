@@ -107,7 +107,8 @@ describe.skipIf(!HAS_DB)('V5-48 follow-ups (ARC 105-01, 105-02)', () => {
     // T + 1 h: the guest's transfer shows up; the desk types the time the bank says, T − 2 h.
     await x.at('2026-11-21T12:00:00+07:00');
     const res = await x.c.fd!.send('POST', x.url(`/folios/${b.folioId}/payments`), {
-      type: 'deposit',
+      // 5B-1 (PR-B3): a booking cancelled while confirmed takes `charge` after closure (`deposit` only for a hold).
+      type: 'charge',
       method: 'bank_transfer',
       amountVnd: 300_000,
       receivedAt: '2026-11-21T09:00:00+07:00',
