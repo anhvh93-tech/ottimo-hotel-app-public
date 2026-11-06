@@ -174,3 +174,14 @@ Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | **PO – quyết định 28 (plan R5): bảng kiểm cắt tag 4a thêm T12–T14** (theo ARC FB-R5-ARC-PO-112-01, BA lượt 4 da596507). T12: #112 + FE V5-13 + FE V5-18 – thiếu FE thì bỏ hai câu ở dòng Trả phòng và tiền ở quầy (tổng đang chờ hoàn kể cả yêu cầu người khác tạo; cọc chưa đối soát), thiếu FE V5-13 thì lời dặn "hỏi quản lý" của v1.0.4 (ca CO-01b) thành giới hạn v1.0.5, đích v1.0.6. T13 (chặn): Desk đọc lockReason (V5-44 (a)) không vào tag thiếu #112. T14: bước nhập Wi-Fi ngày lên chỉ giữ khi Desk V5-58 cùng tag với #120. T5: audit đếm lại minibar BE-A2 0b2ebb45 vào tag cùng #110, phần chặn không vào v1.0.5 (R5-B-15); release notes không có câu "đếm lại chưa hiện trong bộ lọc", kiểm bằng grep lúc cắt. Release notes v1.0.5: câu đóng ca và minibar theo BE-A2; mục mới Việc anh/chị làm ngày lên (nhập Wi-Fi; in thẻ mới chỉ khi đổi mật khẩu) | PO | Quyền PO (release notes, bảng kiểm cắt bản); không ESC |`
+
+## Cập nhật 07/11 (lượt 3) – bảng kiểm T15 (#99 cần #127)
+
+- **Đã làm:** plan R5 mục 4a thêm **T15** (chặn) theo SEC `rounds/round-05/reviews/SEC-on-be-pr-99-delta.md` mục 0, 2: tag có #99 thì có #127 (`r5-text-strip`). #127 không kịp: bỏ #99 khỏi tag hoặc dời ngày cắt, ORC + PO chọn. Bỏ #99 thì V5-15 phía máy chủ dời (Gói 1, cần dòng decision-log PO + ORC), release notes bỏ câu "Trả phòng được đơn quá ngày đi" và giữ lời dặn v1.0.4 "Đơn quá ngày đi mà vẫn Đang ở", đích v1.0.6. Quyết định 29. Đã ghi nhận: ORC chấp nhận giả định Wi-Fi (in thẻ mới chỉ khi đổi mật khẩu).
+- **File sửa:** `rounds/round-05/plan.md`, tệp này.
+- **Giả định:** nút **Báo cần dọn** (T2) không phụ thuộc #99, vì máy chủ R8 đã trên `main`.
+- **ESC mới:** không.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | **PO – quyết định 29 (plan R5): bảng kiểm cắt tag 4a thêm T15 (chặn) – tag có #99 (BE-A2 V5-15) thì phải có #127 (BE-A1 r5-text-strip)** (theo SEC SEC-on-be-pr-99-delta.md mục 0, 2): #99 ghi giờ khai vào actual_checkout_at, khai báo lưu trú và hồ sơ khách ở mọi B18 kể cả giờ quy đổi; #127 thêm notBeforeCheckIn cho mọi B18 (ca A1A-01) và bỏ ký tự điều khiển ở Fields.text (A1B-01). #127 không kịp lúc cắt: bỏ #99 khỏi tag hoặc dời ngày cắt, ORC + PO chọn và ghi decision-log; bỏ #99 là dời V5-15 phía máy chủ (Gói 1, QC điều 1), release notes bỏ câu "Trả phòng được đơn quá ngày đi", giữ lời dặn v1.0.4 "Đơn quá ngày đi mà vẫn Đang ở", đích v1.0.6 | PO | Quyền PO (bảng kiểm cắt bản); không ESC |`
