@@ -969,11 +969,12 @@ Nguồn: bảng giá INV 01/11/2026, mục 1–4 (bản gốc INV giữ ngoài k
 
 ### v0.5.15 – 07/11/2026 (Round 5 – v1.0.5 Phản hồi & sửa: DOM trả lời QA FB-R5-QA-DOM-BR438-01)
 
-Không đổi luật, không đổi con số nào của INV. Trả lời: `rounds/round-05/responses/DOM-responses.md`; QA: `rounds/round-05/reviews/QA-on-DOM-br438-oracles.md`.
+Không đổi luật, không đổi con số nào của INV. Trả lời: `rounds/round-05/responses/DOM-responses.md`; QA: `rounds/round-05/reviews/QA-on-DOM-br438-oracles.md`. Dòng BR-101 (5) thêm khi DOM review PR #121.
 
 | Mã | Thay đổi | Nguồn |
 |---|---|---|
 | BR-438 (ví dụ) | Phụ thu trả muộn ghi lúc Trả phòng (B18): Trả phòng chốt folio trong cùng giao dịch, nên dòng này theo A32 và BR-433 (e), không theo BR-438 – lễ tân, lễ tân trưởng bị chặn (403, không gợi ý FOC), quản lý sửa được. Muốn miễn: đặt giờ trả muộn rồi FOC **trước** khi bấm Trả phòng; FOC đã duyệt đi theo sang dòng B18. Câu luật (folio chưa `settled`; (3) folio `settled` theo A32) giữ nguyên. DOM chọn phương án A của QA | `checkout.service.ts` (`folios.settle` cùng giao dịch), `folio-lines.service.ts` `adjust` (A32 trước BR-438), `stay-support.ts` `replaceLateCharge` + `syncReductions` |
+| BR-101 (5) (ví dụ) | Ví dụ BR-101-16 (đường API cũ tính giá tháng ÷ `night_from_month_divisor`) nghỉ, `retiredIn` 0.5.15, khi PR #121 (V5-1A) gộp; BR-101-17 (422, giá đêm giữ nguyên) bỏ `pendingFix`. Không đổi chữ luật: câu "Tới khi v1.0.5 lên" vẫn đúng cho bản đang chạy | PR #121 (BE-C) `br-examples.json`; DOM review `rounds/round-05/reviews/DOM-on-prs-112-121-122.md` |
 
 ### v0.5.14 – 07/11/2026 (Round 5 – v1.0.5 Review: DOM review PR #101, #108, #110; ARC review #103 mục 3)
 

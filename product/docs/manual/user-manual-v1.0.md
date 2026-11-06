@@ -840,7 +840,7 @@ Lưu ý:
   - **Từ v1.0.5:** tin hiện "Giữ chỗ chưa cọc đã hết hạn và tự hủy". Người nhận: người tạo, người chốt và **mọi người có tài khoản đang hoạt động, có vai lễ tân hoặc lễ tân trưởng tại cơ sở**. Tài khoản đã khóa không nhận. Mỗi người một tin cho mỗi đơn.
   - Có tin hay không, vẫn rà giữ chỗ theo mã đơn ở Tờ 2a tới khi chủ đầu tư báo hết tạm. Thấy tin: mở đơn theo mã (gõ mã vào ô tìm ở **Đơn đặt phòng**, bấm **Tất cả**), rồi làm theo trạng thái đơn:
     - Đơn **Đã hủy**, lý do **Hết hạn giữ chỗ**: kiểm tiền về theo mã đơn rồi báo khách (đơn sale, CTV: báo người đó trước).
-    - Đơn còn **Giữ chỗ · chờ cọc**: đơn chưa hủy, căn vẫn giữ. **Không** báo khách đơn đã hủy. Làm theo gạch **Đã nhận cọc (đủ hoặc thiếu)** ngay dưới đây.
+    - Đơn còn **Giữ chỗ · chờ cọc**: đơn chưa hủy, căn vẫn giữ. **Không** báo khách đơn đã hủy. Đã có cọc: làm theo gạch **Đã nhận cọc (đủ hoặc thiếu)** ngay dưới đây. Chưa nhận đồng nào (Desk chưa kịp tự hủy): làm theo Tờ 2a, dòng **Hết hạn, chưa cọc**, câu "Quá hạn vài phút…". <!-- DOM 07/11 (lượt đọc 792e510a): thêm vế "chưa nhận đồng nào" cho khớp `02` 4.5 (ý (2)/(3) của 17.1) và Tờ 2a; không đổi ý. -->
   <!-- FB-R5-DOM-PO-08 (rounds/round-05/reviews/DOM-on-ba-v105-docs.md mục 1): v1.0.4 cả ba kind giữ chỗ (hold_expired, hold_overdue_with_deposit, hold_overdue_cap) hiện staff.notif.k.other kèm mã đơn; push: false. Câu "Từ v1.0.5 mỗi loại có câu riêng" đúng khi MOB #117 lên cùng tag với #100 (DOM giả định 1). -->
 - **Đã nhận cọc (đủ hoặc thiếu):** Desk **không** tự hủy (có tiền của khách). Đơn giữ nguyên **Giữ chỗ · chờ cọc**, căn vẫn bị giữ, đồng hồ hiện **"còn 0 giờ 00 phút"** màu đỏ (trong sổ tay gọi tắt là **"0h00"**). Phải xử lý trước **12:00 ngày đến**.
 
