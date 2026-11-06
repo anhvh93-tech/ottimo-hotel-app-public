@@ -150,3 +150,24 @@
   - nút gợi ý điền chữ theo ngôn ngữ đang dùng trên Desk; máy chủ nhận chữ tự do;
   - ngăn đơn chỉ đọc tóm tắt khi đủ cả bốn điều kiện: FD+, đơn gốc đang ở, ngày đi hiệu lực đã qua theo ngày nghiệp vụ, không có `check_out`. Đọc lỗi thì không hiện gì thêm (như trước);
   - danh sách "Hôm nay" và sơ đồ phòng không đổi: hàng nào máy chủ không mời `check_out` thì không có nút, như trước.
+
+## 6. Phản hồi & sửa sau review (07/11/2026)
+
+Review: UXD `UXD-on-fe-prs-145-146.md`, DOM `DOM-on-fe-pr-145.md`, ARC `ARC-on-fe-prs-145-146.md`, SEC `SEC-on-fe-pr-145.md`. Chữ theo `copy-v1.0.5.md` bản 2.4 mục 9.15, chép đúng dòng `gen_strings.py` của UXD.
+
+- **Gộp `main` hai lần** (`92635b39`, rồi `c2d5588d` sau #130). Chỉ xung đột `strings.js`; giải bằng `python3 -I design/tools/gen_strings.py` (3518 chuỗi + 8 mẫu), không sửa tay. Không rebase, không force-push.
+- **Bảng A (điều kiện gộp, UXD 145-01 / DOM 145-01):**
+  - sửa chữ `checkout.overdue_time_help`, `checkout.overdue_after_limit`; EN `checkout.overdue_reason.no_notice` = "Guest left without notice";
+  - thêm `checkout.overdue_time_help_agreed`. Đơn quá ngày đi có `agreedCheckoutTime` → câu này, `{time}` = giờ hẹn; không có → `overdue_time_help`, `{time}` = `standardCheckoutTime ?? rules.checkoutTime`;
+  - nhánh quá ngày đi không còn `co.time_from_late`. Nhánh thường giữ như `main`;
+  - ghi chú các khóa: "UXD duyệt 07/11 (UXD-on-fe-prs-145-146)".
+- **Bảng B (cùng lượt):**
+  - `checkout.overdue_time_early` (DOM 145-02, ARC 3.4): thay `overdue_after_limit` ở lỗi ô giờ và `overdueWhy` khi `overdue && extraNightRequired && localDayTime(s.checkoutAt).day !== stayDeparture`. Lấy `checkoutAt` của máy chủ, không so giờ gõ với 06:00. Đơn đã gia hạn mà vẫn quá ngày đi: `{date}` là ngày đi sau gia hạn. `{rollover}` = `property.businessDayRollover`. Hàm `overdueEarlyAt` ở `overdue.tsx`;
+  - `checkout.overdue_extend_hint` (DOM 145-03): sau câu `overdue_need_*` ở màn chỉ dẫn và trong cùng `span` của ngăn đơn, chỉ khi `allowedActions` có `extend_stay`;
+  - `checkout.overdue_reason_evidence` (DOM 145-04, UXD 145-05): đứng trước câu D12c trong cùng dòng `help`; nút gợi ý 1, 2 điền chữ rồi đặt con trỏ cuối ô (không thêm dấu phẩy).
+- **UXD 145-03:** sau 403 của B18, focus vào Alert màn chỉ dẫn (`div tabIndex=-1`, một lần). Mở trang thẳng vào màn chỉ dẫn thì không dời focus.
+- **SEC 145-02, ARC 145-01 (mock):** nhánh B18 quá ngày đi dò số thẻ bằng `containsCardNumber` (luật V-09 như máy chủ) và trả `422 CARD_NUMBER_DETECTED` với `errors: [overdueReason]` như `Fields.done()`. Phần kiểm ngày `checkoutAt` của mock giữ nguyên (Desk không gặp).
+- **Test** `v5-15-overdue-fea.test.tsx`: 15 → 21 ca. Ca mới: giờ hẹn 17:00 (giữ 17:00 và phụ thu hẹn, không có "12:00", không có "(giờ trả chuẩn)", không có "Theo giờ trả muộn đã hẹn"; đổi 14:00 → `late_recalc` 350.000 → 210.000, không đòi tick); 03:00 → `overdue_time_early`, không có `overdue_after_limit`, rồi 06:00 → hộp xác nhận "06:00 ngày D", B18 200; đơn đã gia hạn vẫn quá ngày đi; 18:30 cùng ngày đi vẫn là `overdue_after_limit`; lý do có giờ và ngày không bị coi là số thẻ; hàm thuần. Ca 422 kiểm thêm help còn sau lỗi và dạng trả lời của mock. Ca 403 kiểm focus.
+- **Đột biến** (đã hoàn nguyên): bỏ nhánh giờ hẹn, tắt câu rạng sáng, bỏ focus sau 403, hiện câu Gia hạn bất kể quyền, bỏ câu Gia hạn ở ngăn đơn, ẩn help khi lỗi (SEC M3), mock trả lại `VALIDATION_FAILED`, giữ `co.time_from_late` trên nhánh quá ngày đi → **đều đỏ**. Đột biến "so giờ gõ với 06:00 ở Desk" vẫn xanh: với máy chủ v1.0.5 (và mock) hai cách cho cùng kết quả; ca hàm thuần giữ luật "ngày của `checkoutAt` máy chủ" cho v1.0.6.
+- **Kết quả:** admin-web 95 tệp / 1075 ca xanh, `tsc` sạch, eslint và prettier sạch trên các tệp đã sửa.
+- **Chưa làm (để v1.0.6):** UXD 145-04 (tách dòng `overdue_effect` lên đầu hộp xác nhận, chữ 600 – cần một lớp CSS mới), UXD 145-06 (`Seg` trên điện thoại, lượt DS), ARC 145-03 (403 của QR → màn gọi ai), phần kiểm ngày `checkoutAt` của mock (ARC 145-01), SEC 145-01 (chữ, UXD), ARC-QA-145-02 (QA). Chưa chụp màn hình lại; UXD xem phần thay đổi trên mock.
