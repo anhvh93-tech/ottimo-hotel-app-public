@@ -25,10 +25,12 @@ ko() { echo "FAIL  $*"; fail=$((fail + 1)); }
 # image + command of the postgres service, as written in the compose file
 svc=$(awk '/^  postgres:$/ { on = 1; next } on && /^  [a-z]/ { exit } on' "$prod")
 image="${PG_IMAGE:-$(sed -n 's/^    image: //p' <<<"$svc" | head -n 1)}"
-cmdline=$(sed -n "s/^    command: \[\(.*\)\]$/\1/p" <<<"$svc" | head -n 1)
+# flow list on one line (`command: ['postgres', …]`) or wrapped by prettier over several lines up to `]`
+cmdline=$(awk '/^    command:/ { on = 1; sub(/^    command: */, "") } on { buf = buf $0; if ($0 ~ /\]/) { print buf; exit } }' <<<"$svc" |
+  sed -E 's/^ *\[//; s/\] *$//')
 [ -n "$cmdline" ] || { ko "postgres service has no command"; echo "== $pass passed, $fail failed"; exit 1; }
 args=()
-while IFS= read -r a; do [ -n "$a" ] && args+=("$a"); done < <(tr ',' '\n' <<<"$cmdline" | sed -E "s/^ *'//; s/' *$//")
+while IFS= read -r a; do [ -n "$a" ] && args+=("$a"); done < <(tr ',' '\n' <<<"$cmdline" | sed -E "s/^ +//; s/ +$//; s/^'//; s/'$//")
 [ "${args[0]}" = postgres ] && ok "compose: postgres command = ${args[*]}" || ko "compose: command does not start postgres: ${args[*]}"
 case " ${args[*]} " in *" log_error_verbosity=terse "*) ok "compose: log_error_verbosity=terse" ;; *) ko "compose: no log_error_verbosity=terse" ;; esac
 pins="log_error_verbosity=terse log_min_duration_statement=-1 log_parameter_max_length=0 log_parameter_max_length_on_error=0 log_statement=none"

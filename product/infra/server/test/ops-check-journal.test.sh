@@ -177,7 +177,9 @@ if [ "$(grep -c '^    driver: journald$' "$prod")" = 1 ] && ! nocomment "$prod" 
   ok "18 compose: the shared logging block is journald, no max-size/max-file"; else ko "18 compose logging"; fi
 if grep -q '^      driver: journald$' "$edge" && ! nocomment "$edge" | grep -Eq 'driver: local|max-size|max-file'; then
   ok "19 edge compose: journald, no max-size/max-file"; else ko "19 edge logging"; fi
-if grep -Eq "^    command: \['postgres', '-c', 'log_error_verbosity=terse'(, '-c', '[a-z_]+=[a-z0-9-]+')*\]$" "$prod"; then ok "20 postgres runs log_error_verbosity=terse"; else ko "20 postgres command"; fi
+# the postgres command list, one line or wrapped by prettier, joined and without spaces
+pgcmd=$(awk '/^  postgres:$/ { on = 1; next } on && /^  [a-z]/ { exit } on && /^    command:/ { c = 1 } c { b = b $0; if ($0 ~ /\]/) { print b; exit } }' "$prod" | tr -d ' ')
+if grep -Eq "^command:\['postgres','-c','log_error_verbosity=terse'(,'-c','[a-z_]+=[a-z0-9-]+')*,?\]$" <<<"$pgcmd"; then ok "20 postgres runs log_error_verbosity=terse"; else ko "20 postgres command"; fi
 if grep -q '"log-driver": "journald"' "$src/bootstrap-vps.sh" && ! grep -Eq '"max-size"|"max-file"' "$src/bootstrap-vps.sh"; then
   ok "21 daemon.json: journald, no max-size/max-file (dockerd would not start)"; else ko "21 daemon.json"; fi
 conf="$src/journald/50-ottimo.conf" good=1
