@@ -13,9 +13,10 @@
  * min_stay (DOM 12.1 + nights ≤ short_stay_max_nights, both directions), and the other structured keys of the
  * quote / booking / web estimate / check-in / check-out paths: special_dates, los_discount, cancel_policy_direct,
  * early_checkin_tiers, late_checkout_tiers, early_departure_refund, checkout_reminders, weekend_uplift_channels,
- * special_uplift_channels, max_open_holds_per_user, lease_terms (what the quote reads).
+ * special_uplift_channels, max_open_holds_per_user, lease_terms (what the quote reads); damage_catalog (BR-512, read
+ * by the folio and the bill – pulled from R5-B-05 into V5-25 by ORC 06/11).
  * Left for R5-B-05 (B-KYTHUAT): long_stay_cleaning_window, front_desk_hours, wo_sla, registration_*,
- * extra_guest_kit_items, damage_catalog, room_move_pricing, utility_estimate, early_termination, commission_payout.
+ * extra_guest_kit_items, room_move_pricing, utility_estimate, early_termination, commission_payout.
  */
 import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
@@ -24,6 +25,7 @@ import {
   type ShapeIssue,
   cancelPolicyIssue,
   checkoutRemindersIssue,
+  damageCatalogIssue,
   earlyCheckinTiersIssue,
   earlyDepartureRefundIssue,
   lateCheckoutTiersIssue,
@@ -344,6 +346,10 @@ export async function checkStructuredParameter(
       return;
     case 'lease_terms':
       check(leaseTermsIssue(value));
+      return;
+    case 'damage_catalog':
+      // V5-25 (pulled from R5-B-05; DOM rules-v1.0.5 13.4): [{code, name, priceVnd}] – what the folio and bill read.
+      check(damageCatalogIssue(value));
       return;
     case 'session_policy': {
       // Sub-key bounds: SEC hard bounds (x-security-parameters 0.3.4, ParameterService.validate).

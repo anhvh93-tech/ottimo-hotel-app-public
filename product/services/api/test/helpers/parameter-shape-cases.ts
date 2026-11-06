@@ -12,6 +12,17 @@ export const PROD_MIN_STAY = [
   { nights: 2, channels: 'all', arrivalOnSpecialDates: true },
 ];
 
+/** damage_catalog (BR-512): the value of production-defaults.ts and of DS-E (the BR-512 rows of `feeCatalog`). */
+export const DAMAGE_DEFAULT = [
+  { code: 'bath_towel', name: 'Khăn tắm', priceVnd: 150000 },
+  { code: 'glass', name: 'Ly', priceVnd: 50000 },
+  { code: 'remote', name: 'Remote', priceVnd: 200000 },
+];
+const GLASS = DAMAGE_DEFAULT[1]!;
+/** `n` distinct good damage items (DOM 13.4: at most 100). */
+export const damageItems = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({ code: `item_${i}`, name: `Item ${i}`, priceVnd: 50_000 }));
+
 /** BUG-R5-003 (a): QA's list of min_stay values the Desk must refuse. */
 export const MIN_STAY_BAD: unknown[] = [
   2,
@@ -115,6 +126,31 @@ export const BAD_SHAPES: Array<[string, unknown, string]> = [
   ['lease_terms', [], 'value'],
   ['lease_terms', [{ months: 1, discountPct: 120 }], 'value[0].discountPct'],
   ['lease_terms', [{ months: 1 }, { months: 1 }], 'value[1].months'],
+  // damage_catalog (BR-512; DOM rules-v1.0.5 13.4, QA T-13-5) – pulled from R5-B-05 into V5-25.
+  ['damage_catalog', GLASS, 'value'],
+  ['damage_catalog', 150000, 'value'],
+  ['damage_catalog', [null], 'value[0]'],
+  ['damage_catalog', [GLASS, null], 'value[1]'],
+  ['damage_catalog', [[GLASS]], 'value[0]'],
+  ['damage_catalog', [{ code: 'glass', name: 'Ly' }], 'value[0].priceVnd'],
+  ['damage_catalog', [{ ...GLASS, unit: 'cái' }], 'value[0].unit'],
+  ['damage_catalog', [{ ...GLASS, code: '' }], 'value[0].code'],
+  ['damage_catalog', [{ ...GLASS, code: 7 }], 'value[0].code'],
+  ['damage_catalog', [{ ...GLASS, code: 'Glass' }], 'value[0].code'],
+  ['damage_catalog', [{ ...GLASS, code: 'damage.glass' }], 'value[0].code'],
+  ['damage_catalog', [{ ...GLASS, code: 'g'.repeat(41) }], 'value[0].code'],
+  ['damage_catalog', [{ ...GLASS, name: '   ' }], 'value[0].name'],
+  ['damage_catalog', [{ ...GLASS, name: 12 }], 'value[0].name'],
+  ['damage_catalog', [{ ...GLASS, name: 'L'.repeat(101) }], 'value[0].name'],
+  ['damage_catalog', [{ ...GLASS, priceVnd: 0 }], 'value[0].priceVnd'],
+  ['damage_catalog', [{ ...GLASS, priceVnd: 999 }], 'value[0].priceVnd'],
+  ['damage_catalog', [{ ...GLASS, priceVnd: 20_001_000 }], 'value[0].priceVnd'],
+  ['damage_catalog', [{ ...GLASS, priceVnd: -50_000 }], 'value[0].priceVnd'],
+  ['damage_catalog', [{ ...GLASS, priceVnd: 50_000.5 }], 'value[0].priceVnd'],
+  ['damage_catalog', [{ ...GLASS, priceVnd: '50000' }], 'value[0].priceVnd'],
+  ['damage_catalog', [GLASS, { ...GLASS, name: 'Ly lớn' }], 'value[1].code'],
+  ['damage_catalog', [GLASS, { code: 'glass_2', name: ' ly ', priceVnd: 60_000 }], 'value[1].name'],
+  ['damage_catalog', damageItems(101), 'value'],
 ];
 
 /** [key, an accepted value]: empty lists that mean "none", the DOM dictionary proposals, the business-day axis. */
@@ -172,4 +208,14 @@ export const GOOD_SHAPES: Array<[string, unknown]> = [
   ['max_open_holds_per_user', {}],
   ['max_open_holds_per_user', { collaborator: 3, sales_staff: 10 }],
   ['lease_terms', [{ months: 1 }, { months: 6, discountPct: 5, billingCycle: 'monthly' }]],
+  ['damage_catalog', []],
+  ['damage_catalog', DAMAGE_DEFAULT],
+  [
+    'damage_catalog',
+    [
+      { code: 'g'.repeat(40), name: 'L'.repeat(100), priceVnd: 20_000_000 },
+      { code: 'bath_towel_2', name: 'Bath towel / Khăn tắm', priceVnd: 1_000 },
+    ],
+  ],
+  ['damage_catalog', damageItems(100)],
 ];
