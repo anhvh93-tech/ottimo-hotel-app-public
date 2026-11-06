@@ -246,3 +246,34 @@ Số đo (đếm bằng script; `{name}` tính 6 ký tự):
   - Zalo 236 thành 231;
   - không có vế xóa 204 thành 199.
 - BA áp vào sổ tay cùng lượt dán câu Wi-Fi, sau khi DOM chốt bước 5 của quy trình đổi mật khẩu.
+
+---
+
+## Lượt 4 – câu mã cửa cũng đổi "front desk" thành "reception"
+
+- Hỏi của BA lượt 4 (`da596507`, report mục "Giả định"), ORC chuyển 07/11.
+- **CPY quyết: có đổi.** Lý do giống Lượt 3. Trang khách nói về mã cửa bằng "reception":
+  - `gw.door_at_desk`: "Reception gives you your door code when you arrive.";
+  - `guest.oci.done_body`.
+
+  Câu trả lời cho khách xin mã cửa qua tin nhắn nên dùng cùng chữ, để khách đọc tin và đọc trang khách thấy một tên.
+- Chỉ đổi một cụm EN, không đổi nghĩa. SEC đã duyệt nghĩa câu này ở `rounds/round-03/reviews/SEC-on-BA-user-manual.md`, và nghĩa đó giữ nguyên.
+
+| Câu cũ | Câu mới |
+|---|---|
+| "For your security, OTTIMO never sends door codes by message. We will call you on the phone number in your booking, or you may collect your code at the front desk." | "For your security, OTTIMO never sends door codes by message. We will call you on the phone number in your booking, or you may collect your code at reception." |
+
+- Tiếng Việt không đổi: "…hoặc anh/chị nhận mã tại quầy." đã đúng.
+- **BA đổi ở đúng hai chỗ** (đã tìm toàn repo bằng `git grep "collect your code"`):
+  1. `product/docs/manual/user-manual-v1.0.md`, mục 2.21 "Tình huống thường gặp", dòng "Khách nhờ gửi mã cửa qua Zalo, tin nhắn";
+  2. `product/docs/manual/guides/02-le-tan.md`, mục 7.5 "Mã cửa", gạch "EN:" dưới câu "Khách nhờ gửi mã cửa qua Zalo, tin nhắn".
+- Không đổi:
+  - `rounds/round-03/reviews/SEC-on-BA-user-manual.md` và `rounds/round-05/outputs/BA/report.md`: tài liệu lịch sử;
+  - `02-escalations/ESC-010.md`: chỉ có bản tiếng Việt.
+
+  HTML sổ tay do UXD dựng lại từ hai tệp `.md` trên.
+- **Gợi ý, ORC quyết, không chặn:** bản tiếng Việt của câu mã cửa xưng "anh/chị". Các mẫu khác (số thẻ, Wi-Fi, ảnh giấy tờ) xưng "bạn", theo content-guide mục 1. Muốn thống nhất thì BA đổi trong cùng lượt:
+  - câu mới: "Vì an toàn của bạn, OTTIMO không gửi mã cửa qua tin nhắn. Lễ tân sẽ gọi vào số điện thoại trong đơn đặt phòng, hoặc bạn nhận mã tại quầy.";
+  - lễ tân vẫn được đổi sang "anh/chị" cho cả tin khi cần.
+
+  Không đổi nghĩa.
