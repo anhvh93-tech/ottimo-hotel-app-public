@@ -115,7 +115,8 @@ describe('V5-14 – "Giữ chỗ" keeps the rates the desk typed', () => {
       const hold = holdButton(dlg);
       expect(hold).not.toHaveAttribute('aria-disabled');
       expect(hold).toBeEnabled();
-      expect(within(dlg).queryByText(tv('booking.hold.typed_rate_locked'))).toBeNull();
+      // the v1.0.4 lock sentence is gone (its key too – FB-R5-UXD-FE-PR122-04)
+      expect(within(dlg).queryByText(/^Giữ chỗ chỉ theo giá niêm yết/)).toBeNull();
       await typedPreview(sent, dlg, before);
       const nights = [
         { date: tomorrow(), amountVnd: 2_500_000, edited: true },
@@ -194,10 +195,20 @@ describe('V5-14 – "Giữ chỗ" keeps the rates the desk typed', () => {
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openForTomorrow(user);
     await typeRate(user, dlg, addDays(tomorrow(), 1), '100000');
-    const sentence = tv('booking.error.rate_range', { min: '300000', max: '3000000', group: '' });
+    // FB-R5-UXD-FE-PR122-01: "Giá phải từ 300.000 đ đến 3.000.000 đ (sàn–trần của nhóm căn)." – money, no "{"
+    const sentence = tv('booking.error.rate_range', {
+      min: tv('common.currency_vnd', { amount: '300.000' }),
+      max: tv('common.currency_vnd', { amount: '3.000.000' }),
+    });
+    expect(sentence).toContain('300.000 đ');
+    expect(sentence).toContain('(sàn–trần của nhóm căn)');
+    expect(sentence).not.toMatch(/[{}]|nhóm \)/);
     const box = rateBox(dlg, addDays(tomorrow(), 1));
-    expect(await within(box.closest('td')!).findByText(sentence)).toBeInTheDocument();
+    const err = await within(box.closest('td')!).findByText(sentence);
     expect(box).toHaveAttribute('aria-invalid', 'true');
+    // FB-R5-UXD-FE-PR122-02: shown by the preview before any click – announced and tied to its box
+    expect(err).toHaveAttribute('role', 'alert');
+    expect(box).toHaveAccessibleDescription(sentence);
     expect(within(rateBox(dlg, tomorrow()).closest('td')!).queryByText(sentence)).toBeNull();
 
     await user.click(holdButton(dlg));

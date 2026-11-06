@@ -572,6 +572,10 @@ export function createReservationMock(ctx: Ctx) {
   }
   const deposit = (roomTotal: number) => Math.round((roomTotal * 0.3) / 100_000) * 100_000;
   function calculate(body: QuoteInput, roles: Role[]): QuoteCalculation | Response {
+    // FB-R5-ARC-FE-122-01: the server's order (quote-pricing.ts `calculate`) – `type` first: typed prices only on a
+    // short stay (422 NOT_ALLOWED on `nightlyRates`), then the body of the typed prices, then the channel.
+    if (body.type !== 'short' && body.nightlyRates !== undefined)
+      return validation([{ field: 'nightlyRates', code: 'NOT_ALLOWED' }]);
     const nights = body.nights ?? 0;
     const r = roomById(body.roomId);
     const errors: Array<{ field: string; code: string }> = [];
@@ -596,8 +600,7 @@ export function createReservationMock(ctx: Ctx) {
     const typed = new Map<string, number>();
     if (body.nightlyRates !== undefined) {
       if (!has(roles, FD_PLUS)) return problem(403, 'FORBIDDEN_ACTION');
-      if (!ch || !['direct', 'agent'].includes(ch.channelGroup))
-        return validation([{ field: 'channelId', code: 'NOT_IN_LIST' }]);
+      // contract 1.17 "thân lệnh → kênh": the body rules below come before the channel (FB-R5-ARC-FE-122-01)
       const want = new Set(Array.from({ length: nights }, (_, i) => addDays(body.arrivalDate, i)));
       const seen = new Set<string>();
       const bad: Array<{ field: string; code: string }> = [];
@@ -612,6 +615,8 @@ export function createReservationMock(ctx: Ctx) {
       if (bad.length) return validation(bad);
       if (notPositive) return validation([{ field: 'nightlyRates', code: 'AMOUNT_NOT_POSITIVE' }]);
       if (seen.size < want.size) return validation([{ field: 'nightlyRates', code: 'REQUIRED' }]);
+      if (!ch || !['direct', 'agent'].includes(ch.channelGroup))
+        return validation([{ field: 'channelId', code: 'NOT_IN_LIST' }]);
       const out = [...typed].filter(([, v]) => v < 300_000 || v > 3_000_000).map(([d]) => d);
       if (out.length)
         return problem(422, 'RATE_OUT_OF_RANGE', {
@@ -1911,6 +1916,18 @@ export function createReservationMock(ctx: Ctx) {
     http.post(`${prop}/quotes/:quoteId/actions/create-hold`, async ({ request, params }) => {
       const g = guard(request, [...FD_PLUS, ...SALES]);
       if (isResponse(g)) return g;
+      const body = (await request.json()) as { holdHours: number } & Record<string, unknown>;
+      // V5-14 (ARC PR75-01): the hold takes the quoted price – a price field in the body is refused, nothing written.
+      // FB-R5-ARC-FE-122-01: the server refuses it in the controller (`rejectHoldPriceFields`), before every other check.
+      const priced = [
+        'nightlyRates',
+        'rates',
+        'rateVnd',
+        'amountVnd',
+        'totalVnd',
+        'depositVnd',
+      ].filter((k) => k in body);
+      if (priced.length) return validation(priced.map((field) => ({ field, code: 'NOT_ALLOWED' })));
       const q = state.quotes.find((x) => x.id === params.quoteId);
       if (!q || (!has(g.roles, FD_PLUS) && q.createdBy !== g.user.id))
         return problem(404, 'NOT_FOUND');
@@ -1921,17 +1938,6 @@ export function createReservationMock(ctx: Ctx) {
       if (q.arrivalDate === today()) return problem(422, 'HOLD_NOT_ALLOWED_TODAY');
       const guest = ctx.db().guests.find((x) => x.id === q.guestId);
       if (!guest?.phone) return problem(422, 'PHONE_REQUIRED');
-      const body = (await request.json()) as { holdHours: number } & Record<string, unknown>;
-      // V5-14 (ARC PR75-01): the hold takes the quoted price – a price field in the body is refused, nothing written.
-      const priced = [
-        'nightlyRates',
-        'rates',
-        'rateVnd',
-        'amountVnd',
-        'totalVnd',
-        'depositVnd',
-      ].filter((k) => k in body);
-      if (priced.length) return validation(priced.map((field) => ({ field, code: 'NOT_ALLOWED' })));
       if (![12, 24, 48].includes(body.holdHours))
         return validation([{ field: 'holdHours', code: 'NOT_IN_LIST' }]);
       const departure = addDays(q.arrivalDate!, q.nights ?? 1);

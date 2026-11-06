@@ -65,3 +65,18 @@
 - Giả định:
   - bản xem gửi giá gõ chỉ khi mọi ô đã có số. Nếu chưa đủ, bản xem theo lịch điền ô trước, rồi bản xem có giá gõ chạy tiếp;
   - nút "Tạo đơn" và "Giữ chỗ" không chờ bản xem có giá gõ (chỉ chờ bản xem của lượt, như cũ). Máy chủ vẫn tính cọc của đơn giữ chỗ từ giá gõ.
+
+## 6. Sửa theo review (07/11, sau merge main)
+Review: UXD `rounds/round-05/reviews/UXD-on-prs-97-116-117-118-122.md` (#122 @ `6dd07bf5`), ARC `rounds/round-05/reviews/ARC-on-fe-mob-prs-97-116-118-122.md`. Chữ theo `copy-v1.0.5.md` bản 2.0 mục 3 và 9.10. Nhánh đã merge main (T14-6 chạy với #103).
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-UXD-FE-PR122-01 (Major) | Done | `rangeSentence` đưa `min`, `max` qua `money()` ("Giá phải từ 300.000 đ đến 3.000.000 đ (sàn–trần của nhóm căn)."). Thiếu `min` hoặc `max` thì dùng `booking.error.rate_out_of_range_dates`, `{dates}` dạng dd/mm: dưới mỗi ô là ngày của ô đó; dưới bảng là các đêm của lượt. Áp nguyên văn 3 dòng mục 3 (`booking.error.rate_range`, `error.RATE_OUT_OF_RANGE` bỏ `{group}`, khóa mới `booking.error.rate_out_of_range_dates`). Câu chung `error.RATE_OUT_OF_RANGE` (đêm thêm khi trả phòng, giá đêm ở Folio) cũng hiện tiền: `argsFor` định dạng `min`/`max` khi mã là `RATE_OUT_OF_RANGE`, và `fieldErrors` truyền ngôn ngữ. Test: `v5-14-pr122-review-fea.test.tsx` (VI, EN, dự phòng ngày, câu chung), ca sàn–trần của `v5-14-hold-typed-rates-fea` kiểm có "300.000 đ", "(sàn–trần của nhóm căn)", không "{" |
+| FB-R5-UXD-FE-PR122-02 (Minor) | Done | Câu dưới ô đêm có `id="bk-rate-err-<i>"` và `role="alert"`; ô có `aria-describedby` trỏ tới câu khi có lỗi. Câu dưới bảng (`errors.rates`) có `role="alert"` (mục 3). Test kiểm `role` và mô tả của ô |
+| FB-R5-UXD-FE-PR122-03 (Minor) | Deferred | Làm cùng PR V5-22 (phần PR70-02: "–" và `aria-busy` khi chờ), như thẻ cho phép. Lý do: "Cọc cần thu" và ô "Số tiền đã nhận" nối với cách điền sẵn cọc (BUG-R3-005) và giả định nút không chờ bản xem. Sửa trong #122 thì phải đổi thêm luật điền sẵn ở lượt merge này. Máy chủ vẫn tính cọc thật và chặn giá ngoài khoảng |
+| FB-R5-UXD-FE-PR122-04 (Minor) | Done | Xóa `booking.hold.typed_rate_locked`; ghi chú `bk.src_typed` theo 9.10. Sinh lại 4 tệp |
+| FB-R5-ARC-FE-122-01 (Minor) | Done | Mock `calculate()`: `type` khác `short` mà có `nightlyRates` → 422 `NOT_ALLOWED`; thân giá gõ (DATE_INVALID → AMOUNT_NOT_POSITIVE → REQUIRED) trước kênh. `create-hold`: chặn trường giá ngay sau `guard`, trước 404, `QUOTE_EXPIRED`, `HOLD_NOT_ALLOWED_TODAY`, `PHONE_REQUIRED`. 2 ca gọi thẳng mock: ngày sai + kênh OTA → `DATE_INVALID`; trường giá với báo giá không có → `NOT_ALLOWED` |
+| FB-R5-ARC-FE-122-02 (Suggestion) | Rejected | Giữ dòng chặn số 0 trong `hold()` làm lưới an toàn cho oracle QA "không gửi 0". Ca "bản xem treo" (mục 3) đi qua đúng tình huống đó; đột biến M5 sống vì `validate()` chặn trước, không phải vì dòng này sai |
+| FB-R5-ARC-FE-122-03 | Deferred | v1.0.6 theo ARC (khóa idempotency của `hold()` mỗi lần bấm) |
+
+Kiểm: vitest admin-web 1002/1002 (trước khi sửa phụ thuộc hook `money`), các tệp V5-14 13/13 sau đó; `tsc`; `eslint` (sạch, đã thêm `money` vào phụ thuộc hook bản xem); `prettier`.

@@ -149,13 +149,29 @@ const previewKey = (x: {
 
 type Translate = ReturnType<typeof useI18n>['t'];
 
-/** Sentence of a 422 on a rate outside the BR-105 floor–ceiling (`min`, `max` of the problem – V5-22 owns the wording). */
-const rangeSentence = (t: Translate, problem: Record<string, unknown>) =>
-  t('booking.error.rate_range', {
-    min: String(problem.min ?? ''),
-    max: String(problem.max ?? ''),
-    group: '',
-  });
+type Money = ReturnType<typeof useI18n>['money'];
+
+/** `YYYY-MM-DD` → `dd/mm` (copy-v1.0.5 mục 3, `{dates}`). */
+const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
+/**
+ * Sentence of a 422 on a rate outside the BR-105 floor–ceiling (copy-v1.0.5 mục 3, FB-R5-UXD-FE-PR122-01): `min`, `max`
+ * of the problem as money ("300.000 đ"); without both → the nights (`dates` of the problem, else `nights` given by the
+ * caller) – never a raw number, an empty bracket or a `{min}`.
+ */
+const rangeSentence = (
+  t: Translate,
+  money: Money,
+  problem: Record<string, unknown>,
+  nights: readonly string[] = [],
+) => {
+  const min = typeof problem.min === 'number' ? problem.min : Number.NaN;
+  const max = typeof problem.max === 'number' ? problem.max : Number.NaN;
+  if (Number.isFinite(min) && Number.isFinite(max))
+    return t('booking.error.rate_range', { min: money(min), max: money(max) });
+  const dates = Array.isArray(problem.dates) ? problem.dates.map(String) : [...nights];
+  return t('booking.error.rate_out_of_range_dates', { dates: dates.map(ddmm).join(', ') });
+};
 
 /**
  * V5-14: the boxes a 422 about typed rates belongs to. Top-level `RATE_OUT_OF_RANGE` (V5-22: `dates[]` = the nights
@@ -163,18 +179,23 @@ const rangeSentence = (t: Translate, problem: Record<string, unknown>) =>
  */
 export function rateRangeErrors(
   t: Translate,
+  money: Money,
   e: unknown,
   nights: readonly string[],
 ): Record<string, string> | null {
   if (!isApiError(e) || e.code !== 'RATE_OUT_OF_RANGE') return null;
-  const msg = rangeSentence(t, e.problem);
   const out: Record<string, string> = {};
   const dates = Array.isArray(e.problem.dates) ? (e.problem.dates as unknown[]) : [];
   for (const d of dates) {
     const i = nights.indexOf(String(d));
-    if (i >= 0) out[`nightlyRates[${i}].amountVnd`] = msg;
+    // without `min`/`max` the sentence under a night names that night only
+    if (i >= 0)
+      out[`nightlyRates[${i}].amountVnd`] = rangeSentence(t, money, {
+        ...e.problem,
+        dates: [String(d)],
+      });
   }
-  return Object.keys(out).length ? out : { rates: msg };
+  return Object.keys(out).length ? out : { rates: rangeSentence(t, money, e.problem, nights) };
 }
 
 /** A form's errors without the rate ones (`rates`, `nightlyRates[i].amountVnd`). */
@@ -486,6 +507,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           const boxes = p.rates
             ? rateRangeErrors(
                 t,
+                money,
                 e,
                 p.rates.map((n) => n.date),
               )
@@ -503,7 +525,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     return () => {
       stale = true;
     };
-  }, [calcInput, propertyId, vnd, t]);
+  }, [calcInput, propertyId, vnd, money, t]);
 
   // Availability of the chosen room (US-082 AC1) – a hint only; the server re-checks on save.
   const availInput = useDebounced(
@@ -754,6 +776,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     // V5-14 / V5-22: a typed rate outside the floor–ceiling (createReservation of a direct/agent booking, saveQuote).
     const range = rateRangeErrors(
       t,
+      money,
       e,
       rateList.map((r) => r.date),
     );
@@ -791,7 +814,14 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           setMinStaySuggest(suggestionsOf(e).filter((x) => x.orphanNight !== false));
           out.departureDate = t('field.MIN_STAY_NOT_MET', { n });
         } else if (fe.code === 'RATE_OUT_OF_RANGE') {
-          out[rk ?? fe.field] = rangeSentence(t, e.problem);
+          const i = /^nightlyRates\[(\d+)\]/.exec(fe.field.replace(/^body\./, ''))?.[1];
+          const night = i !== undefined ? rateList[Number(i)]?.date : undefined;
+          out[rk ?? fe.field] = rangeSentence(
+            t,
+            money,
+            e.problem,
+            night ? [night] : rateList.map((r) => r.date),
+          );
         } else if (rk && (fe.code === 'REQUIRED' || fe.code === 'AMOUNT_NOT_POSITIVE')) {
           if (!(rk in out)) out[rk] = t('booking.error.rate_empty');
         } else if (!((rk ?? fe.field) in out))
@@ -1466,6 +1496,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                             inputMode="numeric"
                             aria-label={`${t('rate.pre_tier')} ${dayMonth(r.date)}`}
                             aria-invalid={err ? true : undefined}
+                            aria-describedby={err ? `bk-rate-err-${i}` : undefined}
                             readOnly={ratesLocked || busy !== null || undefined}
                             value={r.raw}
                             onChange={(e) =>
@@ -1475,7 +1506,13 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                               })
                             }
                           />
-                          {err ? <div className="err">{err}</div> : null}
+                          {/* FB-R5-UXD-FE-PR122-02: since V5-14 the sentence also comes from the preview, before
+                              any click – announced (role=alert) and tied to its box (aria-describedby). */}
+                          {err ? (
+                            <div className="err" id={`bk-rate-err-${i}`} role="alert">
+                              {err}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="li-s">
                           {/* UXD-on-v104-src-typed: the label says what the box holds. A typed number (any channel,
@@ -1516,7 +1553,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                     : t('rate.tier_note', { n: nights, pct: losShown })}
               </span>
             ) : null}
-            {errors.rates ? <div className="err">{errors.rates}</div> : null}
+            {errors.rates ? (
+              <div className="err" role="alert">
+                {errors.rates}
+              </div>
+            ) : null}
             {ratesCleared ? (
               <span className="help" role="status">
                 {ratesCleared.why === 'channel'
