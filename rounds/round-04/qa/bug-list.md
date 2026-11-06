@@ -33,15 +33,17 @@
 
 - **Xác nhận G2 – QC gate gộp LP-v2** (04/11 10:05–10:15, `origin/lp-v2-main` @ `4fe85e19` = đầu PR #34; worktree tách riêng, PG 17 tạm `ottimo-qa-g2-pg`, đã xóa): **ĐẠT**. Đột biến "so chữ" ở `effectiveLevel` → 5 ca đỏ; đột biến SQL `version >= $2` → 1 ca đỏ; bản gốc 122/122 xanh (124/124 kèm `gchat-worker-only`). Khối `CHKV` runbook r1.1 + README 12.3/13.5 khớp hằng `2026-11-04`. 5 sha256 trang privacy dựng lại trùng 5 băm FE-B. `git diff --stat 917a39cf..4fe85e19` = 6 tệp đã biết. **BUG-R4-027, 028 → Closed.** BUG-R4-011, 012 ghi lại trạng thái theo QC G4 (b). Không lỗi mới. Chi tiết: `rounds/round-04/qa/lp-v2-main-qa.md` mục 8.
 
+- **LP-v2 staging S6** (06/11 15:57–16:24 giờ VN, staging `sha-6414be25f20d`, Caddy + edge thật; chỉ API công khai + SQL READ ONLY, không đăng nhập Desk): ca 6 đạt, 0 ca đỏ. Mới **BUG-R4-054** (P3, môi trường staging) và **BUG-R4-055** (P2, môi trường staging). BUG-R4-011, 012 chưa chạy P10 (chờ thao tác Desk). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md`.
+
 ## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11 + `lp-v2-main` @ `917a39cf` + xác nhận G2 @ `4fe85e19`)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 9 | 1 (BUG-R4-011 – **đã vào `main` cùng lần gộp PR #34, chờ P10**; production còn lỗi gốc với hồ sơ tạo tay tới khi phát hành) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 19 | 8 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã vào `main` cùng lần gộp PR #34, chờ P10**, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 10 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021**, **027**, **028** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`; 027, 028 đóng 04/11 @ `4fe85e19` (G2)) |
-| **Tổng** | **28** | **9** | **1** | **18** |
+| P2 | 10 | 2 (**BUG-R4-055** – staging thiếu nhãn hạng, môi trường; BUG-R4-011 – **đã vào `main` cùng lần gộp PR #34, chờ P10**; production còn lỗi gốc với hồ sơ tạo tay tới khi phát hành) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
+| P3 | 20 | 9 (**BUG-R4-054** – basic auth staging, môi trường; BUG-R4-010 – mở lại, BUG-R4-012 – **đã vào `main` cùng lần gộp PR #34, chờ P10**, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 10 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021**, **027**, **028** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`; 027, 028 đóng 04/11 @ `4fe85e19` (G2)) |
+| **Tổng** | **30** | **11** | **1** | **18** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -588,6 +590,28 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - Bản sửa: OPS `aad14baa` – runbook r1.1, README `infra/server` 12.3 + 13.5, 1 dòng chú thích `privacy.ts`. Đủ 4 ý "Mong đợi": (1) runbook 0.1 có biến `⟨NOTICE_V⟩`, dòng nhãn + D2/P5 + README 12.3 ghi hằng phải **bằng đúng** nhãn đăng, đổi nhãn thì BE đổi hằng + SEC xem + Release api trước P10 / trước bước (c); (2) grep chữ cố định ở 0.2 và P4 thay bằng khối `CHKV` so **giá trị** hằng api, `VERSION` landing và `⟨NOTICE_V⟩`, dùng ở 0.2 bước 3, S4, P4, P10 bước 0; S4/P10 đăng `--version ⟨NOTICE_V⟩`; (3) chú thích `VERSION` có câu "a new label → set CHAT_DETAILS_MIN_NOTICE_VERSION … to the same value"; (4) README 13.5 K1 sửa `2026-10-31` thành "lần đăng đầu tiên nêu Google Chat (`2026-11-04`)", ghi K1 đã đạt 03/11.
   - QA chạy 2 lệnh trích của `CHKV` trên `4fe85e19`: hằng api = `2026-11-04`, `VERSION` landing = `2026-11-04` → với `⟨NOTICE_V⟩ = 2026-11-04` khối in `D2_CHAT_CONST=CO`. Ca âm (đọc logic khối với giá trị trích thật): `⟨NOTICE_V⟩ = 2026-11-04.1` → `KHONG`; tag `v1.0.3` (hằng `2026-10-31`) → `KHONG`; landing `5474b6e1` (`VERSION` `2026-10-31`) → `KHONG`; không trích được (`?`) → `KHONG` (fail-closed). Chú thích mới không đổi trang: 5 sha256 trang privacy dựng lại trùng 5 băm FE-B.
   - Bằng chứng: `rounds/round-04/qa/lp-v2-main-qa.md` mục 8.
+
+### BUG-R4-054 – Staging: basic auth chặn `fetch` của form (`credentials: 'omit'`) → `form-token` / `price-estimate` 401, form báo "We could not send your request"
+
+- **Mức:** P3 (chỉ môi trường staging; production không có basic auth). Ai thử form staging bằng trình duyệt thường (INV, ORC, UXR) đều gửi không được, nên dễ hiểu nhầm là lỗi sản phẩm. Lighthouse hay kiểm thủ công trên staging cũng không đi được luồng form.
+- **Môi trường:** `staging.ottimo.vn` (basic auth `ottimo`, noindex), landing/api `sha-6414be25f20d`, 06/11 16:16.
+- **Các bước:** mở `https://staging.ottimo.vn/` trong trình duyệt, nhập basic auth → chọn ngày + hạng → điền tên, SĐT, đồng ý → Gửi.
+- **Thực tế:** trang tải được (trình duyệt gửi basic auth cho điều hướng). Nhưng `booking-transport.ts` / `price-estimate.ts` gọi `fetch(..., { credentials: 'omit' })`, nên trình duyệt không gửi `Authorization` → Caddy staging trả 401 cho `GET form-token` và `GET price-estimate` → khối giá ẩn, form hiện "We could not send your request. Check your connection and try again, or chat with us on Zalo." Ở cả 5 ngôn ngữ (Playwright `httpCredentials`, 5/5).
+- **Mong đợi:** trên staging, form chạy được trong trình duyệt khi đã qua basic auth. Ví dụ: Caddy staging miễn basic auth cho đúng các route `/v1/public/properties/<slug>/(form-token|price-estimate|booking-requests)`, các route này vẫn giữ Origin/`Sec-Fetch-Site`/giới hạn tần suất, và trang vẫn bị basic auth + noindex. Hoặc ghi rõ trong runbook/README là form staging chỉ thử được bằng công cụ có chèn header. **Không** đổi `credentials: 'omit'` của landing (đúng SEC, production cần).
+- **Bằng chứng:** `rounds/round-04/qa/lp-v2-staging-s6.md` mục 2 (lượt đầu 401; khi chèn header `Authorization` thì 5/5 gửi được 202).
+- **Vai:** OPS (Caddy staging / runbook). SEC duyệt nếu miễn basic auth cho route public.
+- **Trạng thái:** Open.
+
+### BUG-R4-055 – Staging: cả 10 căn có `public_room_type = NULL` → giá ước tính luôn `on_request`, mọi yêu cầu website bị gắn `room_type_unmatched`
+
+- **Mức:** P2 (môi trường staging). Chặn phần giá của S6/P10: 13 ca giá, các ca SEC 9.5 số 1 (đủ trạng thái), 3, 4, 8, 10, 12 (`monthly_offer`). Desk staging cũng không nối được yêu cầu web với hạng. Không phải lỗi mã: production bootstrap đặt nhãn theo `production-defaults.ts`, và runbook P2 dòng 10 có kiểm nhãn trên production.
+- **Môi trường:** staging, SQL READ ONLY 06/11 15:58: `SELECT room_no, public_room_type FROM room` → 101…402 và `QAT1` đều NULL.
+- **Các bước:** `GET /v1/public/properties/dlt/price-estimate?roomType=standard-studio-garden-view&stayType=short&arrival=2026-11-10&departure=2026-11-11&adults=2` (qua Caddy staging).
+- **Thực tế:** 200 `priceAvailable: false`, `unavailableReason: on_request`. Hạng nào, ngày nào, số người nào cũng vậy (6/6 ca). 7 yêu cầu thử đều có `suspicious_flags` chứa `room_type_unmatched`, `price_estimate = NULL`.
+- **Mong đợi:** staging có cùng nhãn hạng với production (101, 201 = `Standard Studio · City View`; 102, 103, 202, 203 = `Standard Studio · Garden View`; 302, 402 = `Premium · One Bedroom + 1`; 301, 401 = `Signature · Two Bedrooms`). Garden 1 đêm có số. Runbook mục 3 S0 nên thêm câu kiểm `SELECT count(*), count(public_room_type), count(DISTINCT public_room_type) FROM room;` (đúng là `11|10|4`, hoặc `10|10|4` nếu không tính `QAT1`), để chặn trước S6.
+- **Bằng chứng:** `rounds/round-04/qa/lp-v2-staging-s6.md` mục 1, 3.
+- **Vai:** ORC + OWN thử (gán ô "Hạng phòng công khai" trên Desk staging). OPS (thêm câu kiểm S0 vào runbook).
+- **Trạng thái:** Open. QA chạy lại phần giá ngay sau khi có nhãn.
 
 ## 3. Ghi nhận (không phải lỗi)
 
