@@ -1,10 +1,13 @@
-# 03:00 Vietnam time for production (staging runs at 03:30 – the two dumps never overlap); Persistent = run at boot
-# if the server was off.
+# 03:00 and 15:00 Vietnam time for production (staging runs at 03:30 and 15:30 – the dumps never overlap); Persistent
+# = run at boot if the server was off. v1.0.5 V5-62: two runs 12 h apart = worst-case loss 12 h (hosting-plan 7).
+# 15:00, not 14:00: an even 12 h / 12 h split, after the 14:00 check-in rush and outside the usual ~14:00 release
+# slot (a migration's DDL waits for pg_dump's lock); the daily worker jobs all run between 03:00 and 06:05.
 [Unit]
-Description=OTTIMO daily backup of /opt/%i
+Description=OTTIMO backup of /opt/%i, twice a day
 
 [Timer]
 OnCalendar=*-*-* 03:00:00 Asia/Ho_Chi_Minh
+OnCalendar=*-*-* 15:00:00 Asia/Ho_Chi_Minh
 Persistent=true
 RandomizedDelaySec=5min
 

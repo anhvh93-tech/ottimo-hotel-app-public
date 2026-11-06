@@ -89,3 +89,34 @@
 | FB-R5-SEC-ARC-B002-03 | Minor | Deferred – v1.0.6 | Tách nhiệm người ghi khoản thu trên mọi folio, thu dư tiền mặt/thẻ qua API trên đơn mở, chi tiền mặt chỉ khi có tiền mặt đủ – ARC đưa vào hợp đồng 0.3.14 cùng ô mã giao dịch ở bước đối soát |
 | DOM B002-04 ý 1–4 | – | Done | (1) hoàn chỉ chuyển khoản về tài khoản đã chuyển, không đổi nơi nhận – đã ở `setRefundDestination`; (2) lỡ ghi hai lần qua `disputed` → `reversePayment` → `superseded`, không đổi hợp đồng; luật "một dòng sao kê một khoản" ở máy chủ cùng ô mã đối soát: **v1.0.6**; (3) chứng từ là thông báo tiền vào tài khoản OTTIMO – ghi ở mô tả, nhãn UXD; (4) S4 tối thiểu bắt buộc; **`bankReference` tùy chọn thêm ở 0.3.13** |
 
+
+## 7. Bổ sung 1e – thẻ sau khi #94 được duyệt (PR tài liệu riêng, sau #94)
+
+Chỉ sửa chữ `description` trong `openapi.yaml` và tệp `.md`: không đổi schema, `enum`, `required`, `x-roles`, `x-rbac`, phần mở rộng; không mã lỗi mới; không migration. Chi tiết ở contract 1.25.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-BE-ARC-C0313-22 | Minor | Done (chữ) – BE làm ở PR V5-48 | Theo SEC `SEC-responses.md` mục 1: `Payment.afterClosure` tính lúc đọc, chỉ để hiển thị, so `payment.created_at` của máy chủ với `cancelled_at`/`no_show_marked_at`; `afterClosureOnly` lọc theo `after.afterClosure` trong `audit_event`; allowlist `payment` (+ `afterClosure`, `reservationStatus`), `deposit_notice` (+ `afterClosure`) bắt buộc; thêm thực thể `attention_event` cho audit đóng mục `deposit_after_cancel` (S8); `refundRequestId` chưa trả tới 0.3.14; test đọc lại bảng và ca khôi phục |
+| FB-R5-BE-ARC-C0313-23 | Suggestion | Done (chữ) – BE làm ở PR V5-58 | Dẫn SR-RL-10 (bổ sung 1f đổi số thành **SR-RL-15**) của SEC vào mô tả `setPropertyWifi`: đếm mỗi lần so, 5 lần / 24 giờ / người, bộ đếm PostgreSQL khóa riêng, không khóa tài khoản, quá ngưỡng bỏ qua phép so, không 429, giao dịch riêng commit trước 422. T58-11…13 |
+| FB-R5-SEC-ARC-15 | Minor | Done (chữ) – BE làm ở PR-B3 | `bankReference`: chuẩn hóa chữ hoa, `CARD_NUMBER_DETECTED`, 5 điều kiện SEC 5.3; người gọi không có vai FD+ nhận 409 **không** có `duplicateReservationCode` (chọn cách này thay `x-write-roles` vì PR chỉ chữ) |
+| FB-R5-SEC-ARC-16 | Minor | Done ở bổ sung 1f (PR #111) – mục 8 | `x-visible-to` cho `ApprovalRequest.possibleDuplicateCodes` đổi serializer sinh, không hợp PR chỉ chữ. ARC làm ở PR hợp đồng nhỏ riêng #111, gộp trước PR-B3 |
+| FB-R5-SEC-ARC-17 | Minor | Done (chữ) – test ở PR-B1 | `confirmPaymentReceived`, `createVietQr`: 409 đơn đã đóng đi sau 403 vai và 404 phạm vi |
+| FB-R5-SEC-ARC-18 | Suggestion | Deferred – 0.3.14 | Vào danh sách 0.3.14 (contract 1.25) |
+| ARC review PR #96 mục 7 | – | Done | Mô tả `setParameter` (13 khóa, mã trường, luật chéo theo khoảng), `cancelScheduledParameter` (chưa kiểm lại luật chéo – 0.3.14), contract 1.24, `erd.md` 9.1a (bảng theo khóa) |
+| UXD copy r1.5 mục 9.5 | – | Deferred – 0.3.14 | `FolioLine` trường chỉ đọc (`source`, `businessDate`, `rootLineId`, cờ sửa giảm cho người gọi); v1.0.5 Desk dựa vào 403 `requiredFlow = foc_request` |
+
+## 8. Bổ sung 1f – PR #111 (gộp trước PR-B3)
+
+Chi tiết ở contract 1.26. Một chỗ đổi phần mở rộng (ARC-16), một giá trị thêm vào tập đóng `money` cùng hằng (ARC-20); còn lại chỉ mô tả. Không mã lỗi mới, không migration.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-SEC-ARC-16 | Minor | Done | `ApprovalRequest.possibleDuplicateCodes` `x-visible-to` FD+; serializer sinh lại; test `serializer.test.ts` |
+| FB-R5-SEC-ARC-20 | Minor | Done (hợp đồng + hằng + câu Desk) – BE-D ghi audit ở PR-B3 | `attention_event.resolved` vào tập đóng `money`, `money-actions.ts`, `mlog.a_money_not_found` (UXD rà). Hạn SEC 07/11: gộp trước PR-B3 |
+| FB-R5-SEC-ARC-21 | Minor | Done (chữ) – BE-D ở PR-B3 | `duplicateReservationCode` chỉ FD+ ở bảng mã, bảng trường mở rộng, `Problem` |
+| FB-R5-SEC-ARC-22 | Suggestion | Done (chữ) | `setPropertyWifi` (login_lockout, ngoại lệ bộ đếm và audit `security`), `Payment.afterClosure` (tính lúc đọc) |
+| FB-R5-BE-ARC-C0313-24 | Minor | Done (chữ) – BE làm ở PR V5-58 | SR-RL-15; `rate_limit_counter` khóa `wifi_pw_cmp:<user_id>`; không `x-rate-limit`; T58-14…16. ARC chốt: câu UPSERT ra hàm dùng chung ở `shared/`, `public-site` gọi lại (contract 1.26) |
+| FB-R5-BE-ARC-C0313-25 | Minor | Done (chữ) – BE làm ở PR-B3 và bản sửa `executeRefund` | Luật số thẻ riêng cho ô mã: chỉ toàn bộ giá trị 13–19 chữ số qua Luhn; bảng mã, `recordPayment` (B), `PaymentCreate.bankReference`, `executeRefund.bankReference`. `pattern` cho `executeRefund` vào 0.3.14 |
+| QA review PR #103 (T14-4) | – | Done (chữ tài liệu) | Contract 1.3: T14-4 theo 1.17 – OTA → `NOT_IN_LIST` (`channelId`); `type = long` kèm `nightlyRates` → `NOT_ALLOWED`. `openapi.yaml` không đổi |
+| DOM review #101/#108/#110 (3.1, 4, 101-02, 3.5) | – | Done (chữ); A4, 101-02, `typedByHand` – 0.3.14 | BR-438 "dòng gõ tay" = A30 hoặc đếm minibar, không xét riêng `source` (contract 1.20, `adjustFolioLine`, `reductionsOnly`); danh sách 0.3.14 ở contract 1.26 |
+| ARC review PR #100 mục 6.3 A1–A3 | – | Done (chữ); A3 máy chủ và A4 – 0.3.14 | 6 chỗ 2FA + `erd.md`; `serializeSchema` không trả `x-self-data`; ngoại lệ cửa sổ sau nửa đêm của KPI "Khách đi" |

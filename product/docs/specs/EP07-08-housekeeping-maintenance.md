@@ -1,6 +1,6 @@
 # Đặc tả mức trường – EP07 Buồng phòng (PWA nhân viên) · EP08 Bảo trì (phần R2)
 
-- Tác giả: BA | Round 2 – Sprint 2 (đi trước Sprint 4 một sprint) | Ngày: 16/10/2026 | Phiên bản: 0.1
+- Tác giả: BA | Round 2 – Sprint 2 (đi trước Sprint 4 một sprint) | Ngày: 16/10/2026 | Phiên bản: 0.1.1 (07/11/2026: mục 2.1 nút R8 theo v1.0.5) · 0.1
 - Phạm vi (Must R2 theo R-C): EP07 – US-052, 053, 054, 055, 057 (**US-056 dời R3 – PO quyết 16/10, s2-PO mục 3**) · EP08 – US-061, 062 · phần buồng phòng của BR-812 (bộ đồ dùng thêm, ESC-014). **Should R2** (làm nếu dư, plan mục 2.1): US-058 hàng đợi offline (mục 8 đặc tả đủ để làm). **R3**: US-060 ảnh sau kiểm (Could), US-063 bảo trì định kỳ (Should R3 – mục 7 chỉ khung), xuất kho khi bổ sung minibar/chuẩn bị bộ đồ dùng (US-068, BR-705 – kho R3).
 - Nguồn và quy ước: như `specs/EP00-platform.md` mục 0 (bảng trường, V-01…V-11, hiển thị lỗi, lỗi chung, hộp xác nhận mục 9). Thứ tự ưu tiên khi lệch: `business-rules.md` **v0.3.1** → backlog (AC) → `state-machines.md` (SM-02, SM-03, SM-04, SM-14, SM-15) → `rbac-matrix.md` (S10, S11, A80–A87) → `api/openapi.yaml` **0.3.4-draft** → `design/copy/strings-vi.json`. Không chép con số nghiệp vụ (ghi mã BR/tham số).
 - Đọc cùng: `specs/EP03-05-stay.md` mục 0.1 (BR-812 trong nhận/lưu trú/trả phòng), `specs/EP02-reservations.md` mục 9.2 (đổi phòng B14), mục 12 (khối OOO US-019), `business-processes.md` P07, P08, P04c/P04d; ADR-005 (PWA, offline); SEC `security-requirements.md` mục 7 (SR-FILE), mục 12 (SR-PWA).
@@ -72,7 +72,7 @@ Sắp xếp mặc định: theo `priorityRank` của việc mở đầu tiên c�
 |---|---|---|---|---|
 | `VD`, `OD` | `start_cleaning` (R1) | "Bắt đầu dọn" | `CL`; việc dọn mở đầu tiên → `in_progress` (nếu chưa có việc → server tạo `adhoc_clean`) | HK (T), FD+ (A80) |
 | `CL` | `finish_cleaning` (R2/R3) | "Dọn xong" | Server quyết theo dữ liệu **tại lúc nhận**: căn còn đơn `in_house` → `OC` (R2); không còn → `VC` (R3, `hk.done_wait_inspect`). Việc dọn đang làm của căn → `done` (US-053 AC2) | HK (T), FD+ |
-| `OC` | `needs_cleaning` (R8a) | "Báo cần dọn" **(mới)** `hk.mark_dirty` | `OD` + việc "Dọn phòng khách đang ở" (nếu chưa có việc mở cùng loại trong ngày) | HK (T), FD+ (A82) |
+| `OC` | `needs_cleaning` (R8a) | "Báo cần dọn" / "Mark for cleaning" `hk.action.needs_cleaning` (v1.0.5, V5-15; UXD `copy-v1.0.5.md` 9.7 – khóa cũ trong đặc tả `hk.mark_dirty` không dùng). PWA: màn căn (H20); Desk: **Buồng phòng → Trạng thái buồng**, cuối dòng căn, khi `allowedEvents` có `needs_cleaning`. Không hộp xác nhận. Desk hiện toast `hk.desk.needs_cleaning_toast` | `OD` + việc "Dọn phòng khách đang ở" (nếu chưa có việc mở cùng loại trong ngày) | HK (T), FD+ (A82) |
 | `VC` | `inspect` | "Kiểm phòng" → mở checklist (mục 4) – **không** gọi `transitionRoomStatus` | `VI` khi đạt | FDL+; HK chỉ khi `hk_self_inspection_enabled` (A81 ◐) |
 | `VI`, `OOO` | – | Không có nút đổi tay | `VI → VC` chỉ do SYS (R5); `OOO` chỉ qua khối OOO (SM-02) | – |
 
@@ -393,3 +393,4 @@ Hai HK cùng bấm "Bắt đầu dọn" căn 202: người gửi sau nhận 409 
 | 16/10/2026 | 2 (Sprint 2) | Bản đầu: đặc tả mức trường EP07 (US-052…057), EP08 (US-061, 062), BR-812 phía buồng phòng, US-058 offline (Should), khung US-063 (R3); đề nghị E07-01…16 | BA |
 | 16/10/2026 | 2 (Sprint 2 – phản hồi) | Áp ARC A-03 (`ROOM_OCCUPIED`; `affectedReservationsAcknowledged` không vượt chống trùng), B-09 (`lockRequested` → `blockRequested`), B-10 (ảnh sau sửa `[high, medium]`); DOM D-12 (bỏ nhãn giả định; cờ "Kiểm chưa đạt" + cảnh báo nhận phòng; loại `drain`), D-15 (B-06 gói dọn mặc định 0) – FB-R2-DOM-BA-01 | BA |
 | 16/10/2026 | 2 (Sprint 2 – PO quyết) | US-056 dời R3 (mục 3.5, truy vết, E07-06 đóng) – không `cleaningPlan` ở R2 | BA |
+| 07/11/2026 | 5 (Phản hồi & sửa, V5-71) | v0.1.1: mục 2.1 dòng `OC` – nút R8 có từ v1.0.5 (V5-15): chữ "Báo cần dọn" / "Mark for cleaning", khóa `hk.action.needs_cleaning` thay `hk.mark_dirty`, chỗ đặt nút trên PWA và Desk, không hộp xác nhận, toast `hk.desk.needs_cleaning_toast` (UXD `copy-v1.0.5.md` 9.7, FB-R5-UXD-FE-PR102-01) | BA |

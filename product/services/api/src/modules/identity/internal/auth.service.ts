@@ -199,7 +199,8 @@ export class AuthService {
       });
       throw problem('MFA_REQUIRED', { extras: { mfaToken: token } });
     }
-    // SEC 06.4: MFA_ENFORCED and an owner/manager without 2FA → restricted session (enrolment only).
+    // SEC 06.4: MFA_ENFORCED and a mandatory role (owner/manager/front_desk_lead – V5-40) without 2FA → restricted
+    // session (enrolment only).
     const enrollmentOnly =
       this.options.mfaEnforced === true && (await this.requiresMfa(orgCtx, found.user_id));
 
@@ -258,7 +259,7 @@ export class AuthService {
     return outcome;
   }
 
-  /** Live owner/manager role at any property (SEC 06.2). */
+  /** Live role of MFA_REQUIRED_ROLES (owner, manager, front_desk_lead – V5-40) at any property (SEC 06.2). */
   async requiresMfa(ctx: TenantContext, userId: string): Promise<boolean> {
     return this.db.withContext(
       { ...ctx, propertyId: null },

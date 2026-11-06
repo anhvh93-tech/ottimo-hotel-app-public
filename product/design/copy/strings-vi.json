@@ -3396,6 +3396,7 @@
   "audit.reason.early_departure": "Hoàn khi trả sớm",
   "approvals.refund_may_decrease": "Số có thể giảm khi duyệt: phát sinh ghi sau yêu cầu này được trừ trước khi hoàn.",
   "mlog.a_refund_destination_carried": "Chép nơi nhận hoàn sang yêu cầu thay thế",
+  "mlog.a_money_not_found": "Không thấy tiền về cho đơn đã hủy",
   "rooms.cancel_sched_first": "Đây là giá mở bán của căn nên không hủy được – hủy đi thì căn không có giá tới dòng giá kế tiếp. Sửa bằng ô giá ở trên, cùng ngày {date}.",
   "deposit.received_at": "Giờ nhận tiền",
   "deposit.received_at_help": "Giờ tiền về tài khoản hoặc khách đưa tiền. Ghi lùi được, không ghi giờ sau bây giờ. Giữ chỗ chưa cọc chỉ xác nhận được khi tiền về trước hạn giữ chỗ.",
