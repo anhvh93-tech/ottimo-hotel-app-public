@@ -43,6 +43,13 @@ const NO_MONEY_CHANGE: readonly Exemption[] = [
     reason:
       'J24: a pending VietQR (never counted in the money) expires; bulk job without folio locks',
   },
+  {
+    where: 'payments/public/payment-expiry.ts#expirePendingQrOnClosure',
+    statement: /UPDATE payment p SET status = 'expired'/,
+    reason:
+      'V5-48: the pending VietQR (never counted in the money) of a booking being closed expires, in the closing ' +
+      'transaction under the folio lock (MoneyBridge.voided, after voidStay)',
+  },
 ];
 
 const WRITER =

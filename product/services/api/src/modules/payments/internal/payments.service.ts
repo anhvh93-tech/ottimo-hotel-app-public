@@ -17,7 +17,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { decodeCursor, page } from '../../../shared/http/pagination';
-import { ProblemError, problem } from '../../../shared/problem';
+import { type FieldError, ProblemError, problem } from '../../../shared/problem';
 import {
   type LocalDate,
   addDays,
@@ -55,11 +55,13 @@ import {
   anchorPaymentAttachment,
 } from '../public/attachment-usage';
 import {
+  type ClosedReservationStatus,
   DESK_ROLES,
   MANAGER_ROLES,
   type PaymentActor,
   type PaymentCreateInput,
   PaymentService,
+  closedStatusOf,
   isDesk,
   parseInstant,
   primaryRole,
@@ -67,6 +69,21 @@ import {
 import { buildVietQrPayload, transferContentOf } from './vietqr';
 
 const SALES_ROLES = ['sales_staff', 'collaborator'];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** 0.3.13 bổ sung 1 (V5-48, DOM 11.4 2(b)): the only ways money is taken on a closed booking – both reconciled. */
+const AFTER_CLOSURE_METHODS: readonly string[] = ['bank_transfer', 'vietqr'];
+
+/**
+ * 0.3.13 bổ sung 1 (V5-48, SEC B002-01): `confirmPaymentReceived` / `createVietQr` on a `cancelled`/`no_show` booking
+ * → 409 INVALID_TRANSITION + `reservationStatus` (the BOOKING's state – the Desk reads it before `currentState`).
+ * Called after the 403 role gate and the 404 scope, under the booking lock, before any other check (SEC ARC-17).
+ */
+function assertBookingOpen(reservationStatus: string, currentState: string): void {
+  const closed = closedStatusOf(reservationStatus);
+  if (closed) {
+    throw problem('INVALID_TRANSITION', { extras: { currentState, reservationStatus: closed } });
+  }
+}
 
 /** payment.qr_context (0065): the stay inputs of a check-in / check-out VietQR, as JSON. */
 function qrContextOf(stay: StayQrInput): Record<string, unknown> {
@@ -285,6 +302,10 @@ export class PaymentsService {
     }
     const meta = await this.folioMeta(tx, folioId);
     const r = await this.scopedReservation(tx, actor, meta.primary_reservation_id, { lock: true });
+    // 0.3.13 bổ sung 1 (V5-48): a closed booking takes money through its own rules – 403 role and 404 scope above,
+    // then the closed-booking rules, then the body rules (recordAfterClosure).
+    const closed = closedStatusOf(r.status);
+    if (closed) return this.recordAfterClosure(tx, actor, folioId, raw, { r, meta, closed });
     await this.assertHoldOpenForSales(tx, actor, r);
     // Verification 17/10 (ARC-S3-02 follow-up): money received on a hold is its deposit – a `charge` there
     // would not count for B4/J1 (the hold would expire although paid).
@@ -341,6 +362,69 @@ export class PaymentsService {
       });
     }
     await this.changed(tx, row, r.id);
+    return row;
+  }
+
+  /**
+   * 0.3.13 bổ sung 1 (V5-48 – BUG-R5-002; DOM 11.4 mục 2 (a)–(d); SEC-on-bug-r5-002 3.1, B002-01) – `recordPayment` on a
+   * folio whose primary booking is `cancelled` or `no_show` (any reason), every role, OWN included. The caller holds
+   * the booking lock (`scopedReservation(..., { lock: true })`), so a J1 cancellation racing the request is seen.
+   * - SAL: blocked as before (422 AMOUNT_EXCEEDS_BALANCE, `max` 0 – a closed booking owes a sale nothing), CTV has no
+   *   role; FD+ only below.
+   * - `method` other than bank_transfer / vietqr → 422 `method` NOT_IN_LIST (cash is refused by the API: a guest at the
+   *   desk pays on a new booking); no `attachmentId` → 422 `attachmentId` REQUIRED; an image already attached to a
+   *   "khách đã chuyển" notice (`createDepositNotice`) → 422 `attachmentId` NOT_IN_LIST (SEC S7). Then the usual
+   *   receipt rules (`recordInTx`: image of this booking, one image one receipt, `receivedAt` window, note ≥ 3 for an
+   *   overpayment).
+   * - always `reconciliation = pending`; audit `payment.recorded` + `afterClosure: true`, `reservationStatus`.
+   * - any refusal writes nothing (no payment, no audit, folio version unchanged, image not bound).
+   * 5B-1 (PR-B3) extends THIS function – automatic refund request, fixed destination, `type` rule, "có thể trùng" –
+   * and never loosens it.
+   */
+  private async recordAfterClosure(
+    tx: Tx,
+    actor: PaymentActor,
+    folioId: string,
+    raw: PaymentCreateInput,
+    at: {
+      r: { id: string; code: string };
+      meta: { created_at: Date };
+      closed: ClosedReservationStatus;
+    },
+  ): Promise<PaymentRowLite> {
+    if (!isDesk(actor.roles)) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+        extras: { max: 0 },
+      });
+    }
+    const errors: FieldError[] = [];
+    if (!AFTER_CLOSURE_METHODS.includes(raw.method)) {
+      errors.push({ field: 'method', code: 'NOT_IN_LIST' });
+    }
+    const attachmentId = typeof raw.attachmentId === 'string' ? raw.attachmentId.trim() : '';
+    if (!attachmentId) errors.push({ field: 'attachmentId', code: 'REQUIRED' });
+    if (errors.length) throw problem('VALIDATION_FAILED', { errors });
+    // SEC S7: the image a sale/CTV sent with "khách đã chuyển" is the guest's word, not the bank's – never the proof.
+    if (UUID.test(attachmentId)) {
+      const { rows } = await tx.query(
+        'SELECT 1 FROM deposit_notice WHERE attachment_id = $1 LIMIT 1',
+        [attachmentId],
+      );
+      if (rows[0]) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'attachmentId', code: 'NOT_IN_LIST' }],
+        });
+      }
+    }
+    const row = await this.payments.recordInTx(tx, actor, folioId, raw, {
+      reservationId: at.r.id,
+      reservationCode: at.r.code,
+      channelGroup: null,
+      reservationCreatedAt: at.meta.created_at,
+      afterClosure: { reservationStatus: at.closed },
+    });
+    await this.changed(tx, row, at.r.id);
     return row;
   }
 
@@ -524,14 +608,18 @@ export class PaymentsService {
     paymentId: string,
     input: { receivedAt: string | null; note: unknown; attachmentId: string | null },
   ): Promise<PaymentRowLite> {
-    const note = optionalText('note', input.note, 300);
-    const receivedAt = parseInstant('receivedAt', input.receivedAt);
     const current = await this.payments.row(tx, paymentId);
     if (!current) throw problem('NOT_FOUND');
     const folioId = (current as PaymentRowLite & { folio_id: string }).folio_id;
     const meta = await this.folioMeta(tx, folioId);
     const r = await this.scopedReservation(tx, actor, meta.primary_reservation_id, { lock: true });
     if (!isDesk(actor.roles) && current.type !== 'deposit') throw problem('NOT_FOUND');
+    // 0.3.13 bổ sung 1 (V5-48): after the 404 scope (SEC ARC-17 – a sale never learns another sale's booking state),
+    // a closed booking takes no QR money – every role, SAL and OWN included; the guest's transfer is recorded with
+    // recordPayment (closed-booking branch, with its image). `currentState` stays the QR's own state.
+    assertBookingOpen(r.status, this.qrState(current));
+    const note = optionalText('note', input.note, 300);
+    const receivedAt = parseInstant('receivedAt', input.receivedAt);
     // HOLDS-01 as recordPayment: a sale confirming a QR of an overdue hold would put money on it as well.
     await this.assertHoldOpenForSales(tx, actor, r);
     // As recordPayment (ARC 16.26, BR-525): after check-out the stay's bookings then the folio (`lockStay`), and an open
@@ -548,11 +636,8 @@ export class PaymentsService {
     }
     const p = (await this.payments.row(tx, paymentId, { forUpdate: true })) as PaymentRowLite;
     const now = this.clock.now();
-    const expired = p.status === 'pending' && p.expires_at !== null && p.expires_at <= now;
-    if (p.method !== 'vietqr' || p.status !== 'pending' || expired) {
-      throw problem('INVALID_TRANSITION', {
-        extras: { currentState: expired ? 'expired' : p.status },
-      });
+    if (p.method !== 'vietqr' || this.qrState(p) !== 'pending') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: this.qrState(p) } });
     }
     // 0.3.7 bổ sung 4 (DOM (f), ARC D7): more than what is due NOW for the QR's purpose needs a note (the over
     // part becomes credit, handled by BR-522 – never an automatic refund request).
@@ -645,6 +730,13 @@ export class PaymentsService {
     const out = (await this.payments.row(tx, p.id)) as PaymentRowLite;
     await this.changed(tx, out, r.id);
     return out;
+  }
+
+  /** SM-12 state of a VietQR as `confirmPaymentReceived` sees it: a `pending` row past `expires_at` is `expired`. */
+  private qrState(p: Pick<PaymentRowLite, 'status' | 'expires_at'>): string {
+    return p.status === 'pending' && p.expires_at !== null && p.expires_at <= this.clock.now()
+      ? 'expired'
+      : p.status;
   }
 
   // ───────────── reconcilePayment (2.4, A46) ─────────────
@@ -981,18 +1073,9 @@ export class PaymentsService {
       stay?: StayQrInput;
     },
   ): Promise<{ paymentId: string; expiredPaymentIds: string[] }> {
-    if (input.purpose === 'billing_period') {
-      throw problem('VALIDATION_FAILED', { errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }] });
-    }
     const stay = input.stay ?? {};
     const stayPurpose =
       input.purpose === 'check_in' || input.purpose === 'check_out' ? input.purpose : null;
-    stayFieldErrors(input.purpose, stay);
-    if (!Number.isSafeInteger(input.amountVnd) || input.amountVnd <= 0) {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }],
-      });
-    }
     const desk = isDesk(actor.roles);
     // 0.3.7: the QR of the check-in / check-out step is a desk action (SAL/CTV → 403, never their scope 404).
     if (stayPurpose && !desk) throw problem('FORBIDDEN_ACTION');
@@ -1000,16 +1083,28 @@ export class PaymentsService {
     if (input.overBalanceReason !== undefined && input.overBalanceReason !== null && !desk) {
       throw problem('FORBIDDEN_ACTION');
     }
-    const overReason =
-      input.overBalanceReason === undefined || input.overBalanceReason === null
-        ? null
-        : requireReason('overBalanceReason', input.overBalanceReason, { max: 300 });
     const meta = await this.folioMeta(tx, folioId);
     const target = await this.port().lockForDeposit(tx, meta.primary_reservation_id);
     if (!target) throw problem('NOT_FOUND');
     if (!desk && target.createdBy !== actor.userId && target.closerUserId !== actor.userId) {
       throw problem('NOT_FOUND');
     }
+    // 0.3.13 bổ sung 1 (V5-48): 403 → 404 → a closed booking gets no QR, every purpose and role (OWN, an
+    // `overBalanceReason` included), before the body rules below – nothing is written.
+    assertBookingOpen(target.status, target.status);
+    if (input.purpose === 'billing_period') {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }] });
+    }
+    stayFieldErrors(input.purpose, stay);
+    if (!Number.isSafeInteger(input.amountVnd) || input.amountVnd <= 0) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }],
+      });
+    }
+    const overReason =
+      input.overBalanceReason === undefined || input.overBalanceReason === null
+        ? null
+        : requireReason('overBalanceReason', input.overBalanceReason, { max: 300 });
     // 0.3.7 (S4-10): `check_in` on a `confirmed` booking, `check_out` on an `in_house` one – else 409.
     if (stayPurpose && target.status !== (stayPurpose === 'check_in' ? 'confirmed' : 'in_house')) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: target.status } });

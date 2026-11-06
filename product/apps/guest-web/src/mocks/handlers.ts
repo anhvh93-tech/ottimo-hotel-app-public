@@ -319,8 +319,15 @@ export const handlers = [
       return problem(409, 'INVALID_TRANSITION', { currentState: 'notice' });
     }
     if (typeof body.arrivalNote === 'string') {
-      if (body.arrivalNote.length > 300 || CARD_RE.test(body.arrivalNote)) {
+      // FB-R5-ARC-FE-107-01: the shapes of guest-portal.service.ts – > 300 is a field error TOO_LONG; a card number
+      // is the top-level code CARD_NUMBER_DETECTED (V-09); an ID number stays VALIDATION_FAILED + field code.
+      if (body.arrivalNote.trim().length > 300) {
         return problem(422, 'VALIDATION_FAILED', {
+          errors: [{ field: 'arrivalNote', code: 'TOO_LONG' }],
+        });
+      }
+      if (CARD_RE.test(body.arrivalNote)) {
+        return problem(422, 'CARD_NUMBER_DETECTED', {
           errors: [{ field: 'arrivalNote', code: 'CARD_NUMBER_DETECTED' }],
         });
       }
@@ -520,6 +527,10 @@ export const handlers = [
     const fail = scenario.requestFail;
     scenario.requestFail = undefined;
     if (fail === 'RATE_LIMITED') return problem(429, 'RATE_LIMITED');
+    if (fail === 'CARD_NUMBER_DETECTED')
+      return problem(422, 'CARD_NUMBER_DETECTED', {
+        errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
+      });
     if (fail)
       return problem(422, 'VALIDATION_FAILED', {
         errors: [{ field: fail === 'FEE_NOT_ACCEPTED' ? 'feeAccepted' : 'note', code: fail }],
@@ -530,8 +541,9 @@ export const handlers = [
         errors: [{ field: 'feeAccepted', code: 'FEE_NOT_ACCEPTED' }],
       });
     }
+    // FB-R5-ARC-FE-107-01: guest-requests.service.ts answers a card number with the top-level code.
     if (body.note && CARD_RE.test(body.note)) {
-      return problem(422, 'VALIDATION_FAILED', {
+      return problem(422, 'CARD_NUMBER_DETECTED', {
         errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
       });
     }

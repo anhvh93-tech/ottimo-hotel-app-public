@@ -72,3 +72,9 @@ Câu SEC gửi DOM ở cuối lượt 3 (tiền về trước hạn mà chưa ai
 | FB-R5-DOM-UXD-02 | Deferred | Thẻ của UXD; PO đưa vào backlog v1.0.6 **R5-B-14** (UXD + CPY → SEC → FE-B). Không chặn v1.0.5 |
 
 - Giả định 1 của DOM (#117 cùng tag) nằm ở plan R5 mục 4a dòng T1. Giả định 2 (push vẫn Mock) nằm ở cuối mục 4a.
+
+## Review ARC #112/#121 (`rounds/round-05/reviews/ARC-on-be-prs-112-121.md`) – 07/11/2026
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-PO-112-01 | Done | Plan R5 mục 4a thêm **T12** (#112 + FE V5-13 + FE V5-18: thiếu FE thì bỏ hai câu ở dòng **Trả phòng và tiền ở quầy**; thiếu FE V5-13 thì lời dặn v1.0.4 "hỏi quản lý" – ca CO-01b – thành giới hạn của v1.0.5, đích v1.0.6) và **T13** (chặn: Desk đọc `lockReason` không vào tag thiếu #112). Quyết định 28 |
