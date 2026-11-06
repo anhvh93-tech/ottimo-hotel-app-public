@@ -124,3 +124,110 @@ Ghi chi tiết ở `rounds/round-04/qa/bug-list.md`:
 ## 8. Dòng decision-log đề nghị (quyền QA)
 
 `| 2026-11-06 | 4 | QA – LP-v2 staging S6 (sha-6414be25f20d, Caddy + edge thật): ca 6 ĐẠT (IP thật qua TRUST_PROXY, hai nơi gửi có bộ đếm riêng, lượt 31 → 429, XFF giả bị bỏ, POST sau 429 vẫn 202); SEC 9.5 đạt 2, 5, 6, 7, 11 và BE-01, đạt một phần 1, 12, chưa chạy 3, 4, 8, 10 (cần Desk + nhãn hạng), không chạy 9 (theo lệnh ORC), 0 ca đỏ; form 5 ngôn ngữ 202; 13 ca giá bị chặn vì staging thiếu public_room_type (BUG-R4-055, P2 môi trường); basic auth chặn fetch của form (BUG-R4-054, P3 môi trường); Lighthouse chưa chạy, đo thay thế LCP ≤ 1,26 s, CLS ≤ 0,0006, axe 0. Không chặn P8–F1; F2 chờ chạy lại phần giá | QA | Quyền QA (kết luận kiểm thử, mức lỗi) |`
+
+---
+
+## S6b – giá (06/11/2026, 17:05–17:12 giờ VN)
+
+- Tác giả: QA | Round 4 – bước **Kiểm thử** | Mục tiêu: mở điều kiện F2 của runbook (`public_show_prices` production).
+- Môi trường: **chỉ staging**, api / landing / web / worker vẫn `sha-6414be25f20d`. Gọi từ (M) (Mac → Internet → edge → Caddy landing staging → api), dùng `--resolve`. Basic auth đọc thẳng từ tệp root vào cấu hình curl / header Playwright, không in ra. Không đăng nhập Desk, không gửi form, không đổi công tắc, không chạm production.
+- ORC đã làm trước (06/11): gán `publicRoomType` cho 10 căn, chép giá niêm yết production (hiệu lực 2026-11-06). QA kiểm lại bằng SQL READ ONLY (`default_transaction_read_only = on`) lúc 17:05:
+  - Nhãn: Amber, Mist = City View; Bloom, Fern, Sage, Valley = Garden View; Ember, Ivory = Premium; Pine, Velvet = Signature. Đếm 10 căn có nhãn, 4 hạng; `QAT1` không nhãn. Sức chứa (chuẩn/tối đa): Studio 2/3, Premium 3/4, Signature 4/5. **BUG-R4-055 đóng.**
+  - Giá đêm từ 2026-11-06: Amber, Mist 700.000; Bloom, Fern, Sage, Valley 800.000; **Ember 1.100.000**, Ivory 1.100.000; Pine, Velvet 1.300.000. Giá tháng đúng như ORC gửi. Không có khóa OOO nào đang mở.
+  - Tham số có hiệu lực ngày 06/11: `rounding.night_rate` 1.000; `weekend_uplift_pct` 15 (đêm thứ Sáu, thứ Bảy); `special_uplift_pct` 30 (`special_dates` có 24/12–02/01); `los_discount` 10 % từ 7 đêm, 15 % từ 14 đêm; `extra_adult_fee` 150.000; `child_fee_6_11` 100.000; `child_free_under_age` 6; `min_stay` 2 đêm khi đến thứ Sáu/thứ Bảy hoặc ngày đặc biệt; `long_stay_required_from_nights` **28**; `short_stay_max_nights` 27; `booking_window_days` 365; không có `web_estimate.open_until`. Cả hai công tắc đều `true`.
+- **`ota_base_rate` (chỉ staging có):** không ảnh hưởng số trên web. Động cơ có đọc khóa này vào `PricingParams`, nhưng `estimatePublicRate` chỉ tính kênh `direct` và không dùng nó. Nó chỉ có trong chuỗi băm `priceVersion` (16 ký tự trong `estimateToken`), nên `priceVersion` của staging và production sẽ khác nhau dù cùng giá. Điều này vô hại: token chỉ kiểm trong đúng cơ sở đã cấp. Trên Desk, khóa này chỉ chạm báo giá kênh OTA.
+- Cách tính số kỳ vọng: QA viết lại độc lập các quy tắc trong `reservations/public/pricing.ts` và `public-rate.ts` bằng Python, không import mã api. Gồm giá đêm theo ngày hiệu lực; một mức tăng duy nhất cho mỗi đêm (đặc biệt trước, rồi cuối tuần); giảm theo số đêm trên từng đêm; làm tròn nửa lên tới 1.000; phụ thu khách thêm theo đêm và không giảm (người lớn lấp định mức trước); "Từ" = căn rẻ nhất của hạng; tối thiểu số đêm; mốc dài hạn. Tham số và giá lấy từ SQL ở trên.
+- Ngày ở của bảng gốc đã dời theo hôm nay: P11 (02→09/11) đã qua nên đổi sang 23→30/11 (vẫn có thứ Sáu + thứ Bảy). P06 đổi thành 27 đêm, vì mốc dài hạn hiện là 28.
+
+### S6b.1 13 ca giá + 5 ca không số + 2 ca tháng (API)
+
+`GET /v1/public/properties/dlt/price-estimate`, `Sec-Fetch-Site: same-origin`, 17:07:45–17:08:06, 20/20 trả **200** (0,12–0,25 s). So **cả 8 trường** của `shortStay` (`nights`, `roomSubtotalVnd`, `upliftNights`, `losDiscountPct`, `losDiscountVnd`, `extraPersonFeeVnd`, `totalVnd`, `nightlyAvgVnd`), không chỉ tổng tiền.
+
+| Ca | Đầu vào (NL = người lớn, trẻ 6–11 → `children`, dưới 6 → `infants`) | Số kỳ vọng (cách tính) | Web `totalVnd` | Lệch | KQ |
+|---|---|---|---|---|---|
+| P01 | Garden, 2 NL, 10→11/11 (thứ Ba) | 800.000 | 800.000 | 0 | Đạt |
+| P02 | Garden, 2 NL, 13→15/11 (thứ Sáu + thứ Bảy) | 2 × 920.000 = **1.840.000** (`upliftNights` 2) | 1.840.000 | 0 | Đạt |
+| P03 | Premium, 2 NL, 31/12→02/01 (đặc biệt) | 2 × 1.430.000 = **2.860.000** | 2.860.000 | 0 | Đạt |
+| P04 | Garden, 2 NL, 09→16/11 (7 đêm) | 5 × 720.000 + 2 × 828.000 = **5.256.000** (trước giảm 5.840.000, giảm 10 % = 584.000) | 5.256.000 | 0 | Đạt |
+| P05 | Garden, 2 NL, 09→23/11 (14 đêm) | 10 × 680.000 + 4 × 782.000 = **9.928.000** (giảm 15 % = 1.752.000) | 9.928.000 | 0 | Đạt |
+| P06 | Garden, 2 NL, 09/11→06/12 (**27 đêm**) | 19 × 680.000 + 8 × 782.000 = **19.176.000** | 19.176.000 | 0 | Đạt |
+| P07 | City, **3 NL**, 13→15/11 | 2 × 805.000 + 2 × 150.000 = **1.910.000** | 1.910.000 | 0 | Đạt |
+| P08 | Garden, 2 NL + trẻ 8 tuổi, 10→11/11 | 800.000 + 100.000 = **900.000** | 900.000 | 0 | Đạt |
+| P09 | Garden, 2 NL + trẻ 4 tuổi, 10→11/11 | **800.000** (dưới 6 miễn) | 800.000 | 0 | Đạt |
+| P10 | Signature, 4 NL + trẻ 8 + trẻ 3, 16→23/11 | 5 × 1.170.000 + 2 × 1.346.000 + 7 × 100.000 = **9.242.000** | 9.242.000 | 0 | Đạt |
+| P11 | Signature, 5 NL, **23→30/11** (7 đêm, có cuối tuần) | 8.542.000 + 7 × 150.000 = **9.592.000** | 9.592.000 | 0 | Đạt |
+| P12 | Premium, 3 NL + trẻ 8, 10→12/11 | 2 × 1.100.000 + 2 × 100.000 = **2.400.000** | 2.400.000 | 0 | Đạt |
+| P13 | City, 2 NL, 10→13/11 (3 đêm) | 3 × 700.000 = **2.100.000** | 2.100.000 | 0 | Đạt |
+| N01 | Garden, 4 NL, 10→11/11 | không số, `party_exceeds_room` | `party_exceeds_room` | – | Đạt |
+| N02 | City, 2 NL, đến thứ Bảy 14/11, 1 đêm | không số, tối thiểu 2 | `on_request` + `notes[min_stay, 2]` | – | Đạt |
+| N03 | Premium, 2 NL, đến 31/12, 1 đêm | không số, tối thiểu 2 | `on_request` + `notes[min_stay, 2]` | – | Đạt |
+| N04 | Garden, 2 NL, 09/11→07/12 (**28 đêm**) | lời mời, không số | `monthly_offer`, `stayKind: long`, `notes[long_stay_required]`, không token | – | Đạt |
+| N05 | Signature, 6 NL | không số | `party_exceeds_room` | – | Đạt |
+| L01 | `stayType=long`, Garden, 01/12, `months=6` | lời mời, không số | `monthly_offer`, không trường tiền, không token | – | Đạt |
+| L02 | `stayType=long`, Signature, 01/12, không có `months` | như trên | như trên | – | Đạt |
+
+**13/13 ca giá đạt, lệch 0 đ ở cả 8 trường.** 7/7 ca không số đạt. Mọi ca có số đều có `estimateToken`. Token chỉ có các khóa `rt, st, a, d, m, ad, c, i, tot, n, los, xp, pv, iat, exp`, không có mã căn. Theo bộ giá này, các căn trong cùng hạng cùng giá, nên "từ" = "đến" ở mọi ca.
+
+**Lưu ý: Ember gõ sai thì web không lộ ra.** Ước tính lấy căn **rẻ nhất** của hạng. Nếu Ember vẫn là 11.000.000, web Premium vẫn ra số của Ivory (P12: 2.400.000), còn báo giá Desk riêng cho Ember sẽ là 22.200.000. Vì vậy phải kiểm Ember bằng báo giá Desk **từng căn** (mục S6b.4), không dựa vào web.
+
+### S6b.2 Khối giá trên trang chủ, 5 ngôn ngữ (Chromium Playwright, 390 px, 17:10–17:11)
+
+Mở trang chủ, điền ngày, số khách, hạng. Không gửi form. Đọc `#bk-est` và `<data value>`, rồi so với phản hồi API mà chính trang nhận được.
+
+| Ngôn ngữ | P02 Garden 2 đêm cuối tuần (1.840.000) | P10 Signature 7 đêm 6 khách (9.242.000) | Console |
+|---|---|---|---|
+| en | hiện, `1840000` = "1,840,000 VND for 2 nights" | hiện, `9242000`, "Includes our longer-stay rate. Includes one more guest." | 0 lỗi |
+| vi | hiện, "1.840.000 VND cho 2 đêm" | hiện, "9.242.000 VND cho 7 đêm", "Đã gồm ưu đãi ở dài ngày. Đã gồm thêm một khách." | 0 |
+| ko | hiện, "2박 기준 1,840,000 VND" | hiện, "7박 기준 9,242,000 VND" | 0 |
+| zh | hiện, "2 晚，共 1,840,000 VND" | hiện, "7 晚，共 9,242,000 VND" | 0 |
+| ru | hiện, "1 840 000 VND за 2 ночи" | hiện, "9 242 000 VND за 7 ночей" | 0 |
+
+**10/10:** khối giá hiện, số trên trang = `<data value>` = `totalVnd` của API = số kỳ vọng. Định dạng số đúng từng ngôn ngữ. Ảnh chụp lưu ở máy QA (thư mục tạm), không đưa vào repo, vì không có dữ liệu khách. Log api từ 17:00: 30 dòng `price-estimate` (20 từ API + 10 từ trình duyệt), 0 dòng có query hay IPv4, 0 dòng `public_price_missing`.
+
+### S6b.3 Chạy lại các ca SEC 9.5 trước đây chưa đủ
+
+| Ca | Kết quả S6b | KQ |
+|---|---|---|
+| 1 | Đã đi đủ các trạng thái: `ok` (13 ca), `party_exceeds_room` (N01, N05), `on_request` + `min_stay` (N02, N03), `monthly_offer` ngắn ngày ≥ mốc (N04) và dài hạn (L01, L02). Khóa ngoài cùng nằm trong danh sách cho phép (`estimate, currency, taxIncluded, roomType, stayKind, arrival, departure, priceAvailable, unavailableReason, shortStay, notes, computedAt, estimateToken, expiresAt`). `shortStay` có đúng 8 khóa. Grep tên căn, số căn, `roomId`, `toTotal`, `lines`, `priceGap`, `floor`, `commission`, giá OTA trên 20 thân phản hồi: 0 (chuỗi "ota" chỉ là phần của `totalVnd`) | **Đạt** |
+| 12 | `months=6` (L01) và không có `months` (L02): `monthly_offer`, không có trường tiền nào, không có token | **Đạt** |
+| 3 | **Cần Desk.** Dữ liệu staging hiện có: Sage đã bán 06/11–12/12, Pine giữ chỗ 24–25/11, mà Garden (P01–P06) và Signature (P11) vẫn có số. Đọc mã: `PublicRatePort.rooms` không đọc đơn, giữ chỗ hay đêm đã bán. Nhưng các căn cùng hạng cùng giá, nên dữ liệu này không phân biệt được. Vẫn phải chiếm **cả hai** căn Signature rồi so byte | Đạt một phần, chờ ORC |
+| 4 | **Cần Desk.** Bộ giá hiện tại không có hạng nào gồm hai căn khác giá | Chờ ORC |
+| 8 | **Cần Desk** (OWN đổi giá) | Chờ ORC |
+| 10 | **Cần Desk** (OWN) | Chờ ORC |
+
+Các bước ORC làm trên Desk staging (khoảng 15 phút). QA chạy phần API và log ngay sau đó:
+1. **Ca 4 + 8** (`qa.owner`): sửa giá đêm **The Amber = 650.000**, hiệu lực 2026-11-10, lý do "QA S6b ca 4/8". QA gọi P13 (City, 2 NL, 10→13/11) mỗi 15 giây. Đúng là: trong ≤ 60 giây web đổi từ 2.100.000 sang **1.950.000**, và không có số "đến" (ca 8 + phần web của ca 4). Sau đó QA gửi một yêu cầu `@example.test` kèm token. ORC mở yêu cầu đó trên Desk. Đúng là: Desk thấy "từ 1.950.000 – đến 2.100.000" (ca 4). Xong thì ORC đặt Amber về **700.000** từ 2026-11-10, để staging lại giống production.
+2. **Ca 10** (`qa.owner`): gán nhãn City View cho `QAT1` (căn này chỉ có giá từ 01/12). QA gọi City 10→13/11 khoảng 100 lần, chia hai máy và nhiều ngày ở khác nhau (giới hạn 30 lượt / 10 phút mỗi IP). Đúng là: web vẫn ra số của Amber/Mist; log api có **đúng 1** dòng `public_price_missing` cho `QAT1` trong ngày; `ops-check pricegap` báo một lần. Xong thì ORC bỏ nhãn `QAT1`.
+3. **Ca 3** (`qa.fd`): tạo giữ chỗ cho **cả** Pine và Velvet ngày 16→23/11. QA gọi P10 trước và sau. Đúng là: hai thân phản hồi giống nhau từng byte, trừ `computedAt`, `estimateToken`, `expiresAt`. Xong thì ORC hủy giữ chỗ.
+
+### S6b.4 Ba ca mẫu để ORC đối chiếu production (đọc Desk, không bật giá)
+
+Giả định: production có cùng nhãn, cùng sức chứa, cùng giá niêm yết (Ember 1.100.000) và cùng tham số như staging ở trên. Ba khóa ORC chưa nêu, QA giả định giống staging: `rounding.night_rate` = 1.000, không có `web_estimate.open_until`, `booking_window_days` = 365. Đối chiếu bằng Desk production → Báo giá, kênh **Trực tiếp**, **từng căn**:
+
+| Mẫu | Đầu vào | Web production sẽ hiện (tham số **hiện tại**) | Desk từng căn | Nếu OWN đã chuyển P6/P7 trước khi bật (bảng 01/11) |
+|---|---|---|---|---|
+| A = P02 | Garden, 2 NL, 13→15/11 | **1.840.000** | Bloom, Fern, Sage, Valley: 1.840.000 mỗi căn | 1.600.000 |
+| B = P10 | Signature, 4 NL + trẻ 8 + trẻ 3, 16→23/11 | **9.242.000** | Pine, Velvet: 9.242.000 | 10.150.000 |
+| C = P12 | Premium, 3 NL + trẻ 8, 10→12/11 | **2.400.000** | Ivory: 2.400.000; **Ember: 2.400.000** (vẫn là 22.200.000 nghĩa là còn gõ sai) | 2.500.000 |
+
+Cột cuối tính theo ESC-045: không tăng cuối tuần/lễ (câu 1 = A), từ 6 tuổi 150.000 (câu 3 = B), không giảm theo số đêm, dài hạn từ 30 đêm (câu 6 = A, QC P6). Có cột này để ORC đối chiếu nếu OWN chuyển tham số trước F2.
+
+### S6b.5 Kết luận cho F2
+
+- Phần kỹ thuật **đạt**: web = động cơ Desk = số QA tính độc lập. 13/13 ca giá lệch 0 đ, 7/7 ca không số đúng, 5 ngôn ngữ hiện đúng số, SEC ca 1 và 12 đạt đủ.
+- **F2 chưa đi được**, vì runbook F2 đòi QC P6 + P7, mà tham số production (ORC nói trùng staging) vẫn là **bảng cũ**, chưa theo quyết định INV 01/11 (ESC-045) và sổ tay v1.0.4 đã gộp (#85):
+
+| Tham số | Đang có (staging = production) | Theo INV 01/11 / QC P6–P7 | Khách thấy nếu bật giá lúc này |
+|---|---|---|---|
+| `weekend_uplift_pct` / `special_uplift_pct` | 15 / 30 | 0 / 0 (câu 1 = A) | Cuối tuần, lễ đắt hơn (P02 1.840.000 thay vì 1.600.000) |
+| `los_discount` | 10 % từ 7 đêm, 15 % từ 14 đêm | rỗng | Web ghi "Includes our longer-stay rate" và giảm 10–15 % (P10 9.242.000 thay vì 10.150.000) |
+| `child_fee_6_11` | 100.000 | 150.000 (câu 3 = B) | Trẻ 6–11 rẻ hơn 50.000 mỗi đêm |
+| `long_stay_required_from_nights` / `short_stay_max_nights` | 28 / 27 | 30 / 29 (câu 6 = A; khớp `shortMaxNights` 29 của landing) | 28–29 đêm bị báo "ưu đãi dài hạn", không có số |
+
+- Thêm một điểm: giá đêm **City View** (Amber, Mist) trên production là **700.000**, còn bảng giá INV 01/11 (`00-brief/context/pricing/OTTIMO_pricing_spec-2026-11-01.md`) và bảng DOM P6 ghi **800.000**. Giá tháng 8.500.000 thì khớp. QA không tự quyết số nào đúng → **ESC-050**.
+- SEC ca 3, 4, 8, 10 chờ thao tác Desk (S6b.3). Runbook (dòng C8) xếp các ca này vào phần staging, không phải điều kiện trực tiếp của F2. Nhưng ca 8 (đổi giá thì web theo trong ≤ 60 giây) là chỗ dựa để OWN sửa giá sau khi đã bật, nên QA đề nghị chạy trước F2.
+- Đi tiếp khi: (1) OWN chuyển P6/P7 trên production, và INV trả lời ESC-050; (2) ORC chép đúng các tham số đó sang staging, QA chạy lại 13 ca (khoảng 10 phút, dùng lại script); (3) ORC đối chiếu 3 ca mẫu trên Desk production theo cột tương ứng, gồm Ember từng căn. Nếu INV **cố ý** giữ bảng tham số cũ, tức đổi quyết định ESC-045, thì số ở S6b.1 chính là số production sẽ hiện và F2 chỉ còn chờ ESC-050 + 3 ca mẫu. Khi đó ORC ghi quyết định mới vào decision-log, còn DOM/BA sửa sổ tay v1.0.4.
+
+Lỗi mới: **0**. BUG-R4-055 **Closed** (đã kiểm ở trên). BUG-R4-054 vẫn Open (Playwright vẫn phải chèn `Authorization`). Dữ liệu QA để lại: không có. S6b không gửi yêu cầu nào, không tạo dòng DB nào. Bộ đếm RAM của (M) tăng thêm khoảng 30 lượt trong ngày.
+
+Dòng decision-log đề nghị (quyền QA): `| 2026-11-06 | 4 | QA – LP-v2 staging S6b giá (sha-6414be25f20d, edge thật, nhãn + giá production đã chép): 13/13 ca giá lệch 0 đ (8 trường shortStay, oracle độc lập), 7/7 ca không số, khối giá 5 ngôn ngữ 10/10 = API; SEC 9.5 ca 1, 12 ĐẠT, ca 3/4/8/10 chờ Desk; BUG-R4-055 đóng; ota_base_rate không ảnh hưởng số web (chỉ priceVersion). F2 CHƯA: tham số production vẫn bảng cũ (15/30 %, LOS 10/15 %, trẻ 100.000, mốc 28) ≠ ESC-045/QC P6–P7; City 700.000 ≠ bảng 800.000 (ESC-050) | QA | Quyền QA (kết luận kiểm thử) |`

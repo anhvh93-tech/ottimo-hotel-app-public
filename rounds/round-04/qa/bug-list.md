@@ -35,15 +35,17 @@
 
 - **LP-v2 staging S6** (06/11 15:57–16:24 giờ VN, staging `sha-6414be25f20d`, Caddy + edge thật; chỉ API công khai + SQL READ ONLY, không đăng nhập Desk): ca 6 đạt, 0 ca đỏ. Mới **BUG-R4-054** (P3, môi trường staging) và **BUG-R4-055** (P2, môi trường staging). BUG-R4-011, 012 chưa chạy P10 (chờ thao tác Desk). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md`.
 
+- **LP-v2 staging S6b – giá** (06/11 17:05–17:12 giờ VN, staging `sha-6414be25f20d`; API công khai + trình duyệt + SQL READ ONLY, không Desk): sau khi ORC gán nhãn hạng và chép giá production, 13/13 ca giá lệch 0 đ, 7/7 ca không số, khối giá 5 ngôn ngữ đúng số. **BUG-R4-055 Closed.** 0 lỗi mới. F2 còn chờ tham số P6/P7 trên production và ESC-050 (giá City View). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md` mục S6b.
+
 ## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11 + `lp-v2-main` @ `917a39cf` + xác nhận G2 @ `4fe85e19`)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 10 | 2 (**BUG-R4-055** – staging thiếu nhãn hạng, môi trường; BUG-R4-011 – **đã vào `main` cùng lần gộp PR #34, chờ P10**; production còn lỗi gốc với hồ sơ tạo tay tới khi phát hành) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
+| P2 | 10 | 1 (BUG-R4-011 – **đã vào `main` cùng lần gộp PR #34, chờ P10**; production còn lỗi gốc với hồ sơ tạo tay tới khi phát hành) | 0 | 9 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022**, **055** – 055 đóng 06/11 S6b; 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
 | P3 | 20 | 9 (**BUG-R4-054** – basic auth staging, môi trường; BUG-R4-010 – mở lại, BUG-R4-012 – **đã vào `main` cùng lần gộp PR #34, chờ P10**, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 10 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021**, **027**, **028** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`; 027, 028 đóng 04/11 @ `4fe85e19` (G2)) |
-| **Tổng** | **30** | **11** | **1** | **18** |
+| **Tổng** | **30** | **10** | **1** | **19** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -611,7 +613,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** staging có cùng nhãn hạng với production (101, 201 = `Standard Studio · City View`; 102, 103, 202, 203 = `Standard Studio · Garden View`; 302, 402 = `Premium · One Bedroom + 1`; 301, 401 = `Signature · Two Bedrooms`). Garden 1 đêm có số. Runbook mục 3 S0 nên thêm câu kiểm `SELECT count(*), count(public_room_type), count(DISTINCT public_room_type) FROM room;` (đúng là `11|10|4`, hoặc `10|10|4` nếu không tính `QAT1`), để chặn trước S6.
 - **Bằng chứng:** `rounds/round-04/qa/lp-v2-staging-s6.md` mục 1, 3.
 - **Vai:** ORC + OWN thử (gán ô "Hạng phòng công khai" trên Desk staging). OPS (thêm câu kiểm S0 vào runbook).
-- **Trạng thái:** Open. QA chạy lại phần giá ngay sau khi có nhãn.
+- **Trạng thái:** **Closed** 06/11 17:05 (S6b). SQL READ ONLY: 10 căn có nhãn, 4 hạng, giống `production-defaults.ts` (theo tên căn); `QAT1` không nhãn. Garden 1 đêm 10→11/11 = 800.000, 13/13 ca giá có số đúng. Câu kiểm S0 cho runbook (OPS) vẫn nên thêm.
 
 ## 3. Ghi nhận (không phải lỗi)
 
