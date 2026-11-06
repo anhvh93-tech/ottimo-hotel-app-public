@@ -767,6 +767,52 @@ describe.skipIf(!HAS_DB)(
       expect((await attention('fd')).some((i) => i.kind === 'ota_no_show_report')).toBe(false);
     });
 
+    it('T10-10 (0.3.13 BE C0313-02, BUG-R4-036): 01:30 on 17/10 without `date` → departures of the calendar day 17/10 (`departuresDate`), arrivals/holds and getTonightKpi stay on 16/10', async () => {
+      await at('2026-10-17T01:30:00+07:00');
+      const ids = (rows: Array<{ id: string }>) => rows.map((r) => r.id);
+      const night = await lists('fd');
+      expect(night.date).toBe('2026-10-16');
+      expect(night.departuresDate).toBe('2026-10-17');
+      // 203 (a guest arrives in 203 on 17/10 – the departures day) first, both with B18
+      expect(ids(night.departures)).toEqual([b['203']!.id, b['101']!.id]);
+      expect(
+        night.departures.map((d: { departureDate: string; hasArrivalSameRoomToday: boolean }) => [
+          d.departureDate,
+          d.hasArrivalSameRoomToday,
+        ]),
+      ).toEqual([
+        ['2026-10-17', true],
+        ['2026-10-17', false],
+      ]);
+      for (const d of night.departures) {
+        expect(d.allowedActions).toEqual([
+          { event: 'check_out', transition: 'B18', action: 'check-out' },
+        ]);
+      }
+      // same list as asking for 17/10 explicitly
+      const asked17 = await lists('fd', '2026-10-17');
+      expect(asked17.departuresDate).toBe('2026-10-17');
+      expect(ids(asked17.departures)).toEqual(ids(night.departures));
+      // arrivals and holds: the business date, unchanged
+      const biz = await lists('fd', '2026-10-16');
+      expect(biz.departuresDate).toBe('2026-10-16');
+      expect(ids(night.arrivals)).toEqual(ids(biz.arrivals));
+      expect(ids(night.holdsArrivingToday)).toEqual(ids(biz.holdsArrivingToday));
+      // getTonightKpi stays on the business date (same reader as the 16/10 list, not the 17/10 one)
+      const k = await kpi('fd');
+      expect(k.businessDate).toBe('2026-10-16');
+      expect(k.departures).toBe(biz.departures.length);
+      expect(k.departuresCheckedOut).toBe(
+        biz.departures.filter((d: { status: string }) => d.status === 'checked_out').length,
+      );
+      expect(ids(biz.departures)).not.toContain(b['203']!.id);
+      // from the rollover the business date is 17/10: date = departuresDate
+      await at('2026-10-17T06:00:00+07:00');
+      const day = await lists('fd');
+      expect([day.date, day.departuresDate]).toEqual(['2026-10-17', '2026-10-17']);
+      expect(ids(day.departures)).toEqual(ids(night.departures));
+    });
+
     it('S4-31 / US-031: departures of 17/10 – same-day arrival first, BR-425 states, check-out button; B18 window after midnight', async () => {
       // 01:00 on 17/10 = business day 16/10: the 17/10 list already offers check-out (post-midnight window).
       await at('2026-10-17T01:00:00+07:00');
@@ -779,6 +825,7 @@ describe.skipIf(!HAS_DB)(
         await at(iso);
         const l = await lists('fd');
         expect(l.date).toBe('2026-10-17');
+        expect(l.departuresDate).toBe('2026-10-17');
         return l.departures.map(
           (d: { id: string; reminderState: string; hasArrivalSameRoomToday: boolean }) => [
             d.id === b['203']!.id ? '203' : '101',

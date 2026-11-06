@@ -234,6 +234,16 @@ export class ParametersService {
         (await tx.query<{ code: string }>('SELECT code FROM room_group ORDER BY code')).rows.map(
           (r) => r.code,
         ),
+      // V5-25 (DOM 12.2): rows already scheduled after this one (min_stay ↔ short_stay_max_nights both ways).
+      async (other) =>
+        (
+          await tx.query<{ effective_from: string; value: unknown }>(
+            `SELECT effective_from::text AS effective_from, value FROM config_parameter
+              WHERE property_id = $1 AND key = $2 AND effective_from > $3
+              ORDER BY effective_from`,
+            [pc.propertyId, other, input.effectiveFrom],
+          )
+        ).rows.map((r) => ({ effectiveFrom: r.effective_from, value: r.value })),
     );
     await this.params.set(tx, {
       key: input.key,
