@@ -1,9 +1,10 @@
-# 8 việc còn chờ chủ đầu tư quyết – bản tóm tắt 06/11/2026
+# 9 việc còn chờ chủ đầu tư quyết – bản tóm tắt 06/11/2026
 
 - Người soạn: PO | Round 4, bước Tổng kết | Dùng cho: ORC (round-summary) và buổi review định kỳ đầu tiên **20/11/2026**.
 - Từ 06/11 đội chuyển sang vận hành: anh/chị chỉ cần trả lời các việc này ở buổi review, không cần trả lời ngay.
 - Quy tắc ghi trạng thái: việc nào đội làm được theo phương án đề xuất mà **không đổi giá hay tiền trên production** thì chạy theo đề xuất như giả định (ghi "[GIẢ ĐỊNH] chạy theo đề xuất, INV xác nhận ở review"). Việc chạm giá hay tiền, hoặc cần anh/chị tự làm, giữ "Chờ INV". Đội không tự đổi tham số giá trên production.
 - Chi tiết từng việc: `02-escalations/ESC-0xx.md`. Từ điển tham số: `product/docs/tham-so-quy-tac.md`.
+- Cập nhật 06/11 khuya (PO, Round 5): thêm **ESC-051** (DOM, hoa hồng theo bảng nội bộ) vào bảng mục 1 và 7 việc anh/chị nhập trên Desk sau khi v1.0.5 lên (mục 3, dòng 8). Tệp này không ghi tỷ lệ hay số tiền hoa hồng nào.
 
 ## 1. Bảng tóm tắt
 
@@ -17,17 +18,18 @@
 | **039** | Lễ tân biết tiền chuyển khoản đã về bằng cách nào (tài khoản nhận là tài khoản cá nhân, ban đêm chỉ một người trực)? | Thông báo tiền vào tới một thiết bị của cơ sở đặt ở quầy, ví dụ loa báo tiền hoặc điện thoại cơ sở. Lễ tân chỉ nghe hoặc thấy tiền vào, không đăng nhập ngân hàng. Anh/chị làm với ngân hàng, có thể có phí. Nên làm cùng lúc chuyển sang tài khoản doanh nghiệp. | Giữ cách tạm trong sổ tay. Ban ngày lễ tân nhờ anh/chị hoặc quản lý xác nhận tiền vào. Ban đêm khách trả tiền mặt hoặc thẻ. Chỉ ghi "chờ đối soát" khi đã có giấy tờ khách, và quản lý đối soát trước 09:00 sáng hôm sau. Rủi ro: anh/chị bị gọi nhiều lần; ảnh chụp chuyển khoản giả. | Hạn cũ 31/10 đã qua. Không chặn vận hành. Nên chốt ở review 20/11, hoặc khi chuyển tài khoản doanh nghiệp. | Chờ INV (cần anh/chị làm với ngân hàng, có thể tốn phí) |
 | **046** | Tạo một phòng Google Chat thử để đội kiểm tin đặt phòng chi tiết trước khi bật? | Anh/chị tạo một phòng Chat thử chỉ có mình và thêm một webhook. Mất khoảng 5 phút, không tốn tiền. | Tin Google Chat giữ mức hiện nay (mã yêu cầu và link Desk), đang chạy ổn. Không bật tin chi tiết. | Không gấp. Chỉ cần khi anh/chị muốn tin có thêm chi tiết. Nếu tới review 20/11 vẫn chưa cần, đội đề xuất đóng ESC và giữ mức hiện nay. | Chờ INV (chỉ anh/chị tạo được phòng) |
 | **047** | Khách thuê tháng vào giữa tháng: khi ký hợp đồng thu những gì? | Thu ký quỹ và kỳ đầu đã gộp (phần lẻ tháng này cộng trọn tháng sau). Cách này khớp quyết định 01/11: tháng đầu tính lẻ, gộp vào kỳ sau, đóng ngày 05. | Sale và lễ tân báo giá theo đề xuất, ghi "chờ chủ đầu tư duyệt" trên báo giá hợp đồng có ngày vào từ ngày 02 trong tháng. Hợp đồng vào ngày 01 không bị ảnh hưởng. Desk chưa tự tính tiền thuê tháng (việc H7). | Trước khi ký hợp đồng tháng đầu tiên có ngày vào từ ngày 02. | Chờ INV (tiền) |
+| **051** | Hoa hồng sale, CTV và thưởng quản lý theo bảng nội bộ 01/11: bảng để ngỏ 4 điểm. (1) Đơn ngắn ngày hủy hoặc không đến mà khách đã trả tiền: tính trên số nào? (2) Hợp đồng thuê tháng có kỳ hạn không rơi vào dòng nào của bảng. (3) Thưởng quản lý: "tiền phòng đã thu của tháng" là số nào? (4) Hoa hồng thuê tháng đợt 1 "khi khách nhận phòng": có cần khách đã trả kỳ đầu? | Phương án **A** cho cả 4 câu: (1) tính trên số OTTIMO giữ lại sau hoàn; (2) áp dòng kỳ hạn ngắn hơn liền kề, dài hơn dòng cuối thì áp dòng cuối (như ESC-045 câu 2); (3) tiền phòng các đêm trong tháng, chỉ phần đã thu tới ngày chốt; (4) đợt 1 đạt khi khách đã nhận căn và đã trả đủ ký quỹ cùng kỳ thu đầu. Ví dụ ở ESC-051 chỉ dùng giá công khai. Anh/chị trả lời bằng chữ cái, không cần gửi số. | Desk tính theo A, tài liệu ghi [GIẢ ĐỊNH – chờ INV xác nhận]. Tỷ lệ do anh/chị tự nhập (mục 3, dòng 8); chưa nhập thì Desk báo "Chưa có tỷ lệ hoa hồng", không tính 0. Chọn khác A thì BE sửa khoảng 0,5 ngày công mỗi câu; trả lời sau 20/11 có thể không kịp QA kiểm trước kỳ chốt. | **20/11/2026** (mức Cao), để kịp kỳ chốt hoa hồng đầu tiên **01/12/2026**. Không chặn v1.0.5. | Chờ INV (chạm tiền hoa hồng; Desk xây theo A) |
 
 ## 2. Gom lại
 
 - **Chạy theo giả định** (đội làm theo đề xuất, anh/chị xác nhận ở review): ESC-035, ESC-037, ESC-038.
-- **Phải chờ anh/chị:** ESC-032, ESC-033, ESC-047 (giá hoặc tiền); ESC-039 (anh/chị làm với ngân hàng, có thể tốn phí); ESC-046 (chỉ anh/chị tạo được phòng Chat).
+- **Phải chờ anh/chị:** ESC-032, ESC-033, ESC-047, ESC-051 (giá hoặc tiền); ESC-039 (anh/chị làm với ngân hàng, có thể tốn phí); ESC-046 (chỉ anh/chị tạo được phòng Chat).
 - **Đề xuất đóng ở review 20/11:** ESC-032 và ESC-035, vì bảng giá 01/11 đã trả lời. Anh/chị chỉ cần xác nhận.
-- Không có ESC mới.
+- ESC mới sau bản 06/11: **ESC-051** (Round 5, DOM). Việc gấp nhất ở buổi 20/11 cùng việc 1 mục 3 (diễn tập khôi phục).
 
 ## 3. Việc anh/chị cần làm (không phải ESC)
 
-Đây là việc chỉ anh/chị làm được, không cần chọn phương án. Nguồn: OPS `rounds/round-04/outputs/OPS/ops-readiness-06-11.md` mục 11, SEC `rounds/round-04/reviews/SEC-on-bug-r4-054.md` mục B4, từ điển tham số mục cuối. Không việc nào dưới đây là ESC.
+Đây là việc chỉ anh/chị làm được, không cần chọn phương án. Nguồn: OPS `rounds/round-04/outputs/OPS/ops-readiness-06-11.md` mục 11, SEC `rounds/round-04/reviews/SEC-on-bug-r4-054.md` mục B4, từ điển tham số mục cuối, DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 0 (dòng 8). Không việc nào dưới đây là ESC.
 
 | # | Việc | Vì sao | Khi nào |
 |---|---|---|---|
@@ -38,5 +40,6 @@
 | 5 | Tùy chọn: thêm người thứ hai nhận cảnh báo, ví dụ quản lý vào phòng Chat "Báo động" hoặc thêm email ở Healthchecks. | Hiện cảnh báo chỉ tới một mình anh/chị; ban đêm không có báo đẩy (OR-L7). Không tốn tiền. | Khi tiện. |
 | 6 | Chỉnh các tham số còn lệch sổ tay theo từ điển: B2 (tăng giá ngày đặc biệt), B3, B4, B5, B7, B8, B9, B11, `rounding.ota_rate`. Giá căn City View 800.000 ở Danh mục căn (ESC-050): **đã nhập trên production 06/11**, không còn phải làm. | Tới khi xong, Desk và web ra số lai (ví dụ đơn 7 đêm vẫn được giảm, đơn 28–29 đêm bị chặn). | Càng sớm càng tốt. Sau mỗi lần đổi, báo giá thử theo câu kiểm trong sổ tay. Khi đổi giá, đổi **cả hai căn cùng hạng một lần** (ví dụ Amber và Mist). Nếu muốn hai căn cùng hạng khác giá, báo đội trước, vì Desk chưa hiện được mức "đến" (V5-19). |
 | 7 | Ở buổi review 20/11: chốt giá năm 2027 (gồm ESC-032, ESC-033) và mốc `web_estimate.open_until` (đêm cuối web được hiện giá ước tính). | Web chỉ hiện giá tới mốc này. Đặt mốc xa hơn mà chưa chốt giá 2027 thì khách thấy giá chưa duyệt. | Review 20/11. |
+| 8 | Sau khi v1.0.5 lên production: **7 việc trên Desk** theo DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 0 (phần "Việc chủ đầu tư nhập trên Desk"). (1) Dán giá lượt dọn khách thuê tháng theo căn `long_stay_cleaning_fee_by_room` (giá công khai bảng 01/11, chuỗi dán sẵn ở tệp DOM). (2) Tự nhập `long_stay_commission` và `manager_performance_bonus_pct` theo bảng nội bộ. (3) Nhập cùng một số cho hai khóa con `staff`, `collaborator` của `short_stay_commission_pct`. (4) Kiểm `commission_payable_day`, `commission_pay_by_day` khớp ngày trả lương. (5) **Không sửa** `night_from_month_divisor`. (6) Mở Danh mục căn, kiểm giá đêm các căn đã tạo bằng API hoặc công cụ nhập. (7) **Không sửa** `weekend_nights` tới khi đội sửa xong lỗi BUG-R5-001 (V5-25). | Đội không đổi tham số trên production. Số hoa hồng và thưởng chỉ anh/chị giữ: **không gửi số cho đội**, kể cả qua chat. Thiếu tỷ lệ thì Desk báo "Chưa có tỷ lệ hoa hồng", không tự tính bằng 0. | Ngay sau khi v1.0.5 lên. **Việc (2) và (3) phải xong trước kỳ chốt hoa hồng 01/12/2026.** Nếu phần hoa hồng thuê tháng tách sang bản riêng (diễn tập khôi phục chưa xong, xem `rounds/round-05/plan.md` quyết định 17), làm việc (1)–(2) khi bản đó lên; tới lúc ấy hoa hồng thuê tháng và thưởng quản lý tính ngoài Desk. |
 
 Việc kéo bản sao lưu ngoài máy (OR-H1) đã làm tay lúc 06/11 khoảng 19:00. Phần sửa script kéo (không để máy chủ ghi đè bản cũ) làm ngay, phần tự động hóa nằm trong v1.0.5 (`rounds/round-05/plan.md`, V5-60).

@@ -50,3 +50,16 @@ Tờ 2a dài hơn bản trước khoảng 5 dòng. Khi in, UXD kiểm còn vừa
 | FB-R5-SEC-PO-06 | Fixed | Chú thích đầu Tờ 2a: gỡ tờ này thì sửa Tờ 1 "xem Tờ 2a" → "xem sổ tay 2.4". Chữ in không đổi |
 
 Câu SEC gửi DOM ở cuối lượt 3 (tiền về trước hạn mà chưa ai bấm, rồi giữ chỗ bị hủy; khách chuyển theo mã QR cũ sau khi giữ chỗ tự hủy): DOM quyết. PO sửa Tờ 2a theo quyết định đó khi ORC chuyển tới.
+
+## Review DOM Tờ 2a lượt 2 (`rounds/round-05/reviews/DOM-on-staff-one-pager-2a.md` thẻ 07; `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 9, 11)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-DOM-PO-07 | Fixed | Áp bản gộp đúng chữ DOM (gạch "Ở đâu", câu cuối "Hết hạn, chưa cọc", gạch mới "Tiền đã về mà đơn đã tự hủy"). Chỉ đổi nháy đơn thành nháy kép. DOM không cần đọc lại |
+| DOM mục 11 (tiền về mà giữ chỗ đã tự hủy) | Fixed | Tờ 2a: kiểm tiền theo mã đơn trước khi hủy hoặc báo khách; còn căn → giữ chỗ mới cùng căn, cùng giá, xác nhận cọc; căn đã bán → chủ đầu tư hoàn đủ. Phần mềm: plan R5 **V5-5B** (BUG-R5-002 của QA; ARC chốt khôi phục đơn hay tạo yêu cầu hoàn, có migration không; có migration thì chờ ĐK-2, không kịp thì v1.0.6). Sổ tay 2.4 thêm bước tay: V5-71 |
+| DOM mục 9 (luật A.5 sửa) | Đã xếp việc | Plan R5 **V5-1B**: tin `hold_expired` gửi thêm lễ tân, lễ tân trưởng. Bắt buộc, không migration, không đổi hợp đồng, hạn 14/11 |
+
+- Câu nơi nhận hoàn của SEC (FB-R5-SEC-PO-04) giữ nguyên, không đụng.
+- **Tờ 1 không đổi** ở lượt này: SEC không có gì mới phải đọc.
+- Không vừa A5 10 pt: in 9 pt, hoặc chuyển phần "đơn để nguyên" của dòng Sổ giao ca sang sổ tay 2.4, như DOM cho phép. Ba câu của thẻ 07 giữ trên tờ.
+- Câu SEC gửi DOM cuối lượt 3 (tiền về trước hạn mà chưa ai bấm; khách chuyển theo mã QR cũ): DOM đã quyết ở mục 11, Tờ 2a đã theo.
