@@ -140,7 +140,7 @@ SEC lặp lại M2 (bỏ che `after` ở danh sách) và M3 (bỏ mệnh đề �
 - Kiểm tra riêng (ORC): hỏi DOM, người giữ bảng nội bộ ngoài repo, **chỉ một câu có/không**: số trong test có trùng giá trị nào của bảng thật không. Không ghi số vào repo, PR hay chat.
   - "Không": hết việc;
   - "Có": báo SEC. SEC đánh giá lại mức rủi ro và mở ESC nếu cần, vì ref của PR công khai không xóa được bằng git.
-- Trạng thái: Open
+- Trạng thái: **Closed** @ `80f2d239` (mục 7). DOM trả lời "không trùng"
 
 ---
 
@@ -164,3 +164,23 @@ SEC lặp lại M2 (bỏ che `after` ở danh sách) và M3 (bỏ mệnh đề �
 ## 6. Dòng decision-log đề xuất (ORC ghi)
 
 `| 2026-11-07 | 5 | **SEC – PR #149 (BE-H, cổng audit-visibility) @ 91907134: DUYỆT CÓ ĐIỀU KIỆN.** Đóng FB-R5-SEC-BE-131-01 (và V530-02) khi gộp: folio khai commission + commissionVnd là chỉ OWN/MGR; listAuditEvents và getReservationHistory dùng cả auditVisibleWhere (SQL, trước phân trang) và redactAuditFields; FD/FDL không còn thấy commission.* (ratePct, baseVnd, amountVnd) và khóa commissionVnd trên cả hai đường, OWN/MGR thấy đủ; SAL/CTV/HK/MT 403 ở guard (rbac-cases); vai theo cơ sở trong đường dẫn; 3 ngoại lệ quét có lý do đúng; khớp architecture 5.1. API Vitest trên PostgreSQL 17 tạm: 209 tệp, 5029 ca qua, 1 đỏ (ca p95 sơ đồ phòng chập chờn vì tải máy, chạy riêng xanh, không do #149); 6 đột biến SEC, 5 đỏ, S4 (đọc thứ hai trong tệp ngoại lệ) xanh → đồng ý ARC 149-01, làm trước PR-M. Điều kiện gộp: FB-R5-SEC-BE-149-01 Major (test đơn vị viết thẳng tỷ lệ và số tiền hoa hồng, trái G3 – đổi sang tham số thử có tên, sửa mô tả PR; ORC hỏi DOM có/không trùng bảng thật) và E2E smoke xanh trên SHA cuối. Ghi nhận Low: phí kênh đối soát (amountActualVnd) hiện ở lịch sử đơn cho FD/FDL, BA/DOM quyết ở v1.0.6. Không ESC | SEC | rounds/round-05/reviews/SEC-on-be-h-pr-149.md |`
+
+---
+
+## 7. Phần chênh @ `80f2d239` (Review delta, 07/11/2026)
+
+**Đối tượng:** `91907134..80f2d239`, đúng một commit `80f2d239` (cha là `91907134`). Commit chỉ chạm `test/audit-visibility-gate.test.ts` (+15 −3), không chạm tệp nào trong `src`. Theo quy tắc ở mục 0, SEC chỉ đọc lại phần chênh; kết luận về mã ở mục 1 và 2 giữ nguyên.
+
+| Điểm kiểm | Kết quả |
+|---|---|
+| Phần chênh | **Đạt.** Tỷ lệ là hằng thử có tên `test_rate_short`, cùng tên và cùng giá trị thử với các test G3 đã có (`v5-30-commission-status.test.ts`, `v105-early-hours.test.ts`). Số tiền phòng là hằng thử có tên `test_room_vnd`, giá trị lẻ. `commissionVnd` tính bằng `applyPct` từ hai hằng đó; `ratePct`, `baseVnd`, `amountVnd` của `row` cũng lấy từ hai hằng này. Trong tệp, kể cả chú thích, không còn số tỷ lệ hay số tiền hoa hồng nào viết thẳng. Ngoài hai hằng có tên, số tiền duy nhất còn viết thẳng là của dòng minibar ở ca "thực thể thường": không phải hoa hồng, ngoài phạm vi G3. Các phép kiểm giữ nguyên ý: OWN/MGR nhận đúng object, FD bị bỏ `commissionVnd` |
+| Chạy lại | Test cổng 3/3 xanh @ `80f2d239`; `tsc` không báo lỗi ở tệp này. Không chạy lại toàn bộ Vitest: chỉ test đơn vị này đổi, và nó không dùng cơ sở dữ liệu |
+| Mô tả PR (`gh pr view 149`, head `80f2d239`) | **Đạt.** Mục "Test" nay ghi: test đơn vị dùng `test_rate_short` và `applyPct`; test tích hợp lấy tỷ lệ từ bộ thử DS-E và chỉ kiểm khóa nào hiện, khóa nào bị bỏ. Cả mô tả không có tỷ lệ hay số tiền hoa hồng nào. Thông điệp commit `80f2d239` cũng không có số |
+| Cả PR (`68c7ebb7..80f2d239`, 8 tệp) | **Đạt.** SEC quét mọi dòng thêm tìm số tỷ lệ hay số tiền hoa hồng: không còn. Test tích hợp chỉ kiểm khóa; tỷ lệ đến từ fixture DS-E đã có trên `main`, không thuộc PR này |
+| Lịch sử | Số cũ vẫn còn trên ref công khai của PR (`91907134`). Đúng như ý 3 của thẻ, không cần viết lại lịch sử: DOM đã trả lời "không trùng bảng thật". Không ESC |
+
+**Kết luận:** FB-R5-SEC-BE-149-01 **Closed @ `80f2d239`**. Về phía SEC, #149 nay **DUYỆT @ `80f2d239`**. Điều kiện gộp còn lại là CI xanh trên SHA cuối, gồm E2E smoke; ORC tự kiểm. Lúc SEC đọc, `format · lint · audit · test · build` còn đang chạy; gitleaks, confidential paths, API contract đã xanh. Nếu có thêm commit, áp lại quy tắc ở mục 0.
+
+Dòng decision-log đề xuất (ORC ghi):
+
+`| 2026-11-07 | 5 | **SEC – PR #149 delta @ 80f2d239: FB-R5-SEC-BE-149-01 Closed; #149 DUYỆT @ 80f2d239 (phía SEC).** Một commit, chỉ test/audit-visibility-gate.test.ts. Tỷ lệ là hằng thử có tên test_rate_short (cùng tên, cùng giá trị thử như các test G3 V5-30), số tiền phòng là hằng thử có tên, hoa hồng tính bằng applyPct; tệp không còn số tỷ lệ hay số tiền hoa hồng viết thẳng, kể cả chú thích. Mô tả PR và thông điệp commit không có số. Quét cả PR (8 tệp): không còn số hoa hồng. Test cổng 3/3 xanh. DOM trả lời không trùng bảng thật → không viết lại lịch sử, không ESC. Còn điều kiện CI xanh trên SHA cuối gồm E2E smoke (ORC kiểm) | SEC | rounds/round-05/reviews/SEC-on-be-h-pr-149.md |`
