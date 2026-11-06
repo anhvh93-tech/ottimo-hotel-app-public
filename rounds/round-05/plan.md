@@ -365,7 +365,7 @@ Cách đọc: cột "Xếp" có đúng một nhãn. Với (a), cột cuối là 
 | BUG-R4-043 | P2 | Cờ `is_complimentary` theo kênh | (a) | V5-17 |
 | BUG-R4-051 | P2 | Giờ gõ trước 06:00 bị đọc là sáng hôm sau | (a) | V5-10 |
 | BUG-R4-052 | P3 | Tổng cộng chưa gồm đêm thêm | (a) | V5-12 |
-| BUG-R4-032 | P2 | Sổ tay thiếu đường Đặt lại 2 bước | (c) | #63 và #69 đã gộp; QA xác nhận số bản sổ tay |
+| BUG-R4-032 | P2 | Sổ tay thiếu đường Đặt lại 2 bước | (c) | #63 đã gộp; #69 còn mở (QA 06/11): BA gộp ở Gói 0 cùng V5-08, rồi MN-02; QA đọc lại và đóng |
 | BUG-R4-029, BUG-R4-030, BUG-R4-031, BUG-R4-033, BUG-R4-034, BUG-R4-035, BUG-R4-037, BUG-R4-038, BUG-R4-039, BUG-R4-042, BUG-R4-044, BUG-R4-045, BUG-R4-046, BUG-R4-047, BUG-R4-048, BUG-R4-049, BUG-R4-050, BUG-R4-053 | P0–P3 | Đã gộp `main`, có trong `sha-6414be25f20d` trên production; bug list còn ghi "đã gộp / chờ staging" | (c) | QC v1.0.4 ĐẠT CÓ ĐIỀU KIỆN; QA xác nhận và chuyển Closed (V5-02). Riêng BUG-R4-035, 039: QC v1.0.4 còn ghi P1 mở, QA kiểm lại trên production |
 
 #### A3. Round 3 – `rounds/round-03/qa/bug-list.md`
@@ -384,7 +384,7 @@ Cách đọc: cột "Xếp" có đúng một nhãn. Với (a), cột cuối là 
 | BUG-R3-029 | P3 | App nhân viên hiện hai câu 2 bước trái nhau | (c) | v1.0.4 có đăng nhập 2 bước trên app nhân viên (ARC-RN103-02); QA xác nhận, còn lỗi thì mở lại |
 | BUG-R3-030 | P3 | Dòng miễn bị từ chối hiện số âm | (a) | V5-52 |
 | BUG-R3-031 | P3 | Nút Hoàn tác nhận phòng mở khi folio có dòng mới | (b) | B-QUAY. Máy chủ chặn đúng (409) |
-| BUG-R3-032 | P1 | (lỗi P1 của v1.0.3) | (c) | Sửa ở v1.0.3 |
+| BUG-R3-032 | P1 | (lỗi P1 của v1.0.3) | (c) | Sửa ở v1.0.3. Fixed, chưa Closed (QA 06/11): chờ SEC V3-07, tức bật `EMAIL_NO_RECIPIENT_ALERT` theo QC v1.0.3 ĐK12 (SEC xem số, INV đồng ý trong chat) |
 | BUG-R3-034 | P3 | Mục "tiền dư đơn đã đóng" còn tới khi đóng folio | (b) | B-QUAY |
 | BUG-R3-035 | P3 | Phiếu ghi "Phụ thu trả muộn (00:15)" cho khoản bằng 1 đêm | (a) | V5-23 |
 | BUG-R3-036 | P3 | Phí hủy, phí không đến 00:00–05:59 mang ngày lịch | (a) | V5-11 |
@@ -428,7 +428,8 @@ Cách đọc: cột "Xếp" có đúng một nhãn. Với (a), cột cuối là 
 
 | Mã | Xếp | Lý do |
 |---|---|---|
-| BUG-R1-010, BUG-R1-014, BUG-R1-015, BUG-R1-016, BUG-R1-017, BUG-R1-020, BUG-R1-021, BUG-R1-022, BUG-R1-023, BUG-R1-SEC-06, BUG-R1-SEC-07, BUG-R1-SEC-08, BUG-R1-SEC-10, BUG-R1-SEC-11 | (c) | Đã xử lý ở Round 2–3: kế hoạch R2 W1, W4, W5, W6, W11, W15–W18; decision-log 16/10; hợp đồng, CI và test case R3. Bug list R1 chưa được cập nhật. QA chuyển Closed (V5-02) |
+| BUG-R1-010, BUG-R1-014, BUG-R1-015, BUG-R1-016, BUG-R1-017, BUG-R1-020, BUG-R1-021, BUG-R1-022, BUG-R1-SEC-06, BUG-R1-SEC-07, BUG-R1-SEC-08, BUG-R1-SEC-10, BUG-R1-SEC-11 | (c) | Đã xử lý ở Round 2–3: kế hoạch R2 W1, W4, W5, W6, W11, W15–W18; decision-log 16/10; hợp đồng, CI và test case R3. Bug list R1 chưa được cập nhật. QA chuyển Closed (V5-02) |
+| BUG-R1-023 | (a) | Chưa sửa (QA 06/11): `product/docs/rbac-matrix.json` còn mục `openapi_check.differences` và ghi chú A22 cũ. BA sửa ở Gói 0, QA đóng |
 
 #### A6. Ghi nhận có gợi ý trong bug list R4 (không phải lỗi)
 
