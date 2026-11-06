@@ -13,6 +13,7 @@
  *   `reductionsOnly` – every reduction (`after.amountVnd < before.amountVnd`), removals included. Both pin
  *   `category = money` + `action = folio_line.adjusted` (index audit_event_property_category_idx) and leave out the
  *   room money (room, extra_person, room_change_difference). The scope stays: FD/FDL see their own rows only.
+ *   The clauses live in audit/public/line-reductions, shared with the "Cần chú ý" count (ARC FB-R5-ARC-BE-B2-01).
  */
 import { Controller, Get, Inject, Query, Req } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -23,6 +24,7 @@ import { Operation } from '../../../shared/http/operation';
 import { decodeCursor, page, parseLimit } from '../../../shared/http/pagination';
 import { problem } from '../../../shared/problem';
 import { addDays, atLocal, localDate, toZonedIso } from '../../../shared/time';
+import { lineReductionWhere } from '../public/line-reductions';
 
 /** Longest date range of one query (BA EP00 6.2 – performance limit, not a business rule). */
 export const AUDIT_MAX_RANGE_DAYS = 92;
@@ -33,14 +35,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTION_CODE = /^[a-z][a-z0-9_.]*$/;
 const ACTION_MAX_LENGTH = 60;
 export const AUDIT_MAX_ACTIONS = 10;
-/** 0.3.13 V5-16 + bổ sung 1 (BR-438): the one audit action of a line correction (adjustFolioLine). */
-export const LINE_REDUCTION_ACTION = 'folio_line.adjusted';
-/** Room money – a night, its extra person, a room-change difference – is no "phát sinh" (contract 1.5, 1.20). */
-export const ROOM_MONEY_CATEGORIES: readonly string[] = [
-  'room',
-  'extra_person',
-  'room_change_difference',
-];
 
 /** A boolean query parameter: absent / `false` → false, `true` → true, anything else → 422 (wrong type). */
 function boolQuery(field: string, raw: unknown): boolean {
@@ -70,10 +64,6 @@ function actionQuery(raw: unknown): string[] {
   }
   return [...new Set(list as string[])];
 }
-
-/** `(before|after).amountVnd` as a number – a row without a numeric amount never matches (no cast error). */
-const amountOf = (side: 'before' | 'after') =>
-  `(CASE WHEN jsonb_typeof(e.${side}->'amountVnd') = 'number' THEN (e.${side}->>'amountVnd')::numeric END)`;
 
 interface Row {
   id: number;
@@ -189,12 +179,8 @@ export class AuditLogController {
         if (actions.length) where.push(`e.action = ANY(${ph(actions)}::text[])`);
         if (removalsOnly || reductionsOnly) {
           // BE C0313-20: pinned whatever the client sent (a `category` / `action` that differs → empty page).
-          where.push(`e.category = ${ph('money')}`, `e.action = ${ph(LINE_REDUCTION_ACTION)}`);
-          where.push(
-            `COALESCE(e.after->>'category', '') <> ALL(${ph([...ROOM_MONEY_CATEGORIES])}::text[])`,
-          );
-          if (removalsOnly) where.push(`${amountOf('after')} = 0`);
-          if (reductionsOnly) where.push(`${amountOf('after')} < ${amountOf('before')}`);
+          // ARC FB-R5-ARC-BE-B2-01: the same clauses as the "Cần chú ý" count (audit/public/line-reductions).
+          where.push(...lineReductionWhere('e', ph, { removalsOnly, reductionsOnly }));
         }
         if (c) {
           where.push(

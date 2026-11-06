@@ -30,7 +30,9 @@
  *       non-night line in the period, from the `folio_line.adjusted` audit (after.amountVnd < before.amountVnd).
  *       Above the SAME `foc_alert_count_per_approver` → one line per person: params {check: line_reduction_count,
  *       count, max}, no name – `link` = /audit?reductionsOnly=true&month=YYYY-MM&actorUserId=<id>. Such a correction
- *       is not a FOC: it is outside (a) and (b).
+ *       is not a FOC: it is outside (a) and (b). Counted by audit/public/line-reductions (ARC FB-R5-ARC-BE-B2-01): the
+ *       clauses of listAuditEvents `reductionsOnly`, so the count and the list behind the link never disagree; this
+ *       module does not read `audit_event` itself (not in REPORTING_READ_TABLES).
  */
 import type { Tx } from '../../../db/database';
 import { type LocalTime, atLocal } from '../../../shared/time';
@@ -39,7 +41,8 @@ import type {
   AttentionSource,
   AttentionSourceContext,
 } from '../../events/public/events.service';
-import { FRONT_DESK_ROLES, NIGHT_LINE_CATEGORIES } from '../../folio/public/line-reduction';
+import { countLineReductionsByActor } from '../../audit/public/line-reductions';
+import { FRONT_DESK_ROLES } from '../../folio/public/line-reduction';
 
 const VIP_TAGS = new Set(['vip', 'khach quen', 'returning', 'regular']);
 
@@ -191,30 +194,18 @@ export const focThreshold: AttentionSource = async (tx: Tx, ctx: AttentionSource
         params: { check: 'foc_count_per_approver', count: r.n, max: countLimit },
       });
     }
-    // (d) BR-438 (4)(iii) (contract 0.3.13 1.20): per FD/FDL, the direct reductions of a non-night line in the
-    // business month – read from the `folio_line.adjusted` audit (after < before, role at the time), same threshold.
-    // Same reading as listAuditEvents `reductionsOnly`: a row without a numeric amount never matches (no cast error).
-    const { rows: cut } = await tx.query<{ actor_user_id: string; n: number }>(
-      `SELECT e.actor_user_id, count(*)::int AS n FROM audit_event e
-        WHERE e.property_id = $1 AND e.category = 'money' AND e.action = 'folio_line.adjusted'
-          AND e.occurred_at >= $2 AND e.occurred_at <= $3 AND e.actor_user_id IS NOT NULL
-          AND e.before->>'actorRole' = ANY($4::text[])
-          AND NOT (COALESCE(e.before->>'category', '') = ANY($5::text[]))
-          AND (CASE WHEN jsonb_typeof(e.after->'amountVnd') = 'number'
-                    THEN (e.after->>'amountVnd')::numeric END)
-            < (CASE WHEN jsonb_typeof(e.before->'amountVnd') = 'number'
-                    THEN (e.before->>'amountVnd')::numeric END)
-        GROUP BY e.actor_user_id HAVING count(*) > $6
-        ORDER BY count(*) DESC, e.actor_user_id`,
-      [
-        tx.ctx.propertyId,
-        atLocal(monthStart, rollover, ctx.tz),
-        ctx.now,
-        [...FRONT_DESK_ROLES],
-        [...NIGHT_LINE_CATEGORIES],
-        countLimit,
-      ],
-    );
+    // (d) BR-438 (4)(iii) (contract 0.3.13 1.20): per FD/FDL (role at the time), the direct reductions of a
+    // non-night line in the business month, same threshold – through the audit gateway (ARC FB-R5-ARC-BE-B2-01).
+    const propertyId = tx.ctx.propertyId;
+    const cut = propertyId
+      ? await countLineReductionsByActor(tx, {
+          propertyId,
+          from: atLocal(monthStart, rollover, ctx.tz),
+          to: ctx.now,
+          actorRoles: FRONT_DESK_ROLES,
+          above: countLimit,
+        })
+      : [];
     for (const r of cut) {
       if (!focCountAlert(r.n, countLimit)) continue;
       items.push({
@@ -222,7 +213,7 @@ export const focThreshold: AttentionSource = async (tx: Tx, ctx: AttentionSource
         source: 'computed',
         severity: 'warning',
         count: r.n,
-        link: `/audit?reductionsOnly=true&month=${month}&actorUserId=${r.actor_user_id}`,
+        link: `/audit?reductionsOnly=true&month=${month}&actorUserId=${r.actorUserId}`,
         params: { check: 'line_reduction_count', count: r.n, max: countLimit },
       });
     }
