@@ -7,7 +7,10 @@
  *   requests of the stay by reason, whoever asked; partly paid → the rest; fully paid → empty;
  *   creditVnd − unhandledCreditVnd = min(creditVnd, Σ openVnd) (BE 14);
  * - V5-18 T18-1, T18-2: `Reservation.depositUnverifiedVnd` = the deposits waiting for reconciliation; 0 once
- *   reconciled. T13-4 / T18-3 / T18-4 (SAL never gets the fields; the cap) are units in pr-b1-units.test.ts.
+ *   reconciled. T18-4 (the cap) is a unit in pr-b1-units.test.ts;
+ * - T13-4 / T18-3 over HTTP by role (FB-R5-SEC-BE-B1-01, SEC probe P1; SR-AZ-04): on a CTV booking the CTV reads
+ *   its folio and booking without `openRefunds` / `depositUnverifiedVnd`, the sale gets 404, both get 403 on the
+ *   check-out summary, FD sees both. The serializer units stay in pr-b1-units.test.ts.
  * Fake clock and FAKE data only.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -315,6 +318,92 @@ describe.skipIf(!HAS_DB)('PR-B1 – lockReason, openRefunds, depositUnverifiedVn
       expect(rest.statusCode, rest.body).toBe(201);
       // Empty = nothing waiting (present, not absent).
       expect((await totals()).openRefunds).toEqual([]);
+    });
+  });
+
+  describe('T13-4 / T18-3 – the two FD+ amounts over HTTP, by role (FB-R5-SEC-BE-B1-01)', () => {
+    it('CTV booking, transfer deposit waiting, FD cancels: CTV 200 without the fields, SAL 404, both 403 on the summary; FD sees both', async () => {
+      await x.at('2026-11-20T10:00:00+07:00');
+      const body = {
+        roomId: x.ids.rooms['203'],
+        channelId: x.ids.channels.collaborator,
+        closerUserId: x.t.users.ctv!.id,
+        adults: 2,
+        bookerGuestId: x.guest,
+        paymentModel: 'direct',
+        arrivalDate: '2027-03-08',
+        departureDate: '2027-03-15',
+      };
+      const create = (amountVnd: number) =>
+        x.c.fd!.send('POST', x.url('/reservations'), {
+          ...body,
+          initialPayment: { type: 'deposit', method: 'cash', amountVnd },
+        });
+      let res = await create(1_000_000);
+      if (res.statusCode === 422 && res.json().code === 'DEPOSIT_INSUFFICIENT') {
+        res = await create(res.json().depositRequiredVnd);
+      }
+      expect(res.statusCode, res.body).toBe(201);
+      const b = res.json() as { id: string; version: number; folioId: string };
+      const tr = await x.pay(b.folioId, {
+        type: 'deposit',
+        method: 'bank_transfer',
+        amountVnd: 200_000,
+      });
+      expect(tr.statusCode, tr.body).toBe(201);
+      expect(tr.json().reconciliation).toBe('pending');
+
+      const get = (who: string, path: string) => x.c[who]!.get(x.url(path));
+      const booking = `/reservations/${b.id}`;
+      const folio = `/folios/${b.folioId}`;
+      const summary = `/reservations/${b.id}/checkout-summary`;
+      /** The roles below FD+: the CTV who closed the booking reads it, the sale who did not gets 404. */
+      const belowFdPlus = async () => {
+        for (const path of [booking, folio]) {
+          const ctv = await get('ctv', path);
+          expect(ctv.statusCode, `ctv ${path} ${ctv.body}`).toBe(200);
+          expect(ctv.body, `ctv ${path}`).not.toMatch(/openRefunds|depositUnverified/);
+          const sal = await get('sal', path);
+          expect(sal.statusCode, `sal ${path} ${sal.body}`).toBe(404);
+          expect(sal.body, `sal ${path}`).not.toMatch(/openRefunds|depositUnverified/);
+        }
+        for (const who of ['ctv', 'sal']) {
+          const r = await get(who, summary);
+          expect(r.statusCode, `${who} summary ${r.body}`).toBe(403);
+          expect(r.body, `${who} summary`).not.toMatch(/openRefunds|depositUnverified/);
+        }
+      };
+
+      // T18-3: the transfer is waiting – FD sees it, the CTV sees what it may (depositPaidVnd) and nothing more.
+      const fdView = (await get('fd', booking)).json();
+      expect(fdView.depositUnverifiedVnd).toBe(200_000);
+      const ctvView = (await get('ctv', booking)).json();
+      expect(ctvView.depositPaidVnd).toBe(fdView.depositPaidVnd);
+      expect(ctvView).not.toHaveProperty('depositUnverifiedVnd');
+      await belowFdPlus();
+
+      // T13-4: FD cancels → a refund request is open; only FD+ reads it.
+      const cancel = await x.c.fd!.send(
+        'POST',
+        x.url(`/reservations/${b.id}/actions/cancel`),
+        { reasonCode: 'found_other', note: 'Khách báo qua Zalo' },
+        { 'if-match': `"${b.version}"` },
+      );
+      expect(cancel.statusCode, cancel.body).toBe(200);
+      const asked = cancel.json().cancellation.refundRequestVnd as number;
+      expect(asked).toBeGreaterThan(0);
+      for (const who of ['fd', 'lead', 'mgr', 'owner']) {
+        const f = await get(who, folio);
+        expect(f.statusCode, `${who} ${f.body}`).toBe(200);
+        expect(f.json().totals.openRefunds, who).toEqual([
+          { reasonCode: 'found_other', openVnd: asked },
+        ]);
+        expect((await get(who, booking)).json().depositUnverifiedVnd, who).toBe(200_000);
+      }
+      const ctvFolio = (await get('ctv', folio)).json();
+      expect(ctvFolio.totals).toBeDefined();
+      expect(ctvFolio.totals).not.toHaveProperty('openRefunds');
+      await belowFdPlus();
     });
   });
 
