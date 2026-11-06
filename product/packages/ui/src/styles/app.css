@@ -110,6 +110,29 @@ body {
   display: grid;
   gap: 8px;
 }
+/* v1.0.5 V5-5C (UXD copy-v1.0.5 9.3): "saved" + a warning line (e.g. nightly price unusual). Warn tone from the
+   DS tokens (same pair as `Alert tone="warn"`, light and dark), never auto-hidden – closed by the user. */
+.toast.toast-warn {
+  align-items: flex-start;
+  background: var(--warn-bg);
+  color: var(--ink);
+  border: 1px solid var(--warn);
+}
+.toast.toast-warn > svg {
+  color: var(--warn);
+  margin-top: 2px;
+}
+.toast.toast-warn .btn {
+  color: var(--ink);
+}
+.toast.toast-warn :focus-visible {
+  outline-color: var(--focus);
+}
+.toast-warn-line {
+  display: block;
+  margin-top: 4px;
+  font-weight: 500;
+}
 
 .stepper button:focus-visible {
   outline-offset: -2px;

@@ -910,11 +910,12 @@ export const handlers = [
       errors.push({ field: 'maxOccupancy', code: 'MAX_OCCUPANCY_RANGE' });
     if (body.listPrice) {
       const lp = body.listPrice;
+      // ARC FB-R5-ARC-BE-C1-01: a price ≤ 0 is VALUE_OUT_OF_RANGE like the server (zod `money` min 1, T1A-3).
       if (!(Number(lp.monthlyListPriceVnd) > 0))
-        errors.push({ field: 'listPrice.monthlyListPriceVnd', code: 'AMOUNT_NOT_POSITIVE' });
+        errors.push({ field: 'listPrice.monthlyListPriceVnd', code: 'VALUE_OUT_OF_RANGE' });
       // platform.controller: nightlyListPriceVnd is optional, but when sent it is an integer ≥ 1.
       if (lp.nightlyListPriceVnd !== undefined && !(Number(lp.nightlyListPriceVnd) > 0))
-        errors.push({ field: 'listPrice.nightlyListPriceVnd', code: 'AMOUNT_NOT_POSITIVE' });
+        errors.push({ field: 'listPrice.nightlyListPriceVnd', code: 'VALUE_OUT_OF_RANGE' });
       // R3-Q39 #8: like rooms.service – the bound is the BUSINESS day (ctx.today, BR-010).
       if (String(lp.effectiveFrom) < businessDayLocal())
         errors.push({ field: 'listPrice.effectiveFrom', code: 'DATE_IN_PAST' });
@@ -982,7 +983,15 @@ export const handlers = [
               r.departureDate > todayLocal(),
           ).length
         : 0;
-    const warnings = keep ? [{ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count: keep }] : [];
+    const warnings: Array<{ code: string; count?: number }> = keep
+      ? [{ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count: keep }]
+      : [];
+    // 0.3.13 addendum 1 (V5-1A, BR-101 (4)): nightly × 30 < monthly or nightly × 5 > monthly → saved, warned.
+    if (body.listPrice) {
+      const m = Number(body.listPrice.monthlyListPriceVnd);
+      const n = Number(body.listPrice.nightlyListPriceVnd);
+      if (n * 30 < m || n * 5 > m) warnings.unshift({ code: 'NIGHTLY_PRICE_UNUSUAL' });
+    }
     return HttpResponse.json(
       { ...roomView(room, g.roles), warnings },
       { headers: { etag: `"${room.version}"` } },
