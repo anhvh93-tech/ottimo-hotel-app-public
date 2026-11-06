@@ -6,8 +6,9 @@ import { api } from '../../app/api';
 import { notifyChanged } from '../../app/live';
 import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
-import { rsvErrorText } from '../../app/reservations';
+import { closedBookingPaymentText, rsvErrorText } from '../../app/reservations';
 import { isRetryable, useWrite, type WriteOptions } from '../../app/useWrite';
+import { useSession } from '../../session/SessionProvider';
 
 /** ARC 16.17 bổ sung (af): B13, B14, B18 resend a CONCURRENT_UPDATE once (same key), after `Retry-After` or ~1 s. */
 export const STAY_WRITE_RETRY: WriteOptions = {
@@ -26,11 +27,15 @@ export interface SubmitFieldMap {
   labels?: Record<string, string>;
 }
 
+const FD_PLUS_ROLES: readonly string[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
+
 export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
   const { t, locale } = useI18n();
   const write = useWrite(writeOptions);
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
+  // V5-48 (UXD 9.1a): SAL/CTV get their own closed-booking sentence (pass the money to the front desk).
+  const salesOnly = !useSession().roles.some((r) => FD_PLUS_ROLES.includes(r));
 
   async function submit<T>(fn: (idempotencyKey: string) => Promise<T>): Promise<T | undefined> {
     if (write.busy) return undefined;
@@ -51,6 +56,8 @@ export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
 
   const text = (e: unknown = error, extra: Record<string, unknown> = {}) => {
     if (!e) return '';
+    const closed = closedBookingPaymentText(t, e, salesOnly);
+    if (closed) return closed;
     if (isApiError(e) && e.code === 'VALIDATION_FAILED') {
       const f = fieldErrors(t, e, {}, locale);
       const entries = Object.entries(f);

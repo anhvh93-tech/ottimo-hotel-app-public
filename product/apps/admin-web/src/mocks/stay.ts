@@ -3704,6 +3704,14 @@ export function createStayMock(ctx: Ctx) {
       const f = folioOf(r);
       const { key, replay } = rsv().idem(request, `vietqr:${f.id}`);
       if (replay) return replay;
+      // V5-48 (0.3.13 add. 1): a closed booking → 409 + `reservationStatus`, every purpose and role (OWN included,
+      // `overBalanceReason` too), after 403/404 and before every other check; no QR is made. `currentState` is the
+      // booking's here too (PR #105 `assertBookingOpen`).
+      if (r.status === 'cancelled' || r.status === 'no_show')
+        return problem(409, 'INVALID_TRANSITION', {
+          currentState: r.status,
+          reservationStatus: r.status,
+        });
       if (st.paymentNotConfigured) return problem(409, 'PAYMENT_NOT_CONFIGURED');
       const body = (await request.json()) as Body;
       const amount = Number(body.amountVnd);
@@ -3799,6 +3807,14 @@ export function createStayMock(ctx: Ctx) {
         if (isResponse(g)) return g;
         const p = st.payments.find((x) => x.id === params.paymentId);
         if (!p) return problem(404, 'NOT_FOUND');
+        // V5-48 (0.3.13 add. 1): the folio's booking is closed → 409 with the BOOKING's `reservationStatus` beside the
+        // payment's `currentState`, every role, before every check of the payment; nothing is written.
+        const owner = rsv().state.reservations.find((x) => x.folioId === p.folioId);
+        if (owner && (owner.status === 'cancelled' || owner.status === 'no_show'))
+          return problem(409, 'INVALID_TRANSITION', {
+            currentState: p.status,
+            reservationStatus: owner.status,
+          });
         if (p.status !== 'pending')
           return problem(409, 'INVALID_TRANSITION', { currentState: p.status });
         const body = (await request.json()) as Body;
