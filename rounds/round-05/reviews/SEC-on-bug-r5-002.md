@@ -480,7 +480,7 @@ SQL
 cd /Users/anhvh/Desktop/hotel-app
 C=$(git log -1 --format=%H -- rounds/round-05/reviews/SEC-on-bug-r5-002.md)
 W=$(mktemp -d)
-git show "$C:rounds/round-05/reviews/SEC-on-bug-r5-002.md" > "$W/b002.md"
+git show "${C}:rounds/round-05/reviews/SEC-on-bug-r5-002.md" > "$W/b002.md"
 awk -v d="$W" '/^ssh .*<<'\''SQL'\''$/ {n++; f=d "/b002_" n ".sh"; h=d "/b002_" n ".sql"; print > f; inb=1; next}
   inb && /^SQL$/ {print > f; close(f); close(h); inb=0; next}
   inb {print > f; print > h}' "$W/b002.md"
