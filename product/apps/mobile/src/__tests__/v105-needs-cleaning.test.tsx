@@ -2,13 +2,16 @@
 // `event = needs_cleaning` (R8, OC → OD) when the server lists it in `allowedEvents`. Same path as the other
 // room steps: 10-second undo = delayed send, offline queue (R8 of ADR-005 mục 3), one command per tap, 409
 // `currentState` = OD → "Đã áp dụng", any other state → "Cần xem lại". Against the MSW mock (same as `pnpm dev`).
+// Round 5 review (UXD PR97-01, ARC MOB-97-01): a secondary button in the body, never the footer slot of the next
+// cleaning step. ARC MOB-97-02: the mock answers scope T like housekeeping.service.
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eventsFor } from '../app/overlay';
 import { MemoryStore } from '../data/store';
-import { mockControl } from '../mocks/handlers';
+import { MOCK_USERS, PROPERTY_ID, mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
-import { OfflineQueue, waitingRoomEvent, type NewQueueItem } from '../queue/queue';
+import { rejectionText } from '../queue/messages';
+import { OfflineQueue, waitingRoomEvent, type NewQueueItem, type QueueItem } from '../queue/queue';
 import { hhmm } from '../app/time';
 import { bodies, calls, setOnline, start, tv, wait } from './helpers';
 
@@ -30,6 +33,27 @@ async function openRoom(no: string, name: string, username = 'fdl.hanh') {
   window.location.hash = `#/room/${roomId(no)}`;
   await screen.findByRole('heading', { name: tv('hk.room_title', { room: `${no} · ${name}` }) });
   return utils;
+}
+
+/** `transitionRoomStatus` straight to the mock "server" (no screen) as the signed-in user: status + problem code. */
+async function transition(no: string, body: Record<string, unknown>) {
+  const res = await fetch(
+    new URL(
+      `/v1/properties/${PROPERTY_ID}/rooms/${roomId(no)}/status-transitions`,
+      window.location.origin,
+    ),
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-csrf-token': 'csrf-mock',
+        'idempotency-key': crypto.randomUUID(),
+      },
+      body: JSON.stringify({ performedAt: new Date().toISOString(), ...body }),
+    },
+  );
+  const json = (await res.json()) as { code?: string };
+  return { status: res.status, code: json.code };
 }
 
 /** Idempotency-Key of every transitionRoomStatus request that reached the mock (also the dropped ones). */
@@ -100,11 +124,13 @@ describe('V5-15 – "Báo cần dọn" button on the room screen (H20)', () => {
   it('only when the server lists needs_cleaning: no button on other states, none for maintenance', async () => {
     await openRoom('302', 'The Ivory'); // VC
     expect(screen.queryByRole('button', { name: NEEDS() })).toBeNull();
+    expect(screen.queryByText(tv('hk.needs_cleaning_help'))).toBeNull();
     window.location.hash = `#/room/${roomId('101')}`; // OD
     await screen.findByRole('heading', {
       name: tv('hk.room_title', { room: '101 · The Amber' }),
     });
     expect(screen.queryByRole('button', { name: NEEDS() })).toBeNull();
+    expect(screen.queryByText(tv('hk.needs_cleaning_help'))).toBeNull();
   });
 
   it('maintenance (read only) never gets the button', async () => {
@@ -131,6 +157,155 @@ describe('V5-15 – "Báo cần dọn" button on the room screen (H20)', () => {
     // R8a like housekeeping.service: a stay-over cleaning task unless one is open (the long-stay task is another type).
     expect(
       mockControl.state.tasks.filter((t) => t.roomNo === '102' && t.type === 'stayover_clean'),
+    ).toHaveLength(1);
+  });
+});
+
+describe('V5-15 – place on the screen (FB-R5-UXD-MOB-PR97-01, FB-R5-ARC-MOB-97-01)', () => {
+  it('OC room: secondary button in the body, just above "Báo sự cố căn này", with its help line; no footer', async () => {
+    const { container } = await openRoom('301', 'The Velvet');
+    expect(container.querySelector('.hk-foot')).toBeNull();
+    const btn = screen.getByRole('button', { name: NEEDS() });
+    expect(btn.closest('.hk-stack')).not.toBeNull();
+    expect(btn).toHaveClass('btn', 'xl', 'block');
+    expect(btn).not.toHaveClass('pri');
+    expect(btn.querySelector('svg.ico')).not.toBeNull();
+    expect(btn.nextElementSibling).toHaveAccessibleName(tv('hk.report_this_room'));
+    // PR97-03: what the button does, in the info card above it.
+    expect(screen.getByText(tv('hk.needs_cleaning_help')).closest('.hk-info')).not.toBeNull();
+  });
+
+  it('second tap 150 ms later on the same spot: one needs_cleaning, never start_cleaning (guest room stays OD)', async () => {
+    const { container } = await openRoom('301', 'The Velvet');
+    const btn = screen.getByRole('button', { name: NEEDS() });
+    // What moves up into the spot once the button goes: "Báo sự cố căn này" (opens a form, writes nothing).
+    const below = btn.nextElementSibling as HTMLElement;
+    fireEvent.click(btn);
+    await wait(150);
+    const startBtn = screen.getByRole('button', { name: tv('hk.action.start_cleaning') });
+    // The next step is in the footer, not where "Báo cần dọn" was (ARC 4.3: before, same slot → CL).
+    expect(startBtn.closest('.hk-foot')).not.toBeNull();
+    expect(btn.isConnected).toBe(false);
+    const stack = container.querySelector<HTMLElement>('.hk-stack')!;
+    expect(
+      within(stack).queryByRole('button', { name: tv('hk.action.start_cleaning') }),
+    ).toBeNull();
+    fireEvent.click(below);
+    await wait(11_000);
+    await waitFor(() => expect(calls('transitionRoomStatus')).toBe(1));
+    await wait(20_000);
+    expect(bodies('transitionRoomStatus').map((b) => (b as { event: string }).event)).toEqual([
+      'needs_cleaning',
+    ]);
+    expect(mockControl.state.rooms.find((r) => r.no === '301')!.status).toBe('OD');
+  });
+
+  it('"Dọn xong" on a guest room, 11 s later: "Báo cần dọn" is back in the body, the footer stays empty', async () => {
+    mockControl.setRoom('301', 'CL');
+    const { user, container } = await openRoom('301', 'The Velvet');
+    const finish = screen.getByRole('button', { name: tv('hk.action.finish_cleaning') });
+    expect(finish.closest('.hk-foot')).not.toBeNull();
+    await user.click(finish);
+    // Guest staying (currentGuest in the mock now, like the server): "Khách đang ở – đã dọn", not a vacant room.
+    expect(
+      await screen.findByText(
+        tv('hk.toast.room_status', { room: '301 · The Velvet', status: tv('hk.status.OC') }),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: tv('hk.insp.title', { room: '301 · The Velvet' }) }),
+    ).toBeNull();
+    await wait(11_000);
+    await waitFor(() => expect(calls('transitionRoomStatus')).toBe(1));
+    await waitFor(() => expect(screen.queryByText(tv('hk.chip.queued'))).toBeNull());
+    const needs = await screen.findByRole('button', { name: NEEDS() });
+    expect(needs.closest('.hk-foot')).toBeNull();
+    expect(container.querySelector('.hk-foot')).toBeNull();
+    expect(mockControl.state.rooms.find((r) => r.no === '301')!.status).toBe('OC');
+  });
+
+  it('read-only session: no button even if the server lists needs_cleaning (the PWA checks writable too)', async () => {
+    mockControl.scenario.allowedEventsOf = { '301': ['needs_cleaning'] };
+    await start('mt.tung');
+    await screen.findByRole('heading', { name: /Phiếu sửa/ });
+    window.location.hash = `#/room/${roomId('301')}`;
+    await screen.findByRole('heading', {
+      name: tv('hk.room_title', { room: '301 · The Velvet' }),
+    });
+    expect(screen.queryByRole('button', { name: NEEDS() })).toBeNull();
+    expect(screen.queryByText(tv('hk.needs_cleaning_help'))).toBeNull();
+  });
+});
+
+describe('V5-15 – the mock answers like housekeeping.service (FB-R5-ARC-MOB-97-02)', () => {
+  const old = () => new Date(Date.now() - 3 * 86_400_000).toISOString();
+
+  it('HK outside scope T: 404 for every event, checked before performedAt; a desk role passes the scope', async () => {
+    mockControl.signIn('hk.lan');
+    expect(await transition('301', { event: 'needs_cleaning', expectedFrom: 'OC' })).toEqual({
+      status: 404,
+      code: 'NOT_FOUND',
+    });
+    // 402 (OD, no task today): scope T is not only for the new event.
+    expect(await transition('402', { event: 'start_cleaning', expectedFrom: 'OD' })).toEqual({
+      status: 404,
+      code: 'NOT_FOUND',
+    });
+    expect(
+      await transition('301', { event: 'needs_cleaning', expectedFrom: 'OC', performedAt: old() }),
+    ).toEqual({ status: 404, code: 'NOT_FOUND' });
+    mockControl.signIn('fdl.hanh');
+    expect(
+      await transition('301', { event: 'needs_cleaning', expectedFrom: 'OC', performedAt: old() }),
+    ).toEqual({ status: 422, code: 'PERFORMED_AT_OUT_OF_RANGE' });
+    expect((await transition('301', { event: 'needs_cleaning', expectedFrom: 'OC' })).status).toBe(
+      200,
+    );
+  });
+
+  it('a task assigned to another housekeeper does not put the room in scope T; assigned to me does', async () => {
+    mockControl.setRoom('102', 'OC');
+    const task = mockControl.state.tasks.find((x) => x.roomNo === '102')!;
+    task.assignedUserId = MOCK_USERS['hk.mfa'].id;
+    await openRoom('102', 'The Fern', 'hk.lan');
+    expect(screen.queryByRole('button', { name: NEEDS() })).toBeNull();
+    expect(await transition('102', { event: 'needs_cleaning', expectedFrom: 'OC' })).toEqual({
+      status: 404,
+      code: 'NOT_FOUND',
+    });
+    task.assignedUserId = MOCK_USERS['hk.lan'].id;
+    expect((await transition('102', { event: 'needs_cleaning', expectedFrom: 'OC' })).status).toBe(
+      200,
+    );
+  });
+
+  it('a task of an earlier day keeps the room in scope T only while it is still open (OF_DAY, QA 97-02)', async () => {
+    mockControl.setRoom('102', 'OC');
+    const task = mockControl.state.tasks.find((x) => x.roomNo === '102')!;
+    task.dueDate = new Date(Date.parse(`${task.dueDate}T00:00:00Z`) - 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    task.status = 'done';
+    mockControl.signIn('hk.lan');
+    expect(await transition('102', { event: 'needs_cleaning', expectedFrom: 'OC' })).toEqual({
+      status: 404,
+      code: 'NOT_FOUND',
+    });
+    task.status = 'open'; // carried over from yesterday
+    expect((await transition('102', { event: 'needs_cleaning', expectedFrom: 'OC' })).status).toBe(
+      200,
+    );
+  });
+
+  it('R8a: a stay-over cleaning task already open → OD without a second task', async () => {
+    mockControl.setRoom('101', 'OC'); // 101 has an open stay-over task (guest asked for towels)
+    const { user } = await openRoom('101', 'The Amber');
+    await user.click(screen.getByRole('button', { name: NEEDS() }));
+    await wait(11_000);
+    await waitFor(() => expect(calls('transitionRoomStatus')).toBe(1));
+    expect(mockControl.state.rooms.find((r) => r.no === '101')!.status).toBe('OD');
+    expect(
+      mockControl.state.tasks.filter((t) => t.roomNo === '101' && t.type === 'stayover_clean'),
     ).toHaveLength(1);
   });
 });
@@ -205,6 +380,60 @@ describe('V5-15 – offline queue (R8, ADR-005 mục 3): no lost tap, no duplica
     } finally {
       rec.stop();
     }
+  });
+
+  it('"Báo cần dọn" then "Bắt đầu dọn" while it waits: two commands in order, OC → OD then OD → CL (QA P1)', async () => {
+    const { user } = await openRoom('301', 'The Velvet');
+    await user.click(screen.getByRole('button', { name: NEEDS() }));
+    await user.click(await screen.findByRole('button', { name: tv('hk.action.start_cleaning') }));
+    await wait(11_000);
+    await waitFor(() => expect(calls('transitionRoomStatus')).toBe(2));
+    expect(
+      bodies('transitionRoomStatus').map((b) => {
+        const x = b as { event: string; expectedFrom: string };
+        return [x.event, x.expectedFrom];
+      }),
+    ).toEqual([
+      ['needs_cleaning', 'OC'],
+      ['start_cleaning', 'OD'],
+    ]);
+    expect(mockControl.state.rooms.find((r) => r.no === '301')!.status).toBe('CL');
+    await wait(1_000);
+    expect(screen.queryByRole('link', { name: /Cần xem lại/ })).toBeNull();
+  });
+
+  it('offline, two taps in one tick, back online 20 min later: one command, performedAt = tap time (QA P2)', async () => {
+    await openRoom('301', 'The Velvet');
+    setOnline(false);
+    const tapped = Date.now();
+    const btn = screen.getByRole('button', { name: NEEDS() });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await wait(20 * 60_000);
+    expect(calls('transitionRoomStatus')).toBe(0);
+    setOnline(true);
+    await waitFor(() => expect(calls('transitionRoomStatus')).toBe(1));
+    await wait(30_000);
+    expect(calls('transitionRoomStatus')).toBe(1);
+    const body = bodies('transitionRoomStatus')[0] as { performedAt: string };
+    expect(Math.abs(Date.parse(body.performedAt) - tapped)).toBeLessThan(1_500);
+    expect(mockControl.state.rooms.find((r) => r.no === '301')!.status).toBe('OD');
+  });
+
+  it('HK leaves scope T while it waits (task cancelled): 404 → "Cần xem lại", room stays OC (QA P3)', async () => {
+    mockControl.setRoom('102', 'OC');
+    const { user } = await openRoom('102', 'The Fern', 'hk.lan');
+    setOnline(false);
+    await user.click(screen.getByRole('button', { name: NEEDS() }));
+    await wait(11_000);
+    // The desk cancels the room's task meanwhile: 102 is no longer in this housekeeper's scope T.
+    for (const t of mockControl.state.tasks.filter((x) => x.roomNo === '102'))
+      t.status = 'cancelled';
+    setOnline(true);
+    await waitFor(() => expect(calls('transitionRoomStatus')).toBe(1));
+    expect(await screen.findByRole('link', { name: 'Cần xem lại (1)' })).toBeInTheDocument();
+    expect(screen.getByText(tv('hk.queue.r.not_found'))).toBeInTheDocument();
+    expect(mockControl.state.rooms.find((r) => r.no === '102')!.status).toBe('OC');
   });
 
   it('desk pressed it first (409, currentState OD) → "Đã áp dụng": no "Cần xem lại"', async () => {
@@ -316,6 +545,25 @@ describe('V5-15 – engine', () => {
     const res = await q.flush();
     expect(res).toMatchObject({ applied: 1, rejected: 0 });
     expect(q.items()).toHaveLength(0);
+  });
+
+  it('422 PERFORMED_AT_OUT_OF_RANGE: "Báo cần dọn" asks whether the room still needs cleaning (PR97-02)', () => {
+    const refused = (actionKey: string): QueueItem => ({
+      ...needs('a', { actionKey }),
+      seq: 1,
+      sendAfter: T0,
+      state: 'rejected',
+      attempts: 1,
+      rejection: { code: 'PERFORMED_AT_OUT_OF_RANGE', at: T0 + 86_400_000, status: 422 },
+    });
+    const time = hhmm(T0);
+    expect(rejectionText(refused('hk.action.needs_cleaning'), tv).body).toBe(
+      tv('hk.queue.r.time_report', { time }),
+    );
+    // The other room steps keep "Nếu việc đã xong…".
+    expect(rejectionText(refused('hk.action.finish_cleaning'), tv).body).toBe(
+      tv('hk.queue.r.time', { time }),
+    );
   });
 
   it('button label is not the filter / status words (UXD 1.7 mục 9.7, FB-R5-UXD-FE-PR102-01)', () => {
