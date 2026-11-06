@@ -27,3 +27,16 @@ Các thẻ dưới gửi UXD. PO chỉ chốt phạm vi (plan R5 mục 6, quyế
 | CPY C6 (ý kiến ngắn) | Deferred – v1.0.6 | Backlog R5-B-03: đổi cả họ `bill.line.*` VI một lượt ("phụ thu" → "phí"), `sale.quote_text_extra_guest_*` (CPY sửa), BA sửa sổ tay cùng lúc. Chữ Desk nội bộ giữ |
 | CPY mục 5 – BR-012 thứ tự tên, số phòng | Deferred – B-SAU | Backlog R5-B-04, cùng US-125. PO + ARC xem cách ghép ở `quotes.service.ts` |
 | CPY mục 5 – `msg.checkout_reminder` | Đã có quyết định | B-SAU với `{checkout_time}` (plan R5 quyết định 14) |
+
+## Review DOM Tờ 2a (`rounds/round-05/reviews/DOM-on-staff-one-pager-2a.md`, commit `a4e2cb3e`)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-DOM-PO-01 | Fixed | Tờ 2a: "Hết hạn, chưa cọc": Desk tự hủy, nhả căn, báo khách ngay. "Hết hạn, có cọc": không tự hủy, căn vẫn giữ. Mốc 11:00 và cuối ca rà đơn **Đã hủy** lý do **Hết hạn giữ chỗ** qua nút **Tất cả** (Desk không có lọc "Đã hủy") và hộp **Thông báo** của app nhân viên. "Báo quản lý" đổi thành "ghi sổ giao ca, báo chủ đầu tư", vì người trực giữ vai quản lý. Chờ DOM đọc lại |
+| FB-R5-DOM-PO-02 | Fixed | Tờ 2a theo chữ DOM. **Tờ 1 dòng "Cọc" đổi:** thêm "(có cọc: xem Tờ 2a)". SEC đọc lại dòng này |
+| FB-R5-DOM-PO-03 | Fixed | Người tạo không tự duyệt được; chủ đầu tư duyệt và chi; nơi nhận là tài khoản khách đã chuyển cọc |
+| FB-R5-DOM-PO-04 | Fixed | Thêm bước khi khách đến mà đơn vẫn **Giữ chỗ · chờ cọc**; giữ câu "Chấp nhận cọc thiếu" ở nhánh "Vẫn đi" (DOM xác nhận đúng) |
+| FB-R5-DOM-PO-05 | Fixed | Chú thích đầu Tờ 2a ghi hai điều kiện gỡ tờ: sổ tay 2.4 viết lại (V5-71); tin giữ chỗ quá hạn chạy đúng trên production |
+| FB-R5-DOM-PO-06 | Fixed | Sổ giao ca: đơn có cọc đã hủy ghi "chờ chủ đầu tư hoàn"; không hứa ngày |
+
+Tờ 2a dài hơn bản trước khoảng 5 dòng. Khi in, UXD kiểm còn vừa A5 10 pt. Không vừa thì dùng 9 pt như Tờ 1, hoặc chuyển dòng "chờ chủ đầu tư hoàn" sang sổ tay 2.4 (V5-71) như DOM cho phép ở thẻ 06.

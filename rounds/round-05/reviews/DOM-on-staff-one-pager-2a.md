@@ -55,7 +55,7 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
   - "**Chưa cọc:** Desk **tự hủy** khi hết hạn và nhả căn; app báo 'Giữ chỗ chưa cọc đã hết hạn và tự hủy'. Báo khách ngay (đơn CTV: báo CTV trước). Khách còn muốn: đến từ ngày mai → giữ chỗ mới **12 h**, một lần; đến hôm nay → gửi VietQR, tạo đơn khi tiền về. Quá hạn vài phút mà đơn vẫn **Giữ chỗ · chờ cọc**: **Hủy giữ chỗ** và báo quản lý."
   - "**Có cọc:** không tự hủy, căn vẫn giữ (khung đơn ghi 'Quá hạn giữ chỗ lúc … nên đơn chưa hủy, căn vẫn giữ'). Không tạo đơn mới chồng lên."
   - Lượt rà mốc 11:00 và trước khi rời quầy: thêm "mở **Đơn đặt phòng** → lọc **Đã hủy** hôm nay, lý do **Hết hạn giữ chỗ**: khách nào chưa được báo thì báo". PO kiểm Desk có lọc **Đã hủy**; nếu không có, dùng hộp **Thông báo** của app nhân viên.
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối (commit "round-5: Phản hồi & sửa – PO Tờ 2a DOM cards…"). Thay bằng hai gạch "Hết hạn, chưa cọc" (tự hủy, nhả căn, báo khách ngay) và "Hết hạn, có cọc" theo chữ DOM. Mốc 11:00 và cuối ca thêm rà đơn **Đã hủy** lý do **Hết hạn giữ chỗ**. PO kiểm Desk: trang **Đơn đặt phòng** không có lọc "Đã hủy", chỉ có **Đang hiệu lực**, **Tất cả** và chip đơn dài hạn nhập tay (`ReservationsPage.tsx`). Vì vậy tờ ghi "bấm **Tất cả**", kèm tin trong hộp **Thông báo** của app nhân viên. Lệch một chỗ với đề xuất: "báo quản lý" đổi thành "ghi sổ giao ca, báo chủ đầu tư", vì người trực đang giữ vai quản lý. Chờ DOM đọc lại
 
 ### FB-R5-DOM-PO-02
 - Mức độ: Minor
@@ -63,7 +63,7 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
 - Vấn đề: Tờ 1 dặn bấm trước giờ hạn. Tờ 2a cho bấm sau hạn với giữ chỗ đã có cọc. Đúng là v1.0.4 cho bấm sau hạn khi đã có cọc, tới lúc nhận phòng. Người trực đọc hai tờ dán cạnh nhau sẽ ngần ngừ. Câu ở Tờ 2a cũng không nhắc "khi thấy tiền về", vốn là điều kiện chống ghi tiền chưa có.
 - Vì sao quan trọng: xác nhận cọc khi tiền chưa về thì giữ căn cho khoản không có thật. Ngần ngừ thì để giữ chỗ treo tới mốc 12:00.
 - Đề xuất sửa: Tờ 2a: "Khách chuyển nốt: thấy tiền về tài khoản OTTIMO thì **Xác nhận đã nhận cọc** (sau hạn vẫn bấm được với giữ chỗ đã có cọc); ô **Giờ nhận tiền** ghi giờ tiền về, không ghi giờ sau bây giờ." Tờ 1 giữ nguyên, thêm 4 chữ: "bấm trước giờ hạn giữ chỗ **(có cọc: xem Tờ 2a)**".
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit. Tờ 2a theo đúng chữ DOM ("thấy tiền về tài khoản OTTIMO…, không ghi giờ sau bây giờ"). Tờ 1 dòng **Cọc** thêm "(có cọc: xem Tờ 2a)" sau "trước giờ hạn giữ chỗ". Dòng Tờ 1 này đổi, ORC nhờ SEC đọc lại
 
 ### FB-R5-DOM-PO-03
 - Mức độ: Minor
@@ -73,7 +73,7 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
   - Tờ không nói nơi nhận khi khách "không liên lạc được", tức lý do hủy chính của nhánh này.
 - Vì sao quan trọng: yêu cầu hoàn treo vì nhập sai nơi nhận, hoặc người trực tìm cách khác để "tự hoàn".
 - Đề xuất sửa: "… hộp ghi 'cần quản lý duyệt': bạn là người tạo nên không tự duyệt được, **chủ đầu tư duyệt và chi**. Nơi nhận: tài khoản khách đã chuyển cọc (không liên lạc được thì ghi đúng câu này)."
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit. Chữ DOM: "cần quản lý duyệt": bạn là người tạo nên không tự duyệt được, chủ đầu tư duyệt và chi; nơi nhận là tài khoản khách đã chuyển cọc
 
 ### FB-R5-DOM-PO-04
 - Mức độ: Minor
@@ -81,7 +81,7 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
 - Vấn đề: tờ bỏ bước cũ "khách đến: hủy đơn cũ → đặt mới" nhưng chưa có bước thay khi khách đến quầy mà đơn **vẫn Giữ chỗ · chờ cọc** (không ai tích Chấp nhận cọc thiếu). Đơn giữ chỗ không nhận phòng được. Người trực dễ quay về thói quen cũ hủy rồi đặt lại. Làm vậy sẽ sinh một yêu cầu hoàn, một đơn mới, và lệch đối soát.
 - Vì sao quan trọng: đây là lúc khách đứng ở quầy, áp lực nhất.
 - Đề xuất sửa: thêm một câu: "**Khách đến mà đơn vẫn Giữ chỗ · chờ cọc:** thu phần cọc còn thiếu → **Xác nhận đã nhận cọc** (Giờ nhận tiền = giờ thu) → **Nhận phòng**, thu phần còn lại như mọi đơn. Khách chỉ trả được lúc trả phòng: quản lý tích **Chấp nhận cọc thiếu**, ghi lý do."
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit. Thêm gạch "Khách đến mà đơn vẫn Giữ chỗ · chờ cọc" theo chữ DOM. Giữ câu cũ "Khách hẹn trả phần còn lại khi đến: quản lý tích Chấp nhận cọc thiếu" ở nhánh "Vẫn đi", vì DOM đã xác nhận câu này đúng (bảng mục 1)
 
 ### FB-R5-DOM-PO-05
 - Mức độ: Suggestion
@@ -89,7 +89,7 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
 - Vấn đề: điều kiện gỡ tờ còn theo v1.0.1. Release notes v1.0.4 mục "Việc anh/chị làm sau khi lên" 5 đã đổi: bỏ lượt rà khi tin giữ chỗ quá hạn chạy đúng trên production, và sổ tay 2.4 viết lại (V5-71).
 - Vì sao quan trọng: chủ đầu tư cần một điều kiện rõ để báo gỡ tờ.
 - Đề xuất sửa: chú thích ghi "Gỡ khi: (1) sổ tay 2.4 viết lại theo v1.0.4 (V5-71); (2) đội báo tin giữ chỗ quá hạn đã chạy đúng trên production". Bản in không đổi.
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit. Chú thích đầu tờ ghi hai điều kiện gỡ theo đề xuất. Bản in không đổi
 
 ### FB-R5-DOM-PO-06
 - Mức độ: Suggestion
@@ -97,7 +97,7 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
 - Vấn đề: release notes v1.0.4, mục Giới hạn đã biết: lễ tân và lễ tân trưởng **không thấy** yêu cầu hoàn đang chờ do người khác tạo. Khách hỏi "tiền hoàn của tôi đâu" thì người trực ca sau không tra được.
 - Vì sao quan trọng: khách hỏi lại nhiều lần; người trực dễ hứa ngày.
 - Đề xuất sửa: nếu còn chỗ, thêm vào dòng **Sổ giao ca**: "Đơn đã hủy có cọc: ghi 'chờ chủ đầu tư hoàn'. Khách hỏi: báo chủ đầu tư, không hứa ngày." Không có chỗ thì để ở sổ tay 2.4 (V5-71).
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit. Dòng **Sổ giao ca** thêm: đơn có cọc đã hủy ghi "chờ chủ đầu tư hoàn"; khách hỏi thì báo chủ đầu tư, không hứa ngày
 
 ## 3. Ghi chú cho ORC
 
