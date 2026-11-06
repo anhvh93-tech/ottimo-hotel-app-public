@@ -5,6 +5,8 @@
  * - coding-standards 2 [LINT]: no module imports another module's `internal/`.
  * - ARC-BE-S3-16: `ModuleRef` lookups inside src/modules only where listed with a reason (they hide provider
  *   cycles instead of removing them).
+ * - architecture 5.1 / ARC FB-R5-ARC-BE-139-01: only `files` runs SQL on its `attachment` table; another module asks
+ *   the AttachmentUsage port.
  * - OpenAPI 0.3.6 bổ sung 2 (`AuditEvent.action`): the `money` audit actions are a closed set – the server list
  *   equals the contract and every literal action passed to `recordMoney` belongs to it.
  */
@@ -53,6 +55,16 @@ describe('module boundaries', () => {
         if (m && m[1] !== own) offenders.push(`${r} → ${d}`);
       }
     }
+    expect(offenders).toEqual([]);
+  });
+
+  it('only files runs SQL on the attachment table – the others use AttachmentUsage (ARC FB-R5-ARC-BE-139-01)', () => {
+    const offenders = files(MODULES)
+      .map(rel)
+      .filter((r) => moduleOf(r) !== 'files')
+      .filter((r) =>
+        /\b(FROM|JOIN|UPDATE|INTO)\s+attachment\b/.test(readFileSync(join(SRC, r), 'utf8')),
+      );
     expect(offenders).toEqual([]);
   });
 
@@ -127,6 +139,8 @@ describe('reporting read model (ARC 11.4 C5/C6)', () => {
 
   it('declares its tables (C5)', () => {
     expect(READS.length).toBeGreaterThan(0);
+    // ARC FB-R5-ARC-BE-B2-01: audit is read through audit/public (line-reductions), never as a table.
+    expect(READS).not.toContain('audit_event');
     expect(WRITES).toEqual(['job_run']);
   });
 

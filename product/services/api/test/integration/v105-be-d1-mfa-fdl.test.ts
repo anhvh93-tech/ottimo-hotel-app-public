@@ -217,3 +217,133 @@ describe.skipIf(!HAS_DB)('V5-40 – front-desk lead must use 2FA (guard + identi
     expect((await work(c)).statusCode).toBe(200);
   });
 });
+
+/**
+ * SEC FB-R5-SEC-BE-D1-02 / D1-03: the predicate is "a live mandatory role at ANY property" – never the property of
+ * the session, never only the active properties. Two people on a 3-property tenant:
+ * - `multi`: FD at P0 (the session's active property) and FDL at P1, no 2FA → with MFA_ENFORCED the FD work at P0 is
+ *   refused (403 MFA_ENROLLMENT_REQUIRED), login and getMe say so, getMy2fa.required = true;
+ * - `dorm`: FD at P0 and manager at P2, P2 `inactive` → the guard restricts (the role is live), and getMe's two flags
+ *   say the same (SEC D1-03: one predicate, `holdsMfaRequiredRole`), although getMe lists active properties only.
+ */
+describe.skipIf(!HAS_DB)('V5-40 – mandatory role at another property (SEC D1-02, D1-03)', () => {
+  let db: Database;
+  let fa: FeatureApp;
+  let enforced: FeatureApp;
+  let t: TestTenant;
+
+  beforeAll(async () => {
+    db = appDatabase(4);
+    t = await createTenant(db, {
+      properties: 3,
+      users: { multi: ['front_desk'], dorm: ['front_desk'] },
+    });
+    for (const i of [0, 1, 2]) await seedSprint1Params(db, t, i);
+    for (const u of ['multi', 'dorm']) await setPassword(db, t, u);
+    await db.withContext(t.ctx(), async (tx) => {
+      for (const [user, i, role] of [
+        ['multi', 1, 'front_desk_lead'],
+        ['dorm', 2, 'manager'],
+      ] as const) {
+        await tx.query(
+          `INSERT INTO user_property_role (user_id, property_id, organization_id, role, granted_at)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [t.users[user]!.id, t.propertyIds[i], t.organizationId, role, T0],
+        );
+      }
+      await tx.query(`UPDATE property SET status = 'inactive' WHERE id = $1`, [t.propertyIds[2]]);
+    });
+    fa = await startFeatureApp(db);
+    enforced = await startFeatureApp(db, { mfaEnforced: true });
+    fa.clock.set(new Date(T0.getTime() + 3600_000));
+    enforced.clock.set(new Date(T0.getTime() + 3600_000));
+  });
+  afterAll(async () => {
+    await fa?.close();
+    await enforced?.close();
+    await db?.close();
+  });
+
+  const login = (app: FeatureApp, user: string) =>
+    app.app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { username: t.users[user]!.username, password: TEST_PASSWORD },
+    });
+  const q = <R extends Record<string, unknown>>(sql: string, params: unknown[] = []) =>
+    db.withContext(t.ctx(), (tx) => tx.query<R>(sql, params));
+  /** An FD read at P0 – both people are plain FD there. */
+  const workAtP0 = (c: Client) => c.get(`${P(t, 0)}/guests?q=ab`);
+  const rolesAt = async (user: string, i: number) =>
+    (
+      await q<{ role: string }>(
+        `SELECT role FROM user_property_role
+          WHERE user_id = $1 AND property_id = $2 AND revoked_at IS NULL ORDER BY role`,
+        [t.users[user]!.id, t.propertyIds[i]],
+      )
+    ).rows.map((r) => r.role);
+
+  it('D1-02: FD at P0 (active) + FDL at P1, no 2FA, MFA_ENFORCED → 403 MFA_ENROLLMENT_REQUIRED at P0, getMy2fa.required = true', async () => {
+    expect(await rolesAt('multi', 0)).toEqual(['front_desk']);
+    expect(await rolesAt('multi', 1)).toEqual(['front_desk_lead']);
+    // without the flag the same person works at P0 (FD) – only the 2FA rule refuses below
+    const free = Client.of(fa, t, 'multi');
+    expect((await workAtP0(free)).statusCode).toBe(200);
+    expect((await free.get('/v1/me')).json()).toMatchObject({
+      activePropertyId: t.propertyIds[0],
+      mfaRequiredButMissing: true,
+      mfaEnrollmentRequired: false,
+    });
+
+    // a session opened before the flag, active at P0 (0079's mfa_required is false for an FDL)
+    const old = Client.of(enforced, t, 'multi');
+    const blocked = await workAtP0(old);
+    expect(blocked.statusCode, blocked.body).toBe(403);
+    expect(blocked.json().code).toBe('MFA_ENROLLMENT_REQUIRED');
+
+    // a new login: restricted at once
+    const res = await login(enforced, 'multi');
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ mfaEnrollmentRequired: true, mfaEnabled: false });
+    const c = new Client(enforced, cookieValue(res, 'ottimo_sid')!);
+    expect((await c.get('/v1/me')).json()).toMatchObject({
+      activePropertyId: t.propertyIds[0],
+      mfaEnrollmentRequired: true,
+      mfaRequiredButMissing: true,
+    });
+    expect((await c.get('/v1/me/2fa')).json()).toMatchObject({
+      enabled: false,
+      required: true,
+      enforced: true,
+    });
+    const r = await workAtP0(c);
+    expect(r.statusCode, r.body).toBe(403);
+    expect(r.json().code).toBe('MFA_ENROLLMENT_REQUIRED');
+  });
+
+  it('D1-03: a mandatory role only at an inactive property – getMe says what the guard enforces', async () => {
+    expect(await rolesAt('dorm', 2)).toEqual(['manager']);
+    const old = Client.of(enforced, t, 'dorm');
+    const blocked = await workAtP0(old);
+    expect(blocked.statusCode, blocked.body).toBe(403);
+    expect(blocked.json().code).toBe('MFA_ENROLLMENT_REQUIRED');
+    const me = (await old.get('/v1/me')).json();
+    // getMe lists active properties only …
+    expect(me.properties.map((p: { propertyId: string }) => p.propertyId)).toEqual([
+      t.propertyIds[0],
+    ]);
+    // … but both flags follow the guard's predicate
+    expect(me).toMatchObject({ mfaEnrollmentRequired: true, mfaRequiredButMissing: true });
+    expect((await old.get('/v1/me/2fa')).json().required).toBe(true);
+    const res = await login(enforced, 'dorm');
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ mfaEnrollmentRequired: true, mfaRequiredButMissing: true });
+    // MFA_ENFORCED off: works, and the Desk reminder is shown
+    const free = Client.of(fa, t, 'dorm');
+    expect((await workAtP0(free)).statusCode).toBe(200);
+    expect((await free.get('/v1/me')).json()).toMatchObject({
+      mfaRequiredButMissing: true,
+      mfaEnrollmentRequired: false,
+    });
+  });
+});
