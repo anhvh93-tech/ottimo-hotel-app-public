@@ -6,6 +6,7 @@
  * (test/reservations-pricing.test.ts).
  */
 import { divideRoundVnd, roundVnd } from '../../platform/public/money';
+import { MIN_STAY_MAX_NIGHTS, minStayRuleIssue } from '../../platform/public/parameter-shapes';
 import { type LocalDate, type LocalTime, addDays, atLocal } from '../../../shared/time';
 
 export type ChannelGroup = 'direct' | 'agent' | 'ota' | 'internal';
@@ -299,15 +300,21 @@ export interface MinStayRule {
   channels: ChannelScope;
 }
 
-/** BR-113: required minimum nights for an arrival date and channel group (0 = no rule). */
+/**
+ * BR-113: required minimum nights for an arrival date and channel group (0 = no rule).
+ * V5-25 (DOM 12.3, BUG-R5-003 (b)): never throws on a stored value of the wrong shape – not a list → 0, a rule that
+ * breaks DOM 12.1 is skipped (callers read through `readMinStay`, which also logs; this is the last guard).
+ */
 export function minStayNights(
   arrival: LocalDate,
   group: ChannelGroup,
   rules: readonly MinStayRule[],
   specials: readonly SpecialDate[],
 ): number {
+  if (!Array.isArray(rules)) return 0;
   let need = 0;
-  for (const r of rules) {
+  for (const [i, r] of rules.entries()) {
+    if (minStayRuleIssue(r, i, MIN_STAY_MAX_NIGHTS)) continue;
     if (!inScope(r.channels, group)) continue;
     const byDay = r.arrivalWeekdays?.includes(weekdayOf(arrival)) ?? false;
     const bySpecial = r.arrivalOnSpecialDates === true && isSpecialDate(arrival, specials);
