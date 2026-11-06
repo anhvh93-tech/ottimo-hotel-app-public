@@ -1864,6 +1864,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `hk.done_at` | Xong lúc {time} | Done at {time} | ⟨chừa chỗ⟩ |  |
 | `hk.action.start_cleaning` | Bắt đầu dọn | Start cleaning | ⟨chừa chỗ⟩ | event start_cleaning (R1) |
 | `hk.action.finish_cleaning` | Dọn xong | Finished cleaning | ⟨chừa chỗ⟩ | event finish_cleaning (R2/R3) |
+| `hk.action.needs_cleaning` | Cần dọn | Needs cleaning | ⟨chừa chỗ⟩ | event needs_cleaning (R8, OC → OD + việc dọn phòng khách đang ở) – v1.0.5 V5-15, nút ở màn căn H20 của app nhân viên khi allowedEvents có needs_cleaning; cũng là tên thao tác trong "Thao tác trên máy" / "Cần xem lại" / "Gửi lại". **Chờ UXD duyệt** – MOB không viết chữ mới: VI = tên nút ở plan V5-15 và hợp đồng 0.3.13 mục 1.4, EN = thuật ngữ sẵn có của trạng thái "Cần dọn" (room_change.effects, checkout.complete_confirm_body) |
 | `hk.empty_title` | Hết việc rồi! | All done! | ⟨chừa chỗ⟩ |  |
 | `hk.empty_body` | Không còn việc nào hôm nay. Có việc mới sẽ hiện ở đây. | No more tasks today. New ones will appear here. | ⟨chừa chỗ⟩ |  |
 | `hk.error_title` | Chưa tải được việc hôm nay | Couldn't load today's tasks | ⟨chừa chỗ⟩ |  |

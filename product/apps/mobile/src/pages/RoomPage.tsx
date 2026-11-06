@@ -84,6 +84,9 @@ export function RoomPage({
 
   const finish = () => act.roomStatus(room, 'finish_cleaning', eff.value, cleanTask, occupied);
   const start = () => act.roomStatus(room, 'start_cleaning', eff.value, cleanTask);
+  // V5-15 (R8): guest staying, room already cleaned (OC) → "Cần dọn" puts it back to OD; the server adds the
+  // stay-over cleaning task. Queued like the other steps (10 s undo, offline queue, one command per tap).
+  const needsCleaning = () => act.roomStatus(room, 'needs_cleaning', eff.value);
 
   let main: JSX.Element | null = null;
   if (writable && events.includes('start_cleaning')) {
@@ -96,6 +99,12 @@ export function RoomPage({
     main = (
       <button type="button" className="btn pri xl block" onClick={() => void finish()}>
         {t('hk.action.finish_cleaning')}
+      </button>
+    );
+  } else if (writable && events.includes('needs_cleaning')) {
+    main = (
+      <button type="button" className="btn pri xl block" onClick={() => void needsCleaning()}>
+        {t('hk.action.needs_cleaning')}
       </button>
     );
   } else if (events.includes('inspect')) {

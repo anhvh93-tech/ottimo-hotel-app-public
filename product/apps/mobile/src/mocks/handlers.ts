@@ -193,7 +193,7 @@ const scenario = {
     undefined | { op: string; status: number; code: string; extra?: Record<string, unknown> },
   /** Simulate a network drop for the next call of this op. */
   dropNext: undefined as undefined | string,
-  /** The next call of this op is done by the server but its answer is lost (weak network). */
+  /** The next call of this op is done by the server but its answer is lost (weak network): `loginMfa`, `transitionRoomStatus`. */
   dropAnswerOf: undefined as undefined | string,
 };
 
@@ -491,6 +491,15 @@ function me() {
   } satisfies S['Me'];
 }
 
+/**
+ * Scope T of an HK-only account (housekeeping.service `scopeRooms`): rooms with a task today that is not
+ * cancelled. Outside it the room has no event and a transition answers 404 (EP07 2.3).
+ */
+function inHkScope(r: Room): boolean {
+  if (!user()?.roles.every((x) => x === ('housekeeping' as never))) return true;
+  return state.tasks.some((t) => t.roomNo === r.no && t.status !== 'cancelled');
+}
+
 function allowedEvents(r: Room): S['RoomStatusEntry']['allowedEvents'] {
   switch (r.status) {
     case 'VD':
@@ -498,6 +507,9 @@ function allowedEvents(r: Room): S['RoomStatusEntry']['allowedEvents'] {
       return ['start_cleaning'];
     case 'CL':
       return ['finish_cleaning'];
+    // v1.0.5 V5-15 – R8 "Cần dọn" (rules.ts `allowedEvents`: FD+ and HK inside scope T).
+    case 'OC':
+      return inHkScope(r) ? ['needs_cleaning'] : [];
     case 'VC':
       return ['inspect'];
     default:
@@ -723,12 +735,37 @@ export const handlers = [
     if (bad) return bad;
     const r = state.rooms.find((x) => roomId(x.no) === params.roomId);
     if (!r) return problem(404, 'NOT_FOUND');
+    if (body.event === 'needs_cleaning' && !inHkScope(r)) return problem(404, 'NOT_FOUND');
     if (r.status !== body.expectedFrom) {
       return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
     }
     if (body.event === 'start_cleaning' && (r.status === 'VD' || r.status === 'OD'))
       r.status = 'CL';
-    else if (body.event === 'finish_cleaning' && r.status === 'CL') {
+    else if (body.event === 'needs_cleaning' && r.status === 'OC') {
+      // R8a (housekeeping.service): OC → OD with a stay-over cleaning task, unless one is still open today.
+      r.status = 'OD';
+      const open = state.tasks.some(
+        (x) =>
+          x.roomNo === r.no &&
+          x.type === 'stayover_clean' &&
+          (x.status === 'open' || x.status === 'in_progress'),
+      );
+      if (!open) {
+        state.tasks.push({
+          id: crypto.randomUUID(),
+          roomId: roomId(r.no),
+          roomNo: r.no,
+          roomName: NAMES[r.no] ?? null,
+          type: 'stayover_clean',
+          status: 'open',
+          dueDate: today(),
+          quantity: 1,
+          source: 'manual',
+          priorityRank: state.tasks.length + 1,
+          version: 1,
+        });
+      }
+    } else if (body.event === 'finish_cleaning' && r.status === 'CL') {
       r.status = r.inHouse ? 'OC' : 'VC';
       const t = state.tasks.find(
         (x) => x.roomNo === r.no && x.status === 'open' && /_clean$/.test(x.type),
@@ -741,7 +778,13 @@ export const handlers = [
     } else return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
     r.since = new Date().toISOString();
     r.version++;
-    return remember(key, 200, entry(r));
+    const done = remember(key, 200, entry(r));
+    if (scenario.dropAnswerOf === 'transitionRoomStatus') {
+      // Weak network (V5-15): the server did it, the answer is lost – the resend replays the same key.
+      scenario.dropAnswerOf = undefined;
+      return HttpResponse.error();
+    }
+    return done;
   }),
 
   http.get(`${P}/hk-tasks`, async ({ request }) => {
