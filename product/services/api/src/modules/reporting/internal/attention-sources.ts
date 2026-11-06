@@ -31,8 +31,12 @@
  *       Above the SAME `foc_alert_count_per_approver` → one line per person: params {check: line_reduction_count,
  *       count, max}, no name – `link` = /audit?reductionsOnly=true&month=YYYY-MM&actorUserId=<id>. Such a correction
  *       is not a FOC: it is outside (a) and (b). Counted by audit/public/line-reductions (ARC FB-R5-ARC-BE-B2-01): the
- *       clauses of listAuditEvents `reductionsOnly`, so the count and the list behind the link never disagree; this
- *       module does not read `audit_event` itself (not in REPORTING_READ_TABLES).
+ *       SAME clauses as listAuditEvents `reductionsOnly`, but NOT the same window (ARC FB-R5-ARC-BE-110-01): the count
+ *       runs over the business month (from the rollover, 06:00, of day 1 to now) and keeps only rows whose
+ *       `before.actorRole` is FD/FDL; the list behind `month=` runs over calendar days (00:00 of day 1) and filters on
+ *       `actorUserId` only. They differ for reductions made 00:00–05:59 on day 1, for rows written before v1.0.5 (no
+ *       actorRole – listed, not counted) and for a person whose role changed within the month. This module does not
+ *       read `audit_event` itself (not in REPORTING_READ_TABLES).
  */
 import type { Tx } from '../../../db/database';
 import { type LocalTime, atLocal } from '../../../shared/time';
@@ -196,6 +200,7 @@ export const focThreshold: AttentionSource = async (tx: Tx, ctx: AttentionSource
     }
     // (d) BR-438 (4)(iii) (contract 0.3.13 1.20): per FD/FDL (role at the time), the direct reductions of a
     // non-night line in the business month, same threshold – through the audit gateway (ARC FB-R5-ARC-BE-B2-01).
+    // Business month here, calendar days in the list behind the link: see (d) above (ARC FB-R5-ARC-BE-110-01).
     const propertyId = tx.ctx.propertyId;
     const cut = propertyId
       ? await countLineReductionsByActor(tx, {
