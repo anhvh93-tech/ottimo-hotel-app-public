@@ -15,6 +15,7 @@ import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
 import { AttachmentService } from '../../files/public/attachment.service';
 import { ChannelsService } from '../../platform/public/channels';
+import { earlyDepartureRefundIssue } from '../../platform/public/parameter-shapes';
 import { applyPct, nightDates, noticeDays } from '../../reservations/public/pricing';
 import { roomReturnsOn } from '../../reservations/public/room-return';
 import {
@@ -1515,6 +1516,14 @@ export class StayService {
       if (!policy) {
         throw problem('PAYMENT_NOT_CONFIGURED', {
           detail: 'early_departure_refund (BR-428) is not configured',
+        });
+      }
+      // V5-25 (DOM rules-v1.0.5 13.2, ARC review #96 10, QA T-13-8): a stored value of the wrong shape (written before
+      // the save rule) blocks the early departure with the same 409 – never a 500, never a guessed refund. The detail
+      // names the key only, never the value.
+      if (earlyDepartureRefundIssue(policy)) {
+        throw problem('PAYMENT_NOT_CONFIGURED', {
+          detail: 'early_departure_refund (BR-428) is not usable',
         });
       }
       refund = earlyDepartureRefund({

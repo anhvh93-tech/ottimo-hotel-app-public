@@ -32,6 +32,7 @@ import { ModuleRef, Reflector } from '@nestjs/core';
 import { CLOCK, type Clock } from '../../clock';
 import { DATABASE, Database, type TenantContext } from '../../db/database';
 import { AuditService } from '../../modules/audit/public/audit.service';
+import { MFA_REQUIRED_ROLES } from '../../modules/identity/public/mfa-roles';
 import { MONOTONIC_CLOCK, RateLimiter } from '../../modules/identity/public/rate-limiter';
 import type { OperationMeta } from '../openapi-types';
 import { problem } from '../problem';
@@ -68,8 +69,9 @@ export interface AuthOptions {
    */
   staffRequestsPerMinute?: number;
   /**
-   * 0.3.8 (US-143, SEC 06.3/06.4) – deployment flag MFA_ENFORCED: an owner/manager without 2FA only reaches the
-   * enrolment operations (`MFA_ENROLLMENT_OPERATIONS`), every other one → 403 MFA_ENROLLMENT_REQUIRED.
+   * 0.3.8 (US-143, SEC 06.3/06.4) – deployment flag MFA_ENFORCED: a mandatory role (MFA_REQUIRED_ROLES –
+   * owner/manager; front_desk_lead from v1.0.5, V5-40) without 2FA only reaches the enrolment operations
+   * (`MFA_ENROLLMENT_OPERATIONS`), every other one → 403 MFA_ENROLLMENT_REQUIRED.
    */
   mfaEnforced?: boolean;
 }
@@ -190,6 +192,8 @@ function header(req: GuardedRequest, name: string): string | undefined {
 @Injectable()
 export class AuthGuard implements CanActivate, OnModuleInit {
   private readonly roleCache = new Map<string, { roles: string[]; until: number }>();
+  /** V5-40: "a mandatory 2FA role at any property" per user + roles_version (same lifetime as roleCache). */
+  private readonly mfaRoleCache = new Map<string, { required: boolean; until: number }>();
   private readonly deviceTouched = new Map<string, number>();
   private names!: { session: string; device: string };
 
@@ -457,6 +461,13 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const roles = propertyId ? await this.rolesAt(s, propertyId, now) : [];
     // A property the user has no role at is "not found" – same answer as another organisation's id.
     if (pathProperty !== undefined && roles.length === 0) throw problem('NOT_FOUND');
+    // SEC 06.4: MFA_ENFORCED + a mandatory role without 2FA → restricted session, also for a session opened
+    // before the flag or before the role was given.
+    const enrollmentOnly =
+      s.enrollment_only === true ||
+      (this.options.mfaEnforced === true &&
+        s.mfa_enabled !== true &&
+        (await this.mfaRequired(s, now)));
     return {
       kind: 'staff',
       sessionId: s.session_id,
@@ -472,11 +483,44 @@ export class AuthGuard implements CanActivate, OnModuleInit {
         lastActiveAt: s.last_active_at ?? null,
         mustChangePassword: s.must_change_password === true,
         mfaAt: s.mfa_at ?? null,
-        enrollmentOnly:
-          s.enrollment_only === true ||
-          (this.options.mfaEnforced === true && s.mfa_required === true && s.mfa_enabled !== true),
+        enrollmentOnly,
       },
     };
+  }
+
+  /**
+   * A live role of MFA_REQUIRED_ROLES at ANY property (SEC 06.2). `auth_resolve_session().mfa_required` (migration
+   * 0079) only knows owner/manager; front_desk_lead (V5-40, v1.0.5 has no migration) is read here, cached per
+   * roles_version like the roles (a role change bumps it).
+   */
+  private async mfaRequired(s: SessionRow, now: Date): Promise<boolean> {
+    if (s.mfa_required === true) return true;
+    const cacheKey = `${s.user_id}:${s.roles_version}`;
+    const hit = this.mfaRoleCache.get(cacheKey);
+    if (hit && hit.until > now.getTime()) return hit.required;
+    const ctx: TenantContext = {
+      organizationId: s.organization_id,
+      propertyId: null,
+      userId: s.user_id,
+      actorType: 'user',
+    };
+    const required = await this.db.withContext(
+      ctx,
+      async (tx) => {
+        const r = await tx.query(
+          `SELECT 1 FROM user_property_role
+            WHERE user_id = $1 AND revoked_at IS NULL AND role = ANY($2::text[]) LIMIT 1`,
+          [s.user_id, [...MFA_REQUIRED_ROLES]],
+        );
+        return (r.rowCount ?? 0) > 0;
+      },
+      { readOnly: true },
+    );
+    this.mfaRoleCache.set(cacheKey, {
+      required,
+      until: now.getTime() + (this.options.roleCacheMs ?? 60_000),
+    });
+    return required;
   }
 
   private async rolesAt(s: SessionRow, propertyId: string, now: Date): Promise<string[]> {

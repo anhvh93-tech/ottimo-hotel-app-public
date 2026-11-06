@@ -12,8 +12,10 @@
  * - `x-classification: C3` properties only in responses of `x-c3-log` operations;
  * - a removed property is ABSENT from the JSON, never `null`.
  *
- * Used automatically for every @Operation handler (SerializeInterceptor). Modules that build payloads
- * outside an HTTP response (SSE, outbox, idempotent replay) call serializeSchema()/serializeResponse().
+ * Used automatically for every @Operation handler (SerializeInterceptor – the only caller of serializeResponse and,
+ * with serializer.ts itself, of serializeShape; a test scans src/). Modules that build payloads outside an HTTP
+ * response (SSE, outbox) call serializeSchema(), which never returns an `x-self-data` property: outside the
+ * caller's own answer nothing proves whose data it is (V5-43, SEC FB-R4-SEC-BE-C0312-02).
  */
 import { OPENAPI_SCHEMAS } from '../../generated/openapi-schemas';
 import type { PropShape, Shape } from '../openapi-types';
@@ -95,13 +97,17 @@ export function propertyAllowed(
   return true;
 }
 
-/** `owner`: see SelfOwner (null below the first level of a schema / response). */
+/**
+ * `owner`: see SelfOwner (null below the first level of a schema / response). `self` = false (serializeSchema): a
+ * `ref` gives no owner either, so every `x-self-data` property below is dropped (V5-43, SEC C0312-02).
+ */
 function walk(
   value: unknown,
   shape: Shape,
   ctx: SerializeContext,
   depth: number,
-  owner: SelfOwner | null = null,
+  owner: SelfOwner | null,
+  self: boolean,
 ): Out {
   if (value === undefined) return DROP;
   if (value === null) return null;
@@ -113,15 +119,19 @@ function walk(
       return isScalar(value) ? value : DROP;
     case 'ref': {
       const target = OPENAPI_SCHEMAS.schemas[shape.name];
-      return target ? walk(value, target, ctx, depth + 1, `schema:${shape.name}`) : DROP;
+      return target
+        ? walk(value, target, ctx, depth + 1, self ? `schema:${shape.name}` : null, self)
+        : DROP;
     }
     case 'array':
       if (!Array.isArray(value)) return DROP;
-      return value.map((x) => walk(x, shape.items, ctx, depth + 1)).filter((x) => x !== DROP);
+      return value
+        .map((x) => walk(x, shape.items, ctx, depth + 1, null, self))
+        .filter((x) => x !== DROP);
     case 'union': {
       const kind = Array.isArray(value) ? 'array' : isPlainObject(value) ? 'object' : 'scalar';
       const branch = shape.of.find((b) => resolveKind(b) === kind) ?? shape.of[0];
-      return branch ? walk(value, branch, ctx, depth + 1, owner) : DROP;
+      return branch ? walk(value, branch, ctx, depth + 1, owner, self) : DROP;
     }
     case 'object': {
       if (!isPlainObject(value)) return DROP;
@@ -131,10 +141,10 @@ function walk(
         let c: Out = DROP;
         if (p) {
           if (propertyAllowed(p, ctx, owner, key)) {
-            c = walk(x, p.s, ctx, depth + 1);
+            c = walk(x, p.s, ctx, depth + 1, null, self);
           }
         } else if (shape.extra) {
-          c = walk(x, shape.extra, ctx, depth + 1);
+          c = walk(x, shape.extra, ctx, depth + 1, null, self);
         } else if (shape.open) {
           c = copyFree(x);
         }
@@ -160,18 +170,23 @@ export function serializeShape(
   ctx: SerializeContext,
   owner: SelfOwner | null = null,
 ): unknown {
-  const out = walk(value, shape, ctx, 0, owner);
+  const out = walk(value, shape, ctx, 0, owner, true);
   return out === DROP ? undefined : out;
 }
 
-/** Serialize against a component schema (e.g. 'ApprovalRequest') – for SSE/outbox payloads. */
+/**
+ * Serialize against a component schema (e.g. 'ApprovalRequest') – for SSE/outbox payloads. Fail closed on the
+ * caller's own data (V5-43, SEC FB-R4-SEC-BE-C0312-02): every `x-self-data` property (e.g. `Me.email`) is dropped
+ * for every role, OWN included – only the operation answers of SELF_DATA_FIELDS (serializeResponse) return it.
+ */
 export function serializeSchema(
   schemaName: string,
   value: unknown,
   ctx: SerializeContext,
 ): unknown {
   if (!OPENAPI_SCHEMAS.schemas[schemaName]) throw new Error(`unknown schema ${schemaName}`);
-  return serializeShape(value, { k: 'ref', name: schemaName }, ctx);
+  const out = walk(value, { k: 'ref', name: schemaName }, ctx, 0, null, false);
+  return out === DROP ? undefined : out;
 }
 
 /** JSON 2xx response shapes of an operation (empty when it declares none). */

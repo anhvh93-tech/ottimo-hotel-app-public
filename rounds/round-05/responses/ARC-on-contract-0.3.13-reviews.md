@@ -89,3 +89,18 @@
 | FB-R5-SEC-ARC-B002-03 | Minor | Deferred – v1.0.6 | Tách nhiệm người ghi khoản thu trên mọi folio, thu dư tiền mặt/thẻ qua API trên đơn mở, chi tiền mặt chỉ khi có tiền mặt đủ – ARC đưa vào hợp đồng 0.3.14 cùng ô mã giao dịch ở bước đối soát |
 | DOM B002-04 ý 1–4 | – | Done | (1) hoàn chỉ chuyển khoản về tài khoản đã chuyển, không đổi nơi nhận – đã ở `setRefundDestination`; (2) lỡ ghi hai lần qua `disputed` → `reversePayment` → `superseded`, không đổi hợp đồng; luật "một dòng sao kê một khoản" ở máy chủ cùng ô mã đối soát: **v1.0.6**; (3) chứng từ là thông báo tiền vào tài khoản OTTIMO – ghi ở mô tả, nhãn UXD; (4) S4 tối thiểu bắt buộc; **`bankReference` tùy chọn thêm ở 0.3.13** |
 
+
+## 7. Bổ sung 1e – thẻ sau khi #94 được duyệt (PR tài liệu riêng, sau #94)
+
+Chỉ sửa chữ `description` trong `openapi.yaml` và tệp `.md`: không đổi schema, `enum`, `required`, `x-roles`, `x-rbac`, phần mở rộng; không mã lỗi mới; không migration. Chi tiết ở contract 1.25.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-BE-ARC-C0313-22 | Minor | Done (chữ) – BE làm ở PR V5-48 | Theo SEC `SEC-responses.md` mục 1: `Payment.afterClosure` tính lúc đọc, chỉ để hiển thị, so `payment.created_at` của máy chủ với `cancelled_at`/`no_show_marked_at`; `afterClosureOnly` lọc theo `after.afterClosure` trong `audit_event`; allowlist `payment` (+ `afterClosure`, `reservationStatus`), `deposit_notice` (+ `afterClosure`) bắt buộc; thêm thực thể `attention_event` cho audit đóng mục `deposit_after_cancel` (S8); `refundRequestId` chưa trả tới 0.3.14; test đọc lại bảng và ca khôi phục |
+| FB-R5-BE-ARC-C0313-23 | Suggestion | Done (chữ) – BE làm ở PR V5-58 | Dẫn SR-RL-10 của SEC vào mô tả `setPropertyWifi`: đếm mỗi lần so, 5 lần / 24 giờ / người, bộ đếm PostgreSQL khóa riêng, không khóa tài khoản, quá ngưỡng bỏ qua phép so, không 429, giao dịch riêng commit trước 422. T58-11…13 |
+| FB-R5-SEC-ARC-15 | Minor | Done (chữ) – BE làm ở PR-B3 | `bankReference`: chuẩn hóa chữ hoa, `CARD_NUMBER_DETECTED`, 5 điều kiện SEC 5.3; người gọi không có vai FD+ nhận 409 **không** có `duplicateReservationCode` (chọn cách này thay `x-write-roles` vì PR chỉ chữ) |
+| FB-R5-SEC-ARC-16 | Minor | Chưa – cần đổi phần mở rộng | `x-visible-to` cho `ApprovalRequest.possibleDuplicateCodes` đổi serializer sinh, không hợp PR chỉ chữ. ARC làm PR hợp đồng nhỏ riêng trước khi gộp PR-B3 – chờ ORC xếp |
+| FB-R5-SEC-ARC-17 | Minor | Done (chữ) – test ở PR-B1 | `confirmPaymentReceived`, `createVietQr`: 409 đơn đã đóng đi sau 403 vai và 404 phạm vi |
+| FB-R5-SEC-ARC-18 | Suggestion | Deferred – 0.3.14 | Vào danh sách 0.3.14 (contract 1.25) |
+| ARC review PR #96 mục 7 | – | Done | Mô tả `setParameter` (13 khóa, mã trường, luật chéo theo khoảng), `cancelScheduledParameter` (chưa kiểm lại luật chéo – 0.3.14), contract 1.24, `erd.md` 9.1a (bảng theo khóa) |
+| UXD copy r1.5 mục 9.5 | – | Deferred – 0.3.14 | `FolioLine` trường chỉ đọc (`source`, `businessDate`, `rootLineId`, cờ sửa giảm cho người gọi); v1.0.5 Desk dựa vào 403 `requiredFlow = foc_request` |

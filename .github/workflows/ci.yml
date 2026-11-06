@@ -258,7 +258,8 @@ jobs:
             product/infra/server/test/restore-drill-privacy.test.sh product/infra/server/privacy-log-check.sh \
             product/infra/server/test/mail-test-send.test.sh product/infra/server/test/requeue-email-changed.test.sh \
             product/infra/server/test/ops-check-price.test.sh product/infra/server/test/publish-privacy-notice.test.sh \
-            product/infra/server/test/pull-backups.test.sh \
+            product/infra/server/test/pull-backups.test.sh product/infra/server/test/backup-schedule.test.sh \
+            product/infra/server/test/ops-check-journal.test.sh product/infra/server/test/postgres-log-terse.test.sh \
             product/infra/ci/check-confidential-paths.sh product/infra/ci/test-confidential-paths.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
@@ -325,6 +326,27 @@ jobs:
           rsync --version | sed -n 1p
           bash product/infra/server/test/pull-backups.test.sh | tee "$RUNNER_TEMP/pull-backups.out"
           grep -q '^== [0-9]* passed, 0 failed$' "$RUNNER_TEMP/pull-backups.out"
+
+      # V5-62 (ARC OR-M2 (a), SEC SR-BAK-01/03): two backups a day 12 h apart, retention by age – no file but
+      # purge-journal outlives 35 days even with two runs missed; ops-check backup limit 14 h. Red when skipped.
+      - name: backup timers + retention by age (03:00/15:00, staging +30 min, every file < 35 days)
+        run: |
+          bash product/infra/server/test/backup-schedule.test.sh | tee "$RUNNER_TEMP/backup-schedule.out"
+          grep -q '^== [0-9]* passed, 0 failed$' "$RUNNER_TEMP/backup-schedule.out"
+
+      # V5-63 (ARC 0.3.13 1.15, SEC FB-R5-SEC-ARC-07): logs in the host journal, 90-day cap, early-rotation and
+      # dropped-line warnings, who can read the logs; the bundle carries no max-size/max-file. Red when skipped.
+      - name: ops-check journal + journald bundle (90-day cap, early rotation, Suppressed, log readers)
+        run: |
+          bash product/infra/server/test/ops-check-journal.test.sh | tee "$RUNNER_TEMP/ops-check-journal.out"
+          grep -q '^== [0-9]* passed, 0 failed$' "$RUNNER_TEMP/ops-check-journal.out"
+
+      # SEC FB-R5-SEC-ARC-08: the postgres command of the compose file keeps row values out of the server's error
+      # lines (unique / CHECK / NOT NULL DETAIL); a control run without it must show them. Red when skipped.
+      - name: postgres error lines without row values (log_error_verbosity=terse)
+        run: |
+          bash product/infra/server/test/postgres-log-terse.test.sh | tee "$RUNNER_TEMP/postgres-log-terse.out"
+          grep -q '^== [0-9]* passed, 0 failed$' "$RUNNER_TEMP/postgres-log-terse.out"
 
   confidential-paths:
     # SEC FB-R4-SEC-OPS-01 / SEC-on-commission-numbers G2: INV's internal pricing / commission tables never enter this

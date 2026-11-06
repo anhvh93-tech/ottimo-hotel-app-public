@@ -43,10 +43,10 @@ services:
     mem_limit: 128m
     pids_limit: 100
     logging:
-      driver: local
+      # v1.0.5 V5-63: host journal, 90-day cap (server/journald/50-ottimo.conf); no max-size/max-file with journald.
+      driver: journald
       options:
-        max-size: 5m
-        max-file: '3'
+        tag: '{{.Name}}'
     healthcheck:
       test: ['CMD-SHELL', 'nc -z 127.0.0.1 443 && nc -z 127.0.0.1 80 || exit 1']
       interval: 30s
