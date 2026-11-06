@@ -63,7 +63,7 @@ Món lớn hơn trần đi đường "món ngoài bảng" (BR-512). Chi tiết �
   - `cancel_policy_direct` không rỗng, thiếu thì 422 `REQUIRED`.
 
   Cập nhật câu SQL và các ca dùng chung. Ca kiểm T-13-2…4 ở mục 13.5.
-- Trạng thái: Open
+- Trạng thái: Done (Lượt 2, `897ff46e`)
 
 ### FB-R5-DOM-BE-PR96-02
 - Mức độ: Minor
@@ -75,7 +75,7 @@ Món lớn hơn trần đi đường "món ngoài bảng" (BR-512). Chi tiết �
   - (b) số dòng `damage_catalog` sai dạng (khi PR xếp chồng gộp).
 
   Khi hủy mà bản chép hỏng: dùng chính sách đang hiệu lực, như mã đang làm khi đơn không có bản chép (mục 13.2).
-- Trạng thái: Open
+- Trạng thái: Done (Lượt 2, `897ff46e`; đề xuất thêm về luật dừng lên bản ở mục 5)
 
 ### FB-R5-DOM-BE-PR96-03
 - Mức độ: Suggestion
@@ -83,10 +83,40 @@ Món lớn hơn trần đi đường "món ngoài bảng" (BR-512). Chi tiết �
 - Vấn đề: `weekend_nights`, `special_dates`, `*_uplift_channels`, `los_discount` lưu sai từ trước thì báo giá vẫn 500. Lỗi này cùng mức với BUG-R5-003.
 - Vì sao quan trọng: quầy và web dừng bán nếu câu SQL bỏ sót một dòng.
 - Đề xuất sửa: nếu kịp, đọc phòng thủ bằng cùng hàm `parameter-shapes.ts`: bỏ phần hỏng, ghi log như `min_stay`. Không kịp thì vào R5-B-05; câu SQL đạt trước khi lên là đủ cho v1.0.5.
-- Trạng thái: Open
+- Trạng thái: Deferred – R5-B-05, kèm điều kiện ở mục 5
 
 ## 4. Điểm làm tốt
 
 - Rà mọi khóa có cấu trúc trên đường bán, nhận phòng, trả phòng, và ghi rõ v1.0.4 lỗi gì ở từng khóa. Nhờ đó DOM quyết được nhanh.
 - Câu SQL chỉ in `key`, `effective_from`, `ok`, chạy cùng các ca của bộ kiểm TypeScript.
 - Kiểm hai chiều `min_stay` ↔ `short_stay_max_nights` xét cả dòng đã hẹn ngày.
+
+## 5. Lượt 2 (07/11) – PR #96 HEAD `897ff46e`, PR #109 HEAD `f2e6733d`
+
+1. **Thẻ 01 – ba chỗ sửa: Có, đúng ý.**
+   - Phần trăm có chữ số thứ ba bị từ chối (`Number(v.toFixed(2)) !== v`).
+   - `cancel_policy_direct` rỗng trả `REQUIRED`.
+   - `max_open_holds_per_user` thiếu vai, hoặc vai mang `null`, trả `REQUIRED` ở `value.<vai>`.
+
+   Câu SQL và các ca dùng chung đổi cùng lúc, nên câu SQL và bộ kiểm khi lưu vẫn cho cùng kết quả.
+2. **Thẻ 03 – chuyển đọc phòng thủ nhóm bán sang R5-B-05: Có, đồng ý, kèm một điều kiện.**
+   - Lý do đồng ý: sau V5-25, Desk không cho lưu sai dạng nữa. Dòng hỏng chỉ còn có thể là dòng cũ, và câu SQL bắt được cả dòng đang hiệu lực lẫn dòng đã hẹn ngày.
+   - Điều kiện: thêm `special_dates`, `los_discount`, `weekend_uplift_channels`, `special_uplift_channels` vào nhóm "ok = false thì dừng lên bản, sửa trên Desk trước", cùng nhóm với `min_stay` và `weekend_nights`. Không có đọc phòng thủ thì bốn khóa này hỏng là báo giá 500, giống `min_stay`.
+3. **Dòng đếm (a): Có, đúng ý.**
+   - Bản chép `cancelPolicy = []` nghĩa là hoàn 0 % mọi trường hợp. OTTIMO chưa bán chính sách nào như vậy, nên phải đếm.
+   - Chỉ xét đơn `hold`, `confirmed`, `in_house` đã có bản chép là đúng. Đơn đã đóng không còn hủy. Đơn không có bản chép thì dùng chính sách đang hiệu lực.
+   - DOM đề xuất (ORC, ARC chốt): số khác 0 thì **không cần dừng lên bản**, vì v1.0.5 không làm ca này tệ hơn v1.0.4. ORC gửi số cho DOM trong ngày; DOM viết cách xử lý từng đơn, trước ngày đến của đơn đó.
+   - Tương tự với `damage_catalog_rows_broken` khác 0: PR #109 đã bỏ dòng hỏng khi đọc, nên sửa trên Desk sau khi lên là được.
+4. **`name` của `damage_catalog`: Có, đúng ý.**
+   - Đếm 100 ký tự trên chuỗi gốc chỉ chặt hơn vài khoảng trắng thừa, không chặn tên thật. TS đếm theo điểm mã (`[...name].length`), SQL dùng `char_length`, nên hai bên khớp nhau.
+   - So trùng: bộ kiểm khi lưu (TS `toLowerCase`, hạ được cả chữ có dấu) mới là chỗ người dùng gặp, và nó đúng ý DOM. `lower()` ở SQL theo collation của DB có thể không hạ chữ có dấu nếu collation là C [CHƯA XÁC MINH]. DOM chấp nhận sai khác này, vì câu SQL chỉ đếm, và bảng hiện có không có hai tên chỉ khác hoa thường.
+   - Không cần chuẩn hóa NFC ở v1.0.5.
+
+PR #109 khớp DOM 13.4:
+- `priceVnd` 1.000–20.000.000;
+- tối đa 100 món (chỉ là luật lưu);
+- `code` theo mẫu BE đề xuất, không trùng;
+- `[]` nhận;
+- đọc khi hỏng: bỏ món hỏng hay món trùng, giữ món đúng, không ném lỗi (DOM 13.2).
+
+**Kết luận lượt 2:** về nghiệp vụ, DOM không còn điều kiện nào với PR #96 và PR #109, ngoài điều kiện về luật dừng lên bản ở ý 2 (ghi vào hướng dẫn chạy câu SQL hoặc runbook v1.0.5).

@@ -1,0 +1,482 @@
+/**
+ * V5-14 – hold at the price typed at the desk (BUG-R4-041, FB-R4-ARC-FE-PR75-01; OpenAPI 0.3.13 QuoteInput.nightlyRates,
+ * createHoldFromQuote; contract-0.3.13 1.3 + 1.17, SEC ARC-01/ARC-06, BE C0313-05), on the real modules + PostgreSQL:
+ * - T14-1  typed nights → saved quote → hold: the hold's nights, total and deposit are the typed ones, `manual` nights,
+ *          `bookingRateSource = manual_agreed`; T14-11 a night with `edited = false` keeps the server calendar;
+ * - T14-2  typed price outside BR-105 → 422 RATE_OUT_OF_RANGE with `dates[]`, `min`, `max`, nothing saved;
+ * - T14-4  `type = long` + nightlyRates → 422 NOT_ALLOWED; OTA channel → 422 NOT_IN_LIST (`channelId`);
+ * - T14-5  createHoldFromQuote with a price field → 422 NOT_ALLOWED per field, no booking, quote still active;
+ * - T14-7  oracle: calculateQuote total/deposit = createReservation of the same stay with the same typed prices
+ *          (typed price = calendar price BEFORE the BR-107 tier and the BR-111 return code);
+ * - T14-8/9 internal channel → 422 NOT_IN_LIST with or without typed prices (FD, SAL), nothing saved;
+ * - T14-10 a night missing → 422 REQUIRED; dates outside the stay or twice → 422 DATE_INVALID at `nightlyRates[i].date`;
+ *          amount ≤ 0 → 422 AMOUNT_NOT_POSITIVE; body rules come before the channel check;
+ * T22-1 (createReservation, V5-22) is in v5-22-rate-bounds.test.ts.
+ * T14-3/T14-12 (SAL/CTV refused, FD ∪ SAL allowed) are in write-roles-gate.test.ts. FAKE data only.
+ */
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { Database } from '../../src/db/database';
+import { Client, type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
+import { type SalesIds, seedGuest, seedSales } from '../helpers/sales-fixture';
+import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
+
+/** Lầu 1–2 (L12) bounds from `ota_base_rate` 760.000 × 70 % / 250 %, OTA unit 10.000 (BR-105, BUG-R2-018). */
+const L12_FLOOR = 530_000;
+const L12_CEILING = 1_900_000;
+/** Room 202 calendar on a weekday: 9.500.000 / 12 → 792.000 (DS-E, rounding.night_rate 1.000). */
+const R202_WEEKDAY = 792_000;
+
+interface Night {
+  date: string;
+  amountVnd: number;
+  calendarRateVnd?: number;
+}
+
+describe.skipIf(!HAS_DB)('V5-14 typed quote prices', () => {
+  let db: Database;
+  let fa: FeatureApp;
+  let t: TestTenant;
+  let ids: SalesIds;
+  let guestFd: string;
+  let guestSal: string;
+
+  beforeAll(async () => {
+    db = appDatabase(10);
+    t = await createTenant(db, {
+      users: {
+        owner: ['owner'],
+        mgr: ['manager'],
+        fdl: ['front_desk_lead'],
+        fd: ['front_desk'],
+        sal: ['sales_staff'],
+      },
+    });
+    ids = await seedSales(db, t);
+    guestFd = await seedGuest(db, t, t.users.fd!.id);
+    guestSal = await seedGuest(db, t, t.users.sal!.id);
+    fa = await startFeatureApp(db);
+  });
+  afterAll(async () => {
+    await fa?.close();
+    await db.close();
+  });
+
+  const send = (who: string, path: string, body: unknown) =>
+    Client.of(fa, t, who).send('POST', `${P(t)}${path}`, body);
+  const calc = (who: string, body: Record<string, unknown>) => send(who, '/quotes/calculate', body);
+  const short = (extra: Record<string, unknown> = {}) => ({
+    type: 'short',
+    roomId: ids.rooms['202'],
+    arrivalDate: '2026-11-09',
+    nights: 3,
+    adults: 2,
+    channelId: ids.channels.direct,
+    ...extra,
+  });
+  const quoteCount = async (): Promise<number> =>
+    Number(
+      (
+        await db.withContext(t.ctx(), (tx) =>
+          tx.query<{ n: string }>('SELECT count(*) AS n FROM quote'),
+        )
+      ).rows[0]!.n,
+    );
+  const reservationCount = async (): Promise<number> =>
+    Number(
+      (
+        await db.withContext(t.ctx(), (tx) =>
+          tx.query<{ n: string }>('SELECT count(*) AS n FROM reservation'),
+        )
+      ).rows[0]!.n,
+    );
+
+  interface Snapshot {
+    bookingRateSource?: string;
+    nights?: Array<{ date: string; source: string; amountVnd?: number; calendarVnd?: number }>;
+    calendarRatesVnd?: number[];
+  }
+  const quoteSnapshot = async (id: string): Promise<Snapshot> =>
+    (
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query<{ s: Snapshot }>('SELECT pricing_snapshot AS s FROM quote WHERE id = $1', [id]),
+      )
+    ).rows[0]!.s;
+  const booking = async (id: string) =>
+    (
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query<{
+          total_room_vnd: number;
+          deposit_required_vnd: number;
+          status: string;
+          pricing_snapshot: Snapshot;
+        }>(
+          `SELECT total_room_vnd::int AS total_room_vnd, deposit_required_vnd::int AS deposit_required_vnd,
+                  status, pricing_snapshot FROM reservation WHERE id = $1`,
+          [id],
+        ),
+      )
+    ).rows[0]!;
+  const nightAmounts = async (id: string): Promise<number[]> =>
+    (
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query<{ a: number }>(
+          `SELECT room_revenue_gross_vnd::int AS a FROM stay_night WHERE reservation_id = $1
+            ORDER BY stay_date`,
+          [id],
+        ),
+      )
+    ).rows.map((r) => r.a);
+
+  // ───────────── T14-1 / T14-11 ─────────────
+  it('T14-1: typed nights → saveQuote → hold at the typed prices (manual, manual_agreed, deposit on the typed total)', async () => {
+    const nightlyRates = [
+      { date: '2026-11-09', amountVnd: 700_000, edited: true },
+      { date: '2026-11-10', amountVnd: 650_000, edited: true },
+      // T14-11: not edited → the server's own calendar, the amount sent is ignored (SEC ARC-06)
+      { date: '2026-11-11', amountVnd: 1, edited: false },
+    ];
+    const preview = await calc('fd', short({ nightlyRates }));
+    expect(preview.statusCode, preview.body).toBe(200);
+    const q = preview.json();
+    expect(q.nightlyRates.map((n: Night) => n.amountVnd)).toEqual([700_000, 650_000, R202_WEEKDAY]);
+    expect(q.nightlyRates.map((n: Night) => n.calendarRateVnd)).toEqual([
+      700_000,
+      650_000,
+      R202_WEEKDAY,
+    ]);
+    expect(q.totalVnd).toBe(2_142_000);
+    // BR-305: 30 % of the TYPED room total, rounding.deposit 100.000 (the calendar total 2.376.000 → 700.000)
+    expect(q.depositVnd).toBe(600_000);
+
+    const saved = await send('fd', '/quotes', { ...short({ nightlyRates }), guestId: guestFd });
+    expect(saved.statusCode, saved.body).toBe(201);
+    expect(saved.json()).toMatchObject({ totalVnd: 2_142_000, depositVnd: 600_000 });
+    const snap = await quoteSnapshot(saved.json().id);
+    expect(snap.bookingRateSource).toBe('manual_agreed');
+    expect(snap.nights?.map((n) => n.source)).toEqual(['manual', 'manual', 'calendar']);
+    expect(snap.calendarRatesVnd).toEqual([700_000, 650_000, R202_WEEKDAY]);
+
+    const hold = await send('fd', `/quotes/${saved.json().id}/actions/create-hold`, {
+      holdHours: 24,
+    });
+    expect(hold.statusCode, hold.body).toBe(201);
+    expect(hold.json()).toMatchObject({
+      status: 'hold',
+      depositRequiredVnd: 600_000,
+      totalRoomVnd: 2_142_000,
+    });
+    const b = await booking(hold.json().id);
+    expect(b).toMatchObject({ total_room_vnd: 2_142_000, deposit_required_vnd: 600_000 });
+    expect(await nightAmounts(hold.json().id)).toEqual([700_000, 650_000, R202_WEEKDAY]);
+    expect(b.pricing_snapshot.bookingRateSource).toBe('manual_agreed');
+    expect(b.pricing_snapshot.nights?.map((n) => [n.source, n.calendarVnd])).toEqual([
+      ['manual', 700_000],
+      ['manual', 650_000],
+      ['calendar', R202_WEEKDAY],
+    ]);
+  });
+
+  it('a quote without typed prices still holds at the calendar (`calendar`, no manual night)', async () => {
+    const saved = await send('fd', '/quotes', {
+      ...short({ arrivalDate: '2026-11-23', roomId: ids.rooms['101'] }),
+      guestId: guestFd,
+    });
+    expect(saved.statusCode, saved.body).toBe(201);
+    const snap = await quoteSnapshot(saved.json().id);
+    expect(snap.bookingRateSource).toBe('calendar');
+    expect(snap.nights?.every((n) => n.source === 'calendar')).toBe(true);
+    const hold = await send('fd', `/quotes/${saved.json().id}/actions/create-hold`, {
+      holdHours: 24,
+    });
+    expect(hold.statusCode, hold.body).toBe(201);
+    const b = await booking(hold.json().id);
+    expect(b.pricing_snapshot.bookingRateSource).toBe('calendar');
+    expect(b.pricing_snapshot.nights?.every((n) => n.source === 'calendar')).toBe(true);
+  });
+
+  // ───────────── T14-2 on the quote ─────────────
+  it('T14-2: a typed price outside BR-105 → 422 RATE_OUT_OF_RANGE with dates[], min, max; nothing saved', async () => {
+    const quotes = await quoteCount();
+    for (const [amount, dates] of [
+      [L12_FLOOR - 1_000, ['2026-11-17', '2026-11-18']],
+      [L12_CEILING + 1_000, ['2026-11-17', '2026-11-18']],
+    ] as const) {
+      const body = {
+        ...short({
+          arrivalDate: '2026-11-16',
+          nightlyRates: [
+            { date: '2026-11-16', amountVnd: 700_000, edited: true },
+            { date: '2026-11-17', amountVnd: amount, edited: true },
+            { date: '2026-11-18', amountVnd: amount, edited: true },
+          ],
+        }),
+        guestId: guestFd,
+      };
+      for (const path of ['/quotes/calculate', '/quotes']) {
+        const res = await send('fd', path, body);
+        expect(res.statusCode, res.body).toBe(422);
+        expect(res.json()).toMatchObject({
+          code: 'RATE_OUT_OF_RANGE',
+          errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
+          dates,
+          min: L12_FLOOR,
+          max: L12_CEILING,
+        });
+      }
+    }
+    // exactly at the bounds is fine
+    const edge = await calc(
+      'fd',
+      short({
+        arrivalDate: '2026-11-16',
+        nightlyRates: [
+          { date: '2026-11-16', amountVnd: L12_FLOOR, edited: true },
+          { date: '2026-11-17', amountVnd: L12_CEILING, edited: true },
+          { date: '2026-11-18', amountVnd: R202_WEEKDAY, edited: false },
+        ],
+      }),
+    );
+    expect(edge.statusCode, edge.body).toBe(200);
+    expect(await quoteCount()).toBe(quotes);
+  });
+
+  it('T14-4: typed prices on a long stay → 422 NOT_ALLOWED; OTA channel → 422 NOT_IN_LIST (channelId)', async () => {
+    const long = await calc('fd', {
+      type: 'long',
+      roomId: ids.rooms['202'],
+      arrivalDate: '2026-12-01',
+      termMonths: 3,
+      adults: 1,
+      channelId: ids.channels.direct,
+      nightlyRates: [{ date: '2026-12-01', amountVnd: 700_000, edited: true }],
+    });
+    expect(long.statusCode).toBe(422);
+    expect(long.json().errors).toEqual([{ field: 'nightlyRates', code: 'NOT_ALLOWED' }]);
+    const ota = await calc(
+      'fd',
+      short({
+        channelId: ids.channels.airbnb,
+        nightlyRates: [
+          { date: '2026-11-09', amountVnd: 700_000, edited: true },
+          { date: '2026-11-10', amountVnd: 700_000, edited: true },
+          { date: '2026-11-11', amountVnd: 700_000, edited: true },
+        ],
+      }),
+    );
+    expect(ota.statusCode).toBe(422);
+    expect(ota.json().errors).toEqual([{ field: 'channelId', code: 'NOT_IN_LIST' }]);
+  });
+
+  // ───────────── T14-5 ─────────────
+  it('T14-5: createHoldFromQuote with a price field → 422 NOT_ALLOWED per field, no booking, quote still active', async () => {
+    const saved = await send('sal', '/quotes', {
+      ...short({ arrivalDate: '2026-11-30', roomId: ids.rooms['301'] }),
+      guestId: guestSal,
+    });
+    expect(saved.statusCode, saved.body).toBe(201);
+    const id = saved.json().id as string;
+    const bookings = await reservationCount();
+    for (const field of [
+      'nightlyRates',
+      'rates',
+      'rateVnd',
+      'amountVnd',
+      'totalVnd',
+      'depositVnd',
+    ]) {
+      for (const value of [[], null, 1_000]) {
+        const res = await send('sal', `/quotes/${id}/actions/create-hold`, {
+          holdHours: 24,
+          [field]: value,
+        });
+        expect(res.statusCode, `${field}=${JSON.stringify(value)} ${res.body}`).toBe(422);
+        expect(res.json().errors).toEqual([{ field, code: 'NOT_ALLOWED' }]);
+      }
+    }
+    const several = await send('fd', `/quotes/${id}/actions/create-hold`, {
+      holdHours: 24,
+      depositVnd: 1,
+      nightlyRates: [],
+    });
+    expect(several.statusCode).toBe(422);
+    expect(several.json().errors).toEqual([
+      { field: 'nightlyRates', code: 'NOT_ALLOWED' },
+      { field: 'depositVnd', code: 'NOT_ALLOWED' },
+    ]);
+    expect(await reservationCount()).toBe(bookings);
+    expect((await Client.of(fa, t, 'sal').get(`${P(t)}/quotes/${id}`)).json()).toMatchObject({
+      status: 'active',
+    });
+    // other unknown fields are still ignored, as before
+    const ok = await send('sal', `/quotes/${id}/actions/create-hold`, {
+      holdHours: 24,
+      note: 'x',
+    });
+    expect(ok.statusCode, ok.body).toBe(201);
+  });
+
+  // ───────────── T14-7 oracle ─────────────
+  it('T14-7: calculateQuote with typed prices = createReservation of the same stay (BR-107 tier on the typed price)', async () => {
+    // 7 nights Mon 7/12 → Mon 14/12 on 101 (Fri/Sat uplift, BR-107 −10 %).
+    const stay = { roomId: ids.rooms['101'], arrivalDate: '2026-12-07', nights: 7 };
+    const plain = (await calc('fd', short(stay))).json();
+    expect(plain.losDiscountPct).toBe(10);
+    const calendar = plain.nightlyRates as Night[];
+    const typedAt: Record<string, number> = { '2026-12-07': 700_000, '2026-12-08': 690_000 };
+    const nightlyRates = calendar.map((n) =>
+      typedAt[n.date] !== undefined
+        ? { date: n.date, amountVnd: typedAt[n.date]!, edited: true }
+        : { date: n.date, amountVnd: n.calendarRateVnd!, edited: false },
+    );
+    const q = await calc('fd', short({ ...stay, nightlyRates }));
+    expect(q.statusCode, q.body).toBe(200);
+    const quoted = q.json();
+    expect(quoted.losDiscountPct).toBe(10);
+    expect(quoted.nightlyRates.slice(0, 2).map((n: Night) => n.amountVnd)).toEqual([
+      630_000, 621_000,
+    ]);
+    expect(quoted.nightlyRates.slice(2)).toEqual(calendar.slice(2));
+
+    const created = await send('fd', '/reservations', {
+      roomId: stay.roomId,
+      channelId: ids.channels.direct,
+      directSource: 'zalo_phone',
+      arrivalDate: stay.arrivalDate,
+      departureDate: '2026-12-14',
+      adults: 2,
+      bookerGuestId: guestFd,
+      paymentModel: 'direct',
+      nightlyRates,
+      initialPayment: { type: 'deposit', method: 'cash', amountVnd: quoted.depositVnd },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const b = await booking(created.json().id);
+    expect(b.total_room_vnd).toBe(quoted.totalVnd);
+    expect(b.deposit_required_vnd).toBe(quoted.depositVnd);
+    expect(await nightAmounts(created.json().id)).toEqual(
+      quoted.nightlyRates.map((n: Night) => n.amountVnd),
+    );
+    expect(b.pricing_snapshot.bookingRateSource).toBe('manual_agreed');
+  });
+
+  it('BR-111: the return-guest % applies on the typed price (typed = calendar price)', async () => {
+    const q = await calc(
+      'fd',
+      short({
+        arrivalDate: '2026-12-21',
+        returnGuestCode: 'OTTIMO-BACK5',
+        nightlyRates: [
+          { date: '2026-12-21', amountVnd: 700_000, edited: true },
+          { date: '2026-12-22', amountVnd: R202_WEEKDAY, edited: false },
+          { date: '2026-12-23', amountVnd: R202_WEEKDAY, edited: false },
+        ],
+      }),
+    );
+    expect(q.statusCode, q.body).toBe(200);
+    expect(q.json().losDiscountPct).toBe(5);
+    expect(q.json().nightlyRates.map((n: Night) => [n.amountVnd, n.calendarRateVnd])).toEqual([
+      [665_000, 700_000],
+      [752_000, R202_WEEKDAY],
+      [752_000, R202_WEEKDAY],
+    ]);
+  });
+
+  // ───────────── T14-8 / T14-9 ─────────────
+  it('T14-8 / T14-9: internal channel → 422 NOT_IN_LIST with or without typed prices; nothing saved', async () => {
+    const quotes = await quoteCount();
+    const typed = [
+      { date: '2026-11-09', amountVnd: 700_000, edited: true },
+      { date: '2026-11-10', amountVnd: 700_000, edited: true },
+      { date: '2026-11-11', amountVnd: 700_000, edited: true },
+    ];
+    for (const [who, extra, guestId] of [
+      ['fd', { nightlyRates: typed }, guestFd],
+      ['fd', {}, guestFd],
+      ['sal', {}, guestSal],
+    ] as const) {
+      for (const path of ['/quotes/calculate', '/quotes']) {
+        const res = await send(who, path, {
+          ...short({ channelId: ids.channels.internal, ...extra }),
+          guestId,
+        });
+        expect(res.statusCode, `${who} ${path} ${res.body}`).toBe(422);
+        expect(res.json().errors).toEqual([{ field: 'channelId', code: 'NOT_IN_LIST' }]);
+      }
+    }
+    expect(await quoteCount()).toBe(quotes);
+  });
+
+  // ───────────── T14-10 and body rules ─────────────
+  it('T14-10: a night missing → 422 REQUIRED (also `[]`); body rules come before the channel check', async () => {
+    for (const nightlyRates of [
+      [
+        { date: '2026-11-09', amountVnd: 700_000, edited: true },
+        { date: '2026-11-10', amountVnd: 700_000, edited: true },
+      ],
+      [],
+    ]) {
+      for (const channelId of [ids.channels.direct, ids.channels.internal]) {
+        const res = await calc('fd', short({ channelId, nightlyRates }));
+        expect(res.statusCode).toBe(422);
+        expect(res.json().errors).toEqual([{ field: 'nightlyRates', code: 'REQUIRED' }]);
+      }
+    }
+  });
+
+  it('a date outside the stay or twice → 422 DATE_INVALID at nightlyRates[i].date', async () => {
+    const outside = await calc(
+      'fd',
+      short({
+        nightlyRates: [
+          { date: '2026-11-09', amountVnd: 700_000, edited: true },
+          { date: '2026-11-10', amountVnd: 700_000, edited: true },
+          { date: '2026-11-12', amountVnd: 700_000, edited: true },
+        ],
+      }),
+    );
+    expect(outside.statusCode).toBe(422);
+    expect(outside.json().errors).toEqual([
+      { field: 'nightlyRates[2].date', code: 'DATE_INVALID' },
+    ]);
+    const twice = await calc(
+      'fd',
+      short({
+        nightlyRates: [
+          { date: '2026-11-09', amountVnd: 700_000, edited: true },
+          { date: '2026-11-09', amountVnd: 710_000, edited: true },
+          { date: '2026-11-10', amountVnd: 700_000, edited: true },
+          { date: '2026-11-11', amountVnd: 700_000, edited: true },
+        ],
+      }),
+    );
+    expect(twice.statusCode).toBe(422);
+    expect(twice.json().errors).toEqual([{ field: 'nightlyRates[1].date', code: 'DATE_INVALID' }]);
+  });
+
+  it('amount ≤ 0 → 422 AMOUNT_NOT_POSITIVE (typed or not); a non-integer amount → 422', async () => {
+    for (const [amount, edited] of [
+      [0, true],
+      [-700_000, true],
+      [0, false],
+    ] as const) {
+      const res = await calc(
+        'fd',
+        short({
+          nightlyRates: [
+            { date: '2026-11-09', amountVnd: amount, edited },
+            { date: '2026-11-10', amountVnd: 700_000, edited: true },
+            { date: '2026-11-11', amountVnd: 700_000, edited: true },
+          ],
+        }),
+      );
+      expect(res.statusCode).toBe(422);
+      expect(res.json().errors).toEqual([{ field: 'nightlyRates', code: 'AMOUNT_NOT_POSITIVE' }]);
+    }
+    const frac = await calc(
+      'fd',
+      short({ nightlyRates: [{ date: '2026-11-09', amountVnd: 700_000.5, edited: true }] }),
+    );
+    expect(frac.statusCode).toBe(422);
+    expect(frac.json().code).toBe('VALIDATION_FAILED');
+  });
+});

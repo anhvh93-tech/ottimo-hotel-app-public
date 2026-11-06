@@ -11,9 +11,11 @@
  * Recipients (DOM A.5):
  * - `hold_overdue_with_deposit` – the creator and the closer (sale/CTV) + every active FD, FDL and MGR;
  * - `hold_overdue_cap` (12:00 of the arrival day, still `hold`) – MGR and OWN;
- * - `hold_expired` (no money, the desk cancelled it) – the creator and the closer; when that finds nobody (no
- *   creator/closer, or none of them active in the property any more) → FD and FDL instead (DOM v1.0.4 P4-20 §0).
- * Never HK, MT or accounting. Ids, kind and display code only in any payload (SEC A5) – no guest data.
+ * - `hold_expired` (no money, J1 cancelled it) – the creator and the closer + every active FD and FDL (v1.0.5 V5-1B,
+ *   DOM rules-v1.0.5 mục 9, BR-303 v0.5.13, OpenAPI 0.3.13 bổ sung 1 mục 1.21): in v1.0.x a sale/CTV has nowhere to
+ *   read it (no staff app, no Desk inbox), so the desk – who tells the guest (Tờ 2a) – is always told. The v1.0.4
+ *   branch "FD/FDL only when the creator/closer resolve to nobody" (DOM P4-20 §0) is gone: FD/FDL get it anyway.
+ * "Active" = account `active` and a live role at the property (EventsService.notify). Never HK, MT or accounting. Ids, kind and display code only in any payload (SEC A5) – no guest data.
  * Dedupe keys (DOM P4-20 §0): with_deposit = (reservation, hold_expires_at); cap and expired = reservation.
  * EventsService absent (a composition without it) → the push row alone, as before.
  */
@@ -23,17 +25,10 @@ import type { EventsService } from '../../events/public/events.service';
 
 export type HoldNoticeKind = 'hold_overdue_with_deposit' | 'hold_overdue_cap' | 'hold_expired';
 
-/** DOM A.5 – roles told besides the booking's creator/closer (`people`). */
+/** DOM A.5 (+ V5-1B for `hold_expired`) – roles told besides the booking's creator/closer (`people`). */
 export const HOLD_NOTICE_ROLES: Readonly<Record<HoldNoticeKind, readonly string[]>> = {
   hold_overdue_with_deposit: ['front_desk', 'front_desk_lead', 'manager'],
   hold_overdue_cap: ['manager', 'owner'],
-  hold_expired: [],
-};
-
-/** DOM P4-20 §0: who is told when the people + roles above resolve to nobody. */
-export const HOLD_NOTICE_FALLBACK_ROLES: Readonly<Record<HoldNoticeKind, readonly string[]>> = {
-  hold_overdue_with_deposit: [],
-  hold_overdue_cap: [],
   hold_expired: ['front_desk', 'front_desk_lead'],
 };
 
@@ -60,13 +55,8 @@ export async function notifyHoldOnce(
   n: HoldNotice,
   now: Date,
 ): Promise<boolean> {
-  const fallback = [...HOLD_NOTICE_FALLBACK_ROLES[n.kind]];
-  let roles = [...HOLD_NOTICE_ROLES[n.kind]];
-  let userIds = HOLD_NOTICE_TO_PEOPLE[n.kind] ? [...new Set(n.people)] : [];
-  if (roles.length === 0 && userIds.length === 0) {
-    roles = fallback;
-    userIds = [];
-  }
+  const roles = [...HOLD_NOTICE_ROLES[n.kind]];
+  const userIds = HOLD_NOTICE_TO_PEOPLE[n.kind] ? [...new Set(n.people)] : [];
   if (roles.length === 0 && userIds.length === 0) return false;
   const { rows } = await tx.query<{ id: string }>(
     `INSERT INTO outbox_message (id, organization_id, property_id, topic, payload, dedupe_key)
@@ -94,12 +84,9 @@ export async function notifyHoldOnce(
       refId: n.reservationId,
       refCode: n.code,
     };
-    // push: false – the gate row above IS the push.
-    const told = await events.notify(tx, { ...base, roles, userIds }, now, { push: false });
-    if (told.length === 0 && fallback.length > 0 && roles !== fallback) {
-      // The creator/closer are not active here any more → FD/FDL (DOM P4-20 §0).
-      await events.notify(tx, { ...base, roles: fallback, userIds: [] }, now, { push: false });
-    }
+    // push: false – the gate row above IS the push. One inbox row per person (DISTINCT in notify), even when the
+    // creator is an FD/FDL too.
+    await events.notify(tx, { ...base, roles, userIds }, now, { push: false });
   }
   return true;
 }

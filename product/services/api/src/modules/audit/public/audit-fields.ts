@@ -65,7 +65,8 @@ export function pickAuditFields(
 }
 
 // Entities written by the foundation (Đợt 0) and BE-A Sprint 1.
-defineAuditEntity('operation', ['operationId', 'roles']);
+// x-write-roles (OpenAPI 0.3.13 bổ sung 1 (a)): `fields` = body field paths refused by the field gate (no values).
+defineAuditEntity('operation', ['operationId', 'roles', 'fields']);
 defineAuditEntity('config_parameter', [
   'value',
   'effectiveFrom',

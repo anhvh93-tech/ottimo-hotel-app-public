@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Daily encrypted backup of one server (SR-BAK-01…03, hosting-plan 7) – systemd timer ottimo-backup.timer, 03:30
-# Asia/Ho_Chi_Minh, as the deploy user. By hand: /opt/ottimo/infra/server/bin/backup.sh
+# Encrypted backup of one stack, twice a day (SR-BAK-01…03, hosting-plan 7) – systemd timers, as the deploy user:
+# production ottimo-backup@ottimo-prod.timer 03:00 + 15:00, staging ottimo-backup.timer 03:30 + 15:30 (Asia/Ho_Chi_Minh).
+# v1.0.5 V5-62 (ARC OR-M2 (a), SEC): the second run halves the worst-case loss to 12 h (no WAL archive yet). Both runs
+# start the same service, so they share user, umask, `age` recipients and retention. By hand:
+# /opt/ottimo/infra/server/bin/backup.sh
 #
 #   db-<UTC stamp>.dump.age            pg_dump -Fc of the whole database (superuser over the local socket)
 #   blobs-<UTC stamp>.tar.age          the encrypted blob volume (ciphertext already; useless without the KEK)
@@ -15,7 +18,10 @@
 # Every file is encrypted with `age` to the PUBLIC key(s) in $OTTIMO_HOME/backup/recipients.txt (SR-BAK-02). The
 # private key never lives on this server (INV + OPS password manager) – so nothing here can read a backup, and the
 # script refuses to write anything unencrypted. KEK/secrets are NOT in any backup (SR-KEY-10).
-# Retention (SR-BAK-03 hard cap 35 days): keep everything < 7 days, Sunday sets < 35 days, delete the rest.
+# Retention (SR-BAK-03 hard cap 35 days), by the age of the UTC stamp in seconds, applied at the end of every run:
+# everything < 7 days (14 sets), the sets stamped on a Sunday (UTC) < WEEKLY_KEEP_DAYS = 33 days, purge-journal < 40
+# days (SR-BAK-06, ids only), nothing else. 33, not 35: a file is only removed by the next run, 12 h later, so even
+# with two runs missed in a row no file outlives 35 days (33 d + 3 × 12 h). A missed run is an ops-check FAIL (14 h).
 # Off-site copy (SR-BAK-04, R3 v1.0): a machine of INV/OPS PULLS $BACKUP_DIR read-only (rrsync forced command,
 # bootstrap-vps.sh --backup-pull-key; infra/server/bin/pull-backups.sh on that machine); this server cannot reach it.
 # Stack: OTTIMO_HOME or the home this copy belongs to; backups of /opt/ottimo-prod go to /var/backups/ottimo-prod.
@@ -115,22 +121,24 @@ else
   log "no state/privacy-notice.log on this stack (no notice version published here yet) – nothing to save"
 fi
 
-# 5. retention: < 7 days everything; Sunday (UTC) sets < 35 days; purge-journal < 40 days; nothing older.
+# 5. retention by age in seconds (header): < 7 days everything; Sunday (UTC) sets < 33 days; purge-journal < 40 days.
+#    A name without a full stamp is not ours and is left alone.
+DAY=86400 DAILY_KEEP_DAYS=7 WEEKLY_KEEP_DAYS=33 JOURNAL_KEEP_DAYS=40
 now=$(date -u +%s)
 shopt -s nullglob
 for f in "$BACKUP_DIR"/db-*.age "$BACKUP_DIR"/blobs-*.age "$BACKUP_DIR"/counts-*.age "$BACKUP_DIR"/purge-journal-*.age \
   "$BACKUP_DIR"/privacy-notice-*.age; do
   base=$(basename "$f")
-  s=$(sed -E 's/^.*-([0-9]{8})T[0-9]{6}Z\..*$/\1/' <<<"$base")
-  [[ "$s" =~ ^[0-9]{8}$ ]] || continue
-  t=$(date -u -d "$s" +%s 2>/dev/null) || continue
-  age_days=$(( (now - t) / 86400 ))
+  [[ "$base" =~ -([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z\. ]] || continue
+  t=$(date -u -d "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}" \
+    +%s 2>/dev/null) || continue
+  age=$(( now - t ))
   keep=0
   case "$base" in
-    purge-journal-*) [ "$age_days" -lt 40 ] && keep=1 ;;
+    purge-journal-*) [ "$age" -lt $((JOURNAL_KEEP_DAYS * DAY)) ] && keep=1 ;;
     *)
-      if [ "$age_days" -lt 7 ]; then keep=1
-      elif [ "$age_days" -lt 35 ] && [ "$(date -u -d "$s" +%u)" = "7" ]; then keep=1
+      if [ "$age" -lt $((DAILY_KEEP_DAYS * DAY)) ]; then keep=1
+      elif [ "$age" -lt $((WEEKLY_KEEP_DAYS * DAY)) ] && [ "$(date -u -d "@$t" +%u)" = "7" ]; then keep=1
       fi ;;
   esac
   if [ "$keep" -eq 0 ]; then rm -f "$f" "$f.sha256"; log "retention: removed $base"; fi

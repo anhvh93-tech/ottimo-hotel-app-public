@@ -36,6 +36,7 @@ import { roomNamesOf } from '../public/room-names';
 import { setInvoiceCompany } from '../../guests/public/guest-contact';
 import { normalizeTaxCode } from '../../guests/public/normalize';
 import { AuditService } from '../../audit/public/audit.service';
+import { readDamageCatalog } from './damage-catalog-read';
 
 const TAX_CODE = /^[0-9]{10}(-?[0-9]{3})?$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -267,12 +268,11 @@ export class BillService {
     } catch (e) {
       if (!(e instanceof ParameterMissingError)) throw e;
     }
+    // V5-25: one `null` element used to throw here (TypeError on `d.code`) → every getFolio / getBill / folio write
+    // gave a 500 until the next business day. Now: not a list → no name, a broken item → left out (logged once).
     const names = new Map<string, string>();
-    if (Array.isArray(table)) {
-      for (const d of table as Array<{ code?: unknown; name?: unknown }>) {
-        if (typeof d.code === 'string' && typeof d.name === 'string')
-          names.set(`damage.${d.code}`, d.name);
-      }
+    for (const d of readDamageCatalog(table, { propertyId: tx.ctx.propertyId })) {
+      names.set(`damage.${d.code}`, d.name);
     }
     return (code) => names.get(code) ?? null;
   }

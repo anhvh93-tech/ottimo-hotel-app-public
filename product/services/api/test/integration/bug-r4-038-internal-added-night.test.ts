@@ -723,6 +723,13 @@ describe.skipIf(!HAS_DB)(
       });
       expect(under.statusCode).toBe(422);
       expect(under.json().code).toBe('RATE_OUT_OF_RANGE');
+      // V5-22 / T22-3 (contract 1.24 BE 12): B13 has `dates[]` like every RATE_OUT_OF_RANGE, keeps `date`, min/max.
+      expect(under.json()).toMatchObject({
+        dates: ['2026-11-18'],
+        date: '2026-11-18',
+        min: n0.floorVnd,
+        max: n0.ceilingVnd,
+      });
       const ext = await act(b.id, 'extend', { nights: 1 });
       expect(ext.statusCode, ext.body).toBe(200);
       const added = (await nights(b.id)).find((n) => n.stay_date === '2026-11-18');
