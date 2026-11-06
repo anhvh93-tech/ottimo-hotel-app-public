@@ -93,8 +93,7 @@ const ROOMS = Object.fromEntries(
       listPrices: [
         {
           effectiveFrom: '2026-10-01',
-          nightlyVnd: (r as unknown as { expectedNightlyListPriceVnd: number })
-            .expectedNightlyListPriceVnd,
+          nightlyVnd: r.nightlyListPriceVnd,
         },
       ],
     } satisfies PublicRateRoom,
