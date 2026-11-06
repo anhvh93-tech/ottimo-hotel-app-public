@@ -42,6 +42,7 @@ import {
   type AttachmentUsage,
   anchorPaymentAttachment,
 } from './attachment-usage';
+import { primaryRoleOf } from '../../../shared/role-order';
 import { expirePendingQrOnClosure } from './payment-expiry';
 
 export interface ManualPaymentInput {
@@ -129,22 +130,12 @@ export interface PaymentActor {
   requestId?: string;
 }
 
-const ROLE_ORDER = [
-  'owner',
-  'manager',
-  'front_desk_lead',
-  'front_desk',
-  'sales_staff',
-  'collaborator',
-  'housekeeping',
-  'maintenance',
-] as const;
 export const DESK_ROLES: readonly string[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 export const MANAGER_ROLES: readonly string[] = ['owner', 'manager'];
 
-/** Highest role of a caller in the property (recorder snapshot – A-40). */
+/** Highest role of a caller in the property (recorder snapshot – A-40), in the shared STAFF_ROLE_ORDER. */
 export function primaryRole(roles: readonly string[]): string | null {
-  return ROLE_ORDER.find((r) => roles.includes(r)) ?? null;
+  return primaryRoleOf(roles);
 }
 
 export function isDesk(roles: readonly string[]): boolean {

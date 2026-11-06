@@ -23,6 +23,10 @@
  *                         ReservationHooks). Wrong state / day → 409 INVALID_TRANSITION; a non-desk actor → 403
  *                         FORBIDDEN_ACTION; a B9a / extra-night rate outside floor–ceiling → 422 RATE_OUT_OF_RANGE.
  * - ConfirmedStay         what folio.onReservationConfirmed() needs to post room/extra-person lines (B2/B4/B12).
+ * - confirmedStayOf()     FB-R5-DOM-BE-101-01 (ARC FB-R5-ARC-BE-H1-03 (1)): the ConfirmedStay of a booking (sold nights,
+ *                         closer, commission snapshot) for the folio's "earned" step after check-out (payments: a receipt
+ *                         or its reconciliation; folio: a debt written off). No guest data, RLS only (no actor scope –
+ *                         the caller already acts on that booking's folio); null when not visible.
  *
  * (Re-created by BE-A from the call sites of folio/sales/payments after an overwrite – same members.)
  */
@@ -214,6 +218,8 @@ export interface ReservationSalesPort {
   ): Promise<{ reservationId: string; code: string }>;
   reservationView(tx: Tx, reservationId: string): Promise<Record<string, unknown>>;
   ownership(tx: Tx, reservationId: string): Promise<ReservationOwnership | null>;
+  /** FB-R5-DOM-BE-101-01 – see the file header. */
+  confirmedStayOf(tx: Tx, reservationId: string): Promise<ConfirmedStay | null>;
   lockForDeposit(tx: Tx, reservationId: string): Promise<DepositTarget | null>;
   confirmFromHold(
     tx: Tx,

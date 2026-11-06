@@ -44,7 +44,10 @@ export function PaymentPanel({
    * time, with the typed extra-night rate or the one-night late fee (BR-416-06), not by the folio balance.
    */
   checkout?: {
+    /** V5-10: `CheckoutSummary.checkoutAt` of the last summary read with the time on screen – sent as is. */
     checkoutAt?: string;
+    /** 0.3.13 bổ sung 1: `checkoutAtAfterNow` – the server would refuse the QR (TIME_AFTER_ACTION). */
+    qrOff?: boolean;
     extraNightRateVnd?: number;
     lateFeeAsNight?: boolean;
     /**
@@ -93,7 +96,7 @@ export function PaymentPanel({
   }, [balanceVnd]);
 
   const createQr = async () => {
-    if (!(value > 0)) return;
+    if (!(value > 0) || checkout?.qrOff) return;
     const out = await qrAct.submit((idem) =>
       api.createVietQr(
         folio,
@@ -266,7 +269,7 @@ export function PaymentPanel({
               icon="scan"
               busy={qrAct.busy}
               busyLabel={qrAct.busyLabel}
-              disabled={!(value > 0)}
+              disabled={!(value > 0) || !!checkout?.qrOff}
               onClick={() => void createQr()}
             >
               {qrAct.label(t('pay.vietqr_create', { amount: money(value) }))}

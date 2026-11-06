@@ -1561,15 +1561,31 @@ export class FolioService implements FolioStaySync {
    * reconciliation / cash handover, a receipt after checkout (debt). The caller passes the booking status.
    * "After the check-out" (a receipt still unconfirmed holds the commission) = after the folio was `settled` by B18
    * (`folio.settled_at`, ARC 3.1 / DOM PR99-01) – not the guest's departure time (`actual_checkout_at`).
+   *
+   * FB-R5-DOM-BE-101-01 (Major; ARC FB-R5-ARC-BE-H1-03 (1)): with `stay` (the sold nights, StayPort / sales port
+   * `confirmedStay`), a booking confirmed while its payee had no rate gets its row FIRST (`ensureCommission`, the rate
+   * in force today when no row pinned one) – check-in and check-out do not resync, so without this a sale / CTV would
+   * never be paid and nobody would see it. Without `stay` (worker composition) nothing is created, as before.
    */
   async tryEarnCommissions(
     tx: Tx,
-    stay: { reservationId: string; reservationCode: string; status: string },
+    stay: {
+      reservationId: string;
+      reservationCode: string;
+      status: string;
+      stay?: ConfirmedStay | null;
+    },
     requestId?: string,
   ): Promise<number> {
     if (stay.status !== 'checked_out') return 0;
     const folio = await this.folioOfReservation(tx, stay.reservationId);
     if (!folio) return 0;
+    if (stay.stay) {
+      await this.ensureCommission(tx, stay.stay, {
+        userId: tx.ctx.userId ?? null,
+        ...(requestId ? { requestId } : {}),
+      });
+    }
     const m = moneyPosition(await this.lines(tx, folio.id), await this.payments(tx, folio.id));
     if (m.balanceDueVnd > 0) return 0;
     // DOM 18/10 (BR-525 / BR-903, ARC 16.26): money received AFTER the check-out (a debt collected, a post-checkout
@@ -1697,6 +1713,48 @@ export class FolioService implements FolioStaySync {
     },
   ): Promise<void> {
     await this.syncStay(tx, stay, actor, 'resynced');
+  }
+
+  /**
+   * FOLIO_STAY_SYNC.ensureCommission – FB-R5-DOM-BE-101-01 (ARC FB-R5-ARC-BE-H1-03 (1)): the commission sync alone
+   * (see the port). Acts only for a short stay with a closer and sold nights that has NO commission row other than
+   * `void` – a row `projected` / `earned` / `payable` / `paid` means the booking already has its commission (the next
+   * resync follows it), so a run after "earned" never adds a second row. Folio lines and the folio itself are not
+   * read for writing: it runs on a settled folio at B18 and after (the caller holds the folio – L3 – when it runs
+   * inside tryEarnCommissions). Returns the amount of the row created (0 = none, e.g. still `rate_missing`).
+   */
+  async ensureCommission(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+  ): Promise<number> {
+    if (!stay.closerUserId || stay.stayType !== 'short' || stay.nights.length === 0) return 0;
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM commission WHERE reservation_id = $1 AND status <> 'void'`,
+      [stay.reservationId],
+    );
+    if ((rows[0]?.n ?? 0) > 0) return 0;
+    const now = this.clock.now();
+    const today = localDate(now, await this.timezone(tx));
+    return this.syncCommission(tx, await this.netNights(tx, stay), today, now, actor.requestId);
+  }
+
+  /**
+   * S4-03 (BUG-R2-055): the stay with each night's NET room revenue (gross − what is applied on the night now, never
+   * negative) – the base of the commission and of the channel fee, never the values read before a sync.
+   */
+  private async netNights(tx: Tx, stay: ConfirmedStay): Promise<ConfirmedStay> {
+    const nets = await this.nights.revenueOf(
+      tx,
+      stay.nights.map((n) => n.stayNightId),
+    );
+    return {
+      ...stay,
+      nights: stay.nights.map((n) => ({
+        ...n,
+        roomRevenueVnd: Math.max(0, nets.get(n.stayNightId)?.netVnd ?? n.roomRevenueVnd),
+      })),
+    };
   }
 
   /** B5/B6/B10/B11/relocation: live commissions of the booking → void (SM-11). */
@@ -2171,17 +2229,7 @@ export class FolioService implements FolioStaySync {
 
     // S4-03 (BUG-R2-055): commission and channel fee on the nights AFTER the reductions moved (net = gross −
     // what is applied on the night now, never negative) – not on the values read before the sync.
-    const nets = await this.nights.revenueOf(
-      tx,
-      stay.nights.map((n) => n.stayNightId),
-    );
-    const netStay: ConfirmedStay = {
-      ...stay,
-      nights: stay.nights.map((n) => ({
-        ...n,
-        roomRevenueVnd: Math.max(0, nets.get(n.stayNightId)?.netVnd ?? n.roomRevenueVnd),
-      })),
-    };
+    const netStay = await this.netNights(tx, stay);
     result.commissionVnd = await this.syncCommission(tx, netStay, today, now, who.requestId);
     await this.syncChannelFee(tx, netStay, today, now, who.requestId);
     await this.syncOtaCollect(tx, folio.id, stay.reservationId, stay.paymentModel ?? null, {
@@ -4115,6 +4163,11 @@ export class FolioService implements FolioStaySync {
       // (`rate_missing`) → no commission row – never 0, never a number from code; the next sync after OWN typed
       // the rate creates it. Long stays never reach here (their commission is `long_stay_commission`, PR-M).
       let ratePct: number | null = stay.commissionRatePctSnapshot ?? null;
+      // FB-R5-DOM-BE-101-01 (2), ARC FB-R5-ARC-BE-H1-03 (2) – BR-903 (5) one rate per booking: without a snapshot, the
+      // rate of the FIRST commission row of the booking for this payee type (any status) is kept – a table changed
+      // later never re-prices the booking. Pinned on the folio side (the row), never written back into the
+      // reservation's price snapshot (reservations owns it).
+      if (payee && ratePct === null) ratePct = await this.pinnedCommissionRate(tx, stay, payee);
       if (payee && ratePct === null) {
         const rate = await shortStayCommissionRate(this.params, tx, payee, today);
         ratePct = rate.status === 'computed' ? rate.ratePct : null;
@@ -4220,6 +4273,21 @@ export class FolioService implements FolioStaySync {
       );
     }
     return current?.amount_vnd ?? 0;
+  }
+
+  /** The rate of the first commission row of the booking for `payee` (ORDER BY created_at, id), null when none. */
+  private async pinnedCommissionRate(
+    tx: Tx,
+    stay: ConfirmedStay,
+    payee: PayeeType,
+  ): Promise<number | null> {
+    const { rows } = await tx.query<{ rate: string }>(
+      `SELECT rate_pct_snapshot::text AS rate FROM commission
+        WHERE reservation_id = $1 AND payee_type = $2
+        ORDER BY created_at, id LIMIT 1`,
+      [stay.reservationId, payee],
+    );
+    return rows[0] ? Number(rows[0].rate) : null;
   }
 
   /** BR-901 / DATA FB-01: OTA channel fee (reported or estimated), money audit, allocated over the nights. */

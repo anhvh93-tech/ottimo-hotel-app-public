@@ -19,7 +19,13 @@
  * - (h5) createVietQr on a closed booking → 409 + `reservationStatus`, every purpose, OWN, `overBalanceReason` – no row;
  * - "nên làm cùng": J1, B10, B11 expire the folio's pending VietQR in the closing transaction (audit
  *   `payment.expired` + `reservationStatus`, SM-12 reason `reservation_closed`);
- * - (h6) MGR still reverses a receipt written on a closed booking.
+ * - (h6) MGR still reverses a receipt written on a closed booking;
+ * - FB-R5-SEC-BE-105-01: an image a sale uploaded is never the proof – the image REPLACED on its notice and an image
+ *   it never sent with a notice → 422 `attachmentId` NOT_IN_LIST like the one on the notice; an FD image → 201;
+ *   FB-R5-SEC-BE-139-02: the same for an image a CTV (collaborator) uploaded on its own booking;
+ * - SEC-on-be-prs-135-139 6 (a) / FB-R5-ARC-BE-139-02: a person holding a desk role AND a sale / CTV role uploads as
+ *   the desk (one role order, desk first – never the name order the guard loads): CTV + FD → 201, FD + sale → 201;
+ *   the image the FD + sale person sent with a "khách đã chuyển" notice is still refused (the notice rule) → 422.
  * Fake clock and FAKE data only (guest name of the fixture, `@example.test`-free).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -40,7 +46,10 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
   beforeAll(async () => {
     // Attachments of the files module stay in memory (no blob on disk).
     process.env.BLOBSTORE_PROVIDER = 'memory';
-    x = await startFixture();
+    // SEC 6 (a): two-role accounts, roles in the name order the auth guard loads them (`ORDER BY role`).
+    x = await startFixture({
+      extraUsers: { ctvFd: ['collaborator', 'front_desk'], fdSal: ['front_desk', 'sales_staff'] },
+    });
   });
   afterAll(async () => {
     await x?.close();
@@ -547,4 +556,184 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
     const [p] = await x.q(`SELECT status FROM payment WHERE id = $1`, [written[cB.code]]);
     expect(p).toEqual({ status: 'reversed' });
   }, 60_000);
+
+  it("FB-R5-SEC-BE-105-01: a sale's image replaced on its notice or never sent → 422 attachmentId NOT_IN_LIST, nothing written; an FD image → 201", async () => {
+    // Last in the file: it moves the clock past the afterClosureOnly window of the cases above.
+    await x.at('2026-11-22T09:00:00+07:00');
+    const h = await hold('103', 'sal', '2026-12-20', '2026-12-22');
+    const first = await attach('sal', h.id);
+    const replacing = await attach('sal', h.id);
+    const neverSent = await attach('sal', h.id);
+    const report = (attachmentId: string) =>
+      x.c.sal!.send('POST', x.url(`/reservations/${h.id}/deposit-notices`), {
+        amountVnd: 300_000,
+        note: 'Khách báo đã chuyển',
+        attachmentId,
+      });
+    expect((await report(first)).statusCode).toBe(202);
+    // Reported again with another image: the open notice now holds `replacing`, `first` sits on no notice.
+    expect((await report(replacing)).statusCode).toBe(202);
+    const onNotice = await x.q(
+      `SELECT attachment_id FROM deposit_notice WHERE reservation_id = $1 ORDER BY created_at`,
+      [h.id],
+    );
+    expect(onNotice.map((r) => r.attachment_id)).toEqual([replacing]);
+    const cancel = await x.act(h.id, 'cancel', { reasonCode: 'found_other' });
+    expect(cancel.statusCode, cancel.body).toBe(200);
+
+    const before = await snapshot(h);
+    for (const [img, label] of [
+      [first, 'replaced on the notice'],
+      [neverSent, 'never sent'],
+      [replacing, 'on the notice'],
+    ] as const) {
+      for (const who of DESK) {
+        const res = await record(
+          h,
+          {
+            type: 'deposit',
+            method: 'bank_transfer',
+            amountVnd: 300_000,
+            note: NOTE,
+            attachmentId: img,
+          },
+          who,
+        );
+        expect(res.statusCode, `${label} ${who} ${res.body}`).toBe(422);
+        expect(res.json().errors, `${label} ${who}`).toEqual([
+          { field: 'attachmentId', code: 'NOT_IN_LIST' },
+        ]);
+      }
+    }
+    expect(await snapshot(h)).toEqual(before);
+    // The bank's notice, uploaded by the desk: taken, pending as every receipt on a closed booking.
+    const ok = await record(
+      h,
+      {
+        type: 'deposit',
+        method: 'bank_transfer',
+        amountVnd: 300_000,
+        note: NOTE,
+        attachmentId: await attach('fd', h.id),
+      },
+      'fd',
+    );
+    expect(ok.statusCode, ok.body).toBe(201);
+    expect(ok.json().reconciliation).toBe('pending');
+  }, 120_000);
+
+  it('FB-R5-SEC-BE-139-02: an image a CTV uploaded on its own booking, never sent → 422 attachmentId NOT_IN_LIST, nothing written', async () => {
+    // After the case above (clock 22/11 09:00, outside the afterClosureOnly window of the earlier cases).
+    const res = await x.c.fd!.send('POST', x.url('/reservations'), {
+      roomId: x.ids.rooms['301'],
+      channelId: x.ids.channels.collaborator,
+      closerUserId: x.t.users.ctv!.id,
+      adults: 2,
+      bookerGuestId: x.guest,
+      paymentModel: 'direct',
+      arrivalDate: '2027-01-05',
+      departureDate: '2027-01-07',
+      initialPayment: { type: 'deposit', method: 'cash', amountVnd: 1_000_000 },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const b = res.json() as B;
+    const ctvImg = await attach('ctv', b.id);
+    const [img] = await x.q(`SELECT uploaded_by_role FROM attachment WHERE id = $1`, [ctvImg]);
+    expect(img).toEqual({ uploaded_by_role: 'collaborator' });
+    const cancel = await x.act(b.id, 'cancel', { reasonCode: 'found_other' });
+    expect(cancel.statusCode, cancel.body).toBe(200);
+    const before = await snapshot(b);
+    for (const who of DESK) {
+      const r = await record(
+        b,
+        {
+          type: 'deposit',
+          method: 'bank_transfer',
+          amountVnd: 300_000,
+          note: NOTE,
+          attachmentId: ctvImg,
+        },
+        who,
+      );
+      expect(r.statusCode, `${who} ${r.body}`).toBe(422);
+      expect(r.json().errors, who).toEqual([{ field: 'attachmentId', code: 'NOT_IN_LIST' }]);
+    }
+    expect(await snapshot(b)).toEqual(before);
+  }, 120_000);
+
+  it('SEC 6 (a): CTV + FD and FD + sale upload as the desk → 201 pending; the image FD + sale sent with a notice → 422 NOT_IN_LIST', async () => {
+    const roleOf = async (id: string) =>
+      (await x.q(`SELECT uploaded_by_role FROM attachment WHERE id = $1`, [id]))[0]
+        .uploaded_by_role as string;
+    // A closed booking: each two-role person records the bank's notice they uploaded themselves.
+    const b = await confirmed('302', '2027-01-12', '2027-01-14');
+    const cancel = await x.act(b.id, 'cancel', { reasonCode: 'found_other' });
+    expect(cancel.statusCode, cancel.body).toBe(200);
+    for (const who of ['ctvFd', 'fdSal']) {
+      const img = await attach(who, b.id);
+      expect(await roleOf(img), who).toBe('front_desk');
+      const r = await record(
+        b,
+        {
+          type: 'deposit',
+          method: 'bank_transfer',
+          amountVnd: 100_000,
+          note: NOTE,
+          attachmentId: img,
+        },
+        who,
+      );
+      expect(r.statusCode, `${who} ${r.body}`).toBe(201);
+      expect(r.json().reconciliation, who).toBe('pending');
+    }
+
+    // FD + sale on its own hold: "khách đã chuyển" with an image, the hold is cancelled, then that image as proof.
+    const svc = x.fa.app.get(ReservationsService);
+    const u = x.t.users.fdSal!;
+    const row = await x.db.withContext(
+      { ...x.t.ctx(), userId: u.id, actorType: 'user' },
+      async (tx) => {
+        const ctx = await svc.context(tx, { userId: u.id, roles: u.roles });
+        return svc.createHold(tx, ctx, {
+          roomId: x.ids.rooms['203']!,
+          channelId: x.ids.channels.direct!,
+          arrivalDate: '2027-01-12',
+          departureDate: '2027-01-14',
+          adults: 2,
+          children6to11: 0,
+          childrenUnder6: 0,
+          bookerGuestId: x.guest,
+          holdHours: 24,
+        });
+      },
+    );
+    const h: B = { id: row.id, code: row.code, folioId: (await x.get(row.id)).folioId as string };
+    const sent = await attach('fdSal', h.id);
+    expect(await roleOf(sent)).toBe('front_desk'); // labelled desk: only the notice rule can catch it
+    const notice = await x.c.fdSal!.send('POST', x.url(`/reservations/${h.id}/deposit-notices`), {
+      amountVnd: 300_000,
+      note: 'Khách báo đã chuyển',
+      attachmentId: sent,
+    });
+    expect(notice.statusCode, notice.body).toBe(202);
+    const closed = await x.act(h.id, 'cancel', { reasonCode: 'found_other' });
+    expect(closed.statusCode, closed.body).toBe(200);
+    const before = await snapshot(h);
+    for (const who of ['fdSal', 'fd']) {
+      const r = await record(
+        h,
+        {
+          type: 'deposit',
+          method: 'bank_transfer',
+          amountVnd: 300_000,
+          note: NOTE,
+          attachmentId: sent,
+        },
+        who,
+      );
+      expect(r.statusCode, `${who} ${r.body}`).toBe(422);
+      expect(r.json().errors, who).toEqual([{ field: 'attachmentId', code: 'NOT_IN_LIST' }]);
+    }
+    expect(await snapshot(h)).toEqual(before);
+  }, 120_000);
 });

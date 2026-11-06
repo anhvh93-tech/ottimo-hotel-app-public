@@ -10,7 +10,7 @@
  *   dormant, never "approved but not applied"; the night's discount_vnd follows); rejected/cancelled → the
  *   "chờ duyệt" line `rejected`. Amounts are never updated (BR-008).
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
@@ -23,6 +23,10 @@ import {
 } from '../../approvals/public/approval.service';
 import { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { applyPct } from '../../reservations/public/pricing';
+import {
+  RESERVATION_SALES_PORT,
+  type ReservationSalesPort,
+} from '../../reservations/public/sales-port';
 import { FolioService, OTA_COVERED } from '../public/folio.service';
 import { folioLocked, lockReasonOfStatus } from '../public/folio-locked';
 import { keyKindOf } from '../public/reductions';
@@ -65,6 +69,11 @@ export class FolioFocService {
     @Inject(FolioService) private readonly folios: FolioService,
     @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
     @Inject(StayWaiverAlertService) private readonly stayAlert: StayWaiverAlertService,
+    // FB-R5-DOM-BE-101-01: the booking's sold nights for the "earned" step of a debt write-off (as bill.service);
+    // optional so the worker composition (foc-worker-hooks.ts) keeps its 6 arguments.
+    @Optional()
+    @Inject(RESERVATION_SALES_PORT)
+    private readonly reservations?: ReservationSalesPort,
   ) {}
 
   async request(
@@ -321,10 +330,16 @@ export class FolioFocService {
       },
     });
     const own = request.target_code ?? '';
+    // FB-R5-DOM-BE-101-01 (ARC H1-03): a debt written off can be the "earned" step – the sold nights go with it, so a
+    // booking confirmed without a rate gets its commission row first (none in the worker composition: as before).
+    const stay = this.reservations
+      ? await this.reservations.confirmedStayOf(tx, folio.primary_reservation_id)
+      : null;
     await this.folios.tryEarnCommissions(tx, {
       reservationId: folio.primary_reservation_id,
       reservationCode: own,
       status: 'checked_out',
+      stay,
     });
   }
 
