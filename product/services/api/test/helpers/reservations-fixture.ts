@@ -9,7 +9,6 @@ import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
 import type { Database } from '../../src/db/database';
 import { importChannels } from '../../src/modules/platform/public/channels';
-import { divideRoundVnd } from '../../src/modules/platform/public/money';
 import { T0, type TestTenant, setParam } from './tenant';
 
 interface DsE {
@@ -27,6 +26,8 @@ interface DsE {
     roomNo: string;
     group: string;
     monthlyListPriceVnd: number;
+    /** V5-1A: given with the monthly price, never derived from it (BR-101 (1), (5)). */
+    nightlyListPriceVnd: number;
     baseOccupancy: number;
     maxOccupancy: number;
   }>;
@@ -130,7 +131,7 @@ export async function seedBooking(
           t.propertyIds[i],
           id,
           r.monthlyListPriceVnd,
-          divideRoundVnd(r.monthlyListPriceVnd, 12, 1000),
+          r.nightlyListPriceVnd,
           T0,
         ],
       );

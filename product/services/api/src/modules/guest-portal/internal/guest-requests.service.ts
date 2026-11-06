@@ -37,6 +37,7 @@ import { GUEST_REQUEST_COPY } from '../../../generated/guest-request-copy';
 import { JobRegistry } from '../../../jobs/job-runner';
 import type { GuestPrincipal } from '../../../shared/http/guest-session';
 import { problem } from '../../../shared/problem';
+import { looksLikeIdNumber } from '../../../shared/sensitive-number';
 import { type LocalDate, type LocalTime, atLocal, toZonedIso } from '../../../shared/time';
 import { containsCardNumber, stripControlChars } from '../../../shared/validation';
 import { EventsService, FD_PLUS, type AttentionSource } from '../../events/public/events.service';
@@ -380,7 +381,14 @@ export class GuestRequestsService implements OnModuleInit {
     return this.guestDto(row, g.locale, c, await this.autoReplyContext(tx, c));
   }
 
-  /** EP14 3.2: note required for report_issue / transport_tour / other (3–500), V-09, plain text. */
+  /**
+   * EP14 3.2: note required for report_issue / transport_tour / other (3–500), V-09, plain text.
+   * 0.3.12 (i) / V5-46 (FB-R5-SEC-BE-V546-01, PR24PM-01 guest-portal half, SR-LOG-04): a text that looks like an
+   * identity-document number (CCCD / CMND / passport / MRZ – the ID half of shared/sensitive-number.ts) is refused
+   * with 422 `ID_NUMBER_DETECTED` – checked here, before anything is read or written, so the request, its
+   * housekeeping task and its work order never carry it. Card first (unchanged `CARD_NUMBER_DETECTED`). Only
+   * `field` + `code`: the text is never echoed, logged or audited.
+   */
   private note(type: GuestRequestType, raw: unknown): string | null {
     if (raw !== undefined && raw !== null && typeof raw !== 'string') {
       throw fieldError('note', 'VALIDATION_FAILED');
@@ -393,6 +401,7 @@ export class GuestRequestsService implements OnModuleInit {
         errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
       });
     }
+    if (text && looksLikeIdNumber(text)) throw fieldError('note', 'ID_NUMBER_DETECTED');
     return text === '' ? null : text;
   }
 
