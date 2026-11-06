@@ -3,9 +3,12 @@
  * on Nest/Fastify + PostgreSQL. Changing the closer (`closerUserId`) moves the commission in the same transaction:
  * - (a) MGR before arrival → the earlier closer's row `void` (`closer_changed`), the new closer's row at the pinned rate,
  *   on the Commission screen at once; B18 earns the NEW closer's row (DOM 131-01 3 (a), ARC 4.2 first extra case);
+ *   FD / FDL before arrival → 403 + ONE access.denied each (`CLOSER_CHANGE_BEFORE_CHECKIN`, SEC FB-R5-SEC-ARC-1H-03);
  * - (b) after check-in only OWN, with `closerChangeReason`: MGR / FDL / FD → 403 FORBIDDEN_ACTION + ONE access.denied
  *   (also with a reason: 403 before 422), nothing changed; OWN without / with a short reason → 422; OWN with a reason →
- *   old row `void` (`closer_corrected`), new row; the reason in `after.reason` of `reservation.closer_changed`;
+ *   old row `void` (`closer_corrected`), new row; the reason (cleaned) in the audit `reason` COLUMN of
+ *   `reservation.closer_changed`, `after` = `{ closerUserId }` only – no `reason` key in the `reservation` allowlist
+ *   (SEC FB-R5-SEC-ARC-1H-01);
  * - T-30-3: a closer added after check-in → none by MGR (403); OWN's correction with a reason → commission;
  * - `rate_missing` booking, MGR's change after check-in refused → B18 creates the row for the ORIGINAL closer only;
  * - checked out: OWN's correction of an `earned` row → old `void`, new `earned` (B18 rule); anything else than the
@@ -36,6 +39,7 @@ import {
   type FrontdeskChildDataPort,
   type FrontdeskRegistrationPort,
 } from '../../src/modules/frontdesk/public/ports';
+import { auditFieldsOf } from '../../src/modules/audit/public/audit-fields';
 import { applyPct } from '../../src/modules/reservations/public/pricing';
 import { sha256Hex } from '../../src/shared/http/auth.guard';
 import { addDays } from '../../src/shared/time';
@@ -59,6 +63,7 @@ import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/t
 const test_rate_short = 1.37;
 const RATE_PARAM = 'short_stay_commission_pct';
 const DENIAL = 'CLOSER_CHANGE_AFTER_CHECKIN';
+const DENIAL_BEFORE = 'CLOSER_CHANGE_BEFORE_CHECKIN';
 
 class DocsOk implements FrontdeskRegistrationPort {
   async checkinDocumentStatus(): Promise<CheckinDocumentStatus> {
@@ -197,17 +202,17 @@ describe.skipIf(!HAS_DB)(
           [b.id],
         )
       )[0].s as number;
-    const denials = async () =>
+    const denials = async (reason = DENIAL) =>
       (
         await q(
           `SELECT count(*)::int AS n FROM audit_event
             WHERE action = 'access.denied' AND entity_id = 'updateReservation' AND reason = $1`,
-          [DENIAL],
+          [reason],
         )
       )[0].n as number;
     const closerAudits = (b: Booking) =>
       q(
-        `SELECT before, after FROM audit_event
+        `SELECT before, after, reason FROM audit_event
           WHERE action = 'reservation.closer_changed' AND entity_id = $1::text ORDER BY occurred_at, id`,
         [b.id],
       );
@@ -407,12 +412,22 @@ describe.skipIf(!HAS_DB)(
       expect(await commissions(N)).toEqual([]);
     });
 
-    it('(a) before arrival: FD/FDL → 403 (no use-case denial row); MGR → sal void (closer_changed), sal2 projected at the same rate, on the Commission screen at once', async () => {
+    it('(a) before arrival: FD/FDL → 403 + ONE access.denied each (CLOSER_CHANGE_BEFORE_CHECKIN, a reason does not help); MGR → sal void (closer_changed), sal2 projected at the same rate, on the Commission screen at once', async () => {
       await at('2026-10-18T13:00:00+07:00');
       const before = await denials();
+      const beforeArrival = await denials(DENIAL_BEFORE);
       await expect403(A, { closerUserId: sal2() }, 'fd');
-      await expect403(A, { closerUserId: sal2() }, 'fdl');
+      await expect403(A, { closerUserId: sal2(), closerChangeReason: 'x' }, 'fdl');
       expect(await denials()).toBe(before);
+      expect(await denials(DENIAL_BEFORE)).toBe(beforeArrival + 2);
+      const [last] = await q(
+        `SELECT after FROM audit_event WHERE action = 'access.denied' AND reason = $1
+          ORDER BY occurred_at DESC, id DESC LIMIT 1`,
+        [DENIAL_BEFORE],
+      );
+      // Never the reason the caller typed.
+      expect(last.after).toEqual({ operationId: 'updateReservation', roles: ['front_desk_lead'] });
+      expect(await closerOf(A)).toBe(sal());
       const base = await roomBase(A);
       const r = await patch(
         A,
@@ -429,7 +444,8 @@ describe.skipIf(!HAS_DB)(
       expect(await closerAudits(A)).toEqual([
         {
           before: { closerUserId: sal() },
-          after: { closerUserId: sal2(), reason: 'Ghi nhầm người chốt lúc tạo đơn' },
+          after: { closerUserId: sal2() },
+          reason: 'Ghi nhầm người chốt lúc tạo đơn',
         },
       ]);
       expect(await voidAudits(A)).toEqual([
@@ -445,6 +461,11 @@ describe.skipIf(!HAS_DB)(
           .map((x) => x.status);
       expect(await codeRows('sal2')).toEqual(['projected']);
       expect(await codeRows('sal')).toEqual(['void']);
+    });
+
+    it('SEC 1H-01: the reservation allowlist keeps closerUserId (an id) and has no free-text reason key', () => {
+      expect(auditFieldsOf('reservation')?.has('closerUserId')).toBe(true);
+      expect(auditFieldsOf('reservation')?.has('reason')).toBe(false);
     });
 
     it('closerChangeReason without a closer change → 422 NOT_ALLOWED, nothing written', async () => {
@@ -521,7 +542,8 @@ describe.skipIf(!HAS_DB)(
       expect(await closerAudits(O)).toEqual([
         {
           before: { closerUserId: sal() },
-          after: { closerUserId: sal2(), reason: 'Sale 2 chốt đơn, ghi nhầm lúc tạo' },
+          after: { closerUserId: sal2() },
+          reason: 'Sale 2 chốt đơn, ghi nhầm lúc tạo',
         },
       ]);
     });
@@ -541,7 +563,8 @@ describe.skipIf(!HAS_DB)(
       expect(await closerAudits(N)).toEqual([
         {
           before: { closerUserId: null },
-          after: { closerUserId: sal(), reason: 'Sale chốt qua Zalo, chưa ghi' },
+          after: { closerUserId: sal() },
+          reason: 'Sale chốt qua Zalo, chưa ghi',
         },
       ]);
     });
@@ -598,13 +621,18 @@ describe.skipIf(!HAS_DB)(
       }
     });
 
-    it('checked out: MGR → 403 + access.denied; a field other than the closer → 409; OWN with a reason → sal void (closer_corrected), sal2 earned', async () => {
+    it('checked out: MGR → 403 + access.denied; a field other than the closer → 409, nothing written (BE 1H-01, SEC 2.2: OWN with closerUserId + adults); OWN with a reason → sal void (closer_corrected), sal2 earned', async () => {
       await at('2026-10-21T12:00:00+07:00');
       const before = await denials();
       await expect403(X, { closerUserId: sal2(), closerChangeReason: 'Quản lý sửa lại' }, 'mgr');
       expect(await denials()).toBe(before + 1);
+      const rows = await commissions(X);
+      const version = (await get(X.id)).version;
+      const lines = (await folio(X.folioId)).lines.length;
       for (const body of [
         { etaTime: '14:00' },
+        { adults: 3 },
+        { closerUserId: sal2(), closerChangeReason: 'Sửa người chốt', adults: 3 },
         { closerUserId: sal2(), closerChangeReason: 'Sửa người chốt', internalNote: 'ghi chú' },
         { closerUserId: sal(), closerChangeReason: 'Không đổi gì' },
       ]) {
@@ -612,6 +640,12 @@ describe.skipIf(!HAS_DB)(
         expect(r.statusCode, `${JSON.stringify(body)} ${r.body}`).toBe(409);
         expect(r.json()).toMatchObject({ code: 'INVALID_TRANSITION', currentState: 'checked_out' });
       }
+      expect(await closerOf(X)).toBe(sal());
+      expect((await get(X.id)).adults).toBe(2);
+      expect((await get(X.id)).version).toBe(version);
+      expect(await commissions(X)).toEqual(rows);
+      expect((await folio(X.folioId)).lines.length).toBe(lines);
+      expect(await closerAudits(X)).toEqual([]);
       expect(await reasonError(X, { closerUserId: sal2() })).toMatchObject({
         errors: [{ field: 'closerChangeReason', code: 'REASON_REQUIRED' }],
       });

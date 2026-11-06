@@ -214,6 +214,8 @@ const MANUAL_LONG_STAY_MAX_DAYS = 731;
  * (contract 0.3.13 bổ sung 1h, BR-903 (3)) – the controller writes it as the ONE `access.denied.reason`.
  */
 export const CLOSER_CHANGE_AFTER_CHECKIN = 'CLOSER_CHANGE_AFTER_CHECKIN';
+/** The same for the 403 "closer change after confirmation, before check-in, below MGR" (SEC FB-R5-SEC-ARC-1H-03). */
+export const CLOSER_CHANGE_BEFORE_CHECKIN = 'CLOSER_CHANGE_BEFORE_CHECKIN';
 
 /** A night price of an in-house stay being re-tiered (B13, B9a – BR-107 D-8). */
 export interface StayNightPrice {
@@ -1438,8 +1440,9 @@ export class ReservationsService {
       else this.checkCloserForChannel(f, row.channel_group, row.direct_source, closerUserId, kind);
     }
     // The closer drives the commission (contract 0.3.13 bổ sung 1h; EP02 5.4, BR-903 (3)), checked under the booking
-    // lock and before the 422s of the body: after confirmation only MGR+ may change it; after check-in only the owner
-    // (MGR/FDL/FD → 403 and ONE access.denied, written by the controller after the rollback).
+    // lock and before the 422s of the body and the 409 of a commission in a pay-out (SEC FB-R5-SEC-ARC-1H-03: 403 →
+    // 422 → 409): after confirmation only MGR+ may change it; after check-in only the owner. Every such 403 writes ONE
+    // access.denied (the controller, after the rollback), never the reason the caller typed.
     if (closerChange && row.status !== 'hold') {
       if (checkedIn) {
         if (!hasAny(ctx.actor.roles, ['owner'])) {
@@ -1451,6 +1454,7 @@ export class ReservationsService {
       } else if (!hasAny(ctx.actor.roles, MGR_PLUS)) {
         throw problem('FORBIDDEN_ACTION', {
           detail: 'closer change after confirmation needs MGR+',
+          auditReason: CLOSER_CHANGE_BEFORE_CHECKIN,
         });
       }
     }
@@ -1602,14 +1606,17 @@ export class ReservationsService {
       );
     }
     if (closerUserId && closerUserId !== row.closer_user_id) {
-      // SEC-BE-26: the closer decides who earns the commission – a money event.
+      // SEC-BE-26: the closer decides who earns the commission – a money event. The reason (free text, cleaned by
+      // V-08 / V-09) goes to the audit `reason` column like every other booking action – never into `after`
+      // (SEC FB-R5-SEC-ARC-1H-01: the `reservation` allowlist holds facts only).
       await this.audit.recordMoney(tx, {
         action: 'reservation.closer_changed',
         entityType: 'reservation',
         entityId: row.id,
         entityCode: row.code,
         before: { closerUserId: row.closer_user_id },
-        after: { closerUserId, ...(closerReason ? { reason: closerReason } : {}) },
+        after: { closerUserId },
+        ...(closerReason ? { reason: closerReason } : {}),
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       });
     }

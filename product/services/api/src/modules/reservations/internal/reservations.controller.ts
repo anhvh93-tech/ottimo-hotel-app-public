@@ -22,7 +22,11 @@ import { nightsOf } from '../public/pricing';
 import { Fields, asBody, pathId } from './inputs';
 import { RackService } from './rack.service';
 import { loadReservation } from './reservation-store';
-import { CLOSER_CHANGE_AFTER_CHECKIN, ReservationsService } from './reservations.service';
+import {
+  CLOSER_CHANGE_AFTER_CHECKIN,
+  CLOSER_CHANGE_BEFORE_CHECKIN,
+  ReservationsService,
+} from './reservations.service';
 import { RoomBlocksService, toRoomBlockDto } from './room-blocks.service';
 
 /** Longest availability search (SEC-BE-28) – technical bound, not a business rule. */
@@ -253,13 +257,15 @@ export class ReservationsController {
     @Body() raw: unknown,
   ) {
     const id = pathId(reservationId);
-    // Contract 0.3.13 bổ sung 1h: the 403 of a closer change after check-in by someone other than the owner is written
-    // as ONE `access.denied`, in its own transaction after the rollback.
+    // Contract 0.3.13 bổ sung 1h (SEC FB-R5-SEC-ARC-1H-03): the 403 of a closer change – before check-in below MGR,
+    // after check-in by someone other than the owner – is written as ONE `access.denied`, in its own transaction
+    // after the rollback.
     return this.write(req, reply, (tx, ctx) =>
       this.reservations.update(tx, ctx, id, expectedVersion(req), asBody(raw)),
     ).catch(async (err: unknown) => {
       await recordUseCaseDenial(this.audit, req, err, 'updateReservation', [
         CLOSER_CHANGE_AFTER_CHECKIN,
+        CLOSER_CHANGE_BEFORE_CHECKIN,
       ]);
       throw err;
     });
