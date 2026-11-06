@@ -1434,24 +1434,27 @@ DOM xem lại biên trong review (đổi biên = migration mới, không sửa g
 - `bool`, `text` enum (`deposit_base`, `ota_surcharge_base`, `registration_deadline_foreigner_mode`, `business_entity_type`…): giá trị ngoài danh mục → `PARAM_OUT_OF_RANGE` với `allowed[]`.
 
 **Bổ sung 1e (OpenAPI 0.3.13; V5-25, PR #96; ARC review PR #96 mục 7)** – khóa có bộ kiểm dạng khi lưu. Lỗi `422 PARAM_OUT_OF_RANGE`, `errors[0]` là điểm sai đầu tiên
-(`field` = `value` / `value[i]` / `value[i].<khóa>` / `value.<khóa>`), mã trường trong bảng có sẵn (mô tả `setParameter`). Biên có dấu [GIẢ ĐỊNH – DOM chốt] theo PR #96 mục 6.
+(`field` = `value` / `value[i]` / `value[i].<khóa>` / `value.<khóa>`), mã trường trong bảng có sẵn (mô tả `setParameter`). Biên DOM chốt ở `rules-v1.0.5.md` 13.1, 13.4 (`6b5b8f34`).
+**Mọi phần trăm**: 0–100, tối đa **2 chữ số thập phân** (chữ số thứ ba → 422 – bộ tính đổi ra phần vạn). Danh sách bậc ≤ 10 phần tử.
 
 | Khóa | Dạng | Biên / luật |
 |---|---|---|
 | `weekend_nights` | `Weekday[]` | ≥ 1, không trùng; số 1–7 bị từ chối (DOM 8.4) |
 | `min_stay` | `MinStayRule[]` | 0–20 luật; `nights` 1–min(7, `short_stay_max_nights`); `channels` `all` hoặc con không rỗng của direct/agent/ota; luật áp ít nhất một ngày (DOM 12.1) |
-| `special_dates` | mảng khoảng ngày | ngày thật (không 30/02), mỗi khoảng 1–31 đêm, ≤ 100 khoảng, `name` ≤ 100 ký tự [GIẢ ĐỊNH – DOM chốt] |
-| `los_discount` | mảng `{minNights, pct}` | `minNights` 1–89 không trùng, `pct` 0–100 (nhận số lẻ), ≤ 10 phần tử [GIẢ ĐỊNH – DOM chốt] |
-| `cancel_policy_direct` | mảng `{minDays, refundPct}` | `minDays` 0–365 **không trùng, thứ tự tùy ý** (production xếp giảm dần 7/3/0), `refundPct` 0–100, ≤ 10 phần tử [GIẢ ĐỊNH – DOM chốt] |
-| `early_checkin_tiers` | mảng bậc `HH:mm` | `from` < `to`, không chồng (chồng → `DUPLICATE`), `pct` 0–100, ≤ 10 bậc [GIẢ ĐỊNH – DOM chốt] |
-| `late_checkout_tiers` | mảng bậc `HH:mm` | trục ngày kinh doanh theo `business_day_rollover`, không chồng, `pct` 0–100, ≤ 10 bậc [GIẢ ĐỊNH – DOM chốt] |
-| `early_departure_refund` | **đối tượng** `{minNoticeDays, refundPct}` (không phải danh sách) | `minNoticeDays` 0–365, `refundPct` 0–100 [GIẢ ĐỊNH – DOM chốt] |
-| `checkout_reminders` | đối tượng | `before` ≤ 6 mốc `HH:mm` (hoặc `HH:mm-1d`), hai giờ quá hạn [GIẢ ĐỊNH – DOM chốt] |
+| `special_dates` | mảng khoảng ngày | ngày thật (không 30/02), `to` sau `from` (nửa mở – ngày sau đêm cuối), mỗi khoảng 1–31 đêm (mùa dài hơn chia nhiều khoảng), ≤ 100 khoảng, `name` ≤ 100 ký tự; khoảng chồng nhau vẫn nhận |
+| `los_discount` | mảng `{minNights, pct}` | `minNights` 1–89 không trùng, `pct` như mọi phần trăm, ≤ 10 phần tử; `[]` nhận |
+| `cancel_policy_direct` | mảng `{minDays, refundPct}` | **không rỗng** (`[]` → 422 `REQUIRED`; không hoàn hẳn = `[{"minDays":0,"refundPct":0}]`); `minDays` 0–365 **không trùng, thứ tự tùy ý** (production xếp giảm dần 7/3/0), `refundPct` như mọi phần trăm, ≤ 10 phần tử |
+| `early_checkin_tiers` | mảng bậc `HH:mm` | `from` < `to`, không chồng (chồng → `DUPLICATE`), `pct` như mọi phần trăm, ≤ 10 bậc |
+| `late_checkout_tiers` | mảng bậc `HH:mm` | trục ngày kinh doanh theo `business_day_rollover`, không chồng, `pct` như mọi phần trăm, ≤ 10 bậc |
+| `early_departure_refund` | **đối tượng** `{minNoticeDays, refundPct}` (không phải danh sách) | `minNoticeDays` 0–365, `refundPct` như mọi phần trăm |
+| `checkout_reminders` | đối tượng | `before` ≤ 6 mốc `HH:mm` (hoặc `HH:mm-1d`), hai giờ quá hạn |
 | `weekend_uplift_channels`, `special_uplift_channels` | `text` | `allowed` = `all`/`direct`/`agent`/`ota` |
-| `max_open_holds_per_user` | đối tượng theo vai | `collaborator`, `sales_staff`: số nguyên 0–50 [GIẢ ĐỊNH – DOM chốt] |
-| `lease_terms` | mảng kỳ | chỉ phần báo giá đọc: 1–12 kỳ, `months` 1–60 không trùng, `discountPct` 0–100; trường khác giữ nguyên (hoa hồng sang `long_stay_commission`, V5-30) [GIẢ ĐỊNH – DOM chốt] |
+| `max_open_holds_per_user` | đối tượng theo vai | **bắt buộc đủ hai vai** `collaborator`, `sales_staff` (thiếu → 422 `REQUIRED` ở `value.<vai>`), mỗi vai số nguyên 0–50 (0 = vai đó không giữ chỗ) |
+| `lease_terms` | mảng kỳ | chỉ phần báo giá đọc: 1–12 kỳ, `months` 1–60 không trùng, `discountPct` như mọi phần trăm; trường khác giữ nguyên (hoa hồng sang `long_stay_commission`, V5-30); H7 xét lại số kỳ |
 
-- Khóa R5-B-05 còn lại (`damage_catalog`, `registration_deadline_vn`, `digest_times`, `front_desk_hours`, `wo_sla`, `long_stay_cleaning_window`, `room_move_pricing`,
+- `damage_catalog` (BR-512; DOM 13.4 – bộ kiểm ở PR xếp chồng của BE-C): danh sách `{code, name, priceVnd}`, khóa lạ → `NOT_ALLOWED`; `code` `^[a-z0-9_]{1,40}$` không trùng; `name` không rỗng sau khi
+  bỏ khoảng trắng, ≤ 100 ký tự, không trùng (không phân biệt hoa thường); `priceVnd` số nguyên 1.000–20.000.000; ≤ 100 dòng; `[]` nhận.
+- Khóa R5-B-05 còn lại (`registration_deadline_vn`, `digest_times`, `front_desk_hours`, `wo_sla`, `long_stay_cleaning_window`, `room_move_pricing`,
   `extra_guest_kit_items`, `early_termination`, `utility_estimate`, `commission_payout`): **chưa có bộ kiểm dạng (R5-B-05)**.
 - Luật chéo 9.1a liệt kê nhưng **chưa có trong mã** (R5-B-05 / thẻ PR #96-05): `long_stay_required_from_nights` > `short_stay_max_nights`, `long_stay_compare_from_nights` <
   `long_stay_required_from_nights`, `late_grace_until` ≤ mốc đầu `late_checkout_tiers`. Luật chéo `min_stay` ↔ `short_stay_max_nights` so theo khoảng hiệu lực của dòng mới (OpenAPI

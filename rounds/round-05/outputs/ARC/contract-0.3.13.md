@@ -747,7 +747,7 @@ Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi 
 | T58-12 | PUT mật khẩu = mật khẩu đăng nhập của người gọi (lần 1 trong cửa sổ) | 422 `NOT_ALLOWED`; bộ đếm = 1 và audit `property.wifi_password_matches_login` còn sau rollback |
 | T58-13 | Mạng mở, hoặc chỉ đổi `ssid` | Không so, bộ đếm không đổi |
 
-**ARC review PR #96 mục 7:** ý 1 vào mô tả `setParameter` và `cancelScheduledParameter`; ý 2 sửa 1.24 dưới đây; ý 3 sửa `erd.md` 9.1a.
+**ARC review PR #96 mục 7:** ý 1 vào mô tả `setParameter` và `cancelScheduledParameter`; ý 2 sửa 1.24 dưới đây; ý 3 sửa `erd.md` 9.1a (bảng theo khóa, biên DOM chốt ở `rules-v1.0.5.md` 13.1, 13.4 – `6b5b8f34`: phần trăm tối đa 2 chữ số thập phân, `max_open_holds_per_user` đủ hai vai, `cancel_policy_direct` không rỗng, `damage_catalog`).
 
 **SEC thẻ mới trên 0.3.13 (`SEC-on-contract-0.3.13.md` 5.6):**
 - ARC-15 (Minor) – chữ vào `recordPayment` (B) và `PaymentCreate.bankReference`: chuẩn hóa chữ hoa, kiểm `CARD_NUMBER_DETECTED`, năm điều kiện G15 ở SEC 5.3, chọn cách "409 không có `duplicateReservationCode` cho người gọi không có vai FD+" (không dùng `x-write-roles` – PR này không đổi phần mở rộng). BE làm ở PR-B3.
