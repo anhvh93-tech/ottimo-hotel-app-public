@@ -116,7 +116,26 @@ Chi tiết ở contract 1.26. Một chỗ đổi phần mở rộng (ARC-16), m�
 | FB-R5-SEC-ARC-21 | Minor | Done (chữ) – BE-D ở PR-B3 | `duplicateReservationCode` chỉ FD+ ở bảng mã, bảng trường mở rộng, `Problem` |
 | FB-R5-SEC-ARC-22 | Suggestion | Done (chữ) | `setPropertyWifi` (login_lockout, ngoại lệ bộ đếm và audit `security`), `Payment.afterClosure` (tính lúc đọc) |
 | FB-R5-BE-ARC-C0313-24 | Minor | Done (chữ) – BE làm ở PR V5-58 | SR-RL-15; `rate_limit_counter` khóa `wifi_pw_cmp:<user_id>`; không `x-rate-limit`; T58-14…16. ARC chốt: câu UPSERT ra hàm dùng chung ở `shared/`, `public-site` gọi lại (contract 1.26) |
-| FB-R5-BE-ARC-C0313-25 | Minor | Done (chữ) – BE làm ở PR-B3 và bản sửa `executeRefund` | Luật số thẻ riêng cho ô mã: chỉ toàn bộ giá trị 13–19 chữ số qua Luhn; bảng mã, `recordPayment` (B), `PaymentCreate.bankReference`, `executeRefund.bankReference`. `pattern` cho `executeRefund` vào 0.3.14 |
+| FB-R5-BE-ARC-C0313-25 | Minor | Done (chữ; bổ sung 1g cập nhật theo SR-PAY-10 bản 07/11, mục 9) – BE làm ở PR-B3 và bản sửa `executeRefund` | Luật số thẻ riêng cho ô mã: chỉ toàn bộ giá trị 13–19 chữ số qua Luhn; bảng mã, `recordPayment` (B), `PaymentCreate.bankReference`, `executeRefund.bankReference`. `pattern` cho `executeRefund` vào 0.3.14 |
 | QA review PR #103 (T14-4) | – | Done (chữ tài liệu) | Contract 1.3: T14-4 theo 1.17 – OTA → `NOT_IN_LIST` (`channelId`); `type = long` kèm `nightlyRates` → `NOT_ALLOWED`. `openapi.yaml` không đổi |
 | DOM review #101/#108/#110 (3.1, 4, 101-02, 3.5) | – | Done (chữ); A4, 101-02, `typedByHand` – 0.3.14 | BR-438 "dòng gõ tay" = A30 hoặc đếm minibar, không xét riêng `source` (contract 1.20, `adjustFolioLine`, `reductionsOnly`); danh sách 0.3.14 ở contract 1.26 |
 | ARC review PR #100 mục 6.3 A1–A3 | – | Done (chữ); A3 máy chủ và A4 – 0.3.14 | 6 chỗ 2FA + `erd.md`; `serializeSchema` không trả `x-self-data`; ngoại lệ cửa sổ sau nửa đêm của KPI "Khách đi" |
+
+## 9. Bổ sung 1g – PR tài liệu sau #111 (nhánh `r5-contract-docs-1g`)
+
+Chi tiết ở contract 1.28. Chỉ mô tả và tệp `.md`; không đổi schema, không mã lỗi mới, không migration.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-UXD-ARC-111-01 | Minor | Done | "8 chữ số cuối" (UXD `pay.bank_reference_card_like`, copy-v1.0.5 bản 2.1 mục 9.8) ở `recordPayment` (B), api-client sinh lại, contract 1.26 dòng C0313-25 |
+| FB-R5-SEC-ARC-23 | Suggestion | Done (chữ 0.3.14) – BE-D khi làm migration | `auth_resolve_session` nhận `p_mfa_roles text[]` từ `MFA_REQUIRED_ROLES`; SQL không chứa tên vai; bỏ `mfaRequired`/`mfaRoleCache` cùng PR migration; ba điều kiện SEC (không lọc theo cơ sở; ca nhiều cơ sở D1-02 và ca ghim danh sách; test đột biến) – contract 1.26, mục 7 |
+| FB-R5-SEC-ARC-24 | Suggestion | Done (chữ) – BE-D ở PR-B3 | `recordPayment` (B) thêm gạch test bắt buộc ở PR-B3: ARC-21 (SAL `recordPayment` cọc, SAL `confirmDeposit`, FD), `SEC-responses.md` 4.3, mục 5; ý 2 như UXD 111-01 |
+| ORC – erd 4.14, SR-RL-15 | – | Done (trước PR này) | `erd.md` 4.14 khóa `wifi_pw_cmp:<user_id>` đã làm ở ARC review #120 (`df07ccbc`); PR này giữ bản trên `main`. Mô tả `setPropertyWifi` đã ghi SR-RL-15 từ 1f (#111) |
+| FB-R5-UXD-ARC-112-02 | Suggestion | Deferred – 0.3.14 | Mã nhập tay A32 không dùng lại giá trị `CancelReasonCode`; nhóm mã lý do hủy và câu "Desk gom theo nhãn" ở `OpenRefund.reasonCode` |
+| FB-R5-DOM-ARC-120-01 | Minor | Deferred – 0.3.14 (contract 1.27, ARC review #120) | Số căn chỉ gồm chữ số bị chặn khi không dính chữ số khác (`OTTIMO401`, `P-202` chặn; `OTTIMO 2026`, `OTTIMO 4012` được) |
+| FB-R5-DOM-BE-121-02 | Suggestion | Deferred – 0.3.14 (contract 1.27: 422 `NOT_ALLOWED`, `field` = `isSellable`) | Chặn bật "Đang bán" khi căn chưa có giá niêm yết; Desk khóa công tắc |
+| FB-R5-BE-ARC-C0313-26 | Minor | Done (chữ) – BE-D chuyển tệp ở #120 | Giữ `shared/rate-limit-counter.ts`; `public-site/public` tạo phụ thuộc vòng `identity` ↔ `public-site` |
+| FB-R5-BE-ARC-C0313-27 | Minor | Done (chữ) – BE-D (test #120), QA | Cửa sổ = ngày UTC (00:00Z = 07:00 giờ Việt Nam), như SR-RL-11; T58-11 đồng hồ thử, T58-15 kiểm `app_user.failed_login_count`/`locked_until`/`status`, thêm T58-17 |
+| FB-R5-BE-ARC-C0313-28 | Minor | Done (chữ) – BE-D ở PR-B3 | `resolveAttentionEvent`: `deposit_after_cancel` bắt `note` 3–500 (`REASON_REQUIRED`), audit `money` `attention_event.resolved` không có `note`; mô tả 422 và trường `note` cập nhật |
+| FB-R5-BE-ARC-C0313-29 | Suggestion | Done (chữ) – BE-D ở PR-B3 | (a) hàm ở #119, PR-B3 dùng lại, `executeRefund` sửa cùng #119; (b) ARC chọn lỗi dạng trước, `CARD_NUMBER_DETECTED` chỉ khi không còn lỗi dạng (như `note`; `executeRefund` đã đúng). `PaymentCreate` làm ở PR-B3 cùng việc khai `bankReference` ở các bộ đọc (ARC 119-01), không mở lại #119. Chữ luật C0313-25 cập nhật theo SR-PAY-10 bản 07/11 (SEC 119-01, ARC 119-03) |
+| FB-R5-BE-ARC-C0313-30 | Suggestion | Done (chữ) | T14-4: "OTA không có `nightlyRates`, hoặc `nightlyRates` đúng dạng" |

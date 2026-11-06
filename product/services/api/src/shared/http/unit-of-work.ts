@@ -30,7 +30,6 @@
  * Request hash: SHA-256 of method, path and the canonical body WITHOUT secret fields (shared/secret-fields:
  * password, secret, pin…) – the table never holds a fast hash of a password (FB-R2-SEC-BE-06).
  */
-import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   DATABASE,
@@ -41,8 +40,8 @@ import {
   runInUnitOfWork,
 } from '../../db/database';
 import { ProblemError, problem } from '../problem';
-import { withoutSecrets } from '../secret-fields';
 import { AuthGuard, type GuardedRequest, tenantOf } from './auth.guard';
+import { requestHash } from './request-hash';
 
 export interface UseCaseResult<T> {
   status: number;
@@ -99,27 +98,8 @@ interface KeyRow {
   response_body: unknown;
 }
 
-/** Stable JSON (sorted keys) so the same logical body always hashes the same. */
-export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value ?? null);
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
-}
-
-export function requestHash(method: string, path: string, body: unknown): string {
-  // A raw binary body (multipart Buffer, typed array) is never walked key by key: canonicalJson over a
-  // 40 MB Buffer would block the event loop (ARC FB-R2-ARC-BE-S3-03). Upload controllers replace the body
-  // by its semantic digest before the unit of work; anything else binary is refused.
-  if (Buffer.isBuffer(body) || ArrayBuffer.isView(body) || body instanceof ArrayBuffer) {
-    throw problem('VALIDATION_FAILED', { detail: 'Binary request body' });
-  }
-  return createHash('sha256')
-    .update(`${method.toUpperCase()} ${path}\n${canonicalJson(withoutSecrets(body))}`)
-    .digest('hex');
-}
+// Moved to request-hash.ts (FB-R5-SEC-BE-S1-01): AuthGuard reads the same hash without importing this file.
+export { canonicalJson, requestHash } from './request-hash';
 
 /**
  * ADR-015 / FB-R3-SEC-ARC-04 (a): a preview (`simulate`) waits at most 1 s for a row lock (→ 409 CONCURRENT_UPDATE)
