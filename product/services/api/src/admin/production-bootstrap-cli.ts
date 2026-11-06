@@ -118,13 +118,14 @@ async function main(): Promise<void> {
       [
         'OTTIMO production bootstrap: done',
         `  owner security e-mail: ${ownerEmail?.trim() ? 'set' : 'not set (enter it on Desk)'}`,
-        `  rooms ${out.rooms} · room groups ${out.roomGroups} · channels ${out.channels} · parameters ${out.parameters}`,
+        `  rooms ${out.rooms} (not for sale – no price yet) · room groups ${out.roomGroups} · channels ${out.channels} · parameters ${out.parameters}`,
         '',
         '  Temporary password of the first owner (shown ONCE – hand it over in person, then clear the screen):',
         `    ${out.temporaryPassword}`,
         '',
         '  First sign-in: change the password, then enrol two-step sign-in and store the 10 recovery codes.',
         '  Then enter in the app: room prices, OTA base rates, VietQR receiving account, Wi-Fi password.',
+        '  Rooms start off sale: enter both prices of a room (monthly and nightly), then switch it to "On sale" (Đang bán).',
         '',
       ].join('\n'),
     );
