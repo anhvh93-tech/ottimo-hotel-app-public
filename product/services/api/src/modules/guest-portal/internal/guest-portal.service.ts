@@ -25,6 +25,8 @@ import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { fileRejected, type NormalizedImage } from '../../files/public/image-pipeline';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
+// V5-58: one reading rule with the Desk (getPropertyWifi).
+import { wifiOf } from '../../platform/public/property-wifi';
 import { guestRoomView } from '../../reservations/public/guest-room-view';
 import { setEta } from '../../reservations/public/stay-view';
 import {
@@ -836,19 +838,4 @@ export class GuestPortalService {
     await this.events?.publish(tx, 'registration.changed', reg.id);
     return this.view(tx, g);
   }
-}
-
-function wifiOf(
-  raw: Record<string, unknown> | null,
-  locale: string,
-): { ssid: string; password: string } | null {
-  if (!raw) return null;
-  const pick = (o: unknown) =>
-    o && typeof o === 'object' && typeof (o as { ssid?: unknown }).ssid === 'string'
-      ? {
-          ssid: (o as { ssid: string }).ssid,
-          password: String((o as { password?: unknown }).password ?? ''),
-        }
-      : null;
-  return pick(raw) ?? pick(raw[locale]) ?? pick(raw.vi);
 }
