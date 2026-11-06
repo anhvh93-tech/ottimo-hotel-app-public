@@ -20,8 +20,9 @@ PO chốt phạm vi v1.0.3 ngày 03/11 (`rounds/round-04/plan-v1.0.3.md`): v1.0.
 - Trạng thái: **ĐANG LÀM** – Round 5, bắt đầu tối 06/11/2026. Kế hoạch chi tiết: `rounds/round-05/plan.md`.
 - Bản này **chỉ sửa**: lỗi tiền hoặc giá, các cách làm tạm ở quầy, bảo mật và dữ liệu cá nhân, chữ sai sự thật. Không thêm tính năng. Không đổi giá, cọc, hoàn, hủy.
 - Lịch dự kiến: đội làm và kiểm 07–19/11 → anh/chị xem kết quả ở buổi review **20/11** → lên production khi anh/chị đồng ý (20–21/11, dự phòng tới 25/11).
-- Trước khi lên: nếu bản có thay đổi cấu trúc dữ liệu (đội báo khi cắt bản), đội phải **diễn tập khôi phục từ bản sao lưu** đạt trước. Buổi diễn tập cần anh/chị khoảng 30 phút để mở khóa giải mã.
-- Phần **hoa hồng theo bảng nội bộ** có hạn **01/12**. Tới 25/11 mà v1.0.5 chưa lên, đội tách phần này thành bản riêng. Bản riêng đó vẫn chờ anh/chị đồng ý.
+- Trước khi lên: đội phải **diễn tập khôi phục từ bản sao lưu** đạt trước. Bản này đổi cách sao lưu (lịch và vòng giữ bản sao lưu mới), nên chưa diễn tập đạt thì **cả bản chưa lên**, kể cả phần không đổi cấu trúc dữ liệu. Buổi diễn tập cần anh/chị khoảng 30 phút để mở khóa giải mã. Đội đề nghị hẹn trong tuần 09–13/11.
+- Phần **hoa hồng theo bảng nội bộ** có hạn **01/12** và cũng cần diễn tập khôi phục đạt trước. Tới 25/11 mà v1.0.5 chưa lên vì lý do khác, đội tách phần này thành bản riêng; bản riêng đó vẫn chờ anh/chị đồng ý. Tới 25/11 mà chưa diễn tập, đội báo anh/chị ngay.
+- Lỗi nặng (P0) cần sửa gấp trong lúc chờ: bản sửa không đổi cấu trúc dữ liệu, không đổi sao lưu vẫn lên được khi anh/chị đồng ý.
 - Tới khi v1.0.5 lên: làm theo mục v1.0.4 **Giới hạn đã biết và cách làm ở quầy** bên dưới.
 
 ### Dự kiến có (ghi chi tiết khi cắt bản)
@@ -232,7 +233,7 @@ Tính năng mới, đổi chính sách giá, cọc, hoàn, hủy, kết nối k�
 | Đêm Nội bộ có thu được tính đúng trong chỉ số giá phòng bình quân (BUG-R4-043) | **v1.0.5** (V5-17), trước báo cáo đầu tiên |
 | Desk chặn hoặc gửi duyệt đơn Nội bộ theo vai | Backlog cải tiến – anh/chị chọn ở buổi review định kỳ |
 | Màn xem nhật ký bảo mật trên Desk | Backlog cải tiến – anh/chị chọn ở buổi review định kỳ |
-| Hoa hồng nhập theo bảng nội bộ trên Desk, không có số mặc định trong mã | **v1.0.5** (V5-30), hạn 01/12. Tới 25/11 v1.0.5 chưa lên thì tách thành bản riêng |
+| Hoa hồng nhập theo bảng nội bộ trên Desk, không có số mặc định trong mã | **v1.0.5** (V5-30), hạn 01/12, sau khi diễn tập khôi phục đạt. Tới 25/11 v1.0.5 chưa lên vì lý do khác thì tách thành bản riêng |
 | Ô nhập Wi-Fi của cơ sở trên Desk (BUG-R3-021) | **v1.0.5** (V5-58, nên có; không kịp thì v1.0.6) |
 | Chữ đơn cách tiếng Nga ở ô mã và Wi-Fi (BUG-R4-017) | **v1.0.5** (V5-24) |
 | Desk hiện cả giá web khách đã thấy lúc gửi ("từ – đến") | **v1.0.5** (V5-19, nên có). Phải có trước khi hai căn cùng hạng có giá khác nhau |

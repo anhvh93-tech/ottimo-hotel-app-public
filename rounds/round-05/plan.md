@@ -13,6 +13,7 @@
   - theo DOM `rules-v1.0.5.md` bản chốt (`e9e0e2e4`): V5-5B theo 11.4 (mọi đơn `cancelled`, `no_show`; chỉ chuyển khoản, VietQR, ảnh bắt buộc; hoàn 100 % cùng giao dịch; khôi phục cho mọi đơn hủy lúc còn giữ chỗ), PO xác nhận vẫn nên có nhưng không vừa trọn, có đường cắt (quyết định 20); V5-25 trỏ DOM 12.1–12.3 và oracle 12.6;
   - theo SEC kết luận (b) cho BUG-R5-002 (`62103d55`, `406af104`; thẻ FB-R5-SEC-PO-B002-05): thêm **V5-48** (Gói 4, bắt buộc, làn BE-B, không migration; quyết định 22); 5B-1 thêm tiêu chí S1–S8, 5B-2 thêm tiêu chí SEC mục 4; lời dặn tạm cho người duyệt hoàn ở release notes v1.0.4; mục 7 đếm V5-48;
   - theo ARC hợp đồng 0.3.13 bổ sung 1c (PR #94, `2cb549cc`): V5-48 và 5B-1 là nhánh đơn đã đóng trong `recordPayment`, có `bankReference` tùy chọn, không migration; **PR-B3 (5B-1) xếp vào v1.0.5**, lịch theo thứ tự PR của hợp đồng mục 2, V5-48 nằm trong PR-B1, 5B-2 sang 0.3.14 / v1.0.6 (quyết định 23); **US-177** cho BR-438 (V5-16, quyết định 24); ghi chú QA về id ca rbac mới (mục 3);
+  - theo SEC FB-R5-SEC-OPS-95-02 ý 4 (`rounds/round-05/reviews/SEC-on-ops-prs-92-93-95.md`): **V5-61 chưa đạt thì cả v1.0.5 chưa lên production**, kể cả phần không migration, vì V5-62 là đổi sao lưu (ĐK-2); hạn 01/12 của V5-30/31 phụ thuộc hoàn toàn vào V5-61; ORC xin INV hẹn diễn tập trong tuần 09–13/11 (quyết định 25);
   - mục 6 thêm quyết định 6–10; phụ lục I (điều chỉnh sau cổng QC, gồm hai cảnh báo Dependabot). Bảng đếm mục 7 giữ số QC đã kiểm, tác động ghi ngay dưới bảng.
 - Chế độ: **vận hành thực tế**. Đây là round bảo trì đầu tiên. Chủ đầu tư (INV) chỉ review định kỳ để cải thiện hoặc sửa lỗi. Nguyên văn 06/11: "project này kéo dài quá rồi".
 - Đầu vào:
@@ -138,13 +139,15 @@ UXD duyệt mọi chữ. CPY duyệt chữ hướng khách (EN dẫn, VI hỗ tr
 | V5-30 | **H2 – hoa hồng theo bảng nội bộ** trên Desk, không có số mặc định trong mã:<ul><li>FB-R4-SEC-BE-01 (Major);</li><li>FB-R4-SEC-ORC-01 G3;</li><li>CI `confidential-paths`.</li></ul>DOM gửi chi tiết **ngoài kho mã**. Không ghi tỷ lệ hay số tiền hoa hồng vào repo, PR, test, chat. | Trước kỳ chốt hoa hồng **01/12/2026** | DOM → ARC → BE + FE-A → SEC, DOM, QA |
 | V5-31 | **H3 – phí dọn theo lượt cho khách thuê tháng theo hạng** (bảng 01/11). Khách ngắn ngày giữ BR-506. Tới khi lên: lễ tân thêm dòng phí phần chênh. | Trước lượt dọn đầu tiên của khách thuê tháng đầu tiên | DOM → BE + FE-A → DOM, QA |
 
-Quy tắc: nếu tới **25/11** v1.0.5 chưa lên production thì PO + ORC tách V5-30 thành bản sửa riêng. Việc này không cần hỏi INV; production vẫn chờ INV đồng ý.
+Quy tắc: nếu tới **25/11** v1.0.5 chưa lên production thì PO + ORC tách V5-30 thành bản sửa riêng. Việc này không cần hỏi INV; production vẫn chờ INV đồng ý. Bản tách có migration nên cũng phải chờ V5-61 đạt (ĐK-2): quy tắc này chỉ giúp khi v1.0.5 trễ vì lý do khác.
 
-**Phương án dự phòng khi chưa diễn tập khôi phục (DOM rủi ro, QC R4 ĐK-2; PO 06/11 khuya, quyết định 17):**
-- Nếu tới lúc cắt v1.0.5 mà V5-61 chưa đạt, migration danh mục của V5-30 và V5-31 **tách khỏi v1.0.5** thành bản riêng. v1.0.5 phần không migration vẫn lên khi INV đồng ý.
-- Bản tách lên ngay sau khi diễn tập đạt và **trước 01/12**. Bản này cũng phải tuân ĐK-2.
-- Tới khi bản tách lên: hoa hồng thuê tháng và thưởng quản lý tính ngoài Desk theo bảng nội bộ (DOM). Phí dọn thuê tháng: lễ tân thêm dòng phí phần chênh, như dòng V5-31.
-- Diễn tập vẫn chưa xong khi tới 25/11: ORC báo INV ngay, vì đây là đường duy nhất để giữ hạn 01/12.
+**Khi chưa diễn tập khôi phục (QC R4 ĐK-2; quyết định 17, sửa ở quyết định 25 theo SEC FB-R5-SEC-OPS-95-02 ý 4):**
+- **V5-61 chưa đạt thì v1.0.5 chưa lên production, kể cả phần không migration.** Phần không migration vẫn có V5-62 (`backup.sh` mới, vòng xoay mới, timer W1), tức là đổi sao lưu, nên vẫn vướng ĐK-2. V5-62 cùng bundle với bản nên khó tách; SEC và OPS cùng chọn làm V5-61 trước, không tách V5-62.
+- Bỏ phương án cũ "tách migration V5-30, V5-31 ra, phần không migration vẫn lên": tách ra không giúp bản lên sớm hơn.
+- Hạn **01/12** của V5-30, V5-31 vì vậy **phụ thuộc hoàn toàn vào V5-61**. Tới khi lên: hoa hồng thuê tháng và thưởng quản lý tính ngoài Desk theo bảng nội bộ (DOM); phí dọn thuê tháng: lễ tân thêm dòng phí phần chênh, như dòng V5-31.
+- **Kéo diễn tập sớm:** ORC xin INV hẹn V5-61 trong **tuần 09–13/11** (30 phút mở khóa `age`), không chờ hạn 20/11 của ĐK-2. Mốc 25/11 giữ nguyên: diễn tập vẫn chưa xong thì ORC báo INV ngay, vì đây là đường duy nhất để giữ hạn 01/12.
+- Bản sửa P0 không migration, không đổi sao lưu vẫn lên được, kèm sao lưu ngay trước deploy (câu cuối dòng ĐK-2). Bản đó cắt từ v1.0.4, không mang V5-62.
+- Runbook v1.0.5 (#95, OPS `40e31795`) đã có ô "V5-61 ĐẠT" ở P0: được chạy trước V5-61 là Đợt A (staging) và W0, W5 production; chỉ chạy sau V5-61 là Đợt C (P2b production, W1, W2, W6, W7) rồi P3–P5.
 
 ### Gói 4 – Bảo mật nhỏ đã hẹn (bắt buộc)
 
@@ -204,7 +207,7 @@ Bắt buộc: V5-60, V5-61, V5-62, V5-63, V5-65 (phần OR-03), V5-67, V5-70, V5
 
 | Ngày | Việc |
 |---|---|
-| 07–08/11 | Gói 0. ORC gộp PR-0 (#94, hợp đồng 0.3.13). **BE-C làm V5-25 (PR-C2; P1, BUG-R5-003), không chờ PR-0; PR #96 đã mở 06/11, CI xanh, chờ ARC, DOM, SEC review; mục tiêu gộp 10/11.** BE-S làm PR-S1 (V5-14, V5-22, guard `x-write-roles`), hạn ≤ 08/11. ARC chốt hợp đồng 0.3.13. DOM chốt luật V5-11, V5-16, V5-30, V5-31, và sửa từ điển cùng BR-101 (5) (V5-1A). OPS sửa câu README dòng 120 và thêm `--ignore-existing` (V5-73, V5-60; đã làm 06/11: `bede5332`, `a26804f6`). ORC chạy truy vấn tĩnh `pricegap` một lần (V5-73; production đã chạy 06/11, 0 căn thiếu giá; còn staging). Diễn tập khôi phục ngay khi INV có 30 phút (V5-61). Các điều kiện QC R4 hạn 08/11 và 10/11 (bảng dưới). |
+| 07–08/11 | Gói 0. ORC gộp PR-0 (#94, hợp đồng 0.3.13). **BE-C làm V5-25 (PR-C2; P1, BUG-R5-003), không chờ PR-0; PR #96 đã mở 06/11, CI xanh, chờ ARC, DOM, SEC review; mục tiêu gộp 10/11.** BE-S làm PR-S1 (V5-14, V5-22, guard `x-write-roles`), hạn ≤ 08/11. ARC chốt hợp đồng 0.3.13. DOM chốt luật V5-11, V5-16, V5-30, V5-31, và sửa từ điển cùng BR-101 (5) (V5-1A). OPS sửa câu README dòng 120 và thêm `--ignore-existing` (V5-73, V5-60; đã làm 06/11: `bede5332`, `a26804f6`). ORC chạy truy vấn tĩnh `pricegap` một lần (V5-73; production đã chạy 06/11, 0 căn thiếu giá; còn staging). Diễn tập khôi phục ngay khi INV có 30 phút (V5-61); ORC xin INV hẹn trong tuần 09–13/11, vì chưa đạt thì cả v1.0.5 chưa lên (quyết định 25). Các điều kiện QC R4 hạn 08/11 và 10/11 (bảng dưới). |
 | 09–14/11 | Sản xuất Gói 1–4, Gói 6 bắt buộc, theo thứ tự PR ở hợp đồng 0.3.13 mục 2 (quyết định 23): PR-A1a rồi PR-A1b (BE-A), PR-D1 (BE-D), PR-B1 có V5-48 rồi PR-B2 (BE-B), PR-C1 sau V5-73 (BE-C), PR-H1. Gói 5: PR-B3 (5B-1) mục tiêu gộp 14/11, cắt theo dòng V5-5B. PR-M (migration V5-30, V5-31) chỉ gộp khi V5-61 đạt (quyết định 17). |
 | 15–16/11 | Review chéo, Phản hồi & sửa. |
 | 17–18/11 | QA trên staging, gồm ca giờ thật 00:00–05:59 và ca trả phòng 06:00. |
@@ -221,7 +224,7 @@ Nguồn: `rounds/round-04/qc/round-4-closeout-gate.md` mục 2. Hạn là hạn 
 | ĐK | Việc | Mã V5 | Làm → xác nhận | Hạn | Tình trạng 06/11 tối |
 |---|---|---|---|---|---|
 | ĐK-1 | Một lượt CI xanh đủ mọi job trên `main` từ `bede5332`, gồm E2E smoke và landing Playwright | – | ORC | 07/11 12:00 | **Đạt:** run 42216567004 (`066da253`), 9/9 job kiểm xanh. ORC ghi vào decision-log khi tổng kết |
-| ĐK-2 | Diễn tập khôi phục production theo đủ yêu cầu SEC (môi trường cách ly, giải mã 1 ảnh mẫu, `purge_journal` + J16, xóa dữ liệu khôi phục, biên bản chỉ ghi số đếm) | V5-61 | OPS + INV (30 phút mở khóa `age`) → SEC | Chậm nhất 20/11 | Chưa làm. **Chặn production** bản có migration hoặc đổi sao lưu, khôi phục tới khi đạt (tiêu chí QC điều 8). Bản sửa P0 không migration vẫn lên được, kèm sao lưu ngay trước deploy |
+| ĐK-2 | Diễn tập khôi phục production theo đủ yêu cầu SEC (môi trường cách ly, giải mã 1 ảnh mẫu, `purge_journal` + J16, xóa dữ liệu khôi phục, biên bản chỉ ghi số đếm) | V5-61 | OPS + INV (30 phút mở khóa `age`) → SEC | Chậm nhất 20/11; ORC xin INV hẹn trong tuần 09–13/11 (quyết định 25) | Chưa làm. **Chặn production** bản có migration hoặc đổi sao lưu, khôi phục tới khi đạt (tiêu chí QC điều 8). **v1.0.5 có V5-62 (đổi sao lưu), nên V5-61 chưa đạt thì cả v1.0.5 chưa lên, kể cả phần không migration** (SEC FB-R5-SEC-OPS-95-02 ý 4); hạn 01/12 của V5-30/31 phụ thuộc hoàn toàn vào V5-61. Bản sửa P0 không migration vẫn lên được, kèm sao lưu ngay trước deploy |
 | ĐK-3 | Kéo sao lưu ra ngoài máy ít nhất 2 ngày một lần bằng `pull-backups.sh` bản `bede5332`, tới khi V5-60 tự động hóa. Thoát 3 ("server copy changed") = P0 bảo mật | V5-60 | ORC (INV cho phép SSH trong ngày) | Mỗi 2 ngày; lần đầu 08/11 khoảng 19:00 | Lần gần nhất 06/11 khoảng 19:00 (script cũ). Mỗi lần một dòng decision-log: giờ, mã thoát, tên bản mới nhất. Quá hạn vì INV vắng thì ORC báo INV ở phiên kế tiếp |
 | ĐK-4 | Sổ vận hành khớp quyết định 06/11: kéo sao lưu ít nhất 2 ngày một lần; phòng "Báo động" có thể thêm một người; (c) nhắc diễn tập sau 35 ngày | – (Gói 0) | BA → SEC, OPS | 08/11 | BA đã sửa: sổ vận hành bản 1.2, gồm (c) (`4d25f5b7`). Chờ SEC hoặc OPS đọc lại |
 | ĐK-5 | Bỏ mọi câu "check-in online tạm dừng / chưa gửi link"; PO sửa dòng V5-08 | V5-08 | BA, PO → SEC, UXD | 10/11 | BA đã sửa chữ (`4d25f5b7`); PO đã sửa dòng V5-08, tờ dán quầy và hướng dẫn ngày D. SEC duyệt có điều kiện: FB-R5-SEC-BA-01 hạn 08/11; thẻ PO đã sửa. Còn câu "đơn giữ chỗ cũng hiện nút link", #69, DOM đọc Tờ 2a (dòng V5-08) |
@@ -277,7 +280,7 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
    - migration (nếu có) đi tiến, có đường lùi;
    - runbook v1.0.5 có M4d và phần quay lui kể cả biện pháp bảo vệ bị mất;
    - đã diễn tập trên staging;
-   - **diễn tập khôi phục production (V5-61) xong và đạt trước khi lên production nếu bản có migration** hoặc đổi sao lưu, khôi phục (QC R4 ĐK-2). Chưa đạt thì bản đó không lên. Bản sửa P0 không migration vẫn lên được, kèm sao lưu ngay trước deploy.
+   - **diễn tập khôi phục production (V5-61) xong và đạt trước khi lên production nếu bản có migration** hoặc đổi sao lưu, khôi phục (QC R4 ĐK-2). Chưa đạt thì bản đó không lên. v1.0.5 có V5-62 (đổi sao lưu) nên luôn cần V5-61, kể cả khi bỏ migration (quyết định 25). Bản sửa P0 không migration vẫn lên được, kèm sao lưu ngay trước deploy.
 9. **Sao lưu:** trước khi lên production có bản sao lưu ngoài máy mới trong 24 giờ, kéo bằng `pull-backups.sh` đã có `--ignore-existing`. Diễn tập khôi phục Round 5 (V5-61) đạt theo yêu cầu SEC.
 10. **Tài liệu:**
     - release notes v1.0.5;
@@ -293,13 +296,13 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
 |---|---|
 | V5-10, V5-11 đụng giờ nghiệp vụ sau nửa đêm, khó kiểm | ARC chốt luật một chỗ (`businessDay` + `rollover`). QA chạy ca giờ thật trên staging trước QC. |
 | H2 trễ quá 01/12 | Quy tắc tách bản 25/11 (Gói 3). |
-| Chưa diễn tập khôi phục (V5-61) lúc cắt v1.0.5 | Migration V5-30/31 tách sang bản riêng, lên sau diễn tập và trước 01/12 (Gói 3, phương án dự phòng). Tới đó hoa hồng thuê tháng và thưởng quản lý tính ngoài Desk |
+| Chưa diễn tập khôi phục (V5-61) lúc cắt v1.0.5: cả v1.0.5 chưa lên (V5-62 là đổi sao lưu), hạn 01/12 của V5-30/31 trượt theo | ORC xin INV hẹn diễn tập trong tuần 09–13/11. Không tách migration ra nữa (không giúp lên sớm hơn). 25/11 chưa diễn tập thì ORC báo INV ngay. Tới khi lên: hoa hồng thuê tháng và thưởng quản lý tính ngoài Desk; P0 không migration, không đổi sao lưu vẫn lên riêng (quyết định 25) |
 | Tham số production còn lệch sổ tay (INV chưa làm B2–B11), Desk và web ra số lai | Đội không sửa thay. Nhắc trong `esc-pending-06-11.md` mục 3 và ở review 20/11. QA kiểm v1.0.5 với tham số đang chạy, như S6c. |
 | Chủ đầu tư hoặc quản lý lưu sai một tham số dạng danh sách trước khi V5-25 lên (BUG-R5-003: báo giá, đơn trực tiếp mới, giá web trả 500 tới hết ngày nghiệp vụ, không sửa được trong ngày) | Release notes v1.0.4 "Giới hạn đã biết" dặn không bấm Lưu ở `min_stay`, `weekend_nights`; buộc phải đổi thì nhắn đội, Hiệu lực từ ngày mai; lỡ lưu thì báo đội ngay, coi là P0. V5-25 gộp sớm (10/11). Điều kiện tách bản sớm ở quyết định 19 |
 | Làn BE-B quá tải: PR-B1 có V5-48 (4,25–4,5 ngày cộng V5-48), PR-B2 (1 ngày), PR-B3 5B-1 (2,5–3 ngày) là khoảng 8–9 ngày trong cửa sổ 6 ngày 09–14/11. Tới khi V5-48 lên, FD+ gọi thẳng API vẫn ghi được tiền mặt, thẻ không ảnh lên đơn đã đóng (SEC, BUG-R5-002) | BE-B giữ phần bắt buộc: PR-B1 (V5-48 làm trước trong PR) rồi PR-B2. Đề nghị ORC giao PR-B3 cho BE-D sau PR-D1 (khoảng từ 11/11); khi đó V5-48 tách PR riêng, gộp khoảng 10/11, làm nền cho PR-B3 (ARC mục 2 cho phép). FE-A làm nút Desk sau PR-B3. 12/11 PR-B3 chưa mở thì cắt (3) `deposit_after_cancel`; 14/11 chưa gộp thì 5B-1 sang v1.0.6, v1.0.5 vẫn có V5-48. Tới khi V5-48 lên production: người duyệt hoàn theo lời dặn tạm SEC 3.3 (release notes v1.0.4); câu đếm chỉ đọc SEC mục 5 khi INV cho phép (quyết định 22, 23). |
 | Đội nhỏ, phạm vi rộng | Gói 5 tự rơi sang v1.0.6. PO cắt thêm nếu tới 14/11 Gói 1–4 chưa xong 70 %. |
 | INV chưa đồng ý cài lịch kéo sao lưu trên máy mình | ORC kéo tay ít nhất 2 ngày một lần, với `pull-backups.sh` đã có `--ignore-existing`. QC điều 9 vẫn đòi bản ngoài máy ≤ 24 giờ trước production. |
-| INV không có mặt tới 20/11 | Không có việc nào trong v1.0.5 cần INV trả lời trước 20/11. Chỉ V5-61 cần INV khoảng 30 phút, có thể dời ngay sau 20/11; khi đó production cũng dời theo. |
+| INV không có mặt tới 20/11 | Không có việc nào trong v1.0.5 cần INV trả lời trước 20/11. Chỉ V5-61 cần INV khoảng 30 phút. Đội đề nghị làm trong tuần 09–13/11; dời sau 20/11 thì cả v1.0.5 dời theo, vì V5-61 chặn cả bản (quyết định 25). |
 
 ## 6. Quyết định PO trong phạm vi round (ghi decision-log)
 
@@ -354,7 +357,7 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
 16. **Hai việc BE mới từ DOM (06/11 khuya).**
     - **V5-1B**, tin `hold_expired` gửi thêm lễ tân và lễ tân trưởng: Gói 1, **bắt buộc**, hạn 14/11. Sửa một chỗ cấu hình kèm test, không migration, không đổi hợp đồng. Nó che đúng chỗ hở làm khách đến quầy mà không có phòng. Cách rà bằng sổ giao ca ở Tờ 2a chỉ là lớp tạm cho một người trực.
     - **V5-5B**, ghi tiền khách chuyển về cho đơn đã đóng (`cancelled`, `no_show`, mọi lý do hủy; DOM 11.4 bản chốt) và khôi phục giữ chỗ khi còn căn (BUG-R5-002): Gói 5, **nên có**, không chặn QC. Phần khôi phục cần ARC chốt máy trạng thái và có thể cần migration. Đã có cách làm tay an toàn (DOM mục 11.2). Cần migration mà chưa diễn tập thì sang v1.0.6. Chia phần và đường cắt ở quyết định 20.
-17. **Phương án dự phòng ĐK-2 cho V5-30/31** (Gói 3): chưa diễn tập khôi phục thì migration của hai việc này tách sang bản riêng, lên trước 01/12.
+17. **Phương án dự phòng ĐK-2 cho V5-30/31** (Gói 3): chưa diễn tập khôi phục thì migration của hai việc này tách sang bản riêng, lên trước 01/12. *Thay bằng quyết định 25 (06/11 khuya): phần không migration cũng vướng ĐK-2 vì V5-62, nên không tách nữa.*
 18. **ESC-051 (hoa hồng theo bảng nội bộ, 4 câu, đội đề xuất A) vào danh sách INV quyết ở buổi 20/11** (`rounds/round-04/outputs/PO/esc-pending-06-11.md`), kèm 7 việc INV tự nhập trên Desk sau khi v1.0.5 lên. Hai việc nhập số hoa hồng phải xong trước kỳ chốt 01/12. Tới khi INV trả lời, đội làm theo A (DOM).
 19. **V5-25 lên P1, gồm `min_stay` và `weekend_nights`, làm đầu làn BE-C** (06/11 khuya, theo QA BUG-R5-003 và thẻ BE C0313-06).
     - Lý do P1: chỉ một lần lưu sai của MGR hoặc OWN là báo giá, đơn trực tiếp mới và giá web dừng tới hết ngày nghiệp vụ, không gỡ được trên Desk. QC điều 2 đòi 0 P1 mở, nên V5-25 phải xong trong v1.0.5.
@@ -373,6 +376,7 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
     - 5B-2 (khôi phục): đích v1.0.6, hợp đồng 0.3.14; ARC xác nhận cần migration nhỏ (kind thông báo), nên theo QC R4 ĐK-2. Tới đó đặt lại cho khách theo cách tay DOM 11.2.
     - Nâng bắt buộc khi QA nâng P1.
     - Kết luận SEC (06/11): (b). Phần luật máy chủ của bước (1) tách thành V5-48, bắt buộc (quyết định 22). 5B-1 thêm tiêu chí S1–S8, 5B-2 thêm tiêu chí SEC mục 4 (dòng V5-5B). 5B-1 có lịch ở PR-B3 (quyết định 23); không kịp thì sang v1.0.6, v1.0.5 vẫn đủ an toàn nhờ V5-48.
+21. **Tờ 1 giữ 8,25 pt, không dời khối chữ** (06/11 khuya, theo ORC, sau khi UXD dựng lại bản in `bb67605d`). Chữ Tờ 1 đã qua SEC và DOM; dời khối sang tờ khác thì phải review lại. Tờ 2a thành A4 dọc in riêng 11 pt, Tờ 2b in hai bản trên một A4. Bảng "Cách in và dán" và ghi chú khổ giấy trong `staff-one-pager.md` sửa theo.
 22. **V5-48 bắt buộc ở v1.0.5: luật máy chủ cho khoản thu trên đơn đã đóng** (06/11 khuya, theo SEC kết luận (b) cho BUG-R5-002, `rounds/round-05/reviews/SEC-on-bug-r5-002.md` `62103d55`, `406af104`; thẻ FB-R5-SEC-PO-B002-05, Major).
     - Phạm vi: Gói 4, làn BE-B, trong PR-B1 theo hợp đồng 0.3.13 mục 2 (tách PR riêng nếu PR-B1 trễ hoặc PR-B3 cần nền sớm, quyết định 23), không migration, không chờ 5B-1. Trên đơn `cancelled`, `no_show`, mọi vai kể cả OWN: `recordPayment` chỉ nhận chuyển khoản, VietQR; tiền mặt, POS, OTA → 422; thiếu ảnh `deposit_receipt` → 422; luôn chờ đối soát; nhật ký thêm `afterClosure`. `confirmPaymentReceived`, `createVietQr` → 409. Lỗi thì không ghi gì. Chi tiết và tiêu chí nghiệm thu ở dòng V5-48.
     - Lý do bắt buộc: v1.0.4 cho FD+ gọi thẳng API ghi tiền mặt, thẻ không ảnh lên đơn đã đóng rồi tạo yêu cầu hoàn; hộp Xác nhận cọc mở từ trước lúc đơn tự hủy cũng ghi được khoản thu (SEC K5). Sau đó MGR/OWN duyệt hoàn là tiền thật đi ra. Bịt ở máy chủ là phần nhỏ, không đổi chính sách hoàn, không migration, nên là sửa lỗi bảo mật (nguyên tắc 1, Gói 4).
@@ -387,7 +391,12 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
     - Đường cắt (dòng V5-5B): S5 trước, rồi (3) `deposit_after_cancel`; (1) máy chủ và (2) nút Desk lên cùng nhau hoặc cùng sang v1.0.6. Ô mã giao dịch ở bước đối soát: v1.0.6 (ARC).
     - 5B-2: hợp đồng 0.3.14, v1.0.6, có migration nhỏ (kind thông báo `reservation_restored_after_cancel`), theo QC R4 ĐK-2.
 24. **US-177 cho BR-438 (V5-16)** (06/11 khuya, theo ARC 0.3.13 mục 1.20 và rủi ro "BR-438 chưa có story/TC tham chiếu" của hợp đồng). Must, v1.0.5, AC1–AC9 trong backlog, gắn ca DOM T-16-1…10 và ARC T16-6…12. Story không đổi luật: lễ tân, lễ tân trưởng chỉ sửa giảm thẳng dòng mình nhập tay trong ngày nghiệp vụ; mọi ca khác đi FOC có duyệt; hạn mức ESC-007 giữ nguyên. Danh sách đóng ca `lineReductions[]` không chặn nghiệm thu (DOM 7.2 ý 4). Không đếm thêm ở mục 7: nằm trong FB-R4-SEC-BE-A31-01 (V5-16).
-21. **Tờ 1 giữ 8,25 pt, không dời khối chữ** (06/11 khuya, theo ORC, sau khi UXD dựng lại bản in `bb67605d`). Chữ Tờ 1 đã qua SEC và DOM; dời khối sang tờ khác thì phải review lại. Tờ 2a thành A4 dọc in riêng 11 pt, Tờ 2b in hai bản trên một A4. Bảng "Cách in và dán" và ghi chú khổ giấy trong `staff-one-pager.md` sửa theo.
+25. **V5-61 chưa đạt thì cả v1.0.5 chưa lên production, kể cả phần không migration** (06/11 khuya, theo SEC FB-R5-SEC-OPS-95-02 ý 4, `rounds/round-05/reviews/SEC-on-ops-prs-92-93-95.md`; OPS đồng ý, `40e31795`). Thay phương án dự phòng của quyết định 17.
+    - Lý do: phần không migration vẫn có V5-62 (`backup.sh` mới, vòng xoay mới, timer W1), tức là đổi sao lưu, đúng loại QC R4 ĐK-2 chặn. Đổi cách xóa bản sao lưu trước khi chứng minh khôi phục được là rủi ro QC muốn chặn: lỗi vòng xoay có thể xóa bản tốt mà chưa ai biết bản còn lại dùng được không. V5-62 cùng bundle nên khó tách; SEC và OPS cùng chọn làm V5-61 trước, không tách.
+    - Hệ quả: hạn 01/12 của V5-30, V5-31 phụ thuộc hoàn toàn vào V5-61. Quy tắc tách V5-30 lúc 25/11 chỉ còn giúp khi v1.0.5 trễ vì lý do khác (bản tách có migration, cũng chờ V5-61). Mốc 25/11 "báo INV ngay" giữ nguyên.
+    - Kéo sớm: ORC xin INV hẹn diễn tập V5-61 trong tuần 09–13/11, không chờ hạn 20/11. Việc này nằm trong việc đã chờ INV (30 phút mở khóa `age`), không cần ESC (SEC ý 5). ORC làm cùng buổi việc INV cất bản ngoại tuyến `id_hash_key` (FB-R5-SEC-OPS-95-07).
+    - Giữ nguyên: bản sửa P0 không migration, không đổi sao lưu vẫn lên được, kèm sao lưu ngay trước deploy (câu cuối dòng ĐK-2). Bản tách sớm V5-25 của quyết định 19, nếu có, cũng phải cắt từ v1.0.4, không mang V5-62.
+    - Release notes v1.0.5 sửa theo: bỏ ý "chỉ diễn tập nếu bản có thay đổi cấu trúc dữ liệu".
 
 ## 7. Tổng hợp xếp loại (đếm từ phụ lục)
 
