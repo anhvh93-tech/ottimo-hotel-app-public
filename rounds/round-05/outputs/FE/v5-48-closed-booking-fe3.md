@@ -2,7 +2,7 @@
 
 - Round 5, bước Sản xuất · FE-3 · 07/11/2026
 - Nhánh `r5-fe-v5-48`, cắt từ `origin/main` `64d49730`. Không rebase.
-- Gộp sau #105 (`r5-v5-48`, máy chủ V5-48, SEC đã duyệt @ `9fa49550`). SEC khuyên lên cùng tag với #105, để lễ tân không gặp câu lỗi chung.
+- Gộp sau #105 (`r5-v5-48`, máy chủ V5-48, SEC đã duyệt @ `9fa49550`). #105 đã gộp (`391937fe`), và nhánh đã merge `main` có #105. SEC khuyên lên cùng tag với #105, để lễ tân không gặp câu lỗi chung.
 - Hợp đồng 0.3.13 bổ sung 1 (`Problem.reservationStatus`) đã có trên main, nên nhánh không mang code máy chủ.
 - Chữ: `rounds/round-05/outputs/UXD/copy-v1.0.5.md` bản 2.1, mục 9.1a. Lấy nguyên 3 ô VI/EN.
 
@@ -39,7 +39,11 @@
 - Đột biến: cho `closedReservationStatus` luôn trả undefined thì 4/6 ca đỏ.
 - admin-web toàn bộ: 1001 ca, 999 xanh. Hai ca `r3-bug-010-011-feb` đỏ vì hết giờ chờ khi máy chạy nặng; chạy riêng thì 6/6 xanh, và hai ca này không đi qua mã của PR.
 - `tsc`, `eslint`, `prettier --check` xanh.
-- E2E: chưa thêm. Ca UI (h4) cần #105 trên stack, và cổng CI không cho bỏ qua ca UI. Đề xuất QA dẫn ca (h4) phía Desk sau khi #105 gộp: lễ tân mở Xác nhận cọc ở tab cũ, đơn bị hủy, bấm xác nhận → câu 9.1a có "Đã hủy". Ca QA của UXD 9.1a cũng nêu ca này.
+- E2E mới `product/tests/e2e/ui/v5-48-closed-booking.r5.spec.ts` (desk-chromium, stack thật, chạy trên CI):
+  - qa.fd mở Xác nhận cọc trên giữ chỗ tạo từ báo giá; một tab khác hủy giữ chỗ (B5); qa.fd bấm Tạo VietQR.
+  - Mong đợi: máy chủ trả 409 có `reservationStatus: cancelled`; hộp hiện câu 9.1a có "Đã hủy", không có câu "tải lại", không có "Thử lại"; nút chính khóa; folio không có khoản VietQR nào; axe 0 critical/serious.
+  - Máy chủ kiểm đơn đóng trước `PAYMENT_NOT_CONFIGURED`, nên stack CI không cần tài khoản nhận.
+  - Ở máy không có stack, chỉ chạy `tsc` và `eslint` cho ca này. QA đưa vào bộ v1.0.5.
 
 ## 3. Giả định và việc chuyển vai khác
 - "5B-1 đã lên" nghĩa là nút ghi tiền về sau khi hủy đã có trên Desk. Desk chọn câu bằng hằng trong mã, không đọc cờ từ máy chủ. Hợp đồng không có cờ này, và nút cũng do Desk thêm.
