@@ -504,7 +504,7 @@ g("Lưu trú – gia hạn, trả muộn, đổi căn/đổi phòng, không đ�
     ("room_change.cause.property_fault", "Sự cố của OTTIMO – giữ giá cũ", "OTTIMO issue – keep current rate", None, "`property_fault` – BR-424"),
     ("room_change.cause.guest_request", "Khách yêu cầu – tính giá căn mới từ đêm đổi", "Guest request – new room's rate from the move night", None, "`guest_request`"),
     ("room_change.effective", "Đổi từ đêm", "Move from night of"),
-    ("room_change.ready_only", "Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì.", "You can only move to a room that is VI · Inspected, ready or VC · Cleaned, awaiting inspection. The list may still include rooms not yet cleaned – choosing one shows a message and nothing is saved.", None, "v1.0.0: danh sách chưa lọc trạng thái buồng (BUG-R3-023) – đổi câu khi lọc ở v1.0.1 (UXD thẻ 17)"),
+    ("room_change.ready_only", "Chỉ hiện căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm, và không bị khóa.", "Only rooms that are VI · Inspected, ready or VC · Cleaned, awaiting inspection, and not blocked, are shown.", None, "v1.0.5 V5-50 (BUG-R3-023): danh sách đã lọc – searchAvailability + listRoomStatuses, chỉ giữ VI/VC (ARC 0.3.13 mục 1.12). Câu 'khi đã lọc' UXD viết sẵn ở FB-R3-UXD-FE-A-17. Không tải được trạng thái buồng thì hiện room_change.ready_unfiltered"),
     ("room_change.effects", "Căn {from_room} chuyển \"Cần dọn\"; mã cửa cũ bị hủy – nhập mã mới cho căn {to_room}. Không phải khai báo lại.", "Room {from_room} becomes \"Needs cleaning\"; the old door code is revoked – enter a new code for room {to_room}. No re-registration needed.", None, "BR-424, BR-403"),
     ("room_change.submit", "Đổi sang căn {room}", "Move to room {room}"),
     ("noshow.reminder", "Khách {guest} chưa đến căn {room}. Gọi hoặc nhắn khách rồi ghi kết quả.", "{guest} hasn't arrived for room {room}. Call or message, then record the result.", None, "BR-311 `no_show_call_time`"),
@@ -4180,6 +4180,11 @@ g("v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm k
 g("v1.0.4 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều tủ – nút chính nêu tủ kế tiếp, toast khi đã lưu một tủ. Chữ của UXD (UXD-on-v104-pr81-minibar-race, 05/11)", [
     ("co.go_next_cabinet", "Tiếp tục: Tủ căn {room}", "Continue: Room {room} minibar", None, "H16 bước 1, nút chính thay co.go_extras khi sau tủ đang hiện vẫn còn tủ khác (bản tóm tắt mới nhất, bỏ tủ đã đếm trên trang và tủ đang hiện). {room} = căn của tủ kế tiếp. Hết tủ thì co.go_extras. Nhãn busy như #67"),
     ("co.minibar_cabinet_saved", "Đã lưu số đếm tủ căn {room}.", "Room {room} minibar count saved.", None, "H16 bước 1, toast của DS sau 201 khi trang chuyển sang tủ khác. {room} = tủ vừa đếm (không phải tủ đang hiện). Sang thẳng bước 2 thì không có toast"),
+])
+
+# ---------- v1.0.5 V5-50 – hộp Đổi phòng lọc bỏ căn chưa dọn (BUG-R3-023 phần lọc) ----------
+g("v1.0.5 V5-50 – FE-A: hộp Đổi phòng chỉ liệt kê căn VI/VC (BUG-R3-023). Chữ UXD v1.0.0 (FB-R3-UXD-FE-A-17), dùng lại cho ca chưa tải được trạng thái buồng", [
+    ("room_change.ready_unfiltered", "Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì.", "You can only move to a room that is VI · Inspected, ready or VC · Cleaned, awaiting inspection. The list may still include rooms not yet cleaned – choosing one shows a message and nothing is saved.", None, "V5-50: chỉ khi listRoomStatuses lỗi – danh sách Đổi phòng chưa lọc được trạng thái buồng; máy chủ vẫn chặn 409 ROOM_NOT_READY (BR-803). Nguyên văn câu v1.0.0 của room_change.ready_only (UXD thẻ 17)"),
 ])
 
 def build():
