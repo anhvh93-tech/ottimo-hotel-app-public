@@ -201,7 +201,7 @@ export interface paths {
     post?: never;
     /**
      * Tắt 2FA (không cho vai bắt buộc) – cần mật khẩu + TOTP; thu hồi mọi phiên (SR-SES-06)
-     * @description 0.3.8 (SEC 06.25): S2 (`MfaConfirmInput` = `StrongReauth`). Vai owner/manager → `403 FORBIDDEN_ACTION`. Thành công: xóa bí mật + mọi mã khôi phục, thu hồi **mọi** phiên kể cả phiên gọi, audit `mfa.disabled`.
+     * @description 0.3.8 (SEC 06.25): S2 (`MfaConfirmInput` = `StrongReauth`). Vai owner/manager/front_desk_lead (FDL từ 0.3.13, V5-40) → `403 FORBIDDEN_ACTION`. Thành công: xóa bí mật + mọi mã khôi phục, thu hồi **mọi** phiên kể cả phiên gọi, audit `mfa.disabled`.
      */
     delete: operations['disableMy2fa'];
     options?: never;
@@ -687,15 +687,19 @@ export interface paths {
      *     - **Kiểm `password`** (BE C0313-16, SEC ARC-04 (b)): rỗng (mạng mở) hoặc 8–63 ký tự ASCII 0x20–0x7E (WPA2-PSK) → khác: 422 `VALUE_OUT_OF_RANGE` (`field` = `password`).
      *       Trùng **mật khẩu đăng nhập của chính người gọi** → 422 `NOT_ALLOWED` (`field` = `password`): một lần argon2 verify trên hash của người gọi, không đếm vào khóa đăng nhập, không log,
      *       không so với tài khoản khác (không thành kênh dò, ngoài SR-AUTH-11).
-     *     - **Bổ sung 1e – giới hạn phép so (BE C0313-23; SEC SR-RL-10)**, thay "không đếm" ở trên:
+     *     - **Bổ sung 1e – giới hạn phép so (BE C0313-23; SEC SR-RL-15 – bổ sung 1f đổi số, 06/11 ghi SR-RL-10)**, thay "không đếm"; vẫn không cộng vào `login_lockout`:
      *       - chỉ so (và đếm) khi `password` đã qua kiểm dạng và **khác** mật khẩu Wi-Fi đang lưu; mạng mở hoặc chỉ đổi `ssid` → không so, không đếm;
-     *       - **mỗi lần so đều đếm**, trùng hay không; tối đa **5 lần / 24 giờ / người gọi** (`user_id`, cửa sổ cố định được); bộ đếm ở PostgreSQL, cập nhật nguyên tử, cùng nơi lưu với bộ
-     *         đếm xác nhận lại (SR-RL-02) nhưng khóa đếm riêng; **không** cộng vào `login_lockout`, không khóa tài khoản;
+     *       - **mỗi lần so đều đếm**, trùng hay không; tối đa **5 lần / 24 giờ / người gọi**; **bổ sung 1f (SEC C0313-24)**: PostgreSQL `rate_limit_counter` (migration 0086), khóa
+     *         `wifi_pw_cmp:<user_id>` (chỉ mã luật và id), cửa sổ cố định 24 giờ (SEC SR-RL-15) – `INSERT … ON CONFLICT (bucket_key, window_start) DO UPDATE SET count = count + 1
+     *         RETURNING count`, cùng hàm UPSERT với trang công khai (không chép câu SQL); không migration; **không** cộng vào `login_lockout`, không khóa tài khoản;
      *       - trong ngưỡng: so như trên; trùng → 422 `NOT_ALLOWED` + audit `security` `property.wifi_password_matches_login` (không giá trị);
-     *       - quá ngưỡng: **bỏ qua phép so**, mọi kiểm khác vẫn áp, lưu như thường; audit `security` `property.wifi_password_check_skipped` một lần mỗi cửa sổ; phản hồi giống hệt bình thường
-     *         (không 429, không mã mới);
-     *       - bộ đếm và audit `security` ghi ở **giao dịch riêng, commit trước khi trả 422** (như bộ đếm sai đăng nhập) – 422 rollback giao dịch PUT không được làm mất chúng.
-     *     - **Lỗi 422 không lặp lại giá trị đã gửi** ở `detail`, `title`, `errors[].message` (chỉ `field`, `code`, `max`). Lỗi kiểm → không ghi `property`, không audit.
+     *       - quá ngưỡng: **bỏ qua phép so** (lần bị bỏ qua vẫn đếm), mọi kiểm khác vẫn áp, lưu như thường; audit `security` `property.wifi_password_check_skipped` khi `count` = 6
+     *         (đúng một lần mỗi cửa sổ); phản hồi giống hệt bình thường (không 429, không mã mới). **Không** khai `x-rate-limit` ở operation này: có `x-rate-limit` là phải khai `429`,
+     *         mà luật này không bao giờ trả 429;
+     *       - bộ đếm (UPSERT) và audit `security` ghi ở **giao dịch riêng, commit trước khi so và trước khi trả 422** (mẫu `password-reauth.ts`, như bộ đếm sai đăng nhập) – 422 rollback
+     *         giao dịch PUT không được làm mất chúng.
+     *     - **Lỗi 422 không lặp lại giá trị đã gửi** ở `detail`, `title`, `errors[].message` (chỉ `field`, `code`, `max`). Lỗi kiểm → không ghi `property`, không audit – trừ bộ đếm và audit `security` của
+     *       SR-RL-15 ở trên (bổ sung 1f, SEC ARC-22).
      *     - **Phản hồi** (BE C0313-21): `PropertyWifi` **không** có `password` (`passwordSet` thay thế; Desk đã có giá trị vừa gõ). `Cache-Control: no-store` ở cả 200 và 422.
      *     - **Không phát SSE** (không có loại sự kiện cấu hình). Ghi dạng phẳng `{ssid, password}`, `UPDATE … WHERE id = $propertyId` (RLS `property` theo tổ chức); thực thể audit
      *       `property` đăng ký với `ssid`, `passwordChanged`. Không `If-Match`: người sau ghi đè (tần suất rất thấp; audit giữ `before.ssid`).
@@ -882,7 +886,8 @@ export interface paths {
      *       `reminded_waiting` > `replied`.
      *     - **Giữ chỗ chưa cọc**: `hold`, ngày đến = `date`, theo hạn giữ chỗ; không có nút.
      *     - `date` khác ngày nghiệp vụ: chỉ xem (`allowedActions` rỗng – EP01 2.4). Số đếm của `getTonightKpi` (`arrivals`, `arrivalsCheckedIn`, `departures`,
-     *       `departuresCheckedOut`) đọc từ **cùng bộ đọc** → "{đã nhận}/{tổng}" luôn khớp danh sách. `balanceDueVnd` = cùng số `getFolio`; `registrationStatus` = cùng nguồn `getReservation`.
+     *       `departuresCheckedOut`) đọc từ **cùng bộ đọc** → "{đã nhận}/{tổng}" luôn khớp danh sách – **trừ** (bổ sung 1f): trong cửa sổ sau nửa đêm
+     *       khi vắng `date`, `departures` của danh sách theo `departuresDate`; số của `getTonightKpi` vẫn theo ngày nghiệp vụ (tới 0.3.14: `TonightKpi.departuresDate`). `balanceDueVnd` = cùng số `getFolio`; `registrationStatus` = cùng nguồn `getReservation`.
      */
     get: operations['getArrivalsDepartures'];
     put?: never;
@@ -2827,7 +2832,10 @@ export interface paths {
      *       (tới đó MGR+ áp bằng tay: dòng đã khớp khoản khác → `disputed`, chép mã vào ghi chú đối soát – DOM 3a).
      *       **Bổ sung 1e (SEC ARC-15, `SEC-on-contract-0.3.13.md` 5.3)** – cài ở PR-B3:
      *       - chuẩn hóa trước khi khóa, kiểm và lưu: bỏ khoảng trắng đầu/cuối, lưu và so dạng **chữ hoa** (`abc123` = `ABC123`);
-     *       - chuỗi giống số thẻ → 422 `CARD_NUMBER_DETECTED` (`field` = `bankReference`), như `executeRefund`;
+     *       - **luật số thẻ riêng cho ô mã (bổ sung 1f, SEC C0313-25 – thay V-09 ở ô này)**: giá trị đã qua mẫu `^[A-Za-z0-9./_-]{1,64}$`, bỏ `.` `/` `_` `-`; nếu **toàn bộ**
+     *         phần còn lại là 13–19 chữ số **và** qua Luhn → 422 `CARD_NUMBER_DETECTED` (`field` = `bankReference`; không lặp lại giá trị, không lưu, không log). Còn lại thì nhận: mã có chữ,
+     *         dãy số ngắn hơn 13 hoặc dài hơn 19, dãy số không qua Luhn. **Không** quét đoạn số bên trong chuỗi – `containsCardNumber` (V-09) chỉ giữ cho ô chữ tự do (`note`, lý do…).
+     *         Cùng một hàm (BE đặt tên, ví dụ `isCardNumberReference` trong `shared/validation.ts`) ở `executeRefund`. Câu báo chỉ cách nhập 8 ký tự cuối của mã (UXD); không gợi ý để trống;
      *       - khóa `pg_advisory_xact_lock(hashtextextended('bank-ref:' || property_id || ':' || <mã đã chuẩn hóa>, 0))` **trước** câu kiểm trùng, cùng giao dịch với `INSERT`, `READ COMMITTED`;
      *       - chỉ so với **khoản thu** (`type` ∈ `deposit`, `charge`; `reversal_of_id IS NULL`; chưa `reversed`) – mã của khoản chi hoàn không làm khoản thu nhận 409;
      *       - áp ở **mọi** đường dùng `PaymentCreate` (`recordPayment`, `confirmDeposit`, `checkIn`, `checkOut.finalPayment`, `ReservationCreate.payment`, `GroupDepositInput`);
@@ -6138,7 +6146,7 @@ export interface components {
       arrivals?: number;
       /** @description 0.3.7 (B-19, BA E01-02): trong `arrivals`, số đã nhận phòng – hiện "{đã nhận}/{tổng}" */
       arrivalsCheckedIn?: number;
-      /** @description Đơn có ngày đi = ngày nghiệp vụ, `in_house` hoặc `checked_out` hôm nay (BR-404) (0.3.7 ghi rõ). 0.3.7 bổ sung 1: đơn chính theo **ngày đi hiệu lực** của lượt ở (đơn con gia hạn → ngày đi của đơn con) – cùng bộ đọc với `getArrivalsDepartures.departures` */
+      /** @description Đơn có ngày đi = ngày nghiệp vụ, `in_house` hoặc `checked_out` hôm nay (BR-404) (0.3.7 ghi rõ). 0.3.7 bổ sung 1: đơn chính theo **ngày đi hiệu lực** của lượt ở (đơn con gia hạn → ngày đi của đơn con) – cùng bộ đọc với `getArrivalsDepartures.departures`. **Bổ sung 1f**: trong cửa sổ sau nửa đêm khi vắng `date`, danh sách theo `departuresDate` còn số này vẫn theo ngày nghiệp vụ, nên hai bên có thể lệch (tới 0.3.14) */
       departures?: number;
       /** @description 0.3.7 (B-19): trong `departures`, số đã trả phòng */
       departuresCheckedOut?: number;
@@ -7744,7 +7752,7 @@ export interface components {
       approvalRequestId?: components['schemas']['Uuid'];
       /** @description **0.3.13 bổ sung 1 (V5-5B 5B-1)** – khoản thu trên đơn `cancelled`/`no_show`: yêu cầu hoàn `payment_after_cancel` tạo cùng giao dịch; vắng = khoản thu thường. **Bổ sung 1e**: chưa trả tới 0.3.14 (BE C0313-22 ý 2) */
       refundRequestId?: components['schemas']['Uuid'];
-      /** @description **0.3.13 bổ sung 1 (V5-48, SEC S6)** – ghi khi đơn đã `cancelled`/`no_show`; màn duyệt hoàn và Nhật ký tiền hiện "Tiền về sau khi đơn đã đóng". **Bổ sung 1e**: tính lúc đọc, chỉ để hiển thị (xem `recordPayment`); bộ lọc tuần dùng giá trị audit */
+      /** @description **0.3.13 bổ sung 1 (V5-48, SEC S6)** – `true` khi đơn chính của folio đang `cancelled`/`no_show` và khoản được ghi sau lúc đóng đơn (tính lúc đọc, xem `recordPayment` – bổ sung 1f, SEC ARC-22); màn duyệt hoàn và Nhật ký tiền hiện "Tiền về sau khi đơn đã đóng". **Bổ sung 1e**: tính lúc đọc, chỉ để hiển thị (xem `recordPayment`); bộ lọc tuần dùng giá trị audit */
       afterClosure?: boolean;
       /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4)** – tính lúc đọc, chỉ khoản `bank_transfer`/`vietqr`: mã đơn của khoản khác chưa đảo, cùng số tiền, `receivedAt` cách ≤ 24 giờ. Rỗng/vắng = không nghi trùng */
       possibleDuplicateCodes?: string[];
@@ -7776,7 +7784,7 @@ export interface components {
       /** @description Mã chuẩn chi máy POS (R-PAY-04) – không nhập số thẻ */
       posAuthCode?: string;
       note?: string;
-      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4, DOM 11.4 3a)** – tùy chọn, mọi đường ghi dùng schema này; chỉ `bank_transfer`/`vietqr` (khác → 422 `NOT_ALLOWED`); trùng khoản thu chưa đảo của cơ sở → 409 `DUPLICATE_BANK_REFERENCE`, không ghi gì. Máy chủ chưa có PR 5B-1 thì từ chối trường lạ – Desk chỉ gửi khi PR đó lên. **Bổ sung 1e (SEC ARC-15)**: chuẩn hóa chữ hoa, kiểm số thẻ, `duplicateReservationCode` chỉ cho FD+ – xem `recordPayment` (B) */
+      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4, DOM 11.4 3a)** – tùy chọn, mọi đường ghi dùng schema này; chỉ `bank_transfer`/`vietqr` (khác → 422 `NOT_ALLOWED`); trùng khoản thu chưa đảo của cơ sở → 409 `DUPLICATE_BANK_REFERENCE`, không ghi gì. Máy chủ chưa có PR 5B-1 thì từ chối trường lạ – Desk chỉ gửi khi PR đó lên. **Bổ sung 1e (SEC ARC-15)**: chuẩn hóa chữ hoa, kiểm số thẻ, `duplicateReservationCode` chỉ cho FD+ – xem `recordPayment` (B). **Bổ sung 1f (SEC C0313-25)**: chỉ chặn khi toàn bộ giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số qua Luhn */
       bankReference?: string;
       /** @description Ghi thu kỳ hợp đồng dài hạn (US-119 AC5) – cập nhật `billing_period.paid_amount_vnd`, đủ tiền → kỳ `paid` (T2) */
       billingPeriodId?: components['schemas']['Uuid'];
@@ -10261,7 +10269,7 @@ export interface operations {
         content: {
           'application/json': {
             enabled: boolean;
-            /** @description Vai owner/manager → true */
+            /** @description Vai owner/manager/front_desk_lead (FDL từ 0.3.13, V5-40) → true */
             required: boolean;
             /** @description 0.3.8 – cờ triển khai `MFA_ENFORCED` (chỉ đọc) */
             enforced?: boolean;
@@ -16405,7 +16413,7 @@ export interface operations {
         'application/json': {
           amountVnd: components['schemas']['MoneyVnd'];
           paidAt: components['schemas']['Instant'];
-          /** @description Mã giao dịch ngân hàng – **bắt buộc** khi nơi nhận `bank_transfer` hoặc hoàn qua POS (`REQUIRED`) – 0.3.6 E15-02 */
+          /** @description Mã giao dịch ngân hàng – **bắt buộc** khi nơi nhận `bank_transfer` hoặc hoàn qua POS (`REQUIRED`) – 0.3.6 E15-02. Máy chủ kiểm mẫu `^[A-Za-z0-9./_-]{1,64}$` sau khi bỏ khoảng trắng đầu/cuối (CHECK 0040; sai → 422). **0.3.13 bổ sung 1f (SEC C0313-25)**: `CARD_NUMBER_DETECTED` **chỉ** khi toàn bộ giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số qua Luhn – cùng hàm với `recordPayment` (B); mã chỉ chứa một đoạn số giống thẻ vẫn nhận. Máy chủ v1.0.4 còn quét cả đoạn bên trong (V-09) – sửa ở v1.0.5 */
           bankReference?: string;
           /** @description Ảnh ủy nhiệm chi / biên nhận ký nhận (`uploadAttachment purpose=refund_proof`) – **bắt buộc** khi `bank_transfer` (`EVIDENCE_REQUIRED`), không bắt buộc với `cash` – 0.3.6 E15-02 */
           attachmentId?: components['schemas']['Uuid'];

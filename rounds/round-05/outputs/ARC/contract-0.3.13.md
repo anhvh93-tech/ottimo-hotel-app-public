@@ -739,13 +739,16 @@ Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi 
 - Ý 2 – chọn **"chưa trả tới 0.3.14"** (SEC thích phương án này): `Payment.refundRequestId` vắng ở v1.0.5; Desk tìm qua `openRefunds` (`reasonCode = payment_after_cancel`) và màn duyệt. Cột nối thêm ở migration 5B-2. Không đọc từ audit (thêm bề mặt, thêm luật phạm vi).
 - Test (BE PR-B1/V5-48, QA dẫn vào ca): đọc lại `audit_event` (`after.afterClosure`, `after.reservationStatus`); `afterClosureOnly` đúng một dòng cho ca h1; ca khôi phục no-show – `Payment.afterClosure` = `false` mà bộ lọc vẫn trả dòng; mục đóng bằng "Không thấy tiền" có trong bộ lọc kèm người và giờ bấm.
 
-**BE C0313-23 – phép so mật khẩu ở `setPropertyWifi` (SEC chốt SR-RL-10):** ghi vào mô tả `setPropertyWifi`. Tóm tắt: chỉ so khi mật khẩu đã qua kiểm dạng và khác giá trị đang lưu; mỗi lần so đều đếm; 5 lần / 24 giờ / người, bộ đếm PostgreSQL khóa riêng, không khóa tài khoản; quá ngưỡng bỏ qua phép so, lưu như thường, audit `security` một lần mỗi cửa sổ, không 429; bộ đếm và audit commit ở giao dịch riêng trước khi trả 422.
+**BE C0313-23 – phép so mật khẩu ở `setPropertyWifi` (SEC chốt SR-RL-15; 06/11 ghi SR-RL-10, đổi số ở bổ sung 1f):** ghi vào mô tả `setPropertyWifi`. Tóm tắt: chỉ so khi mật khẩu đã qua kiểm dạng và khác giá trị đang lưu; mỗi lần so đều đếm; 5 lần / 24 giờ / người, bộ đếm PostgreSQL `rate_limit_counter` khóa `wifi_pw_cmp:<user_id>`, cửa sổ cố định 24 giờ (bổ sung 1f), không khóa tài khoản; quá ngưỡng bỏ qua phép so (vẫn đếm), lưu như thường, audit `security` khi `count` = 6, không 429, không `x-rate-limit`; bộ đếm và audit commit ở giao dịch riêng trước khi trả 422.
 
 | # | Ca | Mong đợi |
 |---|---|---|
 | T58-11 | 6 lần PUT với mật khẩu khác nhau, khác mật khẩu đăng nhập, trong 24 giờ | 5 lần đầu có so (đếm 5); lần 6 bỏ qua phép so, 200, một audit `property.wifi_password_check_skipped` |
 | T58-12 | PUT mật khẩu = mật khẩu đăng nhập của người gọi (lần 1 trong cửa sổ) | 422 `NOT_ALLOWED`; bộ đếm = 1 và audit `property.wifi_password_matches_login` còn sau rollback |
 | T58-13 | Mạng mở, hoặc chỉ đổi `ssid` | Không so, bộ đếm không đổi |
+| T58-14 | (bổ sung 1f) Đếm 3 lần, khởi động lại API, PUT tiếp | Bộ đếm = 4 (dòng `rate_limit_counter` khóa `wifi_pw_cmp:<user_id>` còn nguyên) |
+| T58-15 | (bổ sung 1f) Sau T58-11 và T58-12 | `login_lockout` của người gọi không đổi; tài khoản không bị khóa |
+| T58-16 | (bổ sung 1f) Mọi ca T58-11…15 | Không chuỗi mật khẩu thử nào trong `audit_event`, log, phản hồi |
 
 **ARC review PR #96 mục 7:** ý 1 vào mô tả `setParameter` và `cancelScheduledParameter`; ý 2 sửa 1.24 dưới đây; ý 3 sửa `erd.md` 9.1a (bảng theo khóa, biên DOM chốt ở `rules-v1.0.5.md` 13.1, 13.4 – `6b5b8f34`: phần trăm tối đa 2 chữ số thập phân, `max_open_holds_per_user` đủ hai vai, `cancel_policy_direct` không rỗng, `damage_catalog`).
 
@@ -761,6 +764,30 @@ Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi 
 - **SEC ARC-18:** (1) `recordPayment.restoreHold` (5B-2, hành động `restore_hold`) gắn `x-write-roles` FD+ – SAL/CTV gửi trường này → 403 trước mọi kiểm; (2) B1 `createReservation`: đêm `edited` ≠ `true` dùng giá lịch của máy chủ như báo giá (đuôi ARC-06); (3) `x-write-roles` cho luật trường cũ (G13).
 - `Payment.refundRequestId` + cột nối (migration 5B-2); nếu cần cờ `afterClosure` cố định thì thêm cột cùng migration.
 - 5B-2 `recordPayment.restoreHold` (1.21 ý 4).
+
+### 1.26 Bổ sung 1f – PR #111 (SEC ARC-16, 20, 21, 22; SEC `SEC-responses.md` 3–5; BE C0313-24, 25; ARC review PR #100 mục 6.3)
+
+Đổi phần mở rộng một chỗ (ARC-16), thêm một giá trị vào tập đóng `money` (ARC-20, cùng hằng `MONEY_AUDIT_ACTIONS`), còn lại chỉ mô tả. Không đổi schema, `enum`, `required`, `x-roles`, `x-rbac`; không mã lỗi mới; không migration. **Gộp trước PR-B3 (BE-D)**.
+
+| Việc | Nội dung | Ai làm tiếp |
+|---|---|---|
+| SEC ARC-16 | `ApprovalRequest.possibleDuplicateCodes` thêm `x-visible-to` FD+ như `Payment` – serializer sinh lại; HK, MT, SAL, CTV đọc `listApprovalRequests` không thấy. Test `serializer.test.ts` | BE-D dùng ở PR-B3 |
+| SEC ARC-20 | Tập đóng `money` thêm `attention_event.resolved` (`after = {kind, afterClosure}`, không ghi chú tự do). Cùng PR: `money-actions.ts`, câu `mlog.a_money_not_found` (Desk, UXD rà). Hạn (SEC 07/11, mục 5): gộp trước PR-B3; không PR nào trước PR-B3 được sinh mục `deposit_after_cancel` hay đóng mục bằng "Không thấy tiền" | BE-D ghi audit, đăng ký thực thể `attention_event`, test đọc lại `audit_event` ở PR-B3 |
+| SEC ARC-21 | `duplicateReservationCode` chỉ cho FD+ ở bảng mã, bảng trường mở rộng, `Problem` | BE-D ở PR-B3 |
+| SEC ARC-22 | `setPropertyWifi`: "thay 'không đếm'; vẫn không cộng vào `login_lockout`"; "Lỗi kiểm → không ghi `property`, không audit – trừ bộ đếm và audit `security` của SR-RL-15". `Payment.afterClosure`: "`true` khi … (tính lúc đọc, xem `recordPayment`)" | – |
+| BE C0313-24 (SEC 3) | Luật Wi-Fi đổi số **SR-RL-15**. Nơi lưu `rate_limit_counter` (0086), khóa `wifi_pw_cmp:<user_id>`, cửa sổ cố định 24 giờ, UPSERT ở giao dịch riêng, commit trước khi so và trước 422; đếm cả lần bị bỏ qua, audit `property.wifi_password_check_skipped` khi `count` = 6. **Không** `x-rate-limit` (luật không trả 429). T58-14…16 ở 1.25 | BE V5-58 (xem quyết định dưới) |
+| BE C0313-25 (SEC 4) | Ô `bankReference` (`PaymentCreate` mọi đường, `executeRefund`): sau mẫu `^[A-Za-z0-9./_-]{1,64}$`, bỏ `.` `/` `_` `-`; chỉ chặn (422 `CARD_NUMBER_DETECTED`) khi **toàn bộ** là 13–19 chữ số qua Luhn. Ô chữ tự do giữ `containsCardNumber`. Không mã lỗi mới | BE-B/BE-D: hàm `isCardNumberReference` + test SEC 4.3; UXD: câu báo "nhập 8 ký tự cuối"; QA: bug P2 `executeRefund` (SEC 4.4, ORC giao) |
+| ARC review #100, A1 | `front_desk_lead` ở 6 chỗ 2FA (`MFA_ENROLLMENT_REQUIRED`, `login`, summary `getMy2fa`, `getMy2fa.required`, `disableMy2fa`, `Me.mfaRequiredButMissing`) + `erd.md` `mfa_enabled` | BA (`rbac-matrix.md` A111), SEC (SR-AUTH-06), FE-A (mock `MFA_ROLES`) – ngoài PR này |
+| ARC review #100, A2 | 0.3.12 (f): `serializeSchema` (SSE, outbox) không bao giờ trả `x-self-data`, với mọi vai (V5-43) | – |
+| ARC review #100, A3 (chữ) | `getArrivalsDepartures` và `TonightKpi.departures`: trong cửa sổ sau nửa đêm khi vắng `date`, danh sách theo `departuresDate`, số KPI vẫn theo ngày nghiệp vụ – lệch tới 0.3.14 | Phần máy chủ: 0.3.14 dưới |
+
+**Quyết định ARC cho V5-58 (SEC 3.1, "không chép câu SQL sang module thứ hai"):** `module-boundaries.test.ts` không cấm module khác ghi `rate_limit_counter`, nhưng câu UPSERT hiện chỉ nằm trong `public-site` (`PublicBookingService.bumpAt`). BE V5-58 chuyển câu này ra một hàm dùng chung ở `shared/` (ví dụ `bumpRateLimitCounter(q, bucketKey, windowStart, windowMs)`, nhận `q` là client của giao dịch do người gọi chọn), `public-site` gọi lại hàm đó (không đổi hành vi, test SR-RL-11 giữ), `setPropertyWifi` gọi bằng client của giao dịch riêng. Không import `public-site/internal`.
+
+**Thêm vào danh sách 0.3.14 (1.25):**
+- `TonightKpi.departuresDate` (thêm trường, không phá); `departures`, `departuresCheckedOut` theo `departuresDateFor` như danh sách; Desk ghi ngày ở ô khi khác `businessDate` (BE ~0,25 ngày, không migration).
+- A4 (chờ DOM): trong cửa sổ, có đưa lượt `in_house` có ngày đi = ngày nghiệp vụ lên đầu "Khách đi" (`overdue`) không.
+- `executeRefund.bankReference` thêm `pattern: '^[A-Za-z0-9./_-]{1,64}$'` vào schema (máy chủ và CHECK 0040 đã áp; 1f chỉ ghi ở mô tả).
+- Hàm SQL `auth_resolve_session().mfa_required` (migration 0079) – mục 7.
 
 ---
 
@@ -875,7 +902,7 @@ Luật chung:
 - PR-M phụ thuộc V5-61; H2 có thể trượt sang bản sau 01/12 nếu diễn tập trễ.
 - BR-438 chưa có story/TC tham chiếu (`traceability.md` 5.5): PO gắn vào story V5-16, QA viết TC theo T16-6…T16-12.
 - **0.3.14 (thêm vào danh sách 1.25, bổ sung 1f):** sửa hàm SQL `auth_resolve_session().mfa_required` (migration 0079) để đọc đủ danh sách vai bắt buộc 2FA (OWN, MGR, FDL – V5-40),
-  rồi bỏ phần kiểm FDL riêng ở guard (PR #100). Có migration (thay hàm) – theo QC R4 ĐK-2. Ở 0.3.13 chữ hợp đồng đã ghi FDL ở 4 chỗ 2FA (bổ sung 1f).
+  rồi bỏ phần kiểm FDL riêng ở guard (PR #100). Có migration (thay hàm) – theo QC R4 ĐK-2. Ở 0.3.13 chữ hợp đồng đã ghi FDL ở 6 chỗ 2FA và `erd.md` (bổ sung 1f, mục 1.26).
 
 ---
 
