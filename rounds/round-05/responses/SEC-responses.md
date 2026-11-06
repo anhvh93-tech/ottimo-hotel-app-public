@@ -23,6 +23,7 @@
 | FB-R5-BE-ARC-C0313-25 (Minor) | Done – SEC chọn (a), có chỉnh | Luật riêng cho mã tham chiếu: chặn khi **toàn bộ** giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số và qua Luhn. Áp cho `bankReference` ở cả `PaymentCreate` và `executeRefund`. Câu báo chỉ cách nhập 8 ký tự cuối. **Nên xếp bug P2** cho `executeRefund` đang chạy. Chi tiết ở mục 4 |
 | Hạn thẻ `FB-R5-SEC-ARC-20` | Đồng ý có điều kiện | Đổi thành "trong PR-B3 (BE-D), chữ hợp đồng ở PR ARC-16", với 3 điều kiện ở mục 5 |
 | FB-R5-DOM-BA-01 (Minor) – câu "khách lỡ gửi số thẻ qua tin nhắn" | Done – SEC chốt, có sửa (thẻ vẫn Open phía BA) | (a) Đúng hướng; SEC sửa 4 chỗ, quan trọng nhất là thêm "không dùng số đó để thu tiền". (b) Có ghi sổ giao ca, một dòng, không có số nào của thẻ. (c) Ca thường: báo chủ đầu tư trước khi hết ca, tin không có số. Ca bất thường: gọi ngay, muộn nhất 1 giờ. Bỏ nhãn [GIẢ ĐỊNH]. Chi tiết ở mục 6 |
+| Câu CPY trả lời khách + INT xóa tin theo kênh (07/11, câu hỏi của ORC) | Done – SEC duyệt, có sửa 6.3 | Giữ thứ tự "trả lời trước, xóa ngay sau"; duyệt chữ "sẽ xóa ngay" (không "đã xóa"). Duyệt bản bỏ vế xóa (CPY mục 5) cho kênh không xóa được theo thiết kế: Zalo OA (tới khi T1 chứng minh xóa được), hộp thư OTA, Messenger. Kênh đó là **ca thường**, không phải ca bất thường số 3. Chốt 6 ghi chú của INT và lượt thử T1–T6. Chi tiết ở mục 6.5 |
 
 **Tổng: 4 thẻ, 4 Done (phần SEC), 0 Rejected, 0 Deferred, 0 Escalated.** Không thẻ nào đổi kiểu sinh: không thêm mã lỗi, không thêm 429. ARC ghi chữ vào hợp đồng trong delta tài liệu tới; BE làm trong PR V5-48 (thẻ 22) và PR V5-58 (thẻ 23). Thẻ vẫn Open ở phía ARC/BE cho tới khi có chữ và test.
 
@@ -308,3 +309,102 @@ Sau đó chủ đầu tư cùng SEC xử lý theo SR-INC-01: khoanh vùng, đán
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | **SEC – chốt câu "khách lỡ gửi số thẻ qua tin nhắn"** (FB-R5-DOM-BA-01, DOM giả định 3; rounds/round-05/responses/SEC-responses.md mục 6). (a) Câu DOM đúng hướng, SEC sửa 4 chỗ: thêm không dùng số để thu tiền (không gõ POS, không nhập Desk); trả lời khách bằng tin mới, không trích tin có số, nhờ thu hồi nếu kênh có nút, rồi xóa ngay không chờ; xóa trên mọi máy cơ sở đang mở tài khoản, cả thùng rác email và ảnh đã lưu; không ghi ở đâu, kể cả 4 số cuối. (b) Có ghi sổ giao ca: một dòng mã đơn + kênh + đã xóa, không số, không tên/SĐT khách. (c) Ca thường: báo chủ đầu tư trước khi hết ca, tin không có số. Ca bất thường (đã chép/chụp/chuyển/gõ POS, mất máy trước khi xóa, không xóa được, khách báo trừ tiền lạ): gọi ngay, muộn nhất 1 giờ, kể cả ban đêm, rồi xử lý theo SR-INC-01 (72 giờ chờ luật sư xác nhận). BA đưa vào sổ tay bảng tình huống thành luật chung; UXD/CPY chỉnh câu trả lời khách theo brand guideline. Không ESC | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật, mức rủi ro) |`
+
+### 6.5 Câu CPY và cách xóa theo kênh (07/11, câu hỏi của ORC)
+
+Nguồn:
+- CPY `rounds/round-05/outputs/CPY/guest-reply-card-number.md` (`dc0c5038`): bản đầy đủ (mục 2), bản ngắn Zalo (mục 3), bản bỏ vế xóa (mục 5);
+- INT `rounds/round-05/outputs/INT/message-deletion-by-channel.md` (`40cd4651`): bảng xóa theo kênh, 6 ghi chú (mục 5), lượt thử T1–T6 (mục 4).
+
+#### 6.5.1 Thứ tự: giữ "trả lời trước, xóa ngay sau"; duyệt chữ "sẽ xóa ngay"
+
+SEC giữ thứ tự ở 6.1, không đổi sang "xóa trước, trả lời sau". Lý do:
+- email: phải còn thư thì lễ tân mới chép đúng địa chỉ người gửi để soạn thư mới;
+- khách được báo trước khi tin mất ở phía OTTIMO, nên ít khả năng khách tưởng tin bị bỏ qua rồi gửi lại số;
+- thời gian thêm chỉ là lúc dán một câu mẫu, dưới một phút. Lỗi trích lại tin có số đã bị chặn bằng luật "tin mới, không bấm Trả lời".
+
+Vì vậy SEC **duyệt**:
+- bản đầy đủ (CPY mục 2): "We will delete your message on our side straight away." / "Ở phía OTTIMO, lễ tân sẽ xóa ngay tin bạn đã gửi.";
+- bản ngắn Zalo (CPY mục 3): "we are deleting your message on our side now" / "lễ tân sẽ xóa ngay".
+
+**Không** dùng "đã xóa". Phần còn lại của hai bản cũng đạt: không chữ số, không hứa thêm, không link trả thẻ, "cách khác" gửi bằng tin riêng (VietQR Desk tạo cho đúng đơn, kèm câu chống giả danh). Email và SMS bỏ câu 4 là đúng.
+
+#### 6.5.2 Bản bỏ vế xóa (CPY mục 5): duyệt, cho kênh không xóa được theo thiết kế
+
+- SEC duyệt nguyên văn CPY mục 5 (EN, VI). Khóa khi làm mẫu tin: `msg.card_by_message_no_delete`.
+- "Kênh không xóa được theo thiết kế" = phía OTTIMO **không có thao tác xóa** tin khách gửi khỏi tài khoản. Hiện gồm:
+  - **Zalo OA** (OA Manager, kênh chính ESC-021 A): dùng bản mục 5 **ngay từ bây giờ**. Chỉ quay về bản ngắn mục 3 khi T1 cho thấy tin xóa được khỏi tài khoản OA, tức quản trị viên thứ hai mở OA Manager (web và mini app) cũng không còn thấy. INT báo lại khi có kết quả;
+  - hộp thư OTA (Airbnb, Booking, Agoda);
+  - Messenger fanpage, tới khi INT tra xong.
+- "Đánh dấu spam" và nhãn "Hoàn thành" của OA chỉ ẩn hội thoại, **không** phải xóa. Không đánh dấu spam hội thoại của khách.
+
+#### 6.5.3 Sửa 6.3: kênh không xóa được theo thiết kế là ca thường
+
+SEC chọn phương án (b) ở ghi chú 1 của INT. Ca bất thường số 3 ở 6.3 nay chỉ gồm:
+- tin nằm trên máy hoặc tài khoản mà lễ tân không mở được;
+- tài khoản đó có người ngoài cơ sở dùng chung;
+- kênh xóa được nhưng xóa không thành, tức vẫn thấy tin sau khi xóa.
+
+Kênh ở 6.5.2 là **ca thường**. Lễ tân làm 4 việc:
+1. Gửi bản mục 5. Mọi luật khác của 6.1 vẫn áp: không chép, không chụp, không chuyển tiếp, không đọc to, không gõ vào máy POS, không nhập Desk.
+2. Xóa mọi bản sao xóa được:
+   - ảnh máy đã tự lưu, cả trong thùng rác ảnh;
+   - thư báo tin nhắn mà OTA hoặc Zalo gửi về email cơ sở, nếu thư có nội dung tin (xóa cả trong Thùng rác).
+3. Ghi sổ giao ca một dòng: "`<giờ>` – `OTM-…` – khách gửi số thẻ qua `<Zalo OA / hộp thư OTA>` – kênh không xóa được, đã nhờ khách thu hồi". Không số, không tên hay số điện thoại khách.
+4. Báo chủ đầu tư trước khi hết ca, như ca thường.
+
+Ca bất thường số 1, 2 và 4 vẫn áp cho mọi kênh, kể cả Zalo OA.
+
+Vì sao không gọi chủ đầu tư mỗi lần:
+- chủ đầu tư cũng không xóa được tin trên OA hay OTA, nên cuộc gọi ban đêm không thêm lớp bảo vệ nào;
+- lớp bảo vệ thật là không ai chép hay dùng số, và chỉ ít người xem được lịch sử chat.
+
+Rủi ro còn lại, SEC chấp nhận ở mức **Low**:
+- tin có số thẻ còn trong lịch sử OA hoặc OTA; mọi quản trị viên của tài khoản đó xem được;
+- cách giảm đang có: OA chỉ cấp quản trị cho người cần, mỗi người một tài khoản, gỡ ngay khi nghỉ việc (SEC 17/10);
+- khi nhận báo, chủ đầu tư có thể hỏi bộ phận hỗ trợ của Zalo hoặc OTA cách gỡ tin. Lễ tân không hứa việc này với khách;
+- gợi ý cho v1.0.6, không bắt buộc (CPY, INT): tin chào tự động của OA nói OTTIMO không nhận thông tin thẻ qua chat, để giảm số lần khách gửi.
+
+#### 6.5.4 Sáu ghi chú của INT
+
+| # | Ghi chú INT (mục 5) | SEC chốt |
+|---|---|---|
+| 1 | Zalo OA không xóa được | Như 6.5.2 và 6.5.3 |
+| 2 | SMS có "Đã xóa gần đây" / "Thùng rác" | **Có.** Thêm vào câu 6.1: "SMS thì xóa cả trong Đã xóa gần đây / Thùng rác của app tin nhắn" |
+| 3 | Telegram, ô "Also delete for {tên khách}" | **Không đánh dấu.** Lời hứa với khách là "ở phía OTTIMO"; bản của khách do khách quyết, câu 4 đã nhờ khách thu hồi. Mọi kênh làm cùng một cách: WhatsApp chọn "Xóa ở phía tôi", Viber chọn "Delete for myself" |
+| 4 | Tắt tự lưu ảnh trên điện thoại cơ sở | **Có, thành quy định:** tắt tự lưu ảnh và file vào thư viện ảnh ở Zalo, WhatsApp, Telegram, Viber trên điện thoại cơ sở. Làm trong lượt thử (6.5.5). Bước "xóa cả ảnh đã lưu" ở 6.1 vẫn giữ, phòng khi cài đặt bị bật lại sau khi cập nhật app |
+| 5 | Google Workspace: quản trị viên còn khôi phục được 25 ngày sau "Delete forever"; Vault | **Không đổi chữ.** Lời hứa nói về hộp thư lễ tân dùng, và điều đó đúng. Phần còn khôi phục được chỉ quản trị viên Workspace làm được: rủi ro Low. Ở lượt thử T5, chủ đầu tư cho biết Vault có bật quy tắc giữ thư không; có thì báo SEC. SEC ghi vào phần rủi ro còn lại của SR-INC-01 ở lần sửa `security-requirements.md` tới |
+| 6 | Bản sao lưu chat (Google Drive, iCloud, Zalo) | **Chấp nhận**, Low; không đổi chữ, không bắt tắt sao lưu. Nếu điện thoại cơ sở bật sao lưu chat thì để một bản, tự ghi đè hằng ngày; không giữ nhiều bản cũ |
+
+Thêm cho mọi kênh xóa được: tài khoản đang mở trên nhiều máy (điện thoại, máy tính, bản web) thì xóa trên **từng máy**. Chỉ bỏ bước này khi lượt thử T2–T4 cho thấy xóa tự đồng bộ.
+
+#### 6.5.5 Lượt thử trên máy thật (T1–T6 của INT mục 4)
+
+- Người làm: lễ tân, có chủ đầu tư hoặc quản lý đi cùng.
+- Tin thử: chữ "TEST XOA", gửi từ tài khoản của một nhân viên tới tài khoản OTTIMO. Không chữ số, không ảnh thẻ, kể cả số thẻ thử công khai. Không dùng tài khoản hay dữ liệu khách.
+- **Làm T1 trước**, vì OA là kênh chính.
+- SEC thêm hai việc vào lượt thử:
+  - ở T2, T3, T4, và với Zalo, Telegram trên điện thoại cơ sở: tắt tự lưu ảnh (6.5.4 ý 4), ghi lại là đã tắt;
+  - ở T5: chủ đầu tư cho biết Vault có bật không (6.5.4 ý 5).
+- Không lượt thử nào chặn bản phát hành. Tới khi có kết quả, lễ tân làm theo 6.5.2–6.5.4.
+- Kết quả gửi ORC. INT cập nhật bảng của mình; CPY và BA sửa câu nếu kết quả khác bảng.
+
+#### 6.5.6 Việc cho BA, CPY
+
+**BA** (sổ tay `user-manual-v1.0.md`, `guides/02-le-tan.md`):
+1. Thay "(câu chuẩn: chờ CPY)" bằng dòng ở CPY mục 6, **sửa** phần trong ngoặc thành: "(câu chuẩn ở dưới bảng; Zalo số cơ sở dùng bản ngắn; Zalo OA, hộp thư OTA và Messenger dùng bản không có vế xóa; email soạn thư mới; email và SMS bỏ câu thu hồi)". Đặt bản CPY mục 5 (EN, VI) cạnh bốn đoạn của CPY mục 2 và 3.
+2. Câu chốt 6.1 thêm: "SMS thì xóa cả trong Đã xóa gần đây / Thùng rác. WhatsApp chọn Xóa ở phía tôi; Telegram không đánh dấu ô xóa cho khách. Tài khoản mở trên nhiều máy thì xóa trên từng máy."
+3. Thêm một dòng ngay dưới: kênh không xóa được (Zalo OA, hộp thư OTA, Messenger) làm 4 việc ở 6.5.3; không đánh dấu spam.
+4. Sửa ca bất thường số 3 (6.3) theo 6.5.3.
+5. Ở phần cài đặt điện thoại cơ sở (hoặc việc của chủ đầu tư khi giao máy): tắt tự lưu ảnh của Zalo, WhatsApp, Telegram, Viber.
+
+**CPY** (tệp của CPY):
+- bảng "Chọn bản" ở mục 1: tách dòng Zalo thành Zalo OA (bản mục 5) và Zalo số cơ sở (bản ngắn); hộp thư OTA và Messenger dùng bản mục 5, không còn "chưa dùng";
+- mục 5 bỏ dòng "chờ SEC";
+- dòng nhắc ở mục 6 "Gửi xong thì xóa ngay tin của khách" thêm "(kênh xóa được)".
+
+**Không ESC.** Không có quyết định mới về tiền, phạm vi hay pháp lý. SEC không sửa `security-requirements.md` ở lượt này; ý 5 vào lần sửa tới.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | **SEC – duyệt câu CPY trả lời khách gửi số thẻ, chốt cách xóa theo kênh** (rounds/round-05/responses/SEC-responses.md mục 6.5; CPY dc0c5038, INT 40cd4651). Giữ thứ tự trả lời trước, xóa ngay sau; duyệt "sẽ xóa ngay / straight away / deleting now", không "đã xóa". Duyệt bản bỏ vế xóa (CPY mục 5) cho kênh không xóa được theo thiết kế: Zalo OA (tới khi T1 chứng minh xóa được khỏi tài khoản OA), hộp thư OTA, Messenger. Sửa 6.3: kênh đó là ca thường (gửi bản mục 5, xóa bản sao xóa được, ghi sổ giao ca, báo chủ đầu tư trước hết ca); ca bất thường số 3 chỉ còn máy/tài khoản không mở được, tài khoản dùng chung với người ngoài, xóa không thành. Rủi ro còn lại Low (lịch sử OA/OTA còn số thẻ, chỉ quản trị viên xem). INT: thêm thùng rác SMS vào câu 6.1; Telegram không đánh dấu "Also delete for"; tắt tự lưu ảnh trên điện thoại cơ sở là quy định; Workspace khôi phục 25 ngày và bản sao lưu chat chấp nhận Low. Lượt thử T1–T6 (T1 trước) do lễ tân cùng chủ đầu tư/quản lý làm bằng tin "TEST XOA", thêm bước tắt tự lưu ảnh và hỏi Vault; không chặn phát hành. Không ESC | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật, mức rủi ro) |`

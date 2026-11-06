@@ -64,6 +64,9 @@ export const MONEY_AUDIT_ACTIONS = [
   // FB-R2-SEC-BE-80 (BR-525): a debt write-off applied only up to the open debt left at the decision.
   'approval.applied_capped',
   'config.changed',
+  // OpenAPI 0.3.13 bổ sung 1f (SEC ARC-20; V5-48, SEC S8): FD+ closes a `deposit_after_cancel` attention item with
+  // "Không thấy tiền" – after = { kind, afterClosure }, no free text; stays in the money log and afterClosureOnly.
+  'attention_event.resolved',
 ] as const;
 
 export type MoneyAuditAction = (typeof MONEY_AUDIT_ACTIONS)[number];
