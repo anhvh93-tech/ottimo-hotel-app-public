@@ -5523,7 +5523,7 @@ export interface components {
        * @enum {string}
        */
       reservationStatus?: 'cancelled' | 'no_show';
-      /** @description **0.3.13 bổ sung 1** – `409 DUPLICATE_BANK_REFERENCE`: mã đơn của khoản thu đã mang mã giao dịch này */
+      /** @description **0.3.13 bổ sung 1** – `409 DUPLICATE_BANK_REFERENCE`: mã đơn của khoản thu đã mang mã giao dịch này. **Bổ sung 1f (SEC ARC-21)**: chỉ khi người gọi có vai FD+ (OWN, MGR, FDL, FD); vai khác nhận 409 không có trường này (mã đơn có thể ngoài phạm vi – SR-AZ-02; xem `recordPayment` (B)) */
       duplicateReservationCode?: string;
       /** @description **0.3.13 bổ sung 1 (V5-11)** – cùng lỗi trên khi ngày đi hiệu lực = ngày lịch: dùng Trả phòng (B18), không Trả sớm */
       useCheckout?: boolean;
@@ -8084,6 +8084,8 @@ export interface components {
        *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `approval.applied_capped`, `config.changed` (chỉ khóa `payment_receiving_account`).
        *     **0.3.12 (P4-12, ARC plan v1.0.4 quyết định 6.3, SEC-on-plan-v1.0.4 mục 1)**: `refund.destination_carried` – nơi nhận được chép sang yêu cầu hoàn thay thế; `entityType = approval_request`, chỉ mã yêu cầu cũ và mới, không số tài khoản.
        *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`. **ARC 16.31**: nghĩa của mã lý do theo **điều kiện** – công nợ đang mở lúc duyệt < số đã duyệt – không khẳng định nguyên nhân; ở R2 (sau BUG-R2-207, điều kiện OPS của BUG-R2-210) nguyên nhân duy nhất còn lại là khoản thu trong lúc chờ (khoản thu trả công nợ trước – BR-525 G-6). Đường mới làm giảm công nợ đang mở phải thêm mã lý do riêng; Desk gặp mã lạ hiện câu chung.
+       *     **0.3.13 bổ sung 1f (SEC ARC-20; V5-48, SEC S8)**: `attention_event.resolved` – hiện **chỉ** ghi khi FD+ đóng mục "Cần chú ý" `deposit_after_cancel` bằng "Không thấy tiền";
+       *     `entityType = attention_event`; `after` = `{kind, afterClosure}` (không ghi chú tự do, không dữ liệu khách); `category` giữ `money` (vào Nhật ký tiền và bộ lọc tuần `afterClosureOnly`).
        *     `payment.recorded`: phân biệt sale/CTV bằng `after.recordedByRole`; phương thức ở `after.method`, chờ đối soát ở `after.reconciliation`.
        *     **0.3.12 (P4-11 BE-C; P4-10 BE-B HOLDS-02)**: `reservation.early_departure` – `after` thêm `earlyDepartureRule` (`BR-313` | `BR-428`) và `leaseEndDate` (chỉ với HĐ tháng nhập tay,
        *     `externalContract = true`); `reservation.deposit_confirmed` xác nhận sau hạn – `after` thêm `afterDeadline`, `holdExpiredAt`, `paidBeforeVnd`, `unverifiedPaidVnd`, `via` (xem `confirmDeposit`).
