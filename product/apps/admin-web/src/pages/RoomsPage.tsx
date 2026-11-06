@@ -183,7 +183,8 @@ export function RoomsPage() {
             const { warnings, ...room } = saved;
             mutate((d) => ({ ...d, rooms: d.rooms.map((x) => (x.id === room.id ? room : x)) }));
             const keep = warnings?.find((w) => w.code === 'FUTURE_RESERVATIONS_KEEP_ROOM');
-            setKeepRoom(keep ? { roomNo: room.roomNo, count: keep.count } : null);
+            // 0.3.13 bổ sung 1: `count` is optional on the warning item (only FUTURE_RESERVATIONS_KEEP_ROOM carries it).
+            setKeepRoom(keep?.count ? { roomNo: room.roomNo, count: keep.count } : null);
             setEditing(null);
           }}
           onReload={reload}

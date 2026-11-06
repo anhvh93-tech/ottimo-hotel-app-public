@@ -11,7 +11,16 @@ expected outcome of the ROLE GATE only (payload valid, resource in scope):
   401  wrong session type: staff cookie on a guest operation, guest cookie on a staff operation (SR-SES-09).
 
 public / system (webhook) operations are listed under `skipped`. Operations with x-round R3 are kept but flagged
-`sprint: "R3"`. The rbac-matrix (truth) is cross-checked through gen_traceability.rbac_check: any operation where
+`sprint: "R3"`.
+
+Ids are stable (OpenAPI 0.3.13 bổ sung 1, SEC FB-R5-SEC-ARC-13): `RB-<operationId>-<subject>`; adding an operation no
+longer renumbers the others. Ids quoted in documents written before 0.3.13 (`RB-0001` ...) refer to the numbering of
+that commit – look them up in git history.
+
+x-write-roles (0.3.13 bổ sung 1, SEC FB-R5-SEC-ARC-02) -> `fieldCases`: for every subject that passes the role gate,
+`403` when none of its roles may send the field (FORBIDDEN_ACTION + access.denied, no extension fields, before any
+body validation), `pass` when one of its roles may (the field gate lets the request through; the outcome then depends
+on the payload). Field cases are a separate list: the sprint runners read `cases` only. The rbac-matrix (truth) is cross-checked through gen_traceability.rbac_check: any operation where
 OpenAPI and rbac disagree is flagged `rbacMismatch` (expected: none – traceability section 8).
 
 Usage (from repo root):
@@ -68,7 +77,22 @@ def parse_paths():
             m = re.match(r'^      x-round:\s*(R\d)', line)
             if m:
                 out[cur]['round'] = m.group(1)
+            if re.match(r'^      x-write-roles:', line):
+                out[cur]['writeRoles'] = parse_write_roles(line, cur)
     return out
+
+
+def parse_write_roles(line, op):
+    """`      x-write-roles: { field: [r1, r2], 'a[].b': [r1] }` (single-line flow mapping only)."""
+    m = re.match(r'^      x-write-roles:\s*\{(.*)\}\s*$', line)
+    if not m:
+        raise SystemExit(f'{op}: x-write-roles must be a single-line flow mapping')
+    body = m.group(1)
+    pairs = re.findall(r"\s*(?:'([^']+)'|([A-Za-z_][\w.]*))\s*:\s*\[([a-z_,\s]*)\]\s*,?", body)
+    rebuilt = {(q or b): [r.strip() for r in rs.split(',') if r.strip()] for q, b, rs in pairs}
+    if not rebuilt or any(not v for v in rebuilt.values()):
+        raise SystemExit(f'{op}: cannot read x-write-roles {body!r}')
+    return rebuilt
 
 
 def accounts():
@@ -94,7 +118,7 @@ def build():
     op_bad, _, _ = gt.rbac_check(meta, visible, acts, rfields, op_actions)
     mismatch = {row[0] for row in op_bad}
     subjects = accounts()
-    cases, skipped = [], []
+    cases, skipped, field_cases = [], [], []
     for op in sorted(meta):
         m = meta[op]
         p = paths.get(op, {'method': (m['method'] or '').upper(), 'path': '?', 'security': 'staff', 'round': 'R2'})
@@ -124,10 +148,21 @@ def build():
                 sc = []
             cases.append({**base, 'subject': user, 'roles': rs, 'expected': '2xx' if allowed else '403',
                           'scope': ','.join(sc) or None})
+            for field, wroles in sorted(p.get('writeRoles', {}).items()):
+                if not allowed:
+                    continue  # the role gate already answers 403
+                ok = any(r in wroles for r in rs)
+                field_cases.append({'id': f'RBF-{op}-{field}-{user}', 'operationId': op, 'method': p['method'],
+                                    'path': p['path'], 'field': field, 'subject': user, 'roles': rs,
+                                    'expected': 'pass' if ok else '403', 'writeRoles': wroles, 'sprint': p['round']})
         cases.append({**base, 'subject': 'guest-session', 'roles': ['guest'], 'expected': '401', 'scope': None,
                       'note': 'cookie khách trên operation nhân viên (SR-SES-09)'})
-    for i, c in enumerate(cases, 1):
-        c['id'] = f'RB-{i:04d}'
+    for c in cases:
+        c['id'] = f"RB-{c['operationId']}-{c['subject']}"
+    ids = [c['id'] for c in cases] + [c['id'] for c in field_cases]
+    dup = [k for k, n in Counter(ids).items() if n > 1]
+    if dup:
+        raise SystemExit(f'duplicate rbac case ids: {dup[:5]}')
     doc = {
         '$comment': 'SINH TỰ ĐỘNG bởi product/tests/tools/gen_rbac_cases.py từ OpenAPI x-roles/x-scope/x-rbac – không sửa tay. '
                     'Kỳ vọng chỉ là CỔNG VAI: payload hợp lệ, tài nguyên trong phạm vi. 403 = FORBIDDEN_ACTION + audit access.denied; '
@@ -141,11 +176,14 @@ def build():
             'sprintR3': sum(1 for c in cases if c['sprint'] == 'R3'),
             'rbacMismatchOps': sorted(mismatch),
             'skipped': len(skipped),
+            'fieldCases': len(field_cases),
+            'fieldCasesByExpected': dict(sorted(Counter(c['expected'] for c in field_cases).items())),
         },
         'skipped': skipped,
         'cases': [{k: c[k] for k in ('id', 'operationId', 'method', 'path', 'subject', 'roles', 'expected', 'scope',
                                      'rbac', 'sprint', 'rbacMismatch') } | ({'note': c['note']} if c.get('note') else {})
                   for c in cases],
+        'fieldCases': field_cases,
     }
     return doc
 
@@ -167,7 +205,8 @@ def main(argv=None):
     cs = to_csv(doc)
     s = doc['summary']
     print(f"operations {s['operations']}; cases {s['cases']} {s['byExpected']}; scoped {s['scoped']}; "
-          f"R3 {s['sprintR3']}; skipped {s['skipped']}; rbac mismatch {s['rbacMismatchOps']}")
+          f"R3 {s['sprintR3']}; skipped {s['skipped']}; field cases {s['fieldCases']} {s['fieldCasesByExpected']}; "
+          f"rbac mismatch {s['rbacMismatchOps']}")
     if '--summary' in argv:
         return
     if '--check' in argv:
