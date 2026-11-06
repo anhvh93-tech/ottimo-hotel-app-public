@@ -18,6 +18,7 @@ import {
 } from '../../app/reservations';
 import { lineLabel, signed } from '../../app/folio';
 import { DebtCollectDialog, DebtWriteOffDialog } from '../stay/DebtCollectDialog';
+import { overdueNeedText, useOverdueNeed } from '../stay/overdue';
 import { Code } from '../../app/mono';
 import { useRules } from '../../app/rules';
 import { LoadingBlock } from '../../components/states';
@@ -220,6 +221,9 @@ export function ReservationDrawer({
 
   const businessDay = useBusinessDay();
   const allowed = new Map((r?.allowedActions ?? []).map((a) => [a.event, a]));
+  // V5-15 (DOM 15.7): past the departure the server offers no Trả phòng to this account – the summary's
+  // `nightsNotBilled` says whom to call (1 → a manager, ≥ 2 → the owner), next to the locked button.
+  const overdueNights = useOverdueNeed(propertyId, r, fd, businessDay);
   // BUG-R3-022: the folio's state from the server (`addFolioLine` takes `open`, or `settled` inside
   // `post_checkout_window_until`) – the window itself is not computed here.
   const postCheckoutCharge =
@@ -389,6 +393,20 @@ export function ReservationDrawer({
         <Button variant="pri" onClick={() => navigate(`/reservations/${r.id}/check-out`)}>
           {t('drawer.action.check_out')}
         </Button>
+      ) : overdueNights !== null ? (
+        <>
+          <span className="li-s" id={`${drawerId}-overdue`}>
+            {overdueNeedText(t, overdueNights)}
+          </span>
+          <Button
+            variant="pri"
+            aria-disabled="true"
+            aria-describedby={`${drawerId}-overdue`}
+            onClick={() => undefined}
+          >
+            {t('drawer.action.check_out')}
+          </Button>
+        </>
       ) : null}
       {allowed.has('check_in') ? (
         // H13: C3 steps only on a granted device (rbac 8.7) – elsewhere the button explains why.
