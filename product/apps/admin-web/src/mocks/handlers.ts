@@ -912,8 +912,10 @@ export const handlers = [
       const lp = body.listPrice;
       if (!(Number(lp.monthlyListPriceVnd) > 0))
         errors.push({ field: 'listPrice.monthlyListPriceVnd', code: 'AMOUNT_NOT_POSITIVE' });
-      // platform.controller: nightlyListPriceVnd is optional, but when sent it is an integer ≥ 1.
-      if (lp.nightlyListPriceVnd !== undefined && !(Number(lp.nightlyListPriceVnd) > 0))
+      // OpenAPI 0.3.13 (V5-1A): nightlyListPriceVnd is required like the monthly price – missing → REQUIRED.
+      if (lp.nightlyListPriceVnd === undefined)
+        errors.push({ field: 'listPrice.nightlyListPriceVnd', code: 'REQUIRED' });
+      else if (!(Number(lp.nightlyListPriceVnd) > 0))
         errors.push({ field: 'listPrice.nightlyListPriceVnd', code: 'AMOUNT_NOT_POSITIVE' });
       // R3-Q39 #8: like rooms.service – the bound is the BUSINESS day (ctx.today, BR-010).
       if (String(lp.effectiveFrom) < businessDayLocal())
@@ -960,12 +962,8 @@ export const handlers = [
     }
     if (body.listPrice && String(body.listPrice.effectiveFrom) <= businessDayLocal()) {
       const m = Number(body.listPrice.monthlyListPriceVnd);
-      // FB-INV-005: the nightly price sent is stored as is (rooms.service). The ÷ 12 branch only mirrors
-      // the server's fallback for callers that omit it (removed in v1.0.1) – the Desk always sends it.
-      const n =
-        body.listPrice.nightlyListPriceVnd !== undefined
-          ? Number(body.listPrice.nightlyListPriceVnd)
-          : Math.round(m / 12 / 1000) * 1000;
+      // FB-INV-005, V5-1A: both prices are required and stored as sent (rooms.service) – no ÷ 12 fallback.
+      const n = Number(body.listPrice.nightlyListPriceVnd);
       room.currentListPrice = {
         effectiveFrom: String(body.listPrice.effectiveFrom),
         monthlyListPriceVnd: m,
@@ -982,7 +980,15 @@ export const handlers = [
               r.departureDate > todayLocal(),
           ).length
         : 0;
-    const warnings = keep ? [{ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count: keep }] : [];
+    const warnings: Array<{ code: string; count?: number }> = keep
+      ? [{ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count: keep }]
+      : [];
+    // 0.3.13 addendum 1 (V5-1A, BR-101 (4)): nightly × 30 < monthly or nightly × 5 > monthly → saved, warned.
+    if (body.listPrice) {
+      const m = Number(body.listPrice.monthlyListPriceVnd);
+      const n = Number(body.listPrice.nightlyListPriceVnd);
+      if (n * 30 < m || n * 5 > m) warnings.unshift({ code: 'NIGHTLY_PRICE_UNUSUAL' });
+    }
     return HttpResponse.json(
       { ...roomView(room, g.roles), warnings },
       { headers: { etag: `"${room.version}"` } },
