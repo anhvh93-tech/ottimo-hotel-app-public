@@ -144,35 +144,22 @@ export class Fields {
     return v;
   }
 
-  /** Free text (V-09, max length); returns trimmed text or undefined. */
-  text(field: string, max: number, opts: { required?: boolean; min?: number } = {}) {
-    return this.textOf(field, this.b[field], max, opts);
-  }
-
   /**
-   * A reason (V-08 + V-09): control and hidden characters removed first, then as text() – missing or shorter than
-   * `min` → REASON_REQUIRED when required.
+   * Free text (V-09, max length); returns trimmed text or undefined. Control and invisible formatting characters are
+   * removed first (D12c, `openapi.yaml` "bỏ ký tự điều khiển"; SEC FB-R5-SEC-BE-A1B-01): a NUL no longer reaches the
+   * jsonb audit (500), a bidi override is not stored. Nothing left after that = absent.
    */
-  reason(field: string, max: number, opts: { required?: boolean; min: number }) {
+  text(field: string, max: number, opts: { required?: boolean; min?: number } = {}) {
     const v = this.b[field];
-    return this.textOf(field, typeof v === 'string' ? stripControlChars(v) : v, max, opts);
-  }
-
-  private textOf(
-    field: string,
-    v: unknown,
-    max: number,
-    opts: { required?: boolean; min?: number },
-  ): string | undefined {
-    if (v === undefined || v === null || (typeof v === 'string' && v.trim() === '')) {
-      if (opts.required) this.add(field, opts.min ? 'REASON_REQUIRED' : 'REQUIRED');
-      return undefined;
-    }
-    if (typeof v !== 'string') {
+    if (v !== undefined && v !== null && typeof v !== 'string') {
       this.add(field, 'VALIDATION_FAILED');
       return undefined;
     }
-    const t = v.trim().replace(/\s+/g, ' ');
+    const t = typeof v === 'string' ? stripControlChars(v).trim().replace(/\s+/g, ' ') : '';
+    if (t === '') {
+      if (opts.required) this.add(field, opts.min ? 'REASON_REQUIRED' : 'REQUIRED');
+      return undefined;
+    }
     if (opts.min !== undefined && t.length < opts.min) {
       this.add(field, 'REASON_REQUIRED');
       return undefined;

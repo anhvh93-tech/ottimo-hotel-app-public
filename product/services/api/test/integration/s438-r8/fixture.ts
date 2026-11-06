@@ -135,9 +135,14 @@ export const outcome = (r: Res) => {
   return `${r.statusCode}${code}`;
 };
 
-export async function startFixture() {
+/**
+ * `extraUsers`: more staff for one test file only (e.g. a second FD – FB-R5-ARC-BE-B1-01), so the tenant every other
+ * file shares keeps the same users (counts of FD notifications and the like stay as they are).
+ */
+export async function startFixture(opts: { extraUsers?: Record<string, string[]> } = {}) {
+  const roles: Record<string, string[]> = { ...ROLES, ...opts.extraUsers };
   const db: Database = appDatabase(12);
-  const t: TestTenant = await createTenant(db, { users: ROLES });
+  const t: TestTenant = await createTenant(db, { users: roles });
   const ids: BookingIds = await seedBooking(db, t);
   const guest = await seedGuestRow(db, t, { name: 'Khách Công Nợ R8' });
   const fa: FeatureApp = await startFeatureApp(db, {
@@ -149,7 +154,7 @@ export async function startFixture() {
       }),
   });
   const c: Record<string, Client> = {};
-  for (const u of Object.keys(ROLES)) c[u] = Client.of(fa, t, u);
+  for (const u of Object.keys(roles)) c[u] = Client.of(fa, t, u);
   const token = randomBytes(32).toString('base64url');
   await db.withContext(t.ctx(), (tx) =>
     tx.query(

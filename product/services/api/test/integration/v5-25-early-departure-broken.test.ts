@@ -167,7 +167,10 @@ describe.skipIf(!HAS_DB)(
           code: 'PAYMENT_NOT_CONFIGURED',
           detail: 'early_departure_refund (BR-428) is not usable',
         });
-        expect(res.body).not.toMatch(/150|minNoticeDays|refundPct/);
+        // The broken value never reaches the answer. FB-R5-ARC-BE-96-01: the random requestId / instance may hold
+        // "150" (~0.7 % red runs) – leave them out, and match 150 as a number of its own.
+        const shown = JSON.stringify({ ...res.json(), requestId: undefined, instance: undefined });
+        expect(shown).not.toMatch(/\b150\b|minNoticeDays|refundPct/);
         const after = (await fd.get(url(`/reservations/${b.id}`))).json();
         expect(after).toMatchObject({ status: 'in_house', departureDate: day(mon + 4) });
         const refunds = await db.withContext(t.ctx(), (tx) =>

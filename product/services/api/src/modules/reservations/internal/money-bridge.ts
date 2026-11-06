@@ -12,6 +12,7 @@
  * - closerChanged()        PATCH closer (not `hold`, 0.3.13 bổ sung 1h): the commission follows
  *                          (FOLIO_STAY_SYNC.syncCommissionOnly); a hold has no row – B2/B4 posts the closer's.
  * - depositPaid()          Σ succeeded deposits of the booking's folio (BR-309 refund basis, J1 "đã có cọc").
+ * - depositUnverified()    0.3.13 V5-18: the part of it still waiting for reconciliation (FD+ field).
  * - recordInitialPayment() B2 `initialPayment` through PaymentService.recordManual (one path – ARC-BE-S2-10).
  *
  * FOLIO_STAY_SYNC (public/folio-sync-port.ts) is implemented and provided by the folio module (BE-B,
@@ -21,6 +22,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import type { PaymentMethod } from '../../../db/schema/folio';
 import { FolioService } from '../../folio/public/folio.service';
+import { depositUnverifiedVnd } from '../../payments/public/deposit-unverified';
 import { PaymentService } from '../../payments/public/payment.service';
 import {
   type CommissionVoidReason,
@@ -52,6 +54,16 @@ export class MoneyBridge {
   async depositPaid(tx: Tx, row: Pick<ReservationRow, 'folio_id'>): Promise<number> {
     if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
     return this.folios.depositPaid(tx, row.folio_id);
+  }
+
+  /** 0.3.13 V5-18 (+ BE C0313-13): `Reservation.depositUnverifiedVnd` – the part of depositPaidVnd not reconciled. */
+  async depositUnverified(
+    tx: Tx,
+    row: Pick<ReservationRow, 'folio_id'>,
+    depositPaidVnd: number,
+  ): Promise<number> {
+    if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
+    return depositUnverifiedVnd(tx, row.folio_id, depositPaidVnd);
   }
 
   /**
