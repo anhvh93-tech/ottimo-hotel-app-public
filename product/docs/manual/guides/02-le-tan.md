@@ -1176,7 +1176,7 @@ Form "Yêu cầu đặt phòng" trên ottimo.vn **đã bật từ chiều 30/10*
 
 Khi form bật: yêu cầu mới hiện ở menu **Yêu cầu từ website** kèm số. Mở yêu cầu → **Nhận xử lý** → **Báo giá** hoặc **Tạo đơn**; không thành đơn thì **Đóng – không thành đơn**.
 
-Khi chủ đầu tư báo gói website mới (LP-v2) đã lên: web hiện giá ước tính (mục 13.1c) và có thêm trang tiếng Hàn, tiếng Trung, tiếng Nga (mục 13.1d).
+Từ 06/11 website có đủ 5 ngôn ngữ (tiếng Anh ở trang chính, tiếng Việt, tiếng Hàn, tiếng Trung giản thể, tiếng Nga – mục 13.1d) và hiện giá ước tính (mục 13.1c). Thông báo quyền riêng tư của form: bản 2026-11-04, ở trang `/privacy/` của từng ngôn ngữ (ví dụ `ottimo.vn/privacy/`, `ottimo.vn/vi/privacy/`). Khách hỏi OTTIMO dùng thông tin trong form thế nào: gửi link trang đó theo ngôn ngữ của khách. Khách xin xem, sửa, xóa dữ liệu: mục 8.1 ý 8; người gửi form xin xóa yêu cầu: mục 13.1b.
 
 > **Tạm ở v1.0 (tới v1.0.1 có tin báo qua Google Chat):** Desk chưa báo yêu cầu mới ra ngoài màn hình. Khi form bật:
 > - Desk mở trên máy quầy và điện thoại người trực **07:00–22:00**. Xem **Yêu cầu từ website** mỗi lần cầm máy, và ngay sau mỗi việc ở quầy.
@@ -1185,7 +1185,7 @@ Khi chủ đầu tư báo gói website mới (LP-v2) đã lên: web hiện giá 
 >
 > Từ v1.0.1 vẫn giữ Desk mở như trên. Tin Google Chat (mục 13.1a) chỉ giúp thấy yêu cầu nhanh hơn; **Desk vẫn là nguồn chính**.
 
-[ẢNH: C2-39-Yêu cầu từ website, form tắt]
+[ẢNH: C2-39-Yêu cầu từ website, cột Ngôn ngữ và giá ước tính]
 
 ### 13.1a Tin báo yêu cầu qua Google Chat (từ v1.0.1)
 
@@ -1272,12 +1272,12 @@ Khách đã gửi form trên website nhắn hoặc gọi xin xóa yêu cầu c�
 
 ### 13.1c Giá ước tính khách đã thấy trên website
 
-**Áp dụng khi chủ đầu tư báo gói website LP-v2 đã lên và đã bật hiện giá.** Trước đó web không hiện giá, Desk không có các dòng dưới đây.
+**Đã bật từ 06/11/2026.** Chủ đầu tư tắt được giá web bất cứ lúc nào (ví dụ giá vừa nhập nhầm): khoảng 2 phút sau web hết hiện số, form vẫn nhận yêu cầu, yêu cầu gửi lúc đó ghi **Khách chưa thấy giá**.
 
 **Khách thấy gì trên website.** Trong form đặt phòng, sau khi khách chọn hạng phòng, ngày và số khách, web hiện **giá ước tính** cho cả chuyến:
-- Chỉ cho **ngắn ngày (1–29 đêm)**. Chọn theo tháng hoặc từ 30 đêm: web **không hiện số**, chỉ mời khách nhận báo giá riêng.
+- Chỉ cho **ngắn ngày (1–29 đêm)**. Chọn theo tháng hoặc từ 30 đêm: web **không hiện số**, chỉ mời khách nhận báo giá riêng. Tới khi chủ đầu tư chỉnh xong các tham số giá còn lệch sổ tay, mốc ngắn ngày trên Desk và web có thể thấp hơn 29 đêm: làm theo Desk.
 - Đi liền con số luôn có: ước tính, đã gồm thuế, cho số khách đã chọn, **chưa giữ phòng**; giá cuối cùng và phòng trống nằm trong **báo giá OTTIMO gửi**.
-- Có lúc web không hiện số (chưa đủ số đêm tối thiểu, quá số khách của hạng, giá chưa mở, hệ thống tính giá lỗi). Khách vẫn gửi được yêu cầu.
+- Có lúc web không hiện số (chưa đủ số đêm tối thiểu, quá số khách của hạng, giá chưa mở, hệ thống tính giá lỗi). Khách vẫn gửi được yêu cầu. Giá chưa mở: đêm từ ngày cuối web hiện giá trở đi (mặc định 01/01/2027, tới khi chủ đầu tư gia hạn), web ghi "giá theo yêu cầu".
 - Số do Desk tính, cùng cách tính với **Báo giá**. Chủ đầu tư đổi giá trên Desk thì web đổi theo, không ai gõ giá vào website.
 
 **Trên Desk:**
@@ -1295,7 +1295,7 @@ Khách đã gửi form trên website nhắn hoặc gọi xin xóa yêu cầu c�
 
 ### 13.1d Khách viết bằng tiếng Hàn, tiếng Trung, tiếng Nga
 
-**Áp dụng từ khi chủ đầu tư báo trang tiếng Hàn, tiếng Trung hoặc tiếng Nga của ottimo.vn đã lên** (gói LP-v2; mỗi ngôn ngữ lên riêng, khi đã có người bản xứ đọc lại và luật sư đồng ý). Giao diện Desk vẫn chỉ có tiếng Việt và tiếng Anh.
+**Từ 06/11/2026** ottimo.vn có trang tiếng Hàn `/ko/`, tiếng Trung giản thể `/zh/`, tiếng Nga `/ru/`, cùng tiếng Anh (trang chính) và tiếng Việt `/vi/`. Giao diện Desk vẫn chỉ có tiếng Việt và tiếng Anh.
 
 **1. Nhận ra khách**
 - **Yêu cầu từ website** có cột **Ngôn ngữ**: Tiếng Anh · Tiếng Việt · Tiếng Hàn · Tiếng Trung (giản thể) · Tiếng Nga. Ngăn chi tiết của yêu cầu có dòng **Ngôn ngữ khách dùng**.
@@ -1788,5 +1788,5 @@ Bài tập:
 8. Nói được việc phải làm khi lỡ gửi link check-in online.
 9. Lễ tân trưởng thêm: duyệt một yêu cầu, kiểm phòng trên app nhân viên.
 10. Người trực hiện nay thêm (trên Desk tập): dọn và kiểm một căn rồi bấm **Làm xong** (mục 13.2a); khi Desk tập đã lên v1.0.4: bấm **Làm xong** rồi kiểm căn đó trên app (mục 14.2); hủy một việc dọn với lý do **Khách nói không cần dọn**; tạo, nhận và đóng một phiếu sửa trên Desk (tệp 04 mục 4.4); nói được việc 22:00, 23:00 sau khi đóng quầy và cách nhận phòng khách đến sau 22:00 (mục 13.3).
-11. Khi gói website LP-v2 đã lên (trên Desk tập): lọc **Yêu cầu từ website** theo **Tiếng Hàn**; dịch lời nhắn bằng Google Dịch; gửi câu mẫu 1; lập báo giá, chỉ ra ô **Ngôn ngữ gửi khách** là English và câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh."; gửi câu mẫu 3; đọc dòng **Giá ước tính khách đã thấy** và nói được việc phải làm khi hộp báo giá hiện "Khác giá web khách đã thấy: … → …" (mục 13.1c, 13.1d).
+11. Website 5 ngôn ngữ và giá ước tính (trên Desk tập): lọc **Yêu cầu từ website** theo **Tiếng Hàn**; dịch lời nhắn bằng Google Dịch; gửi câu mẫu 1; lập báo giá, chỉ ra ô **Ngôn ngữ gửi khách** là English và câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh."; gửi câu mẫu 3; đọc dòng **Giá ước tính khách đã thấy** và nói được việc phải làm khi hộp báo giá hiện "Khác giá web khách đã thấy: … → …" (mục 13.1c, 13.1d).
 12. Khi v1.0.2 đã lên (trên Desk tập): **Trả sớm** một đơn Trực tiếp khách báo trước 1 ngày, đọc **Phí trả phòng sớm** và **Sẽ xin hoàn cho khách**, **Nhập nơi nhận hoàn**. Mở **Trả sớm** trên một đơn dài hạn nhập tay (không bấm xác nhận): nói được 4 bước B1–B4 và chọn đúng nhánh cho 3 ví dụ ở mục 11.5.3 (rời 15/02, 03/02, 25/01). Nói được việc phải ghi trước khi **Gia hạn** đơn HĐ (mục 9.3 bước 6).

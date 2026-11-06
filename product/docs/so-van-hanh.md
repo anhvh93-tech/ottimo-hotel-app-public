@@ -1,7 +1,7 @@
 # Sổ vận hành OTTIMO – dành cho chủ đầu tư
 
 - Dành cho: chủ đầu tư (OWN). Quản lý (MGR) và lễ tân trưởng (FDL) đọc phần của mình ở mục 1.
-- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.0
+- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.1 (06/11/2026, mục 5.4 ghi rõ việc chốt giá 2027 và gia hạn ngày cuối web hiện giá)
 - Áp dụng từ: 06/11/2026. Hôm nay OTTIMO chạy thật đủ 4 trang: Desk, app nhân viên, trang khách, website 5 ngôn ngữ (form đặt phòng và giá ước tính đã bật).
 - Cách dùng: in mục 1 dán cạnh bàn làm việc. Đánh dấu ô `[ ]` khi xong. Mục 3 mở ra khi có sự cố.
 - Đọc cùng: sổ tay sử dụng `product/docs/manual/user-manual-v1.0.md`, từ điển tham số `product/docs/tham-so-quy-tac.md`, bộ hướng dẫn theo vai `product/docs/manual/guides/`.
@@ -288,7 +288,7 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 ### 5.4 Việc mang vào buổi review đầu tiên (20/11/2026)
 
 - [ ] Chỉnh các tham số còn lệch sổ tay: 8 dòng phần A và dòng `rounding.ota_rate` ở mục "Tham số trên production lệch sổ tay" của từ điển. Riêng mốc thuê tháng (`long_stay_required_from_nights`, `short_stay_max_nights`): chọn ngày cùng đội vì web phải phát hành lại cùng ngày (mục 4.2). Từ 06/11 web hiện giá theo bảng tham số đang chạy, theo quyết định của anh/chị.
-- [ ] Chốt giá 2027 và gia hạn `web_estimate.open_until`.
+- [ ] **Chốt giá 2027** (giá căn ở **Danh mục căn**, tham số giá, `special_dates` năm 2027) rồi **gia hạn `web_estimate.open_until`** tới ngày cuối đã chốt giá (ví dụ 2028-01-01 nếu chốt cả năm 2027). Chưa gia hạn thì từ **01/01/2027** web ghi "giá theo yêu cầu" cho mọi đêm từ ngày đó; khách vẫn gửi được yêu cầu, lễ tân báo giá trên Desk. Desk nhắc khi còn dưới 60 ngày, tức là từ đầu tháng 11.
 - [ ] Quyết ESC-033 (VAT 2027), hạn trước 01/12.
 - [ ] Quản lý nhập email nhận thông báo bảo mật, để đội bật cảnh báo thư (mục 2.2).
 - [ ] Hỏi đội bảo mật: đã bỏ được kiểm bảo mật buổi sáng chưa.
@@ -350,7 +350,7 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 
 | Cần gì | Ở đâu trong thư mục dự án |
 |---|---|
-| Sổ tay sử dụng (mọi bộ phận) | `product/docs/manual/user-manual-v1.0.md`. Bản HTML theo nhận diện OTTIMO: nhờ đội dựng lại khi cần |
+| Sổ tay sử dụng (mọi bộ phận) | `product/docs/manual/user-manual-v1.0.md`. Bản HTML theo nhận diện OTTIMO: nhờ đội dựng lại khi cần (sổ tay và bộ hướng dẫn sửa 06/11, bản HTML chưa dựng lại) |
 | Hướng dẫn theo vai | `product/docs/manual/guides/` – `01` chủ đầu tư và quản lý, `02` lễ tân, `03` buồng phòng, `04` bảo trì, `05` sale và CTV |
 | Tờ dán quầy | `product/docs/staff-one-pager.md` |
 | Từ điển tham số (198 tham số) | `product/docs/tham-so-quy-tac.md` |
@@ -386,3 +386,4 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | Ngày | Bản | Người | Nội dung |
 |---|---|---|---|
 | 06/11/2026 | 1.0 | BA | Bản đầu, ngày OTTIMO chạy đủ Desk, app nhân viên, trang khách, website 5 ngôn ngữ có form và giá ước tính |
+| 06/11/2026 | 1.1 | BA | Round 4 – Phản hồi & sửa. Mục 5.4: việc cần chốt ở buổi review 20/11 là giá 2027 và gia hạn `web_estimate.open_until`; chưa gia hạn thì từ 01/01/2027 web ghi "giá theo yêu cầu". Mục 7.4: bản HTML của sổ tay cần dựng lại |

@@ -271,16 +271,16 @@ Khi form bật: yêu cầu mới hiện ở menu kèm số. Mở yêu cầu → 
 
 Từ 03/11 (v1.0.1), Desk đăng tin báo yêu cầu mới vào một phòng Google Chat của quầy. Tin chỉ có mã yêu cầu, giờ và link Desk, không có chi tiết khách (khi bật mức có chi tiết khách, tệp này cập nhật). **Sale nội bộ và CTV không ở trong phòng này** và không xin vào: anh/chị xem yêu cầu trên Desk như trên. Không nhờ người trong phòng chép tin cho mình.
 
-[ẢNH: C2-39-Yêu cầu từ website, form tắt]
+[ẢNH: C2-39-Yêu cầu từ website, cột Ngôn ngữ và giá ước tính]
 
-### 6.3a Giá ước tính và khách viết tiếng Hàn, Trung, Nga (gói website LP-v2)
+### 6.3a Giá ước tính và khách viết tiếng Hàn, Trung, Nga (từ 06/11)
 
-**Giá ước tính trên website (áp dụng khi chủ đầu tư báo gói website LP-v2 đã lên và đã bật hiện giá).** Form trên ottimo.vn hiện giá ước tính cho ngắn ngày 1–29 đêm, ghi rõ: ước tính, đã gồm thuế, cho số khách đã chọn, chưa giữ phòng. Theo tháng hoặc từ 30 đêm: không có số. Số do Desk tính, cùng cách tính với **Báo giá**.
+**Giá ước tính trên website (đã bật từ 06/11).** Form trên ottimo.vn hiện giá ước tính cho ngắn ngày 1–29 đêm, ghi rõ: ước tính, đã gồm thuế, cho số khách đã chọn, chưa giữ phòng. Theo tháng hoặc từ 30 đêm: không có số. Số do Desk tính, cùng cách tính với **Báo giá**. Tới khi chủ đầu tư chỉnh xong các tham số giá còn lệch sổ tay, mốc ngắn ngày có thể thấp hơn 29 đêm: làm theo Desk. Đêm từ ngày cuối web hiện giá (mặc định 01/01/2027): web ghi "giá theo yêu cầu". Chủ đầu tư tắt giá web thì yêu cầu gửi lúc đó ghi **Khách chưa thấy giá**. Thông báo quyền riêng tư của form: bản 2026-11-04, ở trang `/privacy/` của từng ngôn ngữ; khách hỏi thì gửi link trang đó.
 - Ngăn chi tiết yêu cầu có dòng **Giá ước tính khách đã thấy** ("{số} – tính lúc {giờ}"), hoặc **Khách chưa thấy giá**.
 - Hộp báo giá hiện "Khớp giá ước tính khách đã thấy (…)", hoặc cảnh báo **"Khác giá web khách đã thấy: {cũ} → {mới}"** kèm câu "Giá theo lịch giá hôm nay khác số khách thấy trên web. Nói rõ lý do với khách khi gửi báo giá." khi giá theo lịch giá hôm nay khác số khách đã thấy trên web, hoặc "…không so sánh" khi khách xem cho ngày/số khách/hạng khác.
 - **Giá trong báo giá Desk là giá cuối.** Có cảnh báo "Khác giá web khách đã thấy": gửi báo giá kèm một câu giải thích ngắn (giá đã đổi từ lúc khách xem, hoặc căn giá thấp nhất của hạng đã có khách). Không hứa giữ số cũ; khách xin giữ thì báo người trực (quản lý) quyết.
 
-**Khách viết bằng tiếng Hàn, tiếng Trung, tiếng Nga (áp dụng từ khi chủ đầu tư báo trang ngôn ngữ đó trên ottimo.vn đã lên – gói LP-v2).** Giao diện Desk vẫn chỉ có tiếng Việt và tiếng Anh.
+**Khách viết bằng tiếng Hàn, tiếng Trung, tiếng Nga (từ 06/11 website có đủ 5 ngôn ngữ: tiếng Anh, tiếng Việt, tiếng Hàn, tiếng Trung giản thể, tiếng Nga).** Giao diện Desk vẫn chỉ có tiếng Việt và tiếng Anh.
 1. **Nhận ra khách:** **Yêu cầu từ website** có cột **Ngôn ngữ** (Tiếng Anh · Tiếng Việt · Tiếng Hàn · Tiếng Trung (giản thể) · Tiếng Nga) và lọc được theo ngôn ngữ cùng lọc trạng thái; ngăn chi tiết có dòng **Ngôn ngữ khách dùng**.
 2. **Mặc định trả lời bằng tiếng Anh.** Báo giá lập từ yêu cầu: Desk chọn sẵn **Ngôn ngữ gửi khách** = **English** cho khách tiếng Hàn, tiếng Trung (kèm câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh." ở hộp báo giá và hộp giữ chỗ), **Русский** cho khách tiếng Nga (Desk có mẫu tiếng Nga, kèm câu "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga." ở cùng hai chỗ; tin tự soạn vẫn bằng tiếng Anh). Không đổi sang Tiếng Việt; nhìn lại ô này trước khi bấm **Sao chép gửi Zalo**.
 3. **Được dùng Google Dịch** (hoặc công cụ dịch tương tự) để đọc tin khách và soạn trả lời, trên mọi màn hình Desk (chủ đầu tư cho phép 01/11). Nên dịch trong ngăn của một yêu cầu đang mở, không dịch cả trang danh sách – lời khuyên cho gọn, không phải lệnh cấm. Số tiền, ngày ở, cọc, chính sách hủy: chỉ dùng chữ Desk tạo, không qua máy dịch. Bản dịch chưa rõ: không đoán, gửi câu 2.

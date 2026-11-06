@@ -19,6 +19,7 @@
   - Chủ đầu tư vừa đổi tham số (xem **Lịch sử thay đổi**): làm theo Desk.
   - Không rõ vì sao khác, nhất là **số tiền**: vẫn làm theo Desk, nhưng **báo lễ tân trưởng ngay trong ca** kèm mã đơn. Có thể là lỗi ("P0" nếu sai tiền, mục 5.5).
 - Học thao tác ở đâu, tập bài nào: mục **5.8**.
+- Chủ đầu tư và quản lý đọc thêm: **Sổ vận hành** `product/docs/so-van-hanh.md` (việc định kỳ, khi có báo động, khi có sự cố) và **Từ điển tham số quy tắc** `product/docs/tham-so-quy-tac.md` (nghĩa, giới hạn, mức đội đề xuất của từng tham số – mục 1.4).
 - **Hiện OTTIMO có một người trực quầy giữ cả 6 vai** (quản lý, lễ tân trưởng, lễ tân, buồng phòng, bảo trì, sale), chưa chia ca. Sổ tay viết theo vai để dùng được khi có thêm người. Tới lúc đó: chỗ ghi "lễ tân trưởng", "quản lý" là chính người trực, làm bằng quyền của vai đó và luôn ghi lý do; "báo quản lý" nghĩa là ghi sổ giao ca để chủ đầu tư xem lại sáng hôm sau; "đầu ca" là lúc mở quầy, "cuối ca" là trước khi rời quầy.
 
 | Chương | Dành cho |
@@ -41,10 +42,10 @@
 | `desk.ottimo.vn` | **OTTIMO Desk** | Chủ đầu tư, quản lý, lễ tân, sale, CTV | Máy quầy, laptop; sale/CTV dùng được trên điện thoại | Đặt phòng, nhận/trả phòng, thu tiền, giấy tờ, duyệt, cài đặt |
 | `staff.ottimo.vn` | **App nhân viên** | Buồng phòng, bảo trì, lễ tân trưởng (kiểm phòng) | Điện thoại | Việc dọn, kiểm phòng, báo sự cố, phiếu sửa |
 | `g.ottimo.vn` | **Trang khách** | Khách của từng đơn | Điện thoại của khách | Làm thủ tục trước (check-in online), Wi-Fi, gửi yêu cầu trong lúc ở |
-| `ottimo.vn` | **Website** | Khách tìm hiểu | Mọi thiết bị | Giới thiệu OTTIMO; nút Zalo, gọi điện, email |
+| `ottimo.vn` | **Website** | Khách tìm hiểu, gửi yêu cầu đặt phòng | Mọi thiết bị | Giới thiệu OTTIMO bằng 5 ngôn ngữ; form **Yêu cầu đặt phòng** có giá ước tính; nút Zalo, gọi điện, email |
 
 - Trang khách không có tên đăng nhập. Mỗi đơn có một link riêng do lễ tân tạo (mục 2.9). **Từ 02/11 tới bản v1.0.3, chưa gửi link cho khách thật** (mục 2.9).
-- Form "Yêu cầu đặt phòng" trên website **đang tắt** (chủ đầu tư quyết ngày 26/10: bật khi luật sư trả lời). Khách liên hệ qua Zalo hoặc điện thoại.
+- Website ngày 06/11: form "Yêu cầu đặt phòng" **đã bật từ chiều 30/10**; đủ **5 ngôn ngữ** – tiếng Anh ở trang chính, tiếng Việt `/vi/`, tiếng Hàn `/ko/`, tiếng Trung giản thể `/zh/`, tiếng Nga `/ru/`; **giá ước tính đã bật từ 06/11**; thông báo quyền riêng tư bản **2026-11-04**, đủ 5 ngôn ngữ. Yêu cầu khách gửi hiện ở **Yêu cầu từ website** (mục 2.18). Chủ đầu tư tắt được form hoặc giá ngay trên Desk (mục 1.4).
 
 [ẢNH: C0-10-Trang khách trên điện thoại]
 
@@ -341,7 +342,10 @@ Quy tắc:
 - Thay đổi áp cho đơn tạo **sau** ngày hiệu lực.
 - Quản lý **không** sửa được hạn mức miễn phí (FOC), tỷ lệ hoa hồng, phí kênh và nhóm **Bảo mật**. Chỉ chủ đầu tư.
 - Dòng ghi **Chờ chủ đầu tư xác nhận** hoặc **Chờ luật sư/kế toán xác nhận** là giá trị tạm, vẫn đang áp.
-- **Form "Yêu cầu đặt phòng" trên website**: công tắc nằm ở nhóm **Khác**, dòng `public_booking_requests_enabled` (chưa có tên tiếng Việt), giá trị `false` là tắt. Chỉ chủ đầu tư bật. Theo quyết định của chủ đầu tư ngày 26/10, **giữ tắt** tới khi luật sư trả lời.
+- **Form "Yêu cầu đặt phòng" trên website**: công tắc nằm ở nhóm **Khác**, dòng `public_booking_requests_enabled` (chưa có tên tiếng Việt), giá trị `false` là tắt. Chỉ chủ đầu tư bật, tắt. Form **đã bật từ chiều 30/10**. Tắt có hiệu lực ngay trong ngày; khách thấy nút Zalo thay cho form.
+- **Giá ước tính trên website**: dòng `public_show_prices` (nhóm **Khác**, chưa có tên tiếng Việt), chỉ chủ đầu tư. **Đã bật từ 06/11.** Giá web sai, hoặc vừa nhập nhầm giá căn: chủ đầu tư đặt `false` ngay trên Desk; khoảng 2 phút sau web hết hiện giá, form vẫn nhận yêu cầu. Phòng Google Chat **"OTTIMO – Báo động"** nhận một tin báo công tắc đổi – đúng thiết kế. Bật lại theo luật thường: đã lưu trong ngày thì bật từ ngày mai.
+- **Ngày cuối web hiện giá**: dòng `web_estimate.open_until` (nhóm **Khác**), mặc định 2027-01-01. Đêm từ ngày này trở đi web ghi "giá theo yêu cầu", khách vẫn gửi được yêu cầu. Chủ đầu tư chốt giá năm sau rồi gia hạn; Desk nhắc khi còn dưới 60 ngày.
+- Nghĩa, giới hạn, mức đề xuất của từng tham số và các tham số đang lệch sổ tay: **Từ điển tham số quy tắc** `product/docs/tham-so-quy-tac.md`. Khi nào đổi, đổi xong kiểm gì: **Sổ vận hành** `product/docs/so-van-hanh.md` mục 4.
 
 > **Lỗi đang sửa – Wi-Fi (sửa ở v1.0.3 hoặc v1.0.4):** Desk chưa có chỗ nhập Wi-Fi của cơ sở, nên trang khách chưa hiện Wi-Fi (từ bản `v1.0.0`, ngày đến và trong lúc ở trang khách ghi "hỏi lễ tân"). Tới khi sửa xong: khách xem **thẻ Wi-Fi trong căn**; lễ tân đọc tên mạng và mật khẩu Wi-Fi khi khách hỏi. Đừng nói khách "xem Wi-Fi trên trang khách".
 
@@ -1415,12 +1419,14 @@ Form "Yêu cầu đặt phòng" trên ottimo.vn **đã bật từ chiều 30/10*
 
 Yêu cầu mới hiện ở menu kèm số, hạn trả lời 15 phút. Mở yêu cầu → **Nhận xử lý** → **Báo giá** hoặc **Tạo đơn**; không thành đơn thì **Đóng – không thành đơn**. Chi tiết theo bộ phận (tin Google Chat từ v1.0.1, xóa theo yêu cầu người gửi): bộ hướng dẫn `guides/02-le-tan.md` mục 13.1–13.1d.
 
-**Giá ước tính trên website (áp dụng khi chủ đầu tư báo gói website LP-v2 đã lên và đã bật hiện giá).** Form trên ottimo.vn hiện giá ước tính cho ngắn ngày 1–29 đêm, ghi rõ: ước tính, đã gồm thuế, cho số khách đã chọn, chưa giữ phòng. Theo tháng hoặc từ 30 đêm: không có số. Số do Desk tính, cùng cách tính với **Báo giá**.
+Thông báo quyền riêng tư của form: bản **2026-11-04**, đủ 5 ngôn ngữ, ở trang `/privacy/` của từng ngôn ngữ (ví dụ `ottimo.vn/privacy/`, `ottimo.vn/vi/privacy/`). Khách hỏi OTTIMO dùng thông tin trong form thế nào: gửi link trang đó theo ngôn ngữ của khách. Khách xin xem, sửa, xóa dữ liệu: ghi lại và chuyển chủ đầu tư; người gửi form xin xóa yêu cầu của mình: `guides/02-le-tan.md` mục 13.1b.
+
+**Giá ước tính trên website (đã bật từ 06/11).** Form trên ottimo.vn hiện giá ước tính cho ngắn ngày 1–29 đêm, ghi rõ: ước tính, đã gồm thuế, cho số khách đã chọn, chưa giữ phòng. Theo tháng hoặc từ 30 đêm: không có số. Số do Desk tính, cùng cách tính với **Báo giá**, theo tham số đang chạy. Tới khi chủ đầu tư chỉnh xong các tham số giá còn lệch sổ tay (ví dụ mốc ngắn ngày đang thấp hơn 29 đêm), số trên Desk và web có thể khác sổ tay: làm theo Desk (mục **Cách đọc sổ tay**). Đêm từ ngày cuối web hiện giá (mặc định 01/01/2027, mục 1.4): web ghi "giá theo yêu cầu"; lập báo giá trên Desk như mọi yêu cầu. Chủ đầu tư tắt giá web thì yêu cầu gửi lúc đó ghi **Khách chưa thấy giá**.
 - Ngăn chi tiết yêu cầu có dòng **Giá ước tính khách đã thấy** ("{số} – tính lúc {giờ}"), hoặc **Khách chưa thấy giá**.
 - Hộp báo giá hiện "Khớp giá ước tính khách đã thấy (…)", hoặc cảnh báo **"Khác giá web khách đã thấy: {cũ} → {mới}"** kèm câu "Giá theo lịch giá hôm nay khác số khách thấy trên web. Nói rõ lý do với khách khi gửi báo giá." khi giá theo lịch giá hôm nay khác số khách đã thấy trên web, hoặc "…không so sánh" khi khách xem cho ngày/số khách/hạng khác.
 - **Giá trong báo giá Desk là giá cuối.** Có cảnh báo "Khác giá web khách đã thấy": gửi báo giá kèm một câu giải thích ngắn (giá đã đổi từ lúc khách xem, hoặc căn giá thấp nhất của hạng đã có khách). Không hứa giữ số cũ; khách xin giữ thì báo lễ tân trưởng hoặc quản lý quyết.
 
-**Khách viết bằng tiếng Hàn, tiếng Trung, tiếng Nga (áp dụng từ khi chủ đầu tư báo trang ngôn ngữ đó trên ottimo.vn đã lên – gói LP-v2).** Giao diện Desk vẫn chỉ có tiếng Việt và tiếng Anh.
+**Khách viết bằng tiếng Hàn, tiếng Trung, tiếng Nga (từ 06/11 website có đủ 5 ngôn ngữ: tiếng Anh, tiếng Việt, tiếng Hàn, tiếng Trung giản thể, tiếng Nga).** Giao diện Desk vẫn chỉ có tiếng Việt và tiếng Anh.
 1. **Nhận ra khách:** **Yêu cầu từ website** có cột **Ngôn ngữ** (Tiếng Anh · Tiếng Việt · Tiếng Hàn · Tiếng Trung (giản thể) · Tiếng Nga) và lọc được theo ngôn ngữ cùng lọc trạng thái; ngăn chi tiết có dòng **Ngôn ngữ khách dùng**.
 2. **Mặc định trả lời bằng tiếng Anh.** Báo giá lập từ yêu cầu: Desk chọn sẵn **Ngôn ngữ gửi khách** = **English** cho khách tiếng Hàn, tiếng Trung (kèm câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh." ở hộp báo giá và hộp giữ chỗ), **Русский** cho khách tiếng Nga (Desk có mẫu tiếng Nga, kèm câu "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga." ở cùng hai chỗ; tin tự soạn vẫn bằng tiếng Anh). Không đổi sang Tiếng Việt; nhìn lại ô này trước khi bấm **Sao chép gửi Zalo**.
 3. **Được dùng Google Dịch** (hoặc công cụ dịch tương tự) để đọc tin khách và soạn trả lời, trên mọi màn hình Desk (chủ đầu tư cho phép 01/11). Nên dịch trong ngăn của một yêu cầu đang mở, không dịch cả trang danh sách – lời khuyên cho gọn, không phải lệnh cấm. Số tiền, ngày ở, cọc, chính sách hủy: chỉ dùng chữ Desk tạo, không qua máy dịch. Bản dịch chưa rõ: không đoán, gửi câu 2. **Không** dùng **Dịch trang** (hay công cụ dịch nào) ở màn **Giấy tờ & khai báo** và màn xem ảnh giấy tờ: tờ **Your ID details** bản v2 chỉ báo khách rằng tin nhắn có thể được dịch (SEC-on-plan-v1.0.4 mục 6.3). **Khách nói không muốn tin nhắn của mình được dịch** (mọi khách, không riêng ngày thay tờ): không đưa tin của khách đó qua dịch vụ dịch, và ghi mã đơn `OTM-…` (khách website chưa có đơn: mã yêu cầu `REQ-…`) cùng chữ "không dịch" vào **trang Không dịch** – trang riêng ở đầu sổ giao ca, dùng chung cho mọi ca và mọi ngày, chỉ mã; lập đơn từ yêu cầu đó thì ghi thêm mã đơn vào cùng dòng; sổ giao ca của ca đó vẫn ghi một dòng nhắc. Trước khi dịch tin của một khách, mở trang Không dịch: mã của khách có trong trang với chữ "không dịch" hoặc "chưa xem v2" (`guides/02-le-tan.md` mục 7.2) thì không dịch. Cách ghi đủ: `guides/02-le-tan.md` mục 13.1d.
@@ -1430,7 +1436,7 @@ Yêu cầu mới hiện ở menu kèm số, hạn trả lời 15 phút. Mở yê
    - Câu 3 – gửi báo giá, đặt ngay trước khối chữ chép từ Desk: "Here is your quote for request {code}. The room is not yet held. When you are ready, reply to this message and we will hold it for you and send the deposit details." Không kèm mã VietQR trong tin này.
 5. **Hạn trả lời** như mọi yêu cầu website. Trang cảm ơn đã hứa với khách: gửi trong 07:00–22:00 → trả lời trong 60 phút; gửi ngoài giờ → trước 09:00 sáng hôm sau. Dịch không phải lý do trễ hạn: chưa báo giá kịp thì gửi câu 1 trong hạn.
 
-[ẢNH: C2-39-Yêu cầu từ website, form tắt]
+[ẢNH: C2-39-Yêu cầu từ website, cột Ngôn ngữ và giá ước tính]
 
 ### 2.19 Điều phối buồng phòng trên Desk
 
@@ -1994,7 +2000,6 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Khách tự gửi yêu cầu về dữ liệu cá nhân | v1.3 | Chủ đầu tư xử lý tay |
 | Đếm minibar trên app buồng phòng | Chưa xếp lịch | Buồng phòng báo số, lễ tân nhập |
 | Vai "Kế toán" riêng | Đang chờ chủ đầu tư quyết (đội đề xuất v1.1) | Chủ đầu tư/quản lý làm cùng kế toán (mục 4.3) |
-| Form "Yêu cầu đặt phòng" trên website | Có sẵn, đang tắt tới khi luật sư trả lời | Zalo, điện thoại |
 
 **Lỗi đang sửa** (đội đã biết, đang sửa; khi bản sửa lên, chủ đầu tư báo lại):
 
@@ -2023,6 +2028,8 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 <!-- BUG-R3-021 (phần Desk), 023 (phần lọc), 024…031, 032, 041, 042, 043, 044, 045, FB-R3-ARC-BEB-WA-04 (bug-list.md). BUG-R4-026 (P3, đề xuất QA 04/11 – rounds/round-04/qa/v1.0.2-dk10-b18.md mục 9.6, ORC cấp số khi gộp; đích v1.0.4): dòng "Yêu cầu hoàn thay thế". Theo ORC: ghi "đang sửa", không hứa ngày. Bản 1.3 bỏ dòng 019, 020, 022 (Closed ở rc.4). -->
 
 ### 5.7 Lịch sử sổ tay
+
+**Sửa 06/11/2026, chưa đánh số bản** (BA, Round 4 – Phản hồi & sửa; quyết định của chủ đầu tư 06/11: bật giá web với tham số đang chạy). **Áp dụng ngay.** Website theo thực tế 06/11: form đã bật từ 30/10 (bỏ câu "đang tắt tới khi luật sư trả lời"), 5 ngôn ngữ, giá ước tính đã bật, thông báo quyền riêng tư bản 2026-11-04 – mục 0.1, 2.18; công tắc `public_show_prices` và ngày cuối có giá `web_estimate.open_until` – mục 1.4; bỏ dòng form website ở bảng việc chưa có – mục 5.6; dòng trỏ tới sổ vận hành và từ điển tham số – mục **Cách đọc sổ tay**, 1.4. Ảnh C2-39 cần chụp lại (ảnh đang có là màn form tắt; `screenshot-list.md` đã sửa), QA kiểm che dữ liệu trước khi đưa vào. Bản HTML `ottimo-manual-v1.0.html` cần dựng lại. Số bản ghi ở lần đánh số tới.
 
 **Sửa 05/11/2026, chưa đánh số bản** (BA; ESC-045 câu 1 và 3, DOM #72 thẻ 06): một giá mọi đêm, không còn +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt – mục 1.3, 5.2; phụ thu người vượt định mức từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn – mục 1.3, 2.12, 5.2. Cùng lần chuyển giá (bảng giá 01/11; DOM #85 thẻ 01–03, UXD #85 thẻ 02–03): không giảm theo số đêm – mục 1.3, 2.4, 2.5 bước 4 và 8, 2.12, 5.2; dài hạn từ 30 đêm – mục 2.5, 2.7, 4.2, 5.2; nhận sớm không phụ thu từ 11:00, câu nói với khách giữ 12:00 – mục 2.10, 5.2; ví dụ trả sớm 5.600.000 → hoàn 800.000 – mục 2.14a; câu kiểm "ngày đến thứ Sáu, 2 đêm = 1.600.000" thay câu 1 đêm bị chặn tối thiểu 2 đêm. Áp dụng từ ngày chủ đầu tư chuyển giá. Áp dụng ngay (ARC BUG-R4-050 mục 2): khách đi trước 06:00 thì từ 06:00 làm **Trả phòng** với giờ Desk điền sẵn, không gõ giờ trước 06:00, giờ rời thật ghi sổ giao ca – mục 2.14a. Sau khi gộp #72: khách đổi căn giữa kỳ thì kiểm trùng minibar căn cũ trước khi bấm **Trả phòng**, có **Ghi điều chỉnh**; **Bỏ cả dòng** chỉ cho dòng minibar căn cũ bị ghi trùng, ghi sổ giao ca – mục 2.14 (UXD #72 thẻ 10, SEC #72 thẻ 05). Sau #85 (SEC #85 thẻ 01, DOM #85 thẻ 04, UXD #85 thẻ 05–07): mục 4.2 bỏ tỷ lệ trong ngoặc sau **Bạn nhận**, Desk tự điền theo tỷ lệ chủ đầu tư cài; khách đi trước 06:00 mà quá 12:00 mới **Trả phòng** thì gõ 12:00, ghi giờ rời thật ở ghi chú giờ trả – mục 2.14a; trích đủ "Đã giảm …% vì ở từ 7 đêm (BR-107)", chữ cũ nằm ở tiêu đề cột – mục 1.3, 2.5 bước 8; tiêu đề 5.2 ngắn lại, phạm vi xuống dòng dưới, dòng **Kiểm sau khi chuyển giá** tách riêng; gạch **Kiểm trùng** mục 2.14 chia 4 gạch con; khách Trực tiếp/CTV báo trong ngày rời: không hoàn tiền phòng, phụ thu người các đêm bỏ vẫn hoàn 100 % (có thì vẫn có **một** yêu cầu hoàn, không có thì "Không có khoản hoàn."), dòng phí "Phí trả phòng sớm (báo trước 0 ngày)" – mục 2.14a, 5.2 (QA BR-428-02 giờ thật 05/11, DOM #89 thẻ 01); nhãn **Bạn nhận** (CTV) và **Sale nhận** (sale) trích đủ, không ghi tỷ lệ – mục 4.2 (UXD #89 thẻ 01). Số bản ghi cùng lần gộp PR #69.
 

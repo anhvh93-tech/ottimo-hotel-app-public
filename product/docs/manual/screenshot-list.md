@@ -105,7 +105,7 @@
 | C2-36 | Bước 3 – **Khách lấy hóa đơn công ty** bật | Lễ tân | Công ty giả, MST giả | – |
 | C2-37 | Hộp **Thu công nợ · …** | Lễ tân | Đơn có công nợ | – |
 | C2-38 | **Nhật ký tiền → Hoàn tiền** – **Chi hoàn tiền mặt** | Lễ tân (không phải người tạo yêu cầu) | Khoản hoàn tiền mặt đã duyệt | – |
-| C2-39 | **Yêu cầu từ website** – thông báo **Form đặt phòng trên website đang tắt** | Lễ tân | Form tắt (mặc định) | – |
+| C2-39 | **Yêu cầu từ website** – danh sách có cột **Ngôn ngữ**, ngăn chi tiết có dòng **Giá ước tính khách đã thấy** (chụp lại sau 06/11; ảnh cũ là màn form tắt) | Lễ tân | Form bật, giá ước tính bật; yêu cầu giả tiếng Hàn và tiếng Anh, tên và liên hệ giả | Chỉ dùng yêu cầu giả; **che** tên, SĐT, email nếu lỡ là khách thật |
 | C2-40 | **Buồng phòng** trên Desk – hộp **Tạo việc buồng phòng** | Lễ tân trưởng | Có việc trong ngày | – |
 
 ## Chương 3 – Buồng phòng (điện thoại 390 × 844)
