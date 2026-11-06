@@ -5,6 +5,8 @@
   - lịch có bảng điều kiện QC R4 ĐK-1…8 kèm hạn (mục 2, cuối "Thứ tự và lịch đề xuất");
   - tiêu chí QC điều 8 thêm diễn tập khôi phục trước production nếu bản có migration (ĐK-2);
   - V5-08 mở rộng theo ĐK-5 và theo việc BA đã làm; V5-53 bỏ BUG-R3-047 (đã sửa ở v1.0.4);
+  - Phản hồi & sửa theo SEC (06/11 tối): thêm V5-74 (runbook sự cố SR-INC-01), quyết định 11;
+  - theo báo cáo UXD Gói 2 (06/11 tối): 3 khóa mục 4.19 vào V5-23, thêm V5-25 (`weekend_nights`), R1 và R4 vào backlog (quyết định 12–14);
   - mục 6 thêm quyết định 6–10; phụ lục I (điều chỉnh sau cổng QC, gồm hai cảnh báo Dependabot). Bảng đếm mục 7 giữ số QC đã kiểm, tác động ghi ngay dưới bảng.
 - Chế độ: **vận hành thực tế**. Đây là round bảo trì đầu tiên. Chủ đầu tư (INV) chỉ review định kỳ để cải thiện hoặc sửa lỗi. Nguyên văn 06/11: "project này kéo dài quá rồi".
 - Đầu vào:
@@ -77,7 +79,7 @@
 Thứ tự làm như sau:
 
 1. **Gói 0** trước, và không đổi mã.
-2. ARC chốt hợp đồng 0.3.13 cho các mục cần trường mới hoặc đổi hợp đồng: V5-10, V5-13, V5-1A, V5-30 (V5-19 nếu làm). BE, FE và MOB chỉ code sau khi hợp đồng chốt.
+2. ARC chốt hợp đồng 0.3.13 cho các mục cần trường mới hoặc đổi hợp đồng: V5-10, V5-13, V5-1A, V5-30 (V5-19 nếu làm; V5-25 nếu ARC thấy cần). BE, FE và MOB chỉ code sau khi hợp đồng chốt.
 3. **Gói 1–4 và phần bắt buộc của Gói 6** làm song song.
 4. **Gói 5** làm sau cùng, nếu kịp. Mục không kịp sang v1.0.6, không chặn QC.
 
@@ -92,7 +94,7 @@ Thứ tự làm như sau:
 | V5-05 | FB-R4-SEC-OPS-LPV2S4-01: OPS đã sửa chữ runbook LP-v2 r2.3 (commit `cef4d688`) và thêm câu kiểm S0 của BUG-R4-055. SEC xác nhận rồi đóng thẻ. | OPS → SEC | Thẻ Closed |
 | V5-06 | **Backlog đúng trạng thái** (PO):<ul><li>story đã lên production chuyển "Xong" (phụ lục B1);</li><li>dòng mục 5.6 đã vào v1.0.4 ghi "Xong v1.0.4";</li><li>thêm mục 5.7 trỏ về kế hoạch này.</li></ul>**PO làm tối 06/11:** 19 story chuyển **Xong (production)** (gồm 9 story LP-v1 US-146…154, phụ lục I); 111 dòng mục 5.6, 5.6a, 5.6b ghi đích mới; mục 5.7. | PO → BA | Backlog không còn story "Mới" đã chạy |
 | V5-07 | **Theo dõi lỗi 422 `ID_NUMBER_DETECTED`** tới 01/12 (4 tuần kể từ v1.0.2). Báo số ở review 20/11. | DATA + OPS → PO, SEC | Báo cáo tuần |
-| V5-08 | **Sổ tay, hướng dẫn, tờ dán quầy: bỏ câu cũ về check-in online** ("tạm dừng", "tới v1.0.3, chưa gửi link"). Mở rộng theo QC R4 ĐK-5. Phạm vi:<ul><li>mọi chỗ QC liệt kê: sổ tay 0.1, 2.4, 2.9, 4.2, 5.6 (dòng 47, 808, 1006, 1760, 2013 lúc QC kiểm); `guides/00-index.md` dòng 73; `guides/01` 15.4; `guides/02` 17.3; `guides/05` 8.3; `guides/screenshot-additions.md` dòng 8;</li><li>cộng 9 chỗ BA grep thêm (`rounds/round-05/outputs/BA/report.md` mục 1): sổ tay 0.9, 5.7, 5.8; `00` mục 4 bước 10; `01` 14.1 và đoạn mở đầu 15; `02` 4.5, 9.7, 16.2, đoạn mở đầu 17, 20.3; `05` 4.2, 7.2, đoạn mở đầu 8;</li><li>cộng ĐK-4 (c): sổ vận hành nhắc diễn tập khôi phục sau 35 ngày thay "hằng quý" (SEC đồng ý, `rounds/round-04/reviews/SEC-on-bug-r4-054.md` B1);</li><li>ghi lại câu nào còn đúng: Wi-Fi trang khách "hỏi lễ tân" (V5-58), mở lại link sau "Bổ sung tại quầy" (V5-5A), sale và CTV không gửi link;</li><li><b>sửa thêm (PO 06/11 tối):</b> câu "đơn giữ chỗ cũng hiện nút <b>Tạo link check-in online</b>, Desk luôn từ chối" <b>sai từ v1.0.4</b>. BUG-R3-047 đã sửa (`5539b7e6`): Desk chỉ hiện mục link cho đơn đã xác nhận. Chỗ còn câu này: sổ tay 2.4, 2.9 (khung đầu mục và bước 1), 5.6; `guides/02` 4.5 và 17.3; `guides/05` 4.2 (dòng "Khung đơn giữ chỗ hiện…"; sale, CTV không thấy mục link). Thay bằng "đơn giữ chỗ chưa có link: xác nhận cọc trước";</li><li>gộp #69 (đang xung đột với `main`, cùng 7 tệp) rồi đánh số bản sổ tay và bộ hướng dẫn; báo PO số bản để ghi release notes (V5-01);</li><li>PO: `staff-one-pager.md` Tờ 1 (thêm khối check-in online theo sổ tay 2.9 và SEC N4–N6), Tờ 2a (bỏ khối tạm dừng, bỏ các câu giữ chỗ v1.0.4 đã làm sai), `day-one-guide.md` mục 10 (dòng check-in ghi "hết hiệu lực từ 06/11"). Đã làm tối 06/11. Chờ DOM (phần giữ chỗ), SEC đọc lại. <b>INV in lại Tờ 1 và Tờ 2a</b> sau khi đội báo đọc xong, gỡ bản cũ cùng lúc.</li></ul>Điều kiện SEC N5 đã có: check-in online mở lại 06/11 14:22.<br>**Tình trạng 06/11 tối:** BA đã sửa chữ (`4d25f5b7`, ghi "chưa đánh số bản"); PO đã sửa tờ dán quầy và hướng dẫn ngày D. Còn: dòng "sửa thêm", gộp #69, review. HTML sổ tay dựng lại ở V5-04. | BA, PO → SEC, UXD, DOM (tờ dán quầy) | 10/11 (hết Gói 0). `grep -n "tạm dừng\|chưa gửi link"` trong `product/docs/manual/` chỉ còn câu đúng sự thật; không còn câu "đơn giữ chỗ cũng hiện nút link"; #69 gộp hoặc đóng kèm lý do; INV đã in lại Tờ 1, Tờ 2a |
+| V5-08 | **Sổ tay, hướng dẫn, tờ dán quầy: bỏ câu cũ về check-in online** ("tạm dừng", "tới v1.0.3, chưa gửi link"). Mở rộng theo QC R4 ĐK-5. Phạm vi:<ul><li>mọi chỗ QC liệt kê: sổ tay 0.1, 2.4, 2.9, 4.2, 5.6 (dòng 47, 808, 1006, 1760, 2013 lúc QC kiểm); `guides/00-index.md` dòng 73; `guides/01` 15.4; `guides/02` 17.3; `guides/05` 8.3; `guides/screenshot-additions.md` dòng 8;</li><li>cộng 9 chỗ BA grep thêm (`rounds/round-05/outputs/BA/report.md` mục 1): sổ tay 0.9, 5.7, 5.8; `00` mục 4 bước 10; `01` 14.1 và đoạn mở đầu 15; `02` 4.5, 9.7, 16.2, đoạn mở đầu 17, 20.3; `05` 4.2, 7.2, đoạn mở đầu 8;</li><li>cộng ĐK-4 (c): sổ vận hành nhắc diễn tập khôi phục sau 35 ngày thay "hằng quý" (SEC đồng ý, `rounds/round-04/reviews/SEC-on-bug-r4-054.md` B1);</li><li>ghi lại câu nào còn đúng: Wi-Fi trang khách "hỏi lễ tân" (V5-58), mở lại link sau "Bổ sung tại quầy" (V5-5A), sale và CTV không gửi link;</li><li><b>sửa thêm (PO 06/11 tối):</b> câu "đơn giữ chỗ cũng hiện nút <b>Tạo link check-in online</b>, Desk luôn từ chối" <b>sai từ v1.0.4</b>. BUG-R3-047 đã sửa (`5539b7e6`): Desk chỉ hiện mục link cho đơn đã xác nhận. Chỗ còn câu này: sổ tay 2.4, 2.9 (khung đầu mục và bước 1), 5.6; `guides/02` 4.5 và 17.3; `guides/05` 4.2 (dòng "Khung đơn giữ chỗ hiện…"; sale, CTV không thấy mục link). Thay bằng "đơn giữ chỗ chưa có link: xác nhận cọc trước";</li><li>gộp #69 (đang xung đột với `main`, cùng 7 tệp) rồi đánh số bản sổ tay và bộ hướng dẫn; báo PO số bản để ghi release notes (V5-01);</li><li>PO: `staff-one-pager.md` Tờ 1 (thêm khối check-in online theo sổ tay 2.9 và SEC N4–N6), Tờ 2a (bỏ khối tạm dừng, bỏ các câu giữ chỗ v1.0.4 đã làm sai), `day-one-guide.md` mục 10 (dòng check-in ghi "hết hiệu lực từ 06/11"). Đã làm tối 06/11. Chờ DOM (phần giữ chỗ), SEC đọc lại. <b>INV in lại Tờ 1 và Tờ 2a</b> sau khi đội báo đọc xong, gỡ bản cũ cùng lúc.</li></ul>Điều kiện SEC N5 đã có: check-in online mở lại 06/11 14:22.<br>**Tình trạng 06/11 tối:** BA đã sửa chữ (`4d25f5b7`, ghi "chưa đánh số bản"); PO đã sửa tờ dán quầy và hướng dẫn ngày D. SEC duyệt có điều kiện (`rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md`):<ul><li>"gửi nhầm người" thêm ghi sổ giao ca và báo chủ đầu tư trong ngày ở sổ tay 2.9, `guides/02` 17.3, `guides/01` 14.1 (FB-R5-SEC-BA-01, Major, hạn **08/11**);</li><li>Tờ 1: PO đã sửa FB-R5-SEC-PO-01, 02, 03; in sau khi SEC đọc lại dòng "Gửi nhầm người". Tờ 2a: SEC cho in, phần giữ chỗ chờ DOM.</li></ul>Còn: BA-01, dòng "sửa thêm", gộp #69, DOM đọc Tờ 2a. HTML sổ tay dựng lại ở V5-04. | BA, PO → SEC, UXD, DOM (tờ dán quầy) | 10/11 (hết Gói 0). `grep -n "tạm dừng\|chưa gửi link"` trong `product/docs/manual/` chỉ còn câu đúng sự thật; không còn câu "đơn giữ chỗ cũng hiện nút link"; #69 gộp hoặc đóng kèm lý do; INV đã in lại Tờ 1, Tờ 2a |
 
 ### Gói 1 – Tiền và trả phòng ở quầy (bắt buộc)
 
@@ -118,8 +120,9 @@ UXD duyệt mọi chữ. CPY duyệt chữ hướng khách (EN dẫn, VI hỗ tr
 | V5-20 | Bỏ chữ theo mức cũ:<ul><li>"Từ 28 đêm…" (`field.LONG_STAY_REQUIRES_CONTRACT`, `bk.long_body`, `stay.long_hint`);</li><li>"trước giảm theo số đêm";</li><li>nhãn `bk.src_weekend` "+15 %";</li><li>`sale.nights_all`.</li></ul>Báo giá không tách đêm thứ Sáu, thứ Bảy. Đổi số người thì bảng tổng tính lại. | H10, FB-R4-UXD-FE-PR82-02, FB-R4-ARC-FE-PR82-02 | UXD → FE-A → DOM, UXD, QA |
 | V5-21 | **Tham số trên Desk:**<ul><li>tên tiếng Việt cho các khóa còn hiện mã. Ưu tiên khóa INV phải chỉnh: B2–B11 của hướng dẫn chuyển giá, `rounding.*`, `early_checkin_tiers`; lấy tên từ từ điển;</li><li>câu "nằm ngoài khoảng" cho giá trị dạng chữ;</li><li>`ota_base_rate`: hiện tên và câu "Không cần nhập – đơn OTA lấy giá đêm niêm yết". **Không làm trình nhập theo nhóm căn** (quyết định PO, mục 6).</li></ul> | H10 (`params.k.*`), backlog 5.6b, việc ORC 06/11 (`ota_base_rate`) | UXD → FE-A → DOM, UXD |
 | V5-22 | Hộp **Đặt phòng mới**:<ul><li>câu giá ngoài sàn–trần có số thật;</li><li>ô OTA để trống nói rõ hệ quả;</li><li>không hiện "0 đ" khi máy chủ sẽ tính theo lịch giá;</li><li>phần còn lại của UXD-FE-PR70-02, nếu UXD thấy còn.</li></ul> | BUG-R4-040, FB-R4-UXD-FE-PR70-03/04/06 | ARC (trường `min`/`max`) → BE + FE-A → UXD, QA |
-| V5-23 | **Một lượt sửa chữ sai sự thật** (gom các chỗ dưới đây):<ul><li>phí trả sớm báo trong ngày rời (FB-R4-DOM-UXD-PR89-02);</li><li>BUG-R2-094, 096, 098, 100;</li><li>BUG-R2-218 (trang khách);</li><li>BUG-R3-028, 035, 051, 055;</li><li>`folio.adjust_night_help_internal`;</li><li>khóa chung `error.INVALID_TRANSITION_generic`;</li><li>đơn vị tiền trong `error.DEPOSIT_INSUFFICIENT` (UXD P440-06);</li><li>hộp xanh "Gửi mã QR…" khi chưa cài tài khoản nhận;</li><li>U+2011 cho "2-step" (CPY P401-11);</li><li>câu mục đích xử lý dữ liệu cạnh ô email nhân viên (FB-R4-SEC-ARC-EM-13, Nghị định 13);</li><li>câu "Bạn nhận (…)" đủ đuôi cho CTV và sale (FB-R4-UXD-BA-PR89-01);</li><li>UXD dọn câu cũ `rooms.night_auto` ở `design/content-guide.md` dòng 1335 và khóa thừa `fo.tabs.holds` ở `gen_strings.py` (ghi chú QA bug list v1.0.4).</li></ul> | các nguồn ghi trong cột Việc | UXD (+ CPY chữ khách) → FE-A/FE-B/MOB → UXD, QA |
+| V5-23 | **Một lượt sửa chữ sai sự thật** (gom các chỗ dưới đây):<ul><li>phí trả sớm báo trong ngày rời (FB-R4-DOM-UXD-PR89-02);</li><li>BUG-R2-094, 096, 098, 100;</li><li>BUG-R2-218 (trang khách);</li><li>BUG-R3-028, 035, 051, 055;</li><li>`folio.adjust_night_help_internal`;</li><li>khóa chung `error.INVALID_TRANSITION_generic`;</li><li>đơn vị tiền trong `error.DEPOSIT_INSUFFICIENT` (UXD P440-06);</li><li>hộp xanh "Gửi mã QR…" khi chưa cài tài khoản nhận;</li><li>U+2011 cho "2-step" (CPY P401-11);</li><li>câu mục đích xử lý dữ liệu cạnh ô email nhân viên (FB-R4-SEC-ARC-EM-13, Nghị định 13);</li><li>câu "Bạn nhận (…)" đủ đuôi cho CTV và sale (FB-R4-UXD-BA-PR89-01);</li><li>UXD dọn câu cũ `rooms.night_auto` ở `design/content-guide.md` dòng 1335 và khóa thừa `fo.tabs.holds` ở `gen_strings.py` (ghi chú QA bug list v1.0.4);</li><li>3 khóa Desk UXD phát hiện thêm (`rounds/round-05/outputs/UXD/copy-v1.0.5.md` mục 4.19; PO đưa vào 06/11 tối, quyết định 12): `fo.rack.empty_body` (viết cứng "10 căn"), `desk_code.channel_off` và `error.DELIVERY_CHANNEL_DISABLED` (chỉ tới "Tham số › Kênh gửi mã", chỗ không có trên Desk).</li></ul> | các nguồn ghi trong cột Việc | UXD (+ CPY chữ khách) → FE-A/FE-B/MOB → UXD, QA |
 | V5-24 | **Tiếng Nga:**<ul><li>7 chuỗi hướng khách có từ cấm "апартаменты" (CPY);</li><li>font chữ Nga ở ô mã và Wi-Fi bị CSP chặn.</li></ul>Chuỗi nằm trong bản thông báo dữ liệu thì để tới bản thông báo kế tiếp (backlog B-PN). | decision-log 04/11, BUG-R4-017 | CPY → FE-B/MOB → SEC (font, CSP), UXD |
+| V5-25 | **`weekend_nights`: Desk không lưu được dạng đang chạy** (BE, cùng đợt V5-21).<ul><li>Validator `product/services/api/src/modules/platform/internal/parameter-rules.ts` dòng 180–187 chỉ nhận số 1–7.</li><li>Giá trị đang chạy, `production-defaults.ts` và hai bộ tính giá (`pricing.service.ts` dòng 165, `quote-pricing.ts` dòng 305) dùng `Weekday[]` (`["FRI","SAT"]`).</li><li>Hậu quả: lưu đúng mức từ điển đề xuất (`["FRI","SAT"]`) bị 422. Lưu dạng số thì lưu được, nhưng bộ tính giá không còn nhận ra đêm cuối tuần.</li><li>Sửa: validator nhận `Weekday[]` (MON…SUN, không trùng, ít nhất 1); dạng số bị từ chối với câu báo đúng. Test: lưu `["FRI","SAT"]` qua API tham số được; lưu `[5,6]` bị 422; báo giá thử sau khi lưu vẫn nhận thứ Sáu, thứ Bảy là cuối tuần. ARC xem có cần ghi rõ kiểu trong hợp đồng 0.3.13 không.</li></ul>Hiện chưa sai tiền vì `weekend_uplift_pct` = 0 %. **Phải lên trước khi chủ đầu tư chỉnh tham số cuối tuần.** Mã lỗi: QA ghi (PO dẫn khi có). | Báo cáo UXD Round 5 mục 4 ý R5 (`rounds/round-05/outputs/UXD/report.md`), ORC kiểm mã 06/11 | ARC (hợp đồng, nếu cần) → BE → DOM, QA |
 
 ### Gói 3 – Việc có hạn cứng (bắt buộc)
 
@@ -135,7 +138,7 @@ Quy tắc: nếu tới **25/11** v1.0.5 chưa lên production thì PO + ORC tác
 | ID | Việc | Nguồn | Vai |
 |---|---|---|---|
 | V5-40 | Desk ép **lễ tân trưởng** bật 2 bước (`front_desk_lead` vào `MFA_REQUIRED_ROLES`). BA sửa dòng Lễ tân ở `02` 1.7. | Release notes v1.0.4 "Chưa có", FB-R4-PO-BA-032-07 | BE-A + FE-A → SEC, DOM; BA |
-| V5-41 | Nâng gói gửi thư `nodemailer` lên ≥ 10.1.7. | SEC (release notes v1.0.4 ghi chú kỹ thuật) | INT/BE → SEC |
+| V5-41 | **Nâng gói gửi thư `nodemailer` lên ≥ 10.1.7** (6 cảnh báo Dependabot #4–#6, #15–#17 = 3 advisory `addressparser` × 2 manifest). Tiêu chí nghiệm thu (SEC `rounds/round-05/outputs/SEC/dependabot-triage.md` mục 2.3):<ol><li>ghim đúng bản 10.x mới nhất (≥ 10.1.7; hiện 10.3.1, đủ 2 tuần tuổi vào 12/11) ở `product/integrations/package.json`, không thêm `pnpm.overrides`;</li><li>sinh lại lockfile chỉ cho gói này;</li><li>chạy `smtp.test.ts` và `infra/server/test/mail-test-send.test.sh`;</li><li>`mapSmtpError` không log `err.permanent` hay `info.serverMessageId` nếu chúng chứa địa chỉ;</li><li>chạy `mail-test` qua relay staging trước khi phát hành (10.1.x đổi cách chạy phiên SMTP);</li><li>đóng PR Dependabot #9 và #11 (ghim 10.1.4);</li><li>sau khi gộp, 6 cảnh báo chuyển `fixed`.</li></ol>Không dismiss cảnh báo trên GitHub. Nếu v1.0.5 trễ quá **20/11**, ORC báo SEC xem lại. | SEC (release notes v1.0.4 ghi chú kỹ thuật; SEC phân loại Dependabot 06/11) | INT/BE → SEC |
 | V5-42 | Worker không ghi `err.message`. | FB-R4-SEC-BE-BED-02, BED-03 | BE-D → SEC |
 | V5-43 | Siết `serializeSchema('Me')`. Gồm V104-07. Controller ghi `action` cho thư đổi tài khoản nhận (V104-08 phần còn lại). | FB-R4-SEC-BE-C0312-02, V104-07, V104-08 | BE-A → SEC, ARC |
 | V5-44 | Sửa hai chỗ phụ thuộc chữ máy chủ:<ul><li>thay dò chữ `detail` của 409 bằng trường hợp đồng (P4-41);</li><li>ánh xạ `check_violation` của trigger 0094 về 409 (ARC P411-02).</li></ul> | decision-log 04/11 | ARC → BE + FE-A → ARC, QA |
@@ -162,7 +165,7 @@ Quy tắc: nếu tới **25/11** v1.0.5 chưa lên production thì PO + ORC tác
 
 ### Gói 6 – Vận hành, runbook, tài liệu (OPS, BA, PO)
 
-Bắt buộc: V5-60, V5-61, V5-62, V5-63, V5-65 (phần OR-03), V5-67, V5-70, V5-71, V5-72, V5-73. Phần còn lại nên có. SEC xếp V5-60 (OR-01, OR-02) là **Major**.
+Bắt buộc: V5-60, V5-61, V5-62, V5-63, V5-65 (phần OR-03), V5-67, V5-70, V5-71, V5-72, V5-73, V5-74. Phần còn lại nên có. SEC xếp V5-60 (OR-01, OR-02) là **Major**.
 
 | ID | Việc | Nguồn | Vai |
 |---|---|---|---|
@@ -180,6 +183,7 @@ Bắt buộc: V5-60, V5-61, V5-62, V5-63, V5-65 (phần OR-03), V5-67, V5-70, V5
 | V5-71 | **Sổ tay và hướng dẫn cho v1.0.5:**<ul><li>bỏ các cách làm tạm hết cần khi bản lên;</li><li>dọn sau #69 (PR69-02/04);</li><li>sửa `so-van-hanh` 4.2 và 5.4 về "ô giá OTA nền" cho khớp V5-21;</li><li>sổ tay lễ tân: số trên yêu cầu web là giá thấp nhất của hạng lúc khách gửi; báo giá thật làm trên Desk theo từng căn (Suggestion của SEC ở `SEC-on-lp-v2-s6d.md`).</li></ul> | FB-R4-SEC-BA-PR69-02, FB-R4-PO-BA-PR69-04, mục 6, SEC S6d mục 9 | BA → DOM, UXD, SEC |
 | V5-73 | **`pricegap` có thêm phần kiểm tĩnh** (FB-R4-SEC-OPS-S6D-01, Minor). SQL READ ONLY qua `psql_ro`, chỉ trả một số đếm, không trả id. Đếm các căn đang bán, có nhãn hạng, `active_from <= hôm nay + 365`, chưa ngừng, mà không có dòng giá nào `effective_from <= greatest(active_from, hôm nay)`. Kết quả phải là 0. Cửa sổ 365 ngày theo SEC, để bắt cả căn sắp hoạt động mà chưa có giá. FAIL khi phần log **hoặc** phần tĩnh > 0; tin chỉ nêu số căn. Thêm 2 ca vào `ops-check-price.test.sh`.<br>Làm ngay, không chờ bản:<ul><li>ORC chạy truy vấn này một lần bằng `SQLRO` trên production và staging, ghi số đếm vào biên bản;</li><li>OPS sửa câu README `infra/server` dòng 120 "nhất là sau khi nhập lại bảng giá 01/11" thành "thường do dữ liệu khởi tạo hoặc sửa thẳng DB: OWN nhập giá cho căn đó trên Desk, OPS tìm nguồn".</li></ul> | QA S6d; FB-R4-SEC-OPS-S6D-01 | OPS (+ ORC chạy một lần) → SEC, QA |
 | V5-72 | Release notes v1.0.5 bằng ngôn ngữ người dùng. Mỗi mục "Chưa có" có đích. Rà các bảng "Chưa có" của v1.0.0–v1.0.3 còn hứa v1.0.5. | PO | PO → BA, DOM |
+| V5-74 | **Runbook sự cố dữ liệu khách (SR-INC-01), một trang.** Thêm 06/11 tối theo SEC (`rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md` mục 5 ý 1).<ul><li>các bước: phát hiện → khoanh vùng → đánh giá → quyết có phải báo cơ quan chức năng trong 72 giờ không (INV cùng SEC) → báo khách nếu cần;</li><li>ai làm gì, ai quyết; mẫu dòng ghi chỉ có mã đơn, giờ, kênh, không dữ liệu khách;</li><li>hai nhánh có sẵn: lễ tân gửi nhầm link check-in online (FB-R5-SEC-BA-01, Tờ 1); `pull-backups.sh` thoát 3 "server copy changed";</li><li>sổ vận hành và `guides/01` 14.1 trỏ về runbook này. Tới khi có, sổ vận hành dùng lớp tạm của FB-R5-SEC-BA-04.</li></ul>Chỉ viết tài liệu, không đổi mã, không đổi chính sách. Không cần INV trả lời trước 20/11. | SR-INC-01; SEC mục 5 ý 1; FB-R5-SEC-BA-01, BA-04 | SEC (OPS góp phần kỹ thuật) → OPS, DOM. Hạn 14/11 (hết Sản xuất); review 15–16/11 |
 
 ### Thứ tự và lịch đề xuất
 
@@ -205,7 +209,7 @@ Nguồn: `rounds/round-04/qc/round-4-closeout-gate.md` mục 2. Hạn là hạn 
 | ĐK-2 | Diễn tập khôi phục production theo đủ yêu cầu SEC (môi trường cách ly, giải mã 1 ảnh mẫu, `purge_journal` + J16, xóa dữ liệu khôi phục, biên bản chỉ ghi số đếm) | V5-61 | OPS + INV (30 phút mở khóa `age`) → SEC | Chậm nhất 20/11 | Chưa làm. **Chặn production** bản có migration hoặc đổi sao lưu, khôi phục tới khi đạt (tiêu chí QC điều 8). Bản sửa P0 không migration vẫn lên được, kèm sao lưu ngay trước deploy |
 | ĐK-3 | Kéo sao lưu ra ngoài máy ít nhất 2 ngày một lần bằng `pull-backups.sh` bản `bede5332`, tới khi V5-60 tự động hóa. Thoát 3 ("server copy changed") = P0 bảo mật | V5-60 | ORC (INV cho phép SSH trong ngày) | Mỗi 2 ngày; lần đầu 08/11 khoảng 19:00 | Lần gần nhất 06/11 khoảng 19:00 (script cũ). Mỗi lần một dòng decision-log: giờ, mã thoát, tên bản mới nhất. Quá hạn vì INV vắng thì ORC báo INV ở phiên kế tiếp |
 | ĐK-4 | Sổ vận hành khớp quyết định 06/11: kéo sao lưu ít nhất 2 ngày một lần; phòng "Báo động" có thể thêm một người; (c) nhắc diễn tập sau 35 ngày | – (Gói 0) | BA → SEC, OPS | 08/11 | BA đã sửa: sổ vận hành bản 1.2, gồm (c) (`4d25f5b7`). Chờ SEC hoặc OPS đọc lại |
-| ĐK-5 | Bỏ mọi câu "check-in online tạm dừng / chưa gửi link"; PO sửa dòng V5-08 | V5-08 | BA, PO → SEC, UXD | 10/11 | BA đã sửa chữ (`4d25f5b7`); PO đã sửa dòng V5-08, tờ dán quầy và hướng dẫn ngày D. Còn câu "đơn giữ chỗ cũng hiện nút link", #69, review (dòng V5-08) |
+| ĐK-5 | Bỏ mọi câu "check-in online tạm dừng / chưa gửi link"; PO sửa dòng V5-08 | V5-08 | BA, PO → SEC, UXD | 10/11 | BA đã sửa chữ (`4d25f5b7`); PO đã sửa dòng V5-08, tờ dán quầy và hướng dẫn ngày D. SEC duyệt có điều kiện: FB-R5-SEC-BA-01 hạn 08/11; thẻ PO đã sửa. Còn câu "đơn giữ chỗ cũng hiện nút link", #69, DOM đọc Tờ 2a (dòng V5-08) |
 | ĐK-6 | Từ điển tham số: `night_from_month_divisor` là khóa còn dùng ở đường API đổi giá khi không gửi giá đêm (BUG-R4-057), giữ giá trị 12 | V5-1A | DOM → BA | 08/11 | DOM đang làm |
 | ĐK-7 | Chuyển Closed 28 lỗi "đã sửa, chờ QA" (gồm 8 lỗi P0/P1); kiểm lại BUG-R4-035, 039 không ghi thử trên production; sửa ô "Closed 10" ở `bug-list.md` | V5-02 | QA → QC | 10/11 | QA đang làm. P0/P1 nào hóa ra chưa sửa trên production thì đi đường hotfix (protocol 9.3) và báo INV ngay |
 | ĐK-8 | Dòng trả lời trong `responses/OPS-LP-v2.md` cho FB-R4-SEC-OPS-054-02 và các thẻ Minor SEC ngày 06/11 | – (Gói 0) | OPS → SEC | 08/11 | OPS đã trả lời (`a26804f6`). Chờ SEC đọc lại |
@@ -216,16 +220,16 @@ Nguồn: `rounds/round-04/qc/round-4-closeout-gate.md` mục 2. Hạn là hạn 
 |---|---|
 | ORC | Giao việc theo mục 2. V5-03 (cùng QA). Script gọi API đổi giá luôn gửi đủ hai giá (V5-1A). Tổ chức review 20/11. Commit sau mỗi bước. |
 | PO | V5-01, V5-06, V5-72. Chốt phạm vi trong round. Nhận và trả lời thẻ review. Chuẩn bị nội dung review 20/11. |
-| ARC | Hợp đồng 0.3.13 (V5-10, 13, 14, 15, 18, 19, 1A, 22, 30, 44, 46, 50, 57, 58). Duyệt V5-62, V5-63. Review kỹ thuật mọi PR. |
-| DOM | Luật cho V5-11, 16, 30, 31. Sửa từ điển và BR-101 (5) ở V5-1A ngay trong Gói 0. Review chữ tiền và giá. |
-| BE (A/B/C/D) | Gói 1, 3, 4. V5-57, 58, 68 phần máy chủ. |
+| ARC | Hợp đồng 0.3.13 (V5-10, 13, 14, 15, 18, 19, 1A, 22, 30, 44, 46, 50, 57, 58; xem V5-25 có cần). Duyệt V5-62, V5-63. Review kỹ thuật mọi PR. |
+| DOM | Luật cho V5-11, 16, 30, 31. Sửa từ điển và BR-101 (5) ở V5-1A ngay trong Gói 0. Review chữ tiền và giá. Review V5-74 phần việc ở quầy. Đọc phần giữ chỗ Tờ 2a (V5-08). |
+| BE (A/B/C/D) | Gói 1, 3, 4. V5-25 (Gói 2). V5-57, 58, 68 phần máy chủ. |
 | FE-A (Desk) | Gói 1, 2, 5 phần Desk. |
 | FE-B, MOB | V5-13, 15, 18, 24, 46, 5A. App nhân viên cho V5-15. |
 | UXD, CPY | Gói 2. Chữ cho Gói 1 và 5. V5-04, V5-47. Mọi đầu ra theo brand guideline OTTIMO. |
 | INT | V5-41. |
 | DATA | V5-07, V5-17. |
-| SEC | Duyệt V5-16, 19, 30, 40–47, 60–69, 73. Đóng thẻ V5-05. Theo dõi các thẻ SEC-OPS ngày 06/11 (OR-01…04, 054-01, S6D-01). |
-| OPS | Gói 6 (V5-60 tới V5-70, V5-73). Sửa câu README dòng 120 ngay trong Gói 0. |
+| SEC | Viết V5-74 (runbook sự cố SR-INC-01). Duyệt V5-16, 19, 30, 40–47, 60–69, 73. Đóng thẻ V5-05. Theo dõi các thẻ SEC-OPS ngày 06/11 (OR-01…04, 054-01, S6D-01). |
+| OPS | Gói 6 (V5-60 tới V5-70, V5-73). Góp phần kỹ thuật và review V5-74. Sửa câu README dòng 120 ngay trong Gói 0. |
 | BA | V5-08, V5-71. Chữ sổ tay đi kèm từng mục. |
 | QA | V5-02, V5-03, V5-04 (C2-39), V5-56. Test case cho mọi mục (a). Hồi quy tiền ở quầy. Kiểm trên staging. |
 | QC | Cổng rút gọn v1.0.5 theo mục 4. |
@@ -301,14 +305,27 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
 6. **Dependabot `minimatch` (cảnh báo #19): xếp (b) B-KYTHUAT, không đóng, không ép bản** (06/11 tối, phụ lục I).
    - `minimatch` 10.2.6 trong lockfile **nằm trong** dải bị ảnh hưởng (≥ 7.0.0, < 11.0.1). Câu "lockfile ngoài các dải bị ảnh hưởng" ở cổng QC đóng R4 mục 5 chưa đúng với cảnh báo này.
    - Gói chỉ có ở công cụ phát triển (lint TypeScript), không vào image chạy production. Lượt Dependabot lỗi vì chưa có bản vá cài được qua cây phụ thuộc hiện tại. Job `audit` xanh vì CI chỉ chặn từ mức `high`.
-   - Đóng khi `typescript-eslint` ra bản dùng `minimatch` ≥ 11.0.1. SEC xem và ghi kết luận. Không chặn v1.0.5.
-7. **Dependabot `react-router` (cảnh báo #3, Desk): xếp (b) B-BAOMAT, SEC phân loại trong Gói 0.** Backlog R3-Q31 hẹn việc này từ 19/10 nhưng plan R5 chưa xếp. Bản vá là đổi bản lớn (7.x). Nếu SEC thấy Desk đưa địa chỉ do người dùng nhập vào `<Link>` hay `navigate`, PO đưa phần chặn vào v1.0.5 Gói 4. Các cảnh báo `nodemailer` đã ở V5-41.
+   - Đóng khi `typescript-eslint` ra bản dùng `minimatch` ≥ 11.0.1. Không chặn v1.0.5.
+   - **SEC kết luận 06/11** (`rounds/round-05/outputs/SEC/dependabot-triage.md`, `1543be77`): chấp nhận có hạn, giữ mở, không override, không dismiss. Nhánh mã lỗi không chạy ở cấu hình lint của OTTIMO. SEC xem lại **30/11**; chưa có bản thì gia hạn và ghi lý do.
+7. **Dependabot `react-router` (cảnh báo #3, Desk): (b) B-BAOMAT, giữ mở.** Backlog R3-Q31 hẹn việc này từ 19/10 nhưng plan R5 chưa xếp. **SEC kết luận 06/11:** Desk chỉ có một chỗ đưa đường dẫn từ ngoài vào `navigate`, và chỗ đó đã qua `safeInternalPath` từ 23/10, có test đúng các mẫu `\`. Không thêm việc vào Gói 4. Nâng lên 7.18+ cùng lần nâng toolchain FE (PR #2 React 19, #5 plugin-react). Trước đó bật thử cờ `v7_startTransition` và `v7_relativeSplatPath` trên 6.30.x để xem test nào hỏng. Các cảnh báo `nodemailer` ở V5-41.
 8. **BUG-R3-047 chuyển (c).** Lỗi đã sửa ở v1.0.4 (`5539b7e6`). V5-53 chỉ còn BUG-R3-048. Câu sai trong sổ tay sửa ở V5-08.
 9. **#69 gộp ở Gói 0 cùng V5-08**, không chờ V5-71. PO ghi số bản sổ tay vào release notes v1.0.4 khi gộp.
 10. **Tờ dán quầy sửa ngay, không chờ bản.**
     - PO sửa tối 06/11: Tờ 1 thêm cách gửi link check-in online; Tờ 2a bỏ khối tạm dừng và các câu giữ chỗ mà v1.0.4 làm sai; hướng dẫn ngày D mục 10 ghi "hết hiệu lực".
     - Phần giữ chỗ chỉ chép những gì Desk v1.0.4 đã làm (release notes v1.0.4 bảng "Giữ chỗ và cọc"), không thêm quy tắc mới. DOM đọc lại phần này, SEC đọc lại phần check-in.
     - INV in lại Tờ 1 và Tờ 2a sau khi đội báo đọc xong. Tờ 2a viết lại hẳn cùng sổ tay 2.4 ở V5-71.
+
+11. **Runbook sự cố SR-INC-01 vào v1.0.5 thành V5-74, Gói 6, bắt buộc** (06/11 tối, theo đề xuất SEC). SEC xếp Minor. PO vẫn để bắt buộc vì:
+    - luồng gửi link check-in online chạy thật từ 06/11, nên gửi nhầm người là việc có thể xảy ra mỗi ngày;
+    - quyết định "có phải báo trong 72 giờ không" cần các bước viết sẵn;
+    - việc nhỏ (một trang tài liệu), không đổi mã.
+    - Hạn 14/11; OPS, DOM review 15–16/11. Không xong thì QC ghi điều kiện, không chặn bản sửa mã.
+
+12. **3 khóa UXD mục 4.19 vào v1.0.5, gộp V5-23.** Cả ba là chữ Desk sai sự thật: số căn viết cứng; đường dẫn tới màn không có. Chỉ đổi chuỗi, không cần CPY (chữ nội bộ), UXD đã viết sẵn.
+13. **`weekend_nights` thành V5-25, Gói 2, bắt buộc.** Đây là lỗi máy chủ chặn chủ đầu tư lưu đúng mức đội đề xuất, và có thể làm giá cuối tuần sai nếu lưu dạng số. Release notes v1.0.4 dặn chủ đầu tư không sửa ô này tới v1.0.5.
+14. **Hai việc UXD vào backlog cải tiến:**
+    - R4: cột Giá trị ở **Tham số quy tắc** hiện `true`/`false` và JSON thô → B-QUAY. Không sai sự thật; tên tiếng Việt và câu báo ở V5-21 đủ cho lần chỉnh tham số sắp tới.
+    - R1: `msg.checkout_reminder` viết cứng "(trước 12:00)" → B-SAU, làm cùng story mẫu tin nhắn. Chưa có mã nào gọi 4 mẫu `msg.*` (UXD G5), giờ trả phòng đang là 12:00, nên không có chữ sai trước mắt. Khi nối mẫu tin thì dùng `{checkout_time}`, CPY duyệt.
 
 ## 7. Tổng hợp xếp loại (đếm từ phụ lục)
 
@@ -325,7 +342,15 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
 | G. Tham số lệch sổ tay | 1 | 2 | 10 |
 | **Tổng (553 mục)** | **126** | **203** | **224** |
 
-**Điều chỉnh sau cổng QC đóng R4 (PO 06/11 tối, phụ lục I).** Bảng trên giữ đúng số QC đã kiểm. Tác động nếu đếm lại: BUG-R3-047 (a) → (c); thêm 2 mục (b) là hai cảnh báo Dependabot. Khi đó có 555 mục: 125 (a), 205 (b), 225 (c). Số việc V5 vẫn 59.
+**Điều chỉnh sau cổng QC đóng R4 (PO, ORC 06/11 tối, phụ lục I).** Bảng trên giữ đúng số QC đã kiểm. Tác động nếu đếm lại:
+- BUG-R3-047 (a) → (c) (PO);
+- BUG-R1-023 (c) → (a) (ORC `09fd9cc4`, theo QA V5-02; BA sửa ở Gói 0, không có mã V5 riêng);
+- thêm 2 mục (b): hai cảnh báo Dependabot;
+- thêm 1 mục (a): runbook sự cố SR-INC-01 (V5-74);
+- thêm 4 mục (a) từ báo cáo UXD: 3 khóa mục 4.19 (vào V5-23), `weekend_nights` (V5-25);
+- thêm 2 mục (b) từ báo cáo UXD: R4 (B-QUAY), R1 (B-SAU).
+
+Khi đó có 562 mục: 131 (a), 207 (b), 224 (c). Số việc V5 thành 61.
 
 126 mục (a) được gom thành 59 việc V5-xx ở mục 2. Gói 5 có 12 việc (gồm V5-19) và không chặn QC; riêng V5-19 có điều kiện kích hoạt. Mục (c) "QA xác nhận" chỉ đóng hẳn khi QA chuyển Closed ở V5-02.
 
@@ -769,11 +794,16 @@ Danh sách lấy bằng script: thẻ Minor không có dấu xử lý ở chính
 
 ### I. Điều chỉnh sau cổng QC đóng Round 4 (PO 06/11/2026 tối)
 
-Không cộng vào bảng mục 7 (bảng đó giữ số QC đã kiểm); tác động ghi ngay dưới bảng mục 7. Các cảnh báo Dependabot còn mở khác (`nodemailer`, 6 cảnh báo) đã có ở V5-41.
+Không cộng vào bảng mục 7 (bảng đó giữ số QC đã kiểm); tác động ghi ngay dưới bảng mục 7. Các cảnh báo Dependabot còn mở khác (`nodemailer`, 6 cảnh báo) đã có ở V5-41, nay ghi đủ tiêu chí nghiệm thu theo SEC.
 
 | Mã | Việc | Xếp | Đích / lý do |
 |---|---|---|---|
-| DEP-minimatch | Dependabot cảnh báo #19 (GHSA-g3hv-75wg-m249, mức trung bình, `minimatch` có thể bị làm treo qua mẫu glob). Lockfile có `minimatch` 10.2.6, **nằm trong** dải bị ảnh hưởng (≥ 7.0.0, < 11.0.1). Gói đến gián tiếp qua `@typescript-eslint/typescript-estree` 8.71.2, phạm vi development. Bản mới nhất 8.72.1 vẫn cần `minimatch` ^10.2.2, nên lượt cập nhật Dependabot lỗi (run 41573607059, 42216172237). Job `audit` của CI xanh vì `pnpm audit --audit-level=high` | (b) | B-KYTHUAT. Không ép bản bằng override (lên 11.x có thể làm hỏng lint). Đóng khi `typescript-eslint` ra bản dùng `minimatch` ≥ 11.0.1 (Dependabot tự mở PR). SEC ghi kết luận: chấp nhận có hạn (chỉ ở máy dev và CI, không vào image) hoặc cách khác. Không chặn v1.0.5 (quyết định 6) |
-| DEP-react-router | Dependabot cảnh báo #3 (mức trung bình, phạm vi runtime): `react-router` 6.30.6 trong Desk (`apps/admin-web`), chuyển hướng mở qua dấu `\` ở `<Link>` và `useNavigate`. Bản vá 7.18.0 là đổi bản lớn. Backlog R3-Q31 hẹn SEC phân loại; plan R5 chưa xếp | (b) | B-BAOMAT. SEC phân loại trong Gói 0. Desk có đưa địa chỉ do người dùng nhập vào `<Link>` hay `navigate` thì PO đưa phần chặn vào v1.0.5 Gói 4; không thì làm cùng lần nâng toolchain FE (quyết định 7) |
+| DEP-minimatch | Dependabot cảnh báo #19 (GHSA-g3hv-75wg-m249, mức trung bình, `minimatch` có thể bị làm treo qua mẫu glob). Lockfile có `minimatch` 10.2.6, **nằm trong** dải bị ảnh hưởng (≥ 7.0.0, < 11.0.1). Gói đến gián tiếp qua `@typescript-eslint/typescript-estree` 8.71.2, phạm vi development. Bản mới nhất 8.72.1 vẫn cần `minimatch` ^10.2.2, nên lượt cập nhật Dependabot lỗi (run 41573607059, 42216172237). Job `audit` của CI xanh vì `pnpm audit --audit-level=high` | (b) | B-KYTHUAT. Không ép bản bằng override (lên 11.x có thể làm hỏng lint). Đóng khi `typescript-eslint` ra bản dùng `minimatch` ≥ 11.0.1 (Dependabot tự mở PR). SEC kết luận 06/11 (`1543be77`): chấp nhận có hạn, không override, không dismiss, xem lại 30/11. Không chặn v1.0.5 (quyết định 6) |
+| DEP-react-router | Dependabot cảnh báo #3 (mức trung bình, phạm vi runtime): `react-router` 6.30.6 trong Desk (`apps/admin-web`), chuyển hướng mở qua dấu `\` ở `<Link>` và `useNavigate`. Bản vá 7.18.0 là đổi bản lớn. Backlog R3-Q31 hẹn SEC phân loại; plan R5 chưa xếp | (b) | B-BAOMAT, giữ mở. SEC kết luận 06/11 (`1543be77`): chỗ duy nhất đưa đường dẫn từ ngoài vào `navigate` đã qua `safeInternalPath`, không cần Gói 4. Nâng 7.18+ cùng toolchain FE, thử trước cờ `v7_*` trên 6.30.x (quyết định 7) |
 | BUG-R3-047 | Giữ chỗ hiện nút link check-in online | (a) → (c) | Đã sửa ở v1.0.4 (`5539b7e6`, test `v104-holds-feb`), đang chạy trên production. QA đóng ở V5-02. V5-53 chỉ còn BUG-R3-048 (quyết định 8). Sổ tay và hướng dẫn còn câu "đơn giữ chỗ cũng hiện nút": sửa ở V5-08 |
+| SEC-SR-INC-01 | Chưa có runbook sự cố dữ liệu khách (SR-INC-01); SEC đề xuất ở review sổ vận hành 1.2 (mục 5 ý 1) | (a) | V5-74, Gói 6, bắt buộc (quyết định 11) |
+| UXD-4.19 (3 khóa) | `fo.rack.empty_body`, `desk_code.channel_off`, `error.DELIVERY_CHANNEL_DISABLED` (`copy-v1.0.5.md` mục 4.19) | (a) | V5-23 (quyết định 12) |
+| UXD-R5 `weekend_nights` | Validator nhận số 1–7, giá trị đang chạy và bộ tính giá dùng `["FRI","SAT"]` | (a) | V5-25 (quyết định 13). Mã lỗi QA ghi sau |
+| UXD-R4 | Cột Giá trị ở Tham số quy tắc hiện `true`/`false` và JSON thô | (b) | B-QUAY (quyết định 14) |
+| UXD-R1 | `msg.checkout_reminder` viết cứng "(trước 12:00)" | (b) | B-SAU, cùng story mẫu tin nhắn (quyết định 14) |
 | US-146…154 | 9 story website LP-v1 (lên ottimo.vn 25/10) | – | Backlog ghi **Xong (production)** ngày 06/11 (V5-06). Các story này không nằm trong bảng B1 nên không đổi số đếm |

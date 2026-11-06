@@ -1728,7 +1728,14 @@ Trạng thái story (V5-06, plan R5 phụ lục B1):
 - Giữ nhãn cũ: 49 story **Đạt (stack CI)** và 19 story **Xong = Đạt (staging)**. Cả hai nhóm đều chạy trên production từ v1.0 (30/10), qua cổng QC v1.0. Nhãn là mức nghiệm thu lúc đó; không còn việc mở.
 - Còn lại 89 story "Mới" hoặc "Dời" (đích v1.1, v1.2, v1.3, R4+) là backlog cải tiến nhóm **B-SAU**. Không story nào ghi "Mới" mà đã chạy trên production.
 
-Thêm vào backlog cải tiến ngày 06/11 tối (plan R5 phụ lục I): **Dependabot `minimatch`** (B-KYTHUAT, SEC xem); **Dependabot `react-router`** trong Desk (B-BAOMAT, SEC phân loại ở Gói 0; phần còn mở của R3-Q31). Bỏ khỏi v1.0.5: BUG-R3-047 (đã sửa ở v1.0.4).
+Thêm vào backlog cải tiến ngày 06/11 tối (plan R5 phụ lục I): **Dependabot `minimatch`** (B-KYTHUAT) và **Dependabot `react-router`** trong Desk (B-BAOMAT; phần còn mở của R3-Q31), theo SEC phân loại 06/11 (`rounds/round-05/outputs/SEC/dependabot-triage.md`, `1543be77`; bảng dưới). Bỏ khỏi v1.0.5: BUG-R3-047 (đã sửa ở v1.0.4). Cũng tối 06/11, từ báo cáo UXD Gói 2: cột Giá trị ở **Tham số quy tắc** hiện `true`/`false` và JSON thô (UXD R4, **B-QUAY**); `msg.checkout_reminder` viết cứng "(trước 12:00)", dùng `{checkout_time}` khi nối mẫu tin nhắn (UXD R1, **B-SAU**, cùng story mẫu tin). Vào v1.0.5: V5-25 (`weekend_nights`, BE), V5-74 (runbook sự cố SR-INC-01, SEC), 3 khóa UXD mục 4.19 (V5-23).
+
+Backlog cải tiến thêm 06/11 tối (SEC phân loại Dependabot; không có việc V5 mới, `nodemailer` ở V5-41):
+
+| ID | Việc | Nhóm | Ưu tiên / hạn | Vai | Nguồn |
+|---|---|---|---|---|---|
+| R5-B-01 | Nâng `react-router-dom` 6 → `react-router` 7.18+ cho Desk, làm cùng lần nâng toolchain FE (PR Dependabot #2 React 19, #5 plugin-react). Trước đó bật thử cờ `v7_startTransition` và `v7_relativeSplatPath` trên 6.30.x để xem test nào hỏng. Cảnh báo #3 giữ mở tới khi nâng; không dismiss | B-BAOMAT | Chọn ở review định kỳ. Không gấp: chỗ duy nhất đưa đường dẫn từ ngoài vào `navigate` đã qua `safeInternalPath` (SEC 06/11) | FE-A → SEC, ARC | SEC `dependabot-triage.md` mục 2.2, 3; R3-Q31 |
+| R5-B-02 | `minimatch` cảnh báo #19 (dev, qua `typescript-eslint`): **chấp nhận có hạn**, không override, không dismiss. SEC xem lại **30/11**. Đóng khi `typescript-eslint` dùng `minimatch` ≥ 11.0.1 (Dependabot tự mở PR). Tới 30/11 chưa có bản thì SEC gia hạn và ghi lý do | B-KYTHUAT | SEC xem lại 30/11 | SEC (OPS gộp PR khi có) | SEC `dependabot-triage.md` mục 2.1, 3; plan R5 phụ lục I |
 
 ## 6. Ghi chú cho các vai
 - **DOM:** AC không còn chép con số quy tắc; "khớp ví dụ BR-xxx" phụ thuộc cột ví dụ của BR – nếu DOM sửa ví dụ, báo PO/QA. PO đồng ý đề xuất rbac ghi chú 34 (CTV không thấy "OTTIMO còn lại").

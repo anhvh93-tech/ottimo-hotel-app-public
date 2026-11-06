@@ -268,21 +268,21 @@ Thêm:
 - Đề xuất sửa (gọn cho 9 pt):
   - "**Gửi nhầm người:** **Thu hồi link** ngay, tạo link mới cho đúng khách. Ghi sổ giao ca mã đơn, giờ gửi, giờ thu hồi (không ghi tên, số của người nhận nhầm). **Báo chủ đầu tư trong ngày.** Đơn đã hiện **Đã làm thủ tục trước** mà khách nói chưa gửi: không dùng giấy tờ đó, báo chủ đầu tư ngay."
   - Tách "Chủ đầu tư báo 'dừng check-in online'…" thành một gạch riêng.
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối, commit "round-5: Phản hồi & sửa – PO one-pager SEC cards…". Tờ 1 dòng "Gửi nhầm người" theo đúng câu SEC đề xuất, thêm "kênh" và "không ghi tên khách" như BA-01 ý 2; lệnh dừng tách gạch riêng. PO bỏ giả định "không báo". Chờ SEC đọc lại dòng này, rồi INV in Tờ 1 (`rounds/round-05/responses/PO-responses.md`)
 
 ### FB-R5-SEC-PO-02
 - Mức độ: Minor (nên sửa trong cùng lần in Tờ 1)
 - Vị trí: Tờ 1, khối "Check-in online", gạch 2 (dòng 49).
 - Vấn đề: như FB-R5-SEC-BA-08. "Gửi riêng 1–1 cho khách của đơn" chưa nói gửi tới liên hệ trên đơn, và chưa nói không gửi cho người tự xưng là khách từ số khác.
 - Đề xuất sửa: "**Gửi riêng 1–1** tới số, email hoặc hội thoại OTA **ghi trên đơn**, từ điện thoại cơ sở hoặc email của OTTIMO. Người xin link từ số khác: không gửi." Phần còn lại giữ nguyên.
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit với PO-01. Tờ 1 gạch 2 theo câu SEC đề xuất: gửi tới số, email hoặc hội thoại OTA ghi trên đơn; người xin link từ số khác thì không gửi
 
 ### FB-R5-SEC-PO-03
 - Mức độ: Suggestion
 - Vị trí: Tờ 2a, chú thích HTML đầu tờ.
 - Vấn đề: chú thích vẫn còn "Điều kiện bỏ khối check-in: SEC-on-PO-v1.0.0-docs.md mục C.1 …" dù khối đã bỏ. Không in ra, chỉ dễ gây nhầm cho người sửa sau.
 - Đề xuất sửa: bỏ vế này, giữ câu "Khối check-in online đã bỏ 06/11/2026".
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit với PO-01. Bỏ vế "Điều kiện bỏ khối check-in…" ở chú thích đầu Tờ 2a, giữ câu "Khối check-in online đã bỏ 06/11/2026"
 
 ---
 
