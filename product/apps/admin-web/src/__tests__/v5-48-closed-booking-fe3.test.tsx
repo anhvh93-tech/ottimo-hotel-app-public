@@ -1,7 +1,9 @@
 import { ApiError } from '@ottimo/api-client';
+import { hasKey } from '@ottimo/i18n';
 import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  AFTER_CLOSURE_RECORDING_ON_DESK,
   closedBookingPaymentText,
   closedBookingSentence,
   closedReservationStatus,
@@ -156,6 +158,114 @@ describe('V5-48 – Xác nhận cọc on a booking that closed under the box', (
     expect(within(dlg).queryByText(closedFd('cancelled'))).toBeNull();
     await waitFor(() =>
       expect(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') })).toBeEnabled(),
+    );
+  });
+});
+
+describe('V5-48 – B4 typed by hand on a booking that closed under the box (UXD 9.14 (c), FB-R5-UXD-FE-137-01..03)', () => {
+  /** Another tab cancels the hold (B5): new version, booking closed. */
+  const cancelElsewhere = (r: ReturnType<typeof rsvOf>, status: 'cancelled' | 'no_show') => {
+    r.status = status;
+    r.version += 1;
+  };
+
+  async function transfer(
+    user: ReturnType<typeof renderApp>['user'],
+    dlg: HTMLElement,
+    amount = '500000',
+  ) {
+    await user.selectOptions(within(dlg).getByLabelText(tv('pay.method')), 'bank_transfer');
+    const field = within(dlg).getByLabelText(/Số tiền đã nhận/);
+    await user.clear(field);
+    await user.type(field, amount);
+  }
+
+  /** The box locked on 9.1a: one sentence, focus on it, fields gone, "Đóng" not "Hủy", main button locked. */
+  function expectLocked(dlg: HTMLElement, sentence: string) {
+    expect(within(dlg).getAllByText(sentence)).toHaveLength(1);
+    expect(document.activeElement).toHaveTextContent(sentence);
+    expect(within(dlg).queryByText(tv('error.VERSION_CONFLICT'))).toBeNull();
+    expect(
+      within(dlg).queryByText(
+        new RegExp(tv('rsv.transition_changed', { status: '' }).slice(0, 12)),
+      ),
+    ).toBeNull();
+    expect(within(dlg).queryByRole('button', { name: tv('common.reload') })).toBeNull();
+    expect(within(dlg).queryByLabelText(/Số tiền đã nhận/)).toBeNull();
+    expect(within(dlg).queryByLabelText(tv('pay.method'))).toBeNull();
+    expect(within(dlg).queryByRole('button', { name: tv('common.cancel') })).toBeNull();
+    // footer "Đóng" beside the header close button
+    expect(within(dlg).getAllByRole('button', { name: tv('common.close') })).toHaveLength(2);
+    expect(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') })).toBeDisabled();
+  }
+
+  it('FD, transfer typed, the hold is cancelled in another tab → 412 then the reload shows it closed: 9.1a at once, no "Tải lại", box open', async () => {
+    const r = rsvOf('Lê Minh');
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');
+    const dlg = await openDeposit(user);
+    await transfer(user, dlg);
+    cancelElsewhere(r, 'cancelled');
+    const paid = r.depositPaidVnd;
+    await user.click(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') }));
+    expect(await within(dlg).findByText(closedFd('cancelled'))).toBeInTheDocument();
+    expectLocked(dlg, closedFd('cancelled'));
+    // still open (never `onTransitionChanged`), nothing recorded
+    expect(screen.getByRole('dialog', { name: tv('rsv.deposit_title', { code: r.code }) })).toBe(
+      dlg,
+    );
+    expect(r.depositPaidVnd).toBe(paid);
+  });
+
+  it('FD, the 409 itself (version already fresh): `currentState` cancelled of B4 → 9.1a, not "Đơn vừa chuyển sang Đã hủy"', async () => {
+    const r = rsvOf('Lê Minh');
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');
+    const dlg = await openDeposit(user);
+    await transfer(user, dlg);
+    r.status = 'no_show'; // same version: the mock answers 409 INVALID_TRANSITION currentState no_show
+    writes.length = 0;
+    server.events.on('request:start', onStart);
+    await user.click(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') }));
+    expect(await within(dlg).findByText(closedFd('no_show'))).toBeInTheDocument();
+    expectLocked(dlg, closedFd('no_show'));
+    expect(writes.filter((w) => w.endsWith('/actions/confirm-deposit'))).toHaveLength(1);
+  });
+
+  it('sale (own hold): "Xác nhận đã nhận cọc" by hand on a cancelled hold → the new sales sentence ("xác nhận cọc")', async () => {
+    const r = rsvOf('Lê Minh');
+    r.createdBy = mockControl.db.users.find((u) => u.username === 'qa.sal')!.id;
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.sal');
+    const dlg = await openDeposit(user);
+    await transfer(user, dlg);
+    cancelElsewhere(r, 'cancelled');
+    await user.click(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') }));
+    const sales = tv('error.closed_booking_payment_sales', {
+      status: tv('status.booking.cancelled'),
+    });
+    expect(await within(dlg).findByText(sales)).toBeInTheDocument();
+    expect(sales).toMatch(/xác nhận cọc/);
+    expectLocked(dlg, sales);
+  });
+
+  it('a 412 on a booking still on hold keeps the v1.0.4 path ("Tải lại", input kept)', async () => {
+    const r = rsvOf('Lê Minh');
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');
+    const dlg = await openDeposit(user);
+    await transfer(user, dlg, '200000');
+    r.version += 1; // someone else saved the hold – still a hold
+    await user.click(
+      within(dlg).getByRole('button', { name: tv('rsv.record_partial', { amount: '200.000' }) }),
+    );
+    expect(
+      await within(dlg).findByRole('button', { name: tv('common.reload') }),
+    ).toBeInTheDocument();
+    expect(within(dlg).queryByText(closedFd('cancelled'))).toBeNull();
+    expect(within(dlg).getByLabelText(/Số tiền đã nhận/)).toHaveValue('200000');
+  });
+
+  it('ARC-137-01: `_no_5b1` exists exactly while the 5B-1 button is off – the PR that adds it flips both', () => {
+    expect(hasKey('error.closed_booking_payment_no_5b1')).toBe(!AFTER_CLOSURE_RECORDING_ON_DESK);
+    expect(hasKey('error.closed_booking_payment_no_5b1', 'en')).toBe(
+      !AFTER_CLOSURE_RECORDING_ON_DESK,
     );
   });
 });

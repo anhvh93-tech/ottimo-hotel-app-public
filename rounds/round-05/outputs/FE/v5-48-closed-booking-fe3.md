@@ -51,3 +51,36 @@
 - B4 `confirmDeposit` trên đơn đã hủy (nhập tay chuyển khoản, không qua QR) vẫn trả 409 `currentState` = trạng thái đơn, không có `reservationStatus`. Hộp giữ đường cũ: tải lại, đóng hộp, drawer báo "Đơn vừa chuyển sang Đã hủy".
   - UXD xem có muốn dùng câu 9.1a cho cả ca này không. Desk làm được không cần đổi hợp đồng (đọc `currentState` `cancelled`/`no_show` ở hộp Xác nhận cọc).
 - FE-A (5B-1 Desk): bật `AFTER_CLOSURE_RECORDING_ON_DESK` và xóa `error.closed_booking_payment_no_5b1` cùng PR có nút.
+
+## 4. Phản hồi & sửa – PR sau #137 (sau review ARC, UXD 07/11)
+Nhánh `r5-fe3-v5-48-b4`, chỉ hộp Xác nhận cọc, không đổi hợp đồng. Chữ: copy-v1.0.5 bản 2.3 mục 9.14 (c).
+
+- FB-R5-UXD-FE-137-01 (Major, trước tag v1.0.5): B4 nhập tay trên đơn đã đóng giờ cũng hiện câu 9.1a.
+  - `useAction` nhận thêm tùy chọn `onBookingClosed`. Chỉ `DepositDialog` dùng tùy chọn này; các hộp khác giữ đường chung.
+  - Hai ca dẫn tới câu 9.1a:
+    - B4 trả 409 `INVALID_TRANSITION` có `currentState` (hoặc `reservationStatus`) là `cancelled`/`no_show`;
+    - B4 trả 412 `VERSION_CONFLICT`, và lần đọc lại cho thấy đơn đã đóng.
+  - Khi đó: hiện câu 9.1a theo vai và theo 5B-1, khóa nút chính, đọc lại khung đơn. Không đóng hộp, không gọi `onTransitionChanged`, không hiện "Tải lại".
+  - 412 trên đơn còn giữ chỗ đi đường cũ: nút "Tải lại", giữ số đã gõ.
+  - `error.closed_booking_payment_sales` dùng câu mới: thêm "xác nhận cọc" và đổi sang "đã trả tiền". Hai câu FD+ giữ nguyên.
+  - Thêm hàm `asClosedStatus` trong `app/reservations.ts`, dùng chung cho cả `closedReservationStatus`.
+- FB-R5-UXD-FE-137-02 (Minor): khi hộp khóa, focus chuyển vào câu 9.1a (khung `tabIndex=-1`). Tab tiếp theo tới "Đóng".
+- FB-R5-UXD-FE-137-03 (Suggestion): khi hộp khóa, các ô (số tiền, cách thanh toán, giờ nhận, QR) không hiện nữa. Nút chân hộp đổi từ "Hủy" thành "Đóng" (`common.close`).
+  - Phần thân hộp được gói trong một nhánh điều kiện, nên phần lớn diff chỉ là thụt lề. Xem bằng `git diff -w`.
+- FB-R5-ARC-FE-137-01 (Suggestion): thêm test giữ `error.closed_booking_payment_no_5b1` khớp với `AFTER_CLOSURE_RECORDING_ON_DESK`, ở cả VI lẫn EN. Chú thích của hằng ghi rõ: PR 5B-1 phải sửa luôn câu mong đợi của ca E2E.
+
+### Kiểm
+- vitest `v5-48-closed-booking-fe3.test.tsx`: 11 ca (thêm 5). Các ca mới:
+  - FD qua đường 412;
+  - FD qua đường 409 `no_show`;
+  - sale dùng câu mới;
+  - 412 trên đơn còn giữ chỗ vẫn đi đường cũ;
+  - ARC-137-01.
+- Các ca khóa hộp còn kiểm: một câu duy nhất, focus nằm ở câu đó, không còn ô nhập, có nút "Đóng" mà không có "Hủy", nút chính bị khóa.
+- Đột biến, đều đỏ:
+  - bỏ nhánh 412: 2 ca đỏ;
+  - bỏ focus: 3 ca đỏ.
+- admin-web toàn bộ 1013/1013. `tsc`, `eslint`, `prettier --check` xanh. Gói `tests`: `tsc` và `eslint` xanh.
+- E2E `v5-48-closed-booking.r5.spec.ts` thêm một ca chạy trên stack thật:
+  - chọn Chuyển khoản, tab khác hủy giữ chỗ, bấm "Xác nhận đã nhận cọc";
+  - mong đợi: câu 9.1a, không có câu 412, không "Tải lại", không câu "Đơn vừa chuyển sang", nút khóa, không còn ô "Cách thanh toán", folio không có khoản chuyển khoản, axe đạt.

@@ -100,5 +100,59 @@ test.describe(
       expect(f.payments.filter((p) => p.method === 'vietqr')).toHaveLength(0);
       await scan(page, info, 'V5-48 Xác nhận cọc – đơn đã đóng');
     });
+
+    test('V5-48 (UXD 9.14 (c)) Desk: transfer typed by hand, hold cancelled meanwhile → Xác nhận says 9.1a, never "Tải lại", box stays open and locked, nothing recorded', async ({
+      page,
+      request,
+    }, info) => {
+      const fd = await session(request, 'qa.fd');
+      const c = await s2Context(request);
+      const today = await stackToday(request);
+      const rm = c.rooms[Math.floor(Math.random() * c.rooms.length)]!;
+      const w = await freeWindow(request, fd, rm, 1, { today });
+      const { hold } = await makeHold(request, fd, c, {
+        rooms: [rm, ...c.rooms.filter((x) => x.id !== rm.id)],
+        arrival: w.arrival,
+        nights: 1,
+        holdHours: 24,
+      });
+      expect(hold.depositRequiredVnd ?? 0, 'giữ chỗ còn thiếu cọc').toBeGreaterThan(0);
+
+      await signIn(page, 'qa.fd');
+      await go(page, `/reservations/${hold.id}`);
+      await expect(page.getByText(hold.code).first()).toBeVisible({ timeout: 10_000 });
+      await page
+        .getByRole('button', { name: t('drawer.action.confirm_deposit') })
+        .first()
+        .click();
+      const box = page.getByRole('dialog', { name: tf('rsv.deposit_title', { code: hold.code }) });
+      await box.getByLabel(t('pay.method')).selectOption('bank_transfer');
+      const submit = box.getByRole('button', { name: t('rsv.deposit_submit') });
+      await expect(submit).toBeEnabled();
+
+      // Another tab cancels the hold (B5) while the transfer is typed in this box.
+      const cancel = await action(request, fd, hold.id, 'cancel', {
+        reasonCode: 'guest_changed_mind',
+      });
+      expect(cancel.status, JSON.stringify(cancel.body)).toBe(200);
+      expect((await getReservation(request, fd, hold.id)).body.status).toBe('cancelled');
+
+      await submit.click();
+      const sentence = tf('error.closed_booking_payment_no_5b1', {
+        status: t('status.booking.cancelled'),
+      });
+      await expect(box.getByText(sentence)).toBeVisible({ timeout: 10_000 });
+      await expect(box.getByText(t('error.VERSION_CONFLICT'))).toHaveCount(0);
+      await expect(box.getByRole('button', { name: t('common.reload') })).toHaveCount(0);
+      await expect(
+        page.getByText(tf('rsv.transition_changed', { status: t('status.booking.cancelled') })),
+      ).toHaveCount(0);
+      await expect(submit).toBeDisabled();
+      await expect(box.getByLabel(t('pay.method'))).toHaveCount(0);
+      // nothing was recorded on the folio of the cancelled hold
+      const f = await getFolio(request, fd, hold.folioId!);
+      expect(f.payments.filter((p) => p.method === 'bank_transfer')).toHaveLength(0);
+      await scan(page, info, 'V5-48 Xác nhận cọc nhập tay – đơn đã đóng');
+    });
   },
 );

@@ -395,7 +395,7 @@
   "error.INVALID_TRANSITION": "This booking just changed to \"{status}\", so this action no longer applies. Reload to see what you can do now.",
   "error.closed_booking_payment": "This booking is closed (\"{status}\"), so you can't confirm a deposit or create a VietQR code for it. If the money is already in OTTIMO's account, use Record money received after cancellation on the booking. If the guest wants to book again, create a new hold.",
   "error.closed_booking_payment_no_5b1": "This booking is closed (\"{status}\"), so you can't confirm a deposit or create a VietQR code for it. If the money is already in OTTIMO's account, follow sheet 2a, the line on money received after a hold was cancelled.",
-  "error.closed_booking_payment_sales": "This booking is closed (\"{status}\"), so you can't create a VietQR code for it. If the guest has already paid, tell the front desk and give the booking code.",
+  "error.closed_booking_payment_sales": "This booking is closed (\"{status}\"), so you can't confirm a deposit or create a VietQR code for it. If the guest has already paid, tell the front desk and give the booking code.",
   "error.VERSION_CONFLICT": "Someone else just changed this. Reload to see the latest – what you typed is kept.",
   "error.PRECONDITION_REQUIRED": "Please reload before saving. Tap Reload – what you typed is kept.",
   "error.IDEMPOTENCY_KEY_REUSED": "This action was already sent with different details. Reload and try again.",

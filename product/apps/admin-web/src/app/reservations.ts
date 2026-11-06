@@ -108,13 +108,18 @@ export function suggestionsOf(e: unknown): RoomSuggestion[] {
  */
 export function closedReservationStatus(error: unknown): 'cancelled' | 'no_show' | undefined {
   if (!isApiError(error) || error.code !== 'INVALID_TRANSITION') return undefined;
-  const s = error.problem.reservationStatus;
+  return asClosedStatus(error.problem.reservationStatus);
+}
+
+/** A booking status that takes no more money from the deposit box (V5-48: `cancelled`, `no_show`); else undefined. */
+export function asClosedStatus(s: string | null | undefined): 'cancelled' | 'no_show' | undefined {
   return s === 'cancelled' || s === 'no_show' ? s : undefined;
 }
 
 /**
  * V5-5B-1 (PR-B3) puts "Ghi tiền về sau khi hủy" on the booking. Until it does, the FD+ sentence of a closed booking
- * points to sheet 2a (UXD 9.1a `_no_5b1`). The PR that adds the button turns this on and deletes `_no_5b1`.
+ * points to sheet 2a (UXD 9.1a `_no_5b1`). The PR that adds the button turns this on, deletes `_no_5b1` (a test holds
+ * the two together – ARC-137-01) and changes the expected sentence of `tests/e2e/ui/v5-48-closed-booking.r5.spec.ts`.
  */
 export const AFTER_CLOSURE_RECORDING_ON_DESK = false;
 

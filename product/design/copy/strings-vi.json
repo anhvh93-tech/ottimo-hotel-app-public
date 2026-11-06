@@ -395,7 +395,7 @@
   "error.INVALID_TRANSITION": "Đơn vừa chuyển sang \"{status}\" nên thao tác này không còn dùng được. Tải lại để xem các nút hiện có.",
   "error.closed_booking_payment": "Đơn này đã đóng (\"{status}\") nên không xác nhận cọc hay tạo mã VietQR được nữa. Tiền đã vào tài khoản OTTIMO: bấm Ghi tiền về sau khi hủy trên đơn. Khách muốn đặt lại: tạo giữ chỗ mới.",
   "error.closed_booking_payment_no_5b1": "Đơn này đã đóng (\"{status}\") nên không xác nhận cọc hay tạo mã VietQR được nữa. Tiền đã vào tài khoản OTTIMO: làm theo Tờ 2a, dòng \"Tiền đã về mà đơn đã tự hủy\".",
-  "error.closed_booking_payment_sales": "Đơn này đã đóng (\"{status}\") nên không tạo mã VietQR được nữa. Khách đã chuyển tiền: báo lễ tân kèm mã đơn.",
+  "error.closed_booking_payment_sales": "Đơn này đã đóng (\"{status}\") nên không xác nhận cọc hay tạo mã VietQR được nữa. Khách đã trả tiền: báo lễ tân kèm mã đơn.",
   "error.VERSION_CONFLICT": "Dữ liệu vừa được người khác thay đổi. Tải lại để xem bản mới – thông tin bạn nhập vẫn còn.",
   "error.PRECONDITION_REQUIRED": "Cần tải lại trang trước khi lưu. Bấm Tải lại – thông tin bạn nhập vẫn còn.",
   "error.IDEMPOTENCY_KEY_REUSED": "Thao tác này đã được gửi với nội dung khác. Tải lại rồi làm lại.",
