@@ -29,7 +29,7 @@ SEC chỉ đọc repo. Không SSH, không gọi staging hay production. Tệp n�
 |---|---|---|
 | Sổ vận hành 1.2 (ĐK-4) | **DUYỆT CÓ ĐIỀU KIỆN** | FB-R5-SEC-BA-02 (Major): sửa chữ trước lần kéo 08/11; ORC kiểm Time Machine ở lần kéo đó. Các thẻ Minor 03–07 sửa trước buổi review 20/11 |
 | Sổ tay + bộ hướng dẫn (ĐK-5 / V5-08) | **DUYỆT CÓ ĐIỀU KIỆN** | FB-R5-SEC-BA-01 (Major): bước "gửi nhầm người" thêm ghi sổ và báo chủ đầu tư. Hạn **08/11**, sớm hơn hạn ĐK-5, vì luồng gửi link đang chạy thật từ 06/11 14:22 |
-| Tờ dán quầy (PO) | **Tờ 1: chưa in.** **Tờ 2a: được in** | Tờ 1 in sau khi sửa FB-R5-SEC-PO-01 (Major). SEC đọc lại một dòng đó là đủ, không cần lượt review mới. Nên sửa luôn PO-02 trong cùng lần in. Tờ 2a bản in không còn chữ nào về check-in online |
+| Tờ dán quầy (PO) | ~~Tờ 1: chưa in.~~ **Tờ 1: được in** (SEC đọc lại lượt 2, mục 3a, `106722d7`). **Tờ 2a: được in** | PO-01, PO-02, PO-03 đã **Closed**. Tờ 2a bản in không còn chữ nào về check-in online. Phần giữ chỗ của Tờ 2a vẫn chờ DOM đọc |
 
 - QC ĐK-5, tiêu chí grep: **đạt**. Trong `product/docs/manual/`, `grep "tạm dừng\|chưa gửi link"` còn 6 dòng, đều đúng: chú thích nguồn ẩn, phiếu sửa chờ vật tư, mục lịch sử.
 - QC ĐK-4 (a), (b), (c): **đạt phần nội dung**. Nhịp 2 ngày, mã 3 là P0 bảo mật, giữ bản Mac, người thứ hai ở phòng Báo động, nhắc diễn tập 35 ngày: đều đúng quyết định 06/11. Các thẻ dưới đây là độ chính xác và chỗ hở còn lại.
@@ -268,21 +268,42 @@ Thêm:
 - Đề xuất sửa (gọn cho 9 pt):
   - "**Gửi nhầm người:** **Thu hồi link** ngay, tạo link mới cho đúng khách. Ghi sổ giao ca mã đơn, giờ gửi, giờ thu hồi (không ghi tên, số của người nhận nhầm). **Báo chủ đầu tư trong ngày.** Đơn đã hiện **Đã làm thủ tục trước** mà khách nói chưa gửi: không dùng giấy tờ đó, báo chủ đầu tư ngay."
   - Tách "Chủ đầu tư báo 'dừng check-in online'…" thành một gạch riêng.
-- Trạng thái: **Fixed** – PO 06/11 tối, commit "round-5: Phản hồi & sửa – PO one-pager SEC cards…". Tờ 1 dòng "Gửi nhầm người" theo đúng câu SEC đề xuất, thêm "kênh" và "không ghi tên khách" như BA-01 ý 2; lệnh dừng tách gạch riêng. PO bỏ giả định "không báo". Chờ SEC đọc lại dòng này, rồi INV in Tờ 1 (`rounds/round-05/responses/PO-responses.md`)
+- Trạng thái: **Fixed** – PO 06/11 tối, commit "round-5: Phản hồi & sửa – PO one-pager SEC cards…". Tờ 1 dòng "Gửi nhầm người" theo đúng câu SEC đề xuất, thêm "kênh" và "không ghi tên khách" như BA-01 ý 2; lệnh dừng tách gạch riêng. PO bỏ giả định "không báo". Chờ SEC đọc lại dòng này, rồi INV in Tờ 1 (`rounds/round-05/responses/PO-responses.md`) → **Closed – SEC đọc lại 06/11 tối** (mục 3a). Tờ 1 được in
 
 ### FB-R5-SEC-PO-02
 - Mức độ: Minor (nên sửa trong cùng lần in Tờ 1)
 - Vị trí: Tờ 1, khối "Check-in online", gạch 2 (dòng 49).
 - Vấn đề: như FB-R5-SEC-BA-08. "Gửi riêng 1–1 cho khách của đơn" chưa nói gửi tới liên hệ trên đơn, và chưa nói không gửi cho người tự xưng là khách từ số khác.
 - Đề xuất sửa: "**Gửi riêng 1–1** tới số, email hoặc hội thoại OTA **ghi trên đơn**, từ điện thoại cơ sở hoặc email của OTTIMO. Người xin link từ số khác: không gửi." Phần còn lại giữ nguyên.
-- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit với PO-01. Tờ 1 gạch 2 theo câu SEC đề xuất: gửi tới số, email hoặc hội thoại OTA ghi trên đơn; người xin link từ số khác thì không gửi
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit với PO-01. Tờ 1 gạch 2 theo câu SEC đề xuất: gửi tới số, email hoặc hội thoại OTA ghi trên đơn; người xin link từ số khác thì không gửi → **Closed – SEC đọc lại 06/11 tối** (mục 3a)
 
 ### FB-R5-SEC-PO-03
 - Mức độ: Suggestion
 - Vị trí: Tờ 2a, chú thích HTML đầu tờ.
 - Vấn đề: chú thích vẫn còn "Điều kiện bỏ khối check-in: SEC-on-PO-v1.0.0-docs.md mục C.1 …" dù khối đã bỏ. Không in ra, chỉ dễ gây nhầm cho người sửa sau.
 - Đề xuất sửa: bỏ vế này, giữ câu "Khối check-in online đã bỏ 06/11/2026".
-- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit với PO-01. Bỏ vế "Điều kiện bỏ khối check-in…" ở chú thích đầu Tờ 2a, giữ câu "Khối check-in online đã bỏ 06/11/2026"
+- Trạng thái: **Fixed** – PO 06/11 tối, cùng commit với PO-01. Bỏ vế "Điều kiện bỏ khối check-in…" ở chú thích đầu Tờ 2a, giữ câu "Khối check-in online đã bỏ 06/11/2026" → **Closed – SEC đọc lại 06/11 tối** (mục 3a)
+
+### 3a. Đọc lại lượt 2 – tờ dán quầy (commit `106722d7`)
+
+Round 5 · bước **Review**, lượt 2 · SEC · 06/11/2026 (tối). SEC đọc `product/docs/staff-one-pager.md` ở `106722d7`. Tệp này không đổi tới `main` lúc đọc. SEC cũng đọc `rounds/round-05/responses/PO-responses.md`.
+
+| Thẻ | Kết quả | Bằng chứng |
+|---|---|---|
+| FB-R5-SEC-PO-01 (Major) | **Closed** | Tờ 1 dòng 50. Có đủ các ý: thu hồi ngay; tạo link mới cho đúng khách; ghi sổ giao ca mã đơn, giờ gửi, giờ thu hồi, kênh; không ghi tên khách, không ghi tên hay số của người nhận nhầm; **báo chủ đầu tư trong ngày**; đơn đã hiện **Đã làm thủ tục trước** mà khách nói chưa gửi thì không dùng giấy tờ đó và báo ngay. Lệnh dừng là gạch riêng ở dòng 51. Khớp BA-01 ý 1–4. Phần đối chiếu bản gốc và **Xóa ảnh** để ở sổ tay, vì đó là việc của quản lý, không cần lên tờ quầy |
+| FB-R5-SEC-PO-02 (Minor) | **Closed** | Tờ 1 dòng 49: gửi riêng 1–1 tới số, email hoặc hội thoại OTA **ghi trên đơn**; người xin link từ số khác thì không gửi. Vẫn giữ: không nhóm chat, không mã cửa, không số căn, sale và CTV không gửi |
+| FB-R5-SEC-PO-03 (Suggestion) | **Closed** | Chú thích đầu Tờ 2a không còn vế "Điều kiện bỏ khối check-in…" |
+
+- **Tờ 1: được in.** Khối check-in online nay đủ 5 điều kiện ở mục 1.2: ai gửi, chỉ đơn đã xác nhận, gửi riêng tới liên hệ trên đơn không kèm mã cửa, gửi nhầm thì làm gì, khi nào dừng. Không còn điều kiện bảo mật nào chặn việc in.
+- **Tờ 2a: được in** (như lượt 1). Phần giữ chỗ chờ DOM đọc, ngoài phạm vi SEC.
+- Ghi nhận, không phải điều kiện: khối check-in dài thêm khoảng 40 chữ. Tờ 1 là A4 hai cột 9 pt. In thử một bản xem có còn vừa một mặt không. Tràn thì PO/UXD rút chữ chỗ khác, **không** rút dòng "Gửi nhầm người".
+- Kiểm lộ thông tin trong phần sửa: 0 IP, 0 bí mật, 0 email, 0 dữ liệu khách.
+- BA-01, BA-02 và các thẻ BA khác: chưa đọc lại. ORC gửi sau khi BA sửa xong. Trạng thái giữ nguyên ở mục 2.
+- PO đã nhận runbook SR-INC-01 vào V5-74 (mục 5 ý 1), hạn 14/11, SEC viết. SEC nhận việc.
+
+Dòng decision-log đề xuất (lượt 2):
+
+`| 2026-11-06 | 5 | SEC – đọc lại tờ dán quầy (106722d7, rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md mục 3a): FB-R5-SEC-PO-01 (Major), PO-02, PO-03 Closed. Tờ 1 được in: gửi nhầm link thì thu hồi, tạo link mới, ghi sổ giao ca mã đơn + giờ gửi/thu hồi + kênh, báo chủ đầu tư trong ngày; chỉ gửi tới liên hệ ghi trên đơn. Tờ 2a được in (phần giữ chỗ chờ DOM). In thử xem Tờ 1 còn vừa một mặt A4 | SEC | Quyền SEC (yêu cầu bảo mật, dữ liệu cá nhân) |`
 
 ---
 
