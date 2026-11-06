@@ -1,7 +1,7 @@
 # BE-D2 – PR-B3: V5-5B 5B-1 "Tiền về sau khi hủy" (máy chủ)
 
 - Người làm: BE (làn BE-D2) | Round 5 – v1.0.5 – Bước: **Sản xuất** | 07/11/2026
-- Nhánh: `r5-b3`, cắt từ `origin/main` `5ca6db0b`, đã gộp `origin/main` bốn lần (merge, không rebase): lần hai có #119 (`f84cd605`), lần ba tới `5c1f54f0`, lần bốn có #139, #120, #131, #133 (`aed9ec8a`). PR nháp: xem mục 8.
+- Nhánh: `r5-b3`, cắt từ `origin/main` `5ca6db0b`, đã gộp `origin/main` năm lần (merge, không rebase): lần hai có #119 (`f84cd605`), lần ba tới `5c1f54f0`, lần bốn có #139, #120, #131, #133 (`aed9ec8a`), lần năm tới `d6efc170` (`d7cc3c8e`). PR nháp: xem mục 8.
 - Căn cứ: hợp đồng 0.3.13 bổ sung 1 mục 1.21 ý 3 (`recordPayment` (B)), bổ sung 1e (SEC ARC-15), 1f (SEC ARC-16, ARC-20, ARC-21, C0313-25); DOM `rules-v1.0.5.md` 11.4 mục 2–5; SEC `SEC-on-bug-r5-002.md` 3.2 (S2–S8); thẻ ARC FB-R5-ARC-BE-105-03 (trả lời DOM FB-R5-DOM-ARC-105-01), FB-R5-ARC-BE-119-01; SEC FB-R5-SEC-BE-119-02, FB-R5-SEC-BE-127-02 (ORC giao thêm 07/11), SEC-responses 4.3.
 - Không làm trong PR này (ORC chốt): SEC 105-01 (BE-B, #139), ca test riêng ARC 105-01/105-02, DOM ARC-120-01, SQL 0079, trần S5 (cắt theo đường cắt của dòng V5-5B).
 
@@ -89,6 +89,8 @@ Test t1–t7 ở `pr-b3-after-closure.test.ts` (mục 4). Ca h1 của #105 (V5-4
 Chạy trên máy, PostgreSQL 17 tạm (container riêng, xóa sau khi xong).
 
 - `tsc --noEmit` (gồm `src` và `test`): sạch. Prettier, ESLint trên các file của PR: sạch.
+- **Lần mới nhất** – head `d7cc3c8e` (bổ sung 1i, gộp `origin/main` `d6efc170`): **217 file qua, 2 bỏ qua; 5.170 test qua, 19 bỏ qua, 1 todo**. Lần chạy trước đó trên cùng mã có 2 test đỏ ở file không thuộc PR này, chạy riêng thì qua (22/22), chạy lại cả bộ thì xanh: `sec-be65-retention` (6b) `could not obtain lock on relation "reservation"` (tranh khóa khi chạy song song) và `v5-58-property-wifi` T58-13 (bộ đếm 0 thay vì 3).
+- Sau khi gộp main lần bốn (`aed9ec8a`, có #139): 214 file qua, 5.133 test qua.
 - Toàn bộ API Vitest sau khi gộp `origin/main` `5c1f54f0`: **208 file qua, 2 bỏ qua; 5.046 test qua, 19 bỏ qua, 1 todo** (lần chạy có 1 test đỏ, đã sửa và chạy lại file đó: 2/2 qua). Test đỏ là ca 105-01 của `v5-48-arc-followups.test.ts` (BE-B, mới lên main qua #144, chỉ test): ghi `type: deposit` sau khi hủy một đơn **đã xác nhận**. Theo luật 5B-1 của PR này, đơn đó nhận `charge` (`deposit` chỉ cho đơn hủy khi còn giữ chỗ). Tôi đổi một dòng sang `charge`, ghi chú lý do; ý của ca (cờ `afterClosure` theo giờ máy chủ ghi, không theo `receivedAt`) giữ nguyên. BE-B nên biết.
 - Lần chạy trước đó (sau khi gộp `f84cd605`, #119): 202 file qua, 4.995 test qua. Lần đầu đỏ 2 chỗ, cả hai đã xử lý:
   - `be-b-s2-units.test.ts` so khớp đúng hình `depositPayment`. Hàm nay chỉ thêm `bankReference` khi có mã, nên hình cũ giữ nguyên. Không sửa test của làn khác.
@@ -138,7 +140,7 @@ M1–M8 và M13–M19 đã chạy lại sau khi thêm phần `bankReference`.
 - PR nháp **#148** (`r5-b3` → `main`). Head là commit chứa file này; SHA và trạng thái CI ghi ở PR và báo cáo gửi ORC.
 - Lịch sử nhánh: `3a59a015` (máy chủ 5B-1) → `2fed4383` (gộp main) → `6b4eb1b3` (test t1–t7, S2–S8, 127-02) → `e250874d` (gộp main có #119) → `ebd30bce` (`bankReference`, file này) → `01507ab3` (gộp main `5c1f54f0`) → commit sửa ca 105-01 của #144.
 - CI đã biết hay chập chờn: shellcheck `postgres-log-terse` (OPS-11, #126), không liên quan PR này.
-- #139 đã gộp (mục 6, SEC). Lần gộp main thứ tư: `aed9ec8a`.
+- #139 đã gộp (mục 6, SEC). Lần gộp main thứ tư: `aed9ec8a`. Bổ sung 1i: `e2071bc7`. Lần gộp thứ năm: `d7cc3c8e`, không xung đột. PR không đụng `strings.js`, nên không phải chạy `gen_strings.py`.
 
 ## 9. Bổ sung 1i: C0313-31, C0313-32 (Phản hồi & sửa, ORC chuyển 07/11)
 
