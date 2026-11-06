@@ -79,7 +79,7 @@ Dòng decision-log đề xuất (ORC chép):
 
 ## Thẻ SEC tối 06/11 (QC Round 4 ĐK-8; SEC `SEC-on-bug-r4-054.md` và `SEC-on-lp-v2-s6d.md`)
 
-- Người trả lời: OPS | Ngày: 06/11/2026 | Round 5 (bảo trì v1.0.5) – Bước: Sản xuất. Không SSH, không đổi gì trên server. Phần code nằm trong các PR nhánh `r5-ops-caddy` (V5-67) và `r5-ops` (V5-73, V5-62, V5-65); runbook ở nhánh `r5-ops-runbooks` (V5-70, V5-64, V5-65 phần gỡ khóa). Cả ba chờ SEC + ARC review, OPS không tự merge. "Done" dưới đây nghĩa là bản sửa đã có trong PR kèm test; thẻ chỉ Closed khi SEC xác nhận.
+- Người trả lời: OPS | Ngày: 06/11/2026 | Round 5 (bảo trì v1.0.5) – Bước: Sản xuất. Không SSH, không đổi gì trên server. Phần code nằm trong PR #92 nhánh `r5-ops-caddy` (V5-67) và PR #93 nhánh `r5-ops` (V5-73, V5-62, V5-65); runbook ở nhánh `r5-ops-runbooks` (V5-70, V5-64, V5-65 phần gỡ khóa). Cả ba chờ SEC + ARC review, OPS không tự merge. "Done" dưới đây nghĩa là bản sửa đã có trong PR kèm test; thẻ chỉ Closed khi SEC xác nhận.
 - Trong commit này: README `infra/server` dòng 120 bỏ "nhất là sau khi nhập lại bảng giá 01/11", thay bằng câu QA/SEC đề nghị (phần "làm ngay" của V5-73).
 
 | ID | Trạng thái mới | Ghi chú |
@@ -106,7 +106,7 @@ Mục B1 không có thẻ riêng (để QC thấy đủ):
 | Mục | Đi về đâu | Ghi chú |
 |---|---|---|
 | OR-M1 (diễn tập quá hạn) | V5-61 | Chờ INV 30 phút. `ops-check drill` làm cùng V5-61 |
-| OR-M2 (RPO 24 giờ) | V5-62, PR `r5-ops` | Lượt sao lưu thứ hai 14:00 (staging 14:30), vòng xoay theo tuổi, mọi bản < 35 ngày, ngưỡng `backup` của ops-check 26 → 14 giờ. INV xác nhận "RPO 12 giờ" (B4.4); SEC sửa SR-BAK-01 khi bản lên |
+| OR-M2 (RPO 24 giờ) | V5-62, PR `r5-ops` (#93) | Lượt sao lưu thứ hai 15:00 (staging 15:30; lượt đầu production 03:00, staging 03:30, mỗi khoảng 12 giờ), vòng xoay theo tuổi, mọi bản < 35 ngày, ngưỡng `backup` của ops-check 26 → 14 giờ. INV xác nhận "RPO 12 giờ" (B4.4); SEC sửa SR-BAK-01 khi bản lên |
 | OR-M3 | V5-63 | Như OR-04 |
 | OR-M4 | V5-64, PR `r5-ops-runbooks` | Runbook "VPS mới" một trang, chỉ viết |
 | OR-L1 (khóa `.env` trùng) | V5-65 | Chưa làm trong lượt này. Khi làm: chỉ in tên khóa |
