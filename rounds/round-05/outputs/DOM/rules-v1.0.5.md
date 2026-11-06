@@ -19,6 +19,7 @@
 | UXD bảng chữ | G6 dùng chung câu cho `penalty` và `damage`; `hold_expiry_reminder_hours` = 0 là không nhắc; 29 tên tham số đúng; `weekend_nights` dạng mã thứ; thẻ FB-R5-DOM-UXD-01 (mục 8) | Không |
 | Tin tự hủy giữ chỗ | Gửi thêm lễ tân, lễ tân trưởng (mục 9) | Không (NGÀNH) |
 | CPY thẻ 04 | Nhãn `late_fee_after_limit` khi số tiền khác `limit_ref_vnd` (mục 10) | Không |
+| Tiền về mà giữ chỗ đã tự hủy | Kiểm tiền theo mã đơn trước khi hủy hoặc báo khách; đặt lại nếu còn căn, không thì chủ đầu tư hoàn đủ; lỗi phần mềm cho QA, việc BE (mục 11) | Không (NGÀNH) |
 
 ### Việc chủ đầu tư nhập trên Desk sau khi v1.0.5 lên (đội không đổi tham số trên production)
 
@@ -521,3 +522,64 @@ Nghiệp vụ không đổi:
 - Sửa thẳng chỉ để sửa ghi nhầm. v1.0.5 không chặn thêm.
 
 Chữ CPY đề xuất ("Phụ thu trả muộn (rời sau mốc trả muộn)", "Late check-out fee (after the late check-out limit)") đúng nghĩa BR-416 (khách rời sau mốc cuối, đêm ngày đi không bán được). QA: quản lý giảm đơn giá dòng `late_fee_as_night` 800.000 → 400.000 → phiếu ra nhãn `after_limit`; dòng 800.000 kèm FOC 400.000 → phiếu vẫn ra nhãn `as_night`.
+
+---
+
+## 11. Tiền về nhưng giữ chỗ đã tự hủy (SEC `rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md` mục 3a lượt 3; PO ca 2)
+
+**Chốt:** chọn **(a)**: trước mỗi lần tự bấm hủy và khi thấy một giữ chỗ đã tự hủy, lễ tân kiểm tiền về theo mã đơn (không thấy thì hỏi chủ đầu tư) rồi mới báo khách; tiền đã về thì căn còn trống đặt lại cùng căn, cùng giá, căn đã bán thì chủ đầu tư hoàn đủ theo sao kê. v1.0.4 không có đường ghi tiền cho đơn đã tự hủy: **lỗi phần mềm**, ORC giao QA ghi bug, PO xếp việc BE.
+
+### 11.1 Ca có xảy ra không
+
+Có, cả hai ca.
+- **Ca 1** – tiền về trước hạn, chưa ai bấm xác nhận, J1 tự hủy:
+  - hay gặp nhất là ban đêm: giữ chỗ hết hạn sau khi quầy rời lúc 21:00, khách chuyển buổi tối;
+  - lúc quầy đông, tiền về sát giờ hạn.
+- **Ca 2** – khách chuyển theo mã QR cũ sau khi đơn đã tự hủy: thường vì khách chưa được báo. Cách rà theo mã đơn (thẻ FB-R5-DOM-PO-07) làm ca này ít đi, nhưng không hết.
+
+### 11.2 Luật
+
+| Ca | Căn còn trống | Căn đã bán |
+|---|---|---|
+| Ca 1 (khách chuyển đúng hạn; lỗi chậm ghi là của OTTIMO) | Đặt lại cùng căn, cùng giá đã báo, ghi cọc vào đơn mới. Không phí | Mời căn khác cùng hạng hoặc tốt hơn, cùng giá (tinh thần BR-312). Khách không nhận → hoàn đủ, không phí |
+| Ca 2 (khách chuyển sau hạn) | Khách còn muốn → đặt lại như khách mới, giá hiện hành, ghi cọc vào đơn mới | Hoàn đủ, không phí (đơn chưa xác nhận, BR-308) |
+
+- Ai hoàn: ở v1.0.4, **chủ đầu tư** hoàn bằng chuyển khoản ngoài Desk, theo sao kê. Lễ tân ghi sổ giao ca "OTM-… tiền về sau tự hủy – chờ chủ đầu tư hoàn", không hứa ngày.
+- Giữ chỗ quá hạn mà J1 chưa tự hủy (job đứng): tiền về trước hạn thì lễ tân **Xác nhận đã nhận cọc** được, với Giờ nhận tiền = giờ tiền về (`overdueHoldAccepts`: FD+, tiền về trước hạn). Chưa về thì Hủy giữ chỗ như Tờ 2a.
+- Đối soát (BR-527): dòng sao kê mang mã đơn cũ. Khoản thu trên đơn mới có Ghi chú "Tiền về hh:mm dd/mm theo mã OTM-cũ", nên quản lý đối soát theo ghi chú.
+
+Cách làm trên Desk v1.0.4 khi đặt lại:
+1. Tạo giữ chỗ mới cùng căn, cùng ngày.
+2. **Xác nhận đã nhận cọc**: Giờ nhận tiền để **bây giờ**, vì Desk không nhận giờ trước lúc tạo giữ chỗ mới (`deposits.service.ts`: `receivedAt` ≥ lúc tạo giữ chỗ, không thì `DATE_INVALID`).
+3. Ghi chú: giờ tiền về thật và mã đơn cũ.
+4. Sổ giao ca: mã đơn cũ → mã đơn mới.
+
+Phòng ngừa (PO đưa vào sổ tay 2.4; lên Tờ 2a nếu còn chỗ): lượt rà trước khi rời quầy, giữ chỗ chưa cọc hết hạn trước giờ mở quầy hôm sau mà khách còn muốn → gia hạn 1 lần tới 10:00 sáng hôm sau, vẫn dưới trần 12:00 ngày đến (BR-302, BR-303). Như vậy tiền về ban đêm không rơi vào đơn đã hủy.
+
+### 11.3 Lỗi phần mềm – cho QA ghi bug (đề xuất P2)
+
+Tên đề xuất: "Tiền cọc về cho giữ chỗ đã tự hủy: Desk không ghi được khoản thu, không tạo được yêu cầu hoàn."
+- Bằng chứng trong mã:
+  - xác nhận cọc và báo đã chuyển chỉ nhận đơn `hold` (`product/services/api/src/modules/payments/internal/deposits.service.ts` dòng 138 và 425: 409 `INVALID_TRANSITION`);
+  - đơn `cancelled` không nhận dòng tay, mọi vai (BR-522, ghi chú 18/10);
+  - đơn mới không nhận Giờ nhận tiền trước lúc tạo giữ chỗ (`deposits.service.ts` 157–165).
+- Hậu quả:
+  - tiền thật của khách nằm ngoài Desk, hoàn ngoài Desk, không qua duyệt BR-522;
+  - đối soát BR-527 có dòng sao kê không khớp đơn nào;
+  - giờ tiền về trên đơn mới ghi sai.
+- Không sai số tiền khách trả. Không chặn v1.0.5.
+
+### 11.4 Việc mới cho BE (PO xếp; đề xuất v1.0.6, v1.0.5 nếu kịp)
+
+1. FD+ ghi khoản thu trên đơn `cancelled` có lý do `hold_expired`:
+   - ảnh chứng từ bắt buộc; khoản thu chờ đối soát (BR-527);
+   - Giờ nhận tiền: bất kỳ lúc nào sau lúc tạo giữ chỗ cũ, không sau bây giờ.
+2. Sau khi ghi, một trong hai:
+   - (i) **căn còn trống và chưa qua ngày đến**: khôi phục đơn về giữ chỗ, rồi xác nhận cọc như thường. DOM nghiêng về khôi phục, không tạo đơn mới liên kết: mã đơn khớp nội dung chuyển khoản, giờ tiền về đúng, không sinh yêu cầu hoàn;
+   - (ii) **không đặt lại**: hệ thống tự tạo yêu cầu hoàn 100 %, không phí (BR-308). MGR/OWN duyệt, người tạo yêu cầu không tự duyệt (BR-522).
+3. ARC chốt:
+   - khôi phục hay đơn mới liên kết;
+   - mã lỗi khi căn đã bán;
+   - có cần migration không: máy trạng thái chưa có `cancelled → hold`. Nếu cần migration thì theo QC R4 ĐK-2 (chờ diễn tập khôi phục).
+4. SEC xem ai được khôi phục. DOM đề xuất FD+ khi có chứng từ, có audit. Quản lý thấy trong bộ lọc tuần.
+5. Khi lên: PO sửa Tờ 2a, BA sửa sổ tay 2.4 (V5-71) bỏ các bước làm tay ở 11.2.
