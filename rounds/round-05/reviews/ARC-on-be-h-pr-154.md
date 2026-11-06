@@ -15,7 +15,8 @@
     - bổ sung 1i (#152 @ `ca276f8a`, ARC viết): bảng 1.30, mô tả `updateReservation`, `ReservationPatch.closerChangeReason`, mục 0.3.14 (e);
   - review cũ: `ARC-on-be-h-prs-110-123-131.md` (mục 4.2, 4.3; thẻ 131-02, 131-03, 123-02), `ARC-on-be-h-pr-149.md` (thẻ 149-01);
   - `DOM-on-contract-addendum-1h.md` (mục 1.3–1.5, thẻ 1H-04), `SEC-on-contract-0313-addenda-1g-1h.md` (mục 2.2–2.5, thẻ 1H-01, 1H-03);
-  - `DOM-on-be-h-pr-154.md` (đã lên `main` ở `31e12c48`). ARC đọc sau khi tự kiểm xong, nên không lặp thẻ DOM; mục 8 trả lời hai thẻ DOM gửi ARC.
+  - `DOM-on-be-h-pr-154.md` (đã lên `main` ở `31e12c48`). ARC đọc sau khi tự kiểm xong, nên không lặp thẻ DOM; mục 8 trả lời các thẻ DOM gửi ARC;
+  - `SEC-on-be-h-pr-154.md` (lên `main` ở `d5b63741`, lúc ARC sắp commit). Mục 4 và 8.1 đã sửa theo thẻ SEC 154-01.
 - Cách kiểm:
   - Đọc mã trên ref riêng (`refs/scratch/pr154`, `pr154b`, `pr152`, `pr147`, `pr149`), trong ba worktree tạm ở scratchpad. Không checkout nhánh trong thư mục chính, không push vào nhánh PR.
   - PostgreSQL 17 riêng: container `arc-154-pg`, chỉ nghe `127.0.0.1`, mật khẩu là mật khẩu CI công khai của repo. Một database cho lần chạy đủ, một database riêng cho đột biến.
@@ -96,7 +97,8 @@ Không có. Hai lý do `void` mới nằm trong cột `text`. Không ràng buộ
   - Gửi lại sau khi thành công → 412 (version đã đổi). Không đồng bộ hoa hồng lần hai.
   - Guard của #123 không hoãn quyết định vai cho thao tác này. 403 của đổi người chốt luôn đi qua `recordUseCaseDenial`, đúng một dòng mỗi request.
 - `requestHash` chỉ chạy ở nơi có `Idempotency-Key`: UnitOfWork, guard, đơn vị công việc của khách, đặt phòng công khai. Đúng chữ 0.3.14 (e).
-- Các thân khác chỉ được đọc từng trường, không đệ quy. Probe P5: PATCH đơn với `internalNote` lồng 10.000 tầng → **422** (`internalNote` `VALIDATION_FAILED`), không 500, không `access.denied`.
+- Với thân JSON của các thao tác khác, bộ đọc đi theo từng trường, không đệ quy. Probe P5: PATCH đơn với `internalNote` lồng 10.000 tầng → **422** (`internalNote` `VALIDATION_FAILED`), không 500, không `access.denied`.
+- **Sửa sau khi đọc review SEC:** câu trên **chưa đủ**. `registration.controller.ts:227` (`addGuestDocument`) gọi `canonicalJson(data)` **trực tiếp**, trên phần `data` của multipart, không qua `requestHash`. SEC đo được 500 với `data` lồng sâu (FB-R5-SEC-BE-154-01). ARC đã tìm `canonicalJson` trong `src` trên `main`: đây là nơi gọi trực tiếp duy nhất ngoài `request-hash.ts`. Ý kiến ARC ở mục 8.1.
 - Ca tích hợp 10.000 tầng kèm `Idempotency-Key` ở `write-roles-gate` phủ đường guard → 403, và đường UnitOfWork → 422.
 - ARC 123-02: `guardWithStored` chỉ trả dòng khi câu SQL có `method = $3`, `path = $4`, `request_hash = $5` **và** `$5` đúng là hash của thân đã lưu. Ca "khớp" (đổi thứ tự khóa, có query string) cũng có. Đột biến A1 của BE-H (bỏ lọc hash) đỏ. **Đóng 123-02.**
 
@@ -199,12 +201,20 @@ Probe: ARC thêm tạm 5 ca vào bản sao của tệp test, chỉ trong scratch
 | FB-R5-DOM-BE-154-03 (Minor: Desk theo mốc, FD/FDL chỉ đọc) | Đồng ý. ARC thêm một câu ở gạch FE-A của 0.3.14 (mục 9) |
 | FB-R5-DOM-BE-154-05 (Suggestion v1.0.6: người chốt cũ chưa có bản ghi, đọc `reservation_change`) | Đồng ý hướng và hạn v1.0.6. Khi làm, giữ điều kiện "của chính đơn" mà thẻ 154-01 (b) đòi test |
 
+### 8.1 Thẻ SEC trên cùng PR (`SEC-on-be-h-pr-154.md`, lên `main` ở `d5b63741` lúc ARC sắp commit)
+
+| Thẻ SEC | ARC |
+|---|---|
+| FB-R5-SEC-BE-154-01 (Minor: `addGuestDocument` gọi `canonicalJson` trực tiếp → 500 với `data` lồng sâu) | Đồng ý. ARC sót nơi gọi này ở mục 4. **ARC chọn cách (1) của SEC:** đặt kiểm `bodyTooDeep` ở chính hàm `canonicalJson` được xuất ra, còn phần đệ quy là hàm nội bộ. Một cổng ở đúng hàm đệ quy che mọi nơi gọi, hôm nay và về sau. Cách này cùng mẫu với cổng `audit-visibility` của #149. `requestHash` giữ kiểm của mình, hoặc gọi qua `canonicalJson`; kết quả như nhau. Thêm test quét `canonicalJson(` ngoài `request-hash.ts` như SEC ý 3. ARC không đòi làm trong #154: đường này có từ trước, và 154-01 của SEC không chặn gộp. ORC chọn: head kế tiếp của `r5-h1c` (cùng tác giả, cùng tệp `request-hash.ts`), hoặc PR nhỏ trước tag |
+| FB-R5-SEC-BE-154-02 (Minor: test 403 trước 409 khi hoa hồng đã vào kỳ chi) | Trùng ý (c) của ARC 154-01 (probe P1). BE-H viết **một** ca là đóng cả hai thẻ |
+
 ## 9. Việc của ARC sau review này
 
 Ghi ở danh sách 0.3.14 (mục 1.26 của `contract-0.3.13.md`), PR tài liệu kế tiếp. Chỉ mô tả, không đổi schema:
 1. `updateReservation`: "Thứ tự 403 → 422 → 409 áp cho các kiểm sau khi tải đơn. Lỗi dạng của thân (kiểu, biên, uuid sai dạng) trả 422 trước khi tải đơn và không phụ thuộc trạng thái đơn."
 2. Gạch FE-A: "FD/FDL thấy người chốt ở dạng chỉ đọc khi đơn ngoài `hold`; ô sửa theo mốc của bảng 1.29" (DOM 154-03).
-3. `erd.md` 4.x `commission.void_reason`: liệt kê các giá trị đang ghi: `resync`, `closer_changed`, `closer_corrected` và các lý do của B10/B11. Ghi rõ dòng `void` giữ `recognized_at` (DOM 154-01).
+3. 0.3.14 (e): "kiểm độ sâu nằm ở `canonicalJson` (mọi nơi gọi, kể cả gọi trực tiếp như `addGuestDocument`), không chỉ ở `requestHash`" (SEC 154-01). Ghi khi bản sửa gộp.
+4. `erd.md` 4.x `commission.void_reason`: liệt kê các giá trị đang ghi: `resync`, `closer_changed`, `closer_corrected` và các lý do của B10/B11. Ghi rõ dòng `void` giữ `recognized_at` (DOM 154-01).
 
 ## 10. Ghi chú cho ORC
 
@@ -226,4 +236,4 @@ Ghi ở danh sách 0.3.14 (mục 1.26 của `contract-0.3.13.md`), PR tài liệ
 
 | Ngày | Round | Quyết định | Người quyết | Tài liệu |
 |---|---|---|---|---|
-| 2026-11-07 | 5 | ARC DUYỆT CÓ ĐIỀU KIỆN BE-H #154 (`r5-h1c`) @ `4e81c3be` (đọc mã ở `279b5492`; `4e81c3be` chỉ gộp `main` @ `c058c5f0`, remerge-diff rỗng). Điều kiện gộp: thứ tự #147 → #152 → #154 (#149 đã gộp); CI xanh trên head cuối, kể cả E2E smoke. Mã khớp hợp đồng 1h/1i: quyền theo mốc dưới khóa đơn, FD/FDL trước nhận phòng và vai khác OWN sau nhận phòng → 403 + một `access.denied` (`CLOSER_CHANGE_BEFORE_CHECKIN`/`AFTER_CHECKIN`); thứ tự 403 → 422 → 409; `checked_out` chỉ nhận người chốt + lý do; người mới đạt theo luật B18, `recognized_at` = lúc sửa; lý do ở cột `reason` của audit, allowlist chỉ thêm `closerUserId`; `MAX_BODY_DEPTH` 32 (schema sâu nhất 5) và guard try/catch. Không migration; khóa đơn → căn → folio → `commission` như B18; `updateReservation` không có `Idempotency-Key`, nên không đổi tương tác #123. Gộp thử trên PostgreSQL 17, `tsc` sạch cả hai lần: `main` @ `960ff5f2` + #149 + #152 + #154 → API 217 tệp / 5170 ca xanh; `main` @ `506c20c4` + #152 + #154 (= `4e81c3be` + #152) → 218 tệp xanh (`production-bootstrap` chạy lại trên database bootstrap mới tạo). 9 đột biến ARC: 6 đỏ, 3 xanh (R1 = DOM 154-02, R2, R4) dù mã đúng → thẻ 154-01 Minor (test sửa gộp, phạm vi 1H-04, 403 trước 409; trước PR-M). ARC chốt DOM 154-01: dòng `void` giữ `recognized_at` (như `voidCommissions`). Đóng ARC 131-02, 131-03, 123-02, #114 12.3 khi gộp. 149-01 làm ở head kế tiếp. Không ESC | ARC | rounds/round-05/reviews/ARC-on-be-h-pr-154.md |
+| 2026-11-07 | 5 | ARC DUYỆT CÓ ĐIỀU KIỆN BE-H #154 (`r5-h1c`) @ `4e81c3be` (đọc mã ở `279b5492`; `4e81c3be` chỉ gộp `main` @ `c058c5f0`, remerge-diff rỗng). Điều kiện gộp: thứ tự #147 → #152 → #154 (#149 đã gộp); CI xanh trên head cuối, kể cả E2E smoke. Mã khớp hợp đồng 1h/1i: quyền theo mốc dưới khóa đơn, FD/FDL trước nhận phòng và vai khác OWN sau nhận phòng → 403 + một `access.denied` (`CLOSER_CHANGE_BEFORE_CHECKIN`/`AFTER_CHECKIN`); thứ tự 403 → 422 → 409; `checked_out` chỉ nhận người chốt + lý do; người mới đạt theo luật B18, `recognized_at` = lúc sửa; lý do ở cột `reason` của audit, allowlist chỉ thêm `closerUserId`; `MAX_BODY_DEPTH` 32 (schema sâu nhất 5) và guard try/catch. Không migration; khóa đơn → căn → folio → `commission` như B18; `updateReservation` không có `Idempotency-Key`, nên không đổi tương tác #123. Gộp thử trên PostgreSQL 17, `tsc` sạch cả hai lần: `main` @ `960ff5f2` + #149 + #152 + #154 → API 217 tệp / 5170 ca xanh; `main` @ `506c20c4` + #152 + #154 (= `4e81c3be` + #152) → 218 tệp xanh (`production-bootstrap` chạy lại trên database bootstrap mới tạo). 9 đột biến ARC: 6 đỏ, 3 xanh (R1 = DOM 154-02, R2, R4) dù mã đúng → thẻ 154-01 Minor (test sửa gộp, phạm vi 1H-04, 403 trước 409; trước PR-M). ARC chốt DOM 154-01: dòng `void` giữ `recognized_at` (như `voidCommissions`). Đồng ý SEC 154-01 (`addGuestDocument` gọi `canonicalJson` trực tiếp): kiểm độ sâu đặt ở chính `canonicalJson`, không chặn #154; SEC 154-02 trùng ARC 154-01 (c), một ca. Đóng ARC 131-02, 131-03, 123-02, #114 12.3 khi gộp. 149-01 làm ở head kế tiếp. Không ESC | ARC | rounds/round-05/reviews/ARC-on-be-h-pr-154.md |
