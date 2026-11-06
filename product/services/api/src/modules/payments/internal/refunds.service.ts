@@ -37,6 +37,7 @@ import { type ApprovalRow, ApprovalService } from '../../approvals/public/approv
 import { C3AccessGate } from '../../crypto/public/c3-access-gate';
 import { EventsService } from '../../events/public/events.service';
 import { FolioService, type PaymentRowLite } from '../../folio/public/folio.service';
+import { folioLocked } from '../../folio/public/folio-locked';
 import type { RefundDestinationCarry } from '../../folio/public/refund-routing';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { notifyStaff, publishEvent } from '../../platform/public/staff-notify';
@@ -376,7 +377,7 @@ export class RefundsService {
     if (!folio) throw problem('NOT_FOUND');
     // 0.3.8 bổ sung 3 (ARC FB-R3-ARC-FUZZ-01, BR-522 K11-06): an overpayment left after check-out is requested on the
     // `settled` folio too (J15 keeps it settled – `waiting_refund` – until it is paid back); `closed` holds no credit (I4).
-    if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    if (folio.status === 'closed') throw folioLocked('closed');
     // E15-05: the cap is the overpayment not routed to a refund request yet (open requests of every booking
     // of the folio already deducted by FolioService.balance).
     const max = (await this.folios.balance(tx, folio.id)).unhandledCreditVnd;
@@ -710,7 +711,7 @@ export class RefundsService {
     const ownSelf =
       ownerTransfer &&
       [row.requested_by, row.approver_id, row.refund_destination_set_by].includes(actor.userId);
-    if (!lockedFolio || lockedFolio.status === 'closed') throw problem('FOLIO_LOCKED');
+    if (!lockedFolio || lockedFolio.status === 'closed') throw folioLocked('closed');
     const now = this.clock.now();
     if (
       paidAt.getTime() > now.getTime() ||
