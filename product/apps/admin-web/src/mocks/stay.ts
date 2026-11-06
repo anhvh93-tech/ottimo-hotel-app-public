@@ -803,7 +803,13 @@ export function createStayMock(ctx: Ctx) {
   const trusted = (g: { user: MockUser; roles: Role[] }) =>
     g.user.deviceTrusted === true || (g.roles.includes('owner') && ctx.db().currentDeviceTrusted);
   const roleName = (g: { user: MockUser }) => g.user.displayName;
-  const audit = (g: { user: MockUser }, action: string, code: string | undefined, after: Body) =>
+  const audit = (
+    g: { user: MockUser },
+    action: string,
+    code: string | undefined,
+    after: Body,
+    before?: Body,
+  ) =>
     st.audit.unshift({
       occurredAt: nowIso(),
       actorType: 'user',
@@ -813,6 +819,7 @@ export function createStayMock(ctx: Ctx) {
       action,
       entityType: 'folio',
       entityCode: code,
+      ...(before ? { before } : {}),
       after,
     });
 
@@ -3542,11 +3549,15 @@ export function createStayMock(ctx: Ctx) {
           },
           g.user.displayName,
         );
-      audit(g, 'folio_line.adjusted', r.code, {
-        before: l.amountVnd,
-        amountVnd: body.voidLine === true ? 0 : round1000(unit * qty),
-        reason: String(body.reason),
-      });
+      // like the server's audit row: before / after amounts, the line kind on `before` (0.3.13 bổ sung 1)
+      audit(
+        g,
+        'folio_line.adjusted',
+        r.code,
+        { amountVnd: body.voidLine === true ? 0 : round1000(unit * qty) },
+        { amountVnd: l.amountVnd, category: l.category },
+      );
+      st.audit[0]!.reason = String(body.reason);
       return rsv().remember(key, 201, folioView(r, g.roles));
     }),
     http.post(`${prop}/folios/:folioId/lines/:lineId/foc`, async ({ request, params }) => {
@@ -4267,9 +4278,35 @@ export function createStayMock(ctx: Ctx) {
       const q = new URL(request.url).searchParams;
       const actor = q.get('actorUserId');
       const mgr = has(g.roles, OWN_MGR);
+      // like audit-log.controller: `from`/`to` = calendar dates in Asia/Ho_Chi_Minh, inclusive; default the last 7 days.
+      const day = (iso: string) =>
+        new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(iso));
+      const to = q.get('to') ?? day(new Date().toISOString());
+      const from = q.get('from') ?? addDays(to, -6);
+      // 0.3.13 bổ sung 1: `reductionsOnly` = every `folio_line.adjusted` that lowers a line (removals included),
+      // not the night lines (room, extra person, room-change difference); pins category money.
+      const NIGHT_LINES = ['room', 'extra_person', 'room_change_difference'];
+      const reduction = (e: (typeof st.audit)[number]) => {
+        const b = Number((e.before as Body | undefined)?.amountVnd);
+        const a = Number((e.after as Body | undefined)?.amountVnd);
+        const cat = String((e.before as Body | undefined)?.category ?? '');
+        return (
+          e.action === 'folio_line.adjusted' &&
+          Number.isFinite(a) &&
+          Number.isFinite(b) &&
+          a < b &&
+          !NIGHT_LINES.includes(cat)
+        );
+      };
+      const reductionsOnly = q.get('reductionsOnly') === 'true';
       const data = st.audit
         .filter((e) => !q.get('category') || e.category === q.get('category'))
         .filter((e) => !actor || e.actorUserId === actor)
+        .filter((e) => {
+          const d = day(String(e.occurredAt));
+          return d >= from && d <= to;
+        })
+        .filter((e) => !reductionsOnly || (e.category === 'money' && reduction(e)))
         // FD/FDL: only their own money actions (US-006 AC2, x-scope own).
         .filter((e) => mgr || e.actorUserId === g.user.id)
         .map((e) => {

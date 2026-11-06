@@ -1948,9 +1948,12 @@ export function createReservationMock(ctx: Ctx) {
         .users.filter((u) => u.status === 'active')
         .flatMap((u) => {
           const roles = u.roles.map((x) => x.role);
+          // like the server (0.3.5 A-06): `staff` = sales, front desk, front desk lead, manager, owner
           const k = roles.includes('collaborator')
             ? ('agent' as const)
-            : roles.includes('sales_staff')
+            : roles.some((x) =>
+                  ['sales_staff', 'front_desk', 'front_desk_lead', 'manager', 'owner'].includes(x),
+                )
               ? ('staff' as const)
               : null;
           return k && (kind === 'all' || kind === k)

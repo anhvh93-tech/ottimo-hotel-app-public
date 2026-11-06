@@ -176,8 +176,11 @@ export interface ListPaymentsQuery {
 export interface ListAuditQuery {
   category?: AuditEvent['category'];
   actorUserId?: string;
-  dateFrom?: string;
-  dateTo?: string;
+  /** Calendar dates (property time zone), inclusive – the server's `from`/`to` (it never read `dateFrom`/`dateTo`). */
+  from?: string;
+  to?: string;
+  /** 0.3.13 bổ sung 1 (V5-16, BR-438 (4)): every reduction of a folio line, removals included – MGR/OWN filter. */
+  reductionsOnly?: boolean;
   cursor?: string;
   limit?: number;
 }
