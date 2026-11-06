@@ -201,7 +201,10 @@ export function createDashboardMock(ctx: Ctx) {
     const holdsArrivingToday = res
       .filter((r) => r.status === 'hold' && r.arrivalDate === T)
       .map((r) => summary(r, roles));
-    return { date: T, arrivals, departures, holdsArrivingToday };
+    // 0.3.13 bổ sung 1 (BE C0313-02): the departure day used for `departures`. The mock serves one day for every
+    // block (calendar day, as before), so it always equals `date`; the after-midnight window (no `date`, calendar
+    // day = business day + 1 → departures of the calendar day) is set per test with `server.use`.
+    return { date: T, departuresDate: T, arrivals, departures, holdsArrivingToday };
   }
 
   /** BR-907 items computed at read time + stored events still open, filtered by role. */

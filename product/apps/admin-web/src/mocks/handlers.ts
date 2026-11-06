@@ -34,7 +34,17 @@ import {
   type MockUser,
 } from './seed';
 
-const MFA_ROLES: Role[] = ['owner', 'manager'];
+/**
+ * Roles that make 2FA mandatory – server `identity/public/mfa-roles.ts` MFA_REQUIRED_ROLES. v1.0.5 V5-40 (PR #100):
+ * `front_desk_lead` joins owner/manager (getMy2fa.required, Me.mfaRequiredButMissing, the restricted enrolment-only
+ * session under MFA_ENFORCED, no disableMy2fa).
+ */
+const MFA_ROLES: Role[] = ['owner', 'manager', 'front_desk_lead'];
+/**
+ * owner/manager only, NOT the 2FA list: `Me.securityEmailMissing` (me.service `privileged`) and the S2 step-up on
+ * setUserRoles (users.controller S2_ROLES) did not change with V5-40.
+ */
+const PRIVILEGED_ROLES: Role[] = ['owner', 'manager'];
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 /** 10 recovery codes × 16 Crockford base32 chars (SEC 06.12) – raw, the Desk shows 4-4-4-4. */
 function recoveryCodes(): string[] {
@@ -363,7 +373,7 @@ function toMe(u: MockUser): Me {
     ...mfaView(u),
     // 0.3.10: own address in full; the reminder only for owner/manager without one.
     email: u.email ?? null,
-    securityEmailMissing: !u.email && mfaRequired(u),
+    securityEmailMissing: !u.email && u.roles.some((r) => PRIVILEGED_ROLES.includes(r.role)),
   };
 }
 
@@ -1307,7 +1317,7 @@ export const handlers = [
     const had = new Set(u.roles.map((r) => `${r.propertyId}:${r.role}`));
     const escalates = roles.some(
       (r) =>
-        MFA_ROLES.includes(r.role) &&
+        PRIVILEGED_ROLES.includes(r.role) &&
         !had.has(`${r.propertyId}:${r.role}`) &&
         !(r.role === 'manager' && had.has(`${r.propertyId}:owner`)),
     );
