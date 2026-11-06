@@ -509,8 +509,18 @@ function ChangeRoomForm({
             .map((x) => x.roomNo),
         ),
       ].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  // 409 ROOM_UNAVAILABLE (busy before the effective departure) → the server's suggested free room.
-  const suggested = suggestionsOf(act.error).filter((x) => x.roomNo !== roomNo);
+  // 409 ROOM_UNAVAILABLE (busy before the effective departure) → the server's suggested free room. The server picks
+  // it without housekeeping status (`occupancy.suggest`), so it goes through the same ready set as the list
+  // (FB-R5-ARC-FE-98-02) – the sentence under the list says only VI / VC rooms are offered.
+  const suggested = suggestionsOf(act.error).filter(
+    (x) => x.roomNo !== roomNo && (unfiltered || ready.has(x.roomId)),
+  );
+  // FB-R5-ARC-FE-98-02: 409 ROOM_NOT_READY – the picked room got dirty in between (BR-803). Read the statuses again
+  // so it leaves the list; the error stays on screen and the save button needs a room from the new list.
+  const reloadStatuses = statuses.reload;
+  useEffect(() => {
+    if (act.code === 'ROOM_NOT_READY') reloadStatuses();
+  }, [act.error, act.code, reloadStatuses]);
   const target =
     options.find((x) => x.roomId === roomId) ?? suggested.find((x) => x.roomId === roomId);
 

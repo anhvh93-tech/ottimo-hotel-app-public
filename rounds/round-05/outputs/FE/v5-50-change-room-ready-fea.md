@@ -43,3 +43,13 @@ UXD: **DUYỆT**. Trả lời đủ thẻ ở `rounds/round-05/responses/FE-resp
 - Vitest: ca "mọi căn trống còn VD" nay chờ câu mới với đủ số căn; thêm ca VD 203 + CL 202 (+ OC, OOO) → "căn 202, 203"; thêm ca chỉ OC/OD/OOO → vẫn `no_rooms`; ca chưa lọc không có câu mới.
 - **Ảnh đã đổi** (mock, dữ liệu giả): `v5-50-change-room-1366.png`, `v5-50-change-room-390.png` – khung cảnh báo nay là câu mới ("… chưa dọn xong: căn 203 …").
 - Kiểm: `tsc`, `eslint`, `prettier`, `gen_strings.py` sinh lại không lệch; toàn bộ vitest admin-web 1000/1000 xanh ở máy.
+
+## 8. Phản hồi & sửa (ARC-on-fe-prs-98-102-107, 07/11)
+- **98-01 (Major, điều kiện gộp)**: E2E `ui-clock/v5-50-change-room.r5.spec.ts` lấy phiên mới `fd15 = sessionOrSkip(request, 'qa.fd')` ngay sau `at(request, D, '15:00')`, dùng cho B14 xem trước và B14 thật. Phiên lấy lúc 14:00 giờ ảo hết hạn khi rảnh 30 phút theo giờ máy chủ. Trang Desk lúc 16:00 tự đăng nhập mới, không đổi.
+- **98-02 (Minor)**: `StayDialogs.tsx` `ChangeRoomForm`:
+  - gợi ý "Dùng căn X" của 409 `ROOM_UNAVAILABLE` đi qua cùng tập căn sẵn sàng với danh sách (`unfiltered || ready.has(roomId)`), vì máy chủ chọn gợi ý không xét trạng thái buồng;
+  - gặp 409 `ROOM_NOT_READY` (căn vừa bẩn giữa chừng) thì đọc lại trạng thái buồng: căn đó rời danh sách, câu lỗi vẫn hiện, nút lưu cần căn mới.
+  - 2 ca vitest mới; cả hai đỏ khi bỏ phần sửa, xanh khi có.
+- **98-03 (Suggestion)**: ca OOO trong vitest ghi chú "ca phòng thủ, máy chủ không trả". Ca VD + CL của PR98-01 đã có.
+- Ảnh: không đổi trong lượt này.
+- Kiểm: vitest admin-web 1002/1002, `tsc` (admin-web, tests), `eslint`, `prettier`.

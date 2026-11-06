@@ -72,6 +72,7 @@ describe('V5-50 – Đổi phòng lists only rooms ready for a guest (VI / VC)',
       '301': 'CL',
       '302': 'OC',
       '101': 'OD',
+      // OOO: defensive only – the server never answers a blocked room as free (room_occupancy kind ooo, ARC 98-03).
       '401': 'OOO',
     };
     freeAs(status);
@@ -141,6 +142,63 @@ describe('V5-50 – Đổi phòng lists only rooms ready for a guest (VI / VC)',
       );
       await waitFor(() => expect(sent.some((b) => b.newRoomId === roomId(vc))).toBe(true));
       expect(sent.every((b) => b.newRoomId === roomId(vc))).toBe(true);
+    } finally {
+      server.events.removeListener('request:start', on);
+    }
+  });
+
+  it('ARC 98-02: 409 ROOM_UNAVAILABLE suggestions go through the same ready set – a VD room is not offered as "Dùng căn"', async () => {
+    freeAs({ '103': 'VI', '202': 'VC', '203': 'VD' });
+    // The server picks its suggestion without housekeeping status (occupancy.suggest).
+    server.use(
+      http.post(/\/actions\/change-room$/, () =>
+        HttpResponse.json(
+          {
+            type: '/problems/room-unavailable',
+            title: 'Căn không trống',
+            status: 409,
+            code: 'ROOM_UNAVAILABLE',
+            roomNo: '103',
+            conflicts: [],
+            suggestions: [
+              { roomId: roomId('203'), roomNo: '203', upgrade: false },
+              { roomId: roomId('202'), roomNo: '202', upgrade: false },
+            ],
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const { user, dlg } = await openChangeRoom();
+    await user.click(await within(dlg).findByRole('radio', { name: /^103\b/ }));
+    expect(
+      await within(dlg).findByRole('button', { name: tv('bk.use_room', { room: '202' }) }),
+    ).toBeInTheDocument();
+    expect(
+      within(dlg).queryByRole('button', { name: tv('bk.use_room', { room: '203' }) }),
+    ).toBeNull();
+  });
+
+  it('ARC 98-02: 409 ROOM_NOT_READY (the room got dirty after the list loaded) → statuses read again, the room leaves the list', async () => {
+    freeAs({ '103': 'VI', '202': 'VC' });
+    let statusReads = 0;
+    const on = ({ request }: { request: Request }) => {
+      if (request.method === 'GET' && /\/room-statuses$/.test(new URL(request.url).pathname))
+        statusReads += 1;
+    };
+    server.events.on('request:start', on);
+    try {
+      const { user, dlg } = await openChangeRoom();
+      await waitFor(() => expect(listed(dlg).sort()).toEqual(['103', '202']));
+      const before = statusReads;
+      // Housekeeping marks 103 dirty while the dialog is open: B14 preview answers 409 ROOM_NOT_READY (BR-803).
+      mockControl.stay.roomStatus['103'] = 'VD';
+      await user.click(within(dlg).getByRole('radio', { name: /^103\b/ }));
+      await waitFor(() => expect(statusReads).toBeGreaterThan(before));
+      await waitFor(() => expect(listed(dlg)).toEqual(['202']));
+      expect(
+        within(dlg).queryByRole('button', { name: tv('stay.change_submit', { room: '103' }) }),
+      ).toBeNull();
     } finally {
       server.events.removeListener('request:start', on);
     }

@@ -55,6 +55,9 @@ test.describe(
       expect([a.room.roomNo, b.room.roomNo]).toEqual(['201', '202']);
       // Lượt b đổi sang 203 (sự cố, giữ giá) → 202 thành VD, trống từ hôm nay (BR-424)
       await at(request, D, '15:00');
+      // FB-R5-ARC-FE-98-01: the Desk session expires after 30 idle minutes of server time (virtual here) – a session
+      // taken at 14:00 answers 401 at 15:00. Take a new one after every clock jump before calling the API.
+      const fd15 = await sessionOrSkip(request, 'qa.fd');
       const to = room(c, '203');
       const base = {
         newRoomId: to.id,
@@ -64,7 +67,7 @@ test.describe(
       };
       const pv = await stayAction<Json & ProblemFields>(
         request,
-        fd,
+        fd15,
         b.res.id,
         'change-room',
         base,
@@ -74,7 +77,7 @@ test.describe(
       );
       expect(pv.status, `B14 xem trước: ${JSON.stringify(pv.body).slice(0, 200)}`).toBe(200);
       const delta = Number(pv.body.folioDeltaVnd ?? 0);
-      const mv = await stayAction<Json & ProblemFields>(request, fd, b.res.id, 'change-room', {
+      const mv = await stayAction<Json & ProblemFields>(request, fd15, b.res.id, 'change-room', {
         ...base,
         ...(delta !== 0 ? { applyDifference: true, expectedDeltaVnd: delta } : {}),
       });
