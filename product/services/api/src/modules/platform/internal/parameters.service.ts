@@ -130,7 +130,7 @@ export class ParametersService {
     tx: Tx,
     roles: readonly string[],
     asOf?: LocalDate,
-  ): Promise<{ data: ParameterDto[] }> {
+  ): Promise<{ data: ParameterDto[]; missing?: string[] }> {
     const pc = await this.property.now(tx);
     const date = asOf ?? pc.today;
     const since = await this.propertySince(tx);
@@ -142,16 +142,22 @@ export class ParametersService {
             WHERE c0.key = d.key AND c0.property_id = $1 AND c0.effective_from <= $2
             ORDER BY c0.effective_from DESC LIMIT 1) c ON true
          LEFT JOIN app_user u ON u.id = c.created_by
-        WHERE c.key IS NOT NULL OR d.default_value IS NOT NULL
         ORDER BY d.key`,
       [pc.propertyId, date],
     );
+    // Same role filter for the values and for the names of the missing keys (0.3.13 bổ sung 1, BE C0313-17).
+    const visible = rows
+      .filter((r) => !hidden(r, roles))
+      // 0.3.8 (SEC Q51-1): the receiving account is not even listed to a role other than owner.
+      .filter((r) => !ownerOnlyKey(r.key) || roles.includes('owner'));
+    const has = (r: Row) => r.effective_from !== null || r.default_value !== null;
     return {
-      data: rows
-        .filter((r) => !hidden(r, roles))
-        // 0.3.8 (SEC Q51-1): the receiving account is not even listed to a role other than owner.
-        .filter((r) => !ownerOnlyKey(r.key) || roles.includes('owner'))
-        .map((r) => this.dto(r, pc.iso, since)),
+      data: visible.filter(has).map((r) => this.dto(r, pc.iso, since)),
+      // 0.3.13 (V5-30): catalogue keys without a default and without a row in force on `asOf` (e.g. the commission
+      // rates OWN types on the Desk – the code holds none). Names only, OWN/MGR only (FDL: no property).
+      ...(canSeeRestricted(roles)
+        ? { missing: visible.filter((r) => !has(r)).map((r) => r.key) }
+        : {}),
     };
   }
 
