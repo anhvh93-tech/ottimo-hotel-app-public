@@ -28,7 +28,7 @@ SEC chỉ đọc repo. Không SSH, không gọi staging hay production. Tệp n�
 
 | Phần | Kết luận | Điều kiện |
 |---|---|---|
-| Sổ vận hành 1.3 (ĐK-4) | ~~DUYỆT CÓ ĐIỀU KIỆN~~ **DUYỆT** (lượt 4) | BA-02 (Major) **Closed**. BA-03, 04, 06, 07, 11 **Closed**. Còn **BA-05 (Minor) Open**: OPS đã chọn 15:00, BA đổi "14:00" và thêm con số "máy chủ mất hẳn" ở 2.1a, 2.2, 5.4. Hạn trước buổi review 20/11. Không chặn ĐK-4 |
+| Sổ vận hành 1.3 (ĐK-4) | ~~DUYỆT CÓ ĐIỀU KIỆN~~ **DUYỆT** (lượt 4) | BA-02 (Major) **Closed**. BA-03, 04, 06, 07, 11 **Closed**. ~~Còn BA-05 (Minor) Open~~ **BA-05 Closed** (ORC grep sổ vận hành 1.4, `16eaa635`): 15:00 và con số "máy chủ mất hẳn" có ở 2.1a, 2.2, 5.4 |
 | Sổ tay + bộ hướng dẫn (ĐK-5 / V5-08) | ~~DUYỆT CÓ ĐIỀU KIỆN~~ **DUYỆT** (lượt 4) | BA-01 (Major) **Closed** ở cả ba chỗ. BA-08, 09, 10 **Closed**. Grep ĐK-5 vẫn đạt trên `main` mới nhất (sau PR #69) |
 | Tờ dán quầy (PO) | **Tờ 1: được in** (lượt 2 `106722d7`, lượt 3 `451d3230`). ~~Tờ 2a: chưa in tới khi sửa PO-04~~ **Tờ 2a: được in**, xét về bảo mật và tiền (PO-04 Closed bằng grep, ORC `1d9e54f1`) | PO-01…06 **Closed**. Phần giữ chỗ của Tờ 2a do DOM quyết |
 
@@ -269,7 +269,7 @@ Round 5 · bước **Review**, lượt 4 · SEC · 06/11/2026 (khuya).
 | BA-02 (Major) | **Closed** | 1.1a dòng 51–56: câu 35 ngày chỉ nói về thư mục sao lưu. Gạch "Giữ đúng lời hứa 35 ngày" áp cho mọi bản trên Mac, ghi đúng kết quả ORC kiểm chỉ đọc: chưa có ổ Time Machine nên chưa có bản chép; thư mục chưa được loại; iCloud không đồng bộ. Đổi máy chỉ khi INV đồng ý. Kiểm lại mỗi lần kéo. 5.4 dòng 335 tách câu đồng ý loại khỏi Time Machine, cho đồng ý sớm qua chat. Sổ không ghi đường dẫn thư mục. Không cần nhánh "bỏ bản Time Machine cũ" vì chưa có bản nào |
 | BA-03 | **Closed** | 1.1a dòng 50: giờ chạy, mã thoát, số tệp, bản mới nhất, dòng "server copy changed". Dòng 51: "từ lần kéo 08/11". Dòng 57: "kết thúc với mã 3", "khác bản đã có trên Mac". Dòng 61–62: mã 2 và mã 1 tách riêng, khớp script dòng 17–19 |
 | BA-04 | **Closed** | 1.1a dòng 58–60: ba ý (a), (b), (c). 3.4 dòng 227: nghi xâm nhập thì không làm bước 2–5 |
-| BA-05 | **Open** | Không còn chờ OPS. OPS chọn 15:00 (`c224f0e8`): mỗi khoảng 12 giờ. Mất hẳn máy chủ: khoảng 60 giờ với nhịp kéo tay 2 ngày, khoảng 36 giờ khi kéo tự động hằng ngày (plan V5-62). Sổ vận hành còn ghi "14:00" ở 2.1a dòng 151 và 2.2 dòng 163. Dòng "Máy chủ mất hẳn" chưa có con số. Chữ cần sửa ở ngay dưới bảng |
+| BA-05 | ~~Open~~ **Closed** (ORC grep, sổ vận hành 1.4 `16eaa635`) | "15:00" ở 2.1a dòng 151 và 2.2 dòng 163; "36 giờ" ở 2.1a dòng 152 và 5.4 dòng 337; dòng "Máy chủ mất hẳn" có khoảng 64 giờ (hiện nay), khoảng 60 giờ kéo tay / 36 giờ tự kéo (v1.0.5). Không còn "14:00" cho sao lưu. ~~Sổ vận hành còn ghi "14:00" ở 2.1a dòng 151 và 2.2 dòng 163. Dòng "Máy chủ mất hẳn" chưa có con số~~ |
 | BA-06 | **Closed** | 2.2 dòng 162: lượt lỗi báo ngay, mã 3 là P0, 48 giờ là ngưỡng im lặng |
 | BA-07 | **Closed** | Đủ cả 4 ý, kể cả phần tùy chọn. Sổ vận hành 7.2: thành viên, điện thoại cài theo `01` 12.1, không webhook khác, đọc 2.3 bước 6. `01` 17.1 dòng 990. Bước 5 khối người nghỉ: `01` 1.9 dòng 261, sổ tay 1.5 dòng 413. `02` 13.5 mới (dòng 1415) khớp 2.3 bước 6 |
 | BA-08 | **Closed** | Sổ tay 2.9 bước 3, `02` 17.3 bước 3: gửi tới liên hệ ghi trên đơn; người xưng là khách từ số khác thì không gửi; đơn CTV gửi khách. `02` 16.2: không gửi tới số hay tài khoản không ghi trên đơn |
