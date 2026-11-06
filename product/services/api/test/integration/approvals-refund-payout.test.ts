@@ -458,6 +458,7 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
       '4111_1111_1111_1111',
       '4111111111111111/1228', // 119-01: card + expiry
       '4111-1111-1111-1111-123', // 119-01: card + CVV
+      '4111111111111111-EXP1228', // 119-03: card + a group with letters
     ]) {
       const r = await pay(ref);
       expect(r.statusCode, `${ref} ${r.body}`).toBe(422);

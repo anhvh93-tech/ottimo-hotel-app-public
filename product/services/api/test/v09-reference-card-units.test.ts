@@ -1,7 +1,8 @@
 /**
- * BUG-R5-006 (P2) / C0313-25 (SEC-responses 4.1 option (a), 4.3) + FB-R5-SEC-BE-119-01 – V-09 for a bank transfer
- * reference field: a value without letters whose digit groups, joined from the start, reach 13–19 digits passing Luhn
- * at a group boundary → 422 CARD_NUMBER_DETECTED (a whole card number, or one followed by expiry / CVV groups); bank
+ * BUG-R5-006 (P2) / C0313-25 (SEC-responses 4.1 option (a), 4.3) + FB-R5-SEC-BE-119-01 + FB-R5-ARC-BE-119-03 – V-09
+ * for a bank transfer reference field: a value whose groups, joined from the start, reach 13–19 digits passing Luhn at
+ * a group boundary → 422 CARD_NUMBER_DETECTED (a whole card number, or one followed by expiry / CVV groups, digits or
+ * letters); a letter spoils every boundary after it; bank
  * codes with a long digit run, short / long digit runs and digits failing Luhn are references. Free text keeps the
  * general rule. Every card number here is a public test number (4111…, 4222…, 5555…, 4012…, 3782…, 6011…).
  */
@@ -31,6 +32,10 @@ const CARDS = [
   '4111.1111.1111.1111.12.28',
   '4111-1111-1111-1111-123',
   '5555555555554444-123',
+  // FB-R5-ARC-BE-119-03 (SEC 1.1): the card first, then a group with letters.
+  '4111111111111111-EXP1228',
+  '4111-1111-1111-1111-CVV123',
+  '4111111111111111-FT',
   // Deliberate false hit (SEC 119-01): two groups → 14 digits passing Luhn; the way out is the last 8 characters.
   '20261107-000105',
 ];
@@ -60,7 +65,9 @@ const REFERENCES = [
   '11111111', // the last 8 characters of a refused one (SEC 4.2)
   'REF4111111111111111', // SEC accepted residual risk: a card behind letters
   '20261107-000123', // 119-01: two groups, 14 digits, not Luhn
-  'FT2629-0012345671', // 119-01: letters – the group rule does not apply
+  'FT2629-0012345671', // 119-01 / 119-03: starts with letters – every boundary after them fails
+  'FT-4111111111111111', // 119-03: a card behind a letter group (SEC accepted residual risk)
+  '4111111111111111EXP1228', // 119-03: a card glued to letters, no separator (SEC accepted residual risk, SR-PAY-10)
 ];
 
 describe('isCardNumberReference (C0313-25)', () => {
