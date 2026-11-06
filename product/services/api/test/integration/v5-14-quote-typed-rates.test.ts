@@ -383,7 +383,8 @@ describe.skipIf(!HAS_DB)('V5-14 typed quote prices', () => {
         depositVnd: 1,
       });
       expect(res.statusCode, `${id} ${res.body}`).toBe(422);
-      const { requestId: _r, ...rest } = res.json();
+      const rest = res.json() as Record<string, unknown>;
+      delete rest.requestId;
       bodies.push(JSON.stringify(rest));
     }
     // the same answer for the three quotes: the 422 runs before any read of the quote (no existence probe)
