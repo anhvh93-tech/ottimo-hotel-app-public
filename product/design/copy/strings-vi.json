@@ -3401,6 +3401,7 @@
   "deposit.received_at_help": "Giờ tiền về tài khoản hoặc khách đưa tiền. Ghi lùi được, không ghi giờ sau bây giờ. Giữ chỗ chưa cọc chỉ xác nhận được khi tiền về trước hạn giữ chỗ.",
   "deposit.accept_shortfall": "Chấp nhận cọc thiếu (phần còn lại thu khi nhận phòng)",
   "deposit.accept_shortfall_reason": "Lý do chấp nhận cọc thiếu",
+  "deposit.accept_shortfall_unverified": "Trong số cọc đã nhận, {amount} chưa đối soát với sao kê. Xem tiền đã vào tài khoản OTTIMO trước khi chấp nhận.",
   "hold.paid_overdue_banner": "Quá hạn giữ chỗ lúc {time}. Đã nhận {paid}/{required} nên đơn chưa hủy, căn vẫn giữ. Thu nốt cọc, nhờ quản lý chấp nhận cọc thiếu, hoặc hủy và hoàn. Mốc xử lý: {cutoff} {date}.",
   "error.HOLD_EXPIRED_PAID": "Giữ chỗ đã quá hạn lúc {time}, nhưng đã nhận {paid} nên đơn chưa hủy và căn vẫn giữ. Xử lý ngay trên đơn này: thu nốt cọc, chấp nhận cọc thiếu, hoặc hủy và hoàn.",
   "rsv.hold_paid_keep": "Đã nhận {paid}/{required}. Tới hạn mà chưa đủ cọc thì đơn không tự hủy, căn vẫn giữ – thu nốt cọc hoặc nhờ quản lý chấp nhận cọc thiếu.",
