@@ -52,3 +52,15 @@ regexes = [
   # scanned. Convention since then: runbooks never put a digest on a command line (README 13.1).
   '''^(sha256:)?(7ad36566afebcca5c690aec80a0c821b10a7d04b65f377d39012f1b41a222d72|f064700d8c7eb59aedcfbdb514b3263143ebfb26a7c90e663e84f5bbdbdea9be)$''',
 ]
+# Whole commits reviewed by SEC and found to hold no secret. Full SHA only: a rebase or squash that rewrites the
+# commit gets a new SHA and is scanned again, and the same value in any other commit is still reported.
+commits = [
+  # BE-H S1 tests on r5-s1-tests (PR #123, FB-R5-SEC-BE-S1-01): line 20 of
+  # product/services/api/test/request-hash-guard-units.test.ts, `const KEY = '…'`, is a made-up UUIDv7 used only as
+  # the Idempotency-Key header of a unit test that runs without a database. An idempotency key is a client-chosen
+  # request id, not a credential, and this one is accepted by nothing. The name KEY next to 36 hex/dash characters
+  # trips generic-api-key. SEC scanned the full history without this entry: this line was the only finding, the
+  # other four files of the commit are clean (07/11/2026). Commit-scoped on purpose, never a UUID pattern.
+  # Convention from here on: tests name such constants IDEMPOTENCY_ID (or build them with randomUUID()), not KEY.
+  'ae4a835873c7de09be46975f9683a3f80fa9aee0',
+]

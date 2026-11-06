@@ -93,8 +93,13 @@ export default tseslint.config(
   },
   {
     // The worker and its jobs log only through src/shared/log-line.ts (one JSON line, never `err.message` – SEC S-1;
-    // ARC FB-R4-ARC-BE-PR24PM-04). log-line.ts itself and the tests are outside this block.
-    files: ['services/api/src/worker*.ts', 'services/api/src/jobs/**/*.ts'],
+    // ARC FB-R4-ARC-BE-PR24PM-04). log-line.ts itself and the tests are outside this block. The api entry point too
+    // (SEC FB-R4-SEC-BE-V104-07, V5-43).
+    files: [
+      'services/api/src/main.ts',
+      'services/api/src/worker*.ts',
+      'services/api/src/jobs/**/*.ts',
+    ],
     ignores: ['**/*.test.ts'],
     rules: { 'no-console': 'error' },
   },

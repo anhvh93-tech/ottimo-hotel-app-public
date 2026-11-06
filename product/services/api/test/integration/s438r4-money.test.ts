@@ -374,7 +374,8 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 4 – money fixes (BE-A)',
     const s = await summary(b);
     expect(s).toMatchObject({ extraNightRequired: true, extraNightDefaultRateVnd: rate });
     const due = s.amountDueAtCheckoutVnd as number;
-    const cap = await qr(b, { purpose: 'check_out', amountVnd: due + 1 });
+    // 0.3.13 (V5-10): the QR carries the summary's `checkoutAt`.
+    const cap = await qr(b, { purpose: 'check_out', checkoutAt: s.checkoutAt, amountVnd: due + 1 });
     expect(cap.statusCode, cap.body).toBe(422);
     expect(cap.json()).toMatchObject({ max: due });
     const out = await act(b.id, 'check-out', {

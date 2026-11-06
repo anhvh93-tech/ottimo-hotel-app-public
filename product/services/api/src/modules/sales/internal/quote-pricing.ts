@@ -4,20 +4,29 @@
  * business date (coding-standards 1.2) and the pure rules come from reservations/public/pricing.ts (shared
  * with createReservation). The parameters and results are returned as `snapshot` so a saved quote never
  * changes afterwards (BR-006, US-083 AC1).
+ *
+ * V5-14 (OpenAPI 0.3.13 + bổ sung 1 (b); contract-0.3.13 1.3, 1.17; BUG-R4-041): `nightlyRates` = the agreed prices
+ * the desk typed (FD+ only – the x-write-roles gate of AuthGuard refuses SAL/CTV before this code runs). Same
+ * meaning as `createReservation` of a direct/agent booking: they cover every night, a typed price is the CALENDAR
+ * price of its night (before the BR-107 tier and the BR-111 return code), always within the BR-105 floor–ceiling –
+ * nightly price and bounds come from the reservations PricingService.price, not from a copy here. A night whose
+ * `edited` is not `true` keeps the server's own calendar (the amount sent is ignored – SEC ARC-06). The snapshot
+ * keeps `nights[].source` (`manual` = typed) so createHoldFromQuote holds at the typed price (`manual_agreed`).
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { type FieldError, problem } from '../../../shared/problem';
 import { type LocalDate, addDays } from '../../../shared/time';
-import { commissionPctFor, payeeTypeOf, type PayeeType } from '../../folio/public/folio.service';
+import { shortStayCommissionRate, type CommissionStatus } from '../../folio/public/commission-rate';
+import { payeeTypeOf, type PayeeType } from '../../folio/public/folio.service';
 import { ChannelsService } from '../../platform/public/channels';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
+import { PricingService } from '../../reservations/public/pricing.service';
 import {
   type CalendarRules,
   type ChannelScope,
   type LosTier,
-  type MinStayRule,
   type SpecialDate,
   type Weekday,
   applyNightDiscount,
@@ -31,6 +40,8 @@ import {
   nightDates,
   shortDeposit,
 } from '../../reservations/public/pricing';
+import { readMinStay } from '../../reservations/public/min-stay-read';
+import { rateOutOfRange } from '../../reservations/public/rate-out-of-range';
 import {
   type AvailabilityAnswer,
   RESERVATION_SALES_PORT,
@@ -52,7 +63,19 @@ export interface QuoteInput {
   channelId: string;
   closerUserId?: string | undefined;
   returnGuestCode?: string | undefined;
+  /** V5-14: agreed nightly prices typed at the desk (FD+ – x-write-roles). */
+  nightlyRates?: QuoteNightRate[] | undefined;
 }
+
+/** OpenAPI NightRate as sent in QuoteInput.nightlyRates (`edited` = the desk changed the cell). */
+export interface QuoteNightRate {
+  date: LocalDate;
+  amountVnd: number;
+  edited?: boolean | undefined;
+}
+
+/** Source of a quoted night kept in the snapshot (`manual` = price typed at the desk, V5-14). */
+export type QuoteNightSource = 'calendar' | 'manual';
 
 export interface Caller {
   userId: string;
@@ -74,7 +97,17 @@ export interface QuoteCalculation {
   losDiscountPct: number;
   totalVnd: number;
   depositVnd: number;
-  commission?: { ratePct: number; baseVnd: number; amountVnd: number; ruleRef: string };
+  /**
+   * 0.3.13 (V5-30): always present with `status`; `ratePct` / `baseVnd` / `amountVnd` only when `computed` (the
+   * code holds no rate – `rate_missing` until OWN types the table on the Desk).
+   */
+  commission: {
+    status: CommissionStatus;
+    ratePct?: number;
+    baseVnd?: number;
+    amountVnd?: number;
+    ruleRef: string;
+  };
   ottimoRemainingVnd: number;
   longStayAlternative?: { termMonths: number; totalVnd: number; mandatory: boolean };
   availability?: { available: boolean; alternatives: string[] };
@@ -94,6 +127,11 @@ export interface QuoteResult {
   commissionRatePct: number | null;
   /** BR-006 snapshot: parameters used + room facts (stored on quote.pricing_snapshot). */
   snapshot: Record<string, unknown>;
+}
+
+interface ListPriceRow {
+  effective_from: LocalDate;
+  nightly_list_price_vnd: number;
 }
 
 interface RoomFacts {
@@ -118,6 +156,41 @@ function fail(code: string, errors: FieldError[]): never {
   throw problem(code, { errors });
 }
 
+/**
+ * V5-14 body rules of QuoteInput.nightlyRates (contract 1.17), checked before the channel and the price: every
+ * element on a night of [arrival, arrival + nights) and no night twice (422 DATE_INVALID at `nightlyRates[i].date`),
+ * no amount ≤ 0 (422 AMOUNT_NOT_POSITIVE, as B1), every night covered (422 REQUIRED at `nightlyRates`).
+ * Returns the typed (`edited = true`) price of each night; the other nights keep the server calendar.
+ */
+export function typedNightRates(
+  arrival: LocalDate,
+  nights: number,
+  rates: readonly QuoteNightRate[],
+): Map<LocalDate, number> {
+  const dates = new Set(nightDates(arrival, addDays(arrival, nights)));
+  const seen = new Set<LocalDate>();
+  const errors: FieldError[] = [];
+  let notPositive = false;
+  const typed = new Map<LocalDate, number>();
+  rates.forEach((r, i) => {
+    if (!dates.has(r.date) || seen.has(r.date)) {
+      errors.push({ field: `nightlyRates[${i}].date`, code: 'DATE_INVALID' });
+      return;
+    }
+    seen.add(r.date);
+    if (!Number.isSafeInteger(r.amountVnd) || r.amountVnd <= 0) notPositive = true;
+    else if (r.edited === true) typed.set(r.date, r.amountVnd);
+  });
+  if (errors.length > 0) fail('VALIDATION_FAILED', errors);
+  if (notPositive) {
+    fail('VALIDATION_FAILED', [{ field: 'nightlyRates', code: 'AMOUNT_NOT_POSITIVE' }]);
+  }
+  if (seen.size < dates.size) {
+    fail('VALIDATION_FAILED', [{ field: 'nightlyRates', code: 'REQUIRED' }]);
+  }
+  return typed;
+}
+
 @Injectable()
 export class QuotePricingService {
   constructor(
@@ -127,15 +200,28 @@ export class QuotePricingService {
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
     private readonly reservations?: ReservationSalesPort,
+    // V5-14: the booking price engine (reservations module, global export) – typed nights and BR-105 bounds.
+    @Optional()
+    @Inject(PricingService)
+    private readonly engine?: PricingService,
   ) {}
 
   async calculate(tx: Tx, caller: Caller, input: QuoteInput): Promise<QuoteResult> {
+    // V5-14: typed prices only on a short stay (contract 1.3 – 422 NOT_ALLOWED on `nightlyRates`).
+    if (input.type !== 'short' && input.nightlyRates !== undefined) {
+      fail('VALIDATION_FAILED', [{ field: 'nightlyRates', code: 'NOT_ALLOWED' }]);
+    }
     if (input.type !== 'short') {
       // US-081 long-stay quotes are R3 (R-C, ESC-012).
       fail('VALIDATION_FAILED', [{ field: 'type', code: 'NOT_IN_LIST' }]);
     }
     const nights = input.nights;
     if (nights === undefined) fail('VALIDATION_FAILED', [{ field: 'nights', code: 'REQUIRED' }]);
+    // Body rules of the typed prices come before the channel and the price (contract 1.17 "thân lệnh → kênh").
+    const typed =
+      input.nightlyRates !== undefined
+        ? typedNightRates(input.arrivalDate, nights, input.nightlyRates)
+        : null;
     const { today } = await this.property.now(tx);
     const p = async <T>(key: string): Promise<T> => this.params.get<T>(tx, key, today);
 
@@ -198,8 +284,12 @@ export class QuotePricingService {
 
     // ── minimum stay of the arrival (BR-113) – needed to pick the room of a group quote (A-05) ──
     const specials = await p<SpecialDate[]>('special_dates');
-    const minStayRules = await p<MinStayRule[]>('min_stay');
-    const needNights = minStayNights(input.arrivalDate, group, minStayRules ?? [], specials ?? []);
+    // V5-25 (DOM 12.3, BUG-R5-003): a broken stored value never makes the quote fail – not a list → no rule, a
+    // broken rule is left out (logged once per value).
+    const minStayRules = readMinStay(await p<unknown>('min_stay'), shortMax, {
+      propertyId: tx.ctx.propertyId,
+    });
+    const needNights = minStayNights(input.arrivalDate, group, minStayRules, specials ?? []);
     const orphanAllowed = await p<boolean>('min_stay_orphan_night_exception');
     const short = nights < needNights;
 
@@ -310,10 +400,29 @@ export class QuotePricingService {
       specialChannels: await p<ChannelScope>('special_uplift_channels'),
     };
     const dates = nightDates(input.arrivalDate, departureDate);
-    const listPrices = await this.listPrices(tx, room.id, dates);
-    const calendar = dates.map(
+    const listRows = await this.listPriceRows(tx, room.id);
+    const listPrices = this.listPrices(listRows, dates);
+    const serverCalendar = dates.map(
       (d, i) => calendarRate(listPrices[i] as number, d, group, rules, nightUnit).rateVnd,
     );
+    // V5-14: a typed night replaces the calendar price of that night (BR-107 v0.3.8), within BR-105.
+    let calendar = serverCalendar;
+    let sources: QuoteNightSource[] = dates.map(() => 'calendar');
+    if (typed) {
+      const agreed = await this.typedCalendar(tx, today, {
+        room,
+        listRows,
+        group,
+        arrival: input.arrivalDate,
+        departure: departureDate,
+        party,
+        dates,
+        serverCalendar,
+        typed,
+      });
+      calendar = agreed.calendar;
+      sources = agreed.sources;
+    }
     const losTiers = (await p<LosTier[]>('los_discount')) ?? [];
     const losPct = losDiscountPct(nights, losTiers);
     let returnPct = 0;
@@ -356,19 +465,20 @@ export class QuotePricingService {
     const depositVnd = shortDeposit(roomTotalVnd, depositPct, depositUnit);
 
     // ── commission of the closer (BR-903: % × room total) ──
-    let commission: QuoteCalculation['commission'];
-    let commissionRatePct: number | null = null;
-    if (payeeType) {
-      commissionRatePct = commissionPctFor(await p('short_stay_commission_pct'), payeeType);
-      if (commissionRatePct !== null && commissionRatePct > 0) {
-        commission = {
-          ratePct: commissionRatePct,
-          baseVnd: roomTotalVnd,
-          amountVnd: applyPct(roomTotalVnd, commissionRatePct, 1),
-          ruleRef: 'BR-903',
-        };
-      }
-    }
+    // V5-30 (contract 0.3.13 1.10): the rate is the owner's parameter row only. No row / no rate for the payee →
+    // `rate_missing` without rate or amount (never 0, never a number from code); no payee → `not_applicable`.
+    const rate = await shortStayCommissionRate(this.params, tx, payeeType, today);
+    const commissionRatePct = rate.status === 'computed' ? rate.ratePct : null;
+    const commission: QuoteCalculation['commission'] =
+      rate.status === 'computed'
+        ? {
+            status: 'computed',
+            ratePct: rate.ratePct,
+            baseVnd: roomTotalVnd,
+            amountVnd: applyPct(roomTotalVnd, rate.ratePct, 1),
+            ruleRef: 'BR-903',
+          }
+        : { status: rate.status, ruleRef: 'BR-903' };
 
     // ── one-month alternative (BR-108) ──
     let longStayAlternative: QuoteCalculation['longStayAlternative'];
@@ -407,8 +517,8 @@ export class QuotePricingService {
       losDiscountPct: appliedPct,
       totalVnd,
       depositVnd,
-      ...(commission ? { commission } : {}),
-      ottimoRemainingVnd: totalVnd - (commission?.amountVnd ?? 0),
+      commission,
+      ottimoRemainingVnd: totalVnd - (commission.amountVnd ?? 0),
       ...(longStayAlternative ? { longStayAlternative } : {}),
       ...(availability
         ? {
@@ -430,7 +540,8 @@ export class QuotePricingService {
       extraGuestCount: extra.extraCount,
       departureDate,
       payeeType,
-      commissionRatePct: commission ? commissionRatePct : null,
+      // V5-30 (DOM 7.3): null when `rate_missing` – the booking then takes the rate effective on its sync day.
+      commissionRatePct,
       snapshot: {
         calculatedOn: today,
         roomNo: room.room_no,
@@ -441,7 +552,15 @@ export class QuotePricingService {
         channelCode: channel.code,
         channelGroup: group,
         listPricesVnd: listPrices,
+        // V5-14: the agreed price of a typed night (DOM D-8: it is that night's calendar price).
         calendarRatesVnd: calendar,
+        // V5-14 (contract 1.17): source of every night – createHoldFromQuote holds `manual` nights at the typed price.
+        nights: dates.map((d, i) => ({
+          date: d,
+          source: sources[i] as QuoteNightSource,
+          ...(sources[i] === 'manual' ? { agreedRateVnd: calendar[i] as number } : {}),
+        })),
+        bookingRateSource: sources.includes('manual') ? 'manual_agreed' : 'calendar',
         losDiscountPct: losPct,
         returnGuestPct: returnPct,
         roomTotalVnd,
@@ -452,7 +571,7 @@ export class QuotePricingService {
         depositPct,
         depositRounding: depositUnit,
         nightRounding: nightUnit,
-        commission: commission ? { payeeType, ...commission } : null,
+        commission: commission.status === 'not_applicable' ? null : { payeeType, ...commission },
         calc,
       },
     };
@@ -477,13 +596,70 @@ export class QuotePricingService {
     return rows[0] ? this.room(tx, rows[0].id) : null;
   }
 
-  /** List price effective on each night (latest effective_from ≤ night; BR-101, US-004 AC1). */
-  private async listPrices(tx: Tx, roomId: string, dates: LocalDate[]): Promise<number[]> {
-    const { rows } = await tx.query<{ effective_from: string; nightly_list_price_vnd: number }>(
+  /**
+   * V5-14: the calendar prices of a quote with typed nights, from the booking engine (PricingService.price – the
+   * same call as createReservation of a direct/agent booking): a typed night = its typed price (`manual`), the others
+   * = the server calendar sent back untouched (`edited = false`). A typed night outside the BR-105 floor–ceiling →
+   * 422 RATE_OUT_OF_RANGE with `dates[]` and the bounds of the first of them (V5-22).
+   */
+  private async typedCalendar(
+    tx: Tx,
+    today: LocalDate,
+    a: {
+      room: RoomFacts;
+      listRows: ListPriceRow[];
+      group: 'direct' | 'agent';
+      arrival: LocalDate;
+      departure: LocalDate;
+      party: { adults: number; children6to11: number; childrenUnder6: number };
+      dates: LocalDate[];
+      serverCalendar: number[];
+      typed: Map<LocalDate, number>;
+    },
+  ): Promise<{ calendar: number[]; sources: QuoteNightSource[] }> {
+    if (!this.engine) throw problem('INTERNAL_ERROR', { detail: 'reservations pricing not wired' });
+    const params = await this.engine.load(tx, today);
+    const priced = this.engine.price(params, {
+      room: {
+        roomId: a.room.id,
+        groupCode: a.room.group_code,
+        baseOccupancy: a.room.base_occupancy,
+        listPrices: a.listRows.map((r) => ({
+          effectiveFrom: r.effective_from,
+          nightlyVnd: r.nightly_list_price_vnd,
+        })),
+      },
+      channelGroup: a.group,
+      arrival: a.arrival,
+      departure: a.departure,
+      party: a.party,
+      nightlyRates: a.dates.map((date, i) => {
+        const typed = a.typed.get(date);
+        return typed !== undefined
+          ? { date, amountVnd: typed, edited: true }
+          : { date, amountVnd: a.serverCalendar[i] as number, edited: false };
+      }),
+    });
+    if (priced.outOfRange.length > 0) {
+      throw rateOutOfRange(priced.outOfRange, priced.nights);
+    }
+    return {
+      calendar: priced.nights.map((n) => n.calendarVnd ?? n.amountVnd),
+      sources: priced.nights.map((n) => (n.source === 'manual' ? 'manual' : 'calendar')),
+    };
+  }
+
+  private async listPriceRows(tx: Tx, roomId: string): Promise<ListPriceRow[]> {
+    const { rows } = await tx.query<ListPriceRow>(
       `SELECT effective_from::text AS effective_from, nightly_list_price_vnd FROM room_list_price
         WHERE room_id = $1 ORDER BY effective_from`,
       [roomId],
     );
+    return rows;
+  }
+
+  /** List price effective on each night (latest effective_from ≤ night; BR-101, US-004 AC1). */
+  private listPrices(rows: readonly ListPriceRow[], dates: LocalDate[]): number[] {
     return dates.map((d) => {
       let price: number | undefined;
       for (const r of rows) if (r.effective_from <= d) price = r.nightly_list_price_vnd;
