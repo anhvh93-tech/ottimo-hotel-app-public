@@ -33,10 +33,24 @@ const GUEST_CODE_KEYS: Record<string, string> = {
   FILE_REJECTED: 'error.FILE_REJECTED',
   PAYLOAD_TOO_LARGE: 'error.PAYLOAD_TOO_LARGE',
   CARD_NUMBER_DETECTED: 'error.CARD_NUMBER_DETECTED',
+  ID_NUMBER_DETECTED: 'error.ID_NUMBER_DETECTED',
   CONCURRENT_UPDATE: 'error.CONCURRENT_UPDATE',
   SERVICE_UNAVAILABLE: 'error.SERVICE_UNAVAILABLE',
   ONLINE_CHECKIN_CLOSED: 'error.ONLINE_CHECKIN_CLOSED',
 };
+
+/**
+ * The server refused a typed note: a card number (`CARD_NUMBER_DETECTED`, SR-PAY-09) or an ID number
+ * (`ID_NUMBER_DETECTED`, SR-LOG-04, OpenAPI 0.3.12 (i) – V5-46). Read from the field code, and from the
+ * top-level code too: guest-portal answers a card number with `code: CARD_NUMBER_DETECTED`, not VALIDATION_FAILED.
+ */
+export function sensitiveNumberOf(error: unknown): 'card' | 'id' | undefined {
+  if (!isApiError(error)) return undefined;
+  const codes = [error.code, ...error.fieldErrors.map((f) => f.code)];
+  if (codes.includes('CARD_NUMBER_DETECTED')) return 'card';
+  if (codes.includes('ID_NUMBER_DETECTED')) return 'id';
+  return undefined;
+}
 
 /** Field codes of `uploadGuestDocument` / client-side photo checks (E06-07). */
 export const FIELD_KEYS: Record<string, string> = {
@@ -57,9 +71,9 @@ export function problemText(t: T, error: unknown): string {
     const fe = error.fieldErrors.find((f) => FIELD_KEYS[f.code]);
     if (fe) return t(FIELD_KEYS[fe.code]!);
   }
-  if (error.fieldErrors.some((f) => f.code === 'CARD_NUMBER_DETECTED')) {
-    return t('error.CARD_NUMBER_DETECTED');
-  }
+  const sensitive = sensitiveNumberOf(error);
+  if (sensitive === 'card') return t('error.CARD_NUMBER_DETECTED');
+  if (sensitive === 'id') return t('error.ID_NUMBER_DETECTED');
   const key = GUEST_CODE_KEYS[code];
   if (key) return t(key);
   if (error.status >= 500 && error.requestId) {

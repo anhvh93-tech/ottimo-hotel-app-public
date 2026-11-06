@@ -12,7 +12,7 @@ import {
 import { NOTICE_PARAGRAPHS, NOTICE_TEXT_VERSIONS } from '../app/config';
 import { legalLocale, useT } from '../app/i18n';
 import { telHref } from '../app/link';
-import { missingStep, problemText, terminalOf } from '../app/problem';
+import { missingStep, problemText, sensitiveNumberOf, terminalOf } from '../app/problem';
 import { ARRIVAL_NOTE_MAX, cleanNote, containsCardNumber } from '../app/validation';
 import { DocumentsStep } from './DocumentsStep';
 import { etaSlots, LATE_ARRIVAL_FROM, slotOf, type EtaChoice } from './eta';
@@ -322,9 +322,9 @@ export function CheckinFlow({ stay, online, onExit, onFatal, onCheckinChange }: 
               go('consent');
               return true;
             } catch (e) {
-              if (isApiError(e) && e.fieldErrors.some((f) => f.code === 'CARD_NUMBER_DETECTED')) {
-                return 'card';
-              }
+              // The note is refused, nothing was saved: the sentence goes under the note (V-09, V5-46).
+              const sensitive = sensitiveNumberOf(e);
+              if (sensitive) return sensitive;
               handle(e);
               return false;
             }
@@ -465,7 +465,7 @@ function EtaStep({
   oci: OnlineCheckin;
   stepper: ReactNode;
   onBack: () => void;
-  onSave: (choice: EtaChoice, note: string) => Promise<boolean | 'card'>;
+  onSave: (choice: EtaChoice, note: string) => Promise<boolean | 'card' | 'id'>;
 }) {
   const { t } = useT();
   const slots = etaSlots(stay.checkinTime);
@@ -489,6 +489,8 @@ function EtaStep({
     const r = await onSave(picked, clean);
     setBusy(false);
     if (r === 'card') setNoteError(t('error.CARD_NUMBER_DETECTED'));
+    // No ID check on the device: the server's detector (SR-LOG-04) decides, the page only says it.
+    if (r === 'id') setNoteError(t('error.ID_NUMBER_DETECTED'));
   };
 
   return (

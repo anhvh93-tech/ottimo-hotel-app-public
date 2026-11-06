@@ -864,6 +864,7 @@ Nguyên tắc (mở rộng 12.3): (1) không bao giờ 500; (2) không tính sai
 - **Mức cần có:**
   - **bắt buộc ở v1.0.5:** bộ kiểm khi lưu (PR #96 và PR `damage_catalog`), và câu SQL đạt trên production trước khi lên. Hai việc này làm ca "giá trị hỏng nằm sẵn trong DB" gần như không còn;
   - **nên có ở v1.0.5**, nếu BE kịp với cùng hàm `parameter-shapes.ts`: đọc phòng thủ nhóm bán (`weekend_nights`, `special_dates`, hai khóa `*_uplift_channels`, `los_discount`). Nay các khóa này hỏng thì báo giá 500, cùng mức với BUG-R5-003;
+    - (07/11, Lượt 2 review #96) BE chuyển việc này sang R5-B-05, DOM đồng ý. Điều kiện: câu SQL ra `ok = false` ở `special_dates`, `los_discount` hay hai khóa `*_uplift_channels` thì dừng lên bản và sửa trên Desk trước, như `min_stay` và `weekend_nights`;
   - còn lại: R5-B-05 (PO).
 - **Hai dòng đếm thêm vào câu SQL** (chỉ in số, ORC chạy cùng lúc): (a) số đơn còn mở có `pricing_snapshot.cancelPolicy` sai dạng, vì câu SQL hiện chỉ xem bảng tham số; (b) số dòng `damage_catalog` sai dạng. Kỳ vọng cả hai là 0, vì chủ đầu tư chưa sửa hai khóa này. Khác 0 thì DOM viết cách xử lý.
 
