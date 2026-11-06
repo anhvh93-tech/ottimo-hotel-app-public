@@ -3,19 +3,48 @@
  * (ParameterService.validate already covers type, SEC hard bounds and the scalar min–max/allowed bounds).
  * Every violation → 422 PARAM_OUT_OF_RANGE (with min/max or allowed when meaningful), like the scalar case.
  *
- * Covered in Sprint 1: rate floor/ceiling cross rule, time cross rules, weekend_nights, hold_hours_options
- * ↔ hold_hours_default (BR-302 – the default must be one of the options, BUG-R2-007), min_stay,
+ * Covered in Sprint 1: rate floor/ceiling cross rule, time cross rules, hold_hours_options
+ * ↔ hold_hours_default (BR-302 – the default must be one of the options, BUG-R2-007),
  * session_policy / login_lockout cross rule (their bounds are SEC hard bounds – x-security-parameters
  * 0.3.4, checked by ParameterService.validate), foc_limits, foc_self_apply.front_desk.*,
  * foc_approval_push_roles (used by approvals since Sprint 1 – FB-R2-ARC-BE-10).
- * TODO(BE-B Sprint 2): tier lists (early_checkin_tiers, late_checkout_tiers, long_stay_cleaning_window,
- * front_desk_hours), %-by-step lists (los_discount, cancel_policy_direct, …, commission_payout Σ = 100),
- * wo_sla, other text enums.
+ * v1.0.5 V5-25 (BUG-R5-001, BUG-R5-003; DOM rules-v1.0.5 8.4, 12; ARC 0.3.13 bổ sung 1, 1.24) – the shapes of
+ * platform/public/parameter-shapes.ts, the same ones the price engine reads: weekend_nights (weekday codes),
+ * min_stay (DOM 12.1 + nights ≤ short_stay_max_nights, both directions), and the other structured keys of the
+ * quote / booking / web estimate / check-in / check-out paths: special_dates, los_discount, cancel_policy_direct,
+ * early_checkin_tiers, late_checkout_tiers, early_departure_refund, checkout_reminders, weekend_uplift_channels,
+ * special_uplift_channels, max_open_holds_per_user, lease_terms (what the quote reads).
+ * Left for R5-B-05 (B-KYTHUAT): long_stay_cleaning_window, front_desk_hours, wo_sla, registration_*,
+ * extra_guest_kit_items, damage_catalog, room_move_pricing, utility_estimate, early_termination, commission_payout.
  */
 import { problem } from '../../../shared/problem';
+import type { LocalDate } from '../../../shared/time';
 import { NOTICE_TEXT_VERSIONS } from '../public/notice-versions';
+import { ParameterMissingError } from '../public/parameter.service';
+import {
+  type ShapeIssue,
+  cancelPolicyIssue,
+  checkoutRemindersIssue,
+  earlyCheckinTiersIssue,
+  earlyDepartureRefundIssue,
+  lateCheckoutTiersIssue,
+  leaseTermsIssue,
+  losDiscountIssue,
+  maxOpenHoldsIssue,
+  minStayIssue,
+  minStayLargestNights,
+  minStayNightsCap,
+  specialDatesIssue,
+  upliftChannelsIssue,
+  weekendNightsIssue,
+} from '../public/parameter-shapes';
 
+/** Value of another key in force on the `effectiveFrom` of the save (throws ParameterMissingError when none). */
 export type OtherValue = (key: string) => Promise<unknown>;
+/** Rows of a key scheduled AFTER the `effectiveFrom` of the save, oldest first. */
+export type ScheduledValues = (
+  key: string,
+) => Promise<ReadonlyArray<{ effectiveFrom: LocalDate; value: unknown }>>;
 
 const outOfRange = (extras: Record<string, unknown> = {}): never => {
   throw problem('PARAM_OUT_OF_RANGE', {
@@ -25,6 +54,38 @@ const outOfRange = (extras: Record<string, unknown> = {}): never => {
 };
 
 const isInt = (v: unknown): v is number => Number.isSafeInteger(v);
+
+/** V5-25: the first problem of a structured value (field `value[<i>].<key>`, field code, min/max/allowed). */
+const fail = (i: ShapeIssue): never => {
+  throw problem('PARAM_OUT_OF_RANGE', {
+    errors: [{ field: i.field, code: i.code }],
+    extras: i.extras,
+  });
+};
+
+/** ARC FB-R5-ARC-BE-06: only "no row in force" reads as null; any other error is not swallowed. */
+const missingAsNull = (e: unknown): null => {
+  if (e instanceof ParameterMissingError) return null;
+  throw e;
+};
+
+/**
+ * The values of `key` that will be in force while the row being saved for `own` is: the one in force on its
+ * `effectiveFrom`, then every row of `key` scheduled after it and before the next row of `own` (DOM 12.2: the
+ * min_stay ↔ short_stay_max_nights pair is checked both ways, like the time pairs).
+ */
+async function valuesDuringOwnRow(
+  own: string,
+  key: string,
+  other: OtherValue,
+  scheduled: ScheduledValues,
+): Promise<unknown[]> {
+  const ownNext = (await scheduled(own))[0]?.effectiveFrom ?? null;
+  const later = (await scheduled(key))
+    .filter((r) => ownNext === null || r.effectiveFrom < ownNext)
+    .map((r) => r.value);
+  return [await other(key).catch(missingAsNull), ...later];
+}
 
 /** erd 9.1b: every FOC amount 0–100.000.000 VND. */
 export const FOC_MAX_VND = 100_000_000;
@@ -127,7 +188,11 @@ export async function checkStructuredParameter(
   value: unknown,
   other: OtherValue,
   roomGroupCodes: () => Promise<string[]> = async () => [],
+  scheduled: ScheduledValues = async () => [],
 ): Promise<void> {
+  const check = (bad: ShapeIssue | null): void => {
+    if (bad) fail(bad);
+  };
   switch (key) {
     case 'web_estimate.open_until': {
       // R4 LP-v2 (BR-115 (6)): the last night with a confirmed calendar – a real calendar date.
@@ -177,15 +242,10 @@ export async function checkStructuredParameter(
       }
       return;
     }
-    case 'weekend_nights': {
-      const ok =
-        Array.isArray(value) &&
-        value.length > 0 &&
-        value.every((d) => isInt(d) && d >= 1 && d <= 7) &&
-        new Set(value).size === value.length;
-      if (!ok) outOfRange({ allowed: [1, 2, 3, 4, 5, 6, 7] });
+    case 'weekend_nights':
+      // BUG-R5-001 / DOM 8.4: weekday codes, the form the price engine reads (`["FRI","SAT"]` in production).
+      check(weekendNightsIssue(value));
       return;
-    }
     case 'hold_hours_options': {
       const ok =
         Array.isArray(value) &&
@@ -241,17 +301,59 @@ export async function checkStructuredParameter(
       return;
     }
     case 'min_stay': {
-      if (isInt(value)) {
-        if (value < 1 || value > 7) outOfRange({ min: 1, max: 7 });
-        return;
-      }
-      // Object form {nights, …}: every numeric "nights" 1–7.
-      const nights = (value as { nights?: unknown } | null)?.nights;
-      if (nights !== undefined && (!isInt(nights) || nights < 1 || nights > 7)) {
-        outOfRange({ min: 1, max: 7 });
-      }
+      // BUG-R5-003 / DOM 12.1: only the list of rules the engine reads; nights ≤ min(7, short_stay_max_nights).
+      const caps = (
+        await valuesDuringOwnRow('min_stay', 'short_stay_max_nights', other, scheduled)
+      ).filter(isInt);
+      check(minStayIssue(value, minStayNightsCap(caps.length ? Math.min(...caps) : null)));
       return;
     }
+    case 'short_stay_max_nights': {
+      // DOM 12.2 reverse check: never below the largest `nights` of a min_stay rule in force meanwhile.
+      if (!isInt(value)) return;
+      const need = Math.max(
+        0,
+        ...(await valuesDuringOwnRow('short_stay_max_nights', 'min_stay', other, scheduled)).map(
+          minStayLargestNights,
+        ),
+      );
+      if (value < need) fail({ field: 'value', code: 'VALUE_OUT_OF_RANGE', extras: { min: need } });
+      return;
+    }
+    // V5-25 rà khóa (QA BUG-R5-003 (f)): structured keys read by quote / booking / web estimate / check-in / out.
+    case 'special_dates':
+      check(specialDatesIssue(value));
+      return;
+    case 'los_discount':
+      check(losDiscountIssue(value));
+      return;
+    case 'cancel_policy_direct':
+      check(cancelPolicyIssue(value));
+      return;
+    case 'early_checkin_tiers':
+      check(earlyCheckinTiersIssue(value));
+      return;
+    case 'late_checkout_tiers':
+      check(
+        lateCheckoutTiersIssue(value, await other('business_day_rollover').catch(missingAsNull)),
+      );
+      return;
+    case 'early_departure_refund':
+      check(earlyDepartureRefundIssue(value));
+      return;
+    case 'checkout_reminders':
+      check(checkoutRemindersIssue(value));
+      return;
+    case 'weekend_uplift_channels':
+    case 'special_uplift_channels':
+      check(upliftChannelsIssue(value));
+      return;
+    case 'max_open_holds_per_user':
+      check(maxOpenHoldsIssue(value));
+      return;
+    case 'lease_terms':
+      check(leaseTermsIssue(value));
+      return;
     case 'session_policy': {
       // Sub-key bounds: SEC hard bounds (x-security-parameters 0.3.4, ParameterService.validate).
       // Cross rule here: idleMinutes ≤ maxHours × 60 per client.

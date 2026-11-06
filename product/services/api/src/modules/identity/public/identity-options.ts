@@ -5,7 +5,8 @@
  * - adminOrigins / pwaOrigins: allowed `Origin` values (SR-SES-04, SR-HDR-04). Empty lists = Origin not
  *   checked (only allowed for APP_ENV dev/test – main.ts refuses that elsewhere).
  * - ipHmacKey: LOG_IP_HMAC_KEY for user_session.ip_hmac / audit (SR-KEY-08); empty = not recorded.
- * - mfaEnforced: MFA_ENFORCED (0.3.8, SEC 06.3/06.4) – owner/manager without 2FA get a restricted session.
+ * - mfaEnforced: MFA_ENFORCED (0.3.8, SEC 06.3/06.4) – a mandatory role (MFA_REQUIRED_ROLES: owner, manager,
+ *   front_desk_lead from v1.0.5 – V5-40) without 2FA gets a restricted session.
  * - appEnv: APP_ENV – staging/production refuse to start without the full common-password list (SR-AUTH-02).
  * - emailFrom: EMAIL_FROM (0.3.10, BUG-R3-032) – the server's sending mailbox; a staff security e-mail equal to its
  *   address → 422 EMAIL_SHARED_MAILBOX. Unset (dev/CI, staging mock) = not checked.

@@ -1,9 +1,11 @@
-# 03:30 Vietnam time, after the night jobs; Persistent = run at boot if the server was off at 03:30.
+# Staging: 03:30 and 15:30 Vietnam time, 30 min after production (ottimo-backup@.timer) so the dumps never overlap;
+# Persistent = run at boot if the server was off. v1.0.5 V5-62: two runs 12 h apart.
 [Unit]
-Description=OTTIMO daily backup
+Description=OTTIMO backup, twice a day
 
 [Timer]
 OnCalendar=*-*-* 03:30:00 Asia/Ho_Chi_Minh
+OnCalendar=*-*-* 15:30:00 Asia/Ho_Chi_Minh
 Persistent=true
 RandomizedDelaySec=5min
 
