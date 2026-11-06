@@ -88,8 +88,8 @@ Hai lỗi này có từ v1.0.0. Không mất tiền, không lộ dữ liệu: m�
 
 <!-- Nguồn "Giới hạn đã biết của v1.0.5" (PO 07/11, plan R5 quyết định 27):
 - Ca đêm: ARC A4, FB-R5-DOM-ARC-D1-01 (backlog R5-B-09); câu BA 792e510a, sửa theo DOM FB-R5-DOM-BA-02 (không gõ cửa ban đêm, việc chính ở mốc đóng quầy) – DOM-on-ba-v105-docs.md mục 4.
-- Đóng ca: ShiftReport.lineReductions[] (backlog R5-B-10, US-177 AC7 (iii)); lễ tân không thấy bộ lọc 7 ngày (US-177 AC7 (i)). Lần đếm lại thấp hơn hiện là Điều chỉnh dòng folio, lý do Đếm lại minibar, và có trong bộ lọc 7 ngày nhờ BE-A2 r5-v516-minibar 0b2ebb45, chỉ khi #110 và nhánh này cùng vào tag (BA lượt 4, da596507). Thiếu một trong hai: làm theo plan R5 mục 4a T5.
-- Minibar: DOM rounds/round-05/responses/DOM-responses.md mục "Rủi ro BA mục 8, ý 1" (7496e5bc), đề xuất (A) 1–3; backlog R5-B-15. Phần chặn không vào v1.0.5. Câu thứ hai của DOM (A) 1 (đếm lại chưa có trong bộ lọc) không ghi ở đây; chỉ thêm khi thiếu #110 hoặc phần audit (plan R5 mục 4a T5).
+- Đóng ca: ShiftReport.lineReductions[] (backlog R5-B-10, US-177 AC7 (iii)); lễ tân không thấy bộ lọc 7 ngày (US-177 AC7 (i)). Lần đếm lại thấp hơn hiện là Điều chỉnh dòng folio, lý do Đếm lại minibar, và có trong bộ lọc 7 ngày nhờ PR #133 (BE-A2 r5-v516-minibar @ 0636f2fc, xếp trên #110; commit đầu 0b2ebb45), chỉ khi #133 có trong tag (BA lượt 4, da596507; DOM FB-R5-DOM-BE-110-02). #110 một mình không ghi gì cho lần đếm lại; #133 chứa #110. Thiếu #133: làm theo plan R5 mục 4a T5 (kiểm git merge-base --is-ancestor 0636f2fc <tag>).
+- Minibar: DOM rounds/round-05/responses/DOM-responses.md mục "Rủi ro BA mục 8, ý 1" (7496e5bc), đề xuất (A) 1–3; backlog R5-B-15. Phần chặn không vào v1.0.5. Câu thứ hai của DOM (A) 1 (đếm lại chưa có trong bộ lọc) không ghi ở đây; chỉ thêm khi thiếu #133, tức thiếu phần audit (plan R5 mục 4a T5).
 - Sổ tay 1.1, 01 2.1: BA thêm K-MB theo DOM-responses (việc theo vai). Kiểm trước khi cắt (plan 4a, "Thêm khi cắt"). -->
 
 ### Không có trong v1.0.5

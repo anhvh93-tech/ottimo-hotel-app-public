@@ -17,7 +17,7 @@ export function roundVnd(amount: number, unit: number): number {
 }
 
 /**
- * `numerator / divisor` rounded to `unit` (BR-101: nightly list price = monthly ÷ 12 → 1.000).
+ * `numerator / divisor` rounded to `unit` (e.g. BR-203 long-stay night rate = monthly rent ÷ 30 → 1.000).
  * Exact for integers: compares 2·remainder with the divisor·unit instead of using floats.
  */
 export function divideRoundVnd(numerator: number, divisor: number, unit: number): number {

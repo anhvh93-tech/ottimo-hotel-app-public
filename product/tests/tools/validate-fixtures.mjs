@@ -191,9 +191,6 @@ const CALC = {
   noticeDays: ({ anchorDate, notifiedAt }) => ({
     noticeDays: diffDays(anchorDate, businessDate(ms(notifiedAt))),
   }),
-  nightlyListPrice: ({ monthlyListPriceVnd }) => ({
-    nightlyListPriceVnd: roundTo(monthlyListPriceVnd, 12, 1000),
-  }),
   longStayNightRate: ({ leaseMonthlyRentVnd }) => ({
     longStayNightRateVnd: roundTo(leaseMonthlyRentVnd, 30, 1000),
   }),
@@ -909,11 +906,17 @@ function validateSeeds() {
   const groups = new Map(dse.roomGroups.map((g) => [g.code, g]));
   const rooms = new Map(dse.rooms.map((r) => [r.roomNo, r]));
   if (rooms.size !== 10) err(W, `cần 10 căn, có ${rooms.size}`);
+  // v1.0.5 V5-1A (BR-101 (1), (5)): giá đêm nhập cùng giá tháng, không suy từ giá tháng (bỏ phép ÷ 12).
+  const isPrice = (v) => Number.isInteger(v) && v > 0 && v % 1000 === 0;
   for (const r of rooms.values()) {
     if (!groups.has(r.group)) err(W, `căn ${r.roomNo}: nhóm ${r.group} không tồn tại`);
-    const n = roundTo(r.monthlyListPriceVnd, 12, 1000);
-    if (n !== r.expectedNightlyListPriceVnd)
-      err(W, `căn ${r.roomNo}: giá đêm ${r.expectedNightlyListPriceVnd} ≠ BR-101 ${n}`);
+    if ('expectedNightlyListPriceVnd' in r)
+      err(
+        W,
+        `căn ${r.roomNo}: expectedNightlyListPriceVnd đã bỏ – dùng nightlyListPriceVnd (V5-1A)`,
+      );
+    for (const k of ['monthlyListPriceVnd', 'nightlyListPriceVnd'])
+      if (!isPrice(r[k])) err(W, `căn ${r.roomNo}: ${k} phải là số nguyên > 0, bội 1.000 (BR-101)`);
   }
   for (const r of rooms.values()) {
     // BR-110 v0.3.1 (ESC-014): max = base + 1 for every room
@@ -1036,9 +1039,9 @@ function validateSeeds() {
     else if (r.expected && pax.extraGuestKits !== (r.expected.extraGuestKits ?? 0))
       err(w, `bộ đồ dùng thêm ${r.expected.extraGuestKits ?? 0} ≠ BR-812 ${pax.extraGuestKits}`);
     if (r.stayType === 'short' && r.paymentModel === 'direct_pay' && r.seedPath === 'api') {
-      const nr = room.expectedNightlyListPriceVnd;
+      const nr = room.nightlyListPriceVnd;
       if (r.expected.nightRateVnd !== nr)
-        err(w, `giá niêm yết ${r.expected.nightRateVnd} ≠ BR-101 ${nr}`);
+        err(w, `giá niêm yết ${r.expected.nightRateVnd} ≠ giá đêm DS-E ${nr} (BR-101)`);
       const cal = nightlyRates(nr, r.arrivalDate, r.nights, 'direct', SEED_PARAMS);
       if (!deepEq(r.expected.nightlyRatesVnd, cal))
         err(

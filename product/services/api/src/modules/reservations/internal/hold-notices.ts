@@ -15,7 +15,8 @@
  *   DOM rules-v1.0.5 mục 9, BR-303 v0.5.13, OpenAPI 0.3.13 bổ sung 1 mục 1.21): in v1.0.x a sale/CTV has nowhere to
  *   read it (no staff app, no Desk inbox), so the desk – who tells the guest (Tờ 2a) – is always told. The v1.0.4
  *   branch "FD/FDL only when the creator/closer resolve to nobody" (DOM P4-20 §0) is gone: FD/FDL get it anyway.
- * "Active" = account `active` and a live role at the property (EventsService.notify). Never HK, MT or accounting. Ids, kind and display code only in any payload (SEC A5) – no guest data.
+ * "Active" = account `active` and a live role at the property (EventsService.notify). Never HK, MT or accounting.
+ * Ids, kind and display code only in any payload (SEC A5) – no guest data.
  * Dedupe keys (DOM P4-20 §0): with_deposit = (reservation, hold_expires_at); cap and expired = reservation.
  * EventsService absent (a composition without it) → the push row alone, as before.
  */

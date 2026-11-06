@@ -127,6 +127,8 @@ describe('reporting read model (ARC 11.4 C5/C6)', () => {
 
   it('declares its tables (C5)', () => {
     expect(READS.length).toBeGreaterThan(0);
+    // ARC FB-R5-ARC-BE-B2-01: audit is read through audit/public (line-reductions), never as a table.
+    expect(READS).not.toContain('audit_event');
     expect(WRITES).toEqual(['job_run']);
   });
 

@@ -36,6 +36,7 @@ import {
   PAYMENT_JOINS,
   type PaymentRowLite,
 } from '../../folio/public/folio.service';
+import { folioLocked } from '../../folio/public/folio-locked';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import {
@@ -1121,7 +1122,7 @@ export class PaymentsService {
     }
     const folio = await this.folios.lock(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
-    if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    if (folio.status === 'closed') throw folioLocked('closed');
     const now = this.clock.now();
     const tz = await this.folios.timezone(tx);
     const rollover = await this.rollover(tx, tz, now);

@@ -292,6 +292,7 @@ describe.skipIf(!HAS_DB)(
         roomNo: '501',
         roomGroupId: groups[0]!.id,
         monthlyListPriceVnd: 9_000_000,
+        nightlyListPriceVnd: 800_000,
         activeFrom: '2026-12-01',
       });
       expect(created.statusCode, created.body).toBe(201);
@@ -312,6 +313,7 @@ describe.skipIf(!HAS_DB)(
         roomNo: '502',
         roomGroupId: groups[0]!.id,
         monthlyListPriceVnd: 10_000_000,
+        nightlyListPriceVnd: 900_000,
         activeFrom: '2026-12-30',
       });
       expect(created.statusCode, created.body).toBe(201);
