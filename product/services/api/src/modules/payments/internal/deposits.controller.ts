@@ -11,6 +11,7 @@ import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { type FieldError, problem } from '../../../shared/problem';
 import {
+  assertBankReferenceNotCardFirst,
   assertNoCardNumber,
   optionalText,
   readBankReference,
@@ -126,6 +127,8 @@ export class DepositsController {
     @Body() body: unknown,
   ) {
     if (!UUID.test(reservationId)) throw problem('NOT_FOUND');
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone.
+    assertBankReferenceNotCardFirst(body, 'payment');
     rejectDryRun(body);
     const input = parseBody(confirmSchema, body);
     if ((input.payment === undefined) === (input.existingPaymentId === undefined)) {

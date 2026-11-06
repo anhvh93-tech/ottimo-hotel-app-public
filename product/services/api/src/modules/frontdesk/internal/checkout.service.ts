@@ -35,6 +35,7 @@ import type { Tx } from '../../../db/database';
 import { dayClock, isCheckoutDay } from '../../../shared/business-day';
 import { problem } from '../../../shared/problem';
 import { type LocalDate, type LocalTime, addDays } from '../../../shared/time';
+import { assertBankReferenceNotCardFirst } from '../../../shared/validation';
 import { actorRoleOf } from '../../audit/public/actor-role';
 import { AuditService } from '../../audit/public/audit.service';
 import { folioLineDto } from '../../folio/public/folio-view';
@@ -1942,6 +1943,8 @@ export class CheckoutService {
     ctx: BookingContext,
     overdue: OverdueStay | null = null,
   ): CheckoutInput {
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone.
+    assertBankReferenceNotCardFirst(body, 'finalPayment');
     const checkoutTime = f.time('checkoutTime');
     const sent = (k: string) => body[k] !== undefined && body[k] !== null;
     let checkoutAt: Date | undefined;

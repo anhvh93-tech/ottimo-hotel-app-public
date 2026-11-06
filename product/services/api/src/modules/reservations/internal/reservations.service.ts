@@ -13,6 +13,7 @@ import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { CANCEL_REASON_CODES, type CancelReasonCode } from '../../../db/schema';
 import { ProblemError, problem } from '../../../shared/problem';
 import {
+  assertBankReferenceNotCardFirst,
   assertNoCardNumber,
   containsCardNumber,
   readBankReference,
@@ -519,6 +520,8 @@ export class ReservationsService {
     ctx: BookingContext,
     body: Record<string, unknown>,
   ): Promise<{ row: ReservationRow }> {
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone.
+    assertBankReferenceNotCardFirst(body, 'initialPayment');
     const f = new Fields(body);
     const roomId = f.uuid('roomId', true);
     const channelId = f.uuid('channelId', true);

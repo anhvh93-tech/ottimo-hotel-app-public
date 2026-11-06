@@ -1,7 +1,7 @@
 # BE-D2 – PR-B3: V5-5B 5B-1 "Tiền về sau khi hủy" (máy chủ)
 
 - Người làm: BE (làn BE-D2) | Round 5 – v1.0.5 – Bước: **Sản xuất** | 07/11/2026
-- Nhánh: `r5-b3`, cắt từ `origin/main` `5ca6db0b`, đã gộp `origin/main` ba lần (merge, không rebase): lần hai có #119 (`f84cd605`), lần ba tới `5c1f54f0` (#110, #124, #143). PR nháp: xem mục 8.
+- Nhánh: `r5-b3`, cắt từ `origin/main` `5ca6db0b`, đã gộp `origin/main` bốn lần (merge, không rebase): lần hai có #119 (`f84cd605`), lần ba tới `5c1f54f0`, lần bốn có #139, #120, #131, #133 (`aed9ec8a`). PR nháp: xem mục 8.
 - Căn cứ: hợp đồng 0.3.13 bổ sung 1 mục 1.21 ý 3 (`recordPayment` (B)), bổ sung 1e (SEC ARC-15), 1f (SEC ARC-16, ARC-20, ARC-21, C0313-25); DOM `rules-v1.0.5.md` 11.4 mục 2–5; SEC `SEC-on-bug-r5-002.md` 3.2 (S2–S8); thẻ ARC FB-R5-ARC-BE-105-03 (trả lời DOM FB-R5-DOM-ARC-105-01), FB-R5-ARC-BE-119-01; SEC FB-R5-SEC-BE-119-02, FB-R5-SEC-BE-127-02 (ORC giao thêm 07/11), SEC-responses 4.3.
 - Không làm trong PR này (ORC chốt): SEC 105-01 (BE-B, #139), ca test riêng ARC 105-01/105-02, DOM ARC-120-01, SQL 0079, trần S5 (cắt theo đường cắt của dòng V5-5B).
 
@@ -73,7 +73,7 @@ Test t1–t7 ở `pr-b3-after-closure.test.ts` (mục 4). Ca h1 của #105 (V5-4
 - `deposit_after_cancel`: tin đẩy theo `notifyStaff` (FD, FDL, MGR, OWN; không gửi người báo), không gửi kèm số tiền; push cũ `deposit_notice` cho người phụ trách không đi trên đơn đã đóng.
 - Audit `refund.destination_set` khi máy chủ đặt nơi nhận (`before.refundMethod = null`, `after.refundMethod = original_method`) – action đã có trong tập `money`.
 - `duplicateReservationCode` theo vai của **người ghi** (snapshot vai ở `recordManual`), không theo vai đọc.
-- SEC 105-01 (#139) gộp sau thì xung đột ở khối S7 của `recordAfterClosure`: giữ kiểm `uploadedBySales` của #139 và nhánh `card_pos` không bắt ảnh của PR này.
+- #139 (SEC 105-01) đã lên main và đã gộp vào nhánh này. Xung đột chỉ ở chú thích của `recordAfterClosure`; mã tự gộp được và giữ cả hai luật: ảnh do sale/CTV tải (`uploadedBySales`, qua cổng `files`) hoặc ảnh của báo chuyển khoản → 422 `attachmentId` NOT_IN_LIST, và nhánh `card_pos` không bắt ảnh. Ảnh gửi kèm phiếu thẻ cũng qua luật ảnh của sale. Hai ca của #139 trong `v5-48-closed-booking-money.test.ts` (139-02 và SEC 6 (a)) ghi `type: deposit` trên đơn **đã xác nhận** rồi hủy, nên đổi sang `charge` theo luật 5B-1. Ý của ca giữ nguyên. PR-B3 không đọc bảng `attachment` trực tiếp.
 
 **DOM**
 - "Có thể trùng" áp cho mọi khoản chuyển khoản cùng số tiền trong 24 giờ, đúng chữ hợp đồng. Hai khách cùng chuyển cọc 1.000.000 trong ngày sẽ cùng hiện "Có thể trùng" – chỉ là cảnh báo. Nếu DOM muốn chỉ hiện ở khoản ghi sau khi đóng, sửa một điều kiện.
@@ -138,4 +138,31 @@ M1–M8 và M13–M19 đã chạy lại sau khi thêm phần `bankReference`.
 - PR nháp **#148** (`r5-b3` → `main`). Head là commit chứa file này; SHA và trạng thái CI ghi ở PR và báo cáo gửi ORC.
 - Lịch sử nhánh: `3a59a015` (máy chủ 5B-1) → `2fed4383` (gộp main) → `6b4eb1b3` (test t1–t7, S2–S8, 127-02) → `e250874d` (gộp main có #119) → `ebd30bce` (`bankReference`, file này) → `01507ab3` (gộp main `5c1f54f0`) → commit sửa ca 105-01 của #144.
 - CI đã biết hay chập chờn: shellcheck `postgres-log-terse` (OPS-11, #126), không liên quan PR này.
-- Xung đột sẽ gặp khi #139 lên trước: khối S7 của `recordAfterClosure` và test V5-48. Cách gộp ở mục 6 (SEC).
+- #139 đã gộp (mục 6, SEC). Lần gộp main thứ tư: `aed9ec8a`.
+
+## 9. Bổ sung 1i: C0313-31, C0313-32 (Phản hồi & sửa, ORC chuyển 07/11)
+
+ARC chốt ở bổ sung 1i (PR #152 @ `1d0b4ce8`, chỉ mô tả): **C0313-31 = phương án B**. Ô `bankReference` qua kiểu và mẫu của chính ô mà giống số thẻ → 422 `CARD_NUMBER_DETECTED` ngay, chỉ lỗi này, trước lỗi của các trường khác và trước `NOT_ALLOWED` (phương thức) của chính ô; không ghi gì.
+
+**C0313-31 – phần mã.** ARC ghi "PR-B3 giữ thứ tự này, không đổi mã". Khi viết ca (iv) cho từng đường, tôi thấy ba chỗ #148 chưa đúng chữ "trước lỗi của các trường khác":
+- `recordPayment`: lỗi kiểu của zod ở trường khác (ví dụ `amountVnd: "abc"`) ra trước, vì `parseBody` chạy trước `checkPaymentShape`. `type: refund` cũng bị trả `type` NOT_IN_LIST trước mọi kiểm thân (`PaymentsService.record`).
+- `confirmDeposit`: lỗi kiểu của zod ở trường khác ra trước.
+- `checkIn`: `payment` chỉ được kiểm lúc ghi (`recordInTx`). Vì vậy lỗi các trường của thân nhận phòng (`cardsIssued`, `checkinTime`…), phiên bản và trạng thái đơn đều ra trước số thẻ.
+
+Sửa bằng một hàm `assertBankReferenceNotCardFirst(body, at)` (`shared/validation.ts`). Mỗi bộ đọc gọi hàm này trên thân thô, trước khi đọc gì khác: `recordPayment`, `confirmDeposit` (trong controller, trước `rejectDryRun` và `parseBody`), `createReservation`, `checkIn`, `checkOut` (`readInput`). Giá trị không phải chuỗi hoặc sai mẫu thì để bộ đọc báo như cũ. `readBankReference` và kiểm chốt ở `recordManual` không đổi. Nếu ARC thấy phần thêm này thừa, có thể bỏ ở `createReservation` và `checkOut`: hai đường này vốn đã báo số thẻ trước (xem đột biến M34, M36 ở dưới). Ba đường kia thì cần.
+
+**Test 1i:**
+- (iv) một ca ở **cả 5 đường**. Thân có lỗi ở trường khác (lỗi kiểm thân, lỗi kiểu zod, `type: refund`, `cardsIssued` thiếu, `checkinTime`/`checkoutTime` sai, `roomId` sai) và có số thẻ ở `bankReference` → chỉ một lỗi `CARD_NUMBER_DETECTED` với đúng tiền tố, không ghi gì, đơn giữ trạng thái.
+- (iv) `cash` kèm số thẻ → `CARD_NUMBER_DETECTED`, không phải `NOT_ALLOWED`. Có ở `recordPayment`, `confirmDeposit`, `createReservation`, `checkOut`, và ở mức hàm.
+- `posAuthCode` có số thẻ, mã ngân hàng bình thường → báo `posAuthCode` (BUG-R2-043).
+- Ca đơn vị cho `assertBankReferenceNotCardFirst`.
+- (i) SAL `confirmDeposit` trên giữ chỗ của mình, mã đã dùng → 409 **không có** `duplicateReservationCode`, không ghi gì, đơn vẫn `hold`.
+- C0313-32: mỗi đường có đủ 3 ca HTTP (số thẻ → 422 có tiền tố, không ghi gì; mã chữ thường → lưu chữ hoa; mã trùng → 409). Ca trùng mới thêm ở `createReservation.initialPayment` (không tạo đơn), `checkIn` (đơn vẫn `confirmed`), `checkOut` (vẫn `in_house`).
+- C0313-32 (e) "Không thấy tiền": ghi chú thiếu, 2 ký tự, toàn khoảng trắng hoặc toàn ký tự ẩn (U+2060, U+200B) → 422 `REASON_REQUIRED`, mục còn mở, không có dòng audit.
+- Danh sách SR-PAY-10 bản 07/11 ở mức hàm đã có ở `v09-reference-card-units.test.ts` (#119). PR-B3 không chép lại. `GroupDepositInput` là R3. Trước PR-B3 máy chủ bỏ qua trường này, không từ chối.
+
+**Đột biến:**
+- M32 (`recordPayment`), M33 (`confirmDeposit`), M35 (`checkIn`) bỏ kiểm sớm → đỏ.
+- M37 (bộ đọc kiểm phương thức trước số thẻ) → đỏ.
+- M34 (`createReservation`), M36 (`checkOut`) → **xanh**, là đột biến tương đương: hai đường này gom lỗi các trường rồi mới ném lỗi số thẻ của `initialPayment`/`finalPayment`, nên vốn đã báo số thẻ trước. Kiểm sớm ở đây chỉ giữ một luật chung cho cả 5 đường.
+- Chạy lại sau khi thêm ca: M11 (mã đơn cho mọi vai) nay đỏ ở 2 ca (SAL `recordPayment`, SAL `confirmDeposit`); M14, M21–M24 đỏ.

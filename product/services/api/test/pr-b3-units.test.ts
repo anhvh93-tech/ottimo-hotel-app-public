@@ -21,7 +21,7 @@ import {
   checkPaymentShape,
   normalizeBankReference,
 } from '../src/modules/payments/public/payment.service';
-import { readBankReference } from '../src/shared/validation';
+import { assertBankReferenceNotCardFirst, readBankReference } from '../src/shared/validation';
 
 describe('PR-B3 5B-1 rules', () => {
   it('type: deposit for a booking cancelled while a hold, charge for every other closed booking', () => {
@@ -137,5 +137,33 @@ describe('PR-B3 5B-1 rules', () => {
         { fieldPrefix: 'payment.' },
       ),
     ).toThrow(expect.objectContaining({ code: 'CARD_NUMBER_DETECTED' }));
+  });
+
+  it('1i (C0313-31 B): the early card check reads the raw body – a card number throws with the right field; anything else is left to the reader', () => {
+    const card = '4111-1111-1111-1111';
+    const field = (body: unknown, at: string | null) => {
+      try {
+        assertBankReferenceNotCardFirst(body, at);
+        return null;
+      } catch (e) {
+        return (e as { options: { errors: Array<{ field: string }> } }).options.errors[0]!.field;
+      }
+    };
+    expect(field({ bankReference: card, amountVnd: 'x' }, null)).toBe('bankReference');
+    expect(field({ payment: { bankReference: ` ${card} `, method: 'cash' } }, 'payment')).toBe(
+      'payment.bankReference',
+    );
+    expect(field({ initialPayment: { bankReference: card } }, 'initialPayment')).toBe(
+      'initialPayment.bankReference',
+    );
+    for (const [body, at] of [
+      [{ bankReference: 'FT2611ABC' }, null],
+      [{ bankReference: '4111 1111 1111 1111' }, null], // fails the pattern → the reader answers VALIDATION_FAILED
+      [{ bankReference: 4111111111111111 }, null],
+      [{ payment: 'x' }, 'payment'],
+      [null, 'finalPayment'],
+      [[card], null],
+    ] as const)
+      expect(field(body, at)).toBeNull();
   });
 });

@@ -11,6 +11,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
+import { assertBankReferenceNotCardFirst } from '../../../shared/validation';
 import {
   type LocalDate,
   type LocalTime,
@@ -592,6 +593,9 @@ export class CheckinService {
     expectedVersion: number,
     body: Record<string, unknown>,
   ): Promise<{ row: ReservationRow } | { approval: ApprovalRow }> {
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone. The rest of
+    // `payment` is checked at write (`recordInTx` → checkPaymentShape).
+    assertBankReferenceNotCardFirst(body, 'payment');
     const f = new Fields(body);
     const checkinTime = f.time('checkinTime');
     const timeNote = f.text('checkinTimeNote', 300, { min: 3 });

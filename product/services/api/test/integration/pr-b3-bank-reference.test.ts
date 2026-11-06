@@ -530,29 +530,64 @@ describe.skipIf(!HAS_DB)(
       ).toHaveLength(0);
     }, 60_000);
 
-    it('C0313-31 error order (option (B), as on main since #119 and BUG-R2-043): another field wrong AND a card number in bankReference → 422 CARD_NUMBER_DETECTED on bankReference only, nothing written', async () => {
+    it('C0313-31 / 1i error order (option (B)) on every path: other field errors (schema types included) AND a card number in bankReference → 422 CARD_NUMBER_DETECTED alone with the prefix; `cash` + a card number → CARD_NUMBER_DETECTED, not NOT_ALLOWED; nothing written', async () => {
       const card = '4111111111111111';
       const before = await count(d1);
-      // recordPayment (checkPaymentShape): amount 0, unknown type, bad receivedAt + a card number. (`type: refund` is
-      // answered before the body checks – `PaymentsService.record`, refunds only via 2.6 – and is not used here.)
-      const rp = await pay(d1, card, { type: 'tip', amountVnd: 0, receivedAt: 'yesterday' });
-      cardRefused(rp, 'bankReference', card);
+      // recordPayment: body-check errors (type, amount, receivedAt), a schema type error, `type: refund` (refused before
+      // the body checks otherwise) and `cash` – each time the card number alone.
+      for (const extra of [
+        { type: 'tip', amountVnd: 0, receivedAt: 'yesterday' },
+        { amountVnd: 'abc', attachmentId: 42 },
+        { type: 'refund' },
+        { method: 'cash' },
+      ]) {
+        cardRefused(await pay(d1, card, extra), 'bankReference', card);
+      }
       expect(await count(d1)).toBe(before);
-      // confirmDeposit (depositPayment): wrong type and method + a card number.
+      // confirmDeposit: wrong type, a negative amount, then a schema type error.
       const h = await hold('402', 'fd');
-      const cd = await x.act(h.id, 'confirm-deposit', {
-        payment: { type: 'charge', method: 'bank_transfer', amountVnd: -5, bankReference: card },
-      });
-      cardRefused(cd, 'payment.bankReference', card);
+      for (const payment of [
+        { type: 'charge', method: 'bank_transfer', amountVnd: -5 },
+        { type: 'deposit', method: 'cash', amountVnd: 'x' },
+      ]) {
+        const cd = await x.act(h.id, 'confirm-deposit', {
+          payment: { ...payment, bankReference: card },
+        });
+        cardRefused(cd, 'payment.bankReference', card);
+      }
       expect(await count(h)).toBe(0);
-      // createReservation (parseInitialPayment): a missing amount + a card number.
+      expect((await x.get(h.id)).status).toBe('hold');
+      // createReservation: a bad room id, a missing amount, `cash`.
+      const bookings = (await x.q(`SELECT count(*)::int AS n FROM reservation`))[0].n as number;
       const ip = await x.c.fd!.send('POST', x.url('/reservations'), {
         ...directBody('302', '2026-12-26', '2026-12-28'),
-        initialPayment: { type: 'deposit', method: 'bank_transfer', bankReference: card },
+        roomId: 'not-a-room',
+        initialPayment: { type: 'deposit', method: 'cash', bankReference: card },
       });
       cardRefused(ip, 'initialPayment.bankReference', card);
-      // The card number of posAuthCode still answers before bankReference (BUG-R2-043, the shape checks' order).
-      const both = await pay(d1, card, { method: 'card_pos', posAuthCode: card });
+      expect((await x.q(`SELECT count(*)::int AS n FROM reservation`))[0].n).toBe(bookings);
+      // checkIn: missing cardsIssued / houseRulesSent, a wrong payment type – the card number alone, still confirmed.
+      const ci = await x.act(d2.id, 'check-in', {
+        checkinTime: '99:99',
+        payment: {
+          type: 'deposit',
+          method: 'bank_transfer',
+          amountVnd: 10_000,
+          bankReference: card,
+        },
+      });
+      cardRefused(ci, 'payment.bankReference', card);
+      expect((await x.get(d2.id)).status).toBe('confirmed');
+      // checkOut: a bad checkoutTime, `cash`.
+      const co = await x.act(d2.id, 'check-out', {
+        checkoutTime: 'noon',
+        finalPayment: { type: 'charge', method: 'cash', amountVnd: 10_000, bankReference: card },
+      });
+      cardRefused(co, 'finalPayment.bankReference', card);
+      expect((await x.get(d2.id)).status).toBe('confirmed');
+      // The card number of posAuthCode still answers in the order of the shape checks (BUG-R2-043): posAuthCode first
+      // when the bank code is not a card number.
+      const both = await pay(d1, 'FT2611ORD', { method: 'card_pos', posAuthCode: card });
       expect(both.statusCode, both.body).toBe(422);
       expect(both.json().errors).toEqual([{ field: 'posAuthCode', code: 'CARD_NUMBER_DETECTED' }]);
       expect(await count(d1)).toBe(before);

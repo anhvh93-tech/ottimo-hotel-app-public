@@ -18,6 +18,7 @@ import { AuditService } from '../../audit/public/audit.service';
 import { recordUseCaseDenial } from '../../audit/public/use-case-denial';
 import { paymentDto } from '../../folio/public/folio-view';
 import type { PaymentRowLite } from '../../folio/public/folio.service';
+import { assertBankReferenceNotCardFirst } from '../../../shared/validation';
 import { parseBody } from '../../platform/public/validation';
 import { OVERDUE_CHECKOUT_DENIED } from '../../reservations/public/overdue-checkout';
 import { type ListPaymentsQuery, PaymentsService } from './payments.service';
@@ -127,6 +128,8 @@ export class PaymentsController {
     @Body() body: unknown,
   ) {
     if (!UUID.test(folioId)) throw problem('NOT_FOUND');
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone.
+    assertBankReferenceNotCardFirst(body, null);
     rejectDryRun(body);
     const input = parseBody(paymentCreateSchema, body);
     const p = principal(req);

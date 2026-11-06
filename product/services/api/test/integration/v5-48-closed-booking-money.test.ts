@@ -647,7 +647,8 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
       const r = await record(
         b,
         {
-          type: 'deposit',
+          // 5B-1 (PR-B3): a booking cancelled while confirmed takes `charge` after closure.
+          type: 'charge',
           method: 'bank_transfer',
           amountVnd: 300_000,
           note: NOTE,
@@ -675,7 +676,8 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
       const r = await record(
         b,
         {
-          type: 'deposit',
+          // 5B-1 (PR-B3): a booking cancelled while confirmed takes `charge` after closure.
+          type: 'charge',
           method: 'bank_transfer',
           amountVnd: 100_000,
           note: NOTE,
