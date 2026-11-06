@@ -416,7 +416,12 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 2 – money fixes (BE-A)',
       extraNightDefaultRateVnd: CAL2.r203,
       amountDueAtCheckoutVnd: CAL2.r203,
     });
-    const cap = await qr(a, { purpose: 'check_out', amountVnd: CAL2.r203 + 1 });
+    // 0.3.13 (V5-10): the QR carries the summary's `checkoutAt`.
+    const cap = await qr(a, {
+      purpose: 'check_out',
+      checkoutAt: s.checkoutAt,
+      amountVnd: CAL2.r203 + 1,
+    });
     expect(cap.statusCode, cap.body).toBe(422);
     expect(cap.json()).toMatchObject({ max: CAL2.r203 });
     const out = await act(a.id, 'check-out', {
@@ -438,7 +443,11 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 2 – money fixes (BE-A)',
       extraNightDefaultRateVnd: CAL.r201,
       amountDueAtCheckoutVnd: CAL.r201,
     });
-    const mk = await qr(d, { purpose: 'check_out', amountVnd: CAL.r201 });
+    const mk = await qr(d, {
+      purpose: 'check_out',
+      checkoutAt: s2.checkoutAt,
+      amountVnd: CAL.r201,
+    });
     expect(mk.statusCode, mk.body).toBe(201);
     expect((await confirmQr(mk.json().payment.id)).statusCode).toBeLessThan(300);
     const out2 = await act(d.id, 'check-out', {
