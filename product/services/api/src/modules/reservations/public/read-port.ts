@@ -9,6 +9,7 @@ import { Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import type { Actor } from '../internal/reservation-store';
 import type { ReservationOwnership, StayInfo } from './sales-port';
+import { stayDepartureDateOf } from './stay-departure';
 import { type StayViewRow, stayView, stayViews } from './stay-view';
 
 export async function readStayInfo(tx: Tx, reservationId: string): Promise<StayInfo | null> {
@@ -43,6 +44,12 @@ export async function readStayInfo(tx: Tx, reservationId: string): Promise<StayI
   );
   const v = rows[0];
   if (!v) return null;
+  const stayDepartureDate = await stayDepartureDateOf(tx, {
+    id: v.id,
+    parentReservationId: v.parent_reservation_id,
+    status: v.status,
+    departureDate: v.departure_date,
+  });
   return {
     id: v.id,
     code: v.code,
@@ -54,6 +61,7 @@ export async function readStayInfo(tx: Tx, reservationId: string): Promise<StayI
     parentReservationId: v.parent_reservation_id,
     arrivalDate: v.arrival_date,
     departureDate: v.departure_date,
+    stayDepartureDate,
     roomId: v.room_id,
     roomNo: v.room_no,
     adults: v.adults,
