@@ -480,11 +480,14 @@ export class PlatformController {
         tx.ctx.organizationId,
         pc.propertyId,
         // Q51-6 – the INT worker's contract (`int-r3-smtp`): template + owners + the effective date, no number.
+        // SEC FB-R4-SEC-BE-V104-08 (V5-43): `action` = exactly the branch this controller ran (set / cancel) – the
+        // dispatcher's only source for the sentence; for `cancel` the date is the one of the cancelled schedule.
         JSON.stringify({
           template: 'receiving_account_changed',
           userIds: [],
           owners: true,
           effectiveDate: effectiveFrom,
+          action,
         }),
         `email:receiving_account_changed:${action}:${pc.propertyId}:${uuidv7()}`,
       ],

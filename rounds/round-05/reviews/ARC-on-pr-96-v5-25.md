@@ -10,6 +10,7 @@
   - cùng câu SQL với role `ottimo_app` (không BYPASSRLS): **0 dòng, không báo lỗi** (thẻ 02);
   - kiểm đột biến của ARC: 5/5 đột biến phía TypeScript bị test bắt; 2/4 đột biến phía SQL bị bắt, 2 đột biến còn sống đều làm câu SQL **chặt hơn** (thẻ 04);
   - gộp thử trong bộ nhớ với `r5-contract-0313`, `r5-ops`, `r5-ops-runbooks`: không xung đột.
+- **Lượt 2 (07/11):** #96 @ `897ff46e` **DUYỆT**; PR xếp chồng #109 @ `f2e6733d` **DUYỆT**. ĐK-1 đã xong, ĐK-2 cập nhật ở mục 12.6. Chi tiết ở mục 12.
 
 ## Kết luận: **DUYỆT CÓ ĐIỀU KIỆN**
 
@@ -272,3 +273,165 @@ S2 và S3 chỉ làm câu SQL báo `false` nhiều hơn: báo nhầm, không b�
 - `short_stay_max_nights`: số đúng là 29 (DOM 13.3). Production hiện thấp hơn 29 vì chủ đầu tư chưa làm B5, nhưng vẫn ≥ 7 (DOM: trần `nights` vẫn là 7), nên kết luận mục 2 không đổi.
 - Các biên [GIẢ ĐỊNH] ở thân PR mục 6 do DOM chốt, không cần chủ đầu tư.
 - Không có ESC mới.
+
+## 12. Lượt 2 (07/11) – PR #96 @ `897ff46e`, PR #109 @ `f2e6733d`
+
+- **Đã đọc:**
+  - phần chênh `e0bdb3b8..897ff46e` của #96 (10 tệp: câu SQL, `stay.service.ts`, `parameter-rules.ts`, `parameter-shapes.ts`, `min-stay-read.ts`, `pricing.ts`, ca dùng chung, ba tệp test);
+  - toàn bộ #109 (`r5-v5-25-damage`, base `r5-v5-25`, 9 tệp, 3 commit; `2077c53a` là commit gộp #96 @ `897ff46e`);
+  - mã gọi quanh hai chỗ đọc `damage_catalog` (`folio.controller.ts`, `bill.service.ts`, `folio-lines.service.ts`) và đường hủy, dời ngày đọc `pricing_snapshot.cancelPolicy` (`reservations.service.ts`);
+  - DOM lượt 2 (`DOM-on-pr-96-v5-25.md` mục 5), SEC lượt 2 (`51793f0f`), quyết định ORC 07/11 trong `01-decisions/decision-log.md`.
+- **CI:** cả hai HEAD 9 job xanh, 3 job bỏ qua (deploy, publish), kể cả `docker images build · E2E smoke`. `mergeStateStatus` CLEAN.
+- **Ghim SQL:** ARC tự tính SHA-256 của `v5-25-parameter-shape-check.sql` ở cả hai nhánh: `f5db74ac17e7…a2243f`, 28 081 byte, trùng bản SEC ghim lại. #109 không đổi tệp này.
+- **Không chạy lại test trên máy.** CI đã chạy integration trên Postgres 17. Image CI cùng digest với `docker-compose.prod.yml` (`postgres:17-alpine@sha256:b0f9…2b24`). ARC chỉ chạy một container tạm, không mật khẩu, không mở cổng, để thử `lower()` (mục 12.5).
+
+### 12.1 Kết luận lượt 2
+
+- **#96 @ `897ff46e`: DUYỆT.**
+  - ĐK-1 xong: thẻ 02 và 03 Done.
+  - ĐK-2 còn, bản cập nhật ở 12.6. Đây là điều kiện chạy câu SQL và lên `SHA_V105`, không chặn việc gộp.
+  - ĐK-3 (PR #94) giữ nguyên, không chặn #96.
+- **#109 @ `f2e6733d`: DUYỆT.**
+  - Gộp sau #96 theo thứ tự ở 12.7.
+  - `SHA_V105` phải chứa cả hai PR. Điều kiện ở 12.6 ý 2a dựa vào điều này.
+- Không có Blocker, Major hay Minor mới. Một Suggestion mới: FB-R5-ARC-BE-109-01.
+
+### 12.2 Trạng thái thẻ
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-BE-02 | Done | Guard SQL thuần, đạt thẻ. Lý do ở 12.3 |
+| FB-R5-ARC-BE-03 | Done | Lệnh chạy đưa tệp qua stdin, `PGOPTIONS` gồm role `ottimo_readonly`, read-only, `statement_timeout`, `lock_timeout`. Đầu tệp có 5 ý đọc kết quả. Production dùng khối SEC ghim. Cột `property_id` (tùy chọn) không thêm: chấp nhận, vì v1.0.5 chỉ có một cơ sở |
+| FB-R5-ARC-BE-04 | Done | **Ca HTTP:** `short_stay_max_nights` 3 cho hôm nay gặp dòng `min_stay` 5 đêm chỉ mới hẹn ngày, hiệu lực [15/11, 18/11) → 422 `min` 5, không ghi dòng. **Ca SQL:** D1 < D2 < D3 đúng như thẻ. Ca này đòi dòng `short_stay_max_nights` 4 từ D1 có `ok = true`. Vì vậy hai đột biến S2/S3 (so dòng đó với mọi dòng `min_stay` sau nó, không dừng ở `e`) sẽ bị bắt. ARC suy từ ca test, chưa chạy lại đột biến |
+| FB-R5-ARC-BE-05 | Deferred | Hợp đồng 0.3.14, như cũ |
+| FB-R5-ARC-BE-06 | Done | `missingAsNull` chỉ đổi `ParameterMissingError` thành null (ở `valuesDuringOwnRow` và `late_checkout_tiers`). Có test "connection lost" không bị nuốt. JSDoc `ChannelScope` đã sửa |
+| FB-R5-DOM-BE-PR96-01 (DOM 13.1) | Done (ARC kiểm cách sửa) | Xem ngay dưới bảng |
+
+**Cách sửa DOM 13.1:**
+- **Phần trăm tối đa 2 chữ số thập phân**, ở cả 6 chỗ: `los_discount`, `cancel_policy_direct`, hai khóa bậc giờ, `early_departure_refund`, `lease_terms`. Sai thì trả `VALIDATION_FAILED` kèm `min 0`, `max 100`.
+- **`cancel_policy_direct` = `[]`** trả `REQUIRED` ở `value`.
+- **`max_open_holds_per_user` thiếu vai** trả `REQUIRED` ở `value.<vai>`.
+- **Câu SQL đổi cùng lúc:** `round(p, 2)`, 1–10 tầng, bắt buộc đủ hai vai. Hai giá trị `{}` và `[]` chuyển từ ca tốt sang ca hỏng trong bộ ca dùng chung. Nhờ vậy test so SQL với bộ kiểm khi lưu vẫn bắt lệch. Có unit T-13-2…4.
+- **Ghi chú kỹ thuật:**
+  - TS so `Number(v.toFixed(2)) !== v` trên số double. SQL so `round(p, 2)` trên numeric, đúng các chữ số đã lưu.
+  - Với mọi số có tối đa 2 chữ số thập phân trong 0–100, hai bên cùng nhận.
+  - Hai bên chỉ khác ở chuỗi số rất dài như `12.3400000000000001`: SQL chặt hơn. Không ai nhập số như vậy, chấp nhận.
+
+### 12.3 Guard SQL thuần (không dùng `DO`) – có đạt thẻ 02 không: **Có**
+
+**Đạt đúng hai yêu cầu của thẻ:**
+- Chạy sai thì dừng và nói rõ lý do.
+- Chạy đúng thì không in thêm gì.
+- Không có `DO`, `SET` hay lệnh ghi, nên hợp checklist SEC.
+
+**Cơ chế:**
+- `CASE` xét điều kiện theo thứ tự và chỉ tính nhánh đầu tiên đúng.
+- Nhánh lỗi trả một chuỗi, rồi chuỗi đó bị ép sang `boolean`. Postgres báo lỗi `invalid input syntax for type boolean: "v5-25 check stopped: …"`.
+- Có `ON_ERROR_STOP=1` nên psql dừng ngay với mã thoát khác 0. Các câu sau không chạy, giao dịch READ ONLY bị bỏ.
+- Nhánh đúng ép `'false'`. Mệnh đề thành `WHERE false`, ra 0 dòng, và `-tA` không in gì.
+
+**Rủi ro "tính sớm hằng số" – không xảy ra ở đây:**
+- Postgres có thể tính sẵn biểu thức hằng lúc lập kế hoạch, kể cả trong nhánh `CASE` không chạy. Tài liệu Postgres có cảnh báo này.
+- Ở đây phép ép nằm **ngoài** `CASE`, trên một kết quả phụ thuộc subquery, nên không bị tính sớm.
+- Chữ trong các nhánh `THEN` chỉ là hằng chuỗi. Có tính sớm cũng không lỗi.
+- Test chứng minh cả hai đường trên Postgres 17 trong CI, cùng digest với production. SEC cũng đã chạy thử ba nhánh dừng bằng `ottimo_readonly`.
+
+**Test:**
+- `ottimo_app` không có tenant → dừng ở nhánh 1, đúng ca ARC tìm ra ở lượt 1.
+- `ottimo_owner` với tenant không tồn tại → dừng ở nhánh 3.
+- Tenant thật nhưng không có dòng nào của ba khóa → dừng ở nhánh 3.
+- Lần chạy đúng: guard ra `[]`, sau đó là đúng 4 câu `SELECT` với cột đúng thứ tự.
+
+**Ghi chú, không phải điều kiện:**
+- **Nhánh 2 ("no property is visible")** không bao giờ chạy dưới `ottimo_owner`, vì policy `entry_function_read ON property … USING (true)` (migration `0001`) cho owner thấy mọi cơ sở. Nhánh này chỉ có nghĩa khi chạy BYPASSRLS trên DB trống. Không hại gì.
+- **Guard chỉ kiểm "có ít nhất một dòng của ba khóa"**, không kiểm từng cơ sở. Ý đọc thứ hai ở đầu tệp ("mỗi cơ sở có đủ ba khóa") phủ phần còn lại. v1.0.5 có một cơ sở.
+- **Câu báo lỗi bắt đầu bằng `invalid input syntax for type boolean`.** Người chạy chỉ cần tìm chữ `v5-25 check stopped`, như đầu tệp đã viết. OPS chép nguyên câu này vào runbook v1.0.5.
+
+### 12.4 `early_departure_refund` hỏng → `409 PAYMENT_NOT_CONFIGURED`: đúng mục 10
+
+- **Một chỗ kiểm duy nhất:** `earlyDeparture` kiểm ngay sau bước kiểm null. Chỗ này dùng chung cho `dryRun` và lệnh ghi. Không đường nào tính tiền hoàn từ giá trị hỏng.
+- **T-13-8 đủ:**
+  - thử ba dạng hỏng: số trơn, `refundPct` 150, `minNoticeDays` là chuỗi;
+  - cả ba trả 409 kèm `detail`, body không lộ giá trị;
+  - đơn vẫn `in_house`, ngày đi không đổi;
+  - không sinh `approval_request`.
+- **Không đổi hợp đồng:** `earlyDeparture` đã khai 409 `PAYMENT_NOT_CONFIGURED` cho ca khóa null.
+- **0.3.14:** chuyển sang `PARAM_NOT_USABLE` kèm `parameterKey`/`parameterState`. Dòng log cảnh báo đã nằm trong bảng mục 10, nên không cần thẻ mới.
+
+### 12.5 PR #109 – `damage_catalog`
+
+**Hai chỗ đọc có phủ đủ năm thao tác không: Có.** Hai chỗ đọc là `FolioLinesService.catalog` và `BillService.catalogNames`.
+
+| Thao tác | Đi qua chỗ đọc nào | Test (d), bảng hỏng đã lưu sẵn |
+|---|---|---|
+| `getChargeCatalog` | `catalog()` → `readDamageCatalog` | 200, 3 món tốt, 1 cảnh báo |
+| `addFolioLine` | `add()` tra mã trong `catalog()`. Thân folio trả về đi `folioBody` → `labelContext` → `catalogNames` | 201, 50.000 đ, nhãn "Ly" |
+| `getFolio` | `folioBody` → `labelContext` → `catalogNames` | 200 |
+| `getBill` | `BillService.bill` → `catalogNames(today)` | 200 |
+| `adjustFolioLine` | `adjust()` không đọc bảng. Thân folio trả về đi `folioBody` → `catalogNames` | 201 |
+
+- **Không còn chỗ đọc nào khác.** Tìm `damage_catalog` trong `src` của nhánh #109 chỉ ra hai chỗ này; seed và `production-defaults.ts` chỉ ghi giá trị.
+  - Mọi thao tác folio khác trả `folioBody` cũng qua `catalogNames`, nên cũng được phủ.
+  - Admin-web chỉ gọi `getChargeCatalog` qua API.
+- **Đọc khi giá trị hỏng, đúng DOM 13.2:**
+  - Giá trị không phải danh sách → bảng rỗng. Đền bù đi đường "ngoài bảng", MGR+ duyệt (test (e)).
+  - Món hỏng hoặc trùng → bỏ món đó, các món tốt vẫn dùng. Không ném lỗi.
+  - Log một lần cho mỗi cặp (cơ sở, giá trị). Tập đã log có trần 500. Log không chứa giá trị, đường field qua `logSafeField`.
+  - Lúc đọc tham số chỉ nuốt `ParameterMissingError`, cùng tinh thần thẻ 06.
+- **Bộ kiểm khi lưu khớp DOM 13.4 và khớp dòng đếm (b) của SQL.** 28 ca hỏng và 4 ca tốt dùng chung chạy cả hai bên.
+  - `code` theo `^[a-z0-9_]{1,40}$`: chặn `damage.glass`, `Glass`, `ly_đá`.
+  - Tên dài 1–100 điểm mã, không trùng. So trùng sau khi bỏ khoảng trắng hai đầu, không phân biệt hoa thường.
+  - `priceVnd` là số nguyên 1.000–20.000.000.
+  - Tối đa 100 món, chỉ kiểm lúc lưu. Đúng ba khóa `code`, `name`, `priceVnd`.
+- **Điểm DOM ghi [CHƯA XÁC MINH] về `lower()` ở SQL: ARC đã thử.**
+  - Môi trường thử: image ghim `postgres:17-alpine@sha256:b0f9…2b24`, khởi tạo mặc định (`en_US.utf8`, provider libc). Compose không đặt locale.
+  - Kết quả: `lower('KHĂN TẮM') = lower('khăn tắm')` là đúng; `lower('ĐÈN')` ra `đèn`.
+  - Vậy SQL và TS so trùng tên tiếng Việt giống nhau, nếu DB production cũng khởi tạo mặc định [GIẢ ĐỊNH: chưa xem trực tiếp production].
+- **ORC cần biết khi số đếm (b) khác 0 – hành vi đổi so với v1.0.4:**
+  - v1.0.4 vẫn hiện món thiếu tên (lấy `code` làm tên) và món có giá lẻ, âm hay trên 20 triệu.
+  - v1.0.5 bỏ các món đó khỏi danh mục, chỉ ghi log. Lễ tân không thấy món, phải ghi "ngoài bảng" (MGR+ duyệt) tới khi sửa trên Desk.
+  - Dòng folio cũ mang mã của món bị bỏ sẽ hiện nhãn mặc định.
+  - Không có 500. Trước đây món giá âm gây 500 lúc ghi (`folio_line_sign_check`); nay trả 422 `NOT_IN_LIST` (test (f)).
+
+### FB-R5-ARC-BE-109-01
+- Mức độ: Suggestion
+- Vị trí: `folio-lines.service.ts` `catalog()` (ngày kinh doanh, `this.today()` có rollover) so với `bill.service.ts` `labelContext()`/`bill()` (`localDate(now, tz)`, ngày lịch). Lệch này có từ trước #109.
+- Vấn đề: từ 00:00 tới giờ rollover (06:00), nếu có dòng `damage_catalog` hẹn cho ngày mới, danh mục và nhãn trên folio/bill đọc hai dòng khác nhau.
+- Vì sao quan trọng: sau #109 không còn 500, chỉ lệch nhãn và danh mục trong vài giờ đêm. Chú thích ở `catalogNames` cũng ghi "tới ngày kinh doanh sau", không đúng với ngày lịch.
+- Đề xuất sửa: ở R5-B-05, cả hai chỗ dùng ngày kinh doanh (BR-010). Không làm trong #109.
+- Trạng thái: Open
+
+### 12.6 ĐK-2 cập nhật – ý kiến ARC về quyết định ORC 07/11
+
+ORC đã quyết theo đề xuất DOM: (1) ô `V525_STOP_KEYS` gồm 6 khóa; (2) hai dòng đếm khác 0 không dừng lên bản. ARC đồng ý cả hai và thêm các điểm sau.
+
+1. **Đồng ý 6 khóa, đề xuất thêm `lease_terms` thành khóa thứ 7.**
+   - **Lý do kỹ thuật:** `lease_terms` chỉ được đọc ở báo giá sales (`sales/internal/quote-pricing.ts`, phương án một tháng BR-108, khi số đêm ≥ `long_stay_compare_from_nights`).
+   - Mã chỉ thay `null` bằng `[]`. Giá trị không phải danh sách thì `.find` lỗi; có phần tử `null` thì `t.months` lỗi. Cả hai làm báo giá dài ngày trả 500, cùng loại với bốn khóa DOM thêm.
+   - **Chi phí gần bằng 0:** giá trị production ORC đọc ngày 06/11 hợp lệ. Câu SQL đã kiểm `lease_terms`, nên không phải sửa SQL hay ghim lại. Chỉ cần thêm khóa vào ô `V525_STOP_KEYS` khi cắt bản.
+   - **Các khóa còn lại giữ "ghi lại, sửa trên Desk sau" theo DOM 13.2:** `cancel_policy_direct`, hai khóa bậc giờ, `early_departure_refund`, `checkout_reminders`, `max_open_holds_per_user`, `short_stay_max_nights`.
+   - Riêng `short_stay_max_nights`: nếu mâu thuẫn thật với `min_stay`, dòng `min_stay` cũng ra `ok = false`, vì hai bên được kiểm trên cùng khoảng giao. Ca đó đã dừng qua `min_stay`.
+2. **Đồng ý hai dòng đếm khác 0 không dừng lên bản, kèm ba điều kiện kỹ thuật:**
+   - **a. `damage_catalog_rows_broken`:** chỉ được bỏ qua khi `SHA_V105` chứa cả #96 lẫn #109. Nếu cắt v1.0.5 mà thiếu #109, số khác 0 vẫn phải dừng: dòng hỏng đang hiệu lực hay đã hẹn ngày làm mọi folio/bill trả 500 (BUG-R5-004).
+   - **b. `open_bookings_cancel_policy_broken`:** đúng là v1.0.5 không làm ca này tệ hơn. #96 không đổi đường hủy hay dời ngày (`reservations.service.ts` không có trong diff #96 so với `main`). ORC và DOM cần biết hệ quả với các đơn bị đếm:
+     - hủy (cả bước xem trước) và dời ngày của đơn đã cọc sẽ trả 500, khi bản chép không phải danh sách hoặc có phần tử `null`;
+     - hoặc hoàn 0 % mà không báo gì, khi bản chép là `[]`;
+     - quy tắc DOM 13.2 "bản chép hỏng thì dùng chính sách đang hiệu lực" **chưa có** trong #96. Nó thuộc phần "còn lại: R5-B-05" của DOM. PO giữ nó cùng việc đọc phòng thủ nhóm bán, dùng lại `cancelPolicyIssue`.
+   - **c. Câu SQL chỉ in số, không in mã đơn.** Đúng thiết kế, SEC đã ghim. Nếu số (a) khác 0, DOM cần mã đơn và ngày đến để xử lý từng đơn.
+     - Khi đó cần câu đọc thứ hai, chỉ in `reservation.code`, `arrival_date`, `status`, không có cột khách. SEC duyệt và ghim trước khi chạy. Chỉ viết khi số khác 0.
+     - Không `UPDATE` tay `reservation.pricing_snapshot` trên production. Bản chép là bằng chứng giá đã bán. Nếu phải sửa dữ liệu thì làm script một lần, có ARC và SEC review.
+
+### 12.7 Thứ tự gộp (cập nhật mục 8)
+
+1. Gộp #96 vào `main` bằng merge commit, như các PR khác của repo.
+2. Đổi base của #109 sang `main`. GitHub tự đổi nếu nhánh `r5-v5-25` bị xóa khi gộp; nếu không, ORC đổi tay.
+   - Repo gộp bằng merge commit, nên các commit của #96 đã nằm trong `main`. Diff của #109 chỉ còn 3 commit của nó.
+   - Chờ CI xanh trên base mới rồi gộp.
+3. Sau đó không đổi tệp SQL. Đổi một byte là phải ghim lại (SEC) và đọc lại (ARC).
+4. ĐK-3 (#94) không chặn hai PR này.
+
+### 12.8 Giả định ARC dùng ở lượt 2
+- Không chạy lại test hay đột biến trên máy. Kết luận dựa vào CI xanh ở hai HEAD (có integration trên Postgres 17) và việc đọc mã.
+- DB production khởi tạo bằng locale mặc định của image ghim. Compose production không ghi đè locale.
+- Hệ quả ở 12.6 ý 2b (500 hay hoàn 0 %) là ARC đọc từ mã, chưa chạy.
+- Không có ESC mới. Các điểm ở 12.6 thuộc quyền ORC/DOM theo khung ĐK-2, không cần chủ đầu tư.

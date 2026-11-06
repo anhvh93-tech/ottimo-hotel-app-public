@@ -12,6 +12,11 @@
 # webhook = that sentence, the query asks for ids above the mark · a second change while still FAIL → its own webhook
 # · no change → ok, recovery once · an empty window never moves the mark back · an odd value → "other" · a broken
 # mark file → never put into the SQL, treated as a first run.
+# v1.0.5 V5-73 (SEC FB-R4-SEC-OPS-S6D-01): pricegap has a static part – a READ ONLY count of sellable rooms with a
+# website room type and no list price from their first sellable day (365 days). Static 1 → FAIL with the number only
+# (no id anywhere), the SQL is the one count of SEC-on-lp-v2-s6d.md 6.4 · static 0 + no log line → ok · log and static
+# both > 0 → one FAIL naming both counts · a stray answer, a guard that is not ottimo_readonly, a query error or an
+# unreadable api log → FAIL with a fixed category, never read as 0, the other part still reported.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -40,14 +45,19 @@ landing_line() { # status
 }
 # Fake bin/dc: `logs … landing` / `logs … web landing` → $home/landing.log, `logs … api` → $home/api.log,
 # `exec -T postgres …` (psql) → the guard row, then $home/psql.out.
+# Switch files (v1.0.5 cases): logs.fail → `dc logs` fails, psql.fail → psql answers an ERROR, guard.bad → the session
+# answers the guard like a role that is not ottimo_readonly.
 cat > "$home/fake/infra/server/bin/dc" <<DC
 #!/usr/bin/env bash
 case "\$1" in
-  logs) case "\${*: -1}" in api) cat "$home/api.log" ;; *) cat "$home/landing.log" ;; esac ;;
+  logs) [ -e "$home/logs.fail" ] && { echo "permission denied" >&2; exit 1; }
+        case "\${*: -1}" in api) cat "$home/api.log" ;; *) cat "$home/landing.log" ;; esac ;;
   exec) cat > "$home/psql.in"
-        # v1.0.4: psql_ro sends the ottimo_readonly guard row first (SEC PR32-S1) – answer it like the real role.
-        grep -qF "current_user = 'ottimo_readonly'" "$home/psql.in" && echo ro-ok
         printf '%s\n' "\$*" > "$home/psql.cmd"
+        [ -e "$home/psql.fail" ] && { echo 'ERROR:  relation "room_list_price" does not exist' >&2; exit 3; }
+        # v1.0.4: psql_ro sends the ottimo_readonly guard row first (SEC PR32-S1) – answer it like the real role.
+        if [ -e "$home/guard.bad" ]; then echo ro-bad
+        else grep -qF "current_user = 'ottimo_readonly'" "$home/psql.in" && echo ro-ok; fi
         cat "$home/psql.out" ;;
 esac
 DC
@@ -86,6 +96,7 @@ grep -q '^ok   http5xx: 1 server errors (5xx) in 35 min' <<<"$out" && ok "4 pric
   echo "{\"level\":40,\"msg\":\"public_price_missing property=$prop room=$room2 day=2026-11-02 – no list price\"}"
   echo "{\"level\":40,\"msg\":\"public_price_missing property=$prop room=$room1 day=2026-11-03 – no list price\"}"
   echo '{"level":30,"msg":"request completed"}'; } > "$home/api.log"
+printf '0\n' > "$home/psql.out"   # static part: no gap (v1.0.5)
 reset; out=$(oc pricegap)
 if grep -q '^FAIL pricegap: 2 room(s) left out of the website price estimate in 24 h' <<<"$out" && grep -q '^rc=1$' <<<"$out"; then
   ok "5 public_price_missing for 2 rooms → FAIL with the number of rooms"; else ko "5"; echo "$out"; fi
@@ -95,6 +106,58 @@ if ! grep -qE "$room1|$room2|$prop|room=|property=" "$home/webhook.jsonl" "$home
 echo '{"level":30,"msg":"request completed"}' > "$home/api.log"
 reset; out=$(oc pricegap)
 grep -q '^ok   pricegap: every room had a list price' <<<"$out" && ok "6 no public_price_missing → ok" || { ko "6"; echo "$out"; }
+
+# ── v1.0.5 V5-73: static part (SEC-on-lp-v2-s6d.md 6.4) ──
+nolog() { echo '{"level":30,"msg":"request completed"}' > "$home/api.log"; }
+leak_free() { # no room / property id, no SQL text in the output, the webhook or the state file
+  ! grep -qE "$room1|$room2|$prop|room=|property=|room_list_price|SELECT" "$home/webhook.jsonl" "$home/stack/state/ops-check/pricegap" \
+    && ! grep -qE "$room1|$room2|$prop|room=|property=|room_list_price|SELECT" <<<"$1"
+}
+nolog; printf '1\n' > "$home/psql.out"; rm -f "$home/psql.in" "$home/psql.cmd"
+reset; out=$(oc pricegap)
+if grep -q '^FAIL pricegap: 1 sellable room(s) with a website room type have no list price from their first sellable day (next 365 days) – OWN: enter the list price of that room on Desk; OPS: find where the room came from' <<<"$out" \
+  && grep -q '^rc=1$' <<<"$out" && [ -s "$home/webhook.jsonl" ] && leak_free "$out"; then
+  ok "16 static count 1, no log line → FAIL with the number of rooms only, webhook sent, no id anywhere"; else ko "16"; echo "$out"; fi
+sql=$( { tail -n +3 "$home/psql.in" 2>/dev/null || true; } | tr -s ' \n' ' ')
+want_ok=1
+for want in "SELECT count(*) FROM room r JOIN property p ON p.id = r.property_id" "(now() AT TIME ZONE p.timezone)::date AS today" \
+  "WHERE r.is_sellable" "AND r.public_room_type IS NOT NULL" "AND r.active_from <= d.today + 365" \
+  "AND (r.active_to IS NULL OR r.active_to >= d.today)" \
+  "AND NOT EXISTS (SELECT 1 FROM room_list_price lp WHERE lp.room_id = r.id AND lp.effective_from <= greatest(r.active_from, d.today));"; do
+  grep -qF -- "$want" <<<"$sql" || { want_ok=0; echo "  missing: $want"; }
+done
+if [ "$want_ok" = 1 ] && [ "$(grep -o ';' <<<"$sql" | wc -l | tr -d ' ')" = 1 ] \
+  && ! grep -qiwE 'insert|update|delete|truncate|alter|drop|grant|create|set|reset' <<<"$sql" \
+  && grep -qF 'PGOPTIONS="-c default_transaction_read_only=on -c role=ottimo_readonly"' "$home/psql.cmd" 2>/dev/null \
+  && grep -qF "current_user = 'ottimo_readonly'" "$home/psql.in" 2>/dev/null; then
+  ok "16b static SQL = one count(*) (6.4 filters, 365 days, greatest(active_from, today) in the property time zone), READ ONLY as ottimo_readonly behind the guard"
+else ko "16b static SQL"; echo "$sql"; cat "$home/psql.cmd" 2>/dev/null || true; fi
+nolog; printf '0\n' > "$home/psql.out"
+reset; out=$(oc pricegap)
+grep -q '^ok   pricegap: every room had a list price for the website estimate (24 h); 0 sellable rooms without a list price (365 days)$' <<<"$out" \
+  && grep -q '^rc=0$' <<<"$out" && ok "17 static count 0 and no log line → ok" || { ko "17"; echo "$out"; }
+{ echo "{\"level\":40,\"msg\":\"public_price_missing property=$prop room=$room1 day=2026-11-02 – no list price\"}"; } > "$home/api.log"
+printf '3\n' > "$home/psql.out"
+reset; out=$(oc pricegap)
+grep -q '^FAIL pricegap: 1 room(s) left out of the website price estimate in 24 h: no list price for a night; 3 sellable room(s) with a website room type have no list price' <<<"$out" \
+  && [ "$(grep -c '^FAIL' <<<"$out")" = 1 ] && leak_free "$out" && ok "18 log 1 room + static 3 → one FAIL naming both counts" || { ko "18"; echo "$out"; }
+nolog; printf '%s\n' "$room1" > "$home/psql.out"
+reset; out=$(oc pricegap)
+grep -q '^FAIL pricegap: static check: unexpected answer$' <<<"$out" && leak_free "$out" \
+  && ok "19 a stray answer (an id instead of a count) → FAIL unexpected answer, the id never printed" || { ko "19"; echo "$out"; }
+printf '0\n' > "$home/psql.out"; touch "$home/guard.bad"
+reset; out=$(oc pricegap)
+grep -q '^FAIL pricegap: static check: unexpected answer$' <<<"$out" && ok "20 guard not ottimo_readonly → FAIL, never read as 0" || { ko "20"; echo "$out"; }
+rm -f "$home/guard.bad"; touch "$home/psql.fail"
+{ echo "{\"level\":40,\"msg\":\"public_price_missing property=$prop room=$room2 day=2026-11-02 – no list price\"}"; } > "$home/api.log"
+reset; out=$(oc pricegap)
+grep -q '^FAIL pricegap: 1 room(s) left out of the website price estimate in 24 h: no list price for a night; static check query failed: query error – OWN' <<<"$out" \
+  && leak_free "$out" && ok "21 static query error → category, the log part still reported" || { ko "21"; echo "$out"; }
+rm -f "$home/psql.fail"; touch "$home/logs.fail"; printf '2\n' > "$home/psql.out"
+reset; out=$(oc pricegap)
+grep -q '^FAIL pricegap: 2 sellable room(s) with a website room type have no list price .*; api log unreadable – docker compose failed, container state unknown: permission denied' <<<"$out" \
+  && ok "22 api log unreadable → category, the static count still reported" || { ko "22"; echo "$out"; }
+rm -f "$home/logs.fail"
 
 mark="$home/stack/state/ops-check/priceswitch.last_id"
 host_s=$(hostname -s 2>/dev/null || echo server)

@@ -19,6 +19,8 @@
 **Lượt 2: DUYỆT để gộp PR #96 @ `897ff46e` khi CI xanh.**
 **PR #109 @ `f2e6733d`: DUYỆT để gộp vào `r5-v5-25` khi CI xanh.**
 
+> 07/11, sau khi viết: CI của `897ff46e` và của `f2e6733d` đều **xanh** (SEC xem `gh run list`). Điều kiện CI của hai kết luận trên đã đủ.
+
 - 0 Blocker, 0 Major.
 - `FB-R5-SEC-BE-V525-01` (Minor): **Closed**. Đã sửa ở `897ff46e`, và #109 dùng cùng hàm `logSafeField`.
 - `FB-R5-SEC-OPS-V525-02` (Suggestion): vẫn Open. Ý 3 đã làm một phần: mẫu lệnh đầu tệp nay chạy qua stdin, có timeout.
@@ -194,13 +196,21 @@ Kết quả đúng có dạng: 5 dòng chốt, `BEGIN`, các dòng khóa, 2 dòn
 | Áp chót | `ROLLBACK` | Dừng, báo SEC |
 | Cuối | `#END` | Dừng, báo SEC |
 
-Xử lý, theo luật đọc trong chú thích của tệp (ARC review #96 ĐK-2, DOM 13.2):
-- **Mọi dòng `t`, hai số đếm bằng 0:** deploy tiếp.
-- **`f` trên `min_stay` hoặc `weekend_nights`:** dừng deploy; OWN/MGR sửa trên Desk trước.
-- **`f` trên khóa khác:** ghi khóa và ngày; sửa trên Desk sau deploy.
-- **Số đếm khác 0:** dừng deploy, chờ DOM.
-  - Không tra từng đơn bằng SQL. Nếu DOM cần biết là đơn nào, SEC viết câu riêng (chỉ in mã đơn), và INV phải đồng ý trước khi chạy.
-- **Không bao giờ sửa bằng `UPDATE`**, kể cả khi đang có SSH. Sửa trên Desk: lưu lại giá trị đúng bằng `setParameter`, hoặc hủy dòng đã hẹn.
+Xử lý: theo **ô `V525_STOP_KEYS` của runbook v1.0.5** (bước P2c) và quyết định của ORC ngày 07/11 (decision-log, dòng "DOM – lượt 2 PR #96 / #109", `ad8a7c61`; DOM `262b9fb5`). Đây là luật nghiệp vụ của DOM/ORC, không phải luật bảo mật. Bảng này không tự giữ danh sách khóa; ô trong runbook là nguồn.
+- **Một dòng `f` trên một khóa có trong `V525_STOP_KEYS`: dừng Release.** OWN/MGR sửa trên Desk trước, rồi chạy lại khối (cùng SHA).
+  - Lúc SEC viết, ô gồm 6 khóa: `min_stay`, `weekend_nights`, `special_dates`, `los_discount`, `weekend_uplift_channels`, `special_uplift_channels`.
+  - ARC (`ARC-on-pr-96-v5-25.md` 12.6) đề nghị thêm `lease_terms` làm khóa thứ 7. Ô trong runbook lúc cắt bản là danh sách chốt.
+- **`f` trên khóa không có trong ô:** không dừng. Ghi khóa và ngày; OWN/MGR sửa trên Desk sau khi lên bản (DOM 13.2).
+- **Hai dòng đếm khác 0 (`open_bookings_cancel_policy_broken`, `damage_catalog_rows_broken`): không dừng Release.** ORC gửi số cho DOM trong ngày. OWN/MGR sửa trên Desk sau khi lên bản.
+  - Điều kiện kỹ thuật của ARC (12.6 ý 2a): chỉ bỏ qua `damage_catalog_rows_broken` khác 0 khi `SHA_V105` chứa **cả #96 lẫn #109**. Thiếu #109 thì số khác 0 vẫn dừng.
+  - Không tra từng đơn bằng SQL tay. Nếu DOM cần mã đơn, SEC viết câu đọc thứ hai (chỉ `reservation.code`, `arrival_date`, `status`, không cột khách) và ghim trước khi chạy. INV phải đồng ý trước khi chạy.
+- **Chú thích "Reading the result" trong tệp SQL (dòng 34–40) còn ghi luật cũ.** Luật cũ: chỉ 2 khóa dừng; số đếm khác 0 thì dừng. Runbook và quyết định trên thay luật đó. **Không sửa tệp SQL** để giữ SHA đã ghim; sửa chú thích ở bản sau, cùng ý 3 của `FB-R5-SEC-OPS-V525-02`.
+- **Không bao giờ sửa bằng `UPDATE`**, kể cả khi đang có SSH. Áp cho cả `config_parameter` lẫn `reservation.pricing_snapshot` (ARC 12.6 ý 2c). Sửa tham số trên Desk: lưu lại giá trị đúng bằng `setParameter`, hoặc hủy dòng đã hẹn.
+
+SEC không có lý do bảo mật để giữ luật cũ:
+- Câu SQL chỉ đọc, chỉ in nhãn và số. Đổi luật dừng không đổi gì về dữ liệu bị lộ hay quyền.
+- Về toàn vẹn tiền, #109 bỏ các mục `damage_catalog` hỏng (giá âm, giá lẻ, `null`) khỏi bảng phí và nhãn. Vì vậy một dòng hỏng còn sót sau khi lên bản không tạo được dòng hư hỏng giá âm. Đây là lý do SEC đồng ý điều kiện 2a của ARC: thiếu #109 thì giữ dừng.
+- Đơn mở có `cancelPolicy` hỏng là vấn đề đúng/sai tiền hoàn và 500 (ARC 12.6 ý 2b), đã có từ v1.0.4. v1.0.5 không làm ca này tệ hơn. Nó không mở đường lạm quyền hay lộ dữ liệu.
 - **Được chép** nguyên các dòng kết quả và giờ chạy vào decision-log. Các dòng này không có giá trị cấu hình và không có dữ liệu khách.
 
 ### 4.5 Đã chạy thử (DB dùng một lần, dữ liệu giả)
