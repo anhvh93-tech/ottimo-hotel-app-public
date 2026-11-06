@@ -16,7 +16,8 @@
   - `folio/public/folio.service.ts` (`syncStay`, `syncCommission`, `voidCommissions`, `payeeTypeOf`), `commission-rate.ts`;
   - `sales/internal/quote-pricing.ts`, `quotes.service.ts`, `reservations/internal/sales-port.adapter.ts`, `reservations.service.ts` (đọc tỷ lệ chụp), `pricing.service.ts` (`snapshot`);
   - `platform/public/parameter.service.ts` (`get`, `set`), `property-context.ts`;
-- migration 0000, 0001, 0011, 0013, 0079 (cột, khóa, CHECK, RLS, quyền).
+- migration 0000, 0001, 0011, 0013, 0079 (cột, khóa, CHECK, RLS, quyền);
+- sau bản nháp đầu: `SEC-on-ops-pr-129-r4.md` (`8f9848d0`: duyệt, ghim lại K13 `c13c4d68…0d71`, chọn cách 1) và `DOM-on-ops-pr-129-r4.md` (`e9ca571d`: K13 đạt nghiệp vụ, thẻ DOM 129-03). Hai tệp này vào `main` trong lúc ARC đang soát. Kết luận dưới đây đã đối chiếu với cả hai.
 
 **Đã chạy:**
 - **P2c bước 2:**
@@ -31,21 +32,19 @@
 
 ## 0. Kết luận
 
-**#129 @ `c394ea45`: DUYỆT CÓ ĐIỀU KIỆN.**
+**#129 @ `c394ea45`: DUYỆT.** Không còn điều kiện ARC.
 
-- **Ba thẻ cũ của ARC: Done, ARC đã kiểm, đóng** (mục 1). Phần P2c, tức bước chạy lúc cắt `SHA_V105` và ngay trước P3, **không còn điều kiện ARC**.
-- **Điều kiện duy nhất** nằm ở câu K13, phần ARC soát thêm (mục 2). FB-R5-ARC-OPS-129-03 phải xong **trước khi SEC ghim lại K13**. Có hai cách xong:
-  - OPS sửa câu (3);
-  - hoặc DOM chọn giữ ngày tạo đơn, và runbook ghi giả định với hướng lệch "đếm thiếu".
-
-  Mục đích: SEC chỉ ghim một lần.
-- K13 vẫn ghi "chờ SEC ghim lại", và chỉ chạy sau khi DOM xác nhận và SEC ghim. Vì vậy, nếu ORC cần gộp #129 sớm, 129-03 cũng có thể đi bằng PR sau, miễn là trước lần ghim.
-- CODEOWNERS là đường dẫn SEC, nên cổng (b) vẫn cần tệp `SEC-on-*.md` nêu `c394ea45`. Kết luận ARC không thay cho tệp đó.
+- **Ba thẻ cũ của ARC: Done, ARC đã kiểm, đóng** (mục 1). Phần P2c, tức bước chạy lúc cắt `SHA_V105` và ngay trước P3, không còn điều kiện ARC.
+- **K13** (phần ARC soát thêm, mục 2):
+  - cột và luật `syncCommission` khớp mã;
+  - SHA ARC trích trùng bản SEC đã ghim (`c13c4d68…0d71`, khối `4f89c218…32ab`).
+- Hai chỗ lệch ngày ARC thấy chỉ là Suggestion (129-03, 129-04):
+  - 129-03 trùng ý 3 của thẻ DOM 129-03. DOM là người chốt luật, đã chọn **không đổi câu chỉ vì ý này**: cửa sổ đã đóng, giữ chỗ tối đa 48 giờ (BR-302). ARC theo DOM.
+  - Câu chỉ đổi khi có lý do khác (DOM 129-03 (b)). Khi đó gộp cả 129-03 và 129-04 vào cùng lần ghim.
+- CODEOWNERS là đường dẫn SEC. `SEC-on-ops-pr-129-r4.md` đã nêu `c394ea45`, nên cổng (b) có tệp SEC.
 
 Thẻ mới:
-- **0 Blocker · 0 Major · 1 Minor · 3 Suggestion**.
-  - Minor: OPS-129-03.
-  - Suggestion: OPS-129-04, OPS-129-05, BE-V530-01.
+- **0 Blocker · 0 Major · 0 Minor · 4 Suggestion**: OPS-129-03, OPS-129-04, OPS-129-05, BE-V530-01.
 - ESC mới: không.
 
 | Thẻ | Trạng thái | Bằng chứng |
@@ -159,12 +158,12 @@ Mỗi khối chỉ có một cặp dấu: `-- >>> v530-check` dòng 674/779, `# 
 | Đơn hủy, không đến | `voidCommissions`: dòng `projected`/`earned` → `void`, **không xóa** | (3) không đọc dòng hoa hồng; đơn không qua báo giá dùng ngày tạo đơn | **Lệch theo hướng đếm thiếu**: thẻ 129-03 |
 | Phí giữ lại | `cancellation_fee`/`no_show_fee`, `posted`, dòng đảo trỏ `reversal_of_id` | `posted`, `reversal_of_id IS NULL`, chưa bị đảo, `amount_vnd > 0` | Khớp |
 
-Nếu câu đổi theo 129-03 hoặc 129-04, SHA đổi theo. Khi đó SEC chỉ ghim bản cuối.
+SEC đã ghim đúng câu này (`SEC-on-ops-pr-129-r4.md` mục 1). Câu chỉ đổi khi có lý do khác (DOM 129-03 (b)). Khi đó gộp 129-03 và 129-04 vào cùng lần ghim.
 
 ## 3. Thẻ mới
 
 ### FB-R5-ARC-OPS-129-03
-- Mức độ: Minor. Xong trước khi SEC ghim lại K13, không phải điều kiện của P2c hay cắt `SHA_V105`.
+- Mức độ: Suggestion. Cùng ý 3 của FB-R5-DOM-OPS-129-03. Không chặn gộp, không chặn ghim.
 - Vị trí: `rounds/round-05/outputs/OPS/v1.0.5-release-runbook.md` @ `c394ea45`:
   - K13 câu (3), nhánh `ELSE rv.created_at` của `CASE` ngày chụp (dòng 95–98 của khối `v530-check`);
   - đoạn "Ngày chụp tỷ lệ", câu cuối gạch thứ 3: "Dòng `closer_bookings_cancelled_or_no_show` không dựa vào dòng hoa hồng, nên ca này dùng ngày tạo đơn".
@@ -174,14 +173,12 @@ Nếu câu đổi theo 129-03 hoặc 129-04, SHA đổi theo. Khi đó SEC chỉ
   - Lấy chính ví dụ của OPS: giữ chỗ 31/10, xác nhận 02/11 (dòng hoa hồng mang tỷ lệ của 02/11), rồi hủy có phí giữ lại. Câu (3) bỏ đơn này, vì ngày tạo đơn là 31/10.
 - Vì sao quan trọng:
   - Dòng (3) là số đơn INV phải tự tính hoa hồng trên tiền giữ lại (BR-903 (2), ESC-051 câu 1 A; Desk chưa tính).
-  - Đếm thiếu là hướng không an toàn: ra `= 0` khi thật ra `> 0` thì OWN có thể không đi tìm đơn trên Desk ở kỳ chi 01/12.
+  - Lệch theo hướng đếm thiếu. Tuy vậy, DOM đã chỉ ra cửa sổ đã đóng: giữ chỗ không qua báo giá, tạo 30–31/10, xác nhận từ 01/11. Vì vậy chỉ có rất ít đơn.
 - Đề xuất sửa:
-  - Ở câu (3), nhánh không có tỷ lệ chụp dùng `COALESCE((SELECT max(c.created_at) FROM commission c WHERE c.reservation_id = rv.id AND c.property_id = rv.property_id AND c.lease_contract_id IS NULL), rv.created_at)`, đổi sang giờ cơ sở như các nhánh khác.
-    - Lấy mọi trạng thái, kể cả `void`.
-    - Đơn chưa từng có dòng (ví dụ giữ chỗ bị hủy) thì dùng ngày tạo đơn.
-  - Sửa câu chữ "Ngày chụp tỷ lệ" cho khớp.
-  - DOM xác nhận cùng lúc với chỗ lệch của câu (2). DOM chọn giữ ngày tạo đơn thì ghi thành giả định ở mục 8, nói rõ hướng lệch là đếm thiếu.
-- Trạng thái: Open
+  - Theo DOM 129-03: **không đổi câu chỉ vì ý này.**
+  - Khi câu phải đổi vì lý do khác, dùng công thức DOM 129-03 (b), áp ở cả (2) và (3): ngày tạo dòng `commission` **đầu tiên** của đơn, cùng `payee_type`, mọi trạng thái kể cả `void`. Đơn không có dòng nào thì dùng ngày tạo đơn.
+  - Bản nháp đầu của ARC đề xuất dòng **cuối** (`max(created_at)`). Dòng cuối khớp mã trên `main` hôm nay: mỗi lần đồng bộ đọc lại tỷ lệ. Nhưng luật DOM 14.2, và #131 khi gộp, giữ tỷ lệ của dòng đầu, nên ARC rút lại đề xuất đó.
+- Trạng thái: Open (OPS cân nhắc cùng DOM 129-03)
 
 ### FB-R5-ARC-OPS-129-04
 - Mức độ: Suggestion
@@ -194,8 +191,8 @@ Nếu câu đổi theo 129-03 hoặc 129-04, SHA đổi theo. Khi đó SEC chỉ
   - Chỉ đếm thừa, vì ngày kinh doanh không bao giờ sau ngày lịch. Ví dụ: báo giá đêm 31/10 sang 01/11 mang tỷ lệ cũ là đúng luật, nhưng câu vẫn đếm vào (2) hoặc (3). Ngày bắt đầu của mỗi hàng mới cũng vậy.
   - Khung giờ hẹp, hướng an toàn, nên chỉ là Suggestion.
 - Đề xuất sửa:
-  - Nếu sửa 129-03 (câu đổi, SEC đằng nào cũng ghim lại) thì sửa luôn ý này: dùng `rv.pricing_snapshot -> 'quote' ->> 'calculatedOn'` khi có dạng `YYYY-MM-DD` (kiểm bằng biểu thức trước khi đổi sang `date`, để không có câu lỗi ép kiểu). Không có thì giữ như hiện tại.
-  - Không sửa thì ghi vào giả định mục 8: "báo giá tạo từ 00:00 tới giờ chuyển ngày có thể bị đếm thừa".
+  - Chỉ khi câu phải đổi vì lý do khác (DOM 129-03 (b); SEC phải ghim lại) thì sửa luôn ý này: dùng `rv.pricing_snapshot -> 'quote' ->> 'calculatedOn'` khi có dạng `YYYY-MM-DD` (kiểm bằng biểu thức trước khi đổi sang `date`, để không có câu lỗi ép kiểu). Không có thì giữ như hiện tại.
+  - Không đổi câu thì thêm một ý vào "Cách đọc", cùng lần OPS làm DOM 129-03 (a): "báo giá tạo từ 00:00 tới giờ chuyển ngày có thể bị đếm thừa".
 - Trạng thái: Open
 
 ### FB-R5-ARC-OPS-129-05
@@ -255,4 +252,4 @@ Nếu câu đổi theo 129-03 hoặc 129-04, SHA đổi theo. Khi đó SEC chỉ
 
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
-`| 2026-11-07 | 5 | **ARC – đọc lại PR #129 r4 @ c394ea45: DUYỆT CÓ ĐIỀU KIỆN** – 3 thẻ ARC Done, đã kiểm, đóng. OPS-129-01: P2c bước 2 dùng git -C ~/Desktop/hotel-app; ARC chạy khối SEC 4.2 rồi bước 2 bằng zsh và bash, r3 ra KHAC/THIEU/THIEU, r4 ra TRUNG/CO/CO; sai thư mục, thư mục không phải repo, sai SHA đều có dòng fatal hoặc lệch "đúng 3 dòng"; v525-run vẫn 60872413…41eb. OPS-129-02: README 11.1 cấp vai trùng setRoles (khóa chính user_id, property_id, role), vai trước/sau vào decision-log; hôm nay sửa vai bằng SQL tay không ghi audit_event; ARC xác nhận script ghi được một dòng security/user.roles_changed (actor_type system, before/after chỉ roles, reason = mã sự cố, cần ngữ cảnh RLS). OPS-126-01: test terse và 2 dòng SEC ở cuối CODEOWNERS không đè luật nào, gộp với #126 @ 695a739c sạch cả hai thứ tự, GitHub báo 0 lỗi. P2c không còn điều kiện ARC. K13: cột và luật syncCommission khớp mã, SHA c13c4d68…0d71 / 4f89c218…32ab trùng OPS. Điều kiện: OPS-129-03 (Minor) xong trước khi SEC ghim lại – câu (3) đơn không qua báo giá dùng ngày tạo đơn nên bỏ sót đơn xác nhận từ 01/11; dùng ngày dòng hoa hồng cuối, kể cả void; hoặc DOM chọn giữ và ghi giả định "đếm thiếu". Suggestion: OPS-129-04 (ngày báo giá = calculatedOn, ngày kinh doanh), OPS-129-05 (README: thiếu ngữ cảnh RLS thì UPDATE đụng 0 dòng không báo lỗi), BE-V530-01 (syncCommission dùng ngày lịch, báo giá dùng ngày kinh doanh; tỷ lệ hơn 2 chữ số lẻ). Không ESC | ARC | rounds/round-05/reviews/ARC-on-ops-pr-129-r4.md |`
+`| 2026-11-07 | 5 | **ARC – đọc lại PR #129 r4 @ c394ea45: DUYỆT** – 3 thẻ ARC Done, đã kiểm, đóng. OPS-129-01: P2c bước 2 dùng git -C ~/Desktop/hotel-app; ARC chạy khối SEC 4.2 rồi bước 2 bằng zsh và bash, r3 ra KHAC/THIEU/THIEU, r4 ra TRUNG/CO/CO; sai thư mục, thư mục không phải repo, sai SHA đều có dòng fatal hoặc lệch "đúng 3 dòng"; v525-run vẫn 60872413…41eb. OPS-129-02: README 11.1 cấp vai trùng setRoles (khóa chính user_id, property_id, role), vai trước/sau vào decision-log; hôm nay sửa vai bằng SQL tay không ghi audit_event; ARC xác nhận script ghi được một dòng security/user.roles_changed (actor_type system, before/after chỉ roles, reason = mã sự cố, cần ngữ cảnh RLS). OPS-126-01: test terse và 2 dòng SEC ở cuối CODEOWNERS không đè luật nào, gộp với #126 @ 695a739c sạch cả hai thứ tự, GitHub báo 0 lỗi. P2c không còn điều kiện ARC. K13: cột và luật syncCommission khớp mã, SHA trích trùng bản SEC ghim c13c4d68…0d71 / 4f89c218…32ab. Suggestion: OPS-129-03 (câu (3), đơn không qua báo giá dùng ngày tạo đơn – trùng DOM 129-03 ý 3; theo DOM không đổi câu chỉ vì ý này, khi đổi thì dùng công thức DOM (b): dòng hoa hồng đầu tiên, kể cả void), OPS-129-04 (ngày báo giá = calculatedOn, ngày kinh doanh; chỉ đổi cùng lần đổi câu, không thì thêm vào Cách đọc), OPS-129-05 (README: thiếu ngữ cảnh RLS thì UPDATE đụng 0 dòng không báo lỗi), BE-V530-01 (syncCommission dùng ngày lịch, báo giá dùng ngày kinh doanh; tỷ lệ hơn 2 chữ số lẻ). Không ESC | ARC | rounds/round-05/reviews/ARC-on-ops-pr-129-r4.md |`
