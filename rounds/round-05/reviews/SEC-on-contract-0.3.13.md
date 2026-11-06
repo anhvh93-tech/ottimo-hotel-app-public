@@ -26,6 +26,8 @@ SEC chỉ đọc repo và diff PR (`git show origin/r5-contract-0313:…`), khô
 ## 0. Kết luận: **DUYỆT CÓ ĐIỀU KIỆN**
 
 > **Đọc lại 06/11 khuya @ `2cb549cc`: DUYỆT để gộp** – xem mục 5. Bảng dưới là kết luận lần đầu (`f4c40d9b`).
+>
+> **Bổ sung 1d @ `45d42368` (SEC đọc riêng `x-roles`, `x-rbac`, `screens.ts`, `rbac-cases` của `git diff 2cb549cc..45d42368`): DUYỆT để gộp khi CI của `45d42368` xanh.** Chỉ đổi đúng 3 chỗ. (1) `getPropertyWifi`: S24 → S36, thêm `front_desk`; chỉ `RB-getPropertyWifi-qa.fd` và `-qa.fdsal` từ 403 thành 2xx; HK, MT, SAL, CTV vẫn 403, phiên khách vẫn 401; `no-store` và "không log giá trị" giữ nguyên (ARC-10). (2) `getManagerPerformanceBonus`: chỉ thêm nhãn A120; vai, `x-scope` và mọi `expected` không đổi. (3) `screens.ts`: S36 chỉ cấp cho OWN, MGR, FDL, FD, khớp `x-roles`. `fieldCases` và `openapi-schemas.ts` không đổi; không còn dòng `x-*`/`required`/`enum` nào khác. Phần A120 nằm ngoài danh sách mục 5.6 nhưng không đổi quyền, nên SEC nhận.
 
 0 Blocker · 4 Major · 4 Minor · 5 Suggestion.
 
