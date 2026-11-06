@@ -82,8 +82,13 @@
 # (≤ 16 KB, request_body above) before the api sees it, so a chunked body over the limit ends in 413 here, never as a cut body at the api. Caddy overwrites
 # X-Forwarded-For with the client address it got from the edge (PROXY protocol); the api trusts this container's
 # fixed address (TRUST_PROXY). Responses of the api (no-store, its own headers) pass through.
+# The Authorization header never goes to the api (SEC FB-R4-SEC-OPS-054-01): on staging it carries the preview
+# password of the basic auth above, and none of the three public operations reads it. Production gets the same rule
+# (browsers send no Authorization there – the form fetches with credentials 'omit'), so both stacks behave alike.
+# Cookies are not stripped: the Desk cookies are __Host- cookies of the Desk origin and never come to this origin.
 (public_api) {
 	reverse_proxy {$LANDING_API_UPSTREAM:api:3000} {
+		header_up -Authorization
 		# larger than max_size: the whole body is read (and refused at 16 KB) before any byte goes to the api
 		request_buffers 32KB
 		transport http {
