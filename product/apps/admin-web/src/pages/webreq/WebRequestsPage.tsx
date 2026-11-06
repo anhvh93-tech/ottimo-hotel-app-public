@@ -341,7 +341,7 @@ export function WebRequestsPage() {
           {hasMore && rows.length ? (
             <div>
               <Button busy={moreBusy} disabled={!online} onClick={() => void loadMore()}>
-                {t('webreq.load_more')}
+                {t('common.load_more')}
               </Button>
             </div>
           ) : null}
