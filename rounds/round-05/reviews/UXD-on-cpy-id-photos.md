@@ -95,3 +95,30 @@ Quét bằng script cả 12 đoạn để sao chép.
 ## 4. Dòng decision-log đề xuất (ORC ghi)
 
 `| 2026-11-07 | 5 | **UXD – review chữ khách: trả lời khách gửi ảnh giấy tờ** (guest-reply-id-photos.md @ 1f5fb23e): ĐẠT CÓ ĐIỀU KIỆN, giọng và brand đạt (EN dẫn, không emoji, không "!", không chữ số, "reception", "Online check-in" như trang khách, "sẽ xóa" không "đã xóa"). Điều kiện trước khi BA dán: tiêu đề mục 2 bỏ "Zalo số cơ sở" (IDP-01); bản ngắn EN thêm lúc xóa "we are deleting them on our side now" như câu số thẻ (IDP-02). Suggestion: VI "thông tin liên hệ" (IDP-03); chép luật tên trống và "anh/chị" cho cả tin (IDP-04). **Câu mã cửa "at reception"** (guest-reply-card-number.md Lượt 4 @ 4339a184), VI xưng "bạn": ĐẠT. Không ESC | UXD | rounds/round-05/reviews/UXD-on-cpy-id-photos.md |`
+
+---
+
+## Lượt 2 – CPY @ `f40e1480` (IDP-01…04, câu 5c cho khách đang ở)
+
+- Ngày: 07/11/2026 | Round 5 – Review
+- Đã đọc: `git diff 1f5fb23e f40e1480 -- rounds/round-05/outputs/CPY/guest-reply-id-photos.md`. Quét lại bằng script cả 18 đoạn để sao chép: không emoji, không "!", không chữ số, không từ cấm.
+
+| Thẻ | Kết quả | Ghi chú |
+|---|---|---|
+| IDP-01 (Minor) | **Done** | Tiêu đề mục 2 không còn "Zalo số cơ sở". Khớp bảng "Chọn bản" và chữ cho BA |
+| IDP-02 (Minor) | **Done** | Bản ngắn EN: "…so we are deleting them on our side now." Đổi ở bảng và cả 3 đoạn EN để sao chép của bản ngắn (5a, 5b, 5c). VI giữ "sẽ xóa ngay". Hai mẫu cùng kênh nay nói việc xóa cùng một cách |
+| IDP-03 (Suggestion) | **Done** | "qua thông tin liên hệ trong đơn đặt phòng", không còn dấu phẩy, ở bản A, bản B và bản ngắn |
+| IDP-04 (Suggestion) | **Done** | Mục 1 có luật tên trống ("Hello," / "Chào bạn,", không gửi tin còn "{name}") và luật "anh/chị" cho cả tin |
+
+**Câu 5c (khách đang ở): ĐẠT về giọng.**
+- EN "Please bring the original documents to reception today, and we will complete the registration for you." (16 chữ). Bản ngắn 21 chữ, bằng câu 2 (5a).
+- Cùng khuôn với 5b: "Please bring…", "reception", "quầy lễ tân", lịch sự và điềm tĩnh. Hẹn "today" / "trong hôm nay", không nêu giờ, nên không hứa điều quầy không giữ được.
+- Câu 1 dạng 5c bỏ "ahead of your stay": "Hello {name}, thank you for getting these documents ready." / "Chào {name}, cảm ơn bạn đã chuẩn bị giấy tờ." Đúng, vì khách đã ở rồi.
+- "complete the registration" / "làm thủ tục": rõ nghĩa với khách, không dùng từ pháp lý ("khai báo tạm trú", "Nghị định"). Hợp luật "không nhắc luật" ở mục 1.
+- Vẫn là lối "bản gốc tại quầy" của SEC 6.6 (b), không mở lối mới.
+
+**Kết luận: `guest-reply-id-photos.md` @ `f40e1480` ĐẠT.** Hết điều kiện từ phía UXD, BA dán được. Không có thẻ mới, không có ESC.
+
+Dòng decision-log đề xuất (ORC ghi):
+
+`| 2026-11-07 | 5 | **UXD – trả lời khách gửi ảnh giấy tờ, lượt 2 @ f40e1480: ĐẠT** (rounds/round-05/reviews/UXD-on-cpy-id-photos.md, Lượt 2): IDP-01…04 Done (tiêu đề mục 2 bỏ Zalo số cơ sở; bản ngắn EN "we are deleting them on our side now"; VI "thông tin liên hệ"; luật tên trống và "anh/chị" cho cả tin). Câu 5c cho khách đang ở ĐẠT về giọng (EN 16 chữ, "reception today", không nêu giờ, câu 1 bỏ "ahead of your stay"). BA dán được. Không ESC | UXD | Lượt 2 trong tệp review |`
