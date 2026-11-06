@@ -726,7 +726,9 @@ function Refunds() {
             const cash = method === 'cash';
             return (
               <li key={a.id} className="card">
-                <div className="row wrap">
+                {/* FB-R5-UXD-FE-130-01: the text takes the whole row at ≤ 520 px, the state and buttons go under it
+                    (the request-row pattern of Yêu cầu từ website) – no longer squeezed to ~90 px at 390 px. */}
+                <div className="row wrap req-row">
                   <div className="grow">
                     <b>
                       {a.reservationCode} · {vnd(a.amountVnd)}
@@ -758,30 +760,32 @@ function Refunds() {
                         : '—'}
                     </div>
                   </div>
-                  <Chip tone={a.status === 'approved' ? 'ok' : 'warn'}>
-                    {approvalStatusText(t, a)}
-                  </Chip>
-                  {left > 0 && online ? (
-                    <>
-                      <Button size="sm" onClick={() => setDest(a)}>
-                        {t('refund.set_destination')}
-                      </Button>
-                      {a.status === 'approved' && cash ? (
-                        <Button size="sm" variant="pri" onClick={() => setPay(a)}>
-                          {t('refund.execute_cash')}
+                  <div className="row wrap req-acts">
+                    <Chip tone={a.status === 'approved' ? 'ok' : 'warn'}>
+                      {approvalStatusText(t, a)}
+                    </Chip>
+                    {left > 0 && online ? (
+                      <>
+                        <Button size="sm" onClick={() => setDest(a)}>
+                          {t('refund.set_destination')}
                         </Button>
-                      ) : null}
-                      {a.status === 'approved' && method && !cash ? (
-                        mgr ? (
+                        {a.status === 'approved' && cash ? (
                           <Button size="sm" variant="pri" onClick={() => setPay(a)}>
-                            {t('refund.execute_transfer')}
+                            {t('refund.execute_cash')}
                           </Button>
-                        ) : (
-                          <span className="li-s">{t('refund.transfer_waits_manager')}</span>
-                        )
-                      ) : null}
-                    </>
-                  ) : null}
+                        ) : null}
+                        {a.status === 'approved' && method && !cash ? (
+                          mgr ? (
+                            <Button size="sm" variant="pri" onClick={() => setPay(a)}>
+                              {t('refund.execute_transfer')}
+                            </Button>
+                          ) : (
+                            <span className="li-s">{t('refund.transfer_waits_manager')}</span>
+                          )
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               </li>
             );

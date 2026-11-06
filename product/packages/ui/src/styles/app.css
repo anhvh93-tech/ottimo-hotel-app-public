@@ -383,6 +383,11 @@ body:has(.app-mnav) .toasts {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* FB-R5-UXD-FE-130-04: no one-word last line under a field or in an alert (browsers without it ignore it). */
+.field .err > span,
+.alert .txt {
+  text-wrap: pretty;
+}
 @media (max-width: 520px) {
   .topbar {
     flex-wrap: wrap;
