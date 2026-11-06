@@ -789,5 +789,57 @@ describe.skipIf(!HAS_DB)(
       expect(ciNo.statusCode).toBe(422);
       expect(ciNo.json().errors).toEqual([{ field: 'expectedSurchargeVnd', code: 'REQUIRED' }]);
     });
+
+    it('FB-R5-ARC-BE-S1-03: B13 + 2 nights both under the floor → 422 with both in `dates[]`, `date` = the first, min/max of the first; nothing written', async () => {
+      await at('2026-10-20T10:00:00+07:00');
+      const b = await direct('101', '2026-12-07', '2026-12-09');
+      await stay(b, '101', '2026-12-07');
+      await at('2026-12-08T20:00:00+07:00');
+      const o = (await c.fd!.get(url(`/reservations/${b.id}/extension-options`))).json();
+      const [n0, n1] = o.nights as Array<{
+        date: string;
+        defaultRateVnd: number;
+        floorVnd: number;
+        ceilingVnd: number;
+      }>;
+      expect([n0!.date, n1!.date]).toEqual(['2026-12-09', '2026-12-10']);
+      const before = (await nights(b.id)).length;
+      const both = await act(b.id, 'extend', {
+        nights: 2,
+        nightlyRates: [
+          { date: n0!.date, amountVnd: 100_000, edited: true },
+          { date: n1!.date, amountVnd: 100_000, edited: true },
+        ],
+      });
+      expect(both.statusCode, both.body).toBe(422);
+      expect(both.json()).toMatchObject({
+        code: 'RATE_OUT_OF_RANGE',
+        errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
+        dates: [n0!.date, n1!.date],
+        date: n0!.date,
+        min: n0!.floorVnd,
+        max: n0!.ceilingVnd,
+      });
+      // Only the second night out of range → that night alone, its own bounds.
+      const second = await act(b.id, 'extend', {
+        nights: 2,
+        nightlyRates: [
+          { date: n0!.date, amountVnd: n0!.defaultRateVnd, edited: false },
+          { date: n1!.date, amountVnd: n1!.ceilingVnd + 1_000, edited: true },
+        ],
+      });
+      expect(second.statusCode, second.body).toBe(422);
+      expect(second.json()).toMatchObject({
+        dates: [n1!.date],
+        date: n1!.date,
+        min: n1!.floorVnd,
+        max: n1!.ceilingVnd,
+      });
+      expect((await nights(b.id)).length).toBe(before);
+      // Inside the range → extended (control).
+      const ok = await act(b.id, 'extend', { nights: 2 });
+      expect(ok.statusCode, ok.body).toBe(200);
+      expect((await nights(b.id)).length).toBe(before + 2);
+    });
   },
 );
