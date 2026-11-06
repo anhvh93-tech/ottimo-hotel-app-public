@@ -36,9 +36,20 @@ export interface SalesIds {
   channels: Record<string, string>;
 }
 
-/** Parameters + room catalogue (BL 4.1 subset) + DS-E channels of property `i`. */
-export async function seedSales(db: Database, t: TestTenant, i = 0): Promise<SalesIds> {
-  for (const [k, v] of Object.entries(DS_E_PARAMS)) await setParam(db, t, k, v, '2026-10-01', i);
+/**
+ * Parameters + room catalogue (BL 4.1 subset) + DS-E channels of property `i`. `skipParams`: keys left without a row
+ * (V5-30: a property where OWN has not typed the commission table yet).
+ */
+export async function seedSales(
+  db: Database,
+  t: TestTenant,
+  i = 0,
+  opts: { skipParams?: readonly string[] } = {},
+): Promise<SalesIds> {
+  for (const [k, v] of Object.entries(DS_E_PARAMS)) {
+    if (opts.skipParams?.includes(k)) continue;
+    await setParam(db, t, k, v, '2026-10-01', i);
+  }
   return db.withContext(t.ctx(i), async (tx) => {
     const groups = {} as SalesIds['groups'];
     for (const [code, name, base, max, fee, sort] of [
