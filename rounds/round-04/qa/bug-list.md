@@ -37,7 +37,7 @@
 
 - **LP-v2 staging S6b – giá** (06/11 17:05–17:12 giờ VN, staging `sha-6414be25f20d`; API công khai + trình duyệt + SQL READ ONLY, không Desk): sau khi ORC gán nhãn hạng và chép giá production, 13/13 ca giá lệch 0 đ, 7/7 ca không số, khối giá 5 ngôn ngữ đúng số. **BUG-R4-055 Closed.** 0 lỗi mới. F2 còn chờ tham số P6/P7 trên production và ESC-050 (giá City View). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md` mục S6b.
 
-- **LP-v2 staging S6d – SEC 9.5 ca 3/4/8/10** (06/11 18:18–18:31 giờ VN; ORC chạy trên staging `sha-6414be25f20d` bằng Desk `qa.owner`/`qa.fd` và API công khai; QA kết luận từ tệp JSON thô, script và mã, không tự gọi staging): ca 3 và 8 **Đạt**; ca 4 **web Đạt**, phần Desk "từ – đến" theo FB-R4-SEC-BE-03 (v1.0.x); ca 10 **Đạt bằng bằng chứng thay thế**, chờ SEC ghi nhận. Mới **BUG-R4-056** (P3, tài liệu thử) và **BUG-R4-057** (P3, giá đêm tự tính khi API không gửi). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md` mục S6d.
+- **LP-v2 staging S6d – SEC 9.5 ca 3/4/8/10** (06/11 18:18–18:31 giờ VN; ORC chạy trên staging `sha-6414be25f20d` bằng Desk `qa.owner`/`qa.fd` và API công khai; QA kết luận từ tệp JSON thô, script và mã, không tự gọi staging): ca 3 và 8 **Đạt**; ca 4 **web Đạt**, phần Desk "từ – đến" theo FB-R4-SEC-BE-03 (v1.0.x); ca 10 **Đạt bằng bằng chứng thay thế**, chờ SEC ghi nhận. Mới **BUG-R4-056** (P3, tài liệu thử) và **BUG-R4-057** (P3, giá đêm tự tính khi API không gửi). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md` mục S6d. *Cập nhật cùng ngày:* SEC chấp nhận ca 10 (`0fc55457`) → **BUG-R4-056 Closed**. Kiểm tĩnh production theo SEC 6.4: 0 căn thiếu giá (theo ORC, S6d.6).
 
 ## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11 + `lp-v2-main` @ `917a39cf` + xác nhận G2 @ `4fe85e19`)
 
@@ -46,8 +46,8 @@
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
 | P2 | 10 | 1 (BUG-R4-011 – **đã vào `main` cùng lần gộp PR #34, chờ P10**; production còn lỗi gốc với hồ sơ tạo tay tới khi phát hành) | 0 | 9 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022**, **055** – 055 đóng 06/11 S6b; 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 22 | 11 (**BUG-R4-056** – tài liệu thử ca 10, chờ SEC; **BUG-R4-057** – giá đêm tự tính khi API không gửi, v1.0.x; **BUG-R4-054** – basic auth staging, môi trường; BUG-R4-010 – mở lại, BUG-R4-012 – **đã vào `main` cùng lần gộp PR #34, chờ P10**, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 10 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021**, **027**, **028** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`; 027, 028 đóng 04/11 @ `4fe85e19` (G2)) |
-| **Tổng** | **32** | **12** | **1** | **19** |
+| P3 | 22 | 10 (**BUG-R4-057** – giá đêm tự tính khi API không gửi, v1.0.x; **BUG-R4-054** – basic auth staging, môi trường; BUG-R4-010 – mở lại, BUG-R4-012 – **đã vào `main` cùng lần gộp PR #34, chờ P10**, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 10 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021**, **027**, **028**, **056** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`; 027, 028 đóng 04/11 @ `4fe85e19` (G2); 056 đóng 06/11 sau SEC `0fc55457`) |
+| **Tổng** | **32** | **11** | **1** | **20** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -631,7 +631,11 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Nguyên nhân:** QA viết bước 2 mà không đọc điều kiện `active_from` của truy vấn căn và các đường ghi giá trong `rooms.service.ts`.
 - **Bằng chứng:** `lp-v2-staging-s6.md` mục S6d.1 (ca 10) và S6d.2; tệp `w/m1-*.json` của ORC (14 × 200, 11 × 429, 0 lượt chạm `QAT1`).
 - **Vai:** QA (S6b.3: đã sửa, trỏ sang S6d). SEC (sửa câu ca 10 ở `rounds/round-04/outputs/SEC/lp-v2-privacy-and-api.md` mục 9.5 thành "một căn đang bán thiếu giá đêm (chỉ có từ dữ liệu ngoài Desk)", và ghi nhận bằng chứng thay thế ở S6d.3).
-- **Trạng thái:** Open. Phần của QA đã sửa ngày 06/11 (S6d); còn chờ SEC.
+- **Trạng thái:** ~~Open~~ → **Closed** 06/11 (QA tự đọc lại).
+  - Phần QA: S6b.3 bảng và bước 2 trỏ sang S6d, ghi rõ giả định sai.
+  - Phần SEC (commit `0fc55457`): `rounds/round-04/outputs/SEC/lp-v2-privacy-and-api.md` mục 9.5 ca 10 nay ghi "một căn đang bán, có nhãn hạng, thiếu giá đêm cho ít nhất một đêm (chỉ có từ dữ liệu ngoài Desk/API)", kèm kỳ vọng log 1 dòng/căn/ngày và `ops-check pricegap` chỉ báo số căn, trỏ cách kiểm thay thế về `rounds/round-04/reviews/SEC-on-lp-v2-s6d.md` mục 6. SEC chấp nhận bằng chứng thay thế ở mục 6.3 và 7.2 của tệp đó.
+  - QA đối chiếu: các chỗ SEC dẫn mã đều đúng (`db/schema/rooms.ts:129, 143`, `public-rate.ts:139`, `public-rate.port.ts:92–93, 135–149`); từ `6414be25` tới nay không có commit nào đổi `services/api/src`, `ops-check.sh` hay test `:719`.
+  - Thêm: kiểm tĩnh SQL READ ONLY trên production theo SEC 6.4 cho ra 0 căn thiếu giá (theo ORC; `lp-v2-staging-s6.md` S6d.6).
 
 ### BUG-R4-057 – API đổi giá căn không gửi `nightlyListPriceVnd` (và `createRoom`) vẫn tự tính giá đêm = giá tháng ÷ `night_from_month_divisor` (12), trong khi từ điển tham số ghi khóa này "Đã bỏ, không còn tác dụng"
 
@@ -680,5 +684,5 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - *S6d (06/11):*
   - Qua Desk/API không tạo được "khe giá" (căn đang bán, có nhãn hạng mà thiếu giá đêm), nên `ops-check pricegap` chỉ bắt được dữ liệu không đi qua Desk: căn tạo bằng production bootstrap mà chưa có giá (`production-bootstrap.ts:215`), hoặc DB bị sửa thẳng.
   - `pricegap` dựa vào log, nên chỉ báo khi có khách gọi đúng hạng và ngày chạm khe. Production `ok` chưa chứng minh là không có khe.
-  - Gợi ý cho OPS (Suggestion): thêm kiểm tĩnh SQL READ ONLY, đếm căn đang bán, có nhãn và `active_from <= hôm nay` mà không có dòng giá nào `effective_from <= hôm nay`; kết quả phải là 0. Đồng thời sửa câu README `infra/server` dòng 120 "nhất là sau khi nhập lại bảng giá 01/11": nhập lại bảng giá trên Desk không tạo khe.
+  - Gợi ý cho OPS (Suggestion): thêm kiểm tĩnh SQL READ ONLY, đếm căn đang bán, có nhãn và `active_from <= hôm nay` mà không có dòng giá nào `effective_from <= hôm nay`; kết quả phải là 0. *SEC đã sửa cách kiểm này thành cửa sổ 365 ngày và giao OPS làm ở v1.0.5 (FB-R4-SEC-OPS-S6D-01). Theo ORC, production ra 0.* Đồng thời sửa câu README `infra/server` dòng 120 "nhất là sau khi nhập lại bảng giá 01/11": nhập lại bảng giá trên Desk không tạo khe.
   - Một khe giá ra khoảng 4 tin FAIL (nhắc lại mỗi 6 giờ trong cửa sổ 24 giờ) và 1 tin hết lỗi, không phải "đúng 1". Số tin không phụ thuộc số lượt khách gọi, nên đúng mục đích SR-PE-12.
