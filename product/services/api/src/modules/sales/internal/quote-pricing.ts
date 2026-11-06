@@ -17,7 +17,6 @@ import {
   type CalendarRules,
   type ChannelScope,
   type LosTier,
-  type MinStayRule,
   type SpecialDate,
   type Weekday,
   applyNightDiscount,
@@ -31,6 +30,7 @@ import {
   nightDates,
   shortDeposit,
 } from '../../reservations/public/pricing';
+import { readMinStay } from '../../reservations/public/min-stay-read';
 import {
   type AvailabilityAnswer,
   RESERVATION_SALES_PORT,
@@ -198,8 +198,12 @@ export class QuotePricingService {
 
     // ── minimum stay of the arrival (BR-113) – needed to pick the room of a group quote (A-05) ──
     const specials = await p<SpecialDate[]>('special_dates');
-    const minStayRules = await p<MinStayRule[]>('min_stay');
-    const needNights = minStayNights(input.arrivalDate, group, minStayRules ?? [], specials ?? []);
+    // V5-25 (DOM 12.3, BUG-R5-003): a broken stored value never makes the quote fail – not a list → no rule, a
+    // broken rule is left out (logged once per value).
+    const minStayRules = readMinStay(await p<unknown>('min_stay'), shortMax, {
+      propertyId: tx.ctx.propertyId,
+    });
+    const needNights = minStayNights(input.arrivalDate, group, minStayRules, specials ?? []);
     const orphanAllowed = await p<boolean>('min_stay_orphan_night_exception');
     const short = nights < needNights;
 
