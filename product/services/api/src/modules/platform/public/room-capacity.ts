@@ -33,8 +33,9 @@ export interface RoomCapacityCheck {
   futureReservationCount(tx: Tx, roomId: string, fromDate: LocalDate): Promise<number>;
 }
 
-/** OpenAPI 0.3.6 A-39: `updateRoom` 200 = Room + warnings[] (empty when none). */
-export interface RoomWarning {
-  code: 'FUTURE_RESERVATIONS_KEEP_ROOM';
-  count: number;
-}
+/**
+ * OpenAPI 0.3.6 A-39: `updateRoom` 200 = Room + warnings[] (empty when none). OpenAPI 0.3.13 (V5-1A, SEC ARC-12):
+ * + `NIGHTLY_PRICE_UNUSUAL` (no `count`) on `updateRoom` and `createRoom` – see `nightlyPriceUnusual` (list-price-check.ts).
+ */
+export type RoomWarning =
+  { code: 'FUTURE_RESERVATIONS_KEEP_ROOM'; count: number } | { code: 'NIGHTLY_PRICE_UNUSUAL' };
