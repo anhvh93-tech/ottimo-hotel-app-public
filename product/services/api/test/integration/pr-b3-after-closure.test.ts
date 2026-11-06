@@ -621,9 +621,22 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     ]);
     const resolve = (body: Record<string, unknown>, who = 'fd') =>
       x.c[who]!.send('POST', x.url(`/attention-events/${item.id}/actions/resolve`), body);
-    const none = await resolve({});
-    expect(none.statusCode, none.body).toBe(422);
-    expect(errorsOf(none)).toEqual([{ field: 'note', code: 'REASON_REQUIRED' }]);
+    // FB-R5-BE-ARC-C0313-32 (e): missing, short, blank or invisible-only → 422 REASON_REQUIRED, the item stays open,
+    // no audit row.
+    for (const body of [
+      {},
+      { note: 'ab' },
+      { note: '     ' },
+      { note: '\u2060\u2060\u2060\u2060\u200b' },
+    ]) {
+      const refused = await resolve(body);
+      expect(refused.statusCode, `${JSON.stringify(body)} ${refused.body}`).toBe(422);
+      expect(errorsOf(refused)).toEqual([{ field: 'note', code: 'REASON_REQUIRED' }]);
+    }
+    expect(
+      (await x.q(`SELECT resolved_at FROM attention_event WHERE id = $1`, [item.id]))[0]
+        .resolved_at,
+    ).toBeNull();
     expect(
       await x.q(
         `SELECT 1 FROM audit_event WHERE action = 'attention_event.resolved' AND entity_id = $1`,

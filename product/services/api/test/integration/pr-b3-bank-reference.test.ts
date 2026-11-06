@@ -10,7 +10,10 @@
  *   only – a sale gets the 409 without it; nothing written; a reversed receipt frees its code; two requests with the
  *   same code in another case, forced to race on the advisory lock → one 201, one 409;
  * - `Payment.bankReference` for FD+ only (x-visible-to);
- * - SEC 119-02 (2): `recordManual` (the one receipt INSERT) refuses a card number / a bad code / another method by itself.
+ * - SEC 119-02 (2): `recordManual` (the one receipt INSERT) refuses a card number / a bad code / another method by itself;
+ * - FB-R5-BE-ARC-C0313-32: on EACH path a card number → 422 with the prefix and nothing written, a lower-case code →
+ *   stored upper-case, a duplicate → 409; a sale's `confirmDeposit` → 409 without the booking code; C0313-31 error
+ *   order as the server has it today (a card number in `bankReference` answers first – option (B), ARC to confirm).
  * Fake clock and FAKE data only; the card numbers are the public test numbers.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -327,17 +330,51 @@ describe.skipIf(!HAS_DB)(
         code: 'DUPLICATE_BANK_REFERENCE',
         duplicateReservationCode: h.code,
       });
+      expect(await count(h2)).toBe(0);
+      // C0313-32 (i): a sale confirming its own hold with a code already used → 409 with no booking code (SEC ARC-21).
+      const hs = await hold('401', 'sal');
+      const salDup = await x.act(
+        hs.id,
+        'confirm-deposit',
+        {
+          payment: {
+            type: 'deposit',
+            method: 'bank_transfer',
+            amountVnd: 100_000,
+            bankReference: 'cd-0001',
+          },
+        },
+        'sal',
+      );
+      expect(salDup.statusCode, salDup.body).toBe(409);
+      expect(salDup.json().code).toBe('DUPLICATE_BANK_REFERENCE');
+      expect(salDup.json().duplicateReservationCode).toBeUndefined();
+      expect(salDup.body).not.toContain(h.code);
+      expect(await count(hs)).toBe(0);
+      expect((await x.get(hs.id)).status).toBe('hold');
 
+      const reservations = async () =>
+        (await x.q(`SELECT count(*)::int AS n FROM reservation`))[0].n as number;
       const create = (bankReference: string, method = 'bank_transfer') =>
         x.c.fd!.send('POST', x.url('/reservations'), {
           ...directBody('203', '2026-12-15', '2026-12-17'),
           initialPayment: { type: 'deposit', method, amountVnd: 2_000_000, bankReference },
         });
+      const bookings = await reservations();
       cardRefused(
         await create('4111-1111-1111-1111'),
         'initialPayment.bankReference',
         '4111-1111-1111-1111',
       );
+      expect(await reservations()).toBe(bookings);
+      // A duplicate refuses the whole booking (one transaction): nothing created.
+      const dupIp = await create('Cd-0001');
+      expect(dupIp.statusCode, dupIp.body).toBe(409);
+      expect(dupIp.json()).toMatchObject({
+        code: 'DUPLICATE_BANK_REFERENCE',
+        duplicateReservationCode: h.code,
+      });
+      expect(await reservations()).toBe(bookings);
       const cashIp = await create('IP-0001', 'cash');
       expect(cashIp.statusCode, cashIp.body).toBe(422);
       expect(cashIp.json().errors).toContainEqual({
@@ -377,6 +414,15 @@ describe.skipIf(!HAS_DB)(
       );
       expect((await x.get(s.id)).status).toBe('confirmed');
       expect(await count(s)).toBe(before);
+      // A duplicate (the code of d1's receipt, another case) → 409, still not checked in, nothing written.
+      const dupCi = await checkIn('Ft2611Abc');
+      expect(dupCi.statusCode, dupCi.body).toBe(409);
+      expect(dupCi.json()).toMatchObject({
+        code: 'DUPLICATE_BANK_REFERENCE',
+        duplicateReservationCode: d1.code,
+      });
+      expect((await x.get(s.id)).status).toBe('confirmed');
+      expect(await count(s)).toBe(before);
       const ci = await checkIn('ci-0001');
       expect(ci.statusCode, ci.body).toBe(200);
       expect(
@@ -414,6 +460,15 @@ describe.skipIf(!HAS_DB)(
         '4111_1111_1111_1111',
       );
       expect((await x.get(s.id)).status).toBe('in_house');
+      const atDeparture = await count(s);
+      const dupCo = await checkOut('ft2611abc');
+      expect(dupCo.statusCode, dupCo.body).toBe(409);
+      expect(dupCo.json()).toMatchObject({
+        code: 'DUPLICATE_BANK_REFERENCE',
+        duplicateReservationCode: d1.code,
+      });
+      expect((await x.get(s.id)).status).toBe('in_house');
+      expect(await count(s)).toBe(atDeparture);
       const co = await checkOut('co-0001');
       expect(co.statusCode, co.body).toBe(200);
       expect(
@@ -473,6 +528,34 @@ describe.skipIf(!HAS_DB)(
           `SELECT 1 FROM payment WHERE bank_reference IN ('4111111111111111', '4111-1111-1111-1111/1228')`,
         ),
       ).toHaveLength(0);
+    }, 60_000);
+
+    it('C0313-31 error order (option (B), as on main since #119 and BUG-R2-043): another field wrong AND a card number in bankReference → 422 CARD_NUMBER_DETECTED on bankReference only, nothing written', async () => {
+      const card = '4111111111111111';
+      const before = await count(d1);
+      // recordPayment (checkPaymentShape): amount 0, unknown type, bad receivedAt + a card number. (`type: refund` is
+      // answered before the body checks – `PaymentsService.record`, refunds only via 2.6 – and is not used here.)
+      const rp = await pay(d1, card, { type: 'tip', amountVnd: 0, receivedAt: 'yesterday' });
+      cardRefused(rp, 'bankReference', card);
+      expect(await count(d1)).toBe(before);
+      // confirmDeposit (depositPayment): wrong type and method + a card number.
+      const h = await hold('402', 'fd');
+      const cd = await x.act(h.id, 'confirm-deposit', {
+        payment: { type: 'charge', method: 'bank_transfer', amountVnd: -5, bankReference: card },
+      });
+      cardRefused(cd, 'payment.bankReference', card);
+      expect(await count(h)).toBe(0);
+      // createReservation (parseInitialPayment): a missing amount + a card number.
+      const ip = await x.c.fd!.send('POST', x.url('/reservations'), {
+        ...directBody('302', '2026-12-26', '2026-12-28'),
+        initialPayment: { type: 'deposit', method: 'bank_transfer', bankReference: card },
+      });
+      cardRefused(ip, 'initialPayment.bankReference', card);
+      // The card number of posAuthCode still answers before bankReference (BUG-R2-043, the shape checks' order).
+      const both = await pay(d1, card, { method: 'card_pos', posAuthCode: card });
+      expect(both.statusCode, both.body).toBe(422);
+      expect(both.json().errors).toEqual([{ field: 'posAuthCode', code: 'CARD_NUMBER_DETECTED' }]);
+      expect(await count(d1)).toBe(before);
     }, 60_000);
   },
 );
