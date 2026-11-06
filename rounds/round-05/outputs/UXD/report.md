@@ -139,3 +139,23 @@
 - **V5-04** (`a099cb9e`): sổ tay 1.15, bộ hướng dẫn 1.13 (`01` 1.12, `02` 1.13, `05` 1.8). Đã dựng lại HTML từ `main`; bộ kiểm 390/1440 px, font khi mất mạng, ảnh chỉ từ `img/` đều ĐẠT. HTML nằm ngoài repo theo `.gitignore`.
 - **Việc chuyển PO** (ORC đã giao): sửa mục "Cách in và dán" và ghi chú khổ giấy trong `staff-one-pager.md`; giữ Tờ 1 ở 8,25 pt; tùy chọn bọc "OTM-…" bằng backtick.
 - **ORC ghi thêm:** khi xem bản in, ORC thấy Tờ 2a dòng 86 hướng dẫn "Tiền về trước hạn → Xác nhận đã nhận cọc" cho giữ chỗ quá hạn chưa nhận đồng nào. Desk không cho việc này (QA BUG-R5-002, `allowed-actions.ts` 72–74). Tờ 2a chưa in tới khi DOM viết chữ thay và PO sửa. Sau đó UXD dựng lại Tờ 2a. BA đang thêm lời dặn về hai tham số vào sổ tay, nên UXD dựng lại HTML sau khi BA xong.
+
+## 8. Cập nhật 06/11 khuya – copy v1.0.5 bản 1.5 (commit `0ea355a3`, `363110a3`)
+ORC lưu từ báo cáo bàn giao của UXD.
+- **PR #96 (V5-25):**
+  - Ý (1): đồng ý với máy chủ. Mục 9.2 sửa. Thiếu `channels` (BR-113-23) có `allowed`, nên Desk hiện câu "Chọn một trong". Quá 20 luật chỉ có `max`. Ca 23 ở mục 8 chuyển nhóm. ARC không phải đổi gì.
+  - Ý (2): mục 9.4 mới, câu lỗi chung cho 11 khóa có cấu trúc. Câu dựng từ `errors[0].field` (chỉ số đếm từ 1, tên khóa con giữ nguyên mã), ghép câu mục 2.3, rồi trỏ về mục từ điển theo mã tham số.
+- **V5-16 (US-177, BR-438), mục 9.5 mới:**
+  - câu phụ trong hộp Điều chỉnh cho FD, FDL;
+  - câu chỉ dẫn khi máy chủ trả 403 có `requiredFlow = foc_request`;
+  - nút "Gửi miễn có duyệt", mở form miễn phí đã điền sẵn phần định giảm;
+  - lý do "Ghi nhầm", bộ lọc "Sửa giảm dòng – 7 ngày", mục "Cần chú ý" `line_reduction_count`.
+- **5B-1, V5-48, V5-1A:** chữ cho Desk (commit `0ea355a3`).
+- **Số khóa:** 34 mới, 1 sửa. Tổng mục 0: 72/115/7 = **194** (bản 1.4: 162).
+- **Giả định:**
+  - (a) `{field}` giữ mã khóa con.
+  - (b) `FolioLine` không có nguồn `manual`, ngày nghiệp vụ ghi hay dòng gốc. Vì vậy Desk không đoán trước được dòng nào bị chặn: hộp Điều chỉnh giữ lối sửa, chỉ thêm câu phụ, dựa vào 403. Cách này khác gợi ý DOM (`rules-v1.0.5.md` dòng 178: đổi hẳn nút Sửa trên dòng ngoài phạm vi). ORC chuyển ARC và DOM.
+  - (c) EN nút "Gửi miễn có duyệt" theo `ci.ask_foc`.
+  - (d) Đề xuất cho PO, CPY: bill khách không in lý do "Ghi nhầm", chỉ in "Miễn phí".
+  - (e) Cảnh báo giá: đổi chữ nút Lưu thành "Vẫn lưu giá này", không thêm hộp xác nhận.
+- ESC mới: không có. Chưa sửa mã. FE áp theo bảng sau review.
