@@ -17,6 +17,7 @@
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.4**: thêm mục 9, chữ Desk nội bộ ngoài Gói 2 theo DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` (`e9e0e2e4`): 9.1 hộp ghi tiền về cho đơn đã hủy (V5-5B, DOM 11.4), 9.2 câu lỗi khi lưu `min_stay` sai dạng (V5-25, DOM 12.7). Cùng mục 0, 6, 8. Chữ Desk nội bộ, không cần CPY.
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.5**: mục 9.1 theo ARC 0.3.13 bổ sung 1c (PR #94, mục 1.21, nhánh `r5-contract-0313` @ `2cb549cc`) và DOM 11.4 (`5ad26fc1`): mã hoàn `payment_after_cancel`, "Có thể trùng", nơi nhận hoàn cố định, ảnh chứng từ do chủ đầu tư hoặc quản lý gửi, nhắc tìm đơn mới, mã giao dịch tùy chọn và 409 `DUPLICATE_BANK_REFERENCE`; mục 9.1a mới cho V5-48 (409 `INVALID_TRANSITION` trên đơn đã đóng). Mục 9.3 mới cho V5-1A: cảnh báo giá đêm khác thường `NIGHTLY_PRICE_UNUSUAL` (DOM 1.2 ý 6, `1568e523`). Theo BE PR #96 (V5-25): 9.2 sửa ca thiếu `channels` (máy chủ trả `allowed`) và ca quá 20 luật; mục 9.4 mới, câu lỗi chung cho 11 khóa có cấu trúc. Mục 9.5 mới cho V5-16 (US-177, BR-438; PO `6cfa6085`, ARC 0.3.13 mục 1.20). Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.6**: theo DOM review PR #96 (`rules-v1.0.5.md` 13.1, 13.2, 13.6): 9.4 thêm câu cho 422 `REQUIRED` (chung, `cancel_policy_direct` rỗng, `max_open_holds_per_user` thiếu vai); mục 9.6 mới, câu "tham số sai dạng" khi giá trị đã lưu bị hỏng (mã chờ ARC). Cùng mục 0, 6, 8.
+- Sửa: UXD · Round 5 – Review · 06/11/2026 · **Bản 1.7**: theo review FE PR #98, #102, #107 (`rounds/round-05/reviews/UXD-on-fe-prs-98-102-107.md`): mục 9.7 mới cho chữ Desk của V5-50 (hộp Đổi phòng) và V5-15 (nút Báo cần dọn, câu nhận phòng căn kẹt trạng thái). Cùng mục 0, 6, 8.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -54,7 +55,8 @@
 | V5-25 Lưu tham số có cấu trúc (bản 1.4–1.6, mục 9.2, 9.4, 9.6) | 0 | 19 | 0 | **19** | Ngoài Gói 2. Đi cùng PR #96 (V5-25). Bản 1.4: 3 khóa `min_stay`. Bản 1.5: 5 khóa câu chung ở 9.4. Bản 1.6: 3 khóa `REQUIRED` ở 9.4, 8 khóa "tham số sai dạng" ở 9.6 (mã chờ ARC) |
 | V5-16 Lễ tân sửa giảm dòng (bản 1.5, mục 9.5) | 0 | 7 | 0 | **7** | Ngoài Gói 2. Đi cùng US-177 (PR-B2). 2 khóa đóng ca để sẵn, chưa đếm |
 | V5-1A Cảnh báo giá đêm khác thường (bản 1.5, mục 9.3) | 1 | 3 | 0 | **4** | Ngoài Gói 2. Đi cùng PR-C1 của BE (V5-1A) |
-| **Tổng** | **72** | **126** | **7** | **205** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162 |
+| V5-50, V5-15 Desk (bản 1.7, mục 9.7) | 2 | 5 | 0 | **7** | Ngoài Gói 2. Đi cùng #98 (V5-50), #102 và MOB #97 (V5-15). Gồm 3 khóa FE đã viết theo chữ UXD (UXD duyệt), 1 khóa đổi chữ (`hk.action.needs_cleaning`), 3 khóa mới. `error.INVALID_TRANSITION_generic_reloaded` đã đếm ở 4.12 |
+| **Tổng** | **74** | **131** | **7** | **212** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212 |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
@@ -63,6 +65,7 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - 3 câu `sale.hold_next*` (4.14): bản 1.3 dùng nguyên chữ CPY (thẻ 12), không còn chờ.
 - **v1.0.6:** 4.20 (c) và C6.
 - **Mục 9 (bản 1.4, 1.5):** theo lịch của việc đi kèm, không theo Gói 2. 9.1 lên cùng V5-5B (5B-1; PO xếp v1.0.5 nếu kịp, không thì v1.0.6). 9.1a lên cùng V5-48 (bắt buộc v1.0.5). 9.2 và 9.4 lên cùng V5-25 (PR #96). 9.6 lên cùng chỗ chặn ở DOM 13.2 (mã ARC chốt; phần nào không kịp 0.3.13 thì theo 0.3.14). 9.3 lên cùng V5-1A (PR-C1). 9.5 lên cùng V5-16 (US-177, Must v1.0.5; 403 ở PR-B2, bộ lọc ở PR-B1).
+- **Mục 9.7 (bản 1.7):** `hk.action.needs_cleaning` bắt buộc trước khi gộp #102 (điều kiện UXD), MOB #97 dùng cùng chữ. `checkin.room_status_stuck`, `_od` nên lên cùng #102 (cùng tag với nút). `room_change.no_rooms_not_ready` nên có, cùng #98 hoặc v1.0.6.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -683,7 +686,7 @@ Yêu cầu cho FE-B, xếp **sau** khi đã áp 4.20 (a) và (b) (PO quyết đ�
 
 Ghi chú: trong bảng, `\|` là dấu "hoặc" của regex, viết thoát để không vỡ bảng Markdown. Trong mã, viết `|`.
 
-## 9. Chữ thêm ở bản 1.4, 1.5 (ngoài Gói 2)
+## 9. Chữ thêm ở bản 1.4–1.7 (ngoài Gói 2)
 
 Chữ Desk nội bộ (VI, EN). Không có chữ cho khách, không cần CPY. Mã lỗi, tên `extras` và tên mã lý do do ARC chốt; bảng dưới gọi theo nghĩa, FE nối với mã ARC chốt.
 
@@ -913,6 +916,51 @@ Chữ không lộ mã kỹ thuật: FE đổi `parameterKey` sang cụm `params.
 
 Không dùng câu `error.PAYMENT_NOT_CONFIGURED` hiện có cho Trả sớm khi `early_departure_refund` hỏng: câu đó nói về tài khoản nhận chuyển khoản.
 
+### 9.7 Desk: hộp Đổi phòng lọc căn chưa dọn (V5-50) và nút Báo cần dọn (V5-15) – bản 1.7
+
+Nguồn: `rounds/round-05/reviews/UXD-on-fe-prs-98-102-107.md` (#98 @ `1efe60c7`, #102 @ `71db3338`). Chữ Desk nội bộ, không cần CPY. Căn cứ mã trên `main` @ `d1d2fb8e`:
+- hộp Đổi phòng: `searchAvailability` + `listRoomStatuses`, chỉ giữ VI/VC (ARC 0.3.13 mục 1.12, BR-803);
+- nút: `transitionRoomStatus` `needs_cleaning` (R8 OC → OD; R8a tạo việc dọn nếu căn chưa có), hiện khi `allowedEvents` có `needs_cleaning` (ARC 0.3.13 mục 1.4);
+- dọn căn kẹt: Bắt đầu dọn OD → CL; Dọn xong khi không còn lượt Đang ở → VC (R3, `rules.ts` `roomTarget`); `room_ready` đạt với VI/VC (`checkin.service.ts`).
+
+**Hộp Đổi phòng (V5-50, #98).**
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `room_change.ready_only` | Sửa (#98, khớp nguyên văn thẻ FB-R3-UXD-FE-A-17, UXD duyệt) | Chỉ hiện căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm, và không bị khóa. | Only rooms that are VI · Inspected, ready or VC · Cleaned, awaiting inspection, and not blocked, are shown. | Dưới danh sách "Căn mới" khi đã lọc theo trạng thái buồng |
+| `room_change.ready_unfiltered` | Mới (#98, nguyên văn câu v1.0.0 của thẻ 17, UXD duyệt) | Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì. | You can only move to a room that is VI · Inspected, ready or VC · Cleaned, awaiting inspection. The list may still include rooms not yet cleaned – choosing one shows a message and nothing is saved. | Thay `ready_only` khi `listRoomStatuses` lỗi (danh sách chưa lọc) |
+| `room_change.no_rooms_not_ready` | Mới (1.7, nên có) | Chưa có căn nào sẵn sàng. Còn trống từ {from} đến {to} nhưng chưa dọn xong: căn {rooms}. Nhờ buồng phòng dọn trước một căn rồi mở lại hộp này. Không chờ được thì hỏi quản lý. | No room is ready yet. Free from {from} to {to} but not yet cleaned: {rooms}. Ask housekeeping to clean one first, then open this form again. If that can't wait, ask a manager. | Khung `warn` thay `room_change.no_rooms` khi danh sách đã lọc rỗng **và** có căn trống (`available`, khác căn đang ở) đang `VD` hoặc `CL`. `{rooms}` = các số căn đó, tăng dần, nối ", " ("202, 203"). `{from}`, `{to}` như `no_rooms`. Không có căn VD/CL thì giữ `no_rooms`. Danh sách chưa lọc thì không dùng. Thẻ FB-R5-UXD-FE-PR98-01 |
+
+Không cần câu riêng khác cho ca lỗi trạng thái buồng: `ready_unfiltered` đã nói thật, máy chủ vẫn chặn 409 `ROOM_NOT_READY`.
+
+**Nút Báo cần dọn (V5-15, #102 Desk, #97 app nhân viên).**
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `hk.action.needs_cleaning` | Mới (#102, #97); **UXD đổi chữ** "Cần dọn" / "Needs cleaning" | Báo cần dọn | Mark for cleaning | Nút R8: Desk (Buồng phòng → Trạng thái buồng, cuối dòng căn) và app nhân viên (H20), chỉ khi `allowedEvents` có `needs_cleaning`. Cũng là tên thao tác trong hàng đợi của app nhân viên. Điều kiện gộp #102 (thẻ FB-R5-UXD-FE-PR102-01) |
+| `hk.desk.needs_cleaning_toast` | Mới (#102, cùng chữ `stay.change_effect_old`, UXD duyệt) | Căn {room} chuyển cần dọn và có việc dọn. | Room {room} needs cleaning and gets a cleaning task. | Toast sau 200. `{room}` = số căn |
+| `error.INVALID_TRANSITION_generic_reloaded` | (4.12 – không đếm lại) | Dữ liệu vừa thay đổi nên thao tác này không còn dùng được. Danh sách đã tải lại. | This just changed, so the action no longer applies. The list has been reloaded. | Thêm chỗ dùng: dòng căn ở Trạng thái buồng sau 409 `INVALID_TRANSITION` (Desk tải lại căn và việc). Khóa chỉ thêm một lần: PR gộp sau (Gói 2 hoặc #102) bỏ dòng trùng |
+
+Vì sao đổi nhãn nút:
+- Nút là động từ (content-guide C1), cùng họ "Bắt đầu dọn", "Dọn xong", "Làm xong".
+- "Cần dọn" trùng chữ bộ lọc "Cần dọn ({n})" ngay trên danh sách căn và trạng thái "Cần dọn (khách đã đi)" của app nhân viên (EN: "Needs cleaning (guest left)"). Nút cùng chữ đọc như nhãn trạng thái. Căn có nút "Cần dọn" lại không nằm trong bộ lọc "Cần dọn".
+- "Báo" nói đúng việc xảy ra: căn chuyển "Có khách, cần dọn" và buồng phòng có việc dọn. Không hỏi xác nhận (lệnh nhẹ, không đụng tiền, gỡ bằng Hủy việc).
+- Tên việc trong plan, hợp đồng, luật vẫn là "nút Cần dọn". Sổ tay và release notes ghi nhãn trên màn hình: **Báo cần dọn**.
+
+**Nhận phòng căn kẹt trạng thái (BUG-R4-039; UXD-on-v104-pr77 lượt 4, DOM lượt 7 mục 3 hẹn đổi ở v1.0.5).**
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `checkin.room_status_stuck` | Sửa (1.7) | Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Kiểm căn đã trống, rồi bấm Báo cần dọn ở Buồng phòng → Trạng thái buồng; buồng phòng dọn xong là nhận phòng được. Khách không chờ được thì đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. | Room {room} still shows as occupied, but no stay is in house. Check the room is empty, then select Mark for cleaning in Housekeeping → Room status; once housekeeping has cleaned it, check-in can go ahead. If the guest can't wait, move this booking to a vacant room. No exception applies in this case. | Alert bad trong dòng `room_ready` khi `cause = room_status` và `detail = OC`. Thẻ FB-R5-UXD-FE-PR102-02 |
+| `checkin.room_status_stuck_od` | Mới (1.7) | Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Kiểm căn đã trống và nhờ buồng phòng dọn căn này; dọn xong là nhận phòng được. Khách không chờ được thì đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. | Room {room} still shows as occupied, but no stay is in house. Check the room is empty and ask housekeeping to clean it; once it's cleaned, check-in can go ahead. If the guest can't wait, move this booking to a vacant room. No exception applies in this case. | Như trên, `detail = OD`: căn đã ở "cần dọn", Desk không có nút Báo cần dọn |
+
+Ghi chú:
+- Bỏ vế "báo quản lý để sửa trạng thái căn": lễ tân tự đưa căn về quy trình dọn được. Quản lý vẫn thấy căn lệch ở Cần chú ý (BR-806: OC/OD mà không có đơn Đang ở).
+- Giữ "Kiểm căn đã trống" (DOM: kiểm thật không còn người, đồ trước khi chuyển trạng thái).
+- Ghi chú khóa trong `gen_strings.py`: thay "v1.0.5 có nút Cần dọn thì UXD đổi câu" bằng "v1.0.5 V5-15: theo nút Báo cần dọn (UXD-on-fe-prs-98-102-107)".
+- `checkin.room_occupied` (máy chủ không trả `cause`) giữ nguyên ở v1.0.5: máy chủ đã trả `cause`, câu chỉ còn cho ca lạ, vẫn đúng.
+- Độ dài: `room_status_stuck` VI 262, EN 300 ký tự, ngang `room_occupied` (VI 248, EN 296). Câu nằm trong Alert ở dòng điều kiện, không có chỗ khác chật hơn.
+
 ---
 
 ## 6. Yêu cầu cho FE, BE (gom theo tệp)
@@ -942,6 +990,10 @@ Không dùng câu `error.PAYMENT_NOT_CONFIGURED` hiện có cho Trả sớm khi 
 | FE-A | `app/problem.ts`, `pages/ParamDialog.tsx` | Bản 1.4: chọn câu lỗi riêng cho `min_stay`, `short_stay_max_nights` trước 6 bước ở 2.3. Bản 1.5: `min_stay` có `allowed` hay chỉ `max` dùng câu chung 9.4; 11 khóa có cấu trúc dựng `{where}` từ `errors[0].field`, ghép câu 2.3 vào `{detail}`. Lên cùng V5-25 (PR #96) | 9.2, 9.4 |
 | FE-A | `app/problem.ts` (nhánh `PARAMETER_MALFORMED`, chờ ARC); chỗ gọi tạo đơn, Trả sớm, giữ chỗ, nhận phòng, trả phòng | Bản 1.6: đổi `parameterKey` sang `params.setting.*`, chọn bản câu theo vai. Bản 1.6, 9.4: ba câu `REQUIRED` xét trước 2.3 | 9.4, 9.6 |
 | FE-A | `pages/stay/FolioDialog.tsx` (hộp Điều chỉnh, form miễn phí), `app/problem.ts`, Nhật ký tiền, "Cần chú ý" | Bản 1.5: câu phụ cho FD, FDL; 403 `requiredFlow = foc_request` → câu chỉ dẫn và nút mở form miễn phí điền sẵn; lý do Ghi nhầm; bộ lọc `reductionsOnly`; `attn.line_reduction_count`. Lên cùng V5-16 (US-177) | 9.5 |
+| FE-A | `design/tools/gen_strings.py` (#102) | Bản 1.7: chữ `hk.action.needs_cleaning` "Báo cần dọn" / "Mark for cleaning"; ghi chú khóa và tên nhóm V5-15 đổi "Chờ UXD duyệt" thành "UXD duyệt 06/11". Điều kiện gộp #102 | 9.7 |
+| FE-A | `pages/stay/CheckInPage.tsx` (`roomBlockedMessage`), test BUG-R4-039 | Bản 1.7: `cause = room_status`, `detail = OD` → `checkin.room_status_stuck_od`; chữ mới của `room_status_stuck`. Nên lên cùng #102 | 9.7 |
+| FE-A | `pages/stay/StayDialogs.tsx` (`ChangeRoomForm`) | Bản 1.7: `room_change.no_rooms_not_ready` khi danh sách lọc rỗng mà có căn trống VD/CL. Nên có (#98 hoặc v1.0.6) | 9.7 |
+| MOB | `apps/mobile` (#97), `gen_strings.py` | Bản 1.7: cùng khóa `hk.action.needs_cleaning`, chữ mới. PR gộp sau giữa #97 và #102 bỏ dòng trùng | 9.7 |
 | UXD | `design/content-guide.md` | Sau khi FE áp: đồng bộ mục 8 theo `strings-tables.md`, ghi phiên bản v0.4.7, xóa dòng `fo.tabs.holds`, sửa ô `bk.src_weekend` trong `hifi/09-booking.html` | 1.3, 4.18 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
@@ -994,3 +1046,6 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - Bản 1.5, mục 9.5 (khi PR-B2 lên staging; ca DOM T-16-1…10, ARC T16-6…12): lễ tân bỏ dòng tay của chính mình hôm nay → lưu được. Bỏ dòng của lễ tân khác, dòng phụ thu trả muộn Desk tự ghi, dòng mình ghi hôm qua → câu `error.reduce_needs_foc`, có nút "Gửi miễn có duyệt", folio không đổi. Bấm nút → form miễn phí đúng dòng, Số tiền điền sẵn đúng phần định giảm, chọn được "Ghi nhầm". Quản lý bỏ dòng bất kỳ → lưu được, không có câu phụ. Lễ tân không thấy bộ lọc "Sửa giảm dòng – 7 ngày".
 - Bản 1.5, mục 9.3 (khi V5-1A lên staging): căn giá tháng 8.500.000, gõ giá đêm 2.800.000 → câu `rooms.night_high`, nút "Vẫn lưu giá này", lưu được. Gõ 1.700.000 (đúng bằng ÷ 5) → không cảnh báo. Gõ 280.000 (< ÷ 30) → câu `rooms.night_low` mới. Lưu giá đêm qua API với giá tháng ngày hiệu lực khác giá đang hiện → toast có dòng `rooms.warn.nightly_price_unusual`.
 - Bản 1.4, mục 9.2 (khi V5-25 lên staging, theo oracle BR-113-06…30): ca 07, 08, 09, 20, 22, 27 → `params.err_min_stay_shape`; ca 11, 12, 16 → `params.err_min_stay_nights` với số đúng; ca 17, 18, 19, 23, 24, 25 → câu chung 9.4 có "Chỗ cần sửa: mục 1, …" và "Chọn một trong: …" (bản 1.5: ca 23 chuyển sang đây theo PR #96); ca 28 → `params.err_short_stay_below_min_stay` với số 2. Không còn `{min}`, `{max}` lộ ra.
+- Bản 1.7, mục 9.7 (khi #98 lên staging): mở Đổi phòng khi mọi căn trống còn VD → câu `room_change.no_rooms_not_ready` có số căn VD/CL, không có ô chọn; có một căn VC → câu đó không hiện, căn VC có trong danh sách. Không còn câu R2 có "Trống, sạch".
+- Bản 1.7, mục 9.7 (khi #102 và #97 lên staging): Desk Trạng thái buồng và app nhân viên, căn OC có nút **Báo cần dọn** / **Mark for cleaning**; bộ lọc vẫn là "Cần dọn ({n})". Bấm → toast "Căn … chuyển cần dọn và có việc dọn.", chip "OD · Có khách, cần dọn", có việc "Dọn phòng khách đang ở".
+- Bản 1.7, mục 9.7 (căn kẹt, dữ liệu QA): căn OC không có đơn Đang ở, nhận phòng đơn khác vào căn đó → câu `checkin.room_status_stuck` có "Báo cần dọn"; căn OD → câu `_od`. Làm theo câu: Báo cần dọn → Bắt đầu dọn → Dọn xong → căn VC → nhận phòng được.
