@@ -3051,6 +3051,8 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: retained,
         retainedKind: retained > 0 ? 'cancellation_fee' : null,
+        // V5-11 (BUG-R3-036, BR-309-27): the fee line is dated the business date of the cancellation.
+        businessDate: ctx.today,
         ...(otaPenaltyFee !== undefined ? { channelFeeActualVnd: otaPenaltyFee } : {}),
         reason: reasonCode as string,
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
@@ -4408,6 +4410,8 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: kept,
         retainedKind: kept > 0 ? 'no_show_fee' : null,
+        // V5-11 (BUG-R3-036, BR-311-04): the fee line is dated the business date of the no-show mark.
+        businessDate: ctx.today,
         reason: 'no_show',
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
         services: { retainLines },

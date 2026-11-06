@@ -9,6 +9,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import type { Tx } from '../../../db/database';
+import { dayClock, inEarlyHours, minCalendarDate } from '../../../shared/business-day';
 import { ProblemError, problem } from '../../../shared/problem';
 import { type LocalDate, type LocalTime, addDays, businessDate } from '../../../shared/time';
 import type { ApprovalRow } from '../../approvals/public/approval.service';
@@ -1423,7 +1424,30 @@ export class StayService {
     this.assertPrimary(row);
     const nd = newDeparture as LocalDate;
     const eff = await this.s.effectiveStay(tx, ctx, row);
-    if (nd < ctx.today || nd >= eff.departureDate || nd <= row.arrival_date) {
+    // 0.3.13 bổ sung 1 (V5-11; DOM rules v1.0.5 2, 7.6; BR-010, BR-428): from 00:00 to the rollover of calendar day
+    // D+1 (business date D) night D is a night stayed – the new departure is at least D+1 (the shared "minimum
+    // calendar date", shared/business-day.ts, also B18 / V5-10). Checked BEFORE every other date check, dry run
+    // included, so the desk always gets the right hint; nothing is written. Outside that window: the business date.
+    const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
+    const clock = dayClock(ctx.now, ctx.tz, rollover);
+    const minDeparture = minCalendarDate(clock);
+    if (inEarlyHours(clock)) {
+      // The stay ends on the calendar date (or before – already due): no early departure, B18 (no surcharge).
+      if (eff.departureDate <= clock.calendarDate) {
+        throw problem('INVALID_TRANSITION', {
+          extras: { currentState: row.status, useCheckout: true },
+          detail:
+            'early departure before the business-day rollover: the stay ends today – use check-out',
+        });
+      }
+      if (nd < minDeparture) {
+        throw problem('INVALID_TRANSITION', {
+          extras: { currentState: row.status, minNewDepartureDate: minDeparture },
+          detail: 'early departure before the business-day rollover: last night is already stayed',
+        });
+      }
+    }
+    if (nd < minDeparture || nd >= eff.departureDate || nd <= row.arrival_date) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'newDepartureDate', code: 'DATE_INVALID' }],
       });
@@ -1474,7 +1498,6 @@ export class StayService {
     const otaRetainedRequired = otaParts.length > 0 && otaRetained === undefined;
     if (otaRetainedRequired && !dryRun) f.add('otaRetainedVnd', 'REQUIRED');
     if (!ota && otaRetained !== undefined) f.add('otaRetainedVnd', 'NOT_ALLOWED');
-    const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
     const noticeDate = businessDate(noticeAt as Date, ctx.tz, rollover);
     // BR-011 / E04-06: a notice typed back in time (beyond the tolerance, or another business day) needs proof.
     const tolerance = await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes');
@@ -1731,7 +1754,9 @@ export class StayService {
               quantity: 1,
               unitPriceVnd: x.amountVnd,
               amountVnd: x.amountVnd,
-              serviceDate: nd,
+              // V5-11 (DOM rules v1.0.5 2.1 (5), BUG-R3-036, oracle BR-428-16): a retained fee is dated the
+              // business date of the action – not the new departure, not the calendar date.
+              serviceDate: ctx.today,
               source: 'system',
               ...(x.ota ? { chargeCode: 'ota_retained' } : {}),
               labelParams: x.ota

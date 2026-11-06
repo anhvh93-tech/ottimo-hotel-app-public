@@ -1708,6 +1708,9 @@ export class FolioService implements FolioStaySync {
     }
     let feeVnd = 0;
     if (retained > 0) {
+      // V5-11 (BUG-R3-036, oracles BR-309-27, BR-311-04): dated the business date of the cancel / no-show –
+      // 01:30 on the 22nd is still the 21st (BR-010). The caller's business date, never the calendar date.
+      if (!input.businessDate) throw new Error('voidStay: retainedVnd > 0 without businessDate');
       const category =
         input.retainedKind ?? (input.reason === 'no_show' ? 'no_show_fee' : 'cancellation_fee');
       await this.insertLine(tx, {
@@ -1718,7 +1721,7 @@ export class FolioService implements FolioStaySync {
         quantity: 1,
         unitPriceVnd: retained,
         amountVnd: retained,
-        serviceDate: localDate(now, await this.timezone(tx)),
+        serviceDate: input.businessDate,
         stayNightId: null,
         source: 'system',
         postedBy: who.userId,

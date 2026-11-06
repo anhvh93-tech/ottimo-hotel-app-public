@@ -4,7 +4,7 @@
  * buttons. Event/transition codes from state-machines.md section 18; `action` = path segment.
  */
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
-import { isCheckoutDay } from '../../../shared/business-day';
+import { isCheckoutDay, minCalendarDate } from '../../../shared/business-day';
 import { type LocalDate, addDays } from '../../../shared/time';
 
 export interface AllowedAction {
@@ -73,11 +73,17 @@ export function checkOutOpen(c: ActionContext): boolean {
   );
 }
 
-/** B16 new-departure window [max(today, arrival + 1), stayDepartureDate − 1] is not empty (same rule as the server). */
+/**
+ * B16 new-departure window [max(min date, arrival + 1), stayDepartureDate − 1] is not empty (same rule as the
+ * server). 0.3.13 bổ sung 1 (V5-11, DOM rules v1.0.5 2.1 (2)–(3)): min date = the "minimum calendar date" of
+ * shared/business-day.ts – the business date, or the calendar date from 00:00 to the rollover (night D is stayed).
+ * So a stay ending on that calendar date offers B18 only, no B16.
+ */
 export function earlyDepartureOpen(c: ActionContext): boolean {
   if (!c.stayDepartureDate) return false;
   const next = addDays(c.arrivalDate, 1);
-  const from = c.today > next ? c.today : next;
+  const min = minCalendarDate({ today: c.today, calendarDate: c.calendarDate ?? c.today });
+  const from = min > next ? min : next;
   return from < c.stayDepartureDate;
 }
 

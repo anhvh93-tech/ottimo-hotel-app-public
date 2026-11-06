@@ -1343,7 +1343,9 @@ export class CheckoutService {
               quantity: 1,
               unitPriceVnd: unhandled,
               amountVnd: unhandled,
-              serviceDate: d.stay.departureDate,
+              // V5-11 (DOM rules v1.0.5 2.1 (5), BUG-R3-036): a retained line is dated the business date of the
+              // action – the departure on the day, its eve from 00:00 to the rollover (BR-010).
+              serviceDate: ctx.today,
               source: 'checkout',
               reason: over.reason,
             },
