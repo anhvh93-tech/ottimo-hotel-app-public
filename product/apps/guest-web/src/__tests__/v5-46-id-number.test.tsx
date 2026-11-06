@@ -137,6 +137,34 @@ describe('V5-46 – note of a guest request (createGuestRequest.note)', () => {
     ).toBeInTheDocument();
   });
 
+  it('FB-R5-ARC-FE-107-01: the base mock answers a card number like the server (top-level CARD_NUMBER_DETECTED) → the card sentence', async () => {
+    const { user, tr } = await openOther('vi');
+    await user.type(screen.getByLabelText(tr('gw.req.note_label')), 'Cho tôi hỏi giờ ăn sáng');
+    mockControl.scenario.requestFail = 'CARD_NUMBER_DETECTED';
+    const seen: unknown[] = [];
+    const on = ({ response }: { response: Response }) => {
+      if (new URL(response.url).pathname.endsWith('/v1/guest/requests') && response.status === 422)
+        void response
+          .clone()
+          .json()
+          .then((b: unknown) => seen.push(b));
+    };
+    server.events.on('response:mocked', on);
+    try {
+      await user.click(screen.getByRole('button', { name: tr('guest.req.send') }));
+      expect(
+        await screen.findByText(tr('gw.req.card_detected'), { selector: '.txt, .txt *' }),
+      ).toBeInTheDocument();
+      expect(seen[0]).toMatchObject({
+        code: 'CARD_NUMBER_DETECTED',
+        errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
+      });
+    } finally {
+      server.events.removeListener('response:mocked', on);
+    }
+    expect(mockControl.state.requests).toEqual([]);
+  });
+
   it('guest-portal shape for a card number (top-level code CARD_NUMBER_DETECTED) → the card sentence, not "server error"', async () => {
     server.use(
       http.post('*/v1/guest/requests', () =>
