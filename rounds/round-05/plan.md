@@ -1,0 +1,732 @@
+# Round 5 – Kế hoạch: bảo trì đợt 1 (bản v1.0.5)
+
+- Người lập: PO (ORC duyệt, ARC và QA góp ý trước khi giao) | Ngày: 06/11/2026 | Bước 1 – Lập kế hoạch.
+- Chế độ: **vận hành thực tế**. Đây là round bảo trì đầu tiên. Chủ đầu tư (INV) chỉ review định kỳ để cải thiện hoặc sửa lỗi. Nguyên văn 06/11: "project này kéo dài quá rồi".
+- Đầu vào:
+  - bug list R1–R4: `rounds/round-0{1..4}/qa/bug-list.md`, `rounds/round-04/qa/bug-list-v1.0.4.md`;
+  - `03-backlog/backlog.md`;
+  - thẻ feedback trong `rounds/round-04/reviews/`;
+  - decision-log 04–06/11;
+  - release notes v1.0.4 mục "Chưa có";
+  - DOM `rounds/round-04/outputs/DOM/pricing-spec-2026-11-01-reconcile.md` (H1–H11);
+  - từ điển tham số `product/docs/tham-so-quy-tac.md` (mục cuối);
+  - OPS `rounds/round-04/outputs/OPS/ops-readiness-06-11.md`, `rounds/round-04/outputs/OPS/bug-r4-054-proposal.md`, `product/infra/server/README.md` 12.3;
+  - BA `product/docs/so-van-hanh.md` 2.2;
+  - các việc ORC giao 06/11.
+- Bảng chờ INV: `rounds/round-04/outputs/PO/esc-pending-06-11.md`. Số liệu Round 4: `rounds/round-04/outputs/PO/round-4-metrics.md`.
+
+## 0. Nguyên tắc chế độ vận hành
+
+1. **Bản bảo trì chỉ sửa, không thêm tính năng.** Được làm bốn loại việc:
+   - lỗi tiền hoặc giá;
+   - việc thay cho cách làm tạm ở quầy;
+   - bảo mật và dữ liệu cá nhân;
+   - chữ sai sự thật.
+
+   Tính năng mới vào backlog cải tiến, INV chọn ở buổi review.
+2. **Vẫn đủ 7 bước của protocol:** Lập kế hoạch → Sản xuất → Review chéo (mỗi đầu ra ít nhất 2 vai khác) → Phản hồi & sửa → Kiểm thử → QC → Tổng kết. Production chỉ lên khi INV đồng ý, từng lần.
+3. **Chỉ hỏi INV ở buổi review định kỳ.** Ngoại lệ: P0/P1 trên production, hoặc việc có hạn tới trước buổi review sau.
+4. **Đội không đổi tham số giá hay tiền trên production.** INV tự chỉnh theo từ điển tham số.
+5. **Không SSH ngoài runbook.** Không đưa số hoa hồng, dữ liệu cá nhân khách hay bí mật vào repo, PR, test, chat.
+6. **Thương hiệu OTTIMO** cho mọi chữ, màn hình và tài liệu hướng khách: bảng màu 80/15/5; Lora, Be Vietnam Pro, JetBrains Mono; tiếng Anh dẫn, tiếng Việt hỗ trợ, không emoji.
+
+### Nhịp review định kỳ (đề xuất; ORC chốt với INV)
+
+- Mỗi **2 tuần**, khoảng 30 phút.
+- Buổi đầu: **20/11/2026** (trùng mốc trong sổ vận hành 5.4).
+- Mỗi buổi xem:
+  1. Bản đã lên và lỗi mới.
+  2. ESC còn chờ.
+  3. Năm mục đầu của backlog cải tiến: INV chọn việc cho bản sau.
+  4. Số liệu vận hành: ADR, công suất, yêu cầu web, cảnh báo.
+  5. Việc chỉ INV làm được.
+- Mỗi buổi chọn phạm vi cho **bản sau** (v1.0.6, …). Việc chưa được chọn ở lại backlog.
+
+## 1. Mục tiêu v1.0.5
+
+1. Bỏ các cách làm tạm ở quầy dễ sai tiền:
+   - khách đi trước 06:00;
+   - trả sớm sau nửa đêm;
+   - Tổng cộng ở bước Bill;
+   - giữ chỗ theo giá đã thỏa thuận;
+   - khoản chờ hoàn do người khác tạo;
+   - lễ tân bỏ dòng phát sinh không qua duyệt.
+2. Chữ trên Desk khớp bảng giá 01/11, và các tham số INV phải chỉnh có tên tiếng Việt.
+3. Xong các việc có hạn cứng:
+   - H2 hoa hồng: trước **01/12/2026**;
+   - H3 phí dọn thuê tháng: trước lượt dọn đầu tiên của khách tháng.
+4. Xong các việc bảo mật nhỏ đã hẹn. Đưa vận hành về mức an toàn:
+   - tự kéo bản sao lưu ra ngoài máy;
+   - diễn tập khôi phục;
+   - giữ log;
+   - nhắc hạn tên miền và máy chủ.
+5. Khép sổ Round 4:
+   - đóng các lỗi đã sửa;
+   - release notes và sổ tay đúng với production 06/11;
+   - backlog đúng trạng thái.
+
+**Không làm trong v1.0.5:** tính năng mới; bất cứ gì đổi chính sách giá, cọc, hoàn, hủy; channel manager; chấm công; báo cáo xuất file.
+
+## 2. Phạm vi v1.0.5 theo thứ tự
+
+Thứ tự làm như sau:
+
+1. **Gói 0** trước, và không đổi mã.
+2. ARC chốt hợp đồng 0.3.13 cho các mục cần trường mới hoặc đổi hợp đồng: V5-10, V5-13, V5-1A, V5-30 (V5-19 nếu làm). BE, FE và MOB chỉ code sau khi hợp đồng chốt.
+3. **Gói 1–4 và phần bắt buộc của Gói 6** làm song song.
+4. **Gói 5** làm sau cùng, nếu kịp. Mục không kịp sang v1.0.6, không chặn QC.
+
+### Gói 0 – Khép sổ Round 4 (không đổi mã; 07–10/11)
+
+| ID | Việc | Vai (làm → review) | Xong khi |
+|---|---|---|---|
+| V5-01 | **Release notes v1.0.4** (PO). Cập nhật:<ul><li>trạng thái "đã phát hành 06/11/2026 14:10, tag `v1.0.4` → `6414be25`";</li><li>LP-v2 đã lên, giá web đã bật; bỏ dòng "khách chưa thấy gì";</li><li>check-in online đã mở lại (N5);</li><li>số bản sổ tay sau #69;</li><li>BUG-R3-021 Desk dời sang v1.0.5 (V5-58).</li></ul>Mở mục v1.0.5 "Đang làm". | PO → BA, DOM | Release notes không còn câu trái production |
+| V5-02 | **QA đóng lỗi đã sửa** (danh sách phụ lục A, các dòng "(c) … QA xác nhận"). Gồm:<ul><li>chuyển Closed các lỗi v1.0.4 đang ghi "đã gộp / chờ staging";</li><li>kiểm lại BUG-R4-035, 039 mà QC v1.0.4 còn ghi mở;</li><li>dọn bug list R1 (14 dòng) và R3.</li></ul> | QA → QC | Bug list chỉ còn lỗi thật sự mở |
+| V5-03 | **Phần còn lại của SEC 9.5 và P10.**<ul><li>SEC đã kết luận 06/11 tối (`rounds/round-04/reviews/SEC-on-lp-v2-s6d.md`): ca 3 và ca 8 ĐẠT; ca 10 ĐẠT bằng bằng chứng thay thế; ca 4 web ĐẠT. SEC đã sửa câu ca 10 ở mục 9.5. Phần Desk "từ – đến" của ca 4 nằm ở V5-19.</li><li>QA đọc tệp SEC rồi đóng BUG-R4-056.</li><li>P10 trên Desk staging cho BUG-R4-011, 012.</li></ul> | ORC + QA → SEC | BUG-R4-011, 012, 056 Closed |
+| V5-04 | **Ảnh và bản HTML sổ tay.**<ul><li>UXD chụp lại C1-07, C1-22 (BUG-R4-023).</li><li>QA chụp lại `product/docs/manual/img/C2-39.png` (màn form đang bật) trên staging, chỉ dùng yêu cầu giả. QA kiểm che dữ liệu trước khi commit.</li><li>UXD dựng lại `ottimo-manual-v1.0.html` và `guides/html/` từ sổ tay mới nhất; không còn câu có tỷ lệ hoa hồng (FB-R4-SEC-UXD-HTML-01).</li></ul> | UXD, QA → BA, SEC (che dữ liệu) | Ảnh khớp production; HTML dựng lại, không vào repo |
+| V5-05 | FB-R4-SEC-OPS-LPV2S4-01: OPS đã sửa chữ runbook LP-v2 r2.3 (commit `cef4d688`) và thêm câu kiểm S0 của BUG-R4-055. SEC xác nhận rồi đóng thẻ. | OPS → SEC | Thẻ Closed |
+| V5-06 | **Backlog đúng trạng thái** (PO):<ul><li>story đã lên production chuyển "Xong" (phụ lục B1);</li><li>dòng mục 5.6 đã vào v1.0.4 ghi "Xong v1.0.4";</li><li>thêm mục 5.7 trỏ về kế hoạch này.</li></ul> | PO → BA | Backlog không còn story "Mới" đã chạy |
+| V5-07 | **Theo dõi lỗi 422 `ID_NUMBER_DETECTED`** tới 01/12 (4 tuần kể từ v1.0.2). Báo số ở review 20/11. | DATA + OPS → PO, SEC | Báo cáo tuần |
+| V5-08 | **Sổ tay: bỏ câu cũ về check-in online** ("tới v1.0.3, chưa gửi link"). Chỗ cần sửa:<ul><li>sổ tay 0.1, 2.9, 5.6;</li><li>`guides/00-index` dòng `g.ottimo.vn`;</li><li>`guides/02` mục 17.3.</li></ul>Điều kiện SEC N5 đã có: check-in online mở lại 06/11. | BA → SEC, UXD | Không còn câu "chưa gửi link" |
+
+### Gói 1 – Tiền và trả phòng ở quầy (bắt buộc)
+
+| ID | Việc | Nguồn | Vai (làm → review) |
+|---|---|---|---|
+| V5-10 | Khách đi trước 06:00:<ul><li>nút **Trả phòng** có từ 00:00 cho khách đi đúng ngày;</li><li>Desk gửi **một** `checkoutAt` dùng chung cho bản tóm tắt, VietQR và Trả phòng;</li><li>ghi được giờ khách rời thật;</li><li>trang không chỉ sang Trả sớm khi đọc tóm tắt lỗi vào ngày trước ngày đi.</li></ul> | BUG-R4-036, BUG-R4-051, FB-R4-ARC-FE-P432-04 | ARC (luật, hợp đồng) → BE + FE-A → ARC, DOM, QA |
+| V5-11 | Trả sớm lúc 00:00–05:59:<ul><li>Desk đặt sẵn ngày lịch;</li><li>máy chủ chặn ngày hôm trước bằng 409 (RN-05);</li><li>B16 không hoàn đêm khách đã ở;</li><li>phí hủy và phí không đến ghi theo ngày nghiệp vụ;</li><li>oracle BR-428 có ca sau nửa đêm.</li></ul> | RN-05, FB-R4-ARC-DOM-B16-01, BUG-R3-036 | DOM (luật) → BE + FE-A → ARC, DOM, QA |
+| V5-12 | Bước Bill: **Tổng cộng** gồm đêm thêm sắp ghi. | BUG-R4-052 | FE-A → UXD, QA |
+| V5-13 | Trang Trả phòng và folio hiện **tổng đang chờ hoàn** của đơn, kể cả yêu cầu do người khác tạo:<ul><li>`openRefunds` theo ARC hướng (b), hợp đồng 0.3.13;</li><li>số chờ hoàn trên khung đơn (UXD U4);</li><li>lỗi đọc không trông giống "không có khoản chờ hoàn";</li><li>mock đúng phạm vi máy chủ.</li></ul> | Release notes v1.0.4 "Chưa có", FB-R4-UXD-FE-P432-03, FB-R4-ARC-FE-P432-02 | ARC → BE → FE-A/FE-B → ARC, SEC, UXD, QA |
+| V5-14 | **Giữ chỗ theo đúng giá đã gõ.** Ô giá khóa trong lúc lệnh giữ chỗ đang chạy. | BUG-R4-041 phần còn lại, FB-R4-ARC-FE-PR75-01 | ARC → BE + FE-A → DOM, QA |
+| V5-15 | **Trả phòng** nhận đơn quá ngày đi với ngày rời thật. Nút **Cần dọn** ở Desk và app nhân viên. | Release notes v1.0.4 "Chưa có" | ARC → BE + FE-A + MOB → DOM, QA |
+| V5-16 | Lễ tân bỏ hoặc giảm về 0 dòng phát sinh mà không qua duyệt (**Major**):<ul><li>DOM chọn cách; SEC đề xuất (a): chỉ dòng do chính mình ghi, trong ngày nghiệp vụ; ngoài phạm vi đó thì qua miễn có duyệt;</li><li>ARC thiết kế;</li><li>kèm bộ lọc tuần cho quản lý.</li></ul> | FB-R4-SEC-BE-A31-01 | DOM → ARC → BE + FE-A → SEC, DOM, QA |
+| V5-17 | Cờ `is_complimentary` theo tiền, không theo kênh. Tính lại dữ liệu trước báo cáo giá phòng bình quân (ADR) đầu tiên. Chạy mốc "trước" của gói chỉ đọc. | BUG-R4-043, FB-R4-SEC-OPS-ROPACK-06 | DATA + BE → ARC, SEC, QA |
+| V5-18 | Khi chấp nhận cọc thiếu sau hạn, hộp thoại nói rõ phần tiền chưa đối soát. | FB-R4-SEC-FE-HOLDS-03 | ARC (trường đọc) → FE-B → SEC, UXD |
+| V5-1A | **Bỏ đường tạm "giá đêm = giá tháng ÷ 12"** (BR-101 (5) hẹn bỏ "tới v1.0.1"):<ul><li>API đổi giá căn **bắt buộc** gửi giá đêm (thiếu → 422);</li><li>`createRoom` và công cụ nhập danh mục căn nhận giá đêm;</li><li>ví dụ trong OpenAPI ghi đủ hai giá (hợp đồng 0.3.13).</li></ul>Desk không đi đường này. Nhưng gọi API thẳng mà quên giá đêm thì giá sai không cảnh báo, và web cùng Desk hiện số sai.<br>Làm ngay ở Gói 0 (07–08/11), không chờ bản:<ul><li>DOM sửa mục `night_from_month_divisor` trong từ điển tham số (`.md` và `.json`): khóa còn dùng ở đường API, không sửa giá trị 12;</li><li>DOM sửa câu "tới v1.0.1" ở BR-101 (5);</li><li>tới khi gỡ, script của ORC/OPS luôn gửi đủ hai giá và đọc lại giá sau khi ghi.</li></ul>SEC 06/11: không phải lỗi bảo mật. Hai ràng buộc khi gỡ: giữ `money ≥ 1` và `CHECK > 0`; thiếu giá đêm trả 422, không trả 500. Nếu bootstrap hay công cụ nhập danh mục tạo căn chưa có giá thì kiểm tĩnh V5-73 phải có trước. | BUG-R4-057 | ARC (hợp đồng) → BE → DOM, SEC, QA; DOM (từ điển) → BA |
+
+### Gói 2 – Chữ và tham số theo bảng giá 01/11 (bắt buộc)
+
+UXD duyệt mọi chữ. CPY duyệt chữ hướng khách (EN dẫn, VI hỗ trợ, RU/KO/ZH theo bảng đã duyệt).
+
+| ID | Việc | Nguồn | Vai |
+|---|---|---|---|
+| V5-20 | Bỏ chữ theo mức cũ:<ul><li>"Từ 28 đêm…" (`field.LONG_STAY_REQUIRES_CONTRACT`, `bk.long_body`, `stay.long_hint`);</li><li>"trước giảm theo số đêm";</li><li>nhãn `bk.src_weekend` "+15 %";</li><li>`sale.nights_all`.</li></ul>Báo giá không tách đêm thứ Sáu, thứ Bảy. Đổi số người thì bảng tổng tính lại. | H10, FB-R4-UXD-FE-PR82-02, FB-R4-ARC-FE-PR82-02 | UXD → FE-A → DOM, UXD, QA |
+| V5-21 | **Tham số trên Desk:**<ul><li>tên tiếng Việt cho các khóa còn hiện mã. Ưu tiên khóa INV phải chỉnh: B2–B11 của hướng dẫn chuyển giá, `rounding.*`, `early_checkin_tiers`; lấy tên từ từ điển;</li><li>câu "nằm ngoài khoảng" cho giá trị dạng chữ;</li><li>`ota_base_rate`: hiện tên và câu "Không cần nhập – đơn OTA lấy giá đêm niêm yết". **Không làm trình nhập theo nhóm căn** (quyết định PO, mục 6).</li></ul> | H10 (`params.k.*`), backlog 5.6b, việc ORC 06/11 (`ota_base_rate`) | UXD → FE-A → DOM, UXD |
+| V5-22 | Hộp **Đặt phòng mới**:<ul><li>câu giá ngoài sàn–trần có số thật;</li><li>ô OTA để trống nói rõ hệ quả;</li><li>không hiện "0 đ" khi máy chủ sẽ tính theo lịch giá;</li><li>phần còn lại của UXD-FE-PR70-02, nếu UXD thấy còn.</li></ul> | BUG-R4-040, FB-R4-UXD-FE-PR70-03/04/06 | ARC (trường `min`/`max`) → BE + FE-A → UXD, QA |
+| V5-23 | **Một lượt sửa chữ sai sự thật** (gom các chỗ dưới đây):<ul><li>phí trả sớm báo trong ngày rời (FB-R4-DOM-UXD-PR89-02);</li><li>BUG-R2-094, 096, 098, 100;</li><li>BUG-R2-218 (trang khách);</li><li>BUG-R3-028, 035, 051, 055;</li><li>`folio.adjust_night_help_internal`;</li><li>khóa chung `error.INVALID_TRANSITION_generic`;</li><li>đơn vị tiền trong `error.DEPOSIT_INSUFFICIENT` (UXD P440-06);</li><li>hộp xanh "Gửi mã QR…" khi chưa cài tài khoản nhận;</li><li>U+2011 cho "2-step" (CPY P401-11);</li><li>câu mục đích xử lý dữ liệu cạnh ô email nhân viên (FB-R4-SEC-ARC-EM-13, Nghị định 13);</li><li>câu "Bạn nhận (…)" đủ đuôi cho CTV và sale (FB-R4-UXD-BA-PR89-01);</li><li>UXD dọn câu cũ `rooms.night_auto` ở `design/content-guide.md` dòng 1335 và khóa thừa `fo.tabs.holds` ở `gen_strings.py` (ghi chú QA bug list v1.0.4).</li></ul> | các nguồn ghi trong cột Việc | UXD (+ CPY chữ khách) → FE-A/FE-B/MOB → UXD, QA |
+| V5-24 | **Tiếng Nga:**<ul><li>7 chuỗi hướng khách có từ cấm "апартаменты" (CPY);</li><li>font chữ Nga ở ô mã và Wi-Fi bị CSP chặn.</li></ul>Chuỗi nằm trong bản thông báo dữ liệu thì để tới bản thông báo kế tiếp (backlog B-PN). | decision-log 04/11, BUG-R4-017 | CPY → FE-B/MOB → SEC (font, CSP), UXD |
+
+### Gói 3 – Việc có hạn cứng (bắt buộc)
+
+| ID | Việc | Hạn | Vai |
+|---|---|---|---|
+| V5-30 | **H2 – hoa hồng theo bảng nội bộ** trên Desk, không có số mặc định trong mã:<ul><li>FB-R4-SEC-BE-01 (Major);</li><li>FB-R4-SEC-ORC-01 G3;</li><li>CI `confidential-paths`.</li></ul>DOM gửi chi tiết **ngoài kho mã**. Không ghi tỷ lệ hay số tiền hoa hồng vào repo, PR, test, chat. | Trước kỳ chốt hoa hồng **01/12/2026** | DOM → ARC → BE + FE-A → SEC, DOM, QA |
+| V5-31 | **H3 – phí dọn theo lượt cho khách thuê tháng theo hạng** (bảng 01/11). Khách ngắn ngày giữ BR-506. Tới khi lên: lễ tân thêm dòng phí phần chênh. | Trước lượt dọn đầu tiên của khách thuê tháng đầu tiên | DOM → BE + FE-A → DOM, QA |
+
+Quy tắc: nếu tới **25/11** v1.0.5 chưa lên production thì PO + ORC tách V5-30 thành bản sửa riêng. Việc này không cần hỏi INV; production vẫn chờ INV đồng ý.
+
+### Gói 4 – Bảo mật nhỏ đã hẹn (bắt buộc)
+
+| ID | Việc | Nguồn | Vai |
+|---|---|---|---|
+| V5-40 | Desk ép **lễ tân trưởng** bật 2 bước (`front_desk_lead` vào `MFA_REQUIRED_ROLES`). BA sửa dòng Lễ tân ở `02` 1.7. | Release notes v1.0.4 "Chưa có", FB-R4-PO-BA-032-07 | BE-A + FE-A → SEC, DOM; BA |
+| V5-41 | Nâng gói gửi thư `nodemailer` lên ≥ 10.1.7. | SEC (release notes v1.0.4 ghi chú kỹ thuật) | INT/BE → SEC |
+| V5-42 | Worker không ghi `err.message`. | FB-R4-SEC-BE-BED-02, BED-03 | BE-D → SEC |
+| V5-43 | Siết `serializeSchema('Me')`. Gồm V104-07. Controller ghi `action` cho thư đổi tài khoản nhận (V104-08 phần còn lại). | FB-R4-SEC-BE-C0312-02, V104-07, V104-08 | BE-A → SEC, ARC |
+| V5-44 | Sửa hai chỗ phụ thuộc chữ máy chủ:<ul><li>thay dò chữ `detail` của 409 bằng trường hợp đồng (P4-41);</li><li>ánh xạ `check_violation` của trigger 0094 về 409 (ARC P411-02).</li></ul> | decision-log 04/11 | ARC → BE + FE-A → ARC, QA |
+| V5-45 | Nới giới hạn `id_image_retention_days_after_checkout` để INV đặt được **90 ngày** (ý INV 26/10). SEC duyệt. INV tự đặt sau khi lên. | Từ điển tham số mục cuối; backlog 5.6 | BE → SEC, DOM |
+| V5-46 | Trang khách hiện câu báo khi chặn số giấy tờ (`ID_NUMBER_DETECTED`), như với số thẻ. Check-in online đã mở lại 06/11. | FB-R4-SEC-ARC-P104-03 | ARC → MOB/FE-B → SEC, CPY |
+| V5-47 | Tờ in và trang khách tự so chữ khi build, để không lệch nhau. | FB-R4-PO-UXD-IDS2-02, SEC IDS2-01 | UXD + OPS → SEC, PO |
+
+### Gói 5 – Lỗi nhỏ ở quầy (nên có; không kịp thì sang v1.0.6)
+
+| ID | Việc | Nguồn | Vai |
+|---|---|---|---|
+| V5-50 | Hộp **Đổi phòng** lọc bỏ căn chưa dọn. Hiện Desk đã chặn khi chọn nhầm. | BUG-R3-023 (P2) | FE-A/BE-A → UXD, QA |
+| V5-51 | Hộp **Xác nhận cọc** có ô Mã giao dịch, để cột Chờ đối soát có số (liên quan ESC-039). | BUG-R3-025 | FE-A → UXD, QA |
+| V5-52 | Folio ở Trả phòng: dòng miễn bị từ chối không hiện số âm. | BUG-R3-030 | FE-A → UXD |
+| V5-53 | Giữ chỗ không hiện nút link check-in online. Máy chưa cấp quyền: khóa nút **Nhập nơi nhận hoàn**, ghi đúng lý do. | BUG-R3-047, 048 | FE-A → UXD, SEC |
+| V5-54 | SĐT nước ngoài hiện đúng nhóm số. Khách web 5 ngôn ngữ nên gặp hằng ngày. | BUG-R3-049 | FE-A → QA |
+| V5-55 | Yêu cầu web quá hạn ghi rõ "quá hạn", không chỉ đổi màu viền. | BUG-R3-054 | UXD → FE-A |
+| V5-56 | QA tái hiện trên v1.0.4: OWN không thấy **Xóa theo yêu cầu người gửi** ở yêu cầu đã đóng. Tái hiện được thì sửa (nâng P1 nếu OWN không có nút). Không tái hiện được thì đóng, ghi lý do. | BUG-R3-056 (P2) | QA → FE-A → SEC |
+| V5-57 | Tìm đơn theo tên khách. | BUG-R2-077 | ARC (API) → BE + FE-A |
+| V5-58 | Ô nhập Wi-Fi trên Desk. Release notes v1.0.0 đã hẹn v1.0.4 hoặc v1.0.5. Check-in online đã mở lại nên trang khách cần số đúng. | BUG-R3-021 phần Desk (P2) | ARC → BE + FE-A → SEC, UXD |
+| V5-59 | Nút phát sinh ở bước Phụ phí chọn sẵn khoản. Dòng giữ chỗ sắp hết hạn ở **Cần chú ý** có mã đơn. | BUG-R2-082, 217 | FE-A/BE → UXD, QA |
+| V5-5A | Trang khách: mở lại link giữa chừng không mất danh sách bổ sung, không 409. | BUG-R3-027 | MOB/FE-B → QA |
+| V5-19 | Desk S35 hiện cả **giá web khách đã thấy lúc gửi** ("từ – đến") và giá Desk tính lại (SEC 9.5 ca 4). Hợp đồng `atSubmit` chỉ đọc; số "đến" đã lưu trong DB. SEC 06/11: Minor, không bắt buộc ở v1.0.5, vì hiện mọi hạng trên production có các căn cùng giá nên số "đến" bằng số "từ". **Điều kiện kích hoạt:** phải lên trước khi hai căn cùng hạng có giá khác nhau trên production. | FB-R4-SEC-BE-03; SEC 9.5 ca 4 | ARC → BE → FE-A → SEC, UXD, QA |
+
+### Gói 6 – Vận hành, runbook, tài liệu (OPS, BA, PO)
+
+Bắt buộc: V5-60, V5-61, V5-62, V5-63, V5-65 (phần OR-03), V5-67, V5-70, V5-71, V5-72, V5-73. Phần còn lại nên có. SEC xếp V5-60 (OR-01, OR-02) là **Major**.
+
+| ID | Việc | Nguồn | Vai |
+|---|---|---|---|
+| V5-60 | **Bản sao lưu ngoài máy an toàn và tự động.**<ul><li>**Làm ngay (Gói 0), không chờ bản:** thêm `--ignore-existing` vào `pull-backups.sh`, để máy chủ bị chiếm không ghi đè được bản tốt trên máy nhận (FB-R4-SEC-OPS-OR-01, Major). Test: máy chủ giả đổi một tệp cũ thì tệp cục bộ giữ nguyên.</li><li>Tới khi tự động: ORC kéo tay ít nhất 2 ngày một lần. Lần gần nhất: 06/11 khoảng 19:00.</li><li>Tự kéo hằng ngày bằng launchd trên máy INV, **chỉ khi INV đồng ý** cài trên máy mình (`esc-pending-06-11.md` mục 3).</li><li>Điều kiện máy nhận theo FB-R4-SEC-OPS-OR-02 (Major): ping Healthchecks `ottimo-offsite` chỉ khi rc = 0 và bản mới nhất ≤ 36 giờ; URL ping không vào repo; thư mục nhận loại khỏi Time Machine và iCloud; khóa `age` không nằm cùng máy; FileVault bật.</li><li>OPS và BA chốt một ngưỡng báo (OPS 48 giờ, sổ vận hành 2.2 ghi 8 ngày) và sửa cả hai tài liệu.</li></ul>Không tốn tiền. | OR-H1; FB-R4-SEC-OPS-OR-01, OR-02; sổ vận hành 2.2 dòng 1 | OPS + INV (đồng ý) → SEC, ARC; BA |
+| V5-61 | **Diễn tập khôi phục** với bản sao lưu sau LP-v2 và image `sha-6414be25f20d`. SEC xếp **Major** (SR-BAK-05: mỗi round một lần; Round 4 chưa có). Làm ngay khi INV có 30 phút mở khóa `age`. Yêu cầu SEC:<ul><li>môi trường cách ly, không khôi phục vào staging dùng chung;</li><li>giải mã 1 ảnh mẫu bằng KEK;</li><li>áp lại `purge_journal` rồi chạy J16;</li><li>xóa dữ liệu khôi phục sau khi xong;</li><li>biên bản vào repo chỉ có số đếm.</li></ul>Thêm `ops-check drill`: quá 35 ngày thì FAIL (SEC đồng ý 35 ngày). Sửa sổ vận hành 2.2 (đang ghi hằng quý) cho khớp. | OR-M1; sổ vận hành 2.2 dòng 4 | OPS + INV → SEC, QC; BA |
+| V5-62 | Thêm lượt sao lưu 14:00 (ARC chọn (a); SEC đồng ý), cùng mã hóa `age`, cùng chủ và quyền. Vòng xoay tính theo tuổi: mọi bản ≤ 35 ngày. RPO thật còn 12 giờ. Sửa `hosting-plan.md`; SEC sửa SR-BAK-01 khi bản lên. INV xác nhận "RPO 12 giờ" thay giả định 15 phút (`esc-pending-06-11.md` mục 3). | OR-M2 | ARC → OPS → SEC |
+| V5-63 | Giữ log qua lần dựng lại container, **trần cứng 90 ngày**. Tệp hoặc journal không cho mọi user đọc. Giữ nguyên cách che hiện có. Không đưa log vào bản sao lưu ngoài máy. SEC nghiêng về driver `journald` + `MaxRetentionSec=90day`; ARC chọn. | OR-M3; FB-R4-SEC-OPS-OR-04 | ARC → OPS → SEC |
+| V5-64 | Runbook "VPS mới" một trang: thứ tự bootstrap, khóa từ bản ngoại tuyến, `.env` từ mẫu, khôi phục, edge, DNS. Chỉ viết, chưa diễn tập (diễn tập tốn tiền, xem B-OPS). | OR-M4 | OPS → ARC, SEC |
+| V5-65 | Dọn nhỏ:<ul><li>**gỡ khóa `ottimo-ops` khỏi user `ottimo`** ở cửa sổ bảo trì đầu tiên (kiểm trước vẫn vào được `ottimo-admin`); `ops-check` thêm mục `sshkeys`; README bootstrap ghi rõ khóa `--deploy-key` chỉ dùng lúc dựng máy (OR-L4, FB-R4-SEC-OPS-OR-03, bắt buộc);</li><li>`ops-check` báo tên khóa `.env` trùng, chỉ tên (OR-L1);</li><li>mask `fwupd` (OR-L2);</li><li>lần sửa `.env` staging tới: làm rỗng `TEST_SUPPORT_ALLOW_IPS`, chỉ giữ bản `env.before-*` mới nhất (OPS sẵn sàng vận hành mục 9; SEC đồng ý).</li></ul> | OR-L1, L2, L4; FB-R4-SEC-OPS-OR-03; OPS mục 9 | OPS → SEC |
+| V5-66 | Landing staging tự xử lý các bước dựng lần đầu (README 12.3 đề xuất (a)–(f)):<ul><li>`deploy-landing.sh` báo khóa thiếu và dừng nếu edge chưa biết host;</li><li>`edge.sh` kiểm quyền ghi;</li><li>smoke đếm lỗi ACME;</li><li>`publish-privacy-notice.sh` dừng sớm nếu không đọc được mật khẩu xem trước, và tạo log đúng chủ;</li><li>OR-L3: đưa `privacy-notice.log` staging về `ottimo:ottimo 0600`. SEC cho sửa tay một lần ngay; không xóa, không cắt nội dung;</li><li>`--rollback-to` chỉ cho staging.</li></ul> | README 12.3 (a)–(f), OR-L3 | OPS → ARC, SEC |
+| V5-67 | **Không chuyển header `Authorization` tới api:** thêm `header_up -Authorization` trong `(public_api)` cho **cả staging và production**. Commit riêng, kèm ca CI cho 3 route và hai snippet. Kiểm một lần trên staging qua edge thật. SEC duyệt 06/11 (FB-R4-SEC-OPS-054-01).<br>Phương án A+ cho BUG-R4-054 **không làm ở v1.0.5** (quyết định PO, mục 6). Thử form trên staging tiếp tục bằng công cụ chèn header (README 12.3). | FB-R4-SEC-OPS-054-01; `rounds/round-04/reviews/SEC-on-bug-r4-054.md` | OPS → SEC, ARC |
+| V5-68 | Lượt kiểm 30 phút báo khi tin Google Chat không gửi được ("chat dead"). | Sổ vận hành 2.2 dòng 2 | OPS + BE-D → SEC |
+| V5-69 | Nhắc hạn tên miền, máy chủ, Google Workspace **trước 30 ngày** vào phòng Báo động. Ngày hết hạn do INV cung cấp, lưu trên máy chủ, không vào repo. | Sổ vận hành 2.2 dòng 3 | OPS → SEC; INV cho ngày |
+| V5-70 | **Runbook v1.0.5, dùng làm mẫu cho các bản bảo trì sau:**<ul><li>M4d;</li><li>số M4a ghi rõ là tương đương P2 (RB2-04);</li><li>câu đếm "giới hạn đã biết" có lọc đúng (RB2-05);</li><li>phần quay lui kể cả các biện pháp bảo vệ bị mất (SEC-OPS-RB-03);</li><li>gộp ý còn giá trị của các thẻ runbook bản cũ đã đóng ở phụ lục C.</li></ul> | FB-R4-ARC-OPS-RB2-04, 05; FB-R4-SEC-OPS-RB-03; decision-log (j) | OPS → ARC, SEC, QC |
+| V5-71 | **Sổ tay và hướng dẫn cho v1.0.5:**<ul><li>bỏ các cách làm tạm hết cần khi bản lên;</li><li>dọn sau #69 (PR69-02/04);</li><li>sửa `so-van-hanh` 4.2 và 5.4 về "ô giá OTA nền" cho khớp V5-21;</li><li>sổ tay lễ tân: số trên yêu cầu web là giá thấp nhất của hạng lúc khách gửi; báo giá thật làm trên Desk theo từng căn (Suggestion của SEC ở `SEC-on-lp-v2-s6d.md`).</li></ul> | FB-R4-SEC-BA-PR69-02, FB-R4-PO-BA-PR69-04, mục 6, SEC S6d mục 9 | BA → DOM, UXD, SEC |
+| V5-73 | **`pricegap` có thêm phần kiểm tĩnh** (FB-R4-SEC-OPS-S6D-01, Minor). SQL READ ONLY qua `psql_ro`, chỉ trả một số đếm, không trả id. Đếm các căn đang bán, có nhãn hạng, `active_from <= hôm nay + 365`, chưa ngừng, mà không có dòng giá nào `effective_from <= greatest(active_from, hôm nay)`. Kết quả phải là 0. Cửa sổ 365 ngày theo SEC, để bắt cả căn sắp hoạt động mà chưa có giá. FAIL khi phần log **hoặc** phần tĩnh > 0; tin chỉ nêu số căn. Thêm 2 ca vào `ops-check-price.test.sh`.<br>Làm ngay, không chờ bản:<ul><li>ORC chạy truy vấn này một lần bằng `SQLRO` trên production và staging, ghi số đếm vào biên bản;</li><li>OPS sửa câu README `infra/server` dòng 120 "nhất là sau khi nhập lại bảng giá 01/11" thành "thường do dữ liệu khởi tạo hoặc sửa thẳng DB: OWN nhập giá cho căn đó trên Desk, OPS tìm nguồn".</li></ul> | QA S6d; FB-R4-SEC-OPS-S6D-01 | OPS (+ ORC chạy một lần) → SEC, QA |
+| V5-72 | Release notes v1.0.5 bằng ngôn ngữ người dùng. Mỗi mục "Chưa có" có đích. Rà các bảng "Chưa có" của v1.0.0–v1.0.3 còn hứa v1.0.5. | PO | PO → BA, DOM |
+
+### Thứ tự và lịch đề xuất
+
+| Ngày | Việc |
+|---|---|
+| 07–08/11 | Gói 0. ARC chốt hợp đồng 0.3.13. DOM chốt luật V5-11, V5-16, V5-30, V5-31, và sửa từ điển cùng BR-101 (5) (V5-1A). OPS sửa câu README dòng 120 và thêm `--ignore-existing` (V5-73, V5-60). ORC chạy truy vấn tĩnh `pricegap` một lần (V5-73). Diễn tập khôi phục ngay khi INV có 30 phút (V5-61). |
+| 09–14/11 | Sản xuất Gói 1–4, Gói 6 bắt buộc. Gói 5 nếu còn người. |
+| 15–16/11 | Review chéo, Phản hồi & sửa. |
+| 17–18/11 | QA trên staging, gồm ca giờ thật 00:00–05:59 và ca trả phòng 06:00. |
+| 19/11 | QC rút gọn. |
+| 20/11 | Review định kỳ đầu tiên. INV xem kết quả QC, các việc chờ quyết (`esc-pending-06-11.md`) và backlog. INV đồng ý hoặc không cho production. |
+| 20–21/11 | Production nếu INV đồng ý. Dự phòng tới 25/11, trước hạn H2 01/12. |
+
+Đội làm ngay phần bắt buộc vì đây là lỗi và việc đã hẹn, không đổi chính sách. Ở buổi 20/11, mục nào INV muốn bỏ thì rút ra trước khi cắt bản.
+
+## 3. Vai trong Round 5
+
+| Vai | Việc chính |
+|---|---|
+| ORC | Giao việc theo mục 2. V5-03 (cùng QA). Script gọi API đổi giá luôn gửi đủ hai giá (V5-1A). Tổ chức review 20/11. Commit sau mỗi bước. |
+| PO | V5-01, V5-06, V5-72. Chốt phạm vi trong round. Nhận và trả lời thẻ review. Chuẩn bị nội dung review 20/11. |
+| ARC | Hợp đồng 0.3.13 (V5-10, 13, 14, 15, 18, 19, 1A, 22, 30, 44, 46, 50, 57, 58). Duyệt V5-62, V5-63. Review kỹ thuật mọi PR. |
+| DOM | Luật cho V5-11, 16, 30, 31. Sửa từ điển và BR-101 (5) ở V5-1A ngay trong Gói 0. Review chữ tiền và giá. |
+| BE (A/B/C/D) | Gói 1, 3, 4. V5-57, 58, 68 phần máy chủ. |
+| FE-A (Desk) | Gói 1, 2, 5 phần Desk. |
+| FE-B, MOB | V5-13, 15, 18, 24, 46, 5A. App nhân viên cho V5-15. |
+| UXD, CPY | Gói 2. Chữ cho Gói 1 và 5. V5-04, V5-47. Mọi đầu ra theo brand guideline OTTIMO. |
+| INT | V5-41. |
+| DATA | V5-07, V5-17. |
+| SEC | Duyệt V5-16, 19, 30, 40–47, 60–69, 73. Đóng thẻ V5-05. Theo dõi các thẻ SEC-OPS ngày 06/11 (OR-01…04, 054-01, S6D-01). |
+| OPS | Gói 6 (V5-60 tới V5-70, V5-73). Sửa câu README dòng 120 ngay trong Gói 0. |
+| BA | V5-08, V5-71. Chữ sổ tay đi kèm từng mục. |
+| QA | V5-02, V5-03, V5-04 (C2-39), V5-56. Test case cho mọi mục (a). Hồi quy tiền ở quầy. Kiểm trên staging. |
+| QC | Cổng rút gọn v1.0.5 theo mục 4. |
+
+## 4. Tiêu chí QC v1.0.5 (cổng rút gọn)
+
+QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điều:
+
+1. **Phạm vi bắt buộc:** Gói 0–4 và phần bắt buộc của Gói 6 Done. Nếu dời, phải có dòng decision-log của PO + ORC kèm lý do. **Riêng V5-30 không được dời quá 01/12.** Gói 5 không chặn.
+2. **Lỗi:** 0 P0/P1 mở. P2 mới chỉ được mở khi có cách làm tạm trong release notes. Mọi lỗi đã sửa ở v1.0.4 đã chuyển Closed (V5-02).
+3. **Review chéo:**
+   - mỗi đầu ra có ít nhất 2 vai khác review theo ma trận;
+   - mục tiền và giá có DOM;
+   - mục bảo mật và dữ liệu khách có SEC;
+   - chữ có UXD, chữ hướng khách có thêm CPY;
+   - Blocker và Major đóng hết.
+4. **CI và bản dựng:** CI xanh gồm E2E smoke. Production lên đúng digest đã kiểm trên staging, không có commit mã sau tag.
+5. **Tiền:**
+   - oracle tính thử bằng ghi thật ở BR-428, BR-103, BR-105;
+   - ca sau nửa đêm chạy bằng giờ thật hoặc đồng hồ stack có ghi rõ;
+   - web bằng Desk ở 4 ca mẫu như F2 (0 VND lệch);
+   - Tổng cộng, Còn phải thu, VietQR cùng một số ở mọi ca trả phòng.
+6. **Kiểm thử:** mỗi mục (a) có test case và kết quả. Hồi quy luồng quầy: nhận phòng, trả phòng, trả sớm, giữ chỗ, hoàn tiền, đổi phòng. Smoke staging đạt.
+7. **Bí mật và dữ liệu:**
+   - không số hoa hồng, không dữ liệu cá nhân khách, không bí mật trong repo, PR, test, ảnh;
+   - CI `confidential-paths` xanh;
+   - ảnh mới (C1-07, C1-22, C2-39) qua kiểm che dữ liệu;
+   - SEC ký.
+8. **Migration và quay lui:**
+   - migration (nếu có) đi tiến, có đường lùi;
+   - runbook v1.0.5 có M4d và phần quay lui kể cả biện pháp bảo vệ bị mất;
+   - đã diễn tập trên staging.
+9. **Sao lưu:** trước khi lên production có bản sao lưu ngoài máy mới trong 24 giờ, kéo bằng `pull-backups.sh` đã có `--ignore-existing`. Diễn tập khôi phục Round 5 (V5-61) đạt theo yêu cầu SEC.
+10. **Tài liệu:**
+    - release notes v1.0.5;
+    - sổ tay và hướng dẫn bỏ các cách làm tạm đã hết cần;
+    - sổ tay HTML dựng lại;
+    - chữ hướng khách theo brand guideline OTTIMO.
+11. **Không đổi chính sách:** không mục nào đổi giá, cọc, hoàn, hủy so với quyết định của INV. Tham số giá trên production không bị đội đổi.
+12. **INV đồng ý** trước production. QC không duyệt deploy.
+
+## 5. Rủi ro
+
+| Rủi ro | Cách giảm |
+|---|---|
+| V5-10, V5-11 đụng giờ nghiệp vụ sau nửa đêm, khó kiểm | ARC chốt luật một chỗ (`businessDay` + `rollover`). QA chạy ca giờ thật trên staging trước QC. |
+| H2 trễ quá 01/12 | Quy tắc tách bản 25/11 (Gói 3). |
+| Tham số production còn lệch sổ tay (INV chưa làm B2–B11), Desk và web ra số lai | Đội không sửa thay. Nhắc trong `esc-pending-06-11.md` mục 3 và ở review 20/11. QA kiểm v1.0.5 với tham số đang chạy, như S6c. |
+| Đội nhỏ, phạm vi rộng | Gói 5 tự rơi sang v1.0.6. PO cắt thêm nếu tới 14/11 Gói 1–4 chưa xong 70 %. |
+| INV chưa đồng ý cài lịch kéo sao lưu trên máy mình | ORC kéo tay ít nhất 2 ngày một lần, với `pull-backups.sh` đã có `--ignore-existing`. QC điều 9 vẫn đòi bản ngoài máy ≤ 24 giờ trước production. |
+| INV không có mặt tới 20/11 | Không có việc nào trong v1.0.5 cần INV trả lời trước 20/11. Chỉ V5-61 cần INV khoảng 30 phút, có thể dời ngay sau 20/11; khi đó production cũng dời theo. |
+
+## 6. Quyết định PO trong phạm vi round (ghi decision-log)
+
+1. **`ota_base_rate`: không làm trình nhập theo nhóm căn ở v1.0.5.** Chỉ hiện tên và câu "Không cần nhập" (V5-21).
+   - Lý do:
+     - từ v1.0.4 (#73), đơn OTA để trống giá đã lấy giá đêm niêm yết;
+     - INV chốt một mức giá cho mọi kênh (ESC-045);
+     - từ điển ghi "Không cần dòng này";
+     - DOM H6 sẽ gỡ khóa này ở v1.1, nên làm trình nhập bây giờ là việc bỏ đi sau.
+   - INV xác nhận ở review 20/11. Nếu INV vẫn muốn nhập giá OTA riêng thì đó là đổi chính sách "một mức giá" và cần ESC.
+2. **v1.0.5 gồm Gói 0–6 theo thứ tự ở mục 2.** Gói 5 không chặn QC. Các mục khác vào backlog cải tiến (phụ lục) để INV chọn ở review định kỳ.
+3. **Chạy ESC-035, 037, 038 theo đề xuất như giả định.** Giữ "Chờ INV" cho ESC-032, 033, 039, 046, 047 (bảng `esc-pending-06-11.md`).
+4. **A+ của BUG-R4-054 không vào v1.0.5.** Lý do:
+   - đây là tiện ích cho lượt thử form trên staging, không phải lỗi production;
+   - SEC chỉ duyệt kèm 5 điều kiện, trong đó có một Major (cửa sổ tự đóng);
+   - cách C của README 12.3 đã đủ cho lượt thử thỉnh thoảng.
+
+   Phần bảo mật đi kèm (`header_up -Authorization`, 054-01) vẫn làm ở V5-67.
+5. **V5-19 (Desk "từ – đến") chuyển sang Gói 5.** ORC giao đưa vào v1.0.5. Sau đó SEC kết luận Minor, không bắt buộc ở v1.0.5, vì mọi hạng trên production đang có các căn cùng giá. PO giữ mục này trong v1.0.5 ở mức "nên có", kèm điều kiện kích hoạt: phải lên trước khi INV đặt hai căn cùng hạng khác giá. Điều này đã ghi cho INV ở `esc-pending-06-11.md` mục 3.
+
+## 7. Tổng hợp xếp loại (đếm từ phụ lục)
+
+Đếm bằng script trên các bảng A–G của phụ lục. Mỗi mã ở cột đầu là một mục. Dòng ghi "đã đếm ở…" và mã trùng giữa các mục không đếm lại.
+
+| Nguồn | (a) v1.0.5 | (b) backlog | (c) đóng |
+|---|---|---|---|
+| A. Lỗi R1–R4 và ghi nhận có gợi ý | 34 | 25 | 64 |
+| B. Backlog (story, 5.6, 5.6b) | 6 | 106 (gồm 89 story) | 73 |
+| C. Thẻ Minor R4 (111 thẻ; EM-09 đã đếm ở B) | 19 | 27 | 64 |
+| D. Việc đã hẹn ở decision-log, release notes, DOM H-list | 32 | 28 | 3 |
+| E. Việc ngày 06/11 | 5 | 1 | 4 |
+| F. Vận hành (OPS, SEC 06/11 tối) và sổ vận hành (BA) | 29 | 14 | 6 |
+| G. Tham số lệch sổ tay | 1 | 2 | 10 |
+| **Tổng (553 mục)** | **126** | **203** | **224** |
+
+126 mục (a) được gom thành 59 việc V5-xx ở mục 2. Gói 5 có 12 việc (gồm V5-19) và không chặn QC; riêng V5-19 có điều kiện kích hoạt. Mục (c) "QA xác nhận" chỉ đóng hẳn khi QA chuyển Closed ở V5-02.
+
+---
+
+## Phụ lục – Xếp từng mục: (a) v1.0.5 · (b) backlog cải tiến · (c) đóng/bỏ
+
+Cách đọc: cột "Xếp" có đúng một nhãn. Với (a), cột cuối là mã việc V5-xx. Với (b), cột cuối là nhóm backlog (mục G). Với (c), cột cuối là lý do. Dòng có nhiều mã thì mỗi mã là một mục. Trạng thái lấy theo bằng chứng trong repo tới 06/11 tối (bug list, phản hồi, review lượt sau, decision-log, plan v1.0.4). Mục ghi "(c) … QA xác nhận" đóng khi QA chuyển Closed ở V5-02.
+
+### A. Lỗi còn mở
+
+#### A1. Round 4 – `rounds/round-04/qa/bug-list.md`
+
+| Mã | P | Nội dung | Xếp | Mục / lý do |
+|---|---|---|---|---|
+| BUG-R4-010 | P3 | Sổ tay chưa có cách trả lời khách ko/zh/ru | (c) | `02-le-tan` 13.1d đã có; QA xác nhận |
+| BUG-R4-011 | P2 | Tạo nhanh hồ sơ từ yêu cầu Zalo bị 422 | (c) | Sửa ở LP-v2, đã lên 06/11; đóng khi P10 trên Desk đạt (V5-03) |
+| BUG-R4-012 | P3 | Hồ sơ tạo nhanh lưu quốc tịch VN | (c) | Như BUG-R4-011 |
+| BUG-R4-015 | P3 | Hủy giá hẹn đầu tiên làm căn mất giá | (c) | Sửa ở v1.0.4 (V4-08); QA xác nhận |
+| BUG-R4-017 | P3 | Font chữ Nga bị CSP chặn | (a) | V5-24 |
+| BUG-R4-020 | P3 | Desk chưa có Đặt lại xác thực 2 bước | (c) | Có ở v1.0.4; QA xác nhận |
+| BUG-R4-023 | P3 | Email ngắt giữa chữ ở 1440 px | (c) | Sửa ở v1.0.4; chụp lại C1-07, C1-22 (V5-04) rồi QA đóng |
+| BUG-R4-024 | P3 | Hộp S2 chỉ có ô mật khẩu báo sai câu | (c) | Sửa ở v1.0.4; QA xác nhận |
+| BUG-R4-025 | P3 | Release notes v1.0.2 hứa sai về B18 | (c) | PO sửa 04/11; phần BR-428 và chữ Desk vào v1.0.4; QA xác nhận |
+| BUG-R4-026 | P3 | Mã thô `overpayment` ở cột Lý do | (c) | Sửa ở v1.0.4 (P4-41); QA xác nhận |
+| BUG-R4-054 | P3 | Basic auth staging chặn form | (b) | B-OPS. SEC duyệt A+ có điều kiện (054-02…05), nhưng PO không đưa vào v1.0.5 (mục 6). Tới khi làm: thử form staging bằng cách C của README 12.3. Phần bảo mật đi kèm (054-01) ở V5-67 |
+| BUG-R4-056 | P3 | Kịch bản thử SEC 9.5 ca 10 sai giả định (tài liệu thử) | (c) | QA sửa S6b.3; SEC sửa câu ca 10 ở 9.5 và chấp nhận bằng chứng thay thế 06/11 (`SEC-on-lp-v2-s6d.md` mục 7). QA chuyển Closed (V5-03) |
+| BUG-R4-057 | P3 | API tự tính giá đêm = giá tháng ÷ 12 khi không gửi giá đêm, không cảnh báo | (a) | V5-1A (Desk không đi đường này) |
+
+#### A2. Round 4 – `rounds/round-04/qa/bug-list-v1.0.4.md`
+
+| Mã | P | Nội dung | Xếp | Mục / lý do |
+|---|---|---|---|---|
+| BUG-R4-036 | P2 | Không có nút Trả phòng lúc 00:00–05:59 | (a) | V5-10 |
+| BUG-R4-040 | P3 | Câu sàn–trần hiện `{min}`, `{max}` | (a) | V5-22 |
+| BUG-R4-041 | P2 | Giữ chỗ bỏ giá đã gõ (phần còn lại) | (a) | V5-14 (phần khóa nút đã có ở v1.0.4) |
+| BUG-R4-043 | P2 | Cờ `is_complimentary` theo kênh | (a) | V5-17 |
+| BUG-R4-051 | P2 | Giờ gõ trước 06:00 bị đọc là sáng hôm sau | (a) | V5-10 |
+| BUG-R4-052 | P3 | Tổng cộng chưa gồm đêm thêm | (a) | V5-12 |
+| BUG-R4-032 | P2 | Sổ tay thiếu đường Đặt lại 2 bước | (c) | #63 và #69 đã gộp; QA xác nhận số bản sổ tay |
+| BUG-R4-029, BUG-R4-030, BUG-R4-031, BUG-R4-033, BUG-R4-034, BUG-R4-035, BUG-R4-037, BUG-R4-038, BUG-R4-039, BUG-R4-042, BUG-R4-044, BUG-R4-045, BUG-R4-046, BUG-R4-047, BUG-R4-048, BUG-R4-049, BUG-R4-050, BUG-R4-053 | P0–P3 | Đã gộp `main`, có trong `sha-6414be25f20d` trên production; bug list còn ghi "đã gộp / chờ staging" | (c) | QC v1.0.4 ĐẠT CÓ ĐIỀU KIỆN; QA xác nhận và chuyển Closed (V5-02). Riêng BUG-R4-035, 039: QC v1.0.4 còn ghi P1 mở, QA kiểm lại trên production |
+
+#### A3. Round 3 – `rounds/round-03/qa/bug-list.md`
+
+| Mã | P | Nội dung | Xếp | Mục / lý do |
+|---|---|---|---|---|
+| BUG-R3-016 | P3 | Báo giá khách đến hôm nay không chuyển thành đơn | (b) | B-QUAY. Có cách làm: lễ tân nhập lại |
+| BUG-R3-018 (phần 1) | P2 | Danh sách giá hẹn và nút hủy | (c) | Có ở v1.0.2 |
+| BUG-R3-021 (phần Desk) | P2 | Không có ô nhập Wi-Fi trên Desk | (a) | V5-58 |
+| BUG-R3-023 (phần lọc) | P2 | Đổi phòng liệt kê căn chưa dọn | (a) | V5-50 |
+| BUG-R3-024 | P3 | Trang trả phòng mở trước ngày đi, ghi trùng minibar | (c) | Vào v1.0.4 (gói (5)); QA xác nhận |
+| BUG-R3-025 | P3 | Xác nhận cọc thiếu ô Mã giao dịch | (a) | V5-51 |
+| BUG-R3-026 | P3 | App nhân viên thiếu loại sự cố "Tắc thoát nước", "Wi-Fi" | (b) | B-QUAY. Có loại "Khác" |
+| BUG-R3-027 | P3 | Trang khách mở lại link mất danh sách bổ sung | (a) | V5-5A (check-in online mở lại 06/11) |
+| BUG-R3-028 | P3 | Chữ lộ "Round 3", nhãn sai, hạn báo giá 00:00 / 23:59 | (a) | V5-23 |
+| BUG-R3-029 | P3 | App nhân viên hiện hai câu 2 bước trái nhau | (c) | v1.0.4 có đăng nhập 2 bước trên app nhân viên (ARC-RN103-02); QA xác nhận, còn lỗi thì mở lại |
+| BUG-R3-030 | P3 | Dòng miễn bị từ chối hiện số âm | (a) | V5-52 |
+| BUG-R3-031 | P3 | Nút Hoàn tác nhận phòng mở khi folio có dòng mới | (b) | B-QUAY. Máy chủ chặn đúng (409) |
+| BUG-R3-032 | P1 | (lỗi P1 của v1.0.3) | (c) | Sửa ở v1.0.3 |
+| BUG-R3-034 | P3 | Mục "tiền dư đơn đã đóng" còn tới khi đóng folio | (b) | B-QUAY |
+| BUG-R3-035 | P3 | Phiếu ghi "Phụ thu trả muộn (00:15)" cho khoản bằng 1 đêm | (a) | V5-23 |
+| BUG-R3-036 | P3 | Phí hủy, phí không đến 00:00–05:59 mang ngày lịch | (a) | V5-11 |
+| BUG-R3-040 | P3 | Bản ghi audit bootstrap thiếu trường | (c) | Chỉ ghi nhận; nhật ký chỉ ghi thêm; không lặp lại từ v1.0.0 |
+| BUG-R3-041, BUG-R3-042, BUG-R3-043, BUG-R3-044, BUG-R3-045, BUG-R3-046, BUG-R3-052, BUG-R3-053 | P1–P3 | Nhóm giữ chỗ quá hạn, chữ, app | (c) | Vào v1.0.4 (backlog 5.6, plan v1.0.4); QA xác nhận |
+| BUG-R3-047 | P3 | Giữ chỗ hiện nút link check-in online | (a) | V5-53 |
+| BUG-R3-048 | P3 | Máy chưa cấp quyền: toast sai lý do | (a) | V5-53 |
+| BUG-R3-049 | P3 | SĐT nước ngoài sai nhóm số | (a) | V5-54 |
+| BUG-R3-050 | P3 | Hồ sơ tạo nhanh từ yêu cầu EN | (c) | Đã tách thành BUG-R4-011, 012 (đã sửa) |
+| BUG-R3-051 | P3 | Banner công tắc ghi "mở chat Zalo" khi landing đã có form | (a) | V5-23 |
+| BUG-R3-054 | P3 | Yêu cầu web quá hạn chỉ đổi màu | (a) | V5-55 |
+| BUG-R3-055 | P3 | Sau xóa theo yêu cầu, ghi sai lý do "theo hạn lưu" | (a) | V5-23 |
+| BUG-R3-056 | P2 | INV không thấy Xóa theo yêu cầu người gửi | (a) | V5-56 |
+
+#### A4. Round 2 – `rounds/round-02/qa/bug-list.md`
+
+| Mã | P | Nội dung | Xếp | Mục / lý do |
+|---|---|---|---|---|
+| BUG-R2-074 | P2 | Ô Ngân hàng nhận chỉ nhận mã BIN | (b) | B-TIEN, v1.1 (cần danh sách ngân hàng VietQR) |
+| BUG-R2-099 | P3 | Hiện mã BIN thay tên ngân hàng | (b) | B-TIEN, cùng gốc 074 |
+| BUG-R2-123 | P3 | `move-preview` thiếu `overbookingResolution` | (b) | B-TIEN, v1.1 lượt tiền phần 2 |
+| BUG-R2-075 | P3 | Ô "Khách đứng tên" đỏ sai sau Tạo nhanh khách | (b) | B-QUAY. Vẫn tạo đơn được |
+| BUG-R2-077 | P3 | Không tìm đơn theo tên khách | (a) | V5-57 |
+| BUG-R2-079 | P3 | Phím Esc không đóng khung chi tiết | (b) | B-QUAY |
+| BUG-R2-082 | P3 | Nút phát sinh chưa chọn sẵn khoản | (a) | V5-59 |
+| BUG-R2-086 | P3 | Chip đè nút "Ẩn số" | (b) | B-QUAY |
+| BUG-R2-092 | P3 | Dòng đỏ giờ nhận không tự mất | (b) | B-QUAY |
+| BUG-R2-094 | P3 | Ô tìm người đi cùng mang nhãn "Khách đứng tên" | (a) | V5-23 |
+| BUG-R2-096 | P3 | Câu "phí phạt" hiện cho mọi khoản | (a) | V5-23 |
+| BUG-R2-098 | P3 | Hộp mật khẩu ghi "xem giấy tờ" khi xem số tài khoản | (a) | V5-23 |
+| BUG-R2-100 | P3 | Cột Lý do hiện mã thô | (a) | V5-23 |
+| BUG-R2-214 | P3 | Chip "Cần nhập thông tin" đè ở H13 | (b) | B-QUAY |
+| BUG-R2-215 | P3 | PWA còn việc minibar dưới "Khách đang ở" sau trả phòng | (b) | B-QUAY |
+| BUG-R2-217 | P3 | Dòng giữ chỗ sắp hết hạn thiếu mã đơn | (a) | V5-59 |
+| BUG-R2-218 | P3 | Trang khách ghi "ngôn ngữ theo trình duyệt" sai | (a) | V5-23 |
+| BUG-R2-220 | P3 | Tìm thứ Sáu 1 đêm cho báo giá rồi mới báo tối thiểu 2 đêm | (b) | B-QUAY. UXD xem có cố ý không |
+| BUG-R2-221, BUG-R2-222 | P3 | Lỗi của bộ test trên staging | (b) | B-KYTHUAT. Không gắn bản; QA sửa khi cần |
+| BUG-R2-097, BUG-R2-103, BUG-R2-216, BUG-R2-219 | P3 | Hiển thị tiền | (c) | Vào v1.0.4; QA xác nhận |
+
+#### A5. Round 1 – `rounds/round-01/qa/bug-list.md`
+
+| Mã | Xếp | Lý do |
+|---|---|---|
+| BUG-R1-010, BUG-R1-014, BUG-R1-015, BUG-R1-016, BUG-R1-017, BUG-R1-020, BUG-R1-021, BUG-R1-022, BUG-R1-023, BUG-R1-SEC-06, BUG-R1-SEC-07, BUG-R1-SEC-08, BUG-R1-SEC-10, BUG-R1-SEC-11 | (c) | Đã xử lý ở Round 2–3: kế hoạch R2 W1, W4, W5, W6, W11, W15–W18; decision-log 16/10; hợp đồng, CI và test case R3. Bug list R1 chưa được cập nhật. QA chuyển Closed (V5-02) |
+
+#### A6. Ghi nhận có gợi ý trong bug list R4 (không phải lỗi)
+
+Chỉ liệt kê ghi nhận có đề xuất việc làm. Ghi nhận "đúng thiết kế" không có việc nên không liệt kê.
+
+| Mã | Nguồn | Nội dung | Xếp | Mục / lý do |
+|---|---|---|---|---|
+| GN-R4-publicRoomType | `bug-list.md` mục 3 | Máy chủ chưa kiểm danh sách `publicRoomType` (Desk đã khóa bằng danh sách; chỉ OWN gọi được) | (b) | B-KYTHUAT |
+| GN-R4-mock-phone | `bug-list.md` mục 3 | Ảnh FE `lp-v2-fe2-*` dùng SĐT mock đúng dạng số thật | (b) | B-KYTHUAT. FE đổi sang dải `+84 900 000 xxx` khi chụp lại |
+| GN-R4-notice-log-indent | `bug-list.md` mục 3 | Dòng NOTICE thứ 2 trở đi trong `privacy-notice.log` không thụt lề | (c) | Thẩm mỹ, `deploy-landing` đọc đúng. OPS chỉnh nếu chạm tệp ở V5-66 |
+| GN-R4-quote-locale-flicker | `bug-list.md` mục 3 | Mở lại báo giá, Desk hiện tiếng Việt dưới 1 giây rồi mới đổi ngôn ngữ; bấm Sao chép ngay có thể chép nhầm bản | (b) | B-QUAY |
+| GN-R4-S35-1366 | `bug-list.md` mục 3 | Bảng S35 cuộn ngang ở 1366 px | (c) | Đã gộp vào BUG-R4-007 (phần cột đã sửa; phần còn lại ở B-SAU) |
+| GN-R4-early-clock | `bug-list.md` mục 3 (PR #22) | Hộp Trả sớm lấy giờ trình duyệt; sai khi E2E dùng đồng hồ giả | (b) | B-KYTHUAT. Production không gặp |
+| GN-R4-notice-0-days | `bug-list.md` mục 3 (PR #22) | Bill ghi "báo trước 0 ngày" thay vì "báo cùng ngày" | (b) | B-QUAY. UXD xem câu |
+| GN-R4-mfa-clock-reset | `bug-list.md` mục 3 (PR #31) | `/__test__/clock reset` chưa hạ `mfa_last_used_step` cho E2E | (b) | B-KYTHUAT |
+| GN-R4-email-break-1024 | `bug-list.md` mục 3 (PR #31) | Ngắt email giữa chữ ở 1024 px | (c) | Đã nâng thành BUG-R4-023 |
+| GN-V104-content-guide-1335 | `bug-list-v1.0.4.md` "Ghi chú" | Content guide còn câu cũ `rooms.night_auto` | (a) | V5-23 |
+| GN-V104-fo-tabs-holds | `bug-list-v1.0.4.md` "Ghi chú" | Khóa chữ `fo.tabs.holds` không còn dùng | (a) | V5-23 |
+| GN-V104-P4-32 | `bug-list-v1.0.4.md` "Ghi chú" | TC-V104-CO-03 N/A, dời v1.0.5 | (a) | V5-13 |
+| GN-V104-HD-27-SSE | `bug-list-v1.0.4.md` "Ghi nhận 06/11" | Chưa có test riêng cho sự kiện SSE `hold_overdue_cap` (BE thêm 1 assert) | (b) | B-KYTHUAT |
+| GN-V104-enter-submits | `bug-list-v1.0.4.md` #75 | Enter trong ô giá gửi form Tạo đơn ngay | (b) | B-QUAY. UXD cân nhắc |
+| GN-V104-QR-green-box | `bug-list-v1.0.4.md` #60 | Hộp xanh "Gửi mã QR" trên câu đỏ | (a) | V5-23 (đã đếm ở mục D) |
+
+### B. Backlog `03-backlog/backlog.md`
+
+#### B1. Story
+
+| Mã | Xếp | Lý do / nhóm |
+|---|---|---|
+| US-008, US-043, US-048, US-135, US-143, US-155 | (c) | Đã chạy trên production v1.0.x; bảng còn ghi "Mới" hoặc "Đang nghiệm thu". PO cập nhật (V5-06). Riêng US-135 AC3 → B-SAU (v1.1) |
+| US-131, US-174, US-175 | (c) | LP-v2 lên production 06/11 qua cổng QC và runbook LP-v2, giá web bật |
+| US-156 | (c) | Đã gộp vào US-174 |
+| US-095, US-096, US-099, US-128, US-141, US-145, US-164, US-165, US-166, US-167, US-168, US-169, US-170, US-171, US-172, US-173 | (b) | B-SAU, đích v1.1. Gồm channel manager (US-096) và chấm công EP20 (US-165–173, ESC-037) |
+| US-014, US-034, US-040, US-100, US-101, US-102, US-104, US-111, US-123, US-125, US-126, US-138, US-161, US-162 | (b) | B-SAU, đích v1.2. Gồm xuất báo cáo (US-104, cùng BUG-R4-007 phần xuất) và tin tự gửi (US-126) |
+| US-041, US-056, US-064, US-065, US-081, US-088, US-089, US-114, US-115, US-122, US-124, US-133, US-134, US-140 | (b) | B-SAU, đích v1.3. Gồm báo giá thuê tháng (US-081, H7) và nhắc tiền thuê (US-064, H8) |
+| US-009, US-013, US-015, US-033, US-051, US-058, US-059, US-060, US-063, US-067, US-068, US-069, US-070, US-074, US-075, US-076, US-077, US-078, US-079, US-090, US-091, US-092, US-093, US-094, US-097, US-098, US-103, US-105, US-113, US-116, US-117, US-118, US-121, US-127, US-129, US-130, US-132, US-137, US-144, US-157, US-158, US-159, US-160, US-163, US-176 | (b) | B-SAU, "R4+ xếp lại theo feedback". INV chọn ở review định kỳ |
+
+#### B2. Mục 5.6 – việc ngoài story
+
+| Mã | Xếp | Lý do / mục |
+|---|---|---|
+| ARC-RN103-02, FB-R4-SEC-ARC-EM-09, FB-R4-SEC-OPS-PR32-02, FB-R4-SEC-OPS-PR32-S1, FB-R4-ARC-OPS-PR30-09, FB-R4-SEC-OPS-PR32-S2, FB-R4-SEC-OPS-PR30-10, FB-R4-ARC-OPS-PR30-10, FB-R4-ARC-OPS-PR30-08, FB-R4-ARC-OPS-PR32-06, FB-R4-OPS-ARC-31-01, D1-digest, FB-R4-INT-BE-31-04, FB-R4-INT-BE-31-05, FB-R4-SEC-BE-018-01, FB-R4-SEC-BE-018-02, FB-R4-ARC-BE-018-03, FB-R4-ARC-BE-018-04, FB-R4-SEC-ARC-018-03, FB-R4-SEC-BE-018-04, FB-R4-CPY-INT-05, FB-R4-CPY-INT-03, FB-R4-UXD-FE-EM-07, FB-R4-UXD-FE-EM-13, FB-R4-UXD-FE-EM-14, FB-R4-UXD-FE-EM-15, V3-08, V3-09, V3-04, FB-R4-PO-DOM-PR25-01, FB-R4-SEC-DOM-01, FB-R4-SEC-OPS-01, FB-R4-DOM-BA-M18-08, FB-R4-QA-DOM-PR25-01, FB-R4-ARC-BE-PR24PM-01, FB-R4-ARC-BE-PR24PM-03, FB-R4-ARC-BE-PR24PM-04, FB-R4-SEC-OPS-PR33-S3, FB-R4-ARC-BA-M18-01, UXD-L1-font, GN-R4-QA-01, GN-R4-QA-03, RN025-02, BA-025-superseded, SEC-SENT-02, DOM-FE-A-01, DOM-BE-A-04, FB-R4-ARC-BE-A-ED-02, FB-R4-ARC-BE-PR29-01, FB-R4-SEC-BE-PN01-01, FB-R4-SEC-BE-PN01-02, FB-R4-SEC-BE-PN01-03, FB-R4-SEC-BE-PR24-03, ETag-6-gzip, US-131-AC1-AC3, US-157-AC1, FB-R4-DOM-BA-06 | (c) | Đã vào v1.0.4, LP-v2 hoặc v1.0.3 theo plan v1.0.4 (gói P4-xx) và plan LP-v2; QC các bản ĐẠT CÓ ĐIỀU KIỆN; đang chạy trên production. FB-R4-DOM-BA-06: sổ tay `02` đã có bước đóng phòng trên extranet |
+| FB-R4-SEC-BE-01, FB-R4-SEC-ORC-01 (G3) | (a) | V5-30 |
+| Hạn lưu ảnh giấy tờ 3 tháng | (a) | V5-45 |
+| Theo dõi 422 `ID_NUMBER_DETECTED` | (a) | V5-07 |
+| Chữ Desk "nằm ngoài khoảng" cho giá trị chữ | (a) | V5-21 |
+| FB-R4-ARC-BE-31-04 | (b) | B-KYTHUAT (Suggestion; v1.0.4 "nếu kịp") |
+| GN-R4-QA-02 | (b) | B-SAU, theo H9 / v1.3 |
+| FB-R4-DOM-BA-025-07 (ghi chú duyệt lúc khách ở) | (b) | B-QUAY, không bắt buộc |
+| SEC-SENT phần (4) | (b) | B-BAOMAT: điều kiện trước story thư cho khách (cùng FB-R4-SEC-PO-SENT-03) |
+| FB-R4-ARC-BE-A-ED-03 | (b) | B-TIEN, v1.1, trước khi B16 thêm luật HĐ tháng |
+| FZ-08 | (b) | B-TIEN, v1.1 lượt tiền phần 2 |
+| US-135 AC3 | (b) | B-SAU, v1.1 |
+| Critic Minor sau G1 | (b) | B-KYTHUAT. Không còn mục cụ thể mở; xem lại ở review |
+| Hộp Trả sớm 1440 × 900 | (b) | B-QUAY, theo dõi |
+| BUG-R2-210 | (c) | SEC Verified; QA chuyển Closed |
+| BUG-R4-001, BUG-R4-006, BUG-R4-007 (phần cột, lọc, đếm), BUG-R4-008 (câu Desk, ngôn ngữ vào hồ sơ), BUG-R4-009 | (c) | Đã sửa và đóng trong gói LP-v2 |
+| BUG-R4-007 (phần báo cáo, xuất) | (b) | B-SAU, cùng US-104 (v1.2) |
+| BUG-R4-008 (lưu riêng `ko`/`zh` trong hồ sơ) | (b) | B-KYTHUAT. Tra được từ yêu cầu liên kết |
+
+#### B3. Mục 5.6b
+
+| Mã | Xếp | Lý do / mục |
+|---|---|---|
+| FB-R4-SEC-BA-104-09 (b), G-ARC-NV-4 (`SECURITY_AUDITED_KEYS`) | (b) | B-PN: bắt buộc trước bản thông báo dữ liệu kế tiếp |
+| FB-R4-SEC-FE-P434-03, FB-R4-UXD-FE-P434-04, FB-R4-ARC-BE-C-P416-01, FB-R4-ARC-BE-C-P416-02 | (b) | B-KYTHUAT (Suggestion) |
+| Backlog 06/11: ô nhập `ota_base_rate` theo nhóm căn | (a) | V5-21, thu gọn (mục 6) |
+
+### C. Thẻ feedback Minor còn mở hoặc đã dời trong `rounds/round-04/reviews/`
+
+Danh sách lấy bằng script: thẻ Minor không có dấu xử lý ở chính thẻ hoặc ở dòng có mã thẻ. Có 111 thẻ. PO đã rà từng thẻ trong phản hồi, review lượt sau, báo cáo vai và decision-log. Nhiều thẻ đã xử lý nhưng tệp review chưa sửa dòng trạng thái; với những thẻ đó, cột lý do ghi nơi có bằng chứng.
+
+| Thẻ | Nội dung ngắn | Xếp | Mục / lý do |
+|---|---|---|---|
+| FB-R4-ARC-BE-018-02 | Câu báo cáo BE về `field` reauth | (c) | Chỉ là câu trong báo cáo của lỗi đã đóng (BUG-R4-018, 022); mã đúng |
+| FB-R4-ARC-FE-018-01 | Tên `field` của STRONG_REAUTH khác theo op | (c) | Done (`responses/FE-on-ARC-BUG-R4-018-022.md`) |
+| FB-R4-ARC-FE-LPV2-02 | Landing dùng kiểu hợp đồng viết tay | (b) | B-KYTHUAT |
+| FB-R4-ARC-FE-LPV2-03 | Xung đột chữ ngày khi gộp `main` vào `lp-v2` | (c) | LP-v2 đã gộp `main`, không còn hai nhánh |
+| FB-R4-ARC-FE-LPV2-04 | Chưa có Lighthouse CI | (b) | B-OPS |
+| FB-R4-ARC-ARC-LPV2-01 | Luật cho `@ottimo/contracts` | (c) | Done (`ARC-on-LP-v2-ops.md`) |
+| FB-R4-ARC-ARC-LPV2-02 | Ví dụ hợp đồng trái luật; quốc tịch NULL | (b) | B-KYTHUAT |
+| FB-R4-ARC-BE-LPV2-11 | SĐT `messagingHandles` thiếu `+` | (b) | B-KYTHUAT, ARC hẹn v1.1 |
+| FB-R4-ARC-DATA-LPV2-01 | Quốc tịch NULL làm `is_foreigner = false` trong chỉ số | (b) | B-DATA, trước báo cáo theo quốc tịch đầu tiên |
+| FB-R4-ARC-FE-LPV2-06 | Bản nháp cũ thay prefill từ yêu cầu web | (c) | Done (`outputs/FE/lp-v2-fe.md` 11.1) |
+| FB-R4-ARC-OPS-LPV2-02 | `turbo dev` thiếu build gói | (c) | Done, ARC đóng (K16) |
+| FB-R4-ARC-UXD-LPV2-01 | Sửa tay JSON chữ sinh ra | (c) | Done (CI "Copy is generated") |
+| FB-R4-ARC-OPS-PR23-03 | Dạng dòng log mới | (c) | OPS xong ở PR #26, README ở PR #24 |
+| FB-R4-ARC-BE-PR24PM-02 | Bước xóa ngày nuốt số viết từng cặp | (c) | ARC ĐẠT (P4-14 giai đoạn A) |
+| FB-R4-ARC-BE-PR29-02 | Trigger nhận mọi `superseded_at` | (c) | Sửa ở P4-13 (migration 0095), v1.0.4 |
+| FB-R4-ARC-BE-31-01 | Thư `owner` gửi OWN mọi cơ sở | (b) | B-MP |
+| FB-R4-ARC-OPS-V102RB-02 | Runbook v1.0.2 thiếu chỉ dẫn hai ca | (c) | Runbook bản đã phát hành; ý còn giá trị gộp vào V5-70 |
+| FB-R4-ARC-OPS-P403-09 | Câu chữ S14, dòng rỗng trên Mac | (c) | Runbook v1.0.4 đã chạy; gộp vào V5-70 |
+| FB-R4-ARC-OPS-P404-08 | `db_triggers` coi thiếu trigger là ok | (c) | Done, ARC Verified (r1.1) |
+| FB-R4-ARC-OPS-P404-09 | `email_config` lệch `smtp.ts` | (c) | Runbook v1.0.4 ghi đã khớp `smtp.ts` |
+| FB-R4-ARC-OPS-P404-10 | SQL mốc P2 | (c) | Runbook v1.0.4 một lần |
+| FB-R4-ARC-OPS-P404-11 | Thứ tự gộp PR-A, PR-M | (c) | v1.0.4 đã gộp xong |
+| FB-R4-ARC-BE-B-P410-02 | Giữ chỗ quá hạn trước lúc lên bản | (c) | Done (OPS P4-04, câu đếm R3b) |
+| FB-R4-ARC-OPS-P413-01 | Số migration 0095 trong README | (c) | ARC Verified |
+| FB-R4-ARC-DOM-B16-01 | Trả sớm sau nửa đêm hoàn đêm đã ở | (a) | V5-11 |
+| FB-R4-ARC-FE-P432-02 | Mock hoàn tiền rộng hơn máy chủ | (a) | V5-13 |
+| FB-R4-ARC-FE-P432-04 | Không chỉ sang Trả sớm trước ngày đi | (a) | V5-10 |
+| FB-R4-ARC-BE-PR71-03 | Đêm Nội bộ chặn 0 đ nhưng nhận 1 đ | (b) | B-TIEN, cùng "Đơn Nội bộ theo vai" |
+| FB-R4-ARC-BE-PR73-01 | Máy chủ không có báo giá kênh OTA | (b) | B-TIEN |
+| FB-R4-ARC-FE-PR75-01 | Ô giá sửa được khi đang giữ chỗ | (a) | V5-14 |
+| FB-R4-ARC-FE-PR77-03 | Test kiểm nhánh `ROOM_OCCUPIED` không còn | (b) | B-KYTHUAT |
+| FB-R4-ARC-FE-PR82-02 | Đổi số người không tính lại bảng tổng | (a) | V5-20 |
+| FB-R4-DOM-UXD-PR82-01 | Chữ BR-107 và hướng dẫn Nội bộ | (c) | Done ở #82 |
+| FB-R4-ARC-OPS-RB2-03 | Giờ D của diễn tập r2 | (c) | Diễn tập một lần, đã qua |
+| FB-R4-ARC-OPS-RB2-04 | M4a không còn nguyên văn P2 | (a) | V5-70 |
+| FB-R4-ARC-OPS-RB2-05 | Câu đếm "giới hạn đã biết" thiếu lọc | (a) | V5-70 |
+| FB-R4-BA-DOM-PR25-02 | Nhãn quy ước mục 0.1 | (c) | Làm ở P4-20 (plan v1.0.4); QC v1.0.4 ĐẠT CÓ ĐIỀU KIỆN |
+| FB-R4-BA-DOM-PR25-03 | Nhãn `INV-043` cho BR-115 | (c) | Làm ở P4-20 |
+| FB-R4-BA-DOM-PR25-04 | Phí dịch vụ kỳ đầu mang nhãn giả định | (c) | Nhãn làm ở P4-20. Con số chờ INV, đi cùng H7 (B-TIEN) |
+| FB-R4-BEA-ARC-03 | Ngoại lệ `null` ở `updateUser` | (b) | B-KYTHUAT (chữ hợp đồng) |
+| FB-R4-BEA-ARC-04 | Ca tạm `serializer.test.ts` dùng khóa cũ | (c) | `be-identity` đã gộp với khóa `schema:` / `op:` |
+| FB-R4-DOM-BA-PR72-07 | Đêm đầu miễn phí sau nhận sớm | (c) | Sổ tay `01`, `02`, sổ tay chung đã có câu |
+| FB-R4-DOM-BA-PR85-04 | Quá 12:00 mới Trả phòng | (c) | DOM đóng ở #89 |
+| FB-R4-DOM-BA-PR85-05 | Câu "hạn ghi trễ" | (c) | DOM đóng ở #89 |
+| FB-R4-INT-BE-31-03 | Chưa có test khóa dạng `idempotencyKey` | (b) | B-KYTHUAT |
+| FB-R4-PO-BA-032-06 | Các điểm sổ tay v1.0.4 ngoài BUG-R4-032 | (c) | Làm ở #68 |
+| FB-R4-PO-BA-P420-01 | Đặc tả EP02 ghi người nhận `hold_expired` cũ | (b) | B-KYTHUAT (tài liệu) |
+| FB-R4-PO-DOM-P420-01 | Ký quỹ HĐ trên 24 tháng là chính sách cọc | (b) | B-TIEN. Khi có khách hỏi, sale ghi "chờ chủ đầu tư duyệt"; gom ESC ở review nếu cần |
+| FB-R4-QA-DOM-PR25-03 | Nhãn BR-207 và BR-210 mâu thuẫn | (c) | Làm ở P4-20 |
+| FB-R4-QA-DOM-PR25-04 | Oracle thiếu ca biên | (c) | Làm ở P4-20 |
+| FB-R4-QA-DOM-PR25-05 | Oracle BR-428 còn chỗ hở | (c) | Làm ở P4-20; ca sau nửa đêm thêm ở V5-11 |
+| FB-R4-SEC-BE-03 | Desk chưa hiện giá "từ – đến" (SEC 9.5 ca 4) | (a) | V5-19 |
+| FB-R4-SEC-OPS-PR23-03 | B4 của runbook v1.0.1 | (c) | Runbook v1.0.1 đã chạy |
+| FB-R4-SEC-OPS-PR23-04 | WARNING bị `tail -4` cắt | (c) | SEC Đóng |
+| FB-R4-SEC-OPS-PR23-05 | `env.level.tmp` quyền 0644 | (c) | SEC Đóng (`umask 077`) |
+| FB-R4-SEC-OPS-PR23-06 | `trap` không chạy khi SIGKILL | (c) | SEC Đóng |
+| FB-R4-SEC-ARC-PR31-04 | Tập OWN nhận thư lệch tài liệu G-E3 | (b) | B-MP |
+| FB-R4-SEC-OPS-SENT-01 | Đường `relay` có lưu bản sao | (c) | README 13.8 sửa ở v1.0.4 (plan v1.0.4 P4-02–04) |
+| FB-R4-SEC-PO-SENT-03 | Thư khách qua SMTP để lại bản sao ở `info@` | (b) | B-BAOMAT: điều kiện trước story thư cho khách |
+| FB-R4-SEC-OPS-LPV2S4-01 | Runbook đòi trùng băm FE-B | (c) | OPS sửa r2.3 (`cef4d688`); SEC xác nhận (V5-05) |
+| FB-R4-SEC-ARC-P104-03 | Trang khách chưa có câu cho `ID_NUMBER_DETECTED` | (a) | V5-46 |
+| FB-R4-SEC-ARC-P104-04 | Bước đặt tham số và thay tờ ở quầy | (c) | Có trong release notes và runbook v1.0.4 (N2–N5 xong 06/11) |
+| FB-R4-SEC-MOB-PR91-03 | Đổi ngôn ngữ trước khi gọi máy chủ | (b) | B-KYTHUAT |
+| FB-R4-SEC-OPS-PR91-04 | Bằng chứng N4 ghi S15–S16 | (c) | Bằng chứng một lần; SEC N4 ĐẠT 06/11 |
+| FB-R4-SEC-CPY-RU2-02 | Câu RU "từ chối việc gì" chưa rõ | (b) | B-PN |
+| FB-R4-SEC-CPY-RU2-03 | Câu RU mất chủ thể khai báo | (b) | B-PN |
+| FB-R4-SEC-MOB-RU-NL-04 | Câu sai về `notice_locale` | (b) | B-PN |
+| FB-R4-SEC-OPS-RB-03 | Quay lui chưa kể biện pháp bảo vệ bị mất | (a) | V5-70 |
+| FB-R4-SEC-OPS-RB-04 | Dòng thường trực "không UPDATE/DELETE tay" | (c) | SEC: đủ ý ở PR #30 |
+| FB-R4-SEC-ARC-EM-03 | Bảng thứ tự trong hợp đồng email | (b) | B-KYTHUAT |
+| FB-R4-SEC-ARC-EM-07 | Tập OWN của dispatcher | (b) | B-MP |
+| FB-R4-SEC-ARC-EM-08 | `setMyEmail` không có `If-Match` | (b) | B-BAOMAT |
+| FB-R4-SEC-ARC-EM-09 | Không giới hạn số lần đổi email | (c) | Làm ở v1.0.4 (tối đa 5 lần trong 24 giờ) |
+| FB-R4-SEC-ARC-EM-10 | Danh mục dữ liệu thiếu hai chỗ giữ địa chỉ | (b) | B-BAOMAT |
+| FB-R4-SEC-ARC-EM-11 | Chưa có test địa chỉ không vào Problem | (b) | B-BAOMAT |
+| FB-R4-SEC-ARC-EM-13 | Câu mục đích cạnh ô email; câu "thư xác nhận" | (a) | V5-23 |
+| FB-R4-SEC-BE-BED-01 | Phạm vi mục 1.2 ý 4 đọc hai cách | (b) | B-KYTHUAT (tài liệu; mã đúng) |
+| FB-R4-SEC-BE-BED-02 | Worker ghi `err.message` | (a) | V5-42 |
+| FB-R4-SEC-BE-C0312-02 | `serializeSchema('Me')` trả email mọi ngữ cảnh | (a) | V5-43 |
+| FB-R4-SEC-BE-V104-01 | Lần đổi thứ 6 chặn cả xóa email | (c) | Có trong hợp đồng 0.3.12 và v1.0.4 |
+| FB-R4-SEC-BE-V104-02 | Thiếu test hai yêu cầu song song | (c) | Done (test tích hợp, `outputs/BE/v104-be-identity.md`) |
+| FB-R4-SEC-BE-V104-03 | `--owner-email=` bị bỏ qua | (c) | SEC Verified |
+| FB-R4-SEC-BE-V104-08 | Controller chưa ghi `action` | (a) | V5-43 |
+| FB-R4-SEC-OPS-V104-04 | Kiểm trước deploy cho luật địa chỉ | (c) | Xong trong runbook v1.0.4 |
+| FB-R4-UXD-FE-13 | Tiêu đề cảnh báo "Đã đổi" | (c) | UXD đóng (`UXD-on-LP-v2-fe4.md`) |
+| FB-R4-UXD-FE-14 | Câu trợ giúp "rate on request" | (c) | UXD đóng |
+| FB-R4-UXD-FE-15 | Ô chỉ đọc cho manager | (c) | UXD đóng |
+| FB-R4-UXD-FE-16 | Cỡ chữ `.est-line` | (c) | UXD đóng |
+| FB-R4-UXD-BE-01 | "Room 1 night × {rate}" | (c) | Done ở lp-v2-fe5 |
+| FB-R4-UXD-FE-18 | "Tiếng Trung (giản thể)" ngắt 3 dòng | (c) | Done ở lp-v2-fe5 |
+| FB-R4-UXD-FE-19 | Chip bị kéo rộng | (c) | Done ở lp-v2-fe5 |
+| FB-R4-UXD-FE-20 | Số đếm yêu cầu mới lệch huy hiệu | (c) | Done ở lp-v2-fe5 |
+| FB-R4-UXD-FE-21 | Hai kiểu nhãn trên một hàng | (c) | Done ở lp-v2-fe5 |
+| FB-R4-UXD-FE-22 | Hai cỡ chữ cho cùng câu | (c) | Done ở lp-v2-fe5 |
+| FB-R4-UXD-FE-23 | Mock dựng câu EN cố định | (c) | Done ở lp-v2-fe5 |
+| FB-R4-UXD-FE-EM-04 | Hai banner cam giống nhau | (c) | Done (`responses/FE-on-UXD-v1.0.3-email.md`) |
+| FB-R4-UXD-FE-EM-05 | Câu hộp thư chung nói sai người | (c) | Done (cùng tệp) |
+| FB-R4-UXD-FE-EM-06 | Khoảng cách câu dẫn | (c) | Done (cùng tệp) |
+| FB-R4-UXD-FE-EM-08 | Hàng của chính mình cao gấp đôi | (c) | Done (cùng tệp) |
+| FB-R4-UXD-FE-P432-03 | Lỗi đọc trông như "không có khoản chờ hoàn" | (a) | V5-13 |
+| FB-R4-UXD-FE-PR70-03 | Ô OTA trống không nói hệ quả | (a) | V5-22 |
+| FB-R4-UXD-FE-PR70-04 | Hiện "0 đ" khi máy chủ tính theo lịch OTA | (a) | V5-22 |
+| FB-R4-UXD-FE-PR70-06 | `{min}`, `{max}` trong câu lỗi | (a) | V5-22 (= BUG-R4-040) |
+| FB-R4-UXD-BA-PR85-02 | Câu nhãn "+15 %" của v1.0.3 trong sổ tay | (c) | UXD đóng; phần chữ Desk ở V5-20 |
+| FB-R4-UXD-BA-PR85-03 | Sổ tay dặn "Desk hiện 100.000 cho trẻ 6–11" | (c) | UXD đóng |
+| FB-R4-UXD-FE-PR75-02 | `aria-disabled` và focus | (c) | UXD đóng cả 3 thẻ PR75 |
+| FB-R4-UXD-FE-PR75-03 | Footer hộp `lg` xuống dòng | (c) | UXD đóng |
+| FB-R4-UXD-FE-PR79-01 | Ghi chú `room_occupied` cũ | (b) | B-KYTHUAT |
+| FB-R4-UXD-BA-PR85-06 | Tiêu đề 20.2 dài 164 ký tự | (c) | UXD đóng ở #89 |
+| FB-R4-UXD-FE-PR87-02 | Câu lặp nhãn ô Giá đêm niêm yết | (b) | B-QUAY |
+| FB-R4-UXD-FE-PR82-02 | Báo giá tách đêm thứ Sáu, thứ Bảy | (a) | V5-20 |
+
+### D. Việc đã hẹn v1.0.5 ở nơi khác (decision-log 04–05/11, release notes v1.0.4 "Chưa có", DOM H-list)
+
+| Mã | Nội dung | Xếp | Mục / lý do |
+|---|---|---|---|
+| RN-05 | Trả sớm 00:00–05:59 | (a) | V5-11 |
+| openRefunds | Tổng chờ hoàn trên Trả phòng và folio | (a) | V5-13 |
+| UXD-U4 | Số chờ hoàn trên khung đơn | (a) | V5-13 |
+| FDL-2FA | Ép lễ tân trưởng bật 2 bước | (a) | V5-40 |
+| Hold-agreed-rate | Giữ chỗ theo giá thỏa thuận | (a) | V5-14 |
+| Overdue-checkout | Trả phòng đơn quá ngày đi, nút Cần dọn | (a) | V5-15 |
+| FB-R4-DOM-UXD-PR89-02 | Chữ phí trả sớm báo trong ngày rời | (a) | V5-23 |
+| FB-R4-UXD-BA-PR89-01 | Câu "Bạn nhận (…)" thiếu đuôi | (a) | V5-23 |
+| RU-7-strings | 7 chuỗi RU có từ cấm | (a) | V5-24 |
+| CPY-P401-11 | U+2011 cho "2-step" | (a) | V5-23 |
+| P4-41-detail | Thay dò chữ `detail` 409 | (a) | V5-44 |
+| ARC-P411-02 | `check_violation` → 409 | (a) | V5-44 |
+| SEC-V104-07 | (cùng gói PR-D) | (a) | V5-43 |
+| FB-R4-PO-UXD-IDS2-01, FB-R4-PO-UXD-IDS2-02 | Tờ in và trang khách tự so chữ | (a) | V5-47 |
+| UXD-P440-06 | Đơn vị tiền trong `error.DEPOSIT_INSUFFICIENT` | (a) | V5-23 |
+| UXD-F1-01 | Khóa chung `error.INVALID_TRANSITION_generic` | (a) | V5-23 |
+| UXD-QR-green-box | Hộp xanh "Gửi mã QR" trên câu đỏ | (a) | V5-23 |
+| folio.adjust_night_help_internal | Chữ hướng dẫn Nội bộ ở folio | (a) | V5-23 |
+| nodemailer | Nâng gói gửi thư | (a) | V5-41 |
+| FB-R4-SEC-BE-BED-03 | Phần còn lại của BED | (a) | V5-42 |
+| FB-R4-SEC-FE-HOLDS-03 | Cọc thiếu sau hạn: phần chưa đối soát | (a) | V5-18 |
+| FB-R4-SEC-BE-A31-01 | Bỏ dòng phát sinh không qua duyệt (Major) | (a) | V5-16 |
+| FB-R4-SEC-OPS-ROPACK-06 | Mốc "trước" cho lượt tính lại cờ | (a) | V5-17 |
+| FB-R4-SEC-UXD-HTML-01 | Dựng lại HTML sổ tay | (a) | V5-04 |
+| M4d | Runbook v1.0.5 | (a) | V5-70 |
+| FB-R4-SEC-BA-PR69-02, FB-R4-PO-BA-PR69-04 | Dọn tài liệu sau #69 | (a) | V5-71 |
+| UXD-P450-03 | Câu "chưa đủ 6 số" ở app nhân viên | (b) | B-QUAY |
+| FB-R4-SEC-MOB-P442-02 | Ngôn ngữ khối pháp lý dựa vào một khóa | (b) | B-PN |
+| ARC-P416-01 (`vi.waitFor`) | Test | (b) | B-KYTHUAT |
+| ARC-13 (K10/K11b lọc cơ sở, giờ Đà Lạt) | Lọc theo cơ sở | (b) | B-MP |
+| SEC-proconfig-PN01 | Cấu hình hàm PN-01 | (b) | B-BAOMAT |
+| BE-P413-S1 (`COMMENT ON` 0090) | Chú thích phạm vi DML | (b) | B-KYTHUAT |
+| BE-P413-G2-S2 | Chữ báo cáo BE P4-13 | (c) | Chỉ là chữ trong báo cáo của bản đã phát hành |
+| DS-time-field | Ô giờ của Design System thay `datetime-local` | (b) | B-QUAY |
+| FB-R4-DOM-PO-RN-04 | Đường báo sale/CTV của BR-303 | (b) | B-QUAY. UXD + ARC chọn cách; hiện có Cần chú ý ở Desk |
+| FB-R4-ARC-QA-PR62-03 | Kiểm va chạm thật cho TC-L2-032 | (b) | B-KYTHUAT |
+| SEC-BE-PR74-02, ARC-PR74-04, ARC-PR74-05, QA-PR74-05, DOM-PR74-01 | Phần sau của BUG-R4-039 (nhận phòng vào căn còn khách) | (b) | B-QUAY. Gói chỉ đọc production 05/11 đếm 0 ca, sổ tay đủ an toàn (SEC) |
+| FB-R4-ARC-BE-PR71-04 | Hai cách biểu diễn "không có khoảng" | (b) | B-KYTHUAT |
+| FB-R4-UXD-FE-PR70-02 | Bản xem cũ trong lúc chờ | (a) | V5-22 (phần còn lại, nếu có) |
+| FB-R4-ARC-FE-PR80-01, FB-R4-UXD-FE-PR83-02, FB-R4-ARC-FE-PR83-04 | Giữ chỗ, gia hạn, minibar: chữ và thứ tự tủ | (b) | B-QUAY |
+| FB-R4-SEC-OPS-PR78-04 | Công cụ demo đọc một trang `listUsers` | (b) | B-KYTHUAT (chỉ chạy trên máy) |
+| FB-R4-INT-OPS-PR61-01 | Ca test chỉ kiểm chữ hàm `email_rule()` | (b) | B-KYTHUAT |
+| Internal-by-role | Desk chặn hoặc gửi duyệt đơn Nội bộ theo vai | (b) | B-TIEN (cùng FB-R4-ARC-BE-PR71-03) |
+| Security-log-screen | Màn xem nhật ký bảo mật trên Desk | (b) | B-BAOMAT. Cách tạm: nhắn ORC tên đăng nhập |
+| H1 | Gia hạn đơn cũ tính theo bậc giảm hiện hành | (b) | B-TIEN, P3: chỉ xảy ra nếu INV bật lại giảm theo số đêm |
+| H2 | Hoa hồng theo bảng nội bộ | (a) | V5-30 |
+| H3 | Phí dọn thuê tháng theo hạng | (a) | V5-31 |
+| H4 | HĐ đủ 1 tháng lịch có dưới 30 đêm | (b) | B-TIEN. **Hạn 15/01/2027**: phải vào bản chọn ở review 04/12 |
+| H5 | Giá ước tính web, `parity_mode` | (c) | Xong cùng LP-v2 |
+| H6 | Gỡ `ota_base_rate` khỏi mã | (b) | B-SAU, v1.1 |
+| H7 | Báo giá thuê tháng trên Desk; cấu trúc `lease_terms`, `early_termination` | (b) | B-SAU (US-081). Tới đó sale dùng bảng tra |
+| H8 | Nhắc hạn tiền thuê ngày 05 | (b) | B-SAU, v1.3 |
+| H9 | `production-defaults`, seed, ví dụ BR theo v0.5.1 | (b) | B-KYTHUAT. Nên làm trước khi diễn tập dựng lại VPS (B-OPS) |
+| H10 | Chữ Desk còn số "28" | (a) | V5-20 |
+| H11 | Sổ tay theo bảng giá | (c) | Xong ở #85 |
+
+### E. Việc còn lại ngày 06/11 (ORC giao)
+
+| Mã | Nội dung | Xếp | Mục / lý do |
+|---|---|---|---|
+| SEC-9.5-ca3 | Kiểm trên Desk staging | (c) | SEC ĐẠT 06/11 (`SEC-on-lp-v2-s6d.md`) |
+| SEC-9.5-ca8 | Kiểm trên Desk staging | (c) | SEC ĐẠT 06/11 |
+| SEC-9.5-ca10 | Không tạo được khe giá qua Desk; QA ghi S6d | (c) | SEC ĐẠT bằng bằng chứng thay thế 06/11, kèm điều kiện V5-73 |
+| SEC-9.5-ca4 | Web ĐẠT; Desk hiện "từ – đến" | (a) | V5-19 (= FB-R4-SEC-BE-03; Gói 5, có điều kiện kích hoạt) |
+| BUG-R4-054 | Basic auth staging chặn form | (b) | B-OPS (đã đếm ở A1) |
+| FB-R4-SEC-OPS-LPV2S4-01 | Chữ runbook S4/P10 | (c) | OPS sửa r2.3; SEC xác nhận ở V5-05 (đã đếm ở C) |
+| ota_base_rate-Desk | Ô nhập trên Desk | (a) | V5-21 thu gọn (đã đếm ở B3) |
+| BA-C2-39 | Ảnh C2-39 vẫn là màn form tắt | (a) | V5-04 |
+| BA-checkin-online-copy | Câu cũ về check-in online trong sổ tay | (a) | V5-08 |
+| ORC-bf155fdc | `public_show_prices` trong từ điển, dòng v1.0.3 của `00-index` | (c) | ORC đã sửa (commit `bf155fdc`) |
+| QA-pricegap-static-SQL | Kiểm tĩnh SQL READ ONLY tìm căn thiếu giá đêm, bổ sung cho `pricegap` dựa vào log | (a) | V5-73 |
+| QA-README-120 | Câu README `infra/server` dòng 120 "nhất là sau khi nhập lại bảng giá 01/11" gây hiểu nhầm | (a) | V5-73 (sửa ngay, không chờ bản) |
+| QA-pricegap-e2e-local | Thử trọn chuỗi log → `ops-check` → webhook trên stack cục bộ dựng bằng bootstrap (QA ghi "không bắt buộc") | (b) | B-OPS |
+
+### F. Vận hành (OPS 06/11) và sổ vận hành (BA)
+
+| Mã | Nội dung | Xếp | Mục / lý do |
+|---|---|---|---|
+| OR-H1 | Bản sao lưu ngoài máy cũ 7 ngày | (a) | V5-60 (kéo tay đã làm 06/11 khoảng 19:00) |
+| OR-H1-PA2 | Máy chủ phụ tự kéo về (có chi phí) | (b) | B-OPS. Cần ESC khi muốn làm |
+| OR-M1 | Diễn tập khôi phục quá hạn | (a) | V5-61 |
+| OR-M2 | Không có WAL; RPO thật 24 giờ | (a) | V5-62 (phương án (a)) |
+| OR-M2-WAL | WAL archive (phương án (b)) | (b) | B-OPS, khi có máy phụ |
+| OR-M3 | Log mất khi dựng lại container | (a) | V5-63 |
+| OR-M4 | Chưa diễn tập dựng lại cả VPS | (a) | V5-64 (viết runbook) |
+| OR-M4-drill | Diễn tập trên VPS dùng một lần (có chi phí) | (b) | B-OPS. Cần ESC |
+| OR-L1 | `.env` có khóa trùng | (a) | V5-65 |
+| OR-L2 | `fwupd` làm nhiễu `systemctl --failed` | (a) | V5-65 |
+| OR-L3 | `privacy-notice.log` staging thuộc root | (a) | V5-66 |
+| OR-L4 | Khóa `ottimo-ops` thừa | (a) | V5-65 (SEC xét) |
+| OR-L5 | Deploy landing staging bỏ qua kiểm CSP/HSTS | (b) | B-OPS. SEC: chấp nhận, gộp vào 054-06; không nới quyền tệp mật khẩu |
+| OR-L6 | Chưa dọn image cũ | (b) | B-OPS (SEC xếp backlog). Không bao giờ xóa tag đang chạy, tag trước, tag landing và image của lần diễn tập gần nhất |
+| OR-L7 | Cảnh báo chỉ tới một người | (c) | Việc INV tự quyết, không tốn tiền; đã ghi ở `esc-pending-06-11.md` mục 3 |
+| README-12.3-a | `deploy-landing.sh` kiểm khóa và edge trước khi chạy container | (a) | V5-66 |
+| README-12.3-b | `edge.sh` kiểm quyền ghi, báo host mới | (a) | V5-66 |
+| README-12.3-c | Smoke đếm lỗi ACME | (a) | V5-66 |
+| README-12.3-d | `publish-privacy-notice.sh` dừng sớm trên staging | (a) | V5-66 |
+| README-12.3-e | Log thông báo đúng chủ, kiểm ghi trước giao dịch | (a) | V5-66 |
+| README-12.3-f | `--rollback-to` chỉ cho staging | (a) | V5-66 |
+| README-12.3-g | Bước bật công tắc form | (c) | OPS: không đổi mã, runbook r2.3 S5 đã ghi |
+| README-12.3-h | BUG-R4-054 | (b) | B-OPS, cùng A+ |
+| BUG-R4-054-A+ | Phương án A+ | (b) | B-OPS. SEC DUYỆT CÓ ĐIỀU KIỆN 06/11; PO không đưa vào v1.0.5 |
+| FB-R4-SEC-OPS-OR-01 | `pull-backups.sh` ghi đè được bản tốt trên máy nhận (Major) | (a) | V5-60, làm ngay |
+| FB-R4-SEC-OPS-OR-02 | Điều kiện an toàn của máy nhận và lời báo "đã kéo" (Major) | (a) | V5-60 |
+| FB-R4-SEC-OPS-OR-03 | Khóa `ottimo-ops` vào thẳng user `ottimo` | (a) | V5-65 |
+| FB-R4-SEC-OPS-OR-04 | Log mất khi deploy, không có trần 90 ngày | (a) | V5-63 |
+| FB-R4-SEC-OPS-054-01 | Header `Authorization` tới api | (a) | V5-67 |
+| FB-R4-SEC-OPS-054-02, FB-R4-SEC-OPS-054-03, FB-R4-SEC-OPS-054-04, FB-R4-SEC-OPS-054-05 | Điều kiện của A+ (054-02 là Major) | (b) | B-OPS, cùng A+. Chỉ có hiệu lực khi làm A+ |
+| FB-R4-SEC-OPS-054-06 | `--refresh-landing-access`, smoke CSP/HSTS lúc mở (Suggestion) | (b) | B-OPS, cùng A+ |
+| FB-R4-SEC-OPS-S6D-01 | `pricegap` chỉ dựa vào log | (a) | V5-73 |
+| ORC-SQLRO-pricegap-once | ORC chạy truy vấn tĩnh một lần trên production và staging | (a) | V5-73, làm ngay |
+| SEC-S6d-manual-web-price | Sổ tay lễ tân: số trên yêu cầu web là giá thấp nhất của hạng (Suggestion) | (a) | V5-71 |
+| OPS-9-TEST_SUPPORT_ALLOW_IPS | Staging còn giá trị IP dù đã tắt test support | (a) | V5-65 |
+| OPS-9-env-before | 6 bản `env.before-*` trên staging | (a) | V5-65 |
+| OPS-9-QA-S6-requests | 8 yêu cầu web thử của QA trên staging | (c) | Dữ liệu giả; SEC không yêu cầu xóa |
+| INV-launchd-consent | INV đồng ý hay không cài lịch kéo sao lưu trên máy mình | (c) | Việc của INV (`esc-pending-06-11.md` mục 3); V5-60 chờ câu trả lời |
+| INV-RPO-12h | INV xác nhận RPO 12 giờ thay giả định 15 phút | (c) | Việc của INV (`esc-pending-06-11.md` mục 3) |
+| INV-FileVault | INV xác nhận máy giữ khóa SSH và bản sao lưu đã bật FileVault | (c) | Việc của INV (`esc-pending-06-11.md` mục 3) |
+| SVH-2.2-backup-pull | Tự kéo sao lưu | (a) | V5-60 |
+| SVH-2.2-chat-dead | Báo khi tin Chat không gửi được | (a) | V5-68 |
+| SVH-2.2-renewals | Nhắc hạn tên miền, VPS, Workspace | (a) | V5-69 |
+| SVH-2.2-restore-quarterly | Diễn tập khôi phục định kỳ | (a) | V5-61 |
+| SVH-2.2-chat-room-yearly | Nhắc xóa phòng Chat hằng năm | (b) | B-OPS. Lần đầu tới hạn khoảng 10/2027; xếp trước 09/2027 |
+| SVH-2.2-key-rotation | Nhắc đổi khóa và mật khẩu 12 tháng | (b) | B-OPS. Lần đầu tới hạn khoảng 10/2027; xếp trước 09/2027 |
+
+### G. Tham số production lệch sổ tay (từ điển tham số, mục cuối)
+
+| Mã | Xếp | Lý do |
+|---|---|---|
+| `special_uplift_pct` (B2), `los_discount` (B3), `long_stay_required_from_nights` (B4), `short_stay_max_nights` (B5), `early_checkin_tiers` (B7), `child_fee_6_11` (B8), `long_stay_compare_from_nights` (B9), `rounding.monthly_rent` (B11), `rounding.ota_rate`, giá City View 800.000 | (c) | Không phải việc của đội. INV tự chỉnh theo từ điển (`esc-pending-06-11.md` mục 3). Đội không đổi tham số giá trên production. V5-21 giúp bằng tên tiếng Việt |
+| `lease_terms`, `early_termination` | (b) | B-SAU, đổi cấu trúc cùng H7. Desk chưa đọc phần lệch; không sửa tay |
+| `id_image_retention_days_after_checkout` = 90 ngày | (a) | V5-45 |
+
+### H. Nhóm backlog cải tiến (để review định kỳ)
+
+| Nhóm | Gồm | Gợi ý thứ tự cho INV |
+|---|---|---|
+| B-TIEN | Tiền, giá, hợp đồng (H1, H4, PR71-03, PR73-01, đơn Nội bộ theo vai, ED-03, FZ-08, BIN ngân hàng, ký quỹ HĐ trên 24 tháng) | **H4 vào bản chọn ngày 04/12** (hạn 15/01/2027). Còn lại theo feedback |
+| B-QUAY | Lỗi nhỏ, chữ và trình bày ở quầy (BUG-R2 P3 còn lại, BUG-R3-016/026/031/034, thẻ UXD trình bày, phần sau BUG-R4-039) | Gom 5–10 mục cho mỗi bản bảo trì |
+| B-BAOMAT | Bảo mật nhỏ, không có rủi ro đang mở (EM-08/10/11, SENT-03, proconfig, màn nhật ký bảo mật) | SEC chọn mỗi bản 1–2 mục |
+| B-PN | Lần đổi bản thông báo dữ liệu kế tiếp (RU2-02/03, RU-NL-04, P442-02, SEC-BA-104-09 (b) + `SECURITY_AUDITED_KEYS`, chuỗi RU nằm trong bản thông báo) | Làm cùng một lần khi có lý do đổi bản thông báo |
+| B-MP | Khi có cơ sở thứ hai (ARC-BE-31-01, PR31-04, EM-07, K10/K11b) | Chỉ khi INV mở thêm cơ sở |
+| B-OPS | Vận hành có chi phí, chưa tới hạn hoặc chỉ cần khi thử trên staging (máy phụ, WAL, diễn tập VPS mới, Lighthouse CI, nhắc hằng năm, A+ của BUG-R4-054 cùng 054-02…06, OR-L5, OR-L6) | Có chi phí thì ESC trước |
+| B-DATA | Chỉ số (quốc tịch NULL) | Trước báo cáo theo quốc tịch đầu tiên |
+| B-KYTHUAT | Nợ kỹ thuật, test, chữ hợp đồng | Đội tự xếp vào bản khi chạm đúng chỗ đó; không cần INV chọn |
+| B-SAU | Story v1.1, v1.2, v1.3, R4+ (89 story) và H6, H7, H8 | INV chọn ở review định kỳ |
