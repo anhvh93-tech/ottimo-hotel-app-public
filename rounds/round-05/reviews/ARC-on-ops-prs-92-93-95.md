@@ -382,3 +382,75 @@ OPS đã xác nhận giờ từ repo. Ở đây chỉ ghi các chỗ cần sửa
   - kiểm đường `ottimo-admin` + `sudo` trước;
   - ghi bằng tệp mới rồi `mv` nguyên tử, giữ bản cũ ở `/root`;
   - kiểm lại số khóa CI và khóa kéo, không in khóa, chỉ ghi 8 ký tự vân tay.
+
+---
+
+## 5. Phản hồi của OPS (06/11, bước Phản hồi & sửa)
+
+Commit đã đẩy, chưa gộp (OPS không tự merge):
+- **#93** nhánh `r5-ops`: `ad92f1b5` (thẻ 06, cùng SEC 93-01…04), `59216001` (prettier xuống dòng danh sách `command` của postgres; hai test đọc được cả hai dạng).
+- **#95** nhánh `r5-ops-runbooks`: `40e31795` (runbook v1.0.5 r1, runbook VPS mới r1), `b7b00e06` và `bd175b80` (runbook VPS mới không còn trỏ vào runbook v1.0.5: lệnh viết thẳng hoặc trỏ về README).
+- #95 trỏ tới README `infra/server` 3.1 và dòng `ID_HASH_KEY` của `hosting-plan.md` 8.1, hai chỗ này nằm trong #93. Gộp #93 trước, như mục 1.8.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-OPS-01 | Done (`40e31795`) | (1) Mục 0, dòng "Ảnh hưởng": Desk, staff, `g.` mất `GIAN_DOAN_W6` giây ở W6 bước 4 production; mọi site mất 1–2 giây ở bước 5; ottimo.vn mất vài giây ở W2. (2) W6 staging bước 4 đo từ `up` tới khi mọi service `healthy` và Desk trả 200. Số ghi vào ô 0.1 `GIAN_DOAN_W6`, rồi đưa vào câu đồng ý Đợt C. (3) W6 production nằm trong **Đợt C** (0.2, P0, đầu W6). Khung giờ đề xuất 09:00–11:30, ngoài 11:30–12:30 và 13:30–14:30. Báo lễ tân trước 10 phút, không thu tiền đúng lúc đó. (4) Luật "Giờ chạy" và mục 6 thêm W1, W2, W6 bước 4–5. Lượt bù của W1 phải có `OK:` trước W6 bước 4. (5) Mục 0 kể V5-63 (journald, `terse`, ghim cài đặt log) trong phần OPS góp và trong "Phần nào không đi qua Release". |
+| FB-R5-ARC-OPS-02 | Done (`40e31795`) | (a) Chọn cách (i), **làm theo từng stack**: bước T mới, T0 dừng timer `ops-check` của stack ngay trước P2b, T1 bật lại sau W7. `list-timers` phải thấy NEXT ≤ 30 phút, T0 → T1 < 60 phút (Healthchecks `ottimo-production` ân hạn 1 giờ, decision-log 30/10). Quá 50 phút thì T1 ngay và chuyển sang cách (ii). Lý do tách theo stack: Đợt A (staging) và Đợt C (production) có thể cách nhau nhiều ngày vì cổng V5-61 (SEC 95-02). Trong khoảng đó production vẫn chạy gói cũ, chưa có mục `journal`, nên không báo giả. (b)(c) P2 có thêm: số người ngoài danh sách của `adm`, `systemd-journal`, `sudo`, `wheel`, `docker` (tính cả nhóm chính, chỉ in số) và số ACL lạ; `pricegap` tĩnh của staging qua `SQLRO` bằng câu lấy từ `ops-check` tại `SHA_V105`. Có số khác 0 thì không vào Đợt A, quyết với SEC trước. (d) K5, 5.0, R6 và runbook VPS mới (bước 16, mục 1.6) dùng lệnh `systemd-run … -p SupplementaryGroups=systemd-journal` của W7. (4) Mục 1.2 và mục 8 có `journal` trong danh sách mục có thể báo nhầm, kèm cách tránh. |
+| FB-R5-ARC-OPS-03 | Done (`40e31795`) | Runbook VPS mới: DNS là bước 14, chờ hết TTL rồi mới deploy ở bước 15. Mục 1.5 kiểm bằng `dig`. Bước 15 không đợi được DNS thì chạy `SMOKE_INSECURE=1` và chạy lại smoke sau khi đổi DNS. Mục 1.6: `tls` chỉ được coi là đạt sau bước 14. |
+| FB-R5-ARC-OPS-04 | Done (`40e31795`, `b7b00e06`, `bd175b80`) | (1) Bước 13 (mục 1.4) khôi phục `state/privacy-notice.log` trước `deploy-landing.sh`. INV gõ, tệp `ottimo 0600`, so số dòng với lượt sao lưu. (2) Lệnh gỡ khóa deploy chuyển sang README `infra/server` **3.1** (#93). Bước 5 trỏ về đó. `b7b00e06` và `bd175b80` bỏ nốt các chỗ trỏ vào runbook v1.0.5: gói theo README 13.1; lệnh timer, `journald_since` và lệnh đếm người đọc log viết thẳng trong runbook. (3) Bước 5 đếm người đọc log bằng lệnh mục 1.7: chỉ in số, cùng luật với `journal`, đã chạy thử trong ubuntu:24.04 với dash. User mặc định của ảnh thì gỡ bằng `gpasswd -d`. Mục 1.6: `journal` FAIL vì nhóm thì làm như bước 5. |
+| FB-R5-ARC-OPS-05 | Done (`40e31795`) | W2 "Không healthy": chép `Caddyfile.landing` cũ từ `BAN CU GIU O`, rồi W2 lại, báo SEC (054-01 mở lại). `--rollback` chỉ dùng khi lỗi nằm ở image. Có "Lùi W4": `cat` bản `env.before-v105.*` vào `.env` dưới user `ottimo` (giữ `0600`), rồi kiểm cấu hình không in giá trị. Mục 5.1: dòng "App (tiếp)" có thêm journald, `terse` và các cài đặt ghim. Dòng "Gói `infra/`" có thêm: lần deploy hay rollback kế tiếp đưa api, web, worker về driver `local`. Có thêm hai dòng: lùi W4 và Caddyfile riêng. Mục 8 ghi câu trả lời của ARC về hàng lùi riêng. |
+| FB-R5-ARC-OPS-06 | Done (`ad92f1b5`) | `50-ottimo.conf` dòng 2: "runbook v1.0.5 W6 step 1 on a running VPS". README mục 7: `auth.log` và `syslog` ngừng ghi từ W6. Đọc SSH bằng `journalctl -u ssh`, đọc `sudo` bằng `journalctl _COMM=sudo`, giữ 90 ngày. Hai đường dẫn tới #95 để nguyên, theo mục 1.8. |
+| FB-R5-ARC-OPS-07 | Done (`40e31795`) | K10 mới: `journalctl CONTAINER_TAG=ottimo-prod-api-1 --since <giờ W6 bước 4> --until <giờ P5> -q \| wc -l` > 0. Đây là bằng chứng OR-04, chỉ in số. W1 "Đúng là": cả máy có đúng 2 timer sao lưu, mỗi stack một (`TIMER SAO LUU TREN MAY: 2`). P0 thêm: PR-C1 (V5-1A) gộp sau #93. 5.0 và R6 có mục `journal`. |
+| FB-R5-ARC-OPS-08 | Deferred (B-OPS) | Ý 1 (stack production kiểm thêm container nhãn `com.docker.compose.project=ottimo-edge`) là đổi mã `check_journal` sau review, phải SEC đọc lại. Để B-OPS, không gộp vào #93 lúc này. Trong lúc chờ, W6 bước 5 đếm container không ghi journald trên **cả máy**, kể cả edge (`CONTAINER KHONG JOURNALD (CA MAY): 0`). Ý 2 (bootstrap chạy được chỉ với `--admin-user`): B-OPS. Tạm thời README 3.1 có lệnh gỡ khóa dùng cho mọi máy mới. |
+| FB-R5-ARC-OPS-09 | Deferred | #92 đã gộp (`e56c8513`). Theo đề xuất của thẻ, sửa chú thích `(public_api)` lúc chạm `Caddyfile.landing` lần tới, không commit riêng. |
+| FB-R5-ARC-BE-01 | – | Thẻ của BE-A và QA, không phải OPS. OPS ghi nhận: CI đỏ ở #93 lượt `4f1fd261` là do thẻ này. |
+
+Câu trả lời mục 3: OPS làm theo quyết định của SEC (không `log_min_error_statement=panic`). SEC 93-03 ghim thêm bốn cài đặt log trên dòng lệnh, có test đọc `pg_settings`. `id_hash_key`: `hosting-plan.md` 8.1 có dòng riêng (INV + OPS, bản ngoại tuyến cạnh KEK, khác phong bì với khóa `age`). README 4.2 có thêm bản chép. Runbook VPS mới bước 9 đặt cả KEK lẫn `id_hash_key`. Việc INV cất khóa: ORC đưa vào danh sách cuối round, làm cùng buổi V5-61.
+
+## 6. Lượt 2 @ bd175b80 – ARC đọc lại #95 (06/11)
+
+- Phạm vi: `git diff fd11c4a2 bd175b80`, gồm `40e31795`, `b7b00e06`, `bd175b80`, hai tệp:
+  - `rounds/round-05/outputs/OPS/v1.0.5-release-runbook.md` (r1);
+  - `product/docs/runbook-vps-moi.md` (r1).
+- Chỉ đọc phần đổi cho thẻ ARC 01–05 và 07. Phần sửa theo thẻ SEC 95-01…07 thì SEC đọc lại.
+- CI @ `bd175b80` xanh đủ, kể cả `docker images build · E2E smoke`. `mergeStateStatus` CLEAN. Gộp thử `main` → #93 → #95: không xung đột.
+- Các chỗ #95 trỏ tới (README `infra/server` 3.1, 12, 13.1; `hosting-plan.md` 8.1) có ở `r5-ops` @ `59216001`. Vẫn gộp #93 trước #95 như mục 1.8.
+
+| Thẻ | Kết quả đọc lại | Chỗ đã kiểm |
+|---|---|---|
+| FB-R5-ARC-OPS-01 | **Đóng** | Đủ năm ý: (1) mục 0 "Ảnh hưởng" có `GIAN_DOAN_W6`, 1–2 giây edge, vài giây ottimo.vn; (2) W6 bước 4 đo từ `up` tới khi mọi service `Healthy` và Desk trả `200` qua edge (`--resolve … 127.0.0.1`), staging ghi vào 0.1, production so lại, vượt gấp đôi thì ghi decision-log; (3) W6 production nằm trong Đợt C, có câu đồng ý riêng kèm số giây, 09:00–11:30, báo lễ tân trước 10 phút; (4) luật "Giờ chạy" và mục 6 có W1, W2, W6 bước 4–5, lượt bù W1 phải có `OK:` trước W6 bước 4; (5) V5-63 có trong mục 0. Thêm điểm tốt: cổng V5-61 chặn Đợt C và P3–P5, khớp SEC 95-02 |
+| FB-R5-ARC-OPS-02 | **Đóng** | (a) Chọn cách (i) theo từng stack (bước T): T0 trước P2b, T1 sau W7, T0 → T1 < 60 phút theo ân hạn Healthchecks 1 giờ; quá 50 phút thì T1 ngay và chuyển sang cách (ii). Tách theo stack là đúng, vì Đợt A và C có thể cách nhau nhiều ngày; ARC đã kiểm lý do "production gói cũ không có mục `journal`, nên không báo giả". (b)(c) P2 mục 5–6: đếm nhóm (thêm `sudo`, `wheel`, ACL theo SEC 93-04), chỉ in số; `pricegap` tĩnh staging lấy đúng câu ở `SHA_V105` qua `SQLRO`, lệch thì không vào Đợt A. (d) K5, 5.0, R6, runbook VPS mới 1.6 dùng lệnh `systemd-run` của W7. (4) Mục 8 có `journal` trong rủi ro báo nhầm |
+| FB-R5-ARC-OPS-03 | **Đóng** | DNS là bước 14, deploy là bước 15 và chỉ chạy sau bước 14. Mục 1.5 kiểm 4 tên bằng `dig`. Có đường `SMOKE_INSECURE=1`, kèm câu đúng về giới hạn của `--insecure` và giới hạn của Let's Encrypt. 1.6: `tls` chỉ đạt sau bước 14 |
+| FB-R5-ARC-OPS-04 | **Đóng** | (1) Bước 13 / 1.4 khôi phục `privacy-notice.log` trước `deploy-landing.sh`: INV gõ, `ottimo 600`, so số dòng. (2) Không còn chỗ trỏ vào runbook v1.0.5: gỡ khóa theo README 3.1, gói theo README 13.1, lệnh 1.6/1.7 viết thẳng. (3) Bước 5 + 1.7 đếm người đọc log cùng luật `journal`, gỡ user mặc định bằng `gpasswd -d`. Ghi chú nhỏ ở thẻ 10 |
+| FB-R5-ARC-OPS-05 | **Đóng** | W2 "Không healthy" chép `Caddyfile.landing` cũ từ `BAN CU GIU O` (`install -o root`, kiểm `AUTH STRIP TRONG TEP: 0`), `--rollback` chỉ khi lỗi ở image. "Lùi W4" dùng `cat >` dưới user `ottimo`, `config -q` không in giá trị. 5.1 có journald, `terse` + cài đặt ghim ở dòng "App (tiếp)", hai dòng mới (lùi W4, Caddyfile riêng), lùi W1 |
+| FB-R5-ARC-OPS-07 | **Đóng** | K10 đếm dòng api trong [`GIO_W6_4`, `GIO_P5`) và kiểm container ghi các dòng đó không còn chạy, đúng bằng chứng OR-04. W1 `TIMER SAO LUU TREN MAY: 2`. P0 "PR-C1 (V5-1A) gộp sau #93". 5.0, R6 có `journal` |
+
+### FB-R5-ARC-OPS-10
+- Mức độ: Minor (sửa trước khi gửi câu đồng ý Đợt A; không chặn gộp #95)
+- Người nhận: OPS
+- Vị trí:
+  - runbook v1.0.5 r1, mục 0.2 câu mẫu Đợt A và W6 bước 2;
+  - `runbook-vps-moi.md` bước 5 và 7.
+- Vấn đề:
+  1. Câu Đợt A kết bằng "Production không đổi gì". Nhưng W6 bước 1 khởi động lại journald của cả máy. W6 bước 2 còn ghi `/opt/ottimo-prod/state/journald_since`. Không ảnh hưởng dịch vụ, vì container production còn driver `local`. Nhưng câu đồng ý phải đúng từng chữ (SEC 95-01).
+  2. Runbook VPS mới bước 5 cho phép "thêm vào `LOG_READER_USERS`/`SUDO_USERS`" lúc `.env` chưa có (bước 7 mới tạo).
+- Vì sao quan trọng: INV đồng ý dựa trên câu mẫu. Người chạy làm theo thứ tự bước.
+- Đề xuất sửa:
+  1. Chọn một trong hai:
+     - (a) thay "Production không đổi gì" bằng "Production: app và container không đổi; chỉ ghi ngày bắt đầu nhật ký vào thư mục trạng thái của production";
+     - (b) chuyển phần `/opt/ottimo-prod` của W6 bước 2 sang Đợt C, trước W6 bước 3 production.
+     - ARC chọn (a): ít đổi nhất. `journald_since` là mốc của cả máy, ghi sớm không sai.
+     - Trùng ý 1 của SEC FB-R5-SEC-OPS-95-08 (câu Đợt A). OPS sửa một lần theo thẻ SEC, vì thẻ đó rộng hơn (câu Đợt B, C). Thẻ này đóng cùng lúc.
+  2. Bước 5: "muốn giữ user thì ghi lại, đặt `LOG_READER_USERS`/`SUDO_USERS` ở bước 7 (SEC đồng ý)".
+- Trạng thái: Open
+
+### Kết luận lượt 2 cho #95: **DUYỆT**
+- Ba Major 01, 02, 03 và Minor 04, 05, 07 đã đóng.
+- Thẻ 10 (Minor, chữ) sửa trước khi ORC gửi câu đồng ý Đợt A. Không cần ARC đọc lại.
+- Gộp sau #93 (mục 1.8).
+- Phần SEC (95-01…07) do SEC kết luận. Duyệt của ARC không thay kết luận "chưa duyệt" của SEC ở lượt trước.
+- Lúc điền ô `⟨CHỜ tác giả PR⟩` khi cắt `SHA_V105`, OPS thêm bước kiểm trước Release của V5-25:
+  - câu SQL `v5-25-parameter-shape-check.sql`, có guard và hai dòng đếm;
+  - chạy trước P3;
+  - `min_stay`/`weekend_nights` không ok thì dừng.
+  - Xem `ARC-on-pr-96-v5-25.md` ĐK-2, thẻ FB-R5-ARC-BE-03.

@@ -85,3 +85,44 @@ Chi tiết từng việc ở `rounds/round-05/outputs/ARC/contract-0.3.13.md`. P
 - V5-58 (phụ): FD có cần đọc Wi-Fi trên Desk không (G4).
 
 ARC làm bổ sung 0.3.13 trong ngày DOM chốt.
+
+## Cập nhật 06/11 khuya – Phản hồi & sửa (PR #94 HEAD `2cb549cc`)
+- **PR #94 sẵn sàng gộp.**
+  - CI run 42239136222 xanh hết, `MERGEABLE CLEAN`.
+  - Hợp đồng vẫn `0.3.13-draft`, bổ sung 1/1b/1c.
+  - Kiểm cục bộ:
+    - Redocly 0 lỗi;
+    - traceability `--strict` exit 0;
+    - rbac/meta `--check` OK (2310 ca, 21 `fieldCases`);
+    - typecheck 13/13;
+    - unit API 1123, api-client 37, admin-web 994.
+- **Thẻ:** trả lời trong `rounds/round-05/responses/ARC-on-contract-0.3.13-reviews.md` (trên nhánh).
+  - SEC:
+    - ARC-01…06, 12, 13 Done;
+    - ARC-09 Resolved;
+    - ARC-10 Done một phần (chờ BA dòng rbac S36).
+  - BE: C0313-01…21 Done. Riêng ý 3 thẻ 21 (`If-Match`) từ chối.
+- **BUG-R5-002:**
+  - V5-48 vào 0.3.13. Trên đơn đã đóng:
+    - `recordPayment` chỉ nhận `bank_transfer`/`vietqr` (422 `NOT_IN_LIST`), ảnh bắt buộc, `pending`, audit `afterClosure`;
+    - `confirmPaymentReceived` và `createVietQr` trả 409 `INVALID_TRANSITION` kèm `reservationStatus`.
+  - 5B-1 là nhánh trong `recordPayment`:
+    - hoàn `payment_after_cancel` đứng tên người ghi, nơi nhận `original_method`;
+    - có `possibleDuplicateCodes`;
+    - `bankReference` tùy chọn, trùng thì 409 `DUPLICATE_BANK_REFERENCE`;
+    - `createDepositNotice` trên đơn đã đóng trả 202 kèm `deposit_after_cancel`;
+    - ô mã ở bước đối soát để v1.0.6.
+  - 5B-2 để 0.3.14 / v1.0.6: phòng đã bán thì 409 `ROOM_UNAVAILABLE`; cần migration nhỏ cho kind `reservation_restored_after_cancel`.
+- **V5-25:** không đổi schema. Chỉ thêm mô tả `setParameter`; dùng lại `PARAM_OUT_OF_RANGE`.
+- **Thứ tự PR** (contract mục 2): PR-A1a/A1b, PR-D1, PR-B1 kèm V5-48, PR-B3 (5B-1), PR-S1 (hạn ≤ 08/11), PR-C2 (V5-25), PR-M.
+- **Thứ tự gộp:** #92 (đã gộp) → #93 → #94 → #95. PR-C1 chỉ gộp sau #93 và #94.
+- **Giả định G9–G15** (contract mục 6):
+  - G9: biên trên giá đêm bằng giá tháng ÷ 3, chờ DOM;
+  - G15: chống trùng `bankReference` bằng khóa tư vấn, không dùng unique index.
+- **ESC mới:** không có.
+- **ORC đã giao:**
+  - SEC và BE đọc lại #94;
+  - BA: rbac S36, `getManagerPerformanceBonus`, A07b/A33, SM-01;
+  - DOM: G9, BR-428, 7.1;
+  - PO: story BR-438, xếp PR-B3;
+  - UXD: chữ 5B-1.

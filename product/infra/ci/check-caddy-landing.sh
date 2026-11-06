@@ -14,22 +14,29 @@
 #   - any other /v1/* (other operation, wrong method, bad slug, /v1/me, /v1/public/…/availability) → 404
 #   - languages: /ru/, /ko/ served (no /ru block any more); 404 page of the path's language (/vi/x, /ko/x, /ru/x),
 #     English 404 when the build has no 404 page for it (/zh/x here) or for an unknown prefix (/ja/x)
+#   - Authorization never reaches the api (SEC FB-R4-SEC-OPS-054-01, V5-67), with both access snippets of
+#     /run/secrets/landing_access: production (no restriction) – a client Basic or Bearer header on each of the three
+#     operations arrives empty at the stub; staging (basic auth with a throw-away password made by this run + X-Robots-Tag)
+#     – the right password passes on all three operations and the api still sees no Authorization; no or a wrong
+#     password → 401 with X-Robots-Tag noindex, nothing reaches the api
 # and with LANDING_PUBLIC_API unset (the default): form-token and price-estimate → 404.
-# Needs Docker + curl. Exit 0 = ok, 1 = a rule is broken.
+# Needs Docker + curl. Exit 0 = ok, 1 = a rule is broken. CHECK_LANDING_CADDYFILE runs the checks on another file
+# (only to show that a check goes red on an older Caddyfile).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
-caddyfile="$here/../caddy/Caddyfile.landing"
+caddyfile="${CHECK_LANDING_CADDYFILE:-$here/../caddy/Caddyfile.landing}"
 CADDY_IMAGE=caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
 port="${CHECK_LANDING_PORT:-28643}"
 port_off="${CHECK_LANDING_PORT_OFF:-28644}"
+port_stg="${CHECK_LANDING_PORT_STG:-28645}"
 net="ottimo-landing-check-$$"
 work=$(mktemp -d "${TMPDIR:-/tmp}/landing-check.XXXXXX")
 fails=0
 ok() { echo "ok   $*"; }
 bad() { echo "FAIL $*"; fails=$((fails + 1)); }
 cleanup() {
-  docker rm -f "$net-api" "$net-on" "$net-off" >/dev/null 2>&1 || true
+  docker rm -f "$net-api" "$net-on" "$net-off" "$net-stg" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
   rm -rf "$work"
 }
@@ -42,13 +49,19 @@ printf '<!doctype html><title>404</title>\n' > "$work/site/404.html"
 for l in vi ko zh ru; do mkdir -p "$work/site/$l"; printf '<!doctype html><title>home %s</title>\n' "$l" > "$work/site/$l/index.html"; done
 for l in vi ko ru; do mkdir -p "$work/site/$l/404"; printf '<!doctype html><title>404 %s</title>\n' "$l" > "$work/site/$l/404/index.html"; done
 printf '# production: no access restriction\n' > "$work/access"
+# Staging snippet, same shape as init-secrets.sh writes it: a password made for this run only (never stored), its
+# bcrypt hash from the same Caddy image.
+stg_pw="check-$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
+stg_hash=$(docker run --rm "$CADDY_IMAGE" caddy hash-password --plaintext "$stg_pw")
+printf '# staging preview: basic auth (user ottimo) + noindex\nbasic_auth {\n\tottimo %s\n}\nheader X-Robots-Tag "noindex, nofollow"\n' \
+  "$stg_hash" > "$work/access-stg"
 # Stub api: tells what arrived – method, path, forwarded client, body length actually received.
 cat > "$work/api.caddy" <<'EOF'
 {
 	admin off
 }
 :3000 {
-	respond "api {method} {path} xff={header.X-Forwarded-For} cl={header.Content-Length} q={query}" 200
+	respond "api {method} {path} xff={header.X-Forwarded-For} cl={header.Content-Length} q={query} auth={header.Authorization}" 200
 	log {
 		output stdout
 		format json
@@ -58,14 +71,15 @@ EOF
 chmod -R a+rX "$work"
 docker network create "$net" >/dev/null
 docker run -d --name "$net-api" --network "$net" --network-alias api -v "$work/api.caddy:/etc/caddy/Caddyfile:ro" "$CADDY_IMAGE" >/dev/null
-run_landing() { # name host-port api-switch
+run_landing() { # name host-port api-switch [access-snippet]
   docker run -d --name "$1" --network "$net" -e LANDING_HOST=landing.localhost -e LANDING_WWW_HOST=www.landing.localhost \
     -e ACME_EMAIL=ops@example.invalid -e LANDING_PUBLIC_API="$3" \
-    -v "$caddyfile:/etc/caddy/Caddyfile:ro" -v "$work/site:/srv/landing:ro" -v "$work/access:/run/secrets/landing_access:ro" \
+    -v "$caddyfile:/etc/caddy/Caddyfile:ro" -v "$work/site:/srv/landing:ro" -v "${4:-$work/access}:/run/secrets/landing_access:ro" \
     -p "127.0.0.1:$2:443" "$CADDY_IMAGE" >/dev/null
 }
 run_landing "$net-on" "$port" on
 run_landing "$net-off" "$port_off" ''
+run_landing "$net-stg" "$port_stg" on "$work/access-stg"
 sleep 4
 
 req() { # port method path [curl args…] → "<code> <body>"
@@ -146,10 +160,47 @@ for c in "POST /v1/public/properties/dlt/form-token" "GET /v1/public/properties/
   [ "${out%% *}" = 404 ] && ok "404: $c" || bad "$c → $out"
 done
 
+# ── Authorization stays at Caddy (SEC FB-R4-SEC-OPS-054-01, V5-67), both access snippets ──
+# The stub answers "… auth=<Authorization it received>", last in its body, so an empty header ends the body with "auth=".
+ops3=("GET /v1/public/properties/dlt/form-token" "POST /v1/public/properties/dlt/booking-requests"
+  "GET /v1/public/properties/dlt/price-estimate?$pq")
+proxied_without_auth() { # label → ok when the last request got 200 from the stub and the stub saw no Authorization
+  local code="$1" label="$2" body
+  body=$(cat "$work/body" 2>/dev/null || true)
+  case "$body" in *auth=?*) bad "$label: Authorization reached the api" ;;
+    "api "*" auth=") [ "$code" = 200 ] && ok "$label: proxied, api saw no Authorization" || bad "$label → $code" ;;
+    *) bad "$label → $code ${body:0:80}" ;; esac
+}
+for c in "${ops3[@]}"; do
+  m=${c%% *} path=${c#* }
+  extra=(); [ "$m" = POST ] && extra=(-H 'Content-Type: application/json' --data '{"a":1}')
+  for h in 'Basic b3R0aW1vOmNsaWVudC1zZW50' 'Bearer client-sent-token'; do
+    out=$(req "$port" "$m" "$path" -H "Authorization: $h" ${extra[@]+"${extra[@]}"})
+    proxied_without_auth "${out%% *}" "production snippet, client ${h%% *} header, $m ${path%%\?*}"
+  done
+  out=$(req "$port_stg" "$m" "$path" -u "ottimo:$stg_pw" ${extra[@]+"${extra[@]}"})
+  proxied_without_auth "${out%% *}" "staging snippet, right preview password, $m ${path%%\?*}"
+done
+before_auth=$(docker logs "$net-api" 2>/dev/null | grep -c '"uri":"/v1/' || true)
+for c in "${ops3[@]}"; do
+  m=${c%% *} path=${c#* }
+  extra=(); [ "$m" = POST ] && extra=(-H 'Content-Type: application/json' --data '{"a":1}')
+  for who in none wrong; do
+    creds=(); [ "$who" = wrong ] && creds=(-u "ottimo:not-$stg_pw")
+    out=$(req "$port_stg" "$m" "$path" -D "$work/hdr" ${creds[@]+"${creds[@]}"} ${extra[@]+"${extra[@]}"})
+    if [ "${out%% *}" = 401 ] && grep -qi '^x-robots-tag:.*noindex' "$work/hdr"; then
+      ok "staging snippet, $who password, $m ${path%%\?*} → 401 with X-Robots-Tag noindex"
+    else bad "staging snippet, $who password, $m ${path%%\?*} → ${out:0:80}"; fi
+  done
+done
+sleep 1
+[ "$(docker logs "$net-api" 2>/dev/null | grep -c '"uri":"/v1/' || true)" = "$before_auth" ] \
+  && ok "staging requests without the preview password never reached the api" || bad "a 401 staging request reached the api"
+
 out=$(req "$port_off" GET /v1/public/properties/dlt/form-token)
 [ "${out%% *}" = 404 ] && ok "LANDING_PUBLIC_API unset → form-token 404 (proxy off by default)" || bad "proxy off: $out"
 out=$(req "$port_off" GET "/v1/public/properties/dlt/price-estimate?$pq")
 [ "${out%% *}" = 404 ] && ok "LANDING_PUBLIC_API unset → price-estimate 404" || bad "proxy off, price-estimate: $out"
 
 if [ "$fails" -gt 0 ]; then echo "::error::Caddyfile.landing: $fails check(s) failed"; exit 1; fi
-echo "OK: Caddyfile.landing – only the three public operations reach the api (form ≤ 16 KB, price GET ≤ 256-byte query), 404 by language, everything else 404"
+echo "OK: Caddyfile.landing – only the three public operations reach the api (form ≤ 16 KB, price GET ≤ 256-byte query, no Authorization header), 404 by language, everything else 404"

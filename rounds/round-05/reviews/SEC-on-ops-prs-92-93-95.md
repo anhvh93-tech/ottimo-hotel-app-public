@@ -21,6 +21,8 @@
 
 Tổng: **0 Blocker, 3 Major, 7 Minor, 1 Suggestion.** Không ESC mới.
 
+**Lượt 2 (mục 8, #95 @ `bd175b80`):** #95 **DUYỆT CÓ ĐIỀU KIỆN**. 95-01…07 Đóng; thẻ mới 95-08, 95-09 (Minor), 95-10 (Suggestion).
+
 Trùng với review ARC cùng ngày (`ARC-on-ops-prs-92-93-95.md`), OPS sửa một lần cho cả hai:
 - FB-R5-ARC-OPS-01 (W6 dựng lại Postgres, INV đồng ý riêng, cấm W6 trong khung sao lưu) trùng một phần 95-01 và 95-06 (b). Thẻ 95-01 rộng hơn: phủ cả P2, W1–W5, W7, K.
 - FB-R5-ARC-OPS-02 (FAIL `journal` giả từ P2b tới W6, kiểm trước nhóm ở P2) trùng 95-06 (a) và (c).
@@ -190,7 +192,7 @@ Phần của #95 SEC đã duyệt:
      - P3, P4, P5, K như cũ.
   3. Đồng ý cho staging không thay đồng ý cho production. Đổi thứ tự, hoặc quá 24 giờ kể từ lúc đồng ý, thì xin lại.
   4. Mục 7: ORC ghi giờ đồng ý của từng đợt vào decision-log.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #95 @ `bd175b80`, 06/11 – mục 8.1)
 
 ### FB-R5-SEC-OPS-95-02
 - Mức độ: **Major**
@@ -208,7 +210,7 @@ Phần của #95 SEC đã duyệt:
   3. Những gì chỉ chạy **sau** V5-61: P2b production và mọi bước production cần gói mới (W1, W2, W6, W7), rồi P3–P5.
   4. ORC/PO: nếu V5-61 không kịp trước khi cắt bản thì v1.0.5, kể cả phần không migration, chưa lên production. Tách riêng V5-62 khỏi gói thì khó, vì cùng bundle. SEC đề xuất làm V5-61 trước, không tách.
   5. Không cần ESC: V5-61 đã nằm trong việc chờ INV (30 phút mở khóa `age`).
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #95 @ `bd175b80`, 06/11 – mục 8.1)
 
 ### FB-R5-SEC-OPS-95-03
 - Mức độ: **Major**
@@ -249,7 +251,7 @@ Phần của #95 SEC đã duyệt:
   5. Đoạn "Nghi bị chiếm quyền":
      - gọi SR-INC-01: báo SEC và INV ngay; đánh giá việc thông báo trong 72 giờ (luật sư xác nhận);
      - mặc định xoay cả KEK lẫn `id_hash_key`, vì khóa cũ coi như đã lộ. SEC quyết khi có sự cố.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #95 @ `bd175b80`, 06/11 – mục 8.1)
 
 ### FB-R5-SEC-OPS-95-04
 - Mức độ: Minor
@@ -266,7 +268,7 @@ Phần của #95 SEC đã duyệt:
   - (a) Root chỉ `cp -p` sang `/root`. Lọc và thay tệp bằng `sudo -n -u ottimo sh -c 'umask 077; grep -E "…" F > F.new && mv F.new F'`, không cần `chown`.
   - (b) Bước 1 thêm `sudo -n sshd -T | grep -E '^(authorizedkeysfile|authorizedkeyscommand|permitrootlogin) '`. Đúng là: `.ssh/authorized_keys .ssh/authorized_keys2`, `none`, `no`.
   - (c) Ghi: xóa bản cũ khi lượt deploy CI và lượt kéo sao lưu kế tiếp đều đạt, chậm nhất sau 7 ngày. Tệp chỉ có khóa công khai, nên thẻ này là Minor.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #95 @ `bd175b80`, 06/11 – mục 8.1)
 
 ### FB-R5-SEC-OPS-95-05
 - Mức độ: Minor
@@ -282,7 +284,7 @@ Phần của #95 SEC đã duyệt:
     - lệnh `systemd-analyze cat-config systemd/journald.conf | grep -E '^(MaxRetentionSec|ForwardToSyslog|SystemMaxUse|RateLimitBurst)='`;
     - dòng **cuối** của mỗi khóa phải là giá trị của `50-ottimo.conf`. Một drop-in có tên xếp sau, ở `/etc`, `/run` hay `/usr/lib`, sẽ thắng.
 - Vì sao quan trọng: giữ đúng luật "chỉ ra con số" của runbook, và chắc trần 90 ngày thật sự có hiệu lực.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #95 @ `bd175b80`, 06/11 – mục 8.1)
 
 ### FB-R5-SEC-OPS-95-06
 - Mức độ: Minor
@@ -300,7 +302,7 @@ Phần của #95 SEC đã duyệt:
     - Đề xuất: thêm W1, W2, W6 vào luật khung giờ.
   - (c) Thêm vào P2 một kiểm chỉ đọc: số thành viên của `adm`, `systemd-journal`, `docker`, so với `LOG_READER_USERS`, chỉ in số. Nhờ vậy W7 không phải dừng giữa cửa sổ vì một user có sẵn trong image của nhà cung cấp.
 - Vì sao quan trọng: cảnh báo đáng tin, giữ được mốc sao lưu, và cửa sổ bảo trì không bị cắt ngang.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #95 @ `bd175b80`, 06/11 – mục 8.1)
 
 ### FB-R5-SEC-OPS-95-07
 - Mức độ: Minor
@@ -316,7 +318,7 @@ Phần của #95 SEC đã duyệt:
   - Runbook VPS mới bước 7: đặt cả hai tệp. Mục 2: bỏ ý "không có bản ngoại tuyến" sau khi INV đã cất.
   - ORC: việc của INV theo khuôn ở mục 1.2, làm cùng buổi V5-61.
   - Sửa ở #95, hoặc #93 nếu OPS muốn giữ mọi thay đổi `hosting-plan.md` trong một PR.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #95 @ `bd175b80`, 06/11 – mục 8.1)
 
 ### FB-R5-SEC-OPS-93-01
 - Mức độ: Minor
@@ -404,3 +406,165 @@ Phần của #95 SEC đã duyệt:
 ## 6. Dòng decision-log
 
 `| 2026-11-06 | 5 | **SEC – review 3 PR OPS v1.0.5** (rounds/round-05/reviews/SEC-on-ops-prs-92-93-95.md): #92 V5-67 (f8c819c0) DUYỆT; #93 V5-73/V5-62/V5-65/V5-63/ARC-08 (b1354a4f) DUYỆT CÓ ĐIỀU KIỆN – gộp được, trước khi cắt SHA_V105 sửa 93-01 (WARN dính che sự kiện mới), 93-02 (sshkeys chỉ nhận 2 lệnh ép đã biết, chặn pty/forwarding), 93-03 (ghim log_statement, log_min_duration_statement, log_parameter_max_length*), phần server production chỉ sau V5-61 ĐẠT; #95 runbook v1.0.5 r0 + VPS mới (fd11c4a2) CHƯA DUYỆT – 3 Major: 95-01 đồng ý INV phải phủ P2, W1–W7, K; 95-02 P0 thiếu cổng QC R4 ĐK-2 (bundle đổi backup.sh + timer = đổi sao lưu; phương án dự phòng tách migration không tránh được); 95-03 VPS mới: bước KEK/khóa age/dump do INV tự gõ, lệnh KEK theo khuôn G4-8, stderr pg_restore vào tệp root, so host key ngoài băng, nghi chiếm quyền = SR-INC-01. SEC quyết: ARC-08 không bắt log_min_error_statement=panic (api chỉ dùng tham số bind, không sql.raw, describeError chỉ giữ code/constraint/routine, log_parameter_max_length_on_error=0; xét lại khi có SQL ghép chuỗi hoặc bật log câu lệnh); id_hash_key có bản ngoại tuyến do INV giữ cùng chỗ KEK, khác phong bì khóa age (95-07; việc của INV cuối round, làm cùng buổi V5-61, không ESC); journald đạt (quyền đọc, ngoài sao lưu, ForwardToSyslog=no, RateLimitBurst 20000/30 s chấp nhận); ARC-07, ARC-08 Closed phần mã; ĐK-8 phía SEC ĐẠT; M4d (1.6) và FP_OPS8 8 ký tự duyệt. 0 Blocker, 3 Major, 7 Minor, 1 Suggestion. Không ESC mới | SEC | Quyền SEC (mức rủi ro, yêu cầu bảo mật kỹ thuật) |`
+
+---
+
+## 7. Phản hồi của OPS (06/11, bước Phản hồi & sửa)
+
+Commit đã đẩy, chưa gộp (OPS không tự merge, không SSH):
+- **#93** nhánh `r5-ops`: `ad92f1b5` (93-01…04, ARC OPS-06), `59216001` (prettier xuống dòng danh sách `command` của postgres, hai test đọc được cả hai dạng; CI `format` đỏ ở `ad92f1b5` vì việc này).
+- **#95** nhánh `r5-ops-runbooks`: `40e31795` (runbook v1.0.5 r1, runbook VPS mới r1), `b7b00e06`, `bd175b80` (runbook VPS mới không còn trỏ vào runbook v1.0.5).
+- #95 trỏ tới README `infra/server` 3.1 và các dòng 8.1 của `hosting-plan.md`, hai chỗ này nằm trong #93. Gộp #93 trước.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-SEC-OPS-95-01 | Done (`40e31795`) | (1) Mục 0, P0 và luật chung kể đủ: P2, T, W0–W7, P2b, P3–P5, K, mục 5, Đợt D. (2) Mục 0.2 có bảng 5 đợt, mỗi đợt có cột tệp bị xóa, gián đoạn, có dùng root không, cổng. Có câu xin đồng ý mẫu cho từng đợt: B (production không gián đoạn: P2, W0, W5), A (staging), C (production có gián đoạn, có số `GIAN_DOAN_W6` đo ở staging), P3/P4/P5 + K, D (sau 7 ngày). Câu Đợt A có thêm: drop-in journald áp cho cả máy, từ lúc đó `auth.log`/`syslog` ngừng ghi. (3) Đồng ý staging không thay production. Đổi thứ tự, thêm bước, hoặc quá 24 giờ thì xin lại. (4) Mục 7: dòng decision-log ghi giờ đồng ý của từng đợt. |
+| FB-R5-SEC-OPS-95-02 | Done (`40e31795`); ý 4 chuyển ORC/PO | (1) P0 có ô "**V5-61 ĐẠT** (QC R4 ĐK-2), biên bản: …". (2) Được chạy trước V5-61: Đợt A (toàn bộ staging), W0 và W5 production (Đợt B). (3) Chỉ chạy sau V5-61: Đợt C (P2b production, W1, W2, W6, W7) rồi P3–P5. Mục 6 dừng khi thiếu cổng. (4) OPS không sửa `plan.md`. ORC/PO ghi vào dòng ĐK-2 và phương án dự phòng: V5-61 chưa kịp thì v1.0.5, kể cả phần không có migration, chưa lên production. OPS đồng ý với SEC: làm V5-61 trước, không tách V5-62. (5) Không ESC. |
+| FB-R5-SEC-OPS-95-03 | Done (`40e31795`) | Runbook VPS mới r1. (1) Có cột "Ai gõ" và luật ở đầu: INV (hoặc OPS là người thật, trên máy của mình) gõ mọi bước có khóa `age`, KEK, `id_hash_key`, dump và giải mã `counts`. Agent không chạy, không xem. ORC chỉ chạy bước có đầu ra là mã thoát, số đếm, 8 ký tự băm. (2) Mục 1.2 theo khuôn G4-8: `read -rs`, in 8 ký tự trên Mac, `printf '%s' "$k" \| ssh … 'sudo -n sh -c "umask 077; …"'`. Thư mục `0710 root:ottimo`, tệp `.tmp` rồi `mv`, không ghi đè tệp đã có (`DA CO TEP, DUNG`). In lại 8 ký tự trên máy chủ, `unset k`. Làm hai lượt, KEK rồi `id_hash_key`. Sau đó `init-secrets.sh` phải ra `TAO LAI KHOA: 0`. (3) Mục 1.3: root chạy `pg_restore`, stderr vào `/root/restore-<stamp>.err` (umask 077), chỉ in `MA THOAT` và số dòng lỗi. Trích dẫn kiểu `SQLRO` (`'\''…'\''`), nên `$POSTGRES_USER` mở trong container. Dump vẫn giải mã trên Mac rồi đẩy qua ống. Tệp lỗi chỉ INV hoặc OPS đọc trên máy chủ, xong thì xóa. (4) Mục 1.1: INV lấy vân tay host key từ console web của hãng, ORC so 8 ký tự với `ssh-keyscan`. `PRODUCTION_SSH_KNOWN_HOSTS` lấy từ đúng dòng đã so. Khác thì dừng, báo SEC. (5) "Nghi bị chiếm quyền" gọi SR-INC-01: báo SEC + INV ngay, đánh giá việc thông báo trong 72 giờ (luật sư xác nhận), mặc định xoay KEK và `id_hash_key`, SEC quyết khi có sự cố. Các lệnh đã chạy thử trong ubuntu:24.04 với dash và `runuser` thay `sudo`. Chưa chạy trên máy chủ. |
+| FB-R5-SEC-OPS-95-04 | Done (`40e31795`) | (a) W0 và README 3.1 (#93): root chỉ `cp -p` sang `/root`. Lọc và thay tệp bằng `sudo -n -u ottimo sh -c "umask 077; grep … > $F.new && mv $F.new $F"`, không `chown`. Lùi W0 cũng do `ottimo` ghi. (b) W0 bước 1 đọc `sshd -T`. Đúng là `authorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys2` và `authorizedkeyscommand none`. Khác thì dừng, báo OPS + SEC. `permitrootlogin` khác `no` thì ghi decision-log, báo SEC, W0 vẫn làm được. Mục 8 chuyển ý này từ "giả định" sang "đã kiểm". (c) Bản cũ ở `/root` xóa ở Đợt D (có câu đồng ý riêng), khi lượt deploy CI và lượt `pull-backups.sh` kế tiếp đều đạt, chậm nhất 7 ngày. |
+| FB-R5-SEC-OPS-95-05 | Done (`40e31795`) | (a) W6 bước 4b đọc năm `SHOW` (gồm bốn cài đặt ghim của 93-03) bằng `SQLRO`, không dùng superuser. (b) Luật chung có câu: không viết giá trị của khách (họ tên, điện thoại, email, số giấy tờ) thành chữ trong câu SQL tay, kể cả câu đếm; cần tìm theo giá trị thì làm trên Desk. Mục 6 nhắc lại. (c) W4 dùng `config -q >/dev/null 2>&1 && echo "CAU HINH: OK" \|\| echo "CAU HINH: LOI"`. Lùi W4 cũng vậy. (d) W6 bước 1 in `HIEU LUC` của bốn khóa: giá trị **cuối** của mỗi khóa trong `systemd-analyze cat-config systemd/journald.conf`. Khác giá trị của `50-ottimo.conf` thì dừng. |
+| FB-R5-SEC-OPS-95-06 | Done (`40e31795`) | (a) Bước T mới: dừng timer `ops-check` của từng stack từ T0 (trước P2b) tới T1 (sau W7), dưới 60 phút. Healthchecks có ân hạn 1 giờ (decision-log 30/10). Quá 50 phút thì T1 ngay, ghi trước vào decision-log "có thể có FAIL `journal` giả từ … tới …" và báo phòng. Tách theo stack vì Đợt A và Đợt C có thể cách nhau nhiều ngày (cổng V5-61). Trong khoảng đó production còn gói cũ, không có mục `journal`. (b) Luật "Giờ chạy" và mục 6 thêm W1, W2, W6 bước 4–5. W6 bước 4–5 production còn tránh 11:30–12:30 và 13:30–14:30. Lượt sao lưu bù của W1 phải có `OK:` trước W6 bước 4. (c) P2 mục 5: số người ngoài danh sách của `adm`, `systemd-journal`, `sudo`, `wheel`, `docker` (tính cả nhóm chính) và số ACL lạ, chỉ in số. Khác 0 thì không vào Đợt A, quyết với SEC trước. |
+| FB-R5-SEC-OPS-95-07 | Done (`ad92f1b5`, `40e31795`); việc của INV chuyển ORC | `hosting-plan.md` 8.1 (#93): dòng `ID_HASH_KEY` có chủ INV + OPS, bản ngoại tuyến do INV giữ cạnh KEK, khác phong bì với khóa `age`. `LOG_IP_HMAC_KEY` tách dòng riêng. README 4.2 (#93): dòng "production: chép …" có thêm `id_hash_key`. Runbook VPS mới: bước 9 đặt cả hai tệp. Mục 2 chỉ còn ý "chưa có bản ngoại tuyến" cho trường hợp INV chưa cất. ORC: đưa việc INV cất `id_hash_key` vào danh sách cuối round, làm cùng buổi V5-61, theo khuôn ở mục 1.2. |
+| FB-R5-SEC-OPS-93-01 | Done (`ad92f1b5`) | `notify` lưu tập lý do cố định cùng trạng thái, không kèm số (`WARN <giờ> rotated,suppressed`). WARN hoặc FAIL có tập lý do khác thì gửi lại ngay. Khóa lý do của `journal`: `containers`, `unreadable`, `cap`, `rotated`, `since_missing`, `suppressed`, `owner`, `world`, `acl`, `group-<nhóm>`. Test 27–29 (`ops-check-journal.test.sh`, 47/0). Ca 28/28b: đang WARN `rotated`, thêm `Suppressed` → webhook thứ hai. Ca 28c: tệp trạng thái chỉ có khóa lý do. Ca 28e: chỉ số đếm đổi thì không gửi lại. Mã `b1354a4f` bị 8 FAIL. README mục 7, `hosting-plan.md` và hai `env*.example` đổi sang `journalctl -t ottimo-alert -p warning`. Sổ vận hành không có `-p err`, nên không phải sửa. |
+| FB-R5-SEC-OPS-93-02 | Done (`ad92f1b5`) | `sshkeys` chỉ nhận `command="/opt/(ottimo\|ottimo-prod)/infra/server/bin/deploy-from-ci.sh"` và `command="/usr/bin/rrsync -ro /var/backups/(ottimo\|ottimo-prod)"`, so khớp nguyên chuỗi. Phải có `restrict`. FAIL khi có `pty`, `port-forwarding`, `agent-forwarding`, `x11-forwarding`, `user-rc` ở bất kỳ vị trí nào, kể cả trước `restrict`. FAIL khi `authorized_keys`, `authorized_keys2` hoặc `.ssh` cho nhóm hay người khác ghi. Tin chỉ có số dòng, số lệnh lạ, số tùy chọn mở lại. Test (`ci/test-ops-check.sh`, 228/0): lệnh lạ `/bin/bash`, đường dẫn gần đúng `.bak`, 5 tùy chọn mở lại, tệp 0664, `.ssh` 0770, sửa quyền thì về ok. Mã `b1354a4f` bị 11 FAIL. |
+| FB-R5-SEC-OPS-93-03 | Done (`ad92f1b5`, `59216001`) | Compose postgres ghim `log_error_verbosity=terse`, `log_statement=none`, `log_min_duration_statement=-1`, `log_parameter_max_length=0`, `log_parameter_max_length_on_error=0`, kèm chú thích "Changing this list = SEC review". Test `postgres-log-terse.test.sh` (13/0) đọc `pg_settings`: năm giá trị phải đúng và có nguồn `command line`. Lượt đối chứng cho thấy mặc định `log_parameter_max_length=-1`. Runbook W6 bước 4b đọc lại năm giá trị bằng `SQLRO`. README mục 7 ghi luật này. |
+| FB-R5-SEC-OPS-93-04 | Done (`ad92f1b5`), riêng `Seal=yes` Deferred (B-OPS) | `journal` kiểm thêm nhóm `sudo` và `wheel` (nếu có), so với `SUDO_USERS`, mặc định `ottimo-admin`. Có `getfacl` thì FAIL khi `/var/log/journal` có mục ACL `user:` có tên, hoặc `group:` ngoài `adm`/`wheel`/`systemd-journal` (kể cả `default:`). Không có `getfacl` thì bỏ phần ACL. Test 25–26c: tin và tệp trạng thái không có tên người. README mục 7: `auth.log` và `syslog` ngừng ghi từ W6. Đọc bằng `journalctl -u ssh` và `journalctl _COMM=sudo`. `Seal=yes` với khóa xác minh để ngoài máy: B-OPS. |
+
+Câu đồng ý mẫu theo đợt nằm trong runbook v1.0.5 r1 mục 0.2. ORC đưa INV đúng câu đó, điền giờ và số.
+
+---
+
+## 8. Lượt 2 @ `bd175b80` – PR #95 (06/11, bước Review, đọc lại sau Phản hồi & sửa)
+
+- Đối tượng: #95 `r5-ops-runbooks` @ `bd175b80`. Ba commit sau lượt 1 (`fd11c4a2`): `40e31795`, `b7b00e06`, `bd175b80`. Hai tệp đổi: `rounds/round-05/outputs/OPS/v1.0.5-release-runbook.md` (r1) và `product/docs/runbook-vps-moi.md` (r1).
+- Cách đọc:
+  - `gh pr diff 95` và `git diff fd11c4a2..bd175b80`;
+  - đọc trọn hai tệp ở `bd175b80`, vì phải kết luận về từng câu đồng ý;
+  - đối chiếu `init-secrets.sh` (`bd175b80`); `bootstrap-vps.sh`, `hosting-plan.md` 8.1, README `infra/server` 4.2 trên #93 @ `59216001`; `plan.md` (quyết định 25, dòng 398); runbook v1.0.4 P2b bước 5; `b2-runbook.md` (khuôn tệp khóa `age` trên Mac); SR-INC-01.
+- **Không** SSH, không chạy gì trên máy chủ, không comment hay approve trên GitHub.
+- CI @ `bd175b80`: xanh mọi job, gồm `gitleaks` và `infra scripts`. Ba job publish/deploy bỏ qua vì là PR.
+- #95 vẫn dựa vào #93: `server/journald/50-ottimo.conf`, README 3.1 và 8.1 nằm ở #93, chưa gộp. **Gộp #93 trước.**
+
+### 8.0 Kết luận
+
+**#95: DUYỆT CÓ ĐIỀU KIỆN.**
+- 7/7 thẻ cũ Đóng.
+- Thẻ mới: 0 Blocker, 0 Major, 2 Minor (95-08, 95-09), 1 Suggestion (95-10). Không ESC mới.
+- Gộp được ngay sau #93.
+- Điều kiện:
+  1. **95-08 sửa trước khi ORC gửi câu đồng ý đầu tiên (Đợt B).** ORC tự đối chiếu 5 ý của thẻ. SEC không cần đọc lại.
+  2. **95-09 sửa trong Round 5, trước khi đóng V5-64.** Không chặn gộp, không chặn v1.0.5.
+- Giữ nguyên: P0 chặn Đợt C, P3, P4, P5 tới khi V5-61 ĐẠT (95-02).
+
+### 8.1 Thẻ cũ
+
+| Thẻ | Lượt 2 | Bằng chứng @ `bd175b80` |
+|---|---|---|
+| 95-01 Major | **Đóng** | Luật chung có dòng "Đồng ý theo đợt". Mục 0 "INV phải làm gì" và P0 có ô đồng ý cho từng đợt. 0.2 có bảng 5 đợt và câu mẫu. Đồng ý staging không thay production. Đổi thứ tự, thêm bước hay quá 24 giờ thì xin lại. Mục 7 ghi giờ đồng ý từng đợt. Chỗ câu mẫu còn lệch bảng: chuyển sang 95-08 (Minor) |
+| 95-02 Major | **Đóng** | P0 có ô "V5-61 ĐẠT (QC R4 ĐK-2), biên bản". **Ý 4 nằm đúng chỗ:** P0 phần "Trước Đợt C và P3–P5" ghi lý do (gói đổi `backup.sh` và lịch sao lưu là đổi sao lưu) và câu "Bản v1.0.5, kể cả phần không có migration, chưa lên production". Nhắc lại ở 0.1 (ô `V5-61` chỉ chặn Đợt C, P3–P5), mục 0 "Thứ tự", cột "Trước V5-61?" của 0.2, mục 6 dòng P0. `plan.md` (quyết định 25) và dòng decision-log của PO cùng ý. Trước V5-61 chỉ có Đợt B (P2 chỉ đọc, W0, W5) và Đợt A (staging): không đổi sao lưu production |
+| 95-03 Major | **Đóng** | (1) "Ai gõ" ở đầu tệp và cột bảng: bước 9, 11, 12, 13 và phần giải mã `counts` ở bước 16 do INV (hoặc OPS người thật) gõ. ORC chỉ chạy bước ra mã thoát, số, 8 ký tự. (2) 1.2 đúng khuôn G4-8. `read -rs`; `printf` là lệnh có sẵn của shell, nên giá trị không vào tham số tiến trình. Thư mục `root:ottimo 0710` và tệp `1000:1000 0400` giống `init-secrets.sh` `put()`. Không ghi đè (`DA CO TEP, DUNG`), `.tmp` rồi `mv`, `unset k`. SEC lần trích dẫn: `\$` mở ở shell root, đúng. `bootstrap-vps.sh` không tạo bí mật, nên bước 9 trước bước 10 làm được. `TAO LAI KHOA` đếm đúng dòng `created …`. (3) 1.3: lần trích dẫn thấy `$POSTGRES_USER` mở trong container; stderr vào `/root/restore-<stamp>.err` dưới `umask 077`; chỉ in mã thoát và số dòng. (4) 1.1 so 8 ký tự với console web. Phần giữ đúng dòng đã so: 95-09 (b). (5) SR-INC-01, mặc định xoay KEK và `id_hash_key`, chỉ dùng bản có `<stamp>` trước lúc nghi bị vào |
+| 95-04 Minor | **Đóng** | (a) Root chỉ `cp -p` sang `/root`. Lọc và `mv` bằng chính `ottimo`, không `chown`. Lùi W0 cũng vậy. (b) `sshd -T` đọc 3 khóa, thêm kiểm không có `authorized_keys2`. `permitrootlogin` khác `no` chỉ ghi decision-log và báo SEC: SEC chấp nhận, vì W0 chỉ chạm khóa của `ottimo`. (c) Đợt D xóa bản cũ, có câu đồng ý riêng |
+| 95-05 Minor | **Đóng** | (a) W6 4b đọc năm `SHOW` qua `SQLRO`. (b) Luật chung và mục 6. (c) W4 và lùi W4 dùng `config -q >/dev/null 2>&1`. Dòng `config \| grep -c` chỉ in số. (d) `HIEU LUC` lấy giá trị cuối của mỗi khóa (`awk` ghi đè theo thứ tự `cat-config`). Lệch thì dừng |
+| 95-06 Minor | **Đóng** | (a) Bước T theo từng stack. T0→T1 dưới 60 phút (ân hạn Healthchecks). Quá 50 phút thì T1 ngay và ghi trước. (b) Khung giờ thêm W1, W2, W6 bước 4–5. W6 production tránh thêm 11:30–12:30 và 13:30–14:30. Lượt sao lưu bù của W1 phải có `OK:` trước W6 bước 4. (c) P2 mục 5 chỉ in số, tính cả nhóm chính và ACL. Khác 0 thì không vào Đợt A |
+| 95-07 Minor | **Đóng** | 8.1 (#93): dòng `ID_HASH_KEY` có chủ INV + OPS, cùng chỗ KEK, khác phong bì khóa `age`. README 4.2 (#93) có `id_hash_key`. VPS mới: bước 9 đặt cả hai tệp, mục 0 có dòng riêng, mục 2 chỉ còn ý "khi INV chưa cất". `plan.md` dòng 398: việc INV cất `id_hash_key` làm cùng buổi V5-61 |
+
+### 8.2 Ba điểm ORC nhờ kiểm riêng
+
+**(a) Câu đồng ý mẫu theo đợt (runbook r1 mục 0.2).**
+
+| Đợt | Máy, stack | Bước | Ghi, xóa (câu có nêu?) | Cách lùi trong câu | Lẫn stack khác | SQL ghi trên production |
+|---|---|---|---|---|---|---|
+| B | Máy chung; stack production và user `ottimo` của cả hai stack | P2, W0, W5 | Thay `authorized_keys`, bản cũ ở `/root`; mask `fwupd`. "Không xóa dữ liệu" đúng | **Không** | P2 mục 5 đếm dòng `.env` của cả hai stack; P2 mục 6 đọc DB **staging**. Câu không nói | Không (`SQLRO`) |
+| A | Máy chung; stack staging | T0 … T1 | Gói, unit, `.env`; xóa bằng `rsync --delete`, xóa `env.before-*` cũ, xóa bộ sao lưu staging ≥ 33 ngày: câu có nêu | **Không** | W6 bước 1 (journald cả máy): câu có nêu. W6 bước 2 ghi `/opt/ottimo-prod/state/journald_since`: câu không nêu. Câu kết "Production không đổi gì" **sai** | Không |
+| C | Máy chung; stack production và edge | (P2), T0, P2b (gồm bước 5 `02-roles.sh`), W1, W2, W6 bước 3–5, W7, T1 | Gói, lịch sao lưu, bộ sao lưu ≥ 33 ngày, gián đoạn có số giây: câu có nêu | **Không**. W6 có ghi "lùi cần đồng ý riêng", nhưng câu không nói | Edge làm mọi site gián đoạn 1–2 giây, gồm staging: câu có nêu | Không có SQL tay. Có một lần ghi cấu hình DB bằng script đã review: P2b bước 5 (`02-roles.sh`, GRANT và ALTER ROLE, idempotent, giống bước `roles` của `deploy.sh`). Câu không nêu |
+| P3, P4, P5 + K | Production | Như v1.0.4 | Sao lưu; Release (migration do `deploy.sh`) | Như v1.0.4 | – | Không SQL tay |
+| D | Production | Đo journal; xóa bản cũ ở `/root` | Có nêu | Không cần (chỉ khóa công khai) | – | – |
+
+Kết quả:
+- **Không câu nào cho phép ghi SQL bằng tay trên production.** Mọi câu SQL trong runbook đi qua `SQLRO` có hai dòng chặn. Luật chung và mục 6 cấm SQL ghi tay và cấm viết giá trị của khách vào câu SQL.
+- **Không đợt nào chạy việc của stack này dưới câu đồng ý của stack kia**, trừ các chỗ ở 95-08 (a)(b). Về thực chất các chỗ đó vô hại: chỉ đọc và đếm, một tệp ghi ngày, cấu hình nhật ký SEC đã duyệt. Nhưng câu đồng ý phải nói đúng.
+- **Cách quay lại: không câu nào nêu**, bảng 0.2 cũng không có cột lùi: 95-08 (d).
+- Mỗi đợt có nêu máy (bằng chữ "production"/"staging"), việc, gián đoạn, root. Lệnh nằm ở bước tương ứng của runbook. Câu không nói hai stack cùng một máy: 95-08 (e).
+
+**(b) IP, bí mật, hộp thư chung, tên đăng nhập, digest (grep hai tệp @ `bd175b80`).**
+- IPv4 chỉ có `127.0.0.1` (edge cục bộ) và `1.1.1.1` (máy phân giải công khai). Không có IPv6.
+- Không có địa chỉ email nào. Các chuỗi có `@` chỉ là tên unit (`ottimo-backup@ottimo-prod.timer`) và đích SSH (`ottimo-admin@desk.ottimo.vn`, `ottimo-admin@<IP-mới>`).
+- Không có chuỗi khóa (`ssh-ed25519 AAAA`, `AGE-SECRET-KEY`, `age1…`, `BEGIN … PRIVATE`), không có giá trị mật khẩu hay token.
+- Tên đăng nhập chỉ có user hệ thống (`ottimo`, `ottimo-admin`, `ottimo-ops`, `syslog`) và user basic auth staging `ottimo` (đã có từ lượt 1). Không có tên đăng nhập hay tài khoản cá nhân nào của INV.
+- Digest: chỉ có ô `⟨CHỜ⟩ (8 + 4)` và mẫu `⟨8…4⟩`. Các chuỗi hex khác là tag ảnh `sha-6414be25f20d`, `sha-da6d6f3dc22b` (quy ước `TAG12`) và commit `ae6288f8`.
+- **Đạt.** Ngoài repo, VPS mới r1 có hai chỗ đưa IP và địa chỉ hộp thư qua phiên của agent: 95-09 (a)(c).
+
+**(c) 95-02 ý 4:** đúng chỗ, xem dòng 95-02 ở 8.1.
+
+### 8.3 Thẻ mới
+
+### FB-R5-SEC-OPS-95-08
+- Mức độ: Minor
+- Người nhận: OPS (runbook 0.2); ORC (đối chiếu trước khi gửi câu)
+- Vị trí: `rounds/round-05/outputs/OPS/v1.0.5-release-runbook.md` mục 0.2 (bảng đợt, câu mẫu Đợt A, B, C); P2 mục 5–7; W6 bước 2; P2b ("rồi bước 5–6 của v1.0.4 P2b").
+- Vấn đề:
+  - (a) Câu Đợt A (staging) kết bằng "Production không đổi gì.", nhưng đợt này có hai việc chạm phần production:
+    - W6 bước 1: drop-in journald cho cả máy, khởi động lại journald. `auth.log` và `syslog` của cả máy, gồm nhật ký đăng nhập vào production, ngừng ghi. Trần 90 ngày áp cho cả máy. Câu có nêu ý này, rồi câu kết lại nói ngược;
+    - W6 bước 2: ghi `/opt/ottimo-prod/state/journald_since`. Cả câu lẫn bảng đều không nêu.
+  - (b) Câu Đợt B (production) không nói hai việc đọc staging:
+    - P2 mục 5 đếm dòng trong `.env` của cả hai stack, bằng root. Dòng dẫn lại ghi "Không cần root";
+    - P2 mục 6 chạy câu `pricegap` tĩnh trên DB staging.
+    - Cả hai chỉ đọc, chỉ ra số.
+  - (c) Câu thiếu bước so với bảng:
+    - Câu Đợt C không có "kiểm lại chỉ đọc nếu khác ngày Đợt B", trong khi P2 mục 7 ghi "ghi trong câu đồng ý Đợt C";
+    - Câu Đợt C và Đợt A không nêu ba việc: P2b bước 5 (áp lại `02-roles.sh`: GRANT và ALTER ROLE trên DB, bằng script đã review, idempotent, không đổi dữ liệu khách); W6 bước 3 (cài unit ops-check); W7 (một lượt kiểm đủ, có thể gửi tin vào phòng Báo động).
+  - (d) Không câu nào nói cách quay lại, và bảng 0.2 không có cột lùi. INV không được biết trước ba điều:
+    - lùi cũng cần một câu đồng ý mới;
+    - lùi Đợt C làm Desk gián đoạn thêm khoảng `GIAN_DOAN_W6` giây;
+    - phần không lùi được: các bộ sao lưu cũ đã xóa theo luật tuổi, các bản `env.before-*` đã xóa.
+  - (e) Câu không nói staging và production nằm trên **cùng một máy chủ**. Đợt B còn chạm user `ottimo` dùng chung cho cả hai stack (W0).
+- Vì sao quan trọng: đồng ý chỉ có giá trị khi câu nói đúng việc sẽ làm. Câu "Production không đổi gì" sai, dù việc thật vô hại, và làm hỏng đúng phép tách staging/production mà 95-01 đặt ra. INV cũng cần biết trước cái gì không lùi được.
+- Đề xuất sửa:
+  1. Câu Đợt A: bỏ "Production không đổi gì". Thay bằng: "Desk, khách, sao lưu và gói hạ tầng production không đổi. Hai việc áp cho cả máy, gồm phần production: cấu hình nhật ký nói trên, và một tệp ghi ngày bắt đầu trong thư mục production." Hoặc chuyển dòng production của W6 bước 2 sang Đợt C (W6 bước 3), chép ngày từ tệp của staging.
+  2. Câu Đợt B: thêm "đọc thêm hai số đếm ở staging, chỉ đọc". Hoặc chuyển P2 mục 6 lên đầu Đợt A. Sửa dòng "Không cần root" ở P2 mục 5.
+  3. Câu Đợt C thêm ba ý: "(nếu khác ngày Đợt B) kiểm lại chỉ đọc"; "áp lại phân quyền DB bằng script có sẵn, không đổi dữ liệu"; "cài lại unit kiểm tra rồi chạy một lượt kiểm đủ". Câu Đợt A thêm hai ý sau. Cũng có thể bỏ P2b bước 5 khỏi v1.0.5 nếu không cần quyền mới trước Release: production đã chạy `deploy.sh` v1.0.4, và bước `roles` của nó tự áp `02-roles.sh` của gói (runbook v1.0.4 P2b "Khi nào hết cần bước 5").
+  4. Bảng 0.2 thêm cột "Lùi thế nào · không lùi được". Mỗi câu thêm: "Nếu có lỗi, ORC dừng và xin anh/chị đồng ý riêng trước khi lùi. Không lùi được: ⟨…⟩." Câu Đợt C thêm: "lùi cũng làm Desk gián đoạn khoảng ⟨GIAN_DOAN_W6⟩ giây".
+  5. Mỗi câu mở đầu bằng "Trên máy chủ OTTIMO (một máy cho cả staging và production), phần ⟨staging/production⟩ …".
+- Trạng thái: Open
+
+### FB-R5-SEC-OPS-95-09
+- Mức độ: Minor
+- Người nhận: OPS
+- Vị trí: `product/docs/runbook-vps-moi.md` r1: đoạn "Ai gõ" (dòng ORC và dòng INV); bước 4, 7, 11–13, 16, 19; mục 1.1, 1.5; đoạn "Nghi bị chiếm quyền".
+- Vấn đề:
+  - (a) Đoạn "Ai gõ" tự mâu thuẫn. Câu "Không ai gửi … IP qua chat" đứng ngay trước câu "ORC chuyển lệnh có IP thật cho INV trong chat". Luật chung của runbook v1.0.5 cấm IP trong chat và trong lệnh.
+  - (b) 1.1 bước 2 quét host key rồi đưa thẳng vào `ssh-keygen`, không giữ dòng đã quét. Muốn làm bước 3 ("thêm đúng dòng đó") thì phải quét lần hai, và dòng lần hai chưa được so. Đây là khe giữa lúc kiểm và lúc dùng, trên đúng kết nối sau đó mang KEK.
+  - (c) Bước 7: ORC điền `.env`, gồm `ACME_EMAIL` (hộp thư nhóm) và "các giá trị đã đổi ghi trong decision-log", có thể có `EMAIL_FROM`. Địa chỉ hộp thư chung vì vậy đi qua lệnh của agent, trái luật chung.
+  - (d) Bước 11–13 và 16 dùng `age -d -i <khóa-age>`, nhưng không nói tệp khóa `age` nằm ở đâu trên Mac và xóa lúc nào. ORC chạy trên cùng Mac, nên tệp bỏ quên là đọc được.
+  - (e) "Nghi bị chiếm quyền": bước 19 "cài lại bí mật tích hợp" lấy từ tài khoản từng hãng. Tức là có thể nhập lại đúng giá trị đã nằm trên máy bị chiếm: webhook Google Chat, URL Healthchecks, khóa cổng thanh toán, mật khẩu ứng dụng mail. SR-INC-01 có "xoay khóa", nhưng runbook chỉ nêu KEK và `id_hash_key`.
+  - (f) Một câu đồng ý cho cả runbook, trong khi bước 4 dựng cả production lẫn staging. Như vậy trái luật tách đợt ở 0.2 của runbook v1.0.5.
+  - (g) Bước 12 (kho tệp, có ảnh giấy tờ) ghi "INV gõ" nhưng chưa có lệnh.
+- Vì sao quan trọng: runbook này chỉ dùng khi có sự cố, đúng lúc người chạy vội nhất. Mỗi ý trên là một chỗ người chạy phải tự nghĩ ra lệnh hoặc tự quyết luật ngay lúc đó.
+- Đề xuất sửa:
+  - (a) INV thêm vào `~/.ssh/config` trên Mac một tên tạm (ví dụ `Host ottimo-moi`, `HostName <IP>`). Mọi lệnh dùng `ottimo-admin@ottimo-moi`. 1.5 so với `ssh -G ottimo-moi | awk '/^hostname /{print $2}'`. Nếu vẫn cần IP trong chat thì ghi rõ một ngoại lệ, SEC chấp nhận: IP không phải bí mật và sẽ công khai qua DNS ở bước 14. Phạm vi ngoại lệ: chỉ trong chat, chỉ từ bước 2 tới bước 14, không vào repo, decision-log hay biên bản.
+  - (b) Quét **một lần** vào tệp: `ssh-keyscan -t ed25519 "$(ssh -G ottimo-moi | awk '/^hostname /{print $2}')" 2>/dev/null > ~/.ottimo/hostkey-moi && ssh-keygen -lf ~/.ottimo/hostkey-moi | awk '{ print "VAN TAY QUET: " substr($2, 8, 8) }'`. Trùng thì `cat` đúng tệp đó vào `~/.ssh/known_hosts` và vào secret `PRODUCTION_SSH_KNOWN_HOSTS`. Xóa tệp sau bước 6.
+  - (c) Các khóa chứa địa chỉ email (`ACME_EMAIL`, `EMAIL_FROM`, `EMAIL_SMTP_USER`) do INV điền trên Terminal của mình: `nano` qua SSH, hoặc `read -r` rồi đẩy qua ống như 1.2. ORC chỉ kiểm `config -q` và `ops-check email_config`.
+  - (d) Dùng khuôn `b2-runbook.md`: tệp khóa ở `~/.ottimo/backup/`, quyền 0600, chỉ có trong buổi khôi phục. Sau bước 16 thì `rm`, và INV báo trong chat "đã xóa khóa khỏi Mac". ORC không đọc tệp đó.
+  - (e) Đoạn "Nghi bị chiếm quyền" thêm: bước 19 xin giá trị **mới** ở từng hãng và thu hồi giá trị cũ, không nhập lại giá trị cũ. Kiểm: tin thử tới phòng qua webhook mới, webhook cũ bị từ chối.
+  - (f) Câu đồng ý của runbook chỉ cho production. Staging dựng sau bằng câu riêng (bước 4 đã cho phép "để sau").
+  - (g) Viết lệnh bước 12 theo khuôn 1.3: giải mã trên Mac, `tar -xf -` trong container, stderr vào `/root/restore-blobs-<stamp>.err`, chỉ in mã thoát và số tệp. Làm trước diễn tập B-OPS.
+- Trạng thái: Open
+
+### FB-R5-SEC-OPS-95-10
+- Mức độ: Suggestion
+- Người nhận: OPS
+- Vị trí: runbook v1.0.5 Phụ lục A mục 1 và 7; mục 0.2.
+- Vấn đề và đề xuất:
+  - (a) Phụ lục A mục 1 ("Giữ nguyên … P0") chưa kể cổng diễn tập khôi phục. Mục 7 chỉ có "ví dụ V5-61". Bản sau có migration hoặc đổi sao lưu, khôi phục có thể quên cổng này. Đề xuất: mục 1 thêm "P0: ô biên bản diễn tập khôi phục ĐẠT trong round, khi bản có migration hoặc đổi sao lưu, khôi phục (QC R4 ĐK-2, SR-BAK-05)".
+  - (b) Câu đồng ý ghi 8 ký tự commit của runbook đang dùng. Runbook sửa sau lúc INV đồng ý thì tính như "thêm bước": xin lại.
+- Trạng thái: Open
+
+### 8.4 Điểm làm tốt (nên giữ)
+
+- Bảng đợt có cột "Trước V5-61?" và cột root. INV đọc dễ, QC kiểm dễ.
+- Lệnh KEK và `pg_restore` đúng trích dẫn, có lượt chạy thử với `dash` và `runuser`. Đầu ra chỉ còn mã thoát, số đếm và 8 ký tự.
+- W6 đo `GIAN_DOAN_W6` ở staging rồi mới xin production, nên câu đồng ý Đợt C mang con số thật.
+
+### 8.5 Dòng decision-log đề nghị (ORC ghi khi commit)
+
+`| 2026-11-06 | 5 | **SEC – đọc lại PR #95 @ bd175b80** (rounds/round-05/reviews/SEC-on-ops-prs-92-93-95.md mục 8): DUYỆT CÓ ĐIỀU KIỆN, gộp sau #93. 95-01…07 Đóng (đồng ý theo đợt B/A/C/P3–P5+K/D; P0 có cổng V5-61 chặn Đợt C, P3–P5, kể cả phần không migration; VPS mới có cột Ai gõ, lệnh KEK/id_hash_key theo khuôn G4-8, stderr pg_restore vào tệp root, host key so ngoài băng, SR-INC-01). Thẻ mới: 95-08 Minor (câu mẫu: Đợt A ghi "Production không đổi gì" dù có journald cả máy và ghi journald_since của production; Đợt B đọc staging mà không nêu; Đợt C thiếu P2 lại, 02-roles.sh, W7; không câu nào nêu cách lùi và phần không lùi được) – sửa trước khi gửi câu Đợt B, ORC tự đối chiếu; 95-09 Minor (VPS mới: mâu thuẫn IP qua chat, giữ đúng dòng host key đã so, email trong .env do INV điền, vòng đời tệp khóa age trên Mac, xoay bí mật tích hợp khi nghi bị chiếm quyền, câu đồng ý riêng cho staging, lệnh bước 12) – trong Round 5, trước khi đóng V5-64; 95-10 Suggestion. Không câu nào cho ghi SQL tay trên production; repo không có IP, bí mật, hộp thư chung, tên đăng nhập của INV; digest 8 + 4. Không ESC | SEC | Quyền SEC (mức rủi ro, yêu cầu bảo mật kỹ thuật) |`

@@ -1,7 +1,8 @@
 /**
  * v1.0.4 P4-10 `v104/be-holds` (BE-B) – unit, no database:
  * - BUG-R3-042 / BR-303 (1): overdueHoldAccepts (deposits.service) and the B4 button (allowed-actions) – same rule;
- * - BUG-R3-041 / DOM A.5: who is told by J1 (hold-notices.ts);
+ * - BUG-R3-041 / DOM A.5: who is told by J1 (hold-notices.ts) – `hold_expired` also every FD/FDL from v1.0.5
+ *   (V5-1B, DOM rules-v1.0.5 mục 9; the v1.0.4 "FD/FDL only as a fallback" branch is gone);
  * - ĐX-R3-QA-01: the computed "Cần chú ý" items hold_overdue / hold_overdue_cap (attention-sources.ts) on a
  *   MutableClock (the staging time-travel clock QA uses to make holds expire), audiences and params;
  * - FB-R4-SEC-BE-HOLDS-01: the recordPayment / confirm-received gate (payments.service) per role.
@@ -26,7 +27,6 @@ import {
   allowedActions,
 } from '../src/modules/reservations/internal/allowed-actions';
 import {
-  HOLD_NOTICE_FALLBACK_ROLES,
   HOLD_NOTICE_ROLES,
   HOLD_NOTICE_TO_PEOPLE,
   notifyHoldOnce,
@@ -148,7 +148,7 @@ describe('BUG-R3-042 – allowedActions offers B4 exactly when the server accept
 });
 
 describe('BUG-R3-041 – J1 recipients (DOM A.5) and the new inbox kinds', () => {
-  it('hold_overdue_with_deposit → creator/closer + FD/FDL/MGR; cap → MGR/OWN; hold_expired → creator/closer', () => {
+  it('hold_overdue_with_deposit → creator/closer + FD/FDL/MGR; cap → MGR/OWN; hold_expired → creator/closer + FD/FDL (V5-1B)', () => {
     expect(HOLD_NOTICE_ROLES.hold_overdue_with_deposit).toEqual([
       'front_desk',
       'front_desk_lead',
@@ -157,7 +157,7 @@ describe('BUG-R3-041 – J1 recipients (DOM A.5) and the new inbox kinds', () =>
     expect(HOLD_NOTICE_TO_PEOPLE.hold_overdue_with_deposit).toBe(true);
     expect([...HOLD_NOTICE_ROLES.hold_overdue_cap].sort()).toEqual(['manager', 'owner']);
     expect(HOLD_NOTICE_TO_PEOPLE.hold_overdue_cap).toBe(false);
-    expect(HOLD_NOTICE_ROLES.hold_expired).toEqual([]);
+    expect(HOLD_NOTICE_ROLES.hold_expired).toEqual(['front_desk', 'front_desk_lead']);
     expect(HOLD_NOTICE_TO_PEOPLE.hold_expired).toBe(true);
   });
 
@@ -221,63 +221,56 @@ describe('BUG-R3-041 – J1 recipients (DOM A.5) and the new inbox kinds', () =>
     ]);
   });
 
-  it('notifyHoldOnce: hold_expired with no creator/closer → FD/FDL instead (DOM P4-20 §0)', async () => {
+  it('V5-1B notifyHoldOnce: hold_expired → ONE notify to creator/closer + FD/FDL, push row as gate; next tick nothing', async () => {
     const { tx, sql } = fakeTx();
     const calls: Array<{ roles: string[]; userIds: string[] }> = [];
     const events = {
       notify: async (_tx: Tx, input: { roles: string[]; userIds: string[] }) => {
         calls.push({ roles: input.roles, userIds: input.userIds });
-        return ['u-fd'];
-      },
-    } as never;
-    const r = await notifyHoldOnce(
-      tx,
-      events,
-      {
-        kind: 'hold_expired',
-        people: [],
-        reservationId: 'r2',
-        code: 'OTM-1',
-        dedupeKey: 'hold_expired:r2',
-      },
-      at('2026-11-03T10:01:00+07:00'),
-    );
-    expect(r).toBe(true);
-    expect(sql.filter((q) => q.includes('outbox_message'))).toHaveLength(1);
-    expect(calls).toEqual([{ roles: ['front_desk', 'front_desk_lead'], userIds: [] }]);
-  });
-
-  it('notifyHoldOnce: hold_expired whose creator/closer resolve to nobody (inactive) → second notify to FD/FDL', async () => {
-    const { tx } = fakeTx();
-    const calls: Array<{ roles: string[]; userIds: string[] }> = [];
-    const events = {
-      notify: async (_tx: Tx, input: { roles: string[]; userIds: string[] }) => {
-        calls.push({ roles: input.roles, userIds: input.userIds });
-        return calls.length === 1 ? [] : ['u-fd'];
+        return ['u-sale', 'u-fd'];
       },
     } as never;
     const n = {
       kind: 'hold_expired' as const,
-      people: ['u-gone'],
-      reservationId: 'r3',
-      code: 'OTM-2',
-      dedupeKey: 'hold_expired:r3',
+      people: ['u-sale', 'u-sale'],
+      reservationId: 'r2',
+      code: 'OTM-1',
+      dedupeKey: 'hold_expired:r2',
     };
-    await notifyHoldOnce(tx, events, n, at('2026-11-03T10:01:00+07:00'));
-    await notifyHoldOnce(tx, events, n, at('2026-11-03T10:02:00+07:00')); // next tick: nothing
-    expect(calls).toEqual([
-      { roles: [], userIds: ['u-gone'] },
-      { roles: ['front_desk', 'front_desk_lead'], userIds: [] },
-    ]);
+    expect(await notifyHoldOnce(tx, events, n, at('2026-11-03T10:01:00+07:00'))).toBe(true);
+    expect(await notifyHoldOnce(tx, events, n, at('2026-11-03T10:02:00+07:00'))).toBe(false);
+    expect(sql.filter((q) => q.includes('outbox_message'))).toHaveLength(2); // second = conflict, nothing
+    expect(calls).toEqual([{ roles: ['front_desk', 'front_desk_lead'], userIds: ['u-sale'] }]);
   });
 
-  it('no fallback for the overdue kinds; never HK / MT / accounting', () => {
-    expect(HOLD_NOTICE_FALLBACK_ROLES.hold_overdue_with_deposit).toEqual([]);
-    expect(HOLD_NOTICE_FALLBACK_ROLES.hold_overdue_cap).toEqual([]);
-    const all = Object.values(HOLD_NOTICE_ROLES)
-      .concat(Object.values(HOLD_NOTICE_FALLBACK_ROLES))
-      .flat();
+  it('V5-1B notifyHoldOnce: hold_expired without creator/closer, or whose creator is gone → still the same single notify to FD/FDL (no second call)', async () => {
+    for (const people of [[], ['u-gone']]) {
+      const { tx } = fakeTx();
+      const calls: Array<{ roles: string[]; userIds: string[] }> = [];
+      const events = {
+        notify: async (_tx: Tx, input: { roles: string[]; userIds: string[] }) => {
+          calls.push({ roles: input.roles, userIds: input.userIds });
+          return [];
+        },
+      } as never;
+      const n = {
+        kind: 'hold_expired' as const,
+        people,
+        reservationId: 'r3',
+        code: 'OTM-2',
+        dedupeKey: 'hold_expired:r3',
+      };
+      expect(await notifyHoldOnce(tx, events, n, at('2026-11-03T10:01:00+07:00'))).toBe(true);
+      await notifyHoldOnce(tx, events, n, at('2026-11-03T10:02:00+07:00')); // next tick: nothing
+      expect(calls).toEqual([{ roles: ['front_desk', 'front_desk_lead'], userIds: people }]);
+    }
+  });
+
+  it('never HK / MT / accounting; OWN only for the cap', () => {
+    const all = Object.values(HOLD_NOTICE_ROLES).flat();
     for (const r of ['housekeeping', 'maintenance', 'accountant']) expect(all).not.toContain(r);
+    expect(HOLD_NOTICE_ROLES.hold_expired).not.toContain('owner');
+    expect(HOLD_NOTICE_ROLES.hold_expired).not.toContain('manager');
   });
 });
 
