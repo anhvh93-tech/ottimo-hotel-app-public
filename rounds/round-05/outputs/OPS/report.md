@@ -79,3 +79,25 @@ Không chạy trong 02:55–03:45 và 14:55–15:45.
 - Đo `SystemMaxUse` 7 ngày sau W6.
 - OR-L1 (khóa `.env` trùng): ngoài việc được giao, chưa làm.
 - Việc trên máy chủ ở mục 4.
+
+## 8. Cập nhật 06/11 tối – Phản hồi & sửa sau review ARC và SEC (#93, #95)
+ORC lưu từ báo cáo bàn giao của OPS.
+- **PR #93** (`r5-ops`, HEAD `59216001`):
+  - đã sửa ARC OPS-06 và SEC 93-01, 93-02, 93-03;
+  - CI xanh toàn bộ, MERGEABLE;
+  - SEC duyệt có điều kiện, điều kiện đã đáp ứng.
+- **PR #95** (`r5-ops-runbooks`, HEAD `bd175b80`):
+  - runbook v1.0.5 và runbook VPS mới lên bản r1;
+  - đã sửa ARC 01–05, 07 và SEC 95-01…07;
+  - CI xanh toàn bộ, MERGEABLE;
+  - chờ SEC và ARC đọc lại phần sửa (ORC đã giao 06/11).
+- **Thứ tự gộp:** #93 trước #95. #95 gộp sau #94 (thứ tự ARC đề xuất).
+- **Câu xin đồng ý mẫu theo đợt:** ở runbook r1 mục 0.2.
+  - Đợt A: staging.
+  - Đợt B: production, gồm W0, W5, P2.
+  - Đợt C, P3–P5: chỉ sau khi diễn tập khôi phục V5-61 ĐẠT (QC R4 ĐK-2, SEC 95-02).
+  - K: chạy riêng.
+  - ORC dùng đúng câu mẫu khi xin chủ đầu tư; mỗi đợt xin riêng, đồng ý cho staging không thay cho production.
+- **Việc chuyển:**
+  - SEC 95-02 ý 4 → PO ghi vào plan ĐK-2: V5-61 chưa đạt thì v1.0.5 chưa lên production.
+  - SEC 95-07 → ORC theo dõi khi cắt bản.

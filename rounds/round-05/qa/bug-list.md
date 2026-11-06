@@ -13,10 +13,10 @@
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
-| P1 | 1 | 1 (BUG-R5-003) | 0 | 0 |
+| P1 | 2 | 2 (BUG-R5-003, BUG-R5-004) | 0 | 0 |
 | P2 | 2 | 2 (BUG-R5-001, BUG-R5-002) | 0 | 0 |
 | P3 | 0 | 0 | 0 | 0 |
-| **Tổng** | **3** | **3** | **0** | **0** |
+| **Tổng** | **4** | **4** | **0** | **0** |
 
 ## 2. Bảng lỗi
 
@@ -25,6 +25,7 @@
 | BUG-R5-001 | P2 | Tham số `weekend_nights`: bộ kiểm khi lưu chỉ nhận số 1–7, còn giá trị đang chạy và bộ tính giá dùng `["FRI","SAT"]`. Lưu lại đúng giá trị đang có thì 422; lưu dạng số thì bộ tính giá không còn nhận ra đêm cuối tuần | BE (+ ARC chốt dạng, sửa erd) | Mới |
 | BUG-R5-002 | P2 | Tiền cọc về cho giữ chỗ đã tự hủy (`hold_expired`): Desk không ghi được khoản thu, không tạo được yêu cầu hoàn, không có mục "Cần chú ý" `deposit_after_cancel` (US-085 AC4). Tiền nằm ngoài Desk | BE (+ FE nút, ARC chốt khôi phục hay đơn mới, SEC xem quyền) | Mới |
 | BUG-R5-003 | P1 | Tham số `min_stay`: bộ kiểm khi lưu cho qua `2` hay `{"nights":2}`, bộ tính giá lại cần danh sách luật. Lưu một giá trị như vậy thì mọi báo giá và đơn trực tiếp mới bị 500 tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (+ ARC ghi `setParameter`) | Mới |
+| BUG-R5-004 | P1 | Tham số `damage_catalog` (bảng giá hư hỏng, BR-512): bộ kiểm khi lưu nhận mọi giá trị JSON. Lưu một bảng có phần tử `null` thì mở folio, in bill, danh mục phí và ghi dòng dịch vụ đều 500, với mọi đơn, tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (V5-25, BE-C, PR xếp chồng trên PR #96) | Mới |
 
 ## 3. Chi tiết
 
@@ -360,4 +361,135 @@
   - Đọc mã: các dòng nêu ở "Chỗ lệch trong mã".
   - Chạy cục bộ 06/11 (QA): bước 1–6 cho kết quả đúng như ghi ở trên. Log `ProblemFilter` có `TypeError: rules is not iterable` ở bước 4 và bước 6 (23:00).
   - Đường giá ước tính web và tạo giữ chỗ từ báo giá suy ra từ mã. QA chưa chạy hai đường này.
+- **Ghi chú test lại:** chưa có.
+
+### BUG-R5-004 – `damage_catalog`: bộ kiểm khi lưu nhận mọi giá trị, một phần tử `null` làm folio, bill và danh mục phí trả 500
+
+- **Mức:** P1. Trạng thái: **Mới**.
+  - Theo những gì đội biết, lỗi chưa xảy ra:
+    - giá trị đầu của production là bảng 3 món đúng dạng (`production-defaults.ts` 550–559);
+    - release notes v1.0.4 dặn không bấm Lưu ở ô này;
+    - nếu giá trị đang hiệu lực có phần tử `null` thì folio trên Desk đã báo lỗi từ lúc đó.
+    - **Chưa ai kiểm chỉ đọc riêng khóa này trên production**, nhất là các dòng đã hẹn cho ngày sau (xem "Việc cho ORC").
+  - MGR hoặc OWN lưu một bảng có phần tử `null` cho hôm nay (Hiệu lực từ mặc định là hôm nay) là thành **sự cố P0** ở luồng tiền tại quầy, với mọi đơn và mọi vai:
+    - mở folio (`getFolio`), in bill (`getBill`), danh mục phí (`getChargeCatalog`) → 500;
+    - ghi dòng dịch vụ (`addFolioLine`) → 500. Theo mã, `adjustFolioLine` cũng 500. Cả giao dịch rollback, không ghi gì;
+    - theo mã Desk (QA chưa chạy trên Desk), các màn đọc `getFolio` hoặc `getBill` đều không mở được: nhận phòng, trả phòng, thu nợ sau trả phòng, hộp folio, ghi dịch vụ, bill ở khung đơn, hộp hủy đơn có dòng dịch vụ. Lúc khách trả phòng, lễ tân không thấy số còn phải thu và không in được bill.
+  - Sự cố kéo **tới hết ngày nghiệp vụ**: lưu lại bảng đúng cho hôm nay → 422, hủy dòng hôm nay → 409, như BUG-R5-003.
+    - Không có cách vòng trên Desk. Chỉ còn sửa thẳng DB production, việc này phải có quy trình và chủ đầu tư duyệt.
+    - Không ai lưu bảng đúng cho ngày mai thì sự cố kéo sang cả ngày sau.
+  - Không sai tiền, không mất dữ liệu: mọi lần ghi lỗi đều rollback. QA đếm `folio_line` trước và sau: không đổi.
+  - Lý do xếp P1, cùng loại và cùng lý do với BUG-R5-003:
+    - không P0 vì phải có OWN hoặc MGR lưu sai mới xảy ra, và có cách tránh (không lưu ô này);
+    - không thấp hơn P1 vì khi xảy ra thì trả phòng, thu tiền, in bill dừng cả ngày mà không có cách vòng.
+    - Gõ phải `null` ít gặp hơn gõ `2` ở `min_stay`. QA không hạ mức vì khả năng xảy ra thấp khi hậu quả là dừng luồng chính.
+- **Vai chịu trách nhiệm:**
+  - BE: V5-25 (ORC kéo vào 06/11). BE-C làm PR xếp chồng trên PR #96, không migration, không đổi hợp đồng.
+  - Luật: DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` 13.2 (dòng `damage_catalog`: bỏ dòng hỏng), 13.4 (biên khi lưu), ca T-13-5 (bản `6b5b8f34`); từ điển `product/docs/tham-so-quy-tac.json` mục `damage_catalog`, dòng Giới hạn.
+  - UXD, FE-A: câu báo 422 trên Desk, trong V5-21 như BUG-R5-003.
+  - Nguồn phát hiện: PO đọc mã (commit `86bb0680`; plan R5 dòng V5-25 mục `damage_catalog` và R5-B-05). ORC xác nhận ở `bill.service.ts`.
+- **Môi trường:**
+  - mã `main` @ `6b5b8f34`. Bốn tệp nêu ở "Chỗ lỗi trong mã" không đổi so với `6414be25` (production v1.0.4): `git diff` rỗng.
+  - Có từ R2 Sprint 3, nên có trong mọi bản v1.0.0–v1.0.4:
+    - `folio-lines.service.ts` `catalog` đọc bảng từ `bad6f599` (16/10);
+    - `bill.service.ts` `catalogNames` và `getFolio` gọi nhãn từ `2923bf43` (17/10).
+  - QA chạy integration cục bộ 06/11, cùng cách BUG-R5-002 và BUG-R5-003:
+    - tệp test tạm đặt ngoài `test/` để không lẫn vào lần chạy của vai khác; đã xóa, không commit;
+    - PostgreSQL 17 dùng một lần trong Docker, tài khoản thử của CI; đã xóa;
+    - đồng hồ giả bắt đầu 15/10/2026 09:00 (T0 của test repo); dữ liệu giả: tenant fixture, bảng phí BR-512 của DS-E;
+    - stub cho gói `nodemailer` còn thiếu trong workspace; đường thử không gửi email;
+    - không gọi staging hay production.
+- **Liên quan:**
+  - BR-512; US-032 (danh mục phí);
+  - operationId `setParameter`, `cancelScheduledParameter`, `getFolio`, `getBill`, `getChargeCatalog`, `addFolioLine`, `adjustFolioLine`;
+  - cùng loại: BUG-R5-003;
+  - lời dặn tạm: `product/docs/release-notes.md` dòng 193 (v1.0.4, "Giới hạn đã biết");
+  - `rounds/round-05/plan.md` V5-25 (mục `damage_catalog`), R5-B-05.
+- **Chỗ lỗi trong mã:**
+  - Bộ kiểm khi lưu không có luật cho khóa này:
+    - `platform/internal/parameter-rules.ts` `checkStructuredParameter`: không có `case 'damage_catalog'`, nên rơi vào `default` (chỉ kiểm thứ tự giờ);
+    - `config_parameter_def`: `value_schema = 'json'`, `bounds` NULL (migration `0040`); `edit_roles = {owner,manager}`;
+    - `platform/public/parameter.service.ts` 74–75: `checkValueSchema('json')` chỉ chặn `undefined`.
+    - Vậy mọi giá trị JSON đều lưu được.
+  - Hai chỗ đọc, cùng kiểu `for (const d of table) { … d.code … }`, không kiểm `d` có phải đối tượng không:
+    - `folio/internal/bill.service.ts` 262–277 `catalogNames` (nhãn món hư hỏng trên folio và bill). Gọi từ `bill()` dòng 181 và `labelContext()` dòng 257. `labelContext` được `folio.controller.ts` `folioBody` (dòng 216) gọi cho `getFolio` (134), `addFolioLine` (272), `adjustFolioLine` (309);
+    - `folio/internal/folio-lines.service.ts` 159–174 `catalog` (danh mục phí). Gọi từ `getChargeCatalog` và từ `add()` dòng 220, trước khi ghi dòng.
+  - Phần tử `null` → `TypeError: Cannot read properties of null (reading 'code')` → `ProblemFilter` trả 500 `INTERNAL_ERROR`. Phần tử là số, chuỗi hay đối tượng thiếu khóa thì không ném lỗi, chỉ bị bỏ qua mà không báo ai.
+  - Sửa trong ngày không được, cùng chỗ với BUG-R5-003: `parameter.service.ts` `set` (`ON CONFLICT … WHERE effective_from > today`) và `parameters.service.ts` `cancelScheduled` (dòng đã hiệu lực → 409).
+  - Desk `ParamDialog.tsx`: ô JSON chỉ chạy `JSON.parse` (dòng 135); Hiệu lực từ mặc định là hôm nay (dòng 91).
+  - Không có test nào lưu `damage_catalog` qua `setParameter`, hay đọc một bảng hỏng.
+- **Tiền điều kiện / dữ liệu:**
+  - **Chỉ làm trên stack local, dev/staging hoặc test tự động. Không làm trên production.**
+  - `damage_catalog` = bảng phí BR-512 của DS-E (khăn tắm, ly, remote).
+  - Một đơn trực tiếp đã nhận cọc, folio đang mở.
+  - Tài khoản `qa.mgr` (lưu tham số), `qa.fd`, `qa.owner`.
+- **Các bước tái hiện:**
+  1. Mốc: FD gọi `getFolio`, `getBill`, `getChargeCatalog` → 200. Danh mục có `damage.bath_towel`, `damage.glass`, `damage.remote`.
+  2. Bộ kiểm cho qua. Lưu cho một ngày tương lai, không đụng hôm nay, xong thì Hủy lịch (→ 204). Các giá trị sau đều **200**:
+     - `[null]`; bảng 3 món thêm một phần tử `null`;
+     - `priceVnd` âm; thiếu `priceVnd`; `priceVnd` dạng chuỗi; trùng `code`;
+     - một đối tượng thay cho danh sách; `null` cho cả giá trị.
+  3. `qa.mgr` mở Desk, màn Tham số, `damage_catalog`, bấm Sửa. Ô JSON điền sẵn bảng 3 món; thêm `, null` trước dấu `]`. Hiệu lực từ = hôm nay (mặc định), bấm Lưu → 200.
+  4. Kết quả với FD, MGR và OWN:
+     - `getFolio`, `getBill`, `getChargeCatalog` → **500** `INTERNAL_ERROR`. Log máy chủ: `TypeError: Cannot read properties of null (reading 'code')`;
+     - FD ghi một dòng đồ uống (`addFolioLine`, `fnb`) → **500**, số dòng folio không đổi.
+  5. Sửa trong ngày:
+     - lưu lại bảng đúng cho hôm nay → 422 `VALIDATION_FAILED` ở `effectiveFrom`;
+     - OWN Hủy lịch dòng hôm nay → 409 `INVALID_TRANSITION`.
+  6. Lưu bảng đúng cho ngày mai → 200. Lúc 09:00 và 23:00 cùng ngày → vẫn 500. 07:00 ngày nghiệp vụ sau → 200; ghi dòng đồ uống → 201.
+- **Kết quả thực tế:** bộ kiểm cho lưu một bảng làm folio, bill, danh mục phí và việc ghi dòng dịch vụ trả 500 với mọi đơn. Sửa lại cũng không được trong ngày.
+- **Phát hiện thêm** (cùng gốc là thiếu bộ kiểm; không mở mã lỗi riêng, vì bộ kiểm theo DOM 13.4 chặn hết):
+  - `priceVnd` âm lưu được. Danh mục phí hiện `damage.glass` giá −50.000 đ. Lễ tân ghi món này → 500.
+    - Không sai tiền: DB chặn bằng ràng buộc `folio_line_sign_check`, không có dòng âm nào được ghi.
+  - Thiếu `priceVnd`, hay `priceVnd` dạng chuỗi: món biến mất khỏi danh mục phí mà không báo ai.
+- **Kết quả mong đợi** (DOM 13.2, 13.4, bản `6b5b8f34`; từ điển mục `damage_catalog`):
+  - Bộ kiểm khi lưu chỉ nhận danh sách tối đa 100 món. Mỗi món đúng ba khóa:
+    - `code` khớp `^[a-z0-9_]{1,40}$`, không trùng;
+    - `name` không rỗng sau khi bỏ khoảng trắng hai đầu, tối đa 100 ký tự, không trùng (không phân biệt hoa thường);
+    - `priceVnd` số nguyên 1.000–20.000.000;
+    - khóa lạ → 422.
+    - `[]` được nhận, nghĩa là chưa có bảng.
+  - Sai dạng → 422 `PARAM_OUT_OF_RANGE` (hoặc mã ARC chốt), giá trị đang hiệu lực không đổi. Sai dạng gồm: phần tử `null`, số, chuỗi; đối tượng thay cho danh sách; `null` cho cả giá trị.
+  - Lưu lại giá trị đang chạy (bảng 3 món của `production-defaults.ts`, DS-E) → 200.
+  - Đọc phòng thủ ở hai chỗ đọc (`catalogNames`, `catalog`): không bao giờ 500 vì `damage_catalog`.
+    - Phần tử hỏng → bỏ phần tử đó, các món đúng vẫn có.
+    - Cả giá trị hỏng → coi như không có bảng. Lễ tân dùng "món ngoài bảng": quản lý định giá, có ảnh (BR-512).
+    - Ghi log cảnh báo một lần cho mỗi giá trị: khóa, cơ sở, số phần tử bị bỏ. Không ghi giá trị, không dữ liệu khách (DOM 13.2).
+  - Điều kiện đóng lỗi:
+    - bộ kiểm khi lưu đã lên production; và
+    - có đọc phòng thủ, **hoặc** câu SQL chỉ đọc trên production báo 0 dòng `damage_catalog` sai dạng (DOM 13.2, dòng đếm (b)).
+    - DOM 13.2 xếp đọc phòng thủ của khóa này vào phần "còn lại" (R5-B-05), còn PO đề nghị làm cùng PR (plan V5-25). Nếu PR không có đọc phòng thủ, QA đóng lỗi theo SQL và chuyển ca (d)–(f) dưới đây sang R5-B-05.
+- **Cách làm tạm (tới khi V5-25 lên):**
+  - Theo release notes v1.0.4, "Giới hạn đã biết" (dòng 193): **không bấm Lưu thay đổi ở `damage_catalog`** tới khi đội báo đã sửa.
+  - Buộc phải đổi (ví dụ khi chủ đầu tư gửi bảng đền bù, ESC-008):
+    - nhắn đội trước;
+    - chọn Hiệu lực từ **từ ngày mai trở đi** để còn Hủy lịch được;
+    - giữ đúng dạng `{code, name, priceVnd}` cho từng món; không để phần tử trống, không gõ `null`.
+  - Lỡ lưu sai cho hôm nay: báo ORC ngay. Lưu bảng đúng cho ngày mai để sự cố dừng ở mốc đổi ngày nghiệp vụ. Muốn sửa sớm hơn phải sửa thẳng DB production, việc này cần chủ đầu tư duyệt.
+- **Việc cho ORC (chỉ đọc, không chặn):** kiểm giá trị đang hiệu lực **và các dòng đã hẹn** của `damage_catalog` trên production không có phần tử hỏng.
+  - Cách 1: dòng đếm (b) của DOM 13.2 trong câu SQL chỉ đọc của V5-25 (`product/services/api/scripts/v5-25-parameter-shape-check.sql`).
+  - Cách 2: INV hoặc MGR mở màn Tham số trên Desk, xem `damage_catalog`. Chỉ xem, không bấm Lưu.
+  - Có phần tử hỏng ở một dòng đã hẹn → báo QA và PO ngay: sự cố sẽ bắt đầu ở ngày đó.
+- **Ca test xác nhận khi sửa xong** (BE viết, QA duyệt; QA chạy lại trên staging ngay sau khi gộp):
+  - (a) unit bộ kiểm `damage_catalog`, theo T-13-5 (DOM 13.5):
+    - `priceVnd` 0 → 422; 20.000.000 → nhận; 20.001.000 → 422; 101 dòng → 422; trùng `code` → 422; tên "Ly" và "ly" → 422; `[]` → nhận;
+    - thêm: `[null]`, bảng 3 món thêm `null`, phần tử số hay chuỗi, đối tượng thay cho danh sách, `null` cho cả giá trị, thiếu `priceVnd`, `priceVnd` dạng chuỗi, `priceVnd` âm, `code` có chữ hoa hay dấu, khóa lạ → 422.
+  - (b) integration `setParameter`: lưu bảng có `null` cho hôm nay → 422. Giá trị đang hiệu lực không đổi; `getFolio`, `getBill`, `getChargeCatalog` vẫn 200.
+  - (c) integration: lưu lại bảng 3 món của `production-defaults.ts`, và bảng của DS-E → 200 (T-13-6).
+  - (d) đọc phòng thủ: chèn thẳng vào DB thử, bỏ qua bộ kiểm, bảng 3 món thêm `null`, `5`, `"x"`:
+    - `getFolio`, `getBill`, `getChargeCatalog` → 200; danh mục còn đủ 3 món đúng;
+    - ghi `damage.glass` → 201, đúng giá 50.000 đ;
+    - có một dòng log cảnh báo, không có giá trị.
+  - (e) chèn thẳng cả giá trị hỏng (một đối tượng; `null`): các đường trên → 200; danh mục không có món `damage.*`; ghi món ngoài bảng vẫn qua đường quản lý định giá (BR-512).
+  - (f) chèn thẳng một món `priceVnd` âm: danh mục bỏ món đó; không đường nào 500.
+  - (g) hồi quy: phần `getChargeCatalog`, `addFolioLine` món hư hỏng và `getBill` của `test/integration/payments-s3.test.ts` vẫn xanh.
+- **Bằng chứng:**
+  - Đọc mã: các dòng nêu ở "Chỗ lỗi trong mã".
+  - Chạy cục bộ 06/11 (QA): bước 1–6 và phần "Phát hiện thêm" cho kết quả đúng như ghi ở trên (mã HTTP và `Problem.code`).
+    - Bước 3 gọi thẳng `PUT /parameters/damage_catalog` với body mà `ParamDialog` gửi. QA chưa chạy trên Desk.
+    - Log `ProblemFilter` có 17 dòng `TypeError: Cannot read properties of null (reading 'code')` ở bước 4 và bước 6. Ca giá âm: `PostgresError 23514`, `constraint=folio_line_sign_check`.
+    - Lần chạy đầu, Hủy lịch một dòng hẹn 20/10 trả 500. Nguyên nhân: trigger `config_parameter_delete_future_only` (migration `0084`) so với giờ thật của DB, còn app dùng đồng hồ giả 15/10. Đây là do cách dựng test, không phải lỗi sản phẩm. Lần chạy sau dùng ngày 01/12 → 204.
+    - Log nằm ở scratchpad của QA, ngoài repo.
+  - `adjustFolioLine` và các màn Desk ở mục "Mức" suy ra từ mã. QA chưa chạy hai phần này.
+  - Không có dữ liệu khách thật.
 - **Ghi chú test lại:** chưa có.

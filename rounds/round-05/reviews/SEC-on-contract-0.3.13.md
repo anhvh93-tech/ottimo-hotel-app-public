@@ -25,6 +25,10 @@ SEC chỉ đọc repo và diff PR (`git show origin/r5-contract-0313:…`), khô
 
 ## 0. Kết luận: **DUYỆT CÓ ĐIỀU KIỆN**
 
+> **Đọc lại 06/11 khuya @ `2cb549cc`: DUYỆT để gộp** – xem mục 5. Bảng dưới là kết luận lần đầu (`f4c40d9b`).
+>
+> **Bổ sung 1d @ `45d42368` (SEC đọc riêng `x-roles`, `x-rbac`, `screens.ts`, `rbac-cases` của `git diff 2cb549cc..45d42368`): DUYỆT để gộp khi CI của `45d42368` xanh.** Chỉ đổi đúng 3 chỗ. (1) `getPropertyWifi`: S24 → S36, thêm `front_desk`; chỉ `RB-getPropertyWifi-qa.fd` và `-qa.fdsal` từ 403 thành 2xx; HK, MT, SAL, CTV vẫn 403, phiên khách vẫn 401; `no-store` và "không log giá trị" giữ nguyên (ARC-10). (2) `getManagerPerformanceBonus`: chỉ thêm nhãn A120; vai, `x-scope` và mọi `expected` không đổi. (3) `screens.ts`: S36 chỉ cấp cho OWN, MGR, FDL, FD, khớp `x-roles`. `fieldCases` và `openapi-schemas.ts` không đổi; không còn dòng `x-*`/`required`/`enum` nào khác. Phần A120 nằm ngoài danh sách mục 5.6 nhưng không đổi quyền, nên SEC nhận.
+
 0 Blocker · 4 Major · 4 Minor · 5 Suggestion.
 
 | Điều kiện | Thẻ | Hạn |
@@ -163,7 +167,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   1. `QuoteInput.channelId` ghi rõ: báo giá chỉ nhận nhóm `direct`, `agent` (BR-112). `ota`, `internal` → 422 `VALIDATION_FAILED` (`channelId`, `NOT_IN_LIST`), như mã hiện nay.
   2. `QuoteInput.nightlyRates`: thay "kênh khác nhóm `ota`" bằng "chỉ kênh `direct`/`agent`". Bỏ câu "đơn kênh Nội bộ theo BR-421 v0.5.3". Ghi "luôn áp sàn–trần BR-105, không có đêm 0 đ".
   3. T14-4 thêm ca: kênh `internal` có và không có `nightlyRates` → 422. Thêm ca hồi quy: SAL `saveQuote` kênh `internal` → 422, không có báo giá.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-02
 - Mức độ: Major
@@ -197,7 +201,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
      - A50: báo giá kèm giá gõ chỉ FD+, theo A31.
   5. Khuyến nghị, ARC tự quyết: thêm phần mở rộng máy đọc được cho quyền ghi theo trường, ví dụ `x-write-roles` trên `QuoteInput.nightlyRates`. `gen_rbac_cases.py` khi đó sinh thêm ca "có trường → 403" cho vai ngoài danh sách. Ranh giới theo trạng thái (đơn quá ngày đi) vẫn viết tay.
   6. Ghi chú cho R3: khi cài `createReservationGroup` (SAL/CTV gọi được, thân có `ReservationCreate.nightlyRates`) phải áp cùng luật.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-03
 - Mức độ: Major
@@ -219,7 +223,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
      SEC nghiêng về (b): ít cản việc hơn, và mỗi lần đều ghi `authMethod`.
   4. `overdueReason` đi qua cùng hàm đọc chữ với `checkoutTimeNote` (`f.text`: bỏ ký tự điều khiển, kiểm số thẻ V-09). Không ghi họ tên khách vào lý do; Desk nhắc như ở D12c.
   5. Gợi ý cho FE/UXD, không bắt buộc ở v1.0.5: hộp "Trả phòng quá ngày đi" hiện các dấu hiệu sau ngày đi (yêu cầu từ trang khách, lần đếm minibar, kiểm phòng của HK) để MGR đối chiếu trước khi ghi.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-04
 - Mức độ: Major
@@ -246,7 +250,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
      - E2E Desk với trình duyệt có tài khoản đã lưu → hai ô vẫn trống;
      - unit (a), (b) → 422, không ghi `property`, không audit.
   4. Ảnh chụp sổ tay màn này chỉ dùng `<wifi-password>` (đúng như hợp đồng); QA kiểm che trước khi commit.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-05
 - Mức độ: Minor
@@ -262,7 +266,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   - T58-3 kiểm thân 422 không chứa giá trị thử;
   - ghi "không phát SSE", hoặc "SSE chỉ loại + id";
   - `ssid` tính theo byte UTF-8 (≤ 32).
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-06
 - Mức độ: Minor
@@ -273,7 +277,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   - Giữ nguyên luật B1 thì FD có thể gửi giá thấp với `edited = false`. Đơn khi đó không mang `bookingRateSource = manual_agreed` và không vào các báo cáo giá tay.
 - Vì sao quan trọng: giá tay bị che thành giá lịch làm hỏng kiểm soát phát hiện (ví dụ hạ giá trên hệ thống, thu tiền mặt cao hơn). Mức thiệt hại có trần là sàn BR-105, nên để Minor.
 - Đề xuất sửa: ở `calculateQuote`/`saveQuote`, phần tử `edited` = `false` hoặc vắng thì server dùng giá lịch của chính nó và bỏ `amountVnd`, hoặc trả 422 `NOT_ALLOWED` khi số khác giá lịch. Chỉ phần tử `edited = true` mang giá của client. Thêm test T14-7. Luật B1 của `createReservation` giữ nguyên ở bản này; SEC sẽ nêu ở review B1 sau.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-07
 - Mức độ: Minor
@@ -363,7 +367,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   - mật khẩu in trên thẻ trong căn.
 - Vì sao quan trọng: tránh để DOM hiểu nhầm đây là yêu cầu của SEC. Lễ tân thường là người báo Wi-Fi cho khách tại quầy.
 - Đề xuất sửa: DOM quyết theo vận hành. Nếu cho FD đọc thì giữ `no-store`, không log; BA thêm dòng rbac; ARC thêm vai.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-11
 - Mức độ: Suggestion
@@ -392,7 +396,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
 - Đề xuất sửa:
   - Cảnh báo, không chặn (BR-101 (1) giữ hai giá độc lập): khi giá đêm nằm ngoài một khoảng so với giá tháng, Desk đòi lý do. DOM đặt khoảng, ví dụ < giá tháng/60 hoặc > giá tháng/3. Có thể dùng mẫu `*_WARNING` + lý do như `RATE_OUT_OF_RANGE_WARNING`.
   - Sửa câu `info` theo 1.8.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-13
 - Mức độ: Suggestion
@@ -407,7 +411,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   - giữ tệp ánh xạ id cũ → mới qua mỗi lần sinh.
 
   Hai operation mới ghi `x-round: R5`, hoặc bộ sinh lấy round từ ghi chú phiên bản.
-- Trạng thái: Open
+- Trạng thái: Closed (SEC đọc lại PR #94 @ `2cb549cc`, 06/11 khuya – mục 5.1)
 
 ### FB-R5-SEC-ARC-14
 - Mức độ: Suggestion
@@ -430,3 +434,206 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
 ## 4. Dòng decision-log đề xuất (ORC ghi)
 
 `| 2026-11-06 | 5 | **SEC – review hợp đồng OpenAPI 0.3.13-draft (PR #94, f4c40d9b): DUYỆT CÓ ĐIỀU KIỆN** (rounds/round-05/reviews/SEC-on-contract-0.3.13.md). 0 Blocker, 4 Major, 4 Minor, 5 Suggestion. Trước khi gộp PR-0: ARC-01 (báo giá chỉ kênh direct/agent, bỏ câu Nội bộ ở QuoteInput.nightlyRates), ARC-04 (ô Wi-Fi chống trình duyệt tự điền tài khoản Desk; tùy chọn server chặn ssid = tên đăng nhập, password = mật khẩu người gọi). Trước PR-S1/PR-A1: ARC-02 (ca deny viết tay FDL B18 quá ngày đi, FD/FDL QR check_out quá ngày đi, SAL/CTV × calculateQuote/saveQuote nightlyRates; 403 trước kiểm giá, không lộ min/max; BA ghi chú A18, A50), ARC-03 (audit nightsNotBilled + lọc overdueOnly cho OWN; DOM chọn trần đêm hoặc MGR xác nhận lại mật khẩu). OPS trong PR V5-63: ARC-07 (ngưỡng dưới tuổi journal, đếm Suppressed, kiểm nhóm docker), ARC-08 (Postgres log_error_verbosity=terse). Xác nhận G3; G4 phần bảo mật (SEC không phản đối FD đọc Wi-Fi – C1); G6 kèm ARC-01/02; V5-63 đạt 5 yêu cầu OR-04; V5-1A không mở đường lỗi (NOT NULL + CHECK > 0 + đóng an toàn khi thiếu dòng giá); lockReason không lộ thông tin nội bộ; rbac-cases +22 ca đủ deny. Không ESC mới; L7 vào danh sách luật sư ESC-001 | SEC | Quyền SEC (mức rủi ro, yêu cầu bảo mật kỹ thuật) |`
+
+---
+
+## 5. Đọc lại 06/11 khuya – PR #94 @ `2cb549cc`
+
+Round 5 · bước **Review (đọc lại)** · SEC · 06/11/2026
+
+Đối tượng:
+- `gh pr diff 94`, HEAD `2cb549cc`. CI run `42239136222` (`pull_request`) đã chạy xong, xanh, trên đúng SHA này.
+- `rounds/round-05/responses/ARC-on-contract-0.3.13-reviews.md` (trên nhánh).
+- `rounds/round-05/outputs/ARC/contract-0.3.13.md` (trên nhánh): bổ sung 1/1b/1c, mục 1.16–1.24, 3, 4, 6.
+
+SEC đối chiếu với:
+- `rounds/round-05/reviews/SEC-on-bug-r5-002.md`: V5-48, S1–S8, mục 4;
+- DOM `rules-v1.0.5.md` 11.4 (`e9e0e2e4`, `5ad26fc1`);
+- BA `rbac-matrix.md` 0.2.8 (`4bb9e68d`);
+- mã `main`:
+  - `payments.service.ts` (`scopedReservation`, `record`, `confirmReceived`);
+  - `attachment.service.ts` (`bindTo`, `purgeDue`);
+  - `registration.service.ts` (`scheduleAfterStay`, `scheduleRetention`, mốc `penalty_evidence`);
+  - các chỗ dùng `pg_advisory_xact_lock`.
+
+Cách làm: chỉ đọc. Không checkout nhánh vào bản làm việc chung, không chạy stack, không SSH. Không approve, không comment trên GitHub.
+
+### 5.0 Kết luận: **DUYỆT để gộp**
+
+- **Không có điều kiện trước khi gộp PR-0.** Đọc lại có 0 Blocker, 0 Major mới.
+- **Thẻ mới:** 3 Minor (ARC-15, 16, 17) và 2 Suggestion (ARC-18, BA-19). Hạn của các thẻ này rơi vào PR sau (PR-B1, PR-B3, 0.3.14, BA), không chặn gộp.
+- **Thẻ cũ:**
+  - Đóng: ARC-01, 02, 03, 04, 05, 06, 09, 10, 12, 13.
+  - Còn mở:
+    - ARC-07 ý 1 (Deferred, OPS đo journal 7 ngày sau W6);
+    - ARC-11 (SEC viết SR-NET-01; INV/OPS tách mạng khách);
+    - ARC-14 (ORC thêm câu L7 vào danh sách luật sư ESC-001).
+- **BUG-R5-002 (mục 1.21):** khớp V5-48 và S1–S8. 5B-2 khớp mục 4 của `SEC-on-bug-r5-002.md`.
+- **G15:** SEC **không** cần ràng ở DB cho v1.0.5. Khóa tư vấn được chấp nhận, kèm 5 điều kiện ở 5.3 (giao cho BE ở thẻ ARC-15).
+- **Mốc `actual_checkout_at`:** SEC xác nhận (5.4).
+- **Delta chỉ đổi tài liệu** (G9 thành giá tháng ÷ 5, bỏ các dòng "chờ DOM"): SEC chấp nhận gộp mà không đọc lại, nếu delta nằm trong phạm vi ở 5.6.
+- ESC mới: không.
+
+### 5.1 Thẻ cũ
+
+| Thẻ | Mức | ARC làm gì | SEC đọc lại | Trạng thái |
+|---|---|---|---|---|
+| ARC-01 | Major | Báo giá chỉ nhận kênh `direct`/`agent`. `ota`, `internal`, kênh ngừng → 422 `NOT_IN_LIST`. Bỏ câu Nội bộ BR-421 | Đúng ở `QuoteInput.channelId`, `QuoteInput.nightlyRates`, `saveQuote`. T14-8, T14-9 phủ cả SAL `saveQuote` kênh `internal` | **Closed** |
+| ARC-02 | Major | `x-write-roles`, 21 `fieldCases`, ca viết tay H-01…H-09 | Thứ tự (Idempotency → `x-roles` → `x-write-roles` → thân lệnh → giá) và 403 không trường mở rộng đã ghi ở cả `calculateQuote`, `saveQuote`, `createReservationGroup`. `openapi-meta.ts` có `writeRoles` ở cả 3 operation. `fieldCases` có 6 ca 403 = SAL, CTV × 3 operation. BA đã thêm ghi chú 46a/46b | **Closed**. Ghi chú 46a của BA cần sửa theo trần đêm mới (thẻ BA-19) |
+| ARC-03 | Major | DOM chọn (a): MGR ≤ 1 đêm, từ 2 đêm chỉ OWN. Thêm `nightsNotBilled`, `overdueOnly`; `overdueReason` qua bộ đọc D12c | Đủ ý 1, 2, 4. Ý 3 theo lựa chọn (a) của DOM, là một trong hai phương án SEC nêu. Đường một mình MGR nay chỉ còn 1 đêm, và OWN thấy qua `overdueOnly` | **Closed** |
+| ARC-04 | Major | Luật phía client và hai chặn ở máy chủ | Đủ cả 5 ý phía client. Máy chủ chặn `ssid` trùng tên đăng nhập (kể cả tài khoản đã khóa) và mật khẩu trùng mật khẩu người gọi (argon2 một lần, không đếm khóa, không log). T58-9, T58-10 | **Closed**. FE-A làm T58-10 ở PR V5-58 |
+| ARC-05 | Minor | `no-store` cả PUT; giới hạn byte; lỗi không lặp lại giá trị; không SSE | Đủ. PUT không trả `password`, chỉ trả `passwordSet` | **Closed** |
+| ARC-06 | Minor | Đêm có `edited` ≠ `true` dùng giá lịch của máy chủ | Đúng cho báo giá (T14-11). B1 khác có chủ đích ở bản này | **Closed**. SEC muốn B1 theo cùng luật ở 0.3.14 (thẻ ARC-18) |
+| ARC-09 | Suggestion | Sửa 1.14, G7, mục 0 và mục 8 | 1.14 có đủ hai tệp timer và giờ 03:00 + 15:00 (production), 03:30 + 15:30 (staging); G7 khớp plan V5-62 | **Closed**. Dòng trạng thái ở mục 2 do chính PR #94 sửa thành "Resolved"; SEC không sửa dòng đó trên `main` để tránh xung đột khi gộp |
+| ARC-10 | Suggestion | FD đọc Wi-Fi khi BA có dòng rbac riêng | BA đã thêm S36 (0.2.8, `4bb9e68d`) | **Closed** phía SEC. ARC đổi `getPropertyWifi` sang S36 và thêm `front_desk`; SEC không cần đọc lại, nếu đổi đúng phạm vi ở 5.6 |
+| ARC-12 | Suggestion | Sửa changelog. Thêm cảnh báo không chặn `NIGHTLY_PRICE_UNUSUAL`; Desk hỏi xác nhận lại | Đủ. Không có ô lý do; SEC chấp nhận vì audit `config` đã ghi giá | **Closed**. Biên trên ÷ 5 (DOM `1568e523`) là delta tài liệu (5.6) |
+| ARC-13 | Suggestion | Id ổn định `RB-<operationId>-<subject>`, `RBF-…`; `x-round: R5` | `rbac-cases.json` có 2310 ca, id dạng mới, và 21 `fieldCases` | **Closed** |
+| ARC-07 | Minor | Không phải việc của ARC | Không đổi so với lần đọc PR #93 | Ý 1 còn **Deferred** (OPS) |
+| ARC-11 | Suggestion | Không phải việc của ARC | – | **Open**: SEC viết SR-NET-01; INV/OPS tách mạng khách |
+| ARC-14 | Suggestion | Không phải việc của ARC | – | **Open**: ORC thêm câu L7 vào danh sách luật sư ESC-001 |
+
+### 5.2 BUG-R5-002 trong 0.3.13 (mục 1.21; mô tả `recordPayment` (A) (B), `confirmPaymentReceived`, `createVietQr`, `setRefundDestination`, `createDepositNotice`, `listAuditEvents`)
+
+| Yêu cầu SEC | Hợp đồng | Kết quả |
+|---|---|---|
+| V5-48: trên đơn đã đóng, mọi vai kể cả OWN; kiểm dưới khóa đơn; lỗi thì không ghi gì | `recordPayment` (A) | Khớp |
+| Tiền mặt, POS, ví, `ota_collect` → 422 `NOT_IN_LIST` (`method`) | (A) | Khớp. Thêm: **API từ chối tiền mặt** trên đơn đã đóng |
+| Thiếu ảnh → 422 `REQUIRED` | (A). Ảnh của một báo "khách đã chuyển" → 422 `NOT_IN_LIST` | Khớp, và chặt hơn đề xuất (S7) |
+| Luôn `pending`; audit `afterClosure` + `reservationStatus`; `Payment.afterClosure` | (A) | Khớp (S6) |
+| Thứ tự 403 → 404 → luật đơn đã đóng | Có ở `recordPayment`. Ở `confirmPaymentReceived`, `createVietQr` ghi "trước mọi kiểm khác" | Cần ghi rõ 404 phạm vi đi trước 409 ở hai operation này → **ARC-17** (Minor) |
+| `confirmPaymentReceived`, `createVietQr` → 409 `INVALID_TRANSITION` + `reservationStatus`, cả SAL, cả khi có `overBalanceReason` | Có, kèm schema `Problem.reservationStatus` | Khớp |
+| S2: yêu cầu hoàn đứng tên người ghi; người ghi vào `origin_actor_ids` | (B), mã lý do mới `payment_after_cancel` | Khớp. Mã lý do riêng tốt hơn dùng lại `overpayment` |
+| S3: nơi nhận cố định `original_method`; không chi tiền mặt | (B); `setRefundDestination` → 409; `executeCashRefund` → 409; chỉ chi khi đã `reconciled` | Khớp |
+| S4 tối thiểu: "Có thể trùng" | `Payment.possibleDuplicateCodes` (có `x-visible-to` FD+), `ApprovalRequest.possibleDuplicateCodes` | Khớp. Riêng `ApprovalRequest.possibleDuplicateCodes` chưa có `x-visible-to` → **ARC-16** (Minor) |
+| S4 bản tốt: `bankReference`, trùng → 409 | `PaymentCreate.bankReference` tùy chọn ở **mọi đường ghi**; 409 `DUPLICATE_BANK_REFERENCE` + `duplicateReservationCode` | Đúng hướng. Còn thiếu phạm vi vai, kiểm số thẻ, chuẩn hóa mã → **ARC-15** (Minor) |
+| S5 trần (nên có) | FD/FDL → 422 `AMOUNT_EXCEEDS_BALANCE` (`max`); MGR/OWN ghi được, kèm `note` | Khớp |
+| S7: báo của sale trên đơn đã đóng | `createDepositNotice` → 202 + `deposit_after_cancel`; không sinh khoản thu; ảnh không dùng làm chứng từ; audit `afterClosure`; tin đẩy chỉ có mã đơn | Khớp |
+| S8: "Không thấy tiền" | `resolveAttentionEvent`, ghi chú bắt buộc, audit người và giờ, có trong `afterClosureOnly` | Khớp |
+| DOM B002-04: ghi hai lần; chứng từ là thông báo tiền vào tài khoản OTTIMO | `disputed` → `reversePayment` → `superseded`. Nhãn ô ảnh ghi chứng từ | Khớp. Luật "một dòng sao kê một khoản" ở v1.0.6 – SEC chấp nhận, vì đối soát vẫn do MGR+ làm bằng tay |
+| 5B-2 (mục 4) | 1.21 ý 4: FD+ không cần duyệt, chỉ khi đủ 3 điều kiện; ngoài điều kiện không khôi phục, kể cả OWN; SAL, CTV không bao giờ; chỉ cùng giao dịch với khoản thu V5-48; khóa căn + EXCLUDE; còn yêu cầu hoàn mở → 409 `refund_pending`; lý do bắt buộc; `ROOM_UNAVAILABLE`; không ghi nửa chừng; audit; báo OWN và MGR | Khớp đủ. Migration nhỏ (kind thông báo) theo QC R4 ĐK-2 – đúng. Ghi chú cho 0.3.14 ở thẻ ARC-18 |
+
+### 5.3 G15 – `bankReference`: khóa tư vấn hay unique index
+
+SEC **không** cần ràng buộc ở DB cho v1.0.5. Lý do:
+- `bankReference` là trường tùy chọn (DOM: lễ tân thường không đọc được mã). Một unique index cũng không bắt được ca không gõ mã. Lớp chặn chính vẫn là:
+  - "Có thể trùng";
+  - MGR+ đối soát với sao kê;
+  - chỉ chi khi đã đối soát.
+- Mọi lần ghi khoản thu đi qua một hàm (`recordInTx`). Mẫu `pg_advisory_xact_lock(hashtextextended('<tiền tố>:…', 0))` đã dùng ở 4 chỗ trong mã. Lớp DB còn chặn khóa tư vấn mức phiên (`database.ts` 236–237).
+- Thêm index là thêm migration, nên phải chờ V5-61 (QC R4 ĐK-2).
+
+Điều kiện cho BE khi làm PR-B3 (ghi ở thẻ ARC-15):
+1. Lấy khóa `pg_advisory_xact_lock(hashtextextended('bank-ref:' || property_id || ':' || <mã đã chuẩn hóa>, 0))` **trước** câu kiểm trùng, trong cùng giao dịch với lệnh `INSERT`.
+   - Giao dịch giữ mức `READ COMMITTED` (mặc định của `database.ts`), để câu kiểm chạy sau khi có khóa thấy dòng mà giao dịch trước vừa commit.
+2. Chuẩn hóa trước khi khóa, kiểm và lưu: bỏ khoảng trắng đầu/cuối, so không phân biệt hoa thường (lưu dạng chữ hoa).
+3. Chỉ so với **khoản thu** (`type` ∈ `deposit`, `charge`; `reversal_of_id IS NULL`; chưa `reversed`).
+   - Cột `bank_reference` còn chứa mã của **khoản chi hoàn** (`refunds.service.ts` 782–802). Mã chi ra không được làm khoản thu nhận 409.
+4. Áp ở **mọi** đường dùng `PaymentCreate`: `recordPayment`, `confirmDeposit`, `checkIn`, `checkOut.finalPayment`, `ReservationCreate.payment`, `GroupDepositInput`. Bỏ sót một đường là có cách ghi trùng.
+5. Test integration: hai giao dịch song song cùng mã (khác hoa thường) → một 201, một 409. Mã trùng với một khoản chi hoàn → 201.
+
+**Nên có ở v1.0.6:** partial unique index trên `(property_id, upper(bank_reference)) WHERE type IN ('deposit','charge') AND reversal_of_id IS NULL AND status <> 'reversed' AND bank_reference IS NOT NULL`. Làm cùng ô mã giao dịch ở bước đối soát và luật "một dòng sao kê một khoản" (DOM 3a). Đây là lớp thứ hai, như CHECK chống tự duyệt hoàn ở 0040. Không bắt buộc.
+
+### 5.4 Mốc giữ chứng cứ `actual_checkout_at` (ARC mục 3, 1.18; BE C0313-03)
+
+**SEC xác nhận:** B18 có `checkoutAt` ghi `reservation.actual_checkout_at` = `registration.actual_checkout_at` = `stay_ended_at` = `checkoutAt`. Hai mốc giữ dữ liệu tính từ giá trị này:
+- mốc của ảnh giấy tờ (`scheduleRetention`: hết lượt ở + min(số ngày khách đã đọc, tham số));
+- mốc 12 tháng của `penalty_evidence` (`setRetentionAnchor` trong `onCheckedOut`).
+
+Lý do:
+- Hạn giữ ảnh giấy tờ (C3) khách đã đọc là "sau khi trả phòng". Lấy giờ rời thật thì đúng với điều khách đã đồng ý (BR-610), và không giữ lâu hơn chỉ vì lễ tân bấm muộn.
+- `checkoutAt` không dời mốc tùy ý được:
+  - ngày nghiệp vụ của nó phải là ngày đi (hoặc cửa sổ sau nửa đêm);
+  - không được sau giờ server + dung sai;
+  - với đơn quá ngày đi, MGR chỉ lùi được 1 đêm.
+  Mốc vì vậy không thể bị kéo về trước ngày đi để xóa chứng cứ sớm.
+- `penalty_evidence` gửi **sau** B18 vẫn lấy mốc "bây giờ", tức muộn hơn lúc trả phòng, nên được giữ lâu hơn chứ không ngắn hơn (`attachment.service.ts` 168–174). `post_checkout_window_until` tính từ lúc ghi, nên lễ tân không mất thời gian thêm chứng cứ.
+
+Giữ khi cài (BE ở PR-A1b, test):
+- `COALESCE(stay_ended_at, …)` không dời một mốc đã có;
+- audit giữ cả `checkoutAt` và giờ ghi;
+- một test: đơn quá ngày đi 1 đêm → `delete_after` của ảnh giấy tờ = `checkoutAt` + số ngày. Không tính từ giờ bấm.
+
+### 5.5 Thẻ mới
+
+#### FB-R5-SEC-ARC-15
+- Mức độ: Minor
+- Người nhận: ARC (chữ hợp đồng), BE-B (PR-B3)
+- Vị trí: `PaymentCreate.bankReference`; `Problem.duplicateReservationCode`; `recordPayment` (B); contract 1.21 ý 3; G15.
+- Vấn đề:
+  - `bankReference` nằm trong `PaymentCreate`. Hợp đồng ghi "mọi đường ghi dùng schema này", và SAL gọi được một số đường đó (ví dụ `recordPayment` loại cọc, phạm vi `own_deposit_only`).
+  - SAL gửi một mã đã có thì nhận 409 kèm `duplicateReservationCode`, tức mã của một đơn ngoài phạm vi của mình (SR-AZ-02 chỉ cho 404 với tài nguyên ngoài phạm vi).
+  - Mẫu `^[A-Za-z0-9./_-]{1,64}$` nhận được một dãy 16 số. Ở `executeRefund`, cùng trường đã có kiểm `CARD_NUMBER_DETECTED`; ở `PaymentCreate` thì chưa.
+  - Chưa nói chuẩn hóa: `abc123` và `ABC123` qua được cả hai.
+  - Còn thiếu các điều kiện G15 ở 5.3.
+- Vì sao quan trọng: lộ mã đơn của người khác (mức thấp). Ngoài ra, chặn trùng có thể bị lách bằng chữ hoa, chữ thường, hoặc bằng một đường ghi không kiểm.
+- Đề xuất sửa (ARC chọn một trong hai cho ý 1):
+  1. Hoặc `x-write-roles` `bankReference`: FD+ ở các operation dùng `PaymentCreate` (Desk chỉ gửi trường này ở 5B-1, của FD+). Hoặc trả 409 **không** có `duplicateReservationCode` cho người gọi không có vai FD+.
+  2. Kiểm `CARD_NUMBER_DETECTED` như `executeRefund`.
+  3. Chuẩn hóa và các điều kiện 1–5 ở 5.3.
+- Hạn: trước khi gộp PR-B3. Mã chưa có PR 5B-1 thì từ chối trường lạ, nên tới đó chưa có đường hở.
+- Trạng thái: Open
+
+#### FB-R5-SEC-ARC-16
+- Mức độ: Minor
+- Người nhận: ARC
+- Vị trí: `ApprovalRequest.possibleDuplicateCodes`.
+- Vấn đề:
+  - `Payment.possibleDuplicateCodes` có `x-visible-to` FD+, còn `ApprovalRequest.possibleDuplicateCodes` thì không.
+  - `listApprovalRequests` mở cho cả HK, MT, SAL, CTV (theo phạm vi của từng vai).
+- Vì sao quan trọng: mã đơn của khoản khác có thể hiện ra cho vai không xem tiền, nếu sau này một yêu cầu hoàn lọt vào phạm vi của vai đó.
+- Đề xuất sửa: thêm `x-visible-to: [owner, manager, front_desk_lead, front_desk]` (serializer sinh lại). Test: SAL đọc danh sách yêu cầu thì không có trường này.
+- Hạn: trước khi gộp PR-B3.
+- Trạng thái: Open
+
+#### FB-R5-SEC-ARC-17
+- Mức độ: Minor
+- Người nhận: ARC (một câu mô tả), BE-B (test ở PR-B1)
+- Vị trí: mô tả `confirmPaymentReceived` và `createVietQr` (bổ sung 1, V5-48): "kiểm dưới khóa đơn trước mọi kiểm khác".
+- Vấn đề:
+  - Câu trên đọc được là 409 + `reservationStatus` có thể đi trước 404 phạm vi.
+  - Khi đó SAL gửi id một QR hoặc folio của sale khác thì biết được đơn đó đã hủy hay no-show.
+  - Mã hiện nay đúng thứ tự (`scopedReservation` trả 404 trước, dòng 533), nhưng chữ hợp đồng chưa giữ thứ tự này.
+- Vì sao quan trọng: SR-AZ-02. Rủi ro thấp, nhưng 409 là lối lộ trạng thái mà BE dễ cài sai.
+- Đề xuất sửa:
+  - Sửa thành "sau 403 vai và 404 phạm vi, trước mọi kiểm khác của khoản thu", như `recordPayment` (A).
+  - Test ở PR-B1: SAL với QR còn chờ của đơn đã hủy của sale khác → 404, thân lỗi không có `reservationStatus`.
+- Hạn: trước khi gộp PR-B1 (V5-48). ARC có thể sửa câu cùng delta tài liệu ở 5.6.
+- Trạng thái: Open
+
+#### FB-R5-SEC-ARC-18
+- Mức độ: Suggestion
+- Người nhận: ARC (danh sách 0.3.14)
+- Vấn đề, đề xuất:
+  1. `recordPayment.restoreHold` (5B-2): gắn `x-write-roles` FD+, để SAL gửi trường này thì nhận 403 trước mọi kiểm khác, không dựa vào việc SAL đã bị chặn ở nhánh đơn đã đóng.
+  2. B1 (`createReservation`): đêm có `edited` ≠ `true` dùng giá lịch của máy chủ, như báo giá (đuôi ARC-06).
+  3. Gắn `x-write-roles` cho các luật trường cũ, như ARC đã hẹn (G13).
+- Trạng thái: Open
+
+#### FB-R5-SEC-BA-19
+- Mức độ: Suggestion
+- Người nhận: BA
+- Vị trí: `rbac-matrix.md` dòng A18 và ghi chú 46a: "chỉ OWN, MGR".
+- Vấn đề: theo DOM 7.1 (a) và hợp đồng 1.18, OWN luôn được làm, còn MGR chỉ khi `nightsNotBilled` ≤ 1; từ 2 đêm thì MGR nhận 403 `requiredRole: owner`.
+- Đề xuất sửa: sửa A18 và 46a theo luật mới, để `gen_traceability` và QA dựa vào cùng một nguồn.
+- Trạng thái: Open
+
+### 5.6 Delta chỉ đổi tài liệu sau `2cb549cc`
+
+**SEC chấp nhận gộp mà không đọc lại**, nếu delta chỉ gồm:
+- G9 và câu `NIGHTLY_PRICE_UNUSUAL` ở `createRoom`, `updateRoom`: biên trên thành giá tháng ÷ 5 (DOM `1568e523`). Vẫn chỉ là cảnh báo, vẫn lưu, không thêm mã chặn.
+- Bỏ các dòng "chờ DOM" hoặc `[GIẢ ĐỊNH]` đã có câu trả lời, ở `contract-0.3.13.md`, `openapi.yaml` (mô tả) và tệp trả lời của ARC.
+- Tệp sinh lại (`openapi-meta.ts`, `openapi-schemas.ts`, api-client, `traceability.md`) chỉ khác ở chuỗi mô tả.
+- Có thể kèm hai việc đã định, cũng không cần SEC đọc lại:
+  - câu thứ tự của thẻ ARC-17;
+  - `getPropertyWifi`: `x-rbac` S36, `x-roles` thêm `front_desk`, `rbac-cases` sinh lại với FD → 200 ở **riêng** operation này. `no-store` và "không log" giữ nguyên.
+
+Cách kiểm (ORC, trước khi gộp):
+- `git diff 2cb549cc..<HEAD mới> --stat`;
+- `git diff 2cb549cc..<HEAD mới> -- product/docs/api/openapi.yaml | grep -E '^[+-] *(x-roles|x-write-roles|x-visible-to|x-scope|x-rbac|operationId|required|enum|pattern|type):'` không ra dòng nào, trừ đúng hai dòng `x-roles`/`x-rbac` của `getPropertyWifi` nếu ARC gộp việc S36;
+- CI xanh trên HEAD mới.
+
+Nếu delta đổi gì khác thì gửi lại SEC đọc riêng phần đó: vai, phạm vi, `x-visible-to`, mã lỗi, luật tiền, luật Wi-Fi, luật đơn đã đóng, hoặc `rbac-cases` ngoài `getPropertyWifi`.
+
+### 5.7 Dòng decision-log đề xuất (ORC ghi khi gộp)
+
+`| 2026-11-06 | 5 | **SEC – đọc lại PR #94 (0.3.13-draft bổ sung 1/1b/1c, HEAD 2cb549cc, CI 42239136222 xanh): DUYỆT để gộp** (rounds/round-05/reviews/SEC-on-contract-0.3.13.md mục 5). Đóng ARC-01…06, 09, 10, 12, 13; còn mở ARC-07 ý 1 (OPS, Deferred), ARC-11 (SR-NET-01), ARC-14 (L7, ESC-001). BUG-R5-002 (1.21) khớp V5-48 và S1–S8: API từ chối tiền mặt, POS, OTA trên đơn đã đóng, ảnh bắt buộc, luôn chờ đối soát, confirmPaymentReceived/createVietQr 409 + reservationStatus, hoàn payment_after_cancel đứng tên người ghi, nơi nhận cố định original_method, Có thể trùng, createDepositNotice 202; 5B-2 (0.3.14) khớp SEC mục 4. G15: không cần unique index ở v1.0.5 – khóa tư vấn kèm chuẩn hóa mã, khóa trước khi kiểm, chỉ so khoản thu, mọi đường PaymentCreate, test song song; index một phần nên có ở v1.0.6. Xác nhận mốc giữ chứng cứ theo checkoutAt. Thẻ mới, không chặn gộp: ARC-15 (bankReference: vai FD+ hoặc 409 không mã đơn cho SAL, kiểm số thẻ – trước PR-B3), ARC-16 (x-visible-to cho ApprovalRequest.possibleDuplicateCodes – trước PR-B3), ARC-17 (404 phạm vi trước 409 reservationStatus – trước PR-B1), ARC-18 và BA-19 (Suggestion). Chấp nhận delta chỉ đổi tài liệu (G9 ÷ 5, bỏ "chờ DOM", có thể kèm S36 cho getPropertyWifi) mà không đọc lại, theo phạm vi mục 5.6 | SEC | Quyền SEC (review bảo mật hợp đồng API) |`
