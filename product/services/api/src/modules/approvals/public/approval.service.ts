@@ -63,6 +63,13 @@ import {
  */
 export const DEBT_WRITE_OFF = 'debt_write_off';
 
+/**
+ * Contract 0.3.13 1.20 (V5-16, BR-438 (2), DOM 3.1 (2)): "Ghi nhầm" – a waiver of a line the front desk may not reduce
+ * itself (another person's line, a system line, an earlier business day). The FOC report shows it apart; the bill
+ * printed for the guest shows only "Miễn phí" (US-177 AC10 – line-labels `guestFacing`). No DB CHECK (text column).
+ */
+export const ENTERED_IN_ERROR = 'entered_in_error';
+
 /** Reason codes of BR-432 (FocRequestInput.reasonCode). Other request types pass their own code. */
 export const FOC_REASON_CODES = [
   'regular_vip',
@@ -73,6 +80,7 @@ export const FOC_REASON_CODES = [
   // ARC 16.27 (2), R7LOCK-02 (DOM 18/10, BR-525): writing a debt off after check-out – FolioFocService only
   // accepts it on a settled / closed folio with an open debt (OWN/MGR, `kind = foc`, note).
   DEBT_WRITE_OFF,
+  ENTERED_IN_ERROR,
 ] as const;
 
 export interface Actor {

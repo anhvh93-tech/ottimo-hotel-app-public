@@ -188,3 +188,84 @@ UXD-142-01 (Major) và DOM-142-01 cùng chạm một chỗ mã: mức sàn và c
 ## 6. Dòng decision-log đề xuất (ORC ghi khi commit)
 
 `| 2026-11-07 | 5 | ARC – review kỹ thuật FE PR #142 (V5-11 Desk) @ 52a14957: DUYỆT CÓ ĐIỀU KIỆN (0 Blocker/Major của ARC). Đúng #114 và 0.3.13: mock giữ thứ tự kiểm, 409 useCheckout khi ngày đi ≤ ngày lịch, 409 minNewDepartureDate = ngày lịch, serviceDate phí và deposit_forfeit = ngày nghiệp vụ; Desk không tự tính phí (M1/M1b đỏ); bước ③ chỉ theo allowedActions check_out; đặt sẵn ngày lịch trong W là đúng hợp đồng (lời giao "ngày nghiệp vụ" nhầm). Điều kiện: gộp sau #114; sửa UXD-142-01 (Major) theo quy tắc ARC – mức sàn = max(ngày nghiệp vụ, ngày lịch) đúng minCalendarDate của máy chủ, cờ W = giờ < rollover và ngày nghiệp vụ < ngày lịch, client không là bên duy nhất từ chối ngày máy chủ nhận; CI xanh. Thẻ: 142-01 Minor (test nhánh 409 useCheckout ở lần ghi, M10b sống), 142-02 Minor (useBusinessDay neo mốc lúc Me về và đọc lại Me sau mốc 06:00; lỗi từ R3, không đổi hợp đồng, không thêm ngày phí vào EarlyDepartureResult), 142-03 Minor (minCalendarDay theo công thức máy chủ) | ARC | rounds/round-05/reviews/ARC-on-fe-pr-142.md |`
+
+---
+
+## 7. Delta #142 @ `710209ec` (đọc lại sau lượt duyệt có điều kiện `52a14957`)
+
+- Lời giao: ORC, bước Review round 5. Chỉ đọc delta `52a14957..710209ec`. Head không đổi trong lúc review.
+- Báo FE: `responses/FE-responses.md` (các thẻ 142).
+- **Kết luận: DUYỆT @ `710209ec`.** 0 Blocker, 0 Major, không thẻ mới.
+  - **142-01 Done. 142-03 Done.**
+  - 142-02 Deferred (PR FE riêng sau #142, QA ghi bug P2): ARC đồng ý.
+  - Điều kiện gộp:
+    1. Gộp **sau #114**, như cũ. #114 đã được ARC duyệt delta @ `e9dcef63`.
+    2. CI xanh ở `710209ec`. Lúc ghi, mọi job đã xong đều xanh; còn job `docker images build · E2E smoke` đang chạy.
+- Delta theo first-parent:
+
+  | Commit | Nội dung | Kiểm |
+  |---|---|---|
+  | `3927e137` | UXD-142-01 (hộp mở qua 00:00) và DOM-142-01 (W cần ngày nghiệp vụ < ngày lịch) | mục 7.2, 7.3 |
+  | `877c9dde` | merge `main` @ `c174acc3` | `--remerge-diff` rỗng |
+  | `7baac854` | ARC-142-03 (mức sàn theo công thức máy chủ, `inEarlyHours` riêng), ARC-142-01 (test 409 `useCheckout` ở lần ghi) | mục 7.1 |
+  | `710209ec` | merge `main` @ `c1c41043` | `--remerge-diff` rỗng |
+
+- **Merge không rơi gì:**
+  - cả hai commit merge không có dòng sửa tay;
+  - `git diff c1c41043 710209ec` chỉ chạm đúng 5 tệp của PR, đều dưới `apps/admin-web` (+956/−15);
+  - `git merge-tree` với `main` hiện tại: sạch.
+
+### 7.1 Hai thẻ ARC
+
+| Thẻ | Mã / test @ `710209ec` | Kiểm của ARC |
+|---|---|---|
+| **142-03** (Minor) | `minCalendarDay(businessDay, tz, now)` = max(ngày nghiệp vụ, ngày lịch), không còn tham số `rollover`. Đây đúng `minCalendarDate` của `shared/business-day.ts` ở #114: trên máy chủ, ngày lịch luôn ≥ ngày nghiệp vụ. Cờ W là hàm riêng `inEarlyHours` = giờ máy quầy < mốc đổi ngày **và** ngày nghiệp vụ < ngày lịch. Ca đơn vị dùng đầu vào nhất quán (mốc 04:00 có ca hai phía mốc). Có ca P1 ở cả mức đơn vị lẫn hộp: máy chủ 06:01, máy quầy 05:59 → mức sàn D, không dòng giờ đêm, D đi qua tới lần ghi | Đột biến A1 (trả về công thức cũ "giờ < mốc → ngày nghiệp vụ + 1"): **đỏ** 2 ca. A2 (W bỏ vế ngày nghiệp vụ < ngày lịch): **đỏ** 2 ca. A3 (W bỏ vế giờ): **đỏ** (ca đơn vị). **Done** |
+| **142-01** (Minor) | Ca mới, đúng đề xuất: đồng hồ quầy giữ 23:58 (Desk ngoài W), `failNext` 409 `useCheckout` cho lần ghi. Kỳ vọng: `writes()` `toHaveLength(1)`; alert `use_checkout` nhận focus; không câu lỗi chung; không nút Xác nhận; đơn không đổi; đọc lại đơn đúng 1 lần (đợi thêm 400 ms vẫn 1); đơn đi D+2 nên chỉ có Đóng. Ca cũ đổi `toBeLessThanOrEqual(1)` → `toHaveLength(1)` | Đột biến M10b (409 `useCheckout` ở lần ghi → lỗi chặn): **đỏ** (ca 142-01). Ở `52a14957`, M10b sống. **Done** |
+
+- M16 (mock: `stayEnd <= calendar` → `<`) vẫn sống. Chấp nhận, không thẻ:
+  - ở biên ngày đi = ngày lịch, Desk tự bật màn `useCheckout` trước khi hỏi máy chủ, nên mock không được hỏi;
+  - dấu "≤" phía máy chủ đã được ca 114-01 của #114 khóa trên PostgreSQL thật (đột biến M10 của #114 đỏ).
+
+### 7.2 Client không bao giờ là bên duy nhất từ chối một ngày máy chủ nhận
+
+So mức sàn hai phía: Desk = max(`useBusinessDay`, ngày lịch của máy quầy); máy chủ = max(ngày nghiệp vụ, ngày lịch của máy chủ). Cùng công thức, nên chỉ lệch khi đầu vào lệch.
+
+| Tình huống | Desk | Máy chủ | Kết quả |
+|---|---|---|---|
+| Đồng hồ khớp, `useBusinessDay` đúng | = máy chủ | – | Không lệch |
+| Máy quầy **chậm** quanh 00:00 hoặc 06:00 (ca P1) | thấp hơn máy chủ | 409 `minNewDepartureDate` | `serverMin` thắng (`serverMin ?? estimate`). Có test cho cả lần tính thử lẫn lần ghi |
+| Máy quầy **nhanh** quanh 00:00 | D+1 sớm hơn máy chủ đúng bằng độ lệch đồng hồ | còn nhận D | **Desk chặn một mình, chỉ trong khoảng lệch.** Đây đúng là điều ARC đã chấp nhận ở mục 3 (3). **ARC xác nhận.** Cùng khoảng đó, đơn đi D+1 thấy màn `useCheckout` sớm vài giây (điều kiện này có từ `52a14957`, không do delta). Qua khoảng lệch, hai bên trùng nhau |
+| Máy quầy nhanh quanh 06:00 | `inEarlyHours` tắt sớm | – | Mức sàn không đổi (cả hai phía là D+1), chỉ dòng giờ đêm tắt sớm vài giây. Không chặn gì |
+| `useBusinessDay` **chậm** một ngày (DOM-142-02 (a)) | mức sàn vẫn là ngày lịch | – | Không chặn thừa. Đây là lợi ích của công thức mới |
+| `useBusinessDay` **nhanh** một ngày (142-02 (b), lỗi neo từ R3) | D+1 tới lần đọc Me sau | nhận D | Ca duy nhất Desk chặn lâu hơn độ lệch đồng hồ. Không công thức nào ở client sửa được. Thẻ 142-02 sửa gốc, PR riêng sau #142 (FE-responses). Không do delta này |
+
+**Hai phần FE-4 thêm ngoài thẻ: ARC đồng ý.**
+- Hẹn giờ vẽ lại hộp lúc 00:00:
+  - `msUntilNextRollover(TZ, '00:00') + 250 ms`, tự hẹn lại sau mỗi lần chạy;
+  - được dọn khi hộp đóng.
+- Kiểm lại đồng hồ khi focus vào một ô:
+  - `focusin` trên `document`, gỡ khi hộp đóng;
+  - so cả mức sàn lẫn cờ W.
+- Hai cơ chế này làm Desk đổi mức sàn đúng lúc 00:00 **của máy quầy**. Không có chúng thì hộp để yên qua nửa đêm giữ mức sàn cũ tới cú bấm sau. Khi đó lễ tân gửi ngày D và nhận 409: không sai tiền, nhưng thêm một vòng.
+- Vì vậy khoảng chặn thừa ở hàng "máy quầy nhanh" không dài hơn độ lệch đồng hồ.
+- Bước ② mở lúc 00:00 rơi về bước ① chỉ khi ngày đã chọn nay thấp hơn mức sàn. Khi đó Desk bỏ tick, bỏ chip "Vừa đổi" và focus ô ngày. Đúng mục 3 (4): không giữ số tính trước 00:00 để xác nhận.
+
+| # | Đột biến | Kết quả |
+|---|---|---|
+| A4 | Bỏ hẹn giờ 00:00 (hẹn 24 giờ) | **Đỏ** (ca "để yên qua 00:00, không bấm gì") |
+| A5 | Bỏ kiểm lại khi focus | **Đỏ** (2 ca: repro của UXD, DOM 3.3 (1)(3)) |
+| A6 | Bỏ đường bước ② → ① | **Đỏ** (ca R2: tick lúc 00:02) |
+| A7 | Mức sàn giờ đêm chỉ theo `serverMin` (bỏ phần của Desk trong W) | **Đỏ** (5 ca) |
+
+### 7.3 Chạy trên `710209ec`
+
+- Worktree tạm trong scratchpad, `pnpm install --offline`, build các gói phụ thuộc của admin-web (`@ottimo/contracts`) trước `tsc`.
+- `tsc --noEmit`: sạch. `eslint` và `prettier --check` trên 5 tệp của PR: sạch.
+- `v5-11-early-departure-night-fea.test.tsx`: **16/16**, trước đây 10 ca.
+- 5 tệp Trả sớm/Trả phòng (V5-11, `v101-early-departure-fea`, `r4-bug014-early-departure-lease`, `v104-checkout-feb`, `v104-lease-end-fea`): **60/60**.
+- **Toàn bộ admin-web: 89 tệp, 1011/1011.**
+- Đột biến chạy mỗi lần một chỗ, rồi trả mã về. Dọn dẹp: đã xóa worktree và ref tạm.
+
+### 7.4 Dòng decision-log đề xuất (ORC ghi khi commit)
+
+`| 2026-11-07 | 5 | ARC – FE PR #142 delta 52a14957..710209ec DUYỆT @ 710209ec (0 Blocker/Major, không thẻ mới). ARC 142-03 Done: minCalendarDay = max(ngày nghiệp vụ, ngày lịch), đúng minCalendarDate của máy chủ; inEarlyHours riêng = giờ < mốc đổi ngày và ngày nghiệp vụ < ngày lịch; ca P1 (máy chủ 06:01, máy quầy 05:59 → mức sàn D, không dòng giờ đêm); đột biến công thức cũ và hai vế của W đều đỏ. ARC 142-01 Done: 409 useCheckout ở lần ghi khi Desk còn 23:58 → đúng 1 lần ghi, alert nhận focus, không lỗi chặn, đọc lại 1 lần; M10b nay đỏ. Client không là bên duy nhất từ chối ngày máy chủ nhận, trừ hai ca đã biết: máy quầy nhanh lúc 00:00 (chỉ trong khoảng lệch đồng hồ, ARC chấp nhận ở mục 3 (3), xác nhận lại) và useBusinessDay nhanh một ngày (142-02, lỗi từ R3, PR FE riêng sau #142). Hẹn giờ 00:00 và kiểm lại đồng hồ khi focus: đồng ý, bước ② qua 00:00 về bước ① đúng mục 3 (4); đột biến bỏ từng phần đều đỏ. Hai merge main có remerge-diff rỗng, diff so với main chỉ 5 tệp admin-web. tsc, eslint, prettier sạch; admin-web 1011/1011. Gộp sau #114, khi CI (E2E) xanh | ARC | rounds/round-05/reviews/ARC-on-fe-pr-142.md |`

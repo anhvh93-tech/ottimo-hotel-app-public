@@ -4,7 +4,8 @@
  *   `closed` (J15), `debt_reduction_requires_write_off` (BR-525), `invoice_issued` (BE 11); a debt collection on a
  *   folio still OPEN is `409 INVALID_TRANSITION currentState open`, not a lock (BE 11);
  * - V5-13 T13-1, T13-2, T13-3, T13-5: `CheckoutSummary.openRefunds` / `Folio.totals.openRefunds` – the open refund
- *   requests of the stay by reason, whoever asked; partly paid → the rest; fully paid → empty;
+ *   requests of the stay by reason, whoever asked – a second FD reads what the first FD asked (T13-1 "FD-2", QA
+ *   TC-V104-CO-01b, FB-R5-ARC-BE-B1-01); partly paid → the rest; fully paid → empty;
  *   creditVnd − unhandledCreditVnd = min(creditVnd, Σ openVnd) (BE 14);
  * - V5-18 T18-1, T18-2: `Reservation.depositUnverifiedVnd` = the deposits waiting for reconciliation; 0 once
  *   reconciled. T18-4 (the cap) is a unit in pr-b1-units.test.ts;
@@ -25,7 +26,8 @@ describe.skipIf(!HAS_DB)('PR-B1 – lockReason, openRefunds, depositUnverifiedVn
   let x: Fx;
   beforeAll(async () => {
     process.env.BLOBSTORE_PROVIDER = 'memory'; // refund proof attachments
-    x = await startFixture();
+    // FB-R5-ARC-BE-B1-01: a second front desk (FD-2), who never asked for any refund here.
+    x = await startFixture({ extraUsers: { fd2: ['front_desk'] } });
   });
   afterAll(async () => {
     await x?.close();
@@ -199,7 +201,7 @@ describe.skipIf(!HAS_DB)('PR-B1 – lockReason, openRefunds, depositUnverifiedVn
   });
 
   describe('V5-13 – openRefunds (T13-1, T13-2, T13-3, T13-5)', () => {
-    it('T13-1, T13-5: FD makes the B16 refund, the lead and MGR read the summary → early_departure + overpayment lines; Σ = credit − unhandled', async () => {
+    it('T13-1, T13-5: FD makes the B16 refund, FD-2, the lead and MGR read the summary → early_departure + overpayment lines; Σ = credit − unhandled', async () => {
       await x.at('2026-11-20T10:00:00+07:00');
       const b = await book('301', '2026-11-24', '2026-11-28', 1_000_000);
       await x.at('2026-11-24T15:00:00+07:00');
@@ -241,7 +243,8 @@ describe.skipIf(!HAS_DB)('PR-B1 – lockReason, openRefunds, depositUnverifiedVn
         { reasonCode: 'early_departure', openVnd: early },
         { reasonCode: 'overpayment', openVnd: 150_000 },
       ];
-      for (const who of ['lead', 'mgr', 'owner', 'fd']) {
+      // FD-2 first: the v1.0.4 miss (TC-V104-CO-01b) was an FD who did not create the request seeing nothing.
+      for (const who of ['fd2', 'lead', 'mgr', 'owner', 'fd']) {
         const sum = await x.c[who]!.get(x.url(`/reservations/${b.id}/checkout-summary`));
         expect(sum.statusCode, `${who} ${sum.body}`).toBe(200);
         const j = sum.json();
@@ -254,10 +257,21 @@ describe.skipIf(!HAS_DB)('PR-B1 – lockReason, openRefunds, depositUnverifiedVn
           Math.min(j.creditVnd, openSum(j.openRefunds)),
         );
       }
-      // The folio says the same (same query).
+      // The folio says the same (same query) – to FD-2 as well.
       const f = await x.folio(b.folioId);
       expect(f.totals.openRefunds).toEqual(expected);
       expect(f.totals.unhandledCreditVnd).toBe(50_000);
+      const f2 = await x.c.fd2!.get(x.url(`/folios/${b.folioId}`));
+      expect(f2.statusCode, f2.body).toBe(200);
+      expect(f2.json().totals.openRefunds).toEqual(expected);
+      expect(f2.json().totals.unhandledCreditVnd).toBe(50_000);
+      // Nobody but FD-1 asked: the open requests really are FD-1's.
+      const askers = await x.q(
+        `SELECT DISTINCT requested_by FROM approval_request
+          WHERE type = 'refund' AND target_type = 'reservation' AND target_id = $1`,
+        [b.id],
+      );
+      expect(askers.map((r: any) => r.requested_by)).toEqual([x.t.users.fd!.id]);
     });
 
     it('T13-2, T13-3: a cancellation refund (FD) – open in full, partly paid → the rest, fully paid → empty', async () => {
