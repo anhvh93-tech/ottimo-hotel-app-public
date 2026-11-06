@@ -116,6 +116,11 @@ export const NOTIF_KEYS: Partial<Record<StaffNotification['kind'], string>> = {
   hk_task_cancelled: 'staff.notif.k.hk_task_cancelled',
   guest_request_new: 'staff.notif.k.guest_request_new',
   guest_request_overdue: 'staff.notif.k.guest_request_overdue',
+  // Hold notices of J1 (contract 0.3.12, v1.0.5 V5-1B: `hold_expired` goes to every active FD / FDL –
+  // FB-R5-ARC-MOB-V51B-01). refType `reservation`: the booking code is the reference line, no screen to open.
+  hold_overdue_with_deposit: 'staff.notif.k.hold_overdue_with_deposit',
+  hold_overdue_cap: 'staff.notif.k.hold_overdue_cap',
+  hold_expired: 'staff.notif.k.hold_expired',
 };
 
 /**
