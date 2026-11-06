@@ -275,7 +275,7 @@ describe('money position – review S3 (DOM BE-13/14, ARC 13, E15-05)', () => {
     const totals = computeTotals(
       [ln('n1', 'room', 1_000_000)],
       [{ type: 'charge', method: 'cash', amount_vnd: 1_300_000, status: 'succeeded' }],
-      300_000,
+      [{ reasonCode: 'overpayment', openVnd: 300_000 }],
     );
     expect(totals).toMatchObject({ creditVnd: 300_000, unhandledCreditVnd: 0, otaExcessVnd: 0 });
   });

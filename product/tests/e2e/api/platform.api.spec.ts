@@ -386,6 +386,7 @@ test.describe(
           baseOccupancy: 2,
           maxOccupancy: 4,
           monthlyListPriceVnd: 9000000,
+          nightlyListPriceVnd: 800000,
         },
       });
       const p = expectProblem(r, 422, 'VALIDATION_FAILED');

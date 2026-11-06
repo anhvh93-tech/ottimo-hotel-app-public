@@ -24,6 +24,7 @@ import {
 import { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { applyPct } from '../../reservations/public/pricing';
 import { FolioService, OTA_COVERED } from '../public/folio.service';
+import { folioLocked, lockReasonOfStatus } from '../public/folio-locked';
 import { keyKindOf } from '../public/reductions';
 import { StayWaiverAlertService } from './stay-waiver-alert';
 
@@ -83,7 +84,7 @@ export class FolioFocService {
     let openDebtVnd = 0;
     if (folio.status !== 'open') {
       const debt = writeOff ? await this.hooks.openDebt(tx, folio.id) : null;
-      if (!debt) throw problem('FOLIO_LOCKED');
+      if (!debt) throw folioLocked(lockReasonOfStatus(folio.status));
       openDebtVnd = debt.openDebtVnd;
       if (!actor.roles.some((r) => WRITE_OFF_ROLES.includes(r))) throw problem('FORBIDDEN_ACTION');
       // R3-Q25 (FB-R2-SEC-BE-82 (b)): a write-off may be self-applied by OWN/MGR – the requester re-authenticates
