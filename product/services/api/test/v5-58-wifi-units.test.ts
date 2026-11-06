@@ -114,9 +114,10 @@ describe('V5-58 one reading rule with the guest page (wifiOf, T58-8)', () => {
   });
 });
 
-describe('caller-password comparison limit (rule id in one constant)', () => {
+describe(`caller-password comparison limit ${CALLER_PASSWORD_COMPARE_RULE} (rule id in one constant)`, () => {
   it('rule id, 5 per user, fixed 24 h window', () => {
-    expect(CALLER_PASSWORD_COMPARE_RULE).toBe('SR-RL-10');
+    // SEC 07/11 (C0313-24): renumbered SR-RL-10 → SR-RL-15 (SR-RL-10…14 belong to the public site since R2).
+    expect(CALLER_PASSWORD_COMPARE_RULE).toBe('SR-RL-15');
     expect(CALLER_PASSWORD_COMPARE_LIMIT).toBe(5);
     expect(CALLER_PASSWORD_COMPARE_WINDOW_MS).toBe(86_400_000);
   });

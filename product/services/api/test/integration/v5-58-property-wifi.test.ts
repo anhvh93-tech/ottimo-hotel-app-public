@@ -236,7 +236,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     expect(await count('own')).toBe(before);
   });
 
-  it('T58-9 + T58-12: staff login name (any case, disabled too), caller login password, both – 422, counted, kept after rollback', async () => {
+  it(`T58-9 + T58-12 (${CALLER_PASSWORD_COMPARE_RULE}): staff login name (any case, disabled too), caller login password, both – 422, counted, kept after rollback`, async () => {
     const lockout = () =>
       q(
         `SELECT status, failed_login_count, locked_until, lock_count_24h, approval_pin_failed_count,
@@ -296,7 +296,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     expect(ok.statusCode, ok.body).toBe(200);
   });
 
-  it('T58-13: open network or a name change alone – no comparison, the counter does not move', async () => {
+  it(`T58-13 (${CALLER_PASSWORD_COMPARE_RULE}): open network or a name change alone – no comparison, the counter does not move`, async () => {
     const before = await count('own');
     const open = await put('own', { ssid: 'OTTIMO OPEN', password: '' });
     expect(open.statusCode, open.body).toBe(200);
@@ -319,7 +319,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     expect(last?.after).toEqual({ ssid: 'OTTIMO BOUTIQUE STAY', passwordChanged: false });
   });
 
-  it('T58-11: 5 comparisons per user and window – the 6th is skipped and saved, one audit, kept across a restart', async () => {
+  it(`T58-11 (${CALLER_PASSWORD_COMPARE_RULE}): 5 comparisons per user and window – the 6th is skipped and saved, one audit, kept across a restart`, async () => {
     expect(CALLER_PASSWORD_COMPARE_LIMIT).toBe(5);
     const own = await count('own');
     for (let i = 1; i <= 5; i++) {
