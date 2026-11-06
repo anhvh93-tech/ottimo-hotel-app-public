@@ -6,6 +6,8 @@
  * (EP02 spec 1.4): FD+ full; HK/MT (`all_masked`) bars without booking identity (the role serializer also
  * removes reservationId/guestDisplayName/channelCode); SAL/CTV (`availability_only`) only merged
  * `unavailable` bars, no unassigned lane.
+ * History (getReservationHistory): FD/FDL read it too, so the manager-only audit (the commission of a sale / CTV) goes
+ * through audit/public/audit-visibility like listAuditEvents (SEC FB-R5-SEC-BE-131-01, ARC FB-R5-ARC-BE-131-01).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { inSequence } from '../../../shared/sequence';
@@ -14,6 +16,7 @@ import { RESERVATION_STATUSES, type ReservationStatus } from '../../../db/schema
 import { decodeCursor, page } from '../../../shared/http/pagination';
 import { problem } from '../../../shared/problem';
 import { type LocalDate, addDays } from '../../../shared/time';
+import { auditVisibleWhere, redactAuditFields } from '../../audit/public/audit-visibility';
 import { nameSearchKey } from '../../guests/public/normalize';
 import { OccupancyService, parseRange } from '../public/occupancy.service';
 import { isOrphanGap } from '../public/pricing';
@@ -519,6 +522,16 @@ export class RackService {
     ctx: BookingContext,
     row: ReservationRow,
   ): Promise<Array<Record<string, unknown>>> {
+    const roles = ctx.actor.roles;
+    const auditParams: unknown[] = [row.property_id, row.id, row.code];
+    const visible = auditVisibleWhere(
+      'e',
+      (v) => {
+        auditParams.push(v);
+        return `$${auditParams.length}`;
+      },
+      roles,
+    );
     const [audit, changes, transitions] = await inSequence([
       () =>
         tx.query<{
@@ -530,12 +543,14 @@ export class RackService {
           before: Record<string, unknown> | null;
           after: Record<string, unknown> | null;
           reason: string | null;
+          entity_type: string | null;
         }>(
           `SELECT e.occurred_at, e.actor_type, u.display_name AS actor_name, e.category, e.action, e.before, e.after,
-                e.reason
+                e.reason, e.entity_type
            FROM audit_event e LEFT JOIN app_user u ON u.id = e.actor_user_id
-          WHERE e.property_id = $1 AND ((e.entity_type = 'reservation' AND e.entity_id = $2) OR e.entity_code = $3)`,
-          [row.property_id, row.id, row.code],
+          WHERE e.property_id = $1 AND ((e.entity_type = 'reservation' AND e.entity_id = $2) OR e.entity_code = $3)
+                ${visible.map((w) => `AND ${w}`).join(' ')}`,
+          auditParams,
         ),
       () =>
         tx.query<{
@@ -574,6 +589,8 @@ export class RackService {
     const items: Array<{ at: Date; dto: Record<string, unknown> }> = [];
     const base = { entityType: 'reservation', entityId: row.id, entityCode: row.code };
     for (const a of audit.rows) {
+      const before = redactAuditFields(a.entity_type, a.before, roles);
+      const after = redactAuditFields(a.entity_type, a.after, roles);
       items.push({
         at: a.occurred_at,
         dto: {
@@ -583,8 +600,8 @@ export class RackService {
           category: a.category,
           action: a.action,
           ...base,
-          ...(a.before ? { before: a.before } : {}),
-          ...(a.after ? { after: a.after } : {}),
+          ...(before ? { before } : {}),
+          ...(after ? { after } : {}),
           ...(a.reason ? { reason: a.reason } : {}),
         },
       });
