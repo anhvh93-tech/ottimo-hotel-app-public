@@ -9,7 +9,8 @@ import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type Tx } from '../../../db/database';
 import { PropertyContextService } from '../../platform/public/property-context';
 import { IDENTITY_OPTIONS, type IdentityOptions } from '../public/identity-options';
-import { MfaStore, isMfaRequiredRole } from '../public/mfa-store';
+import { MfaStore } from '../public/mfa-store';
+import { holdsMfaRequiredRole } from '../public/mfa-required';
 import { sha256Hex } from '../../../shared/http/auth.guard';
 import { SessionService } from '../public/session.service';
 import { screensFor } from './screens';
@@ -193,6 +194,9 @@ export class MeService {
       });
     }
     const allRoles = new Set(properties.flatMap((p) => p.roles));
+    // SEC D1-03: the AuthGuard's predicate (a live mandatory role at ANY property, whatever its status), not the
+    // roles of the active properties listed above – both flags must say what the guard enforces.
+    const mfaRole = await holdsMfaRequiredRole(tx, input.userId);
     const active =
       input.activePropertyId && props.has(input.activePropertyId)
         ? input.activePropertyId
@@ -206,11 +210,11 @@ export class MeService {
       mustChangePassword: u.must_change_password,
       mfaEnabled: u.mfa_enabled,
       // R3 (SR-AUTH-06): a mandatory role (owner/manager; front_desk_lead from v1.0.5 – V5-40) must enable 2FA.
-      mfaRequiredButMissing: !u.mfa_enabled && isMfaRequiredRole(allRoles),
+      mfaRequiredButMissing: !u.mfa_enabled && mfaRole,
       // Same rule as the AuthGuard: flagged session, or MFA_ENFORCED + a mandatory role without 2FA (SEC 06.4).
       mfaEnrollmentRequired:
         u.enrollment_only === true ||
-        (this.options.mfaEnforced === true && !u.mfa_enabled && isMfaRequiredRole(allRoles)),
+        (this.options.mfaEnforced === true && !u.mfa_enabled && mfaRole),
       ...(allRoles.has('owner') ? { soleOwner: u.other_owners === 0 } : {}),
       recoveryCodesLow: MfaStore.recoveryCodesLow(u.recovery_left, u.mfa_enabled),
       email: u.email,
