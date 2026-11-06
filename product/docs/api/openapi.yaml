@@ -353,13 +353,13 @@ info:
       "Quy đổi giờ trả" (giữ hành vi hiện có cho giờ rời tối trước ngày đi); `getArrivalsDepartures` vắng `date` trong cửa sổ sau nửa đêm → `departuresDate`.
     - **(e) V5-11 (DOM mục 2, 7.6)**: `earlyDeparture` 409 `INVALID_TRANSITION` thêm `minNewDepartureDate`, `useCheckout`.
     - **(f) V5-58 (SEC ARC-04, ARC-05; BE C0313-16, 21)**: luật client chống trình duyệt tự điền; máy chủ chặn `ssid` trùng tên đăng nhập nhân viên và mật khẩu trùng mật khẩu người gọi;
-      `ssid` ≤ 32 byte UTF-8; mật khẩu ASCII in được; `no-store` cả PUT; PUT không trả mật khẩu (`passwordSet`); lỗi không lặp lại giá trị; không SSE. FD đọc (DOM 7.5): chờ dòng rbac của BA.
+      `ssid` ≤ 32 byte UTF-8; mật khẩu ASCII in được; `no-store` cả PUT; PUT không trả mật khẩu (`passwordSet`); lỗi không lặp lại giá trị; không SSE. FD đọc (DOM 7.5): `getPropertyWifi` `x-rbac` S36, thêm `front_desk` (rbac 0.2.8, bổ sung 1d).
     - **(g) V5-16 (DOM 3, 7.2 → BR-438; BE C0313-04, 20)**: `adjustFolioLine` – FD/FDL sửa **giảm** trực tiếp chỉ dòng nhập tay của chính mình ghi trong ngày nghiệp vụ hiện tại (xét
       theo dòng gốc); ngoài ra 403 `FORBIDDEN_ACTION` + `requiredFlow: foc_request`. Audit thêm `before.rootLineId`, `before.rootLineManual`; `reductionsOnly`; FOC `entered_in_error`;
       `ShiftReport.lineReductions`; "Cần chú ý" `foc_threshold` `check = line_reduction_count`.
     - **(h) Khác (BE C0313-11…19)**: `lockReason` + `invoice_issued`; `depositUnverifiedVnd` có chặn trên; `OpenRefund.reasonCode` mọi mã lý do hoàn; trigger 0094 bắt theo SQLSTATE +
       tiền tố câu; `setParameter` ghi dạng `weekend_nights` (`Weekday[]`), `min_stay` (`MinStayRule[]`); `listParameters.missing[]` lọc vai như `data`; cảnh báo tỷ lệ giá đêm/giá tháng
-      (`NIGHTLY_PRICE_UNUSUAL`, SEC ARC-12).
+      (`NIGHTLY_PRICE_UNUSUAL`, SEC ARC-12; biên ÷ 30 và ÷ 5 – DOM BR-101, bổ sung 1d).
     - **(h2) Khoản thu trên đơn đã đóng (BUG-R5-002; DOM 11.4; SEC `SEC-on-bug-r5-002.md`)**: **V5-48** (bắt buộc v1.0.5) – `recordPayment` trên đơn `cancelled`/`no_show`, mọi vai: chỉ
       `bank_transfer`/`vietqr`, ảnh bắt buộc, luôn chờ đối soát, audit `afterClosure`; `confirmPaymentReceived`, `createVietQr` → 409 + `reservationStatus`. **5B-1** (khi PO xếp): yêu cầu hoàn
       `payment_after_cancel` đứng tên người ghi, nơi nhận cố định `original_method`, "Có thể trùng" (`possibleDuplicateCodes`), `bankReference` tùy chọn (409 `DUPLICATE_BANK_REFERENCE`),
@@ -370,6 +370,8 @@ info:
       `commission_rate_missing`; `GuestRequest.feeFallback`. Khóa mới `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` cần dòng danh mục
       `config_parameter_def` (migration) – chi tiết `contract-0.3.13.md` mục 4. Operation/trường của (k) chỉ cài cùng PR-M.
     - **(l) `x-round: R5`** cho các operation mới của 0.3.13 (cột `sprint` của `rbac-cases`); `rbac-cases` đổi sang id ổn định `RB-<operationId>-<subject>` (SEC ARC-13).
+    - **(m) Bổ sung 1d (DOM `1568e523`, BA rbac 0.2.8 `4bb9e68d`)**: `getPropertyWifi` `x-rbac` S24 → S36, `x-roles` thêm `front_desk` (SEC ARC-10); `getManagerPerformanceBonus`
+      `x-rbac: [A120]`; biên trên `NIGHTLY_PRICE_UNUSUAL` = giá tháng ÷ 5 (so số nguyên); `nightsNotBilled` theo lúc bấm; tên hành động SM-01 B19 = `restore_hold` (0.3.14).
 
     ## Thay đổi phiên bản 0.3.12-draft (R4 v1.0.4 – gói P4-00; ARC 04/11; chi tiết `rounds/round-04/outputs/ARC/v1.0.4-contract-0.3.12.md`)
     Nền: 0.3.11-draft (`lp-v2-main`). Chỉ **thêm** giá trị enum ở phản hồi, trường chỉ đọc, mã lỗi trên operation đã có và mô tả – **không** operation mới, không đổi `x-roles`.
@@ -1711,7 +1713,8 @@ paths:
         Thiếu → 422 `VALIDATION_FAILED` (`field` = `nightlyListPriceVnd`, `code` = `REQUIRED`), không tạo căn. Server không suy giá này từ giá kia (BR-101 (1)).
         Đường tạo căn ngoài API (bootstrap, nhập danh mục) phải ghi đủ hai giá, hoặc để căn ngừng bán tới khi OWN nhập giá; `pricegap` tĩnh (V5-73) đếm căn đang bán mà thiếu giá.
         **0.3.13 bổ sung 1 (BE C0313-15)**: `production-bootstrap` tạo căn `isSellable = false` khi chưa có dòng giá; OWN nhập giá rồi mới mở bán.
-        **0.3.13 bổ sung 1 (SEC ARC-12, BR-101 (4))**: giá đêm < giá tháng ÷ 30, hoặc > giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt biên trên] → vẫn lưu, phản hồi có `warnings[]`
+        **0.3.13 bổ sung 1 (SEC ARC-12, BR-101 (4); biên trên DOM chốt ở bổ sung 1d)**: giá đêm × 30 < giá tháng, hoặc giá đêm × 5 > giá tháng (so số nguyên, không chia;
+        đúng bằng biên không cảnh báo; hai giá của cùng căn, cùng ngày hiệu lực; biên là hằng số, không phải tham số) → vẫn lưu, phản hồi có `warnings[]`
         `NIGHTLY_PRICE_UNUSUAL` (không chặn – BR-101 (1) hai giá độc lập). Desk tự tính cùng điều kiện **trước** khi gửi và đòi bấm xác nhận lại ("Giá đêm 800 đ – đúng chưa?").
       x-roles: [owner, manager]
       x-rbac: [S25]
@@ -1760,7 +1763,8 @@ paths:
         **0.3.13 (V5-1A, BUG-R4-057)**: `listPrice.nightlyListPriceVnd` **bắt buộc** – thiếu → 422 `VALIDATION_FAILED` (`field` = `listPrice.nightlyListPriceVnd`, `code` = `REQUIRED`), không ghi gì;
         server không còn tính giá tháng ÷ `night_from_month_divisor`. Giá ≤ 0 → 422 như mọi `MoneyVnd`; CHECK > 0 của DB giữ nguyên (lớp thứ hai).
         Gỡ hẳn một dòng đã lên lịch (trở về giá trước đó) dùng `cancelScheduledRoomListPrice`. Phản hồi có `scheduledListPrices` (OWN/MGR).
-        **0.3.13 bổ sung 1 (SEC ARC-12)**: `listPrice` có giá đêm ngoài khoảng [giá tháng ÷ 30, giá tháng ÷ 3] → vẫn lưu, `warnings[]` thêm `NIGHTLY_PRICE_UNUSUAL` (như `createRoom`).
+        **0.3.13 bổ sung 1 (SEC ARC-12)**: `listPrice` có giá đêm ngoài khoảng [giá tháng ÷ 30, giá tháng ÷ 5] (cùng phép so số nguyên như `createRoom`; bổ sung 1d) → vẫn lưu,
+        `warnings[]` thêm `NIGHTLY_PRICE_UNUSUAL` (như `createRoom`).
       x-roles: [owner, manager]
       x-rbac: [S25]
       x-stories: [US-004]
@@ -1899,12 +1903,12 @@ paths:
       summary: Wi-Fi của cơ sở – một mạng chung (BR-012 (7), ESC-022 B); đọc để kiểm và báo khách (V5-58, BUG-R3-021)
       description: |
         **0.3.13 (V5-58)**. Đọc `property.wifi_info_i18n`, cùng nguồn với `getGuestStay.wifi`. Chưa cấu hình → `200` với `configured = false`, không có `ssid`, `password`.
-        `Cache-Control: no-store`. Không ghi giá trị vào log. Vai đọc = vai xem Tham số quy tắc (S24: OWN, MGR, FDL).
+        `Cache-Control: no-store`. Không ghi giá trị vào log. ~~Vai đọc = vai xem Tham số quy tắc (S24: OWN, MGR, FDL).~~ **Bổ sung 1d**: vai đọc theo S36 "Xem Wi-Fi cơ sở"
+        (rbac 0.2.8 ghi chú 47): OWN, MGR, FDL, FD **chỉ xem**; HK, MT, SAL, CTV → 403. Sửa vẫn là A101 (`setPropertyWifi`, OWN, MGR).
         **0.3.13 bổ sung 1 (BE C0313-16)**: đọc theo **cùng luật** với trang khách (`wifiOf`: dạng phẳng `{ssid, password}`, hoặc dạng cũ theo ngôn ngữ `raw[locale]` → `raw.vi`).
-        `passwordSet` = có mật khẩu (mạng không mở). **FD đọc** (DOM 7.5, SEC không phản đối – C1): ARC thêm `front_desk` vào `x-roles` khi BA có dòng rbac riêng cho việc đọc Wi-Fi
-        (S24 là màn Tham số, FD không xem) – tới đó FD → 403.
-      x-roles: [owner, manager, front_desk_lead]
-      x-rbac: [S24]
+        `passwordSet` = có mật khẩu (mạng không mở). **FD đọc** (DOM 7.5, SEC ARC-10 không phản đối – C1): có từ bổ sung 1d (S36).
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [S36]
       x-round: R5
       x-stories: [US-005, US-108]
       responses:
@@ -4131,7 +4135,7 @@ paths:
           `stay_ended_at`, khai báo lúc đi (BR-604), mốc giữ chứng cứ phạt theo giá trị này. Giờ ghi (`recordedAt`) chỉ cho audit và `post_checkout_window_until`. `checkoutTime` có thể vắng khi
           có `checkoutAt`; gửi cả hai thì `checkoutTime` phải khớp giờ địa phương của `checkoutAt` (khác → 422 `VALIDATION_FAILED`, `field` = `checkoutTime`); vắng cả hai → 422 `REQUIRED`.
         - **0.3.13 bổ sung 1 – đơn quá ngày đi, thay các câu tương ứng ở mục dưới (SEC ARC-02, ARC-03; DOM 7.1 (a); BE C0313-10)**:
-          - `nightsNotBilled` = ngày nghiệp vụ lúc ghi − ngày đi hiệu lực (số nguyên ≥ 1; ví dụ đi 10/11: 09:00 ngày 11/11 → 1; 06:30 ngày 12/11 → 2; 05:00 ngày 12/11 → 1).
+          - `nightsNotBilled` = ngày nghiệp vụ lúc ghi (lúc bấm, cả `dryRun`; không theo `checkoutAt` – DOM 7.1, bổ sung 1d) − ngày đi hiệu lực (số nguyên ≥ 1; ví dụ đi 10/11: 09:00 ngày 11/11 → 1; 06:30 ngày 12/11 → 2; 05:00 ngày 12/11 → 1).
           - Vai: **OWN** luôn; **MGR** khi `nightsNotBilled` ≤ 1 (hằng số theo BR-433 / ESC-007 A, không phải tham số). MGR quá 1 đêm → 403 `FORBIDDEN_ACTION` kèm **chỉ**
             `requiredRole: owner`, `nightsNotBilled`. FD/FDL → 403 `FORBIDDEN_ACTION` **không** trường mở rộng. Cả hai ghi `access.denied`, folio và đơn không đổi; `dryRun` cùng kết quả.
           - Thứ tự: tra `Idempotency-Key` (ADR-009, cả bước 0 của `lateFeeInsteadOfNight`) → tải đơn **không khóa** → kiểm vai/trần đêm → mới đọc thân lệnh, khóa, tính tiền.
@@ -5115,8 +5119,9 @@ paths:
         **0.3.13 bổ sung 1 (k) – cài cùng PR-M** (cần khóa `manager_performance_bonus_pct`). Thưởng tháng M = tỷ lệ hiệu lực **ngày 1** của M × doanh thu phòng tháng M đã thu (K-06,
         ESC-051 câu 3 A [GIẢ ĐỊNH – chờ INV]). Tính mỗi lần đọc; chi ngoài Desk theo kỳ lương. Chưa có tỷ lệ → `status = rate_missing`, không `ratePct`/`amountVnd`. Tháng có hơn một
         quản lý: một số chung, `managers[]` liệt kê để OWN chia (Desk không tự chia). MGR chỉ đọc được tháng mình có vai quản lý (ngoài phạm vi → 404) và `managers[]` chỉ có chính mình.
-        Không ví dụ số (SEC G3): test dùng `test_rate_bonus`. Dòng rbac: BA thêm (đề xuất cạnh A60).
+        Không ví dụ số (SEC G3): test dùng `test_rate_bonus`. Dòng rbac **A120** (rbac 0.2.8 ghi chú 48; bổ sung 1d).
       x-roles: [owner, manager]
+      x-rbac: [A120]
       x-scope: { manager: own }
       x-round: R5
       x-stories: [US-089]
@@ -5817,7 +5822,8 @@ paths:
         - Mục "Cần chú ý" `deposit_after_cancel` của đơn đóng khi đã hoàn xong (hoặc đã khôi phục **và** khoản thu đã đối soát – 5B-2), hoặc FD+ đóng "Không thấy tiền" (`resolveAttentionEvent`,
           ghi chú bắt buộc, audit người và giờ – S8). Bộ lọc tuần: `listAuditEvents.afterClosureOnly` (S6). Tin đẩy, audit, log chỉ có mã đơn.
         - Khách muốn đặt lại khi 5B-2 chưa có: **không** ghi ở đơn cũ; hộp ghi nhắc tìm đơn mới của khách trước (DOM 3b).
-        **(C) 5B-2 (khôi phục, v1.0.6 – 0.3.14)**: phác ở `contract-0.3.13.md` mục 1.21.
+        **(C) 5B-2 (khôi phục, v1.0.6 – 0.3.14)**: phác ở `contract-0.3.13.md` mục 1.21. Tên hành động SM-01 B19 (`cancelled → hold`) = `restore_hold`
+        (`AllowedAction.action`, ARC chốt ở bổ sung 1d); thân lệnh `restoreHold: true` – chỉ có từ 0.3.14, 0.3.13 chưa có trường này.
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff]
       x-scope: { sales_staff: own_deposit_only }
       x-rbac: [A33]
@@ -11150,7 +11156,7 @@ components:
       properties:
         configured: { type: boolean, description: '`false` = chưa nhập – trang khách hiện "Vui lòng hỏi lễ tân" (BUG-R3-021 (b))' }
         ssid: { type: string }
-        password: { type: string, description: 'Chỉ trong phản hồi `getPropertyWifi` (OWN/MGR/FDL); **không** có trong phản hồi `setPropertyWifi` (0.3.13 bổ sung 1); không ghi log' }
+        password: { type: string, description: 'Chỉ trong phản hồi `getPropertyWifi` (S36: OWN/MGR/FDL/FD – bổ sung 1d); **không** có trong phản hồi `setPropertyWifi` (0.3.13 bổ sung 1); không ghi log' }
         passwordSet: { type: boolean, description: '**0.3.13 bổ sung 1** – `true` = có mật khẩu; `false` = mạng mở (`password` rỗng)' }
     Parameter:
       type: object

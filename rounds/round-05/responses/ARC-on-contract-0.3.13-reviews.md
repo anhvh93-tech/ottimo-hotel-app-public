@@ -24,9 +24,9 @@
 | FB-R5-SEC-ARC-07 | Minor | Not ARC | Thẻ của OPS – OPS đã trả lời ở `3027ab01` (làm ở PR #93). ARC không đổi hợp đồng |
 | FB-R5-SEC-ARC-08 | Minor | Not ARC | Thẻ của OPS (`log_error_verbosity=terse`) – OPS đã trả lời ở `3027ab01` (làm ở PR #93) |
 | FB-R5-SEC-ARC-09 | Suggestion | Done (Resolved trong tệp SEC) | OPS xác nhận giờ theo repo (`3027ab01`). ARC sửa theo `ARC-on-ops-prs-92-93-95.md` 1.7: mục 0 dòng V5-62; 1.14 – production `ottimo-backup@ottimo-prod.timer` (tệp `ottimo-backup@.timer`) 03:00 + 15:00, staging `ottimo-backup.timer` 03:30 + 15:30, khoảng lớn nhất nếu chọn 14:00 là 13 giờ, vòng xoay < 33 ngày đo bằng giây, test `backup-schedule.test.sh`; G7 bỏ "đề xuất"; mục 8; 1.15 và mục 7 khớp PR #93 |
-| FB-R5-SEC-ARC-10 | Suggestion | Done (một phần chờ BA) | DOM 7.5 muốn FD đọc Wi-Fi, SEC không phản đối. ARC thêm `front_desk` khi BA có dòng rbac riêng (đề xuất S36) – thêm thẳng vào S24 sẽ mở màn Tham số cho FD. Ghi ở `getPropertyWifi` và contract 1.23 |
+| FB-R5-SEC-ARC-10 | Suggestion | Done (bổ sung 1d) | DOM 7.5 muốn FD đọc Wi-Fi, SEC không phản đối. BA thêm S36 "Xem Wi-Fi cơ sở" (rbac 0.2.8, `4bb9e68d`); `getPropertyWifi` `x-rbac` S24 → S36, `x-roles` thêm `front_desk`; sửa vẫn A101 (OWN, MGR). `Me.screens` thêm S36. Contract 1.23. SEC đóng thẻ |
 | FB-R5-SEC-ARC-11 | Suggestion | Not ARC | Việc INV/OPS (tách mạng khách, client isolation), SEC thêm SR-NET-01. Không đổi hợp đồng |
-| FB-R5-SEC-ARC-12 | Suggestion | Done | Sửa câu changelog (Desk không có màn tạo căn); cảnh báo không chặn `NIGHTLY_PRICE_UNUSUAL` ở `createRoom` (201 + `warnings[]`) và `updateRoom` khi giá đêm < giá tháng ÷ 30 (BR-101 (4)) hoặc > giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt biên trên]. Desk xác nhận lại trước khi lưu (không thêm trường lý do – `createRoom` không có chỗ ghi lý do; audit đã ghi giá) |
+| FB-R5-SEC-ARC-12 | Suggestion | Done | Sửa câu changelog (Desk không có màn tạo căn); cảnh báo không chặn `NIGHTLY_PRICE_UNUSUAL` ở `createRoom` (201 + `warnings[]`) và `updateRoom` khi giá đêm < giá tháng ÷ 30 (BR-101 (4)) hoặc > giá tháng ÷ 5 (DOM `1568e523`; so số nguyên, đúng bằng biên không cảnh báo – bổ sung 1d). Desk xác nhận lại trước khi lưu (không thêm trường lý do – `createRoom` không có chỗ ghi lý do; audit đã ghi giá) |
 | FB-R5-SEC-ARC-13 | Suggestion | Done | Id ổn định `RB-<operationId>-<subject>`, ca trường `RBF-<operationId>-<field>-<subject>`; kiểm trùng id khi sinh; `x-round: R5` cho 3 operation mới. Id cũ trong tài liệu trước 0.3.13 tra theo git |
 | FB-R5-SEC-ARC-14 | Suggestion | Not ARC | ORC thêm câu L7 vào danh sách hỏi luật sư ESC-001. V5-63 giữ 90 ngày |
 
@@ -62,11 +62,11 @@
 
 | Điểm | Trạng thái | Ghi chú |
 |---|---|---|
-| (a) `rbac-matrix.json` A07b, A33 trỏ `channelWebhook`, `paymentCallback` (không có trong OpenAPI) | Việc của BA – ARC đề nghị **bỏ**, không đổi tên | Đường hệ thống thật là `webhookPost`/`webhookGet` (`x-roles: [system]`, R3). Gắn hai operation này vào A07b/A33 (vai FD+) sẽ làm `rbac_check` báo lệch vai. BA ghi chú "đường cổng thanh toán/OTA: `webhookPost` (system)" |
+| (a) `rbac-matrix.json` A07b, A33 trỏ `channelWebhook`, `paymentCallback` (không có trong OpenAPI) | Done (BA rbac 0.2.8, `4bb9e68d`) | Đường hệ thống thật là `webhookPost`/`webhookGet` (`x-roles: [system]`, R3). BA đã bỏ hai operationId và ghi chú ở A07b/A33. Hợp đồng không đổi |
 | (b) Ghi chú 46b – nhiều vai có FD gửi `nightlyRates` | Done | Hợp quyền: một vai có trong `x-write-roles` là qua. Ghi ở changelog bổ sung 1 (a), `QuoteInput.nightlyRates`, contract 1.16; `fieldCases` có ca nhiều vai `pass` |
-| Mới – dòng rbac đọc Wi-Fi cho FD (DOM 7.5) | Nhờ BA | Đề xuất `S36` "Xem Wi-Fi cơ sở": OWN, MGR, FDL, FD. ARC đổi `getPropertyWifi` khi có |
-| Mới – dòng rbac `getManagerPerformanceBonus` | Nhờ BA (cùng PR-M) | OWN, MGR (MGR chỉ của mình), cạnh A60 |
-| Mới – SM-01 `cancelled → hold` (lý do `hold_expired`) | Nhờ BA (0.3.14) | Cho đường DOM 11.4 |
+| Mới – dòng rbac đọc Wi-Fi cho FD (DOM 7.5) | Done (bổ sung 1d) | BA S36 (ghi chú 47); ARC đổi `getPropertyWifi` (`x-rbac: [S36]`, thêm `front_desk`) |
+| Mới – dòng rbac `getManagerPerformanceBonus` | Done (bổ sung 1d) | BA A120 (ghi chú 48); ARC gắn `x-rbac: [A120]`, giữ `x-scope: { manager: own }` |
+| Mới – SM-01 `cancelled → hold` (lý do `hold_expired`) | Done (BA B19; tên chốt ở bổ sung 1d) | Tên hành động **`restore_hold`** (`AllowedAction.action`); áp từ 0.3.14. Contract 1.21 ý 4 |
 
 ## 4. QA – phần hợp đồng của bug
 
@@ -78,7 +78,7 @@
 
 ## 5. DOM – các mục ARC chờ
 
-Đã làm hết (contract mục 3). Hai điểm nhỏ đề nghị DOM ghi rõ ở 7.1 (ngày nghiệp vụ lúc bấm; ngày đi hiệu lực của lượt có đơn con) và một câu thêm cho BR-428 (trong W dùng Trả phòng) – không chặn.
+Đã làm hết (contract mục 3). DOM `1568e523` chốt nốt: biên trên cảnh báo giá đêm ÷ 5 (G9, so số nguyên, đúng bằng biên không cảnh báo), câu BR-428 (00:00–05:59 dùng Trả phòng, gọi thẳng → 409 `useCheckout`), 7.1 (`nightsNotBilled` theo ngày nghiệp vụ lúc bấm kể cả `dryRun`; ngày đi = `stayDepartureDate`, gồm gia hạn B13 và đơn con OTA). Hợp đồng đã viết đúng các ý này; bổ sung 1d chỉ sửa ÷ 3 → ÷ 5.
 
 ## 6. SEC – BUG-R5-002 (`SEC-on-bug-r5-002.md`) và DOM B002-04
 

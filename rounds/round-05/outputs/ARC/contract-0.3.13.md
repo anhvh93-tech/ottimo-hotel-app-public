@@ -48,7 +48,7 @@
 | V5-46 | Đã có từ 0.3.12 (i) | Không đổi | Không | Không |
 | V5-50 | Desk lọc theo `listRoomStatuses` | Không đổi | Không | Không |
 | V5-57 | Đã có từ 0.3.7 (`q` tìm theo tên) | Không đổi | Không | Không |
-| V5-58 | Hai operation riêng cho Wi-Fi, ghi vào cột trang khách đang đọc. **Bổ sung 1**: chống tự điền, chặn trùng tên đăng nhập/mật khẩu, byte, PUT không trả mật khẩu | Thêm `getPropertyWifi`, `setPropertyWifi`; bổ sung 1: `passwordSet` | Không | FD đọc: chờ dòng rbac BA (1.23) |
+| V5-58 | Hai operation riêng cho Wi-Fi, ghi vào cột trang khách đang đọc. **Bổ sung 1**: chống tự điền, chặn trùng tên đăng nhập/mật khẩu, byte, PUT không trả mật khẩu | Thêm `getPropertyWifi`, `setPropertyWifi`; bổ sung 1: `passwordSet`; bổ sung 1d: đọc theo S36, thêm FD | Không | Đã chốt (1.23) |
 | V5-62 | Giữ (a). Lượt hai: production 15:00, staging 15:30, mỗi khoảng 12 giờ (plan V5-62, PR #93) | Không (hạ tầng) | Không | Không |
 | V5-63 | Driver `journald` + `MaxRetentionSec=90day` | Không (hạ tầng) | Không | Không |
 
@@ -67,6 +67,8 @@ Chưa chạy local: `openapi-spec-validator`, vì máy này không có gói đó
 `gen_traceability.py --strict` exit 0 (0 operation lệch, 1 trường lệch có sẵn); `gen_rbac_cases.py --check` OK; `gen-openapi-meta --check` OK; `turbo typecheck` 13/13; unit API 51 tệp, 1123 ca
 (gồm `contract.test.ts`); api-client 37 ca; admin-web 88 tệp, 994 ca; prettier sạch.
 Lần chạy lại sau bổ sung 1b/1c (V5-48, 5B-1, V5-25, ARC-09; gộp `main` @ `e56c8513`): cùng kết quả – Redocly 0 lỗi/6 cảnh báo, traceability exit 0, hai `--check` OK, typecheck 13/13, unit API 1123, api-client 37, admin-web 994, prettier sạch.
+
+**Bổ sung 1d** (DOM `1568e523`, BA rbac 0.2.8 `4bb9e68d`; gộp `main` @ `6cfa6085`): S36 cho `getPropertyWifi` (+ FD), `x-rbac: [A120]`, biên ÷ 5, `restore_hold`, `Me.screens` + S36. Chạy lại: Redocly 0 lỗi/6 cảnh báo; traceability `--strict` exit 0 (0 operation lệch, 1 trường lệch có sẵn); `gen_rbac_cases.py --check` OK (2310 ca, 2xx 1110 / 403 855, 21 `fieldCases`); `gen-openapi-meta --check` OK; `turbo typecheck` 13/13; unit API 54 tệp, 1134 ca (gồm BUG-R3-007 đối chiếu `rbac-matrix.md` mục 3); api-client 37; admin-web 994; prettier sạch.
 
 ---
 
@@ -409,7 +411,7 @@ Hai ý khác của V5-22 là việc FE/UXD, không đổi hợp đồng:
 
 **Quyết định.** Hai operation mới ở `/v1/properties/{propertyId}/wifi`.
 - **`getPropertyWifi`**:
-  - Vai: OWN, MGR, FDL (S24).
+  - Vai: OWN, MGR, FDL (S24). **Bổ sung 1d:** S36 – OWN, MGR, FDL, FD (1.23).
   - `configured = false` khi chưa nhập.
   - `Cache-Control: no-store`.
 - **`setPropertyWifi`**:
@@ -438,7 +440,7 @@ Hai ý khác của V5-22 là việc FE/UXD, không đổi hợp đồng:
 | T58-1 | OWN đặt Wi-Fi | Trang khách trong ngày nhận phòng hiện đúng tên mạng |
 | T58-2 | SSID có "401" | 422 |
 | T58-3 | Mật khẩu 7 ký tự | 422 |
-| T58-4 | FD gọi GET | 403 |
+| T58-4 | FD gọi GET | ~~403~~ **bổ sung 1d:** 200; HK, MT, SAL, CTV gọi GET → 403 |
 | T58-5 | Nội dung audit | Không có mật khẩu (grep giá trị thử trong `audit_event` và log = 0) |
 | T58-6 | Phản hồi GET | Có `no-store` |
 
@@ -635,7 +637,7 @@ Thay T14-4 cũ ("kênh Nội bộ theo BR-421") bằng T14-8.
 - trong W (00:00 tới trước rollover, ngày lịch D+1): ngày đi hiệu lực = D+1 → 409 `INVALID_TRANSITION` + `useCheckout: true`; `newDepartureDate` ≤ D → 409 + `minNewDepartureDate` = D+1; kiểm trước mọi kiểm ngày khác, cả `dryRun`;
 - dòng phí giữ lại lấy `serviceDate` = ngày nghiệp vụ lúc thao tác (không đổi hợp đồng);
 - một hàm "ngày lịch tối thiểu" dùng chung cho B16 và V5-10. Không migration. PR-A2 (BE-A, sau PR-A1a).
-- Nhận xét cho DOM: BR-309 và BR-311 không cần sửa chữ; BR-428 nên thêm một câu "trong W, nút Trả sớm không có cho lượt đi hôm nay theo ngày lịch – dùng Trả phòng" để khớp `useCheckout`.
+- BR-309 và BR-311 không cần sửa chữ. BR-428: DOM đã thêm câu "00:00–05:59, lượt có ngày đi hiệu lực là hôm nay theo ngày lịch không có Trả sớm – dùng Trả phòng; gọi thẳng → 409 `useCheckout`, không đổi gì" (`1568e523`) – khớp hợp đồng, không đổi gì thêm.
 
 **Tin `hold_expired` (DOM 9):** người tạo + người chốt + mọi FD, FDL đang hoạt động; một lần mỗi đơn, mỗi người một dòng. Không đổi schema; mô tả `StaffNotification` đã sửa.
 
@@ -668,7 +670,7 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
    - Lý do bắt buộc (dùng `note` của khoản thu).
    - Lỗi: **căn đã bán** → 409 `ROOM_UNAVAILABLE` + `conflicts[]`, `suggestions[]` (cùng mã khôi phục B12); **đã qua ngày đến** hoặc đơn không hủy lúc giữ chỗ → 409 `INVALID_TRANSITION`; rollback cả giao dịch, không ghi nửa chừng; không tự đổi căn.
    - Audit `state` `reservation.restored_after_cancel` (`cancelled → hold` hoặc `→ confirmed`): người làm, lý do, `cancel_reason_code` cũ, hạn giữ chỗ cũ, mã khoản thu; `payment.recorded` có `afterClosure`; vào `afterClosureOnly`. Báo OWN và MGR (không gửi người làm), tin chỉ mã đơn; `deposit_after_cancel` đóng khi đã khôi phục **và** khoản thu đã đối soát.
-   - **Migration: có, nhỏ** – kind thông báo mới `reservation_restored_after_cancel` phải nới `staff_notification_kind_check` (như 0093). Chuyển `cancelled → hold` không cần migration (không trigger chặn; `reservation_cancelled_check` chỉ ràng khi `status = cancelled`). Vì có migration, 5B-2 theo QC R4 ĐK-2 (sau V5-61); 5B-1 lên trước được. SM-01 thêm chuyển (BA).
+   - **Migration: có, nhỏ** – kind thông báo mới `reservation_restored_after_cancel` phải nới `staff_notification_kind_check` (như 0093). Chuyển `cancelled → hold` không cần migration (không trigger chặn; `reservation_cancelled_check` chỉ ràng khi `status = cancelled`). Vì có migration, 5B-2 theo QC R4 ĐK-2 (sau V5-61); 5B-1 lên trước được. SM-01 B19 (BA, `state-machines.md` 0.2.8): **tên hành động `restore_hold`** (ARC chốt, bổ sung 1d) – dùng ở `AllowedAction.action` của đơn `cancelled` khi đủ ba điều kiện; audit giữ `reservation.restored_after_cancel`, kind thông báo giữ `reservation_restored_after_cancel`. Áp từ 0.3.14.
 
 ### 1.22 V5-30, V5-31 – cấu trúc và migration (DOM 4, 5, 7.3, 7.4)
 
@@ -678,7 +680,7 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
 - `manager_performance_bonus_pct` (mới);
 - `long_stay_cleaning_fee_by_room` (mới, V5-31): `{ "<roomNo>": VND }`, bội 1.000, 0–5.000.000, căn phải có; căn vắng → `adhoc_cleaning_fee`.
 
-**Hợp đồng (cài cùng PR-M):** `Commission.instalmentNo` (1 | 2), `Commission.voidReason`; `getManagerPerformanceBonus` (tính lúc đọc, OWN/MGR, MGR chỉ của mình; dòng rbac BA thêm); `AttentionItem` `commission_rate_missing` (OWN, `computed`, không lưu kind); `GuestRequest.feeFallback` (FD+).
+**Hợp đồng (cài cùng PR-M):** `Commission.instalmentNo` (1 | 2), `Commission.voidReason`; `getManagerPerformanceBonus` (tính lúc đọc, OWN/MGR, MGR chỉ của mình; `x-rbac: [A120]` – rbac 0.2.8, bổ sung 1d); `AttentionItem` `commission_rate_missing` (OWN, `computed`, không lưu kind); `GuestRequest.feeFallback` (FD+).
 **Thiếu tỷ lệ lúc chốt:** không tạo bản ghi `commission`; lần đồng bộ sau khi có tỷ lệ tạo bù (DOM 7.3).
 
 **Migration – có:**
@@ -694,7 +696,7 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
 - Máy chủ: `ssid` trùng tên đăng nhập nhân viên cơ sở → 422 `NOT_ALLOWED`; mật khẩu trùng mật khẩu đăng nhập của **chính người gọi** (một lần argon2 verify, không đếm khóa, không log) → 422 `NOT_ALLOWED`. Không ghi, không audit khi lỗi.
 - `ssid` ≤ 32 byte UTF-8; mật khẩu rỗng hoặc 8–63 ASCII in được; 422 không lặp giá trị; `no-store` cả PUT; PUT trả `passwordSet`, không `password`; không SSE; đọc cả dạng phẳng và dạng theo ngôn ngữ (`wifiOf`); ghi dạng phẳng; thực thể audit `property` đăng ký.
 - Không `If-Match` (BE 21 ý 3): tần suất rất thấp, audit giữ `before.ssid` – từ chối có lý do.
-- **FD đọc (DOM 7.5, SEC không phản đối):** cần BA thêm dòng rbac riêng "Xem Wi-Fi cơ sở" (đề xuất `S36`: OWN, MGR, FDL, FD) – S24 là màn Tham số, FD không xem. Khi BA có dòng, ARC đổi `getPropertyWifi` `x-rbac` sang dòng mới và thêm `front_desk` (đổi nhỏ, không migration). Tới đó T58-4 (FD → 403) giữ nguyên.
+- **FD đọc (DOM 7.5, SEC không phản đối) – bổ sung 1d:** BA thêm S36 "Xem Wi-Fi cơ sở" (rbac 0.2.8 ghi chú 47: OWN, MGR, FDL, FD chỉ xem). `getPropertyWifi` đổi `x-rbac` S24 → S36, `x-roles` thêm `front_desk`; sửa vẫn A101 (OWN, MGR). Không migration. T58-4 đổi: FD → 200. `Me.screens` thêm S36 cho OWN, MGR, FDL, FD (`identity/internal/screens.ts`, ARC sửa cùng PR vì test BUG-R3-007 đối chiếu `rbac-matrix.md` mục 3); FE-A dùng S36 để hiện ô xem Wi-Fi ở PR-C1.
 
 | # | Ca | Mong đợi |
 |---|---|---|
@@ -721,7 +723,7 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
   - bộ đọc phòng thủ ở 3 chỗ gọi `minStayNights`: không mảng → không luật; phần tử hỏng → bỏ; log một lần; không 500;
   - không mở đường sửa dòng hiệu lực hôm nay (R5-B-06).
 
-- **BA (a) – `rbac-matrix.json` A07b, A33 trỏ `channelWebhook`, `paymentCallback`:** ARC đề nghị BA **bỏ** hai operationId này (không đổi tên): đường hệ thống thật là `webhookPost`/`webhookGet` (`x-roles: [system]`, R3); gắn vào A07b/A33 (vai FD+) sẽ làm `rbac_check` báo lệch. BA ghi chú "đường cổng thanh toán/OTA: `webhookPost` (system)".
+- **BA (a) – `rbac-matrix.json` A07b, A33 trỏ `channelWebhook`, `paymentCallback`:** ARC đề nghị BA **bỏ** hai operationId này (không đổi tên): đường hệ thống thật là `webhookPost`/`webhookGet` (`x-roles: [system]`, R3); gắn vào A07b/A33 (vai FD+) sẽ làm `rbac_check` báo lệch. BA ghi chú "đường cổng thanh toán/OTA: `webhookPost` (system)". **Bổ sung 1d:** BA đã bỏ ở rbac 0.2.8 (`4bb9e68d`); hợp đồng không đổi.
 - **BA (b) – ghi chú 46b:** chốt hợp quyền, xem 1.16.
 - **SEC ARC-13:** id `rbac-cases` ổn định `RB-<operationId>-<subject>`, ca trường `RBF-<operationId>-<field>-<subject>`; id cũ trong tài liệu trước 0.3.13 (`RB-0387`…) theo đánh số của commit đó – tra git. Thêm `x-round: R5` cho `getPropertyWifi`, `setPropertyWifi`, `getManagerPerformanceBonus`.
 
@@ -765,21 +767,17 @@ Luật chung:
 
 ## 3. Mục chờ DOM
 
-**Bổ sung 1:** DOM đã trả lời các mục chờ (`rules-v1.0.5.md` mục 7, 9, 11). Tình trạng:
+**Bổ sung 1:** DOM đã trả lời các mục chờ (`rules-v1.0.5.md` mục 7, 9, 11; `1568e523`: biên trên ÷ 5 – G9, câu BR-428, 7.1). Tình trạng:
 
 | Việc | DOM chốt | ARC đã làm | Còn mở |
 |---|---|---|---|
 | V5-16 | SEC (a) + báo cáo (b) → BR-438 | 1.20 | – |
 | V5-30 | Cấu trúc khóa, đợt chi, thiếu tỷ lệ (4, 7.3) | 1.22 (PR-M) | Số do INV nhập (ESC-051 câu 1–3 còn mở; đội dùng A) |
 | V5-15 | (a): OWN luôn, MGR ≤ 1 đêm | 1.18 | SEC xác nhận mốc giữ chứng cứ theo `checkoutAt` |
-| V5-11 | Luật W (2, 7.6) | 1.21 | DOM thêm câu BR-428 nếu đồng ý nhận xét 1.21 |
 | V5-31 | Khóa theo căn (5, 7.4) | 1.22 (PR-M) | – |
-| V5-58 (phụ) | FD đọc (7.5) | 1.23 | **BA** thêm dòng rbac; ARC thêm vai |
+| V5-58 (phụ) | FD đọc (7.5) | 1.23 (S36, bổ sung 1d) | – |
 | 11.4 / V5-5B, V5-48 | Dùng lại `recordPayment`, mọi đơn đã đóng; hoàn về tài khoản đã chuyển; S4 tối thiểu bắt buộc; 5B-2 khôi phục cùng đơn | 1.21 (V5-48, 5B-1 vào 0.3.13; 5B-2 phác 0.3.14 theo SEC mục 4) | PO xếp 5B-1; ô mã đối soát ở v1.0.6 |
 | V5-25 | Luật lưu `min_stay` (mục 12), `weekend_nights` (8.4) | 1.24, mô tả `setParameter` | – |
-| BR-101 (4) | – | Biên dưới giá tháng ÷ 30 | **DOM chốt biên trên** (ARC giả định ÷ 3) |
-
-**Điểm còn mở ở DOM 7.1 (ORC hỏi):** ARC thấy 7.1 đủ cho hợp đồng. Hai điểm nhỏ đề nghị DOM ghi rõ: (1) ngày nghiệp vụ lúc ghi là của **lúc bấm** (không phải `checkoutAt`) – hợp đồng đã viết theo cách này; (2) lượt có đơn con gia hạn: "ngày đi" là ngày đi hiệu lực của cả lượt (BR-422).
 
 ---
 
@@ -805,6 +803,7 @@ Luật chung:
 - **Bổ sung 1:** `openapi.yaml` (vẫn `0.3.13-draft`); `services/api/scripts/gen-openapi-meta.mjs`, `src/shared/openapi-types.ts` (`writeRoles`); `tests/tools/gen_rbac_cases.py` (id ổn định,
   `fieldCases`); `docs/erd.md` 9.1, 9.1a (`weekend_nights`, `min_stay`); `docs/qa/traceability.md` (sinh lại); `apps/admin-web/src/pages/RoomsPage.tsx` (một dòng: `count` thành tùy chọn);
   `rounds/round-05/responses/ARC-on-contract-0.3.13-reviews.md`.
+- **Bổ sung 1d:** `openapi.yaml` (S36, A120, ÷ 5, `restore_hold`); `services/api/src/modules/identity/internal/screens.ts` (S36); sinh lại meta, api-client, `rbac-cases`, `traceability.md`.
 - `rounds/round-05/outputs/ARC/contract-0.3.13.md` (tệp này).
 - `rounds/round-05/outputs/ARC/report.md`: ARC gửi nội dung trong kết quả trả về; ORC lưu tệp, như đã làm với báo cáo PO.
 
@@ -815,12 +814,12 @@ Luật chung:
 - G1. Máy chủ quy đổi giờ trả và trả `checkoutAt`, thay vì Desk tự ghép ngày với giờ. Desk không có ngưỡng sai lệch; luật chỉ nằm một chỗ (rủi ro ở plan mục 4).
 - G2. V5-15: ~~chỉ OWN/MGR~~ **bổ sung 1**: OWN luôn, MGR ≤ 1 đêm (DOM 7.1 (a)), không hậu kiểm.
 - G3. `openRefunds` chỉ FD+, cả ở `Folio.totals`. A1 viết "theo quyền đọc folio", nhưng SAL đọc được folio; ARC thu hẹp theo `unhandledCreditVnd`.
-- G4. Wi-Fi dùng operation riêng, không dùng tham số. FD không đọc được (S24) **tới khi BA có dòng rbac đọc Wi-Fi** (bổ sung 1, DOM 7.5).
+- G4. Wi-Fi dùng operation riêng, không dùng tham số. FD đọc theo S36 (bổ sung 1d, rbac 0.2.8, DOM 7.5).
 - G5. Lọc `removalsOnly` chạy trên jsonb mà không cần chỉ mục mới, vì số bản ghi một tuần của 10 căn nhỏ. BE đo trên staging.
 - G6. `QuoteInput.nightlyRates` chỉ FD+ (`x-write-roles`); báo giá chỉ kênh `direct`/`agent` (bổ sung 1, SEC ARC-01).
 - G7. Lượt hai: production 15:00, staging 15:30 (plan V5-62, PR #93). Chỉ câu "RPO 12 giờ" còn chờ INV xác nhận ngày 20/11.
 - G8. Chia làn BE theo module như mục 2.
-- G9. Biên trên cảnh báo giá đêm = giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt]; biên dưới ÷ 30 theo BR-101 (4).
+- G9. Biên cảnh báo giá đêm (DOM `1568e523`, BR-101): cảnh báo khi giá đêm × 30 < giá tháng hoặc giá đêm × 5 > giá tháng; so số nguyên, đúng bằng biên không cảnh báo; cùng căn, cùng ngày hiệu lực; hằng số, không migration. Chỉ cảnh báo, không chặn.
 - G10. Ứng viên thứ ba của "Quy đổi giờ trả" (BE 07) giữ hành vi hiện có, không phải luật nghiệp vụ mới; DOM V5-11 luật 3 cùng hướng.
 - G11. Bộ đọc `min_stay` phòng thủ coi giá trị hỏng như không có luật trong ngày đó (thà mất luật tối thiểu đêm một ngày hơn là dừng bán cả ngày).
 - G12. V5-48 và 5B-1 là nhánh trong `recordPayment`; 5B-2 khôi phục **cùng đơn**, có migration nhỏ (kind thông báo). "Chi trước đối soát" đã chặn sẵn (`REFUND_SOURCE_NOT_RECONCILED`, SEC 1.3).

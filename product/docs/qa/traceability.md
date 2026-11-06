@@ -14,7 +14,7 @@
 | AC có ≥ 1 TC | **254/254** (100.0%) |
 | AC có ≥ 1 TC **chạy được ở R2 với kỳ vọng xác định** (TC không mang nhãn `[BLOCKED]`/`[UNDECIDED]`) | **254/254** (100.0%) |
 | TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 7 · 5 (danh sách mục 5.7) |
-| Chuyển trạng thái (18 máy, `state-machines.md`) có ≥ 1 TC | **105/133** (78.9%) – chi tiết mục 7 |
+| Chuyển trạng thái (18 máy, `state-machines.md`) có ≥ 1 TC | **105/134** (78.4%) – chi tiết mục 7 |
 | Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
 | Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 1 – chi tiết mục 8 |
 | Story Must R2 không có AC ở mục 4 | 0  |
@@ -31,7 +31,7 @@
 | Story Must R2 **không có wireframe** | 0 |
 | Story Must R2 **không có bảng ERD** (US nêu trong erd.md mục 4, hoặc tag OpenAPI → mục ERD) | 0  |
 | Story Must R2 đủ 4 chiều TC + endpoint + wireframe + ERD (QC C1) | **71/71** |
-| BR trong danh mục / BR không được story hay TC nào tham chiếu | 179 / 2 |
+| BR trong danh mục / BR không được story hay TC nào tham chiếu | 179 / 1 |
 | Luồng riêng **LP-v2** (cổng riêng, **không** tính vào các chỉ số Must R2 ở trên và không làm `--strict` đỏ) · AC Must có ≥ 1 TC | 3 Must + 0 khác · **0/0** – mục 9 |
 | Luồng riêng **LP-v1** (cổng riêng, **không** tính vào các chỉ số Must R2 ở trên và không làm `--strict` đỏ) · AC Must có ≥ 1 TC | 8 Must + 2 khác · **23/53** – mục 9 |
 
@@ -203,10 +203,10 @@
 
 ### 5.5 BR trong danh mục chưa được story hay test case nào tham chiếu
 Đa số thuộc phân hệ Round 3 hoặc ngoài MVP (điện nước, VAT, kho, P&L, chấm dứt HĐ, đồ thất lạc, độ đầy đủ hồ sơ). Plan R1 mục 6 yêu cầu mỗi BR có ≥ 1 story/TC tham chiếu → đề nghị PO gắn các BR này vào story R3 tương ứng (US-064/065, US-122, US-093, US-118, US-078…), QA viết TC khi story có AC.
-- BR-116, BR-438
+- BR-116
 
 ### 5.6 BR được story tham chiếu nhưng chưa có test case R1 (thường là phân hệ R3)
-- BR-114, BR-115, BR-215, BR-313, BR-314, BR-317, BR-321, BR-322, BR-323, BR-324, BR-325, BR-326, BR-437, BR-501, BR-504, BR-505, BR-513, BR-523, BR-613, BR-706, BR-810, BR-902, BR-911, BR-912, BR-913, BR-914, BR-915, BR-916, BR-955, BR-956, BR-961, BR-962, BR-963, BR-964, BR-971, BR-972, BR-973, BR-974, BR-975, BR-976, BR-977, BR-978, BR-979, BR-980, BR-981, BR-982, BR-983
+- BR-114, BR-115, BR-215, BR-313, BR-314, BR-317, BR-321, BR-322, BR-323, BR-324, BR-325, BR-326, BR-437, BR-438, BR-501, BR-504, BR-505, BR-513, BR-523, BR-613, BR-706, BR-810, BR-902, BR-911, BR-912, BR-913, BR-914, BR-915, BR-916, BR-955, BR-956, BR-961, BR-962, BR-963, BR-964, BR-971, BR-972, BR-973, BR-974, BR-975, BR-976, BR-977, BR-978, BR-979, BR-980, BR-981, BR-982, BR-983
 
 ### 5.7 Test case bị chặn, chưa có kỳ vọng xác định, hoặc theo giả định QA
 
@@ -259,6 +259,7 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-01 | B16 | `in_house` → `in_house` | Trả sớm (báo trước ngày đi) | `earlyDeparture` | TC-L4-025 |
 | SM-01 | B17 | `in_house` → `confirmed` | Hoàn tác nhận phòng nhầm (DOM xác nhận) | `undoCheckIn` | TC-L3-005, TC-L4-100 |
 | SM-01 | B18 | `in_house` → `checked_out` | Hoàn tất trả phòng | `checkOut` | TC-L4-048, TC-L4-053, TC-L4-067, TC-L4-096, TC-L4-100, TC-L4-135, TC-NT-031 |
+| SM-01 | B19 | `cancelled` → `hold` | Khôi phục giữ chỗ khi tiền về sau khi đơn đã hủy (5B-2, BUG- | – | **TRỐNG** |
 | SM-02 | O1 | [*] → `planned`/`active` | Tạo khối | `createRoomBlock`, `createWorkOrder` | TC-L2-023, TC-L2-032, TC-L2-033, TC-L6-031, TC-L6-040, TC-L6-041, TC-L6-042, TC-RB-025 |
 | SM-02 | O2 | `planned` → `active` | Đến ngày bắt đầu | – | TC-L6-044 |
 | SM-02 | O3 | `active` → `active` | Đổi khoảng ngày | `updateRoomBlock` | TC-L2-023 |
@@ -371,7 +372,7 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-18 | WR6 | `new`, `in_progress` → `converted` | Chuyển thành giữ chỗ/đơn | – | **TRỐNG** |
 | SM-18 | WR7 | `new`, `in_progress` → `declined` | Tự đóng vì không hoạt động (job `web_request.stale`, 06:05) | – | **TRỐNG** |
 
-Tóm tắt theo máy: SM-01 22/22 · SM-02 5/5 · SM-03 11/11 · SM-04 6/6 · SM-05 13/13 · SM-06 2/9 · SM-07 2/3 · SM-08 5/5 · SM-09 7/7 · SM-10 7/7 · SM-11 3/5 · SM-12 9/9 · SM-13 2/2 · SM-14 4/4 · SM-15 7/7 · SM-16 0/5 · SM-17 0/5 · SM-18 0/8
+Tóm tắt theo máy: SM-01 22/23 · SM-02 5/5 · SM-03 11/11 · SM-04 6/6 · SM-05 13/13 · SM-06 2/9 · SM-07 2/3 · SM-08 5/5 · SM-09 7/7 · SM-10 7/7 · SM-11 3/5 · SM-12 9/9 · SM-13 2/2 · SM-14 4/4 · SM-15 7/7 · SM-16 0/5 · SM-17 0/5 · SM-18 0/8
 
 ## 8. Kiểm tĩnh quyền – rbac-matrix (nguồn chuẩn) ↔ OpenAPI
 

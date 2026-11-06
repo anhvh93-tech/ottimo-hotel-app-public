@@ -9,9 +9,9 @@
     "operations": 210,
     "cases": 2310,
     "byExpected": {
-      "2xx": 1108,
+      "2xx": 1110,
       "401": 345,
-      "403": 857
+      "403": 855
     },
     "scoped": 184,
     "sprintR3": 429,
@@ -13046,7 +13046,9 @@
       ],
       "expected": "2xx",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13061,7 +13063,9 @@
       ],
       "expected": "2xx",
       "scope": "own",
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13076,7 +13080,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13091,7 +13097,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13106,7 +13114,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13121,7 +13131,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13136,7 +13148,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13151,7 +13165,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13167,7 +13183,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13183,7 +13201,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false
     },
@@ -13198,7 +13218,9 @@
       ],
       "expected": "401",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A120"
+      ],
       "sprint": "R5",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
@@ -14466,7 +14488,7 @@
       "expected": "2xx",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14483,7 +14505,7 @@
       "expected": "2xx",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14500,7 +14522,7 @@
       "expected": "2xx",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14514,10 +14536,10 @@
       "roles": [
         "front_desk"
       ],
-      "expected": "403",
+      "expected": "2xx",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14534,7 +14556,7 @@
       "expected": "403",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14551,7 +14573,7 @@
       "expected": "403",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14568,7 +14590,7 @@
       "expected": "403",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14585,7 +14607,7 @@
       "expected": "403",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14600,10 +14622,10 @@
         "front_desk",
         "sales_staff"
       ],
-      "expected": "403",
+      "expected": "2xx",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14621,7 +14643,7 @@
       "expected": "403",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false
@@ -14638,7 +14660,7 @@
       "expected": "401",
       "scope": null,
       "rbac": [
-        "S24"
+        "S36"
       ],
       "sprint": "R5",
       "rbacMismatch": false,

@@ -551,7 +551,8 @@ export interface paths {
      *     Thiếu → 422 `VALIDATION_FAILED` (`field` = `nightlyListPriceVnd`, `code` = `REQUIRED`), không tạo căn. Server không suy giá này từ giá kia (BR-101 (1)).
      *     Đường tạo căn ngoài API (bootstrap, nhập danh mục) phải ghi đủ hai giá, hoặc để căn ngừng bán tới khi OWN nhập giá; `pricegap` tĩnh (V5-73) đếm căn đang bán mà thiếu giá.
      *     **0.3.13 bổ sung 1 (BE C0313-15)**: `production-bootstrap` tạo căn `isSellable = false` khi chưa có dòng giá; OWN nhập giá rồi mới mở bán.
-     *     **0.3.13 bổ sung 1 (SEC ARC-12, BR-101 (4))**: giá đêm < giá tháng ÷ 30, hoặc > giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt biên trên] → vẫn lưu, phản hồi có `warnings[]`
+     *     **0.3.13 bổ sung 1 (SEC ARC-12, BR-101 (4); biên trên DOM chốt ở bổ sung 1d)**: giá đêm × 30 < giá tháng, hoặc giá đêm × 5 > giá tháng (so số nguyên, không chia;
+     *     đúng bằng biên không cảnh báo; hai giá của cùng căn, cùng ngày hiệu lực; biên là hằng số, không phải tham số) → vẫn lưu, phản hồi có `warnings[]`
      *     `NIGHTLY_PRICE_UNUSUAL` (không chặn – BR-101 (1) hai giá độc lập). Desk tự tính cùng điều kiện **trước** khi gửi và đòi bấm xác nhận lại ("Giá đêm 800 đ – đúng chưa?").
      */
     post: operations['createRoom'];
@@ -587,7 +588,8 @@ export interface paths {
      *     **0.3.13 (V5-1A, BUG-R4-057)**: `listPrice.nightlyListPriceVnd` **bắt buộc** – thiếu → 422 `VALIDATION_FAILED` (`field` = `listPrice.nightlyListPriceVnd`, `code` = `REQUIRED`), không ghi gì;
      *     server không còn tính giá tháng ÷ `night_from_month_divisor`. Giá ≤ 0 → 422 như mọi `MoneyVnd`; CHECK > 0 của DB giữ nguyên (lớp thứ hai).
      *     Gỡ hẳn một dòng đã lên lịch (trở về giá trước đó) dùng `cancelScheduledRoomListPrice`. Phản hồi có `scheduledListPrices` (OWN/MGR).
-     *     **0.3.13 bổ sung 1 (SEC ARC-12)**: `listPrice` có giá đêm ngoài khoảng [giá tháng ÷ 30, giá tháng ÷ 3] → vẫn lưu, `warnings[]` thêm `NIGHTLY_PRICE_UNUSUAL` (như `createRoom`).
+     *     **0.3.13 bổ sung 1 (SEC ARC-12)**: `listPrice` có giá đêm ngoài khoảng [giá tháng ÷ 30, giá tháng ÷ 5] (cùng phép so số nguyên như `createRoom`; bổ sung 1d) → vẫn lưu,
+     *     `warnings[]` thêm `NIGHTLY_PRICE_UNUSUAL` (như `createRoom`).
      */
     patch: operations['updateRoom'];
     trace?: never;
@@ -663,10 +665,10 @@ export interface paths {
     /**
      * Wi-Fi của cơ sở – một mạng chung (BR-012 (7), ESC-022 B); đọc để kiểm và báo khách (V5-58, BUG-R3-021)
      * @description **0.3.13 (V5-58)**. Đọc `property.wifi_info_i18n`, cùng nguồn với `getGuestStay.wifi`. Chưa cấu hình → `200` với `configured = false`, không có `ssid`, `password`.
-     *     `Cache-Control: no-store`. Không ghi giá trị vào log. Vai đọc = vai xem Tham số quy tắc (S24: OWN, MGR, FDL).
+     *     `Cache-Control: no-store`. Không ghi giá trị vào log. ~~Vai đọc = vai xem Tham số quy tắc (S24: OWN, MGR, FDL).~~ **Bổ sung 1d**: vai đọc theo S36 "Xem Wi-Fi cơ sở"
+     *     (rbac 0.2.8 ghi chú 47): OWN, MGR, FDL, FD **chỉ xem**; HK, MT, SAL, CTV → 403. Sửa vẫn là A101 (`setPropertyWifi`, OWN, MGR).
      *     **0.3.13 bổ sung 1 (BE C0313-16)**: đọc theo **cùng luật** với trang khách (`wifiOf`: dạng phẳng `{ssid, password}`, hoặc dạng cũ theo ngôn ngữ `raw[locale]` → `raw.vi`).
-     *     `passwordSet` = có mật khẩu (mạng không mở). **FD đọc** (DOM 7.5, SEC không phản đối – C1): ARC thêm `front_desk` vào `x-roles` khi BA có dòng rbac riêng cho việc đọc Wi-Fi
-     *     (S24 là màn Tham số, FD không xem) – tới đó FD → 403.
+     *     `passwordSet` = có mật khẩu (mạng không mở). **FD đọc** (DOM 7.5, SEC ARC-10 không phản đối – C1): có từ bổ sung 1d (S36).
      */
     get: operations['getPropertyWifi'];
     /**
@@ -1865,7 +1867,7 @@ export interface paths {
      *       `stay_ended_at`, khai báo lúc đi (BR-604), mốc giữ chứng cứ phạt theo giá trị này. Giờ ghi (`recordedAt`) chỉ cho audit và `post_checkout_window_until`. `checkoutTime` có thể vắng khi
      *       có `checkoutAt`; gửi cả hai thì `checkoutTime` phải khớp giờ địa phương của `checkoutAt` (khác → 422 `VALIDATION_FAILED`, `field` = `checkoutTime`); vắng cả hai → 422 `REQUIRED`.
      *     - **0.3.13 bổ sung 1 – đơn quá ngày đi, thay các câu tương ứng ở mục dưới (SEC ARC-02, ARC-03; DOM 7.1 (a); BE C0313-10)**:
-     *       - `nightsNotBilled` = ngày nghiệp vụ lúc ghi − ngày đi hiệu lực (số nguyên ≥ 1; ví dụ đi 10/11: 09:00 ngày 11/11 → 1; 06:30 ngày 12/11 → 2; 05:00 ngày 12/11 → 1).
+     *       - `nightsNotBilled` = ngày nghiệp vụ lúc ghi (lúc bấm, cả `dryRun`; không theo `checkoutAt` – DOM 7.1, bổ sung 1d) − ngày đi hiệu lực (số nguyên ≥ 1; ví dụ đi 10/11: 09:00 ngày 11/11 → 1; 06:30 ngày 12/11 → 2; 05:00 ngày 12/11 → 1).
      *       - Vai: **OWN** luôn; **MGR** khi `nightsNotBilled` ≤ 1 (hằng số theo BR-433 / ESC-007 A, không phải tham số). MGR quá 1 đêm → 403 `FORBIDDEN_ACTION` kèm **chỉ**
      *         `requiredRole: owner`, `nightsNotBilled`. FD/FDL → 403 `FORBIDDEN_ACTION` **không** trường mở rộng. Cả hai ghi `access.denied`, folio và đơn không đổi; `dryRun` cùng kết quả.
      *       - Thứ tự: tra `Idempotency-Key` (ADR-009, cả bước 0 của `lateFeeInsteadOfNight`) → tải đơn **không khóa** → kiểm vai/trần đêm → mới đọc thân lệnh, khóa, tính tiền.
@@ -2333,7 +2335,7 @@ export interface paths {
      * @description **0.3.13 bổ sung 1 (k) – cài cùng PR-M** (cần khóa `manager_performance_bonus_pct`). Thưởng tháng M = tỷ lệ hiệu lực **ngày 1** của M × doanh thu phòng tháng M đã thu (K-06,
      *     ESC-051 câu 3 A [GIẢ ĐỊNH – chờ INV]). Tính mỗi lần đọc; chi ngoài Desk theo kỳ lương. Chưa có tỷ lệ → `status = rate_missing`, không `ratePct`/`amountVnd`. Tháng có hơn một
      *     quản lý: một số chung, `managers[]` liệt kê để OWN chia (Desk không tự chia). MGR chỉ đọc được tháng mình có vai quản lý (ngoài phạm vi → 404) và `managers[]` chỉ có chính mình.
-     *     Không ví dụ số (SEC G3): test dùng `test_rate_bonus`. Dòng rbac: BA thêm (đề xuất cạnh A60).
+     *     Không ví dụ số (SEC G3): test dùng `test_rate_bonus`. Dòng rbac **A120** (rbac 0.2.8 ghi chú 48; bổ sung 1d).
      */
     get: operations['getManagerPerformanceBonus'];
     put?: never;
@@ -2802,7 +2804,8 @@ export interface paths {
      *     - Mục "Cần chú ý" `deposit_after_cancel` của đơn đóng khi đã hoàn xong (hoặc đã khôi phục **và** khoản thu đã đối soát – 5B-2), hoặc FD+ đóng "Không thấy tiền" (`resolveAttentionEvent`,
      *       ghi chú bắt buộc, audit người và giờ – S8). Bộ lọc tuần: `listAuditEvents.afterClosureOnly` (S6). Tin đẩy, audit, log chỉ có mã đơn.
      *     - Khách muốn đặt lại khi 5B-2 chưa có: **không** ghi ở đơn cũ; hộp ghi nhắc tìm đơn mới của khách trước (DOM 3b).
-     *     **(C) 5B-2 (khôi phục, v1.0.6 – 0.3.14)**: phác ở `contract-0.3.13.md` mục 1.21.
+     *     **(C) 5B-2 (khôi phục, v1.0.6 – 0.3.14)**: phác ở `contract-0.3.13.md` mục 1.21. Tên hành động SM-01 B19 (`cancelled → hold`) = `restore_hold`
+     *     (`AllowedAction.action`, ARC chốt ở bổ sung 1d); thân lệnh `restoreHold: true` – chỉ có từ 0.3.14, 0.3.13 chưa có trường này.
      */
     post: operations['recordPayment'];
     delete?: never;
@@ -6063,7 +6066,7 @@ export interface components {
       /** @description `false` = chưa nhập – trang khách hiện "Vui lòng hỏi lễ tân" (BUG-R3-021 (b)) */
       configured: boolean;
       ssid?: string;
-      /** @description Chỉ trong phản hồi `getPropertyWifi` (OWN/MGR/FDL); **không** có trong phản hồi `setPropertyWifi` (0.3.13 bổ sung 1); không ghi log */
+      /** @description Chỉ trong phản hồi `getPropertyWifi` (S36: OWN/MGR/FDL/FD – bổ sung 1d); **không** có trong phản hồi `setPropertyWifi` (0.3.13 bổ sung 1); không ghi log */
       password?: string;
       /** @description **0.3.13 bổ sung 1** – `true` = có mật khẩu; `false` = mạng mở (`password` rỗng) */
       passwordSet?: boolean;
