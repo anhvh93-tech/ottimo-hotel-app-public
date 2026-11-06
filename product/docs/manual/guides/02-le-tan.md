@@ -320,7 +320,7 @@ Lễ tân thấy: **Hôm nay**, **Sơ đồ phòng**, **Đơn đặt phòng**, *
 - Mã VietQR hết hạn: bấm **Tạo mã VietQR mới** (mã cũ hết hiệu lực), hoặc ghi như chuyển khoản tay (**Chờ đối soát**).
 - Gia hạn giữ chỗ: **Gia hạn giữ chỗ (1 lần)**, tối đa thêm 24 giờ, không quá 12:00 ngày đến. **Chỉ làm trước hạn**; sau hạn nút này không còn.
 - Sale/CTV đã báo khách chuyển cọc: khung đơn hiện **CTV/sale đã báo chuyển cọc** kèm **Xem ảnh biên nhận**. Vẫn kiểm tiền về trước khi xác nhận.
-- Khung đơn giữ chỗ hiện **Tạo link check-in online** và **Thu hồi link**: **không bấm**. Desk chỉ cấp link cho đơn đã xác nhận. Xác nhận cọc trước, rồi gửi link (mục 17.3).
+- Check-in online: từ v1.0.4, khung đơn giữ chỗ không còn mục **Link check-in online**. Xác nhận cọc trước, rồi gửi link (mục 17.3).
 
 ---
 
@@ -1628,7 +1628,7 @@ Khi OTTIMO có thêm lễ tân: rà ở đầu mỗi ca, và việc quyết đơ
 
 Từ 06/11/2026 (v1.0.4) lễ tân gửi lại link check-in online cho khách thật. Trang khách có thông báo xử lý dữ liệu bản 2 bằng tiếng Việt, Anh, Nga, cùng nội dung tờ **Your ID details** v2 ở quầy.
 
-- Chỉ đơn **đã xác nhận**. Đơn **giữ chỗ** cũng hiện nút **Tạo link check-in online** nhưng Desk luôn từ chối (dự kiến sửa ở v1.0.5): xác nhận cọc trước.
+- Chỉ đơn **đã xác nhận**. Đơn **giữ chỗ** không có mục **Link check-in online**: xác nhận cọc trước.
 - Sale, CTV không cấp, không gửi link. Sale hoặc CTV nhắn mã đơn thì lễ tân gửi link cho khách.
 - Khách không làm check-in online: làm giấy tờ tại quầy như cũ. Cho xem tờ **Your ID details** trước khi nhận giấy tờ (mục 7.2), rồi hỏi đồng ý lưu ảnh ở Khối 1 (mục 8.2).
 

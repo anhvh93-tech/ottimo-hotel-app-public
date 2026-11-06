@@ -183,7 +183,7 @@ Khung đơn giữ chỗ của mình có **Hủy giữ chỗ** và **Gia hạn gi
   - lý do khách nói (không ghi tên khách).
 - Không hứa số tiền hoàn. Nói với khách: lễ tân OTTIMO sẽ báo số hoàn theo chính sách hủy.
 - Vì sao: hủy đơn có tiền tạo yêu cầu hoàn. Nơi nhận hoàn chỉ nhập được trên máy quầy đã cấp quyền, chủ đầu tư duyệt và chi. Mức hoàn tính theo ngày khách báo, nên giờ khách báo phải tới lễ tân sớm nhất.
-- Khung đơn giữ chỗ hiện **Tạo link check-in online**: **không bấm**. Sale/CTV không cấp hay gửi link check-in online; lễ tân gửi (mục 8.3).
+- Check-in online: Sale/CTV không thấy mục **Link check-in online**, không cấp, không gửi link. Lễ tân gửi cho đơn đã xác nhận (mục 8.3).
 
 ### 4.3 Giữ chỗ tới hạn – Desk tự làm gì
 
