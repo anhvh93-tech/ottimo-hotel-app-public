@@ -112,3 +112,18 @@
   - sửa ô `bk.src_weekend` trong hi-fi;
   - kiểm 362 px, 1440 px và trang khách RU.
 - DOM cập nhật tên tham số trong từ điển.
+
+## 6. Cập nhật 06/11 tối – Phản hồi & sửa (commit `9f5c74a2`)
+- UXD trả lời 11 thẻ CPY ngay trong `rounds/round-05/reviews/CPY-on-uxd-copy-v1.0.5.md` (mục 8): 10 Fixed. Thẻ 04 Open, chờ DOM. Thẻ 02 tách ba phần: (a) và (b) Fixed, (c) Deferred sang v1.0.6 (R5-B-03).
+- `copy-v1.0.5.md` bản 1.1 có 150 khóa: 69 sửa, 72 mới, 9 xóa. Chia theo việc: V5-20 22, V5-21 39, V5-22 8, V5-23 73, V5-24 8. Mục mới: 4.20 (chữ "căn"), 4.21 (dấu "!"), 5.3 (5 bước kiểm tự động cho FE-B).
+- Ưu tiên theo PO, quyết định 15:
+  - Bắt buộc: V5-20…V5-24 bản gốc, 4.20 (a), 5.1 RU (thẻ 01).
+  - Nên có, làm cùng lượt C5: 4.20 (b), 4.21, thẻ 06 và 08. Không kịp thì chuyển US-125 hoặc B-SAU, theo quy tắc dự phòng ở 5.1.
+  - Làm sau: 5.3 (FE-B), khi xong 4.20 (a) và (b).
+  - Chờ DOM: thẻ 04. Khóa dự phòng `bill.line.late_fee_after_limit` đã soạn ở 4.8 nhưng chưa tính vào 150.
+  - Để v1.0.6: 4.20 (c), C6, xóa `gw.room`.
+- Việc cho vai khác (mục 6):
+  - FE-B: `gw.lang_auto_sr`, `gw.req.clean_*`, test 5.3.
+  - BE: chạy lại `gen-quote-copy.mjs` (RU dòng 2 và 4, VI dòng 2).
+  - BE-B: một dòng, chờ DOM.
+- Còn chờ: DOM (thẻ 04, ca `damage`, `hold_expiry_reminder_hours = 0`). PO đã chốt 3 khóa mục 4.19: vào V5-23.
