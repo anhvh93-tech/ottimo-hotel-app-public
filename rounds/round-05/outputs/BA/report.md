@@ -397,3 +397,34 @@ Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi), bổ sung:
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | BA – lượt 4 sổ tay 1.19 / bộ hướng dẫn 1.17 (cùng số bản): khối đếm lại minibar chốt "không chặn, báo quản lý", từ v1.0.5 lần đếm lại thấp hơn có trong bộ lọc Sửa giảm dòng – 7 ngày và hiện là Điều chỉnh dòng folio (BE-A2 0b2ebb45; nếu #110 trượt tag thì trả câu cũ d467578b); Wi-Fi [Chờ xác nhận] theo DOM BA-05 (13:00–17:00, in sẵn thẻ, không gửi khách đi hôm nay/nhận sau giờ đổi/đơn đã 2 tin, thay thẻ đủ 10 căn) và câu CPY 12d71871; buồng phòng thay thẻ Wi-Fi ở lần dọn đầu (áp ngay); câu số thẻ EN "at reception" (CPY 77d197a4); DOM BA-06 báo giá thử từ ngày hiệu lực, "đã tạo trước lúc lưu giữ giá lúc tạo", sửa giá sai bằng lưu lại cùng ngày hiệu lực; DOM BA-07 phiếu nạp có dòng không vào tủ; BA-08 chờ CPY, SEC | BA | Không ESC |`
+
+**Bổ sung lượt 5 (07/11) – bộ lọc #128, ảnh giấy tờ qua chat, câu mã cửa, Wi-Fi đổi gấp.** Nguồn:
+- DOM `rounds/round-05/reviews/DOM-on-prs-105-125-128.md` mục 3, thẻ FB-R5-DOM-BA-128-01 (PR #128 `r5-fe-mlog-reductions`, DOM, SEC, UXD duyệt; chờ ARC);
+- SEC `rounds/round-05/responses/SEC-responses.md` mục 6.6 (`31636794`), DOM thẻ FB-R5-DOM-BA-08;
+- DOM `DOM-on-ba-v105-docs.md` mục 7 (`820d3a85`): FB-R5-DOM-BA-09, CPY-03, BA-10;
+- CPY `guest-reply-card-number.md` lượt 4 (`4339a184`, UXD duyệt), `guest-reply-id-photos.md` lượt 2 (`1f5fb23e`), `guest-notice-wifi-change.md` mục 1, 6.
+
+Đã làm:
+1. **BA-128-01** (từ v1.0.5), sổ tay 1.15, `01` 8.1: gạch ô **Người làm** (dùng được cả khi tắt công tắc); gạch tìm mọi lần đếm lại minibar của một người (tắt công tắc, hàng **Đảo dòng folio** lý do **Đếm lại minibar**, số mới ở **Thêm dòng folio**); bật công tắc thì về 7 ngày, ô ngày có tác dụng; mở từ dòng **Cần chú ý** là cả tháng, với câu ngày nghiệp vụ / ngày lịch, kèm "(khi Desk có dòng này)". Dòng **Mỗi tuần** (sổ tay 1.1, `01` 2.1): "Nhiều người trực thì chọn từng người ở ô **Người làm**". Bảng tab Nhật ký tiền (sổ tay 1.12, `01` 8.1) bỏ "không lọc theo người", thêm câu từ v1.0.5. **Không** thêm dòng `line_reduction_count` vào danh sách Cần chú ý (máy chủ chưa sinh).
+2. **Lỗi đang sửa – ô ngày** (áp dụng ngay, ý 2 của BA-128-01): BA đọc mã trên `main`: `MoneyPage.tsx` gửi `dateFrom`/`dateTo`, `audit-log.controller.ts` chỉ đọc `from`/`to`, nên ở production danh sách luôn là 7 ngày lịch gần nhất. Khung ở sổ tay 1.12, `01` 8.1; câu ngắn ở bước đối chiếu thu chi hằng ngày (sổ tay 4.3, `01` 11.3) và bước 3 cuối ca (sổ tay 1.14, `02` 12.4): chỉ cộng dòng theo cột **Lúc**.
+3. **BA-08 + BA-09**, sổ tay 2.21 và `02` 16.1: dòng "Khách gửi ảnh giấy tờ" ngay dưới hai dòng số thẻ, theo SEC 6.6 (1)–(3): mọi máy của cơ sở, không tải về, không chụp màn hình, không tải từ chat lên Desk; trả lời trước bằng tin mới, xóa ngay sau theo cách xóa của dòng số thẻ; câu chọn bản theo CPY mục 5; câu cuối 5a chỉ khi đơn đã xác nhận, chưa nhận phòng, trước hạn BR-976, check-in online không dừng, khách chưa nhận phòng còn lại 5b, khách đang ở 5c (CPY-03); chọn 5a thì gửi link trong cùng lượt, không được thì sổ giao ca "chờ gửi link", không ghi về ảnh; ca thường không ghi sổ về ảnh, không báo; ca bất thường gọi chủ đầu tư như dòng số thẻ. Sổ tay 0.8 điểm 1 và `02` 16.2 thêm "mọi máy", không tải ảnh từ chat lên Desk.
+4. **Khối câu trả lời ảnh giấy tờ** (dưới bảng, cạnh câu số thẻ): 18 đoạn CPY lượt 3 `f40e1480` (bản đầy đủ, bản ngắn, bản không có vế xóa; EN, VI; 5a, 5b, 5c), chép bằng script, nguyên văn, không chữ số; câu chọn bản ở dòng bảng theo CPY mục 5 (bỏ đường dẫn tệp, thêm giờ hạn BR-976). Luật chung tên khách, xưng hô đặt một lần dưới bảng cho câu số thẻ, ảnh giấy tờ, mã cửa (UXD FB-R5-UXD-CPY-IDP-04).
+5. **Câu mã cửa** (sổ tay 2.21, `02` 7.5): EN "at reception", VI xưng "bạn" (ORC, UXD duyệt).
+6. **Wi-Fi**, khối [Chờ xác nhận] sổ tay 1.4, `01` 9.2: bước 4 thêm "kể cả trả muộn" (CPY mục 1); gạch đổi gấp thay bằng dòng "Ngoại lệ – đổi gấp" của CPY `f40e1480` theo DOM BA-10 (tin sự cố mọi giờ, không tính trần, mọi khách đang ở kể cả khách đi hôm nay; đổi sau 21:00 có người nghe số cơ sở ít nhất 2 giờ; thẻ thay từ ca sáng hôm sau). Khối vẫn chờ.
+7. Lịch sử: "Bổ sung cùng ngày, lượt 4" ở sổ tay 1.19, `00` 1.17, `01` 1.16, `02` 1.16; đầu tệp `01`, `02`. Không tăng số bản.
+
+**Giả định (lượt 5):**
+- "Ảnh đã bị lưu" ở SEC 6.6 (c) gồm cả lần lỡ tải về rồi xóa ngay, nên dòng ghi "xóa ở Tải về, Thùng rác, rồi gọi". SEC xác nhận hoặc sửa.
+- Thư báo tin nhắn mà OTA, Zalo gửi về email cơ sở có ảnh: xóa như bản sao xóa được ở dòng số thẻ không xóa được (SEC 6.5).
+- Khung lỗi ô ngày "sửa ở v1.0.5" giả định #128 vào tag v1.0.5.
+- Danh sách **Nhật ký thao tác tiền** chỉ lấy trang đầu (`limit` 100, không có nút xem thêm) ở `main` và cả nhánh #128. BA không ghi vào sổ tay; chuyển FE, QA xem có cần nút xem thêm khi mở cả tháng từ Cần chú ý không.
+
+**Chuyển vai (lượt 5):**
+- **UXD:** dựng lại HTML sổ tay 1.19 và bộ hướng dẫn 1.17 từ commit này; khối Wi-Fi vẫn không dựng.
+- **SEC:** giả định "lỡ tải về thì gọi".
+- **FE, QA:** nút xem thêm ở Nhật ký thao tác tiền (giới hạn 100 dòng).
+- **ORC:** báo khi máy chủ sinh `line_reduction_count` (BA bỏ "(khi Desk có dòng này)", thêm dòng vào danh sách Cần chú ý) và nếu #128 trượt khỏi v1.0.5.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | BA – lượt 5 sổ tay 1.19 / bộ hướng dẫn 1.17 (cùng số bản): áp dụng ngay – dòng khách gửi ảnh giấy tờ qua chat ở sổ tay 2.21, 02 16.1 theo SEC 6.6 và DOM BA-08, BA-09 (mọi máy, không tải lên Desk, trả lời trước rồi xóa, 5a chỉ khi link còn dùng được và gửi trong cùng lượt, ca thường không ghi sổ, ca bất thường gọi chủ đầu tư; 18 đoạn câu CPY f40e1480, câu 5c cho khách đang ở; luật chung tên khách, xưng hô dưới bảng); câu mã cửa "at reception", VI xưng "bạn"; lỗi đang sửa: ô ngày ở Nhật ký thao tác tiền chưa có tác dụng tới v1.0.5, cộng theo cột Lúc. Từ v1.0.5 (#128) – ô Người làm, tìm lần đếm lại minibar khi tắt công tắc, mở từ Cần chú ý là cả tháng (DOM BA-128-01; chưa thêm dòng line_reduction_count). Khối Wi-Fi chờ xác nhận: đổi gấp là tin sự cố (DOM BA-10) | BA | Không ESC; BA report mục 8 lượt 5 |`
