@@ -278,6 +278,9 @@ function MoneyLog() {
     cursor: string | undefined;
   } | null>(null);
   const [moreBusy, setMoreBusy] = useState(false);
+  // FB-R5-UXD-FE-PR140-03: the next page could not be read – said under the button (the rows read stay); gone on the
+  // next good read or with another first page (filter).
+  const [moreFailed, setMoreFailed] = useState<object | null>(null);
   const first = state.data;
   const extra = more && first && more.base === first ? more : null;
   const nextCursor = extra ? extra.cursor : (first?.page.nextCursor ?? undefined);
@@ -291,6 +294,9 @@ function MoneyLog() {
         rows: [...(extra?.rows ?? []), ...out.data.data],
         cursor: out.data.page.nextCursor ?? undefined,
       });
+      setMoreFailed(null);
+    } catch {
+      setMoreFailed(first);
     } finally {
       setMoreBusy(false);
     }
@@ -361,9 +367,12 @@ function MoneyLog() {
                 ))}
                 {actor && !(people.state.data ?? []).some((c) => c.userId === actor) ? (
                   // the person of a "Cần chú ý" link who is not in the list (left since): still the filter on screen,
-                  // named as such (FB-R5-UXD-FE-PR128-01); while the list loads, "Đang tải…"
+                  // named as such (FB-R5-UXD-FE-PR128-01); while the list loads, "Đang tải…" – by the state, so a
+                  // list that failed never says "loading" for ever (FB-R5-ARC-FE-140-03)
                   <option value={actor}>
-                    {people.state.data ? t('mlog.who_unlisted') : t('common.loading')}
+                    {people.state.status === 'loading'
+                      ? t('common.loading')
+                      : t('mlog.who_unlisted')}
                   </option>
                 ) : null}
               </select>
@@ -429,10 +438,20 @@ function MoneyLog() {
         </div>
       )}
       {nextCursor && rows.length ? (
-        <div>
-          <Button busy={moreBusy} disabled={!online} onClick={() => void loadMore()}>
-            {t('webreq.load_more')}
+        <div className="stack">
+          {/* FB-R5-ARC-FE-140-02: while another first page loads (filter changed), no next page of the old one */}
+          <Button
+            busy={moreBusy}
+            disabled={!online || state.status === 'loading'}
+            onClick={() => void loadMore()}
+          >
+            {t('common.load_more')}
           </Button>
+          {moreFailed && moreFailed === first ? (
+            <p className="err m-0" role="alert">
+              {t('common.error_generic_title')}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

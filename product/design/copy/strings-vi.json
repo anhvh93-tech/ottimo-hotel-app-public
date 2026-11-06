@@ -18,6 +18,7 @@
   "common.required": "Bắt buộc",
   "common.optional": "Không bắt buộc",
   "common.loading": "Đang tải…",
+  "common.load_more": "Xem thêm",
   "common.saving": "Đang lưu…",
   "common.saved": "Đã lưu",
   "common.offline_banner": "Mất kết nối. Thao tác của bạn được giữ lại và sẽ tự gửi khi có mạng.",

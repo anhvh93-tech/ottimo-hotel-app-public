@@ -18,6 +18,7 @@
   "common.required": "Required",
   "common.optional": "Optional",
   "common.loading": "Loading…",
+  "common.load_more": "Show more",
   "common.saving": "Saving…",
   "common.saved": "Saved",
   "common.offline_banner": "You're offline. Your changes are kept and will be sent when you're back online.",

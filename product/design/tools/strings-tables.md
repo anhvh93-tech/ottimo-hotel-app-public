@@ -15,6 +15,7 @@
 | `common.required` | Bắt buộc | Required | ⟨chừa chỗ⟩ |  |
 | `common.optional` | Không bắt buộc | Optional | ⟨chừa chỗ⟩ |  |
 | `common.loading` | Đang tải… | Loading… | Загрузка… |  |
+| `common.load_more` | Xem thêm | Show more | ⟨chừa chỗ⟩ | Nút đọc trang kế của danh sách có phân trang (nextCursor). Dùng chung: Nhật ký tiền, Yêu cầu từ website. UXD 07/11 (UXD-on-fe-prs-122-118-102-140, FB-R5-UXD-FE-PR140-04) |
 | `common.saving` | Đang lưu… | Saving… | ⟨chừa chỗ⟩ |  |
 | `common.saved` | Đã lưu | Saved | ⟨chừa chỗ⟩ |  |
 | `common.offline_banner` | Mất kết nối. Thao tác của bạn được giữ lại và sẽ tự gửi khi có mạng. | You're offline. Your changes are kept and will be sent when you're back online. | Нет подключения. Изменения сохранены и будут отправлены, когда связь восстановится. |  |
