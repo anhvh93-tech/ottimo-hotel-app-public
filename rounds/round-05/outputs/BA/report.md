@@ -148,3 +148,63 @@ Viết theo SEC N4 và runbook N5:
   - PO kiểm release-notes v1.0.4;
   - UXD dựng HTML từ `a9927c78`.
 - **V5-71:** gỡ lời dặn và 3 dòng sự cố khi v1.0.5 lên.
+
+## 7. Cập nhật 07/11 – Phản hồi & sửa: tài liệu v1.0.5 (Báo cần dọn, FDL 2 bước, tin `hold_expired`, BUG-R5-005/006)
+
+Giao việc ORC 07/11. Nguồn: UXD `rounds/round-05/outputs/UXD/copy-v1.0.5.md` 9.7, 9.8; SEC `rounds/round-05/reviews/SEC-on-be-pr-100-d1.md` mục 4, 7; ARC `rounds/round-05/reviews/ARC-on-be-pr-100-d1.md` mục 2, 5, thẻ FB-R5-ARC-MOB-V51B-01; QA `rounds/round-05/qa/bug-list.md` (BUG-R5-005, 006); SEC `rounds/round-05/reviews/SEC-on-be-prs-101-108.md` (V516-02, V530-01); mã trên `main` (`hold-notices.ts`, `notifications.tsx`, `session.ts`, `SessionProvider.tsx`).
+
+**Đã làm:**
+- **Release notes v1.0.5:**
+  - nhãn nút **Báo cần dọn** / **Mark for cleaning** ở 3 chỗ (dòng nhóm Trả phòng, v1.0.4 "Giới hạn đã biết", bảng "Chưa có"); grep không còn nhãn cũ;
+  - dòng mới **Tin giữ chỗ tự hủy** (V5-1B): tin ở hộp Thông báo trên app nhân viên; người nhận là người tạo, người chốt và mọi tài khoản `active` có vai FD/FDL tại cơ sở;
+  - FDL 2 bước: bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên, kể cả đang đăng nhập; thao tác vừa bấm không lưu; không tự tắt được nữa;
+  - mục mới **Lỗi đội tìm thấy trong Round 5, sửa ở v1.0.5** (BUG-R5-005, BUG-R5-006, có cách làm tạm);
+  - mục mới **Việc anh/chị làm trước ngày lên v1.0.5** (FDL bật 2 bước; máy quầy đăng nhập app nhân viên; 8 chữ số cuối của mã giao dịch);
+  - v1.0.4 "Giới hạn đã biết" thêm dòng BUG-R5-006 và câu nhắc FDL;
+  - sửa câu sai ở v1.0.4 bảng "Báo giữ chỗ quá hạn": app nhân viên v1.0.4 chưa có câu riêng cho 3 tin giữ chỗ, hiện câu chung "Thông báo mới – xem chi tiết trên OTTIMO Desk";
+  - hai câu ORC thêm theo SEC V516-02: `line_reduction_count` tháng 11 chỉ đếm từ lúc v1.0.5 lên; "Chưa có tỷ lệ hoa hồng" và chưa tạo dòng hoa hồng tới khi OWN nhập tỷ lệ. Kèm câu SEC V530-01: trên production bảng cũ vẫn còn nên câu này chưa hiện, vẫn nhập bảng mới trước 01/12. Không ghi tỷ lệ nào.
+- **V5-71, ba điểm** (sổ tay 1.17, bộ hướng dẫn 1.15):
+  - FDL 2 bước: sổ tay 0.3, 1.5 (bảng vai, bước 7); `01` 1.9 (bảng, bước 8); `02` 1.3, 1.7 (dòng "Mất cả điện thoại lẫn mã khôi phục", phần lễ tân trưởng), 1.8;
+  - tin `hold_expired`: sổ tay 2.4, 3.11; `02` 4.5; Tờ 2a dòng **Ở đâu** và **Hết hạn, chưa cọc**. Mọi chỗ ghi rõ **hộp Thông báo trên app nhân viên**, Desk không có hộp này. Ghi cả v1.0.4 (câu chung, chỉ người tạo, người chốt) và từ v1.0.5. Vẫn rà theo mã đơn;
+  - **Báo cần dọn**: sổ tay 2.10 (ca 2), 2.19 bước 5, 3.5; `01` 14; `02` 7.4 (ca 2), 13.2 bước 5; `03` 6.
+- **Tài liệu nghiệp vụ:**
+  - EP02 0.2.1, mục 10.5: bảng tin J1 (3 kind, người nhận, khóa chống trùng, nơi đọc). Đóng phần người nhận của FB-R4-PO-BA-P420-01;
+  - EP07-08 0.1.1, mục 2.1: nhãn và khóa `hk.action.needs_cleaning` (thay `hk.mark_dirty`), chỗ đặt nút;
+  - rbac-matrix 0.2.9: chỉ sửa ghi chú A111 (FDL bắt buộc 2FA từ v1.0.5). **Không đổi mục 3, không đổi ô quyền**, `rbac-matrix.json` không đổi, nên không đụng test `SCREENS_BY_ROLE`.
+- **Sổ vận hành 1.6** (tài liệu của BA, viết cho INV):
+  - mục 1.5: trước ngày lên mọi FDL đã bật 2 bước;
+  - mục 1.5: đổi vai chỉ trên Desk. Đội buộc phải sửa vai thẳng trong cơ sở dữ liệu thì phải đăng xuất người đó và tăng `roles_version` như Desk, nếu không quyền cũ còn dùng tới khoảng 1 phút (SEC Info);
+  - mục 6: không tắt 2 bước của lễ tân trưởng.
+
+**File sửa:** `product/docs/release-notes.md`, `product/docs/manual/user-manual-v1.0.md`, `product/docs/manual/guides/00-index.md`, `01-chu-dau-tu-quan-ly.md`, `02-le-tan.md`, `03-buong-phong.md`, `product/docs/staff-one-pager.md` (Tờ 2a), `product/docs/specs/EP02-reservations.md`, `product/docs/specs/EP07-08-housekeeping-maintenance.md`, `product/docs/rbac-matrix.md`, `product/docs/so-van-hanh.md`, tệp này.
+
+**Giả định:**
+- Mọi câu "Từ v1.0.5" giả định MOB #117 (câu riêng cho tin giữ chỗ), FE #102 và MOB #97 (nút Báo cần dọn) lên cùng tag v1.0.5, như ARC yêu cầu. Thiếu PR nào thì BA sửa câu tương ứng trước khi cắt bản.
+- Nút **Báo cần dọn** trên app nhân viên: chỉ tả việc nút làm, không đặt luật khi nào buồng phòng bấm (thuộc DOM).
+- Desk giữa ca với FDL chưa bật 2 bước: thao tác vừa bấm bị máy chủ từ chối (403), không lưu, Desk mở **Bật xác thực 2 bước** (`SessionProvider.tsx`); app nhân viên mở màn "bật trên Desk", hàng đợi giữ thao tác chờ (`queue.ts`).
+- BUG-R5-005: câu cho lễ tân khi khách nhắn vì lỗi ("nhờ khách bỏ dãy số thẻ rồi gửi lại, không hỏi số thẻ") là cách xử lý BA đề xuất theo V-09, chưa có DOM.
+- Vai **Lễ tân** (FD) giữ "Chưa" ở bảng 2 bước: chưa có quyết định DOM + SEC cho thẻ FB-R4-PO-BA-032-07. "Dòng Lễ tân ở `02` 1.7" của V5-40 hiểu là phần lễ tân trưởng ở dòng "Mất cả điện thoại lẫn mã khôi phục" (vị trí thẻ 032-07).
+- ESC mới: không có.
+
+**Rủi ro/vướng mắc:**
+1. Tờ 2a là tài liệu PO + DOM; BA sửa theo giao việc ORC. Bản in chưa dựng lại.
+2. Bản HTML (`ottimo-manual-v1.0.html`, `guides/html/`) và PDF Tờ 2a còn chữ cũ tới khi UXD dựng lại.
+3. Sổ tay 2.4 và `02` 4.5, 17.1 vẫn còn các khung cũ "tới v1.0.3". V5-71 viết lại hẳn 2.4 theo v1.0.4 và Tờ 2a: chưa làm ở lượt này.
+
+**Việc chưa xong trong V5-71:**
+- viết lại sổ tay 2.4 và `02` 4.5, 17.1 theo v1.0.4 + Tờ 2a;
+- dọn sau #69 (PR69-02/04);
+- `so-van-hanh` 4.2, 5.4 "ô giá OTA nền" (V5-21);
+- câu giá web ở sổ tay lễ tân;
+- gỡ các lời dặn tạm khi v1.0.5 lên.
+
+**Chuyển vai khác (ORC giao):**
+- **PO:** đọc lại phần BA sửa ở release notes (của PO, V5-72), nhất là câu sửa ở v1.0.4 bảng "Báo giữ chỗ quá hạn" và mục "Việc anh/chị làm trước ngày lên"; đọc lại Tờ 2a. **DOM:** đọc Tờ 2a và câu BUG-R5-005 cho lễ tân.
+- **UXD:** dựng lại HTML sổ tay, bộ hướng dẫn và PDF Tờ 2a từ commit này.
+- **OPS:** đưa quy tắc "sửa `user_property_role` bằng SQL tay phải tăng `app_user.roles_version` và thu hồi phiên, như `setRoles`" vào runbook của OPS (`product/infra/server/README.md` hoặc runbook v1.0.5, PR #95). Sổ vận hành của BA chỉ ghi phần INV cần biết. `staging-add-owner.mjs` chỉ tạo người dùng mới nên không vướng (SEC mục 1.1).
+- **ORC:** đưa "cho mọi FDL bật 2 bước trước ngày lên v1.0.5" vào danh sách việc INV ở `round-summary.md`.
+- **ORC:** MOB #117 phải lên cùng tag với #100 (ARC), nếu không thì câu "Từ v1.0.5" về tin giữ chỗ sai.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | BA – tài liệu v1.0.5 (V5-71 phần V5-15, V5-40, V5-1B; release notes v1.0.5): nhãn trên màn hình "Báo cần dọn" / "Mark for cleaning" ở sổ tay và release notes, tên việc "nút Cần dọn" giữ trong plan, hợp đồng, luật (UXD 9.7); FDL chưa bật 2 bước bị hạn chế ngay ở lượt bấm kế tiếp sau khi lên bản, INV cho FDL bật trước ngày lên; tin hold_expired đọc ở hộp Thông báo trên app nhân viên, người nhận người tạo, người chốt và mọi tài khoản active có vai FD/FDL tại cơ sở. Cách trình bày: mỗi chỗ ghi cả v1.0.4 và "Từ v1.0.5", không gỡ lời dặn tạm trước khi bản lên. | BA |`

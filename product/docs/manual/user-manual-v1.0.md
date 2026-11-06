@@ -2,7 +2,7 @@
 
 - Dành cho: Chủ đầu tư dùng để đào tạo từng bộ phận trước ngày chạy thật **thứ Hai 02/11/2026**
 - Áp dụng cho: **OTTIMO Desk v1.0** – bản phát hành `v1.0.4` (Desk thật chạy từ 30/10/2026)
-- Lập: BA · 27/10/2026 · Bản nội dung 1.16 (06/11/2026; v1.0.4 đang chạy trên production từ 06/11/2026). Lịch sử các bản: mục 5.7.
+- Lập: BA · 27/10/2026 · Bản nội dung 1.17 (07/11/2026; v1.0.4 đang chạy trên production từ 06/11/2026). Lịch sử các bản: mục 5.7.
 - Sổ tay không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chụp, không đăng lên mạng. Nghỉ việc thì trả lại.**
 
@@ -79,6 +79,8 @@ Trang **Bảo mật tài khoản** có hai khối: **Xác thực 2 bước** (m�
 [ẢNH: C0-06-Menu Tài khoản]
 
 ### 0.3 Đăng nhập 2 bước (bắt buộc với chủ đầu tư và quản lý)
+
+Lễ tân trưởng cũng bắt buộc (mục 1.5). **Từ v1.0.5** Desk tự ép: lễ tân trưởng chưa bật bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên, chỉ còn màn **Bật xác thực 2 bước**. Vì vậy lễ tân trưởng bật **trước ngày lên v1.0.5**, theo các bước dưới đây.
 
 Ở v1.0, bước thứ hai là **mã 6 số trong ứng dụng xác thực** trên điện thoại (Google Authenticator, Microsoft Authenticator hoặc tương tự), kèm **10 mã khôi phục** dùng khi mất điện thoại. Desk v1.0 chưa đăng nhập bằng Face ID/vân tay (passkey).
 
@@ -363,7 +365,7 @@ Các vai trong v1.0:
 |---|---|---|
 | **Chủ đầu tư** | Chủ đầu tư | Bắt buộc |
 | **Quản lý** | Quản lý | Bắt buộc |
-| **Lễ tân trưởng** | Lễ tân trưởng: thêm quyền duyệt trong hạn mức, nhận phòng ngoại lệ, kiểm phòng | **Bắt buộc** – mặc định đội chọn, anh/chị đổi được (báo đội); Desk tự ép dự kiến từ v1.0.5 |
+| **Lễ tân trưởng** | Lễ tân trưởng: thêm quyền duyệt trong hạn mức, nhận phòng ngoại lệ, kiểm phòng | **Bắt buộc** – mặc định đội chọn, anh/chị đổi được (báo đội); Desk tự ép từ v1.0.5: chưa bật thì bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên |
 | **Lễ tân** | Lễ tân, người trực đêm | Chưa |
 | **Buồng phòng** | Nhân viên buồng phòng | Tùy chọn |
 | **Bảo trì** | Kỹ thuật | Tùy chọn |
@@ -380,7 +382,9 @@ Một người có thể có nhiều vai (ví dụ lễ tân kiêm sale). Không
 5. Xác nhận bằng mật khẩu và mã 6 số.
 6. Desk hiện **Mật khẩu tạm của …** **một lần**. Đưa tận tay người dùng. Không gửi qua chat.
 7. **Đăng nhập 2 bước theo vai** (mặc định đội chọn; anh/chị đổi được, báo đội). App nhân viên đăng nhập được bằng 2 bước và đổi mật khẩu tạm ngay trên app; bật 2 bước chỉ làm trên Desk (mục 3.1).
-   - **Lễ tân trưởng: bắt buộc.** Desk chưa tự ép (dự kiến v1.0.5), nên anh/chị làm 3 việc: tạo tài khoản; ngồi cùng người đó bật 2 bước trên Desk ngay buổi đầu (quét mã bằng điện thoại riêng của họ, cất 10 mã khôi phục như mục 0.3); nhìn tận mắt khối **Xác thực 2 bước** ở trang **Bảo mật tài khoản** của họ đã bật, rồi mới giao việc. Dặn lễ tân trưởng **không tự tắt** 2 bước (Desk chưa chặn tới v1.0.5); cần tắt thì hỏi anh/chị.
+   - **Lễ tân trưởng: bắt buộc.** Desk chưa tự ép tới v1.0.5, nên anh/chị làm 3 việc: tạo tài khoản; ngồi cùng người đó bật 2 bước trên Desk ngay buổi đầu (quét mã bằng điện thoại riêng của họ, cất 10 mã khôi phục như mục 0.3); nhìn tận mắt khối **Xác thực 2 bước** ở trang **Bảo mật tài khoản** của họ đã bật, rồi mới giao việc. Dặn lễ tân trưởng **không tự tắt** 2 bước (Desk chưa chặn tới v1.0.5); cần tắt thì hỏi anh/chị.
+     - **Từ v1.0.5 Desk tự ép.** Lễ tân trưởng chưa bật bị hạn chế **ngay ở lượt bấm kế tiếp** sau khi bản lên, kể cả đang đăng nhập dở, không chờ lần đăng nhập sau. Desk chỉ còn màn **Bật xác thực 2 bước**, thao tác vừa bấm không được lưu; app nhân viên báo mở Desk để bật. Lễ tân trưởng cũng không tự tắt 2 bước được nữa.
+     - **Trước ngày lên v1.0.5:** cho mọi lễ tân trưởng bật 2 bước trên máy riêng như trên và nhìn tận mắt đã bật, nhất là người trực đêm. Không để ai bật lần đầu trên máy quầy giữa ca. Mất điện thoại sau khi đã bật: đặt lại 2 bước như cũ (khối **Đặt lại xác thực 2 bước** cuối mục này).
    - **Buồng phòng, bảo trì: tùy chọn.** Chỉ bật khi người đó có điện thoại riêng và giữ được mã khôi phục; không cần khuyến khích.
    - **Sale nội bộ, CTV** chỉ dùng Desk: tự bật được, nên bật.
    - Người đã bật mà mất cả điện thoại lẫn mã khôi phục: anh/chị **gặp tận mặt** rồi **Đặt lại xác thực 2 bước** cho người đó (khối **Đặt lại xác thực 2 bước** cuối mục này), không tạo tài khoản mới. Không nhờ đội đặt lại 2 bước, không làm theo tin nhắn.
@@ -804,17 +808,21 @@ Tin có số tiền hoặc mã VietQR: chỉ gửi mã **Desk vừa tạo cho đ
 Lưu ý:
 - **Xử lý trước hạn.** Trước hạn, Desk làm được cả ba việc: xác nhận cọc, gia hạn, hủy. Sau hạn, ở v1.0 chỉ còn hủy (khung "Giữ chỗ quá hạn" bên dưới). Tiền đã về thì bấm xác nhận **trước giờ hạn**: ghi tay sau hạn thì Desk từ chối, kể cả khi tiền về trước hạn (hộp chưa có ô giờ nhận tiền).
 - Khách chuyển thiếu: vẫn ghi được số đã nhận; đơn giữ **Giữ chỗ · chờ cọc** và hiện số còn thiếu. **Gọi hoặc nhắn khách ngay trong ngày** xin phần còn lại trước hạn. Ở v1.0 Desk **chưa có** "Chấp nhận cọc thiếu": giữ chỗ cọc thiếu không thành **Đã xác nhận** được. Khách nói "trả phần còn lại khi đến": nói thật với khách và chọn (a) khách chuyển nốt trước hạn, hoặc (b) giữ đơn theo khung bên dưới, báo khách khi nhận phòng sẽ thanh toán đủ và khoản đã chuyển được chủ đầu tư hoàn lại (tiền mặt tại quầy khi chủ đầu tư có mặt, hoặc chuyển khoản trong 24 giờ).
-- Thấy **Giữ chỗ sắp hết hạn** (Desk nhắc 2 giờ trước hạn ở **Cần chú ý** và hộp thông báo): gọi khách ngay.
+- Thấy **Giữ chỗ sắp hết hạn** (Desk nhắc 2 giờ trước hạn ở **Cần chú ý** trên Desk; người tạo giữ chỗ còn có tin ở **hộp Thông báo trên app nhân viên**): gọi khách ngay.
 - Khách chuyển dư: ghi **Lý do thu vượt**; phần dư thành tiền thừa của khách.
 - Mã VietQR hết hạn: bấm **Tạo mã VietQR mới** (mã cũ hết hiệu lực), hoặc ghi như chuyển khoản tay (**Chờ đối soát**).
 - Gia hạn giữ chỗ: **Gia hạn giữ chỗ (1 lần)**, tối đa thêm 24 giờ, không quá 12:00 ngày đến. **Chỉ làm trước hạn**; sau hạn nút này không còn.
 - Sale/CTV đã báo khách chuyển cọc: khung đơn hiện **CTV/sale đã báo chuyển cọc** kèm **Xem ảnh biên nhận**. Vẫn kiểm sao kê trước khi xác nhận.
+- **Hộp Thông báo nằm trên app nhân viên** (`staff.ottimo.vn`, chuông **Thông báo**). Desk không có hộp Thông báo. Máy hoặc điện thoại ở quầy đăng nhập app nhân viên trong ca (mục 3.1) để thấy tin giữ chỗ.
 - Check-in online: từ v1.0.4, khung đơn giữ chỗ không còn mục **Link check-in online**. Xác nhận cọc trước, rồi gửi link theo mục 2.9.
 
 > **Lỗi nhỏ đã biết (sửa ở v1.0.3 hoặc v1.0.4):** hộp "Giữ chỗ" hiện số cọc và nội dung chuyển khoản hai lần; khách đến hôm nay vẫn hiện ô chọn thời hạn giữ dù không giữ được.
 
 **Giữ chỗ tới hạn – Desk tự làm gì:**
-- **Chưa cọc:** Desk tự hủy trong khoảng 1 phút sau hạn, nhả căn, không phí.
+- **Chưa cọc:** Desk tự hủy trong khoảng 1 phút sau hạn, nhả căn, không phí. Tin báo nằm ở **hộp Thông báo trên app nhân viên**, kèm mã đơn, không có tên khách:
+  - **v1.0.4 (đang chạy):** chỉ người tạo và người chốt đơn nhận tin; không có ai thì lễ tân, lễ tân trưởng nhận. Tin hiện câu chung "Thông báo mới – xem chi tiết trên OTTIMO Desk". Giữ chỗ do sale, CTV tạo thì quầy không có tin (sale, CTV không dùng app nhân viên).
+  - **Từ v1.0.5:** tin hiện "Giữ chỗ chưa cọc đã hết hạn và tự hủy". Người nhận: người tạo, người chốt và **mọi người có tài khoản đang hoạt động, có vai lễ tân hoặc lễ tân trưởng tại cơ sở**. Tài khoản đã khóa không nhận. Mỗi người một tin cho mỗi đơn.
+  - Có tin hay không, vẫn rà giữ chỗ theo mã đơn ở Tờ 2a tới khi chủ đầu tư báo hết tạm. Thấy tin: mở đơn theo mã, kiểm tiền về theo mã đơn rồi báo khách (đơn sale, CTV: báo người đó trước).
 - **Đã nhận cọc (đủ hoặc thiếu):** Desk **không** tự hủy (có tiền của khách). Đơn giữ nguyên **Giữ chỗ · chờ cọc**, căn vẫn bị giữ, đồng hồ hiện **"còn 0 giờ 00 phút"** màu đỏ (trong sổ tay gọi tắt là **"0h00"**). Phải xử lý trước **12:00 ngày đến**.
 
 > **Lỗi đang sửa – Giữ chỗ quá hạn (tới bản v1.0.3).** Ở v1.0:
@@ -1096,6 +1104,8 @@ Trang khách tiếng Anh dẫn, có tiếng Việt; thông báo xử lý dữ li
        - Khách cũ đã đi: kiểm căn rồi **Trả phòng** đơn đó (hay gặp nhất). Đơn đã quá ngày đi thì Desk không có nút **Trả phòng**: làm theo mục 2.14, **Đơn quá ngày đi**.
        - Khách cũ còn ở: giữ hành lý, mời khách mới chờ, hoặc **Đổi căn / đổi ngày** cho khách mới sang căn trống (mục 2.8).
     2. "Căn … vẫn hiện có khách, nhưng không còn đơn nào đang ở. …" (đơn trước đã **Đã trả phòng** mà căn vẫn hiện có khách): **không** nhận khách vào căn này. Desk và app nhân viên chưa có nút sửa trạng thái này, chờ 07:00 cũng không tự hết. Xếp khách sang căn trống sẵn sàng khác (**Đổi căn / đổi ngày**; cùng hạng, không có thì nâng hạng, OTTIMO chịu chênh) và **báo quản lý ngay**. Quản lý nhắn đội kỹ thuật số căn và mã đơn trước để sửa trạng thái căn. Không còn căn nào: quản lý gọi đội trong ca, khách chờ ở sảnh, giữ hành lý. **Không** dùng **Khóa phòng** (OOO) để đặt lại trạng thái: cách đó ghi sai công suất phòng.
+       - **Từ v1.0.5** (V5-15; khi chủ đầu tư báo đã lên) không phải báo đội sửa trạng thái. Kiểm căn đã trống thật (không còn người, không còn đồ), rồi **Vận hành → Buồng phòng → Trạng thái buồng** → dòng căn đó → **Báo cần dọn**. Căn chuyển **OD · Có khách, cần dọn** và có việc dọn. Buồng phòng **Bắt đầu dọn** → **Dọn xong** thì căn thành **VC · Đã dọn, chờ kiểm** và nhận phòng được. Khách không chờ được thì đổi đơn sang căn trống như trên.
+       - Câu báo bảo "nhờ buồng phòng dọn căn này" (căn đã là **OD · Có khách, cần dọn**, nên không có nút **Báo cần dọn**): kiểm căn đã trống, nhờ buồng phòng dọn. Dọn xong là nhận phòng được. Trường hợp này không có ngoại lệ nhận phòng.
 - **Căn khóa sửa chữa** (OOO): **không bao giờ** nhận phòng được.
 <!-- SEC FB-R4-SEC-BE-PR74-02 (Minor, mã sửa v1.0.5): ngày khách về căn cũ (B14 stayScope until_parent_departure) mà chưa ghi "đã chuyển về" thì căn tạm không có holder, lên VD/CL là mở được ngoại lệ. Desk và app trên main chưa có nút chọn "chuyển tới hết đơn gốc" lẫn nút ghi "đã chuyển về" (roomReturnRecorded chỉ có ở API), nên sổ tay dùng bước kiểm căn thật, không nói "ghi đã chuyển về". Có nút thì BA thêm bước ghi. -->
 <!-- BA 05/11: #74 (máy chủ) và #77 kèm #79 (Desk, gộp main c9af9f4c) đã vào v1.0.4. Câu chặn theo UXD lượt 4: OOO → ci.ooo_never; căn còn lượt ở khác → checkin.room_held_code (có mã) hoặc checkin.room_held; OC/OD không còn lượt ở → checkin.room_status_stuck; checkin.room_occupied chỉ hiện khi máy chủ không gửi cause (trước #74). QA2 #77 @ 055e92d5: lượt quá ngày đi + CL cũng ra room_held_code; VD/CL không còn lượt ở giữ ngoại lệ. Đơn chưa gán căn không có câu chặn căn; #84 (BUG-R4-049) bỏ thêm dòng phụ buồng/sức chứa khi chưa gán căn, sổ tay không tả dòng phụ nên không đổi. Ca 2 trong khung đỏ (trước 05/11 là bước (3)) theo DOM lượt 7 mục 3; 05/11 tách theo từng ca theo UXD #72 thẻ 01, thêm Lý do ghi đã kiểm và kiểm mã cũ trên app khóa theo SEC #72 thẻ 02: v1.0.4 không có nút đưa căn khỏi OC (needs_cleaning chưa có giao diện); nút Cần dọn ở backlog v1.0.5 (PO xếp), có nút thì BA thêm lại bước dọn. -->
@@ -1454,6 +1464,7 @@ Thông báo quyền riêng tư của form: bản **2026-11-04**, đủ 5 ngôn n
 2. Thêm việc: **Việc mới** → hộp **Tạo việc buồng phòng**: **Căn**, **Loại việc**, **Ngày làm**, **Ghi chú cho buồng phòng** → bấm **Việc mới** ở cuối hộp.
 3. Hủy việc: **Hủy việc** → **Lý do**.
 4. Làm thay buồng phòng: **Làm xong** ở dòng việc.
+5. **Từ v1.0.5:** căn **OC · Có khách, sạch** có nút **Báo cần dọn** ở cuối dòng căn trong **Trạng thái buồng**. Bấm thì căn chuyển **OD · Có khách, cần dọn** và có việc **Dọn phòng khách đang ở** (Desk báo "Căn … chuyển cần dọn và có việc dọn."). Desk không hỏi xác nhận. Bấm nhầm: **Hủy việc** dọn vừa tạo (bước 3). Một chỗ dùng: căn kẹt trạng thái (mục 2.10).
 
 [ẢNH: C2-40-Buồng phòng trên Desk, việc mới]
 
@@ -1589,6 +1600,8 @@ Các loại việc: **Dọn trả phòng**, **Dọn phòng khách đang ở**, *
 
 **Các căn** hiện trạng thái mọi căn. Lọc: **Tất cả**, **Cần dọn**, **Có khách**, **Sạch**, **Đang sửa**. Mỗi căn ghi khách đến hôm nay/ngày mai. Buồng phòng chỉ thấy tên gọi của khách trong ngày, không thấy giá, kênh, giấy tờ.
 
+**Từ v1.0.5:** màn căn **Khách đang ở – đã dọn** có nút **Báo cần dọn** khi app cho phép. Bấm thì căn chuyển **Khách đang ở – cần dọn** và có việc dọn. App không hỏi xác nhận. Mất mạng: thao tác chờ trong hàng đợi như các nút khác (mục 3.10).
+
 [ẢNH: C3-04-Các căn]
 
 ### 3.6 Kiểm phòng (lễ tân trưởng)
@@ -1661,6 +1674,8 @@ Sự cố gấp mà đang mất mạng: phiếu lưu trên máy, tự gửi sau;
 ### 3.11 Thông báo
 
 Chuông **Thông báo**: **Phiếu sửa mới**, **Việc gấp đã lên đầu danh sách**, **Căn đã dọn – chờ kiểm**, **Việc đã được hủy vì đơn thay đổi**, **Yêu cầu mới của khách**. Bấm để mở việc.
+
+Lễ tân, lễ tân trưởng đăng nhập app nhân viên cũng nhận tin giữ chỗ kèm mã đơn (mục 2.4). Tới khi v1.0.5 lên, các tin này hiện câu chung "Thông báo mới – xem chi tiết trên OTTIMO Desk". Từ v1.0.5 có câu riêng, ví dụ **Giữ chỗ chưa cọc đã hết hạn và tự hủy**. Bấm vào tin giữ chỗ không mở màn nào: gõ mã đơn vào ô tìm ở **Đơn đặt phòng** trên Desk.
 
 [ẢNH: C3-08-Thông báo]
 
@@ -2041,6 +2056,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|
+| 1.17 | 07/11/2026 | BA (Round 5 – Phản hồi & sửa, V5-71 phần V5-15, V5-40, V5-1B; UXD `copy-v1.0.5.md` 9.7; SEC, ARC review PR #100) | **Áp dụng từ v1.0.5** ở các dòng ghi "Từ v1.0.5"; phần còn lại áp dụng ngay. Mục 0.3, 1.5 (bảng vai và bước 7): từ v1.0.5 Desk tự ép lễ tân trưởng bật 2 bước, người chưa bật bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên, kể cả đang đăng nhập; lễ tân trưởng bật trước ngày lên, không tự tắt được nữa. Mục 2.4: hộp Thông báo nằm trên app nhân viên (Desk không có); tin giữ chỗ chưa cọc tự hủy – người nhận ở v1.0.4 và từ v1.0.5 (mọi tài khoản đang hoạt động có vai lễ tân, lễ tân trưởng tại cơ sở), vẫn rà theo mã đơn ở Tờ 2a. Mục 2.10 (ca 2), 2.19 bước 5, 3.5: nút **Báo cần dọn** từ v1.0.5. Mục 3.11: tin giữ chỗ trên app nhân viên. Việc 2.4 viết lại hẳn theo v1.0.4 và Tờ 2a (V5-71) chưa làm ở bản này |
 | 1.16 | 06/11/2026 | BA (BUG-R5-001, BUG-R5-003; Round 5 – Phản hồi & sửa) | **Áp dụng ngay, tới khi v1.0.5 lên.** Lời dặn không bấm **Lưu thay đổi** ở `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**): Desk v1.0.4 nhận giá trị sai dạng; buộc phải đổi thì nhắn đội trước, **Hiệu lực từ** từ ngày mai để còn **Hủy lịch**; lỡ lưu thì báo đội, coi là P0 – mục 1.4 (khung đầu mục), 5.5 (dòng sự cố), 5.6 (dòng **Lỗi đang sửa**). Gỡ khi v1.0.5 lên (V5-25, V5-71) |
 | 1.15 | 06/11/2026 | BA (QC Round 4 ĐK-5, V5-08; SEC FB-R5-SEC-BA-01…11; quyết định của chủ đầu tư 06/11 bật giá web); UXD đánh số khi dựng HTML (V5-04) | Gộp hai khối "Sửa 06/11/2026" ở trên, sau 1.14 (PR #69 gộp 06/11/2026). **Áp dụng ngay.** Check-in online mở lại từ 06/11/2026: bỏ các câu "tạm dừng", "chưa gửi link"; gửi nhầm link thì thu hồi, tạo link mới, ghi sổ giao ca, báo chủ đầu tư trong ngày. Website theo thực tế 06/11: form đã bật, 5 ngôn ngữ, giá ước tính đã bật, thông báo quyền riêng tư bản 2026-11-04 |
 | 1.14 | 04/11/2026 | BA (PO FB-R4-PO-BA-032-05; SEC FB-R4-SEC-BA-R4032-06, FB-R4-SEC-BA-PR68-S1) | Gộp **sau** 1.13 (PR #68), **khi chủ đầu tư báo v1.0.4 đã lên production**. Gỡ lời dặn "không bật đăng nhập 2 bước ở v1.0.x" và cách v1.0.3 cho người mất cả điện thoại lẫn mã khôi phục (khóa tài khoản rồi tạo tài khoản mới). Mục 0.4: chỉ còn **Đặt lại xác thực 2 bước**. Mục 1.5: bảng vai ghi giá trị v1.0.4 (lễ tân trưởng bắt buộc, buồng phòng, bảo trì tùy chọn); bước 7 viết lại theo vai, dặn lễ tân trưởng không tự tắt 2 bước; "anh/chị đổi được, báo đội" ở mọi chỗ; cột **Thao tác** có **Sửa vai**, **Khác…** (bỏ khung chờ v1.0.4). Mục 3.1: bỏ 2 đoạn app chặn tài khoản có 2 bước, khung v1.0.4 thành nội dung chính. Mục 3.6, 4.1: bỏ "(không bật 2 bước ở v1.0.x)". Mục 0.3a, 5.0: "Desk chặn `info@` và `booking@` của cơ sở". Dòng **Áp dụng cho**: `v1.0.4`. Dòng **Lập:** chỉ giữ bản hiện hành, lịch sử ở bảng này. Lượt 2 (05/11/2026): gộp các thay đổi đã có trên `main` (#72, #85, #89). Bản này gồm cả các đoạn "Bổ sung 05/11", "Sửa 05/11 theo review #72" ở dòng 1.13 và phần **Sửa 05/11/2026** ở trên bảng. Đã rà phần mới: không còn câu dặn "không bật" hay "chưa bật" 2 bước |
