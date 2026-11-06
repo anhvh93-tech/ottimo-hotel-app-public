@@ -33,6 +33,7 @@ import {
   setPassword,
   startFeatureApp,
 } from '../helpers/feature-app';
+import { setStayStatus } from '../helpers/registration-fixture';
 import {
   type BookingIds,
   seedBooking,
@@ -177,9 +178,14 @@ describe.skipIf(!HAS_DB)('V5-10 – one checkoutAt: summary, QR, B18 (BE-A1)', (
       departureDate: to,
       initialPayment: { type: 'deposit', method: 'cash', amountVnd: 500_000 },
     });
-  /** Check-in at 15:00 on `from` with the folio paid in full (so a check-out without surcharge owes 0). */
-  const stay = async (b: Booking, from: string) => {
-    await at(`${from}T15:00:00+07:00`);
+  /** Check-in at 15:00 on `from` (or at `clock`, typing `time`) with the folio paid in full (no surcharge → owes 0). */
+  const stay = async (
+    b: Booking,
+    from: string,
+    clock = `${from}T15:00:00+07:00`,
+    time = '15:00',
+  ) => {
+    await at(clock);
     const due = (await totals(b.folioId)).balanceDueVnd;
     if (due > 0) {
       const p = await c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
@@ -192,7 +198,7 @@ describe.skipIf(!HAS_DB)('V5-10 – one checkoutAt: summary, QR, B18 (BE-A1)', (
     const ci = await act(b.id, 'check-in', {
       cardsIssued: 1,
       houseRulesSent: true,
-      checkinTime: '15:00',
+      checkinTime: time,
     });
     expect(ci.statusCode, ci.body).toBe(200);
   };
@@ -456,5 +462,178 @@ describe.skipIf(!HAS_DB)('V5-10 – one checkoutAt: summary, QR, B18 (BE-A1)', (
     expect(checkOuts(await get(o.id))).toEqual(['check_out']);
     // The child booking never offers B18 (the server checks out the primary only).
     expect(checkOuts(await get(ext.json().childReservation.id))).toEqual([]);
+  });
+
+  // ── r5-text-strip: DOM FB-R5-DOM-BE-PR106-01, SEC FB-R5-SEC-BE-A1A-01 and A1B-01 (contract list 0.3.14 items 1–2) ──
+
+  it('DOM PR106-01: nothing typed in the post-midnight window → the standard time of the departure day (ahead), never the evening before', async () => {
+    const b = await direct('401', '2026-11-22', '2026-11-24');
+    await stay(b, '2026-11-22');
+    await at('2026-11-24T01:00:00+07:00');
+    // Was 23/11 12:00 + note required: a declared departure one calendar day early (BR-010, BR-602).
+    const s = await summary(b.id, '');
+    expect(s).toMatchObject({
+      checkoutAt: '2026-11-24T12:00:00.000+07:00',
+      checkoutTime: '12:00',
+      checkoutAtAfterNow: true,
+      checkoutTimeNoteRequired: false,
+      postMidnightWindow: false,
+    });
+    // A check_out QR without `checkoutAt` resolves the same way → ahead → 422, nothing created.
+    const [before] = await q<{ n: number }>('SELECT count(*)::int AS n FROM payment');
+    const noTime = await qr(b, { purpose: 'check_out', amountVnd: 1 });
+    expect(noTime.statusCode, noTime.body).toBe(422);
+    expect(noTime.json().errors).toEqual([{ field: 'checkoutAt', code: 'TIME_AFTER_ACTION' }]);
+    const [after] = await q<{ n: number }>('SELECT count(*)::int AS n FROM payment');
+    expect(after!.n).toBe(before!.n);
+    // Typed 01:00 → 24/11 01:00, the post-midnight window: no surcharge, B18 takes it.
+    const typed = await summary(b.id, 'checkoutTime=01:00');
+    expect(typed).toMatchObject({
+      checkoutAt: '2026-11-24T01:00:00.000+07:00',
+      postMidnightWindow: true,
+      checkoutAtAfterNow: false,
+      lateCheckoutSurcharge: { amountVnd: 0 },
+    });
+    const out = await act(b.id, 'check-out', {
+      checkoutTime: '01:00',
+      checkoutAt: typed.checkoutAt,
+    });
+    expect(out.statusCode, out.body).toBe(200);
+  });
+
+  it('SEC A1A-01 (PU1): a departure before the actual check-in → 422 on the summary, the QR and B18, nothing written', async () => {
+    // One night 23/11 → 24/11, the guest arrives after midnight: checked in at 01:00 on 24/11 (business date 23/11).
+    const b = await direct('402', '2026-11-23', '2026-11-24');
+    await stay(b, '2026-11-23', '2026-11-24T01:00:00+07:00', '01:00');
+    const [checkedIn] = await q<{ actual_checkin_at: Date }>(
+      'SELECT actual_checkin_at FROM reservation WHERE id = $1',
+      [b.id],
+    );
+    expect(checkedIn!.actual_checkin_at.toISOString()).toBe('2026-11-23T18:00:00.000Z');
+    await at('2026-11-24T01:20:00+07:00');
+    const early = '2026-11-24T00:30:00+07:00';
+    const footprint = async () => ({
+      audit: (await q<{ n: number }>('SELECT count(*)::int AS n FROM audit_event'))[0]!.n,
+      payment: (await q<{ n: number }>('SELECT count(*)::int AS n FROM payment'))[0]!.n,
+      status: (await get(b.id)).status as string,
+    });
+    const before = await footprint();
+    const dateInvalid = [{ field: 'checkoutAt', code: 'DATE_INVALID' }];
+    const sum = await c.fd!.get(
+      url(`/reservations/${b.id}/checkout-summary?checkoutAt=${encodeURIComponent(early)}`),
+    );
+    expect(sum.statusCode).toBe(422);
+    expect(sum.json().errors).toEqual(dateInvalid);
+    const cap = await qr(b, { purpose: 'check_out', checkoutAt: early, amountVnd: 1 });
+    expect(cap.statusCode).toBe(422);
+    expect(cap.json().errors).toEqual(dateInvalid);
+    const sent = await act(b.id, 'check-out', {
+      checkoutTime: '00:30',
+      checkoutAt: early,
+      checkoutTimeNote: 'Khách đi lúc 00:30',
+    });
+    expect(sent.statusCode).toBe(422);
+    expect(sent.json().errors).toEqual(dateInvalid);
+    // Typed only: 24/11 00:30 is before the check-in, so it is not a candidate; 25/11 00:30 is ahead → refused.
+    const typed = await act(b.id, 'check-out', {
+      checkoutTime: '00:30',
+      checkoutTimeNote: 'Khách đi lúc 00:30',
+    });
+    expect(typed.statusCode).toBe(422);
+    expect(JSON.stringify(typed.json().errors)).toContain('TIME_AFTER_ACTION');
+    expect(await footprint()).toEqual(before);
+    // At or after the check-in: accepted.
+    const ok = await act(b.id, 'check-out', {
+      checkoutTime: '01:10',
+      checkoutAt: '2026-11-24T01:10:00+07:00',
+    });
+    expect(ok.statusCode, ok.body).toBe(200);
+  });
+
+  it('SEC A1B-01: checkoutTimeNote loses NUL, bidi and zero-width characters before it is stored; nothing left = no note', async () => {
+    const b = await direct('401', '2026-11-25', '2026-11-27');
+    // Room 401 was checked out by the PR106-01 case: clean it (VC) as housekeeping would.
+    await q(`UPDATE room_status SET status = 'VC' WHERE room_id = $1`, [ids.rooms['401']]);
+    await stay(b, '2026-11-25');
+    // 10:00 on the departure day typing 09:00: 60 minutes before the action → the note is required (E03-07).
+    await at('2026-11-27T10:00:00+07:00');
+    const onlyHidden = await act(b.id, 'check-out', {
+      checkoutTime: '09:00',
+      checkoutTimeNote: '\u0000\u200B\u202E\u202C\u0007',
+    });
+    expect(onlyHidden.statusCode).toBe(422);
+    expect(onlyHidden.json().errors).toEqual([
+      { field: 'checkoutTimeNote', code: 'TIME_NOTE_REQUIRED' },
+    ]);
+    // Was 500 (22P05: NUL in the jsonb audit) and a stored bidi override.
+    const out = await act(b.id, 'check-out', {
+      checkoutTime: '09:00',
+      checkoutTimeNote: 'Khách\u0000 đi\u200B sớm \u202Egnirts\u202C\u0007',
+    });
+    expect(out.statusCode, out.body).toBe(200);
+    const [audit] = await q<{ reason: string | null }>(
+      `SELECT reason FROM audit_event WHERE entity_id = $1 AND action = 'reservation.checked_out'`,
+      [b.id],
+    );
+    expect(audit!.reason).toBe('Khách đi sớm gnirts');
+    const [change] = await q<{ reason: string | null }>(
+      `SELECT reason FROM reservation_change WHERE reservation_id = $1 AND field = 'checkout_time'`,
+      [b.id],
+    );
+    expect(change!.reason).toBe('Khách đi sớm gnirts');
+  });
+
+  it('ARC 127-01: every candidate before the actual check-in → 422 DATE_INVALID on the field the desk sent; nothing written', async () => {
+    // One night 30/11 → 01/12 (a weekday, min stay 1); the actual check-in is set to 13:00 on 01/12 – after 12:00 (typed and standard) of the
+    // departure day, so the time 12:00 has no candidate left (checkout-at.ts "none left").
+    const b = await direct('102', '2026-11-30', '2026-12-01');
+    // Room 102 was checked out by T10-2: clean it (VC) as housekeeping would.
+    await q(`UPDATE room_status SET status = 'VC' WHERE room_id = $1`, [ids.rooms['102']]);
+    await stay(b, '2026-11-30');
+    await setStayStatus(db, t, b.id, 'in_house', {
+      actualCheckinAt: new Date('2026-12-01T13:00:00+07:00'),
+    });
+    await at('2026-12-01T14:00:00+07:00');
+    const footprint = async () => ({
+      audit: (await q<{ n: number }>('SELECT count(*)::int AS n FROM audit_event'))[0]!.n,
+      payment: (await q<{ n: number }>('SELECT count(*)::int AS n FROM payment'))[0]!.n,
+      status: (await get(b.id)).status as string,
+    });
+    const before = await footprint();
+    expect(before.status).toBe('in_house');
+    const onTime = [{ field: 'checkoutTime', code: 'DATE_INVALID' }];
+    const onAt = [{ field: 'checkoutAt', code: 'DATE_INVALID' }];
+    // B18 with a typed time only → the field is `checkoutTime`.
+    const typed = await act(b.id, 'check-out', {
+      checkoutTime: '12:00',
+      checkoutTimeNote: 'Khách trả phòng lúc 12:00',
+    });
+    expect(typed.statusCode, typed.body).toBe(422);
+    expect(typed.json().errors).toEqual(onTime);
+    // The summary with a typed time only → `checkoutTime` too.
+    const sumTyped = await c.fd!.get(
+      url(`/reservations/${b.id}/checkout-summary?checkoutTime=12:00`),
+    );
+    expect(sumTyped.statusCode, sumTyped.body).toBe(422);
+    expect(sumTyped.json().errors).toEqual(onTime);
+    // The summary with no time (standard 12:00 of the departure day) → `checkoutAt`.
+    const sumNone = await c.fd!.get(url(`/reservations/${b.id}/checkout-summary`));
+    expect(sumNone.statusCode, sumNone.body).toBe(422);
+    expect(sumNone.json().errors).toEqual(onAt);
+    // The QR with no time → `checkoutAt`.
+    const cap = await qr(b, { purpose: 'check_out', amountVnd: 1 });
+    expect(cap.statusCode, cap.body).toBe(422);
+    expect(cap.json().errors).toEqual(onAt);
+    // A sent `checkoutAt` before the check-in (with its typed time) → `checkoutAt`.
+    const sent = await act(b.id, 'check-out', {
+      checkoutTime: '12:30',
+      checkoutAt: '2026-12-01T12:30:00+07:00',
+      checkoutTimeNote: 'Khách trả phòng lúc 12:30',
+    });
+    expect(sent.statusCode, sent.body).toBe(422);
+    expect(sent.json().errors).toEqual(onAt);
+    expect(await footprint()).toEqual(before);
+    // Control: a time at or after the check-in resolves.
+    await summary(b.id, 'checkoutTime=13:45');
   });
 });

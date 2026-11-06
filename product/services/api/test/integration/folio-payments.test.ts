@@ -187,6 +187,8 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
       creditVnd: 0,
       unhandledCreditVnd: 0,
       otaExcessVnd: 0,
+      // 0.3.13 V5-13: always present for FD+ (empty = no refund waiting).
+      openRefunds: [],
     });
     const { rows: nights } = await db.withContext(t.ctx(), (tx) =>
       tx.query<{ night_state: string; n: number }>(
