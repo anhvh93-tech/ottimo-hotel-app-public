@@ -20,8 +20,9 @@ PO chốt phạm vi v1.0.3 ngày 03/11 (`rounds/round-04/plan-v1.0.3.md`): v1.0.
 - Trạng thái: **ĐANG LÀM** – Round 5, bắt đầu tối 06/11/2026. Kế hoạch chi tiết: `rounds/round-05/plan.md`.
 - Bản này **chỉ sửa**: lỗi tiền hoặc giá, các cách làm tạm ở quầy, bảo mật và dữ liệu cá nhân, chữ sai sự thật. Không thêm tính năng. Không đổi giá, cọc, hoàn, hủy.
 - Lịch dự kiến: đội làm và kiểm 07–19/11 → anh/chị xem kết quả ở buổi review **20/11** → lên production khi anh/chị đồng ý (20–21/11, dự phòng tới 25/11).
-- Trước khi lên: nếu bản có thay đổi cấu trúc dữ liệu (đội báo khi cắt bản), đội phải **diễn tập khôi phục từ bản sao lưu** đạt trước. Buổi diễn tập cần anh/chị khoảng 30 phút để mở khóa giải mã.
-- Phần **hoa hồng theo bảng nội bộ** có hạn **01/12**. Tới 25/11 mà v1.0.5 chưa lên, đội tách phần này thành bản riêng. Bản riêng đó vẫn chờ anh/chị đồng ý.
+- Trước khi lên: đội phải **diễn tập khôi phục từ bản sao lưu** đạt trước. Bản này đổi cách sao lưu (lịch và vòng giữ bản sao lưu mới), nên chưa diễn tập đạt thì **cả bản chưa lên**, kể cả phần không đổi cấu trúc dữ liệu. Buổi diễn tập cần anh/chị khoảng 30 phút để mở khóa giải mã. Đội đề nghị hẹn trong tuần 09–13/11.
+- Phần **hoa hồng theo bảng nội bộ** có hạn **01/12** và cũng cần diễn tập khôi phục đạt trước. Tới 25/11 mà v1.0.5 chưa lên vì lý do khác, đội tách phần này thành bản riêng; bản riêng đó vẫn chờ anh/chị đồng ý. Tới 25/11 mà chưa diễn tập, đội báo anh/chị ngay.
+- Lỗi nặng (P0) cần sửa gấp trong lúc chờ: bản sửa không đổi cấu trúc dữ liệu, không đổi sao lưu vẫn lên được khi anh/chị đồng ý.
 - Tới khi v1.0.5 lên: làm theo mục v1.0.4 **Giới hạn đã biết và cách làm ở quầy** bên dưới.
 
 ### Dự kiến có (ghi chi tiết khi cắt bản)
@@ -189,7 +190,7 @@ Tính năng mới, đổi chính sách giá, cọc, hoàn, hủy, kết nối k�
 - **Lời dặn tạm cho bản v1.0.4 đang chạy – hai tham số `weekend_nights` và `min_stay`** (BUG-R5-001, BUG-R5-003; áp dụng ngay, gỡ khi v1.0.5 lên – V5-25).
   - **Tới khi v1.0.5 lên**, không bấm **Lưu thay đổi** ở hai dòng `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**), nhóm **Khác**: Desk v1.0.4 nhận cả giá trị sai dạng, lưu sai thì Desk không nhận ra đêm cuối tuần, hoặc mọi báo giá và đơn trực tiếp mới báo lỗi, không gỡ được trong ngày (BUG-R5-001, BUG-R5-003). Buộc phải đổi: nhắn đội trước, chọn **Hiệu lực từ** từ ngày mai để còn **Hủy lịch** được. Lỡ lưu: báo đội ngay, coi là **P0** (chủ đầu tư gõ `/feedback P0`, quản lý gọi chủ đầu tư).
   - Riêng `weekend_nights`: Desk còn báo lỗi khi lưu đúng dạng đang chạy (`["FRI","SAT"]`). Cả hai ô trên production đang đúng dạng mà bộ tính giá cần (đội kiểm chỉ đọc 06/11): `weekend_nights` = `["FRI","SAT"]` từ 28/10, `min_stay` là danh sách 2 luật. Mức tăng cuối tuần đang 0 % nên giá hiện chưa sai. Muốn đổi mức tăng cuối tuần trước v1.0.5: báo đội trước.
-  - Các tham số dạng danh sách khác (giảm theo số đêm, ngày đặc biệt, bậc nhận phòng sớm, trả phòng muộn): đội đang rà xem có cùng lỗi không (V5-25). Tới khi đội báo kết quả, đổi các ô này thì chọn **Hiệu lực từ** từ ngày mai và giữ đúng dạng trong từ điển tham số.
+  - Các tham số dạng danh sách khác: đội đã rà (06/11). Lưu sai dạng ở các ô sau cũng làm Desk báo lỗi hoặc tính sai ở báo giá, đặt phòng, nhận phòng, trả phòng hoặc bill: `special_dates` (ngày đặc biệt), `los_discount` (giảm theo số đêm), `cancel_policy_direct` (chính sách hủy), `early_checkin_tiers`, `late_checkout_tiers` (bậc nhận sớm, trả muộn), `early_departure_refund` (hoàn khi trả sớm), `checkout_reminders` (mốc nhắc trả phòng), `weekend_uplift_channels`, `special_uplift_channels` (kênh áp mức tăng), `max_open_holds_per_user` (số giữ chỗ mở), `lease_terms` (kỳ thuê), `damage_catalog` (bảng giá hư hỏng – lỗi ở bill). Tới khi v1.0.5 lên (riêng `damage_catalog`: tới khi đội báo đã sửa), **không bấm Lưu thay đổi** ở các ô này. Buộc phải đổi: nhắn đội trước, chọn **Hiệu lực từ** từ ngày mai để còn **Hủy lịch** được, giữ đúng dạng trong từ điển tham số.
   - Hướng dẫn: sổ tay 1.4, 5.5, 5.6 (bản 1.16).
 - **Đơn quá ngày đi mà vẫn Đang ở** (áp dụng ngay): Desk không có nút **Trả phòng** cho đơn này. **Gia hạn** tới hôm nay rồi **Trả phòng**. Khách ở thật thì thu đêm thêm. Quên bấm (khách đã đi): giảm giá đặc biệt 100 % cho đêm thêm (quản lý duyệt tới 1 đêm, từ 2 đêm chủ đầu tư), xóa mã cửa ngay, khai báo lưu trú ghi ngày rời thật, ghi sổ giao ca. Chờ duyệt xong mới **Trả phòng** được. Ghi trễ ngày đi trên cổng: hỏi quản lý trước khi gửi. Hướng dẫn: sổ tay 2.14, `02` 11.1. Sửa ở v1.0.5 (V5-15).
 - **Tiền cọc về cho giữ chỗ đã tự hủy** (BUG-R5-002, P2; áp dụng ngay). Desk chưa ghi được khoản thu lên đơn đã tự hủy, chưa tạo được yêu cầu hoàn và chưa báo ai khi tiền về.
@@ -232,7 +233,7 @@ Tính năng mới, đổi chính sách giá, cọc, hoàn, hủy, kết nối k�
 | Đêm Nội bộ có thu được tính đúng trong chỉ số giá phòng bình quân (BUG-R4-043) | **v1.0.5** (V5-17), trước báo cáo đầu tiên |
 | Desk chặn hoặc gửi duyệt đơn Nội bộ theo vai | Backlog cải tiến – anh/chị chọn ở buổi review định kỳ |
 | Màn xem nhật ký bảo mật trên Desk | Backlog cải tiến – anh/chị chọn ở buổi review định kỳ |
-| Hoa hồng nhập theo bảng nội bộ trên Desk, không có số mặc định trong mã | **v1.0.5** (V5-30), hạn 01/12. Tới 25/11 v1.0.5 chưa lên thì tách thành bản riêng |
+| Hoa hồng nhập theo bảng nội bộ trên Desk, không có số mặc định trong mã | **v1.0.5** (V5-30), hạn 01/12, sau khi diễn tập khôi phục đạt. Tới 25/11 v1.0.5 chưa lên vì lý do khác thì tách thành bản riêng |
 | Ô nhập Wi-Fi của cơ sở trên Desk (BUG-R3-021) | **v1.0.5** (V5-58, nên có; không kịp thì v1.0.6) |
 | Chữ đơn cách tiếng Nga ở ô mã và Wi-Fi (BUG-R4-017) | **v1.0.5** (V5-24) |
 | Desk hiện cả giá web khách đã thấy lúc gửi ("từ – đến") | **v1.0.5** (V5-19, nên có). Phải có trước khi hai căn cùng hạng có giá khác nhau |

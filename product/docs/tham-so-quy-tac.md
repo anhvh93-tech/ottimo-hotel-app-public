@@ -1,6 +1,6 @@
 # Từ điển tham số quy tắc – OTTIMO Desk
 
-- Lập: DOM · Round 4 – Sản xuất · 06/11/2026 · Bản 1.0. Sửa: DOM · Round 5 – Sản xuất · 06/11/2026 · Bản 1.1 (mục `night_from_month_divisor` theo QC Round 4 ĐK-6; thêm mục [Sắp có ở v1.0.5](#sap-co-v105)) · Bản 1.2 (tên tiếng Việt của 29 khóa theo UXD V5-21; dạng giá trị `weekend_nights` – BUG-R5-001; `hold_expiry_reminder_hours` = 0) · **Bản 1.3** (Round 5 – Phản hồi & sửa: cảnh báo không lưu `min_stay` và `weekend_nights` tới khi v1.0.5 lên – BUG-R5-003, BUG-R5-001; dạng lưu `min_stay` từ v1.0.5 – V5-25)
+- Lập: DOM · Round 4 – Sản xuất · 06/11/2026 · Bản 1.0. Sửa: DOM · Round 5 – Sản xuất · 06/11/2026 · Bản 1.1 (mục `night_from_month_divisor` theo QC Round 4 ĐK-6; thêm mục [Sắp có ở v1.0.5](#sap-co-v105)) · Bản 1.2 (tên tiếng Việt của 29 khóa theo UXD V5-21; dạng giá trị `weekend_nights` – BUG-R5-001; `hold_expiry_reminder_hours` = 0) · **Bản 1.3** (Round 5 – Phản hồi & sửa: cảnh báo không lưu `min_stay` và `weekend_nights` tới khi v1.0.5 lên – BUG-R5-003, BUG-R5-001; dạng lưu `min_stay` từ v1.0.5 – V5-25). Sửa: DOM · Round 5 – Review PR #96 · 06/11/2026 · **Bản 1.4** (dòng Giới hạn của 28 khóa: bỏ câu "Desk kiểm đúng dạng khi lưu" ở khóa v1.0.4 chưa kiểm, ghi dạng nhận từ v1.0.5 cho 12 khóa V5-25; `short_stay_max_nights` "đề xuất 29")
 - Dành cho: chủ đầu tư và quản lý, khi đọc và sửa **Quản trị → Tham số quy tắc** trên Desk.
 - Phạm vi: đủ **198 tham số** trong danh mục của Desk (bản v1.0.4 trên production). Bản máy đọc: `product/docs/tham-so-quy-tac.json` (cùng nội dung cho 198 tham số; mục "Sắp có ở v1.0.5" chỉ có ở bản này vì các khóa đó chưa có trên Desk).
 - Căn cứ: `business-rules.md` (BR, mục 13), sổ tay vận hành bản 1.10 (v1.0.4, PR #85), `decision-log.md` (ESC-004, 006, 007, 043, 045, 050), hướng dẫn chuyển giá `rounds/round-04/outputs/DOM/inv-price-switch-guide.md`, mã Desk (`paramCatalog.ts`, `ParamDialog.tsx`, `parameters.service.ts`).
@@ -552,7 +552,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-305
 - **Ý nghĩa:** Cọc tính trên phần nào của đơn.
 - **Đơn vị:** Chữ (lựa chọn của hệ thống)
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk chỉ kiểm là chữ (tối đa 500 ký tự), chưa kiểm có đúng một giá trị trong danh sách: gõ sai chữ Desk vẫn lưu. Chép đúng chữ ở mục Ví dụ. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** "room_total_after_calendar_and_discount": cọc tính trên tiền phòng, không tính phụ thu người, nhận sớm, dịch vụ.
 - **Ảnh hưởng:** Cọc ngắn ngày. **Đi kèm:** `short_stay_deposit_pct`
 - **Đội đề xuất:** room_total_after_calendar_and_discount – BR-305 (chuẩn ngành).
@@ -588,7 +588,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** Giảm giá theo số đêm ở (hiện từ v1.0.5; v1.0.4 hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-107
 - **Ý nghĩa:** Giảm giá theo số đêm ở (ở càng lâu giảm càng nhiều).
 - **Đơn vị:** Danh sách {minNights: số đêm từ, pct: % giảm}; [] = không giảm
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận tối đa 10 bậc {minNights, pct}: `minNights` số nguyên 1–89, không trùng; `pct` 0–100, tối đa 2 chữ số thập phân. `[]` = không giảm. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** [{"minNights":7,"pct":10}]: đơn 7 đêm × 800.000 = 5.600.000 → giảm 10 % còn 5.040.000. [] → 5.600.000.
 - **Ảnh hưởng:** Báo giá Desk, web, cọc. Không cộng dồn với mã khách quay lại (`stackable`). **Đi kèm:** `return_guest_pct`, `stackable`, `short_stay_max_nights`
 - **Đội đề xuất:** [] – Bảng giá INV 01/11: không giảm theo số đêm.
@@ -744,7 +744,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** Danh sách ngày đặc biệt (hiện từ v1.0.5; v1.0.4 hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-104
 - **Ý nghĩa:** Danh sách ngày đặc biệt (lễ, Tết, Noel). Mỗi dòng có tên, ngày bắt đầu, ngày kết thúc (đêm cuối là ngày trước ngày kết thúc).
 - **Đơn vị:** Danh sách {name, from, to} – ngày dạng yyyy-mm-dd
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận danh sách tối đa 100 khoảng {name, from, to}: ngày có thật dạng yyyy-mm-dd; `to` sau `from` từ 1 đến 31 đêm (mùa dài hơn thì chia nhiều khoảng); `name` tối đa 100 ký tự. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** {"name":"Giỗ Tổ Hùng Vương 2027","from":"2027-04-16","to":"2027-04-17"} = chỉ đêm 16/4/2027.
 - **Ảnh hưởng:** Mức tăng ngày đặc biệt, ở tối thiểu 2 đêm (`min_stay`), không hoàn cọc khi hủy (`cancel_peak_no_refund`). **Đi kèm:** `special_uplift_pct`, `min_stay`, `cancel_peak_no_refund`
 - **Đội đề xuất:** Đêm 24/12/2026–01/01/2027; Tết đêm 05–10/02/2027; Giỗ Tổ đêm 16/4/2027; đêm 30/4 và 1/5/2027; đêm 1/9 và 2/9/2027. – Giữ danh sách dù mức tăng = 0 %, vì còn dùng cho ở tối thiểu và không hoàn cọc (BR-104).
@@ -756,7 +756,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** Kênh áp tăng giá ngày đặc biệt (hiện từ v1.0.5; v1.0.4 hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-104
 - **Ý nghĩa:** Mức tăng ngày đặc biệt áp cho kênh nào.
 - **Đơn vị:** Chữ: "all" = mọi kênh
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 chỉ kiểm là chữ: gõ sai (ví dụ "Direct") Desk vẫn lưu và mức tăng không áp, không báo. Từ v1.0.5 (V5-25) Desk chỉ nhận một trong "all", "direct", "agent", "ota". · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** "all": mọi kênh cùng tăng (nếu mức tăng > 0).
 - **Ảnh hưởng:** Báo giá Desk, đơn OTA. **Đi kèm:** `special_uplift_pct`
 - **Đội đề xuất:** all – Một mức giá mọi kênh.
@@ -804,7 +804,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** Kênh áp tăng giá cuối tuần (hiện từ v1.0.5; v1.0.4 hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-103
 - **Ý nghĩa:** Mức tăng cuối tuần áp cho kênh nào.
 - **Đơn vị:** Chữ: "all" = mọi kênh
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 chỉ kiểm là chữ: gõ sai (ví dụ "Direct") Desk vẫn lưu và mức tăng không áp, không báo. Từ v1.0.5 (V5-25) Desk chỉ nhận một trong "all", "direct", "agent", "ota". · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** "all": cả đơn Trực tiếp lẫn OTA đều cộng mức tăng (nếu có).
 - **Ảnh hưởng:** Báo giá Desk, đơn OTA để trống giá. **Đi kèm:** `weekend_uplift_pct`
 - **Đội đề xuất:** all – Một mức giá mọi kênh (ESC-043 C).
@@ -1084,7 +1084,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-313
 - **Ý nghĩa:** Khách thuê tháng trả phòng trước hạn hợp đồng mất bao nhiêu % ký quỹ.
 - **Đơn vị:** Danh sách {minDays, forfeitPct}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** [{"minDays":0,"forfeitPct":100}]: trả trước hạn → mất toàn bộ ký quỹ, không truy thu thêm.
 - **Ảnh hưởng:** Thanh lý hợp đồng. **Đi kèm:** `lease_terms`, `deposit_refund_working_days`
 - **Đội đề xuất:** [{"minDays":0,"forfeitPct":100}] – INV quyết ESC-045 câu 4 (01/11).
@@ -1132,7 +1132,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-201
 - **Ý nghĩa:** Bảng kỳ hạn thuê tháng: giảm giá và ký quỹ theo số tháng ký. Trong bảng còn có cột hoa hồng (không ghi ở đây).
 - **Đơn vị:** Danh sách theo kỳ hạn {months, discountPct, depositFactorVn, depositFactorForeign, billingCycleMonths, …}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận danh sách 1–12 kỳ: `months` số nguyên 1–60, không trùng; `discountPct` 0–100, tối đa 2 chữ số thập phân. Các trường khác của kỳ Desk chưa kiểm. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Studio Garden 9.000.000, ký 4–6 tháng giảm 3 % → 8.730.000/tháng.
 - **Ảnh hưởng:** Khối "So sánh: thuê 1 tháng" trong báo giá Desk (bản hiện tại chỉ đọc mức 1 tháng). **Đi kèm:** `long_stay_compare_from_nights`, `rounding.monthly_rent`, `foreigner_surcharge_pct`, `early_termination`
 - **Đội đề xuất:** Theo bảng giá 01/11: 1–3 tháng 0 %; 4–6 tháng 3 %; 7–9 tháng 5 %; 10–23 tháng 7 %; từ 24 tháng 10 %. Ký quỹ 1 tháng (24 tháng: 2). Hoa hồng: theo bảng nội bộ của chủ đầu tư. – Bảng giá INV 01/11, ESC-045 câu 2. Desk hiện còn cấu trúc 5 mốc cũ; đội đổi cấu trúc ở bản sau (H7).
@@ -1264,7 +1264,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-205
 - **Ý nghĩa:** Mức điện, nước ước tính mỗi người mỗi tháng (dùng để chào giá thuê tháng).
 - **Đơn vị:** {vn, foreign}: kWh/người; m³/người (×10)
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Khách VN 120 kWh, 3,5 m³ mỗi người; khách nước ngoài 170 kWh, 4 m³.
 - **Ảnh hưởng:** Báo giá thuê tháng. **Đi kèm:** `electricity_price`, `water_price`
 - **Đội đề xuất:** Như ví dụ. – BR-205. [GIẢ ĐỊNH]
@@ -1290,7 +1290,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-425
 - **Ý nghĩa:** Lịch nhắc lễ tân về khách sắp trả phòng và quá giờ trả.
 - **Đơn vị:** Danh sách giờ
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận {before, overdueWithSameDayArrival, overdueOtherwise}: `before` tối đa 6 mốc HH:mm hoặc HH:mm-1d, không trùng; hai giờ quá hạn dạng HH:mm. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Trước: 20:00 hôm trước, 09:00, 11:00. Quá giờ: 12:00 nếu căn có khách đến hôm nay, 12:31 nếu không.
 - **Ảnh hưởng:** Mục Cần chú ý trên Desk. **Đi kèm:** `checkout_time`, `late_grace_until`
 - **Đội đề xuất:** {"before":["20:00-1d","09:00","11:00"],"overdueWithSameDayArrival":"12:00","overdueOtherwise":"12:31"} – BR-425. [GIẢ ĐỊNH]
@@ -1302,7 +1302,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** Bậc phụ thu nhận phòng sớm (hiện từ v1.0.5; v1.0.4 hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-411
 - **Ý nghĩa:** Bậc phụ thu nhận phòng sớm theo giờ (tính % giá một đêm).
 - **Đơn vị:** Danh sách {from, to: giờ hh:mm, pct: %}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận tối đa 10 bậc {from, to, pct}: giờ dạng HH:mm, `from` trước `to`, các bậc không chồng nhau; `pct` 0–100, tối đa 2 chữ số thập phân. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Studio 800.000: nhận 10:30 → 30 % = 240.000; 08:00 → 50 % = 400.000; 11:00 → 0 đ.
 - **Ảnh hưởng:** Màn nhận phòng, hóa đơn. **Đi kèm:** `checkin_time`, `rounding.fee`, `ota_surcharge_base`
 - **Đội đề xuất:** [{"from":"10:00","to":"11:00","pct":30},{"from":"06:00","to":"10:00","pct":50}] – Bảng giá INV 01/11: nhận sớm miễn phí từ 11:00 (BR-411).
@@ -1314,7 +1314,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-428
 - **Ý nghĩa:** Khách ngắn ngày trả phòng sớm được hoàn bao nhiêu.
 - **Đơn vị:** {minNoticeDays: số ngày báo trước, refundPct: %}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận {minNoticeDays, refundPct}: `minNoticeDays` số nguyên 0–365; `refundPct` 0–100, tối đa 2 chữ số thập phân. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Báo trước ≥ 1 ngày: 7 đêm 5.600.000, ở 3 đêm, bỏ 4 đêm 3.200.000 → hoàn 1.600.000. Báo trong ngày rời → 0.
 - **Ảnh hưởng:** Nút Trả sớm, yêu cầu hoàn. **Đi kèm:** –
 - **Đội đề xuất:** {"minNoticeDays":1,"refundPct":50} – INV quyết ESC-006 (BR-428).
@@ -1350,7 +1350,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-811
 - **Ý nghĩa:** Giờ quầy có người trực.
 - **Đơn vị:** Khoảng giờ [từ, đến)
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** ["07:00","22:00"]: yêu cầu gửi 23:00 tính từ 07:00 sáng sau.
 - **Ảnh hưởng:** Hạn trả lời yêu cầu web và trang khách, chữ hứa trên web. **Đi kèm:** `guest_request_response_minutes`, `web_request_response_minutes`
 - **Đội đề xuất:** ["07:00","22:00"] – BR-811. [GIẢ ĐỊNH]
@@ -1374,7 +1374,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** Bậc phụ thu trả phòng muộn (hiện từ v1.0.5; v1.0.4 hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-412
 - **Ý nghĩa:** Bậc phụ thu trả phòng muộn theo giờ (tính % giá một đêm).
 - **Đơn vị:** Danh sách {after, until: giờ, pct: %}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận tối đa 10 bậc {after, until, pct}: giờ dạng HH:mm, `after` trước `until` (giờ trước mốc đổi ngày nghiệp vụ tính là sáng hôm sau), các bậc không chồng nhau; `pct` 0–100, tối đa 2 chữ số thập phân. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Studio 800.000: trả 14:00 → 30 % = 240.000; 17:00 → 50 % = 400.000; sau 18:00 → gia hạn 1 đêm.
 - **Ảnh hưởng:** Màn trả phòng, hóa đơn. **Đi kèm:** `checkout_time`, `late_grace_until`, `rounding.fee`
 - **Đội đề xuất:** [{"after":"12:00","until":"15:00","pct":30},{"after":"15:00","until":"18:00","pct":50}] – INV-007 (BR-412).
@@ -1434,7 +1434,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-415
 - **Ý nghĩa:** Phụ thu nhận sớm, trả muộn của đơn OTA tính trên giá nào.
 - **Đơn vị:** Chữ (lựa chọn hệ thống)
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk chỉ kiểm là chữ (tối đa 500 ký tự), chưa kiểm có đúng một giá trị trong danh sách: gõ sai chữ Desk vẫn lưu. Chép đúng chữ ở mục Ví dụ. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** "direct_current_rate": khách Booking giá 820.000, giá Trực tiếp đêm đó 800.000 → phụ thu 30 % = 240.000.
 - **Ảnh hưởng:** Phụ thu đơn OTA. **Đi kèm:** `early_checkin_tiers`, `late_checkout_tiers`
 - **Đội đề xuất:** direct_current_rate – INV-007 (BR-415).
@@ -1458,7 +1458,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-429
 - **Ý nghĩa:** Đổi căn theo yêu cầu khách thì tính giá căn mới hay giữ giá cũ.
 - **Đơn vị:** Chữ trong ngoặc {guestRequest: …}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** {"guestRequest": "new_room_rate"}
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** {"guestRequest": "new_room_rate"}
 - **Ví dụ:** {"guestRequest":"new_room_rate"}: khách xin chuyển Studio 800.000 lên Premium 1.100.000 → các đêm còn lại tính 1.100.000. Do OTTIMO đổi → giữ giá cũ.
 - **Ảnh hưởng:** Màn đổi căn, folio. **Đi kèm:** –
 - **Đội đề xuất:** {"guestRequest":"new_room_rate"} – INV-019 (BR-429).
@@ -1484,7 +1484,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-309
 - **Ý nghĩa:** Hoàn cọc khi khách Trực tiếp/CTV hủy, theo số ngày báo trước.
 - **Đơn vị:** Danh sách {minDays, refundPct}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận 1–10 bậc {minDays, refundPct}: `minDays` số nguyên 0–365, không trùng; `refundPct` 0–100, tối đa 2 chữ số thập phân. Không nhận `[]`; không hoàn hẳn thì ghi `[{"minDays":0,"refundPct":0}]`. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Cọc 500.000: hủy trước ≥ 7 ngày → hoàn 500.000; 3–6 ngày → 250.000; dưới 3 ngày → 0.
 - **Ảnh hưởng:** Nút hủy đơn, yêu cầu hoàn, chính sách trên mẫu tin. **Đi kèm:** `cancel_peak_no_refund`, `reschedule_max_times`
 - **Đội đề xuất:** ≥ 7 ngày 100 %; 3–6 ngày 50 %; < 3 ngày 0 % – INV quyết ESC-006 (BR-309).
@@ -1544,7 +1544,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** SEC-BE-28
 - **Ý nghĩa:** Mỗi sale/CTV được mở tối đa bao nhiêu giữ chỗ cùng lúc.
 - **Đơn vị:** {sales_staff: số, collaborator: số}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** {"sales_staff": 5, "collaborator": 3}
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận {collaborator, sales_staff}, đủ cả hai vai: số nguyên 0–50 (0 = vai đó không được giữ chỗ). · **Mặc định:** {"sales_staff": 5, "collaborator": 3}
 - **Ví dụ:** CTV 3: CTV đang có 3 giữ chỗ chưa cọc → không tạo được giữ chỗ thứ 4.
 - **Ảnh hưởng:** Giữ chỗ trên Desk. **Đi kèm:** –
 - **Đội đề xuất:** Sale 5, CTV 3; lễ tân trở lên không giới hạn. – INV-017 (SEC BE-28).
@@ -1618,7 +1618,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-512
 - **Ý nghĩa:** Bảng giá đền bù đồ hư/mất.
 - **Đơn vị:** Danh sách {code, name, priceVnd}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm dạng khi lưu: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc tính (có khi lỗi cả màn). Từ v1.0.5 (V5-25) Desk chỉ nhận danh sách tối đa 100 món {code, name, priceVnd}: `code` chữ thường không dấu, số, gạch dưới (1–40 ký tự), không trùng; `name` không rỗng, tối đa 100 ký tự, không trùng; `priceVnd` số nguyên 1.000–20.000.000. Món đắt hơn hay ngoài bảng: quản lý định giá, có ảnh (BR-512). `[]` = chưa có bảng. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Khăn tắm 150.000; ly 50.000; remote 200.000.
 - **Ảnh hưởng:** Folio, bill. **Đi kèm:** –
 - **Đội đề xuất:** Như ví dụ (tạm). – BR-512 – chờ chủ đầu tư gửi bảng đền bù (ESC-008). [GIẢ ĐỊNH]
@@ -1692,7 +1692,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-524
 - **Ý nghĩa:** Loại pháp nhân thu tiền (doanh nghiệp hay cá nhân).
 - **Đơn vị:** Chữ: enterprise / individual
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk chỉ kiểm là chữ (tối đa 500 ký tự), chưa kiểm có đúng một giá trị trong danh sách: gõ sai chữ Desk vẫn lưu. Chép đúng chữ ở mục Ví dụ. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** "enterprise": xuất hóa đơn GTGT của công ty.
 - **Ảnh hưởng:** Hóa đơn. **Đi kèm:** `vat_rate`
 - **Đội đề xuất:** enterprise – INV-TT (BR-524) – cần kế toán xác nhận [PL].
@@ -2103,7 +2103,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-603
 - **Ý nghĩa:** Cách tính hạn khai khách nước ngoài.
 - **Đơn vị:** Chữ: hours_only / earlier_of
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk chỉ kiểm là chữ (tối đa 500 ký tự), chưa kiểm có đúng một giá trị trong danh sách: gõ sai chữ Desk vẫn lưu. Chép đúng chữ ở mục Ví dụ. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** "hours_only": chỉ tính theo số giờ ở trên.
 - **Ảnh hưởng:** Hạn khai báo. **Đi kèm:** `registration_deadline_foreigner_hours`
 - **Đội đề xuất:** hours_only – BR-603; "earlier_of" chỉ bật nếu luật sư yêu cầu.
@@ -2115,7 +2115,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-602
 - **Ý nghĩa:** Hạn khai báo lưu trú khách Việt Nam.
 - **Đơn vị:** {before, lateArrivalFrom, lateArrivalDeadlineNextDay}: giờ
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Khách đến 15:00 → khai trước 23:00 cùng ngày; khách đến 23:30 → khai trước 08:00 hôm sau.
 - **Ảnh hưởng:** Cần chú ý, việc khai báo. **Đi kèm:** `registration_reminder_before_minutes`
 - **Đội đề xuất:** Như ví dụ. – BR-602 – cần luật sư rà (ESC-001) [PL].
@@ -2127,7 +2127,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-611
 - **Ý nghĩa:** Giờ gửi bản tổng hợp việc khai báo còn thiếu.
 - **Đơn vị:** Danh sách giờ
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** ["22:00","07:00"].
 - **Ảnh hưởng:** Thông báo người trực. **Đi kèm:** –
 - **Đội đề xuất:** ["22:00","07:00"] – INV-010 (BR-611).
@@ -2225,7 +2225,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-812
 - **Ý nghĩa:** Bộ đồ người thêm phải sẵn trong căn trước mốc nào.
 - **Đơn vị:** Chữ (lựa chọn)
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk chỉ kiểm là chữ (tối đa 500 ký tự), chưa kiểm có đúng một giá trị trong danh sách: gõ sai chữ Desk vẫn lưu. Chép đúng chữ ở mục Ví dụ. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** "booking_checkin_time": trước giờ nhận phòng của đơn.
 - **Ảnh hưởng:** Việc buồng phòng. **Đi kèm:** `extra_guest_kit_items`, `extra_guest_kit_midstay_due_minutes`
 - **Đội đề xuất:** booking_checkin_time – BR-812.
@@ -2237,7 +2237,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-812
 - **Ý nghĩa:** Bộ đồ cho mỗi người vượt định mức.
 - **Đơn vị:** Danh sách món
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Mỗi người thêm: 1 mền, 1 khăn tắm, 1 khăn mặt, 1 bàn chải, 1 bộ vệ sinh cá nhân.
 - **Ảnh hưởng:** Việc buồng phòng. **Đi kèm:** `extra_guest_kit_due`
 - **Đội đề xuất:** Như ví dụ. – INV quyết ESC-014.
@@ -2285,7 +2285,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-807
 - **Ý nghĩa:** Khung giờ dọn căn thuê tháng.
 - **Đơn vị:** Khoảng giờ [từ, đến)
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** ["09:00","11:00"].
 - **Ảnh hưởng:** Lịch buồng phòng. **Đi kèm:** –
 - **Đội đề xuất:** ["09:00","11:00"] – BR-807 (chuẩn ngành).
@@ -2381,7 +2381,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-809
 - **Ý nghĩa:** Mức độ phiếu nào bắt buộc có ảnh khi báo xong.
 - **Đơn vị:** Danh sách mức
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** ["high", "medium"]
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** ["high", "medium"]
 - **Ví dụ:** ["high","medium"]: phiếu cao và trung bình phải có ảnh.
 - **Ảnh hưởng:** Phiếu bảo trì. **Đi kèm:** `wo_sla`
 - **Đội đề xuất:** ["high","medium"] – BR-809.
@@ -2393,7 +2393,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-809
 - **Ý nghĩa:** Hạn xử lý phiếu bảo trì theo mức độ.
 - **Đơn vị:** {high, medium, low}: phút/giờ
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk **chưa** kiểm dạng khi lưu, kể cả v1.0.5: gõ sai dạng Desk vẫn lưu, lỗi chỉ hiện lúc dùng. Sửa thì chọn **Hiệu lực từ** là ngày mai và nhắn đội kiểm trong ngày (Quy tắc chung bước 10). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** Cao: nhận trong 15 phút, có phương án trong 2 giờ; trung bình: xong trong 24 giờ; thấp: 72 giờ.
 - **Ảnh hưởng:** Phiếu bảo trì, Cần chú ý. **Đi kèm:** `wo_done_photo_required_severities`
 - **Đội đề xuất:** Như ví dụ. – BR-809. [GIẢ ĐỊNH]
@@ -2469,7 +2469,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Tên trên Desk:** (chưa có tên tiếng Việt – Desk hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-403
 - **Ý nghĩa:** Hãng khóa cửa.
 - **Đơn vị:** Chữ
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Giới hạn:** Không có giới hạn số. Desk chỉ kiểm là chữ (tối đa 500 ký tự), chưa kiểm có đúng một giá trị trong danh sách: gõ sai chữ Desk vẫn lưu. Chép đúng chữ ở mục Ví dụ. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
 - **Ví dụ:** "TTLock".
 - **Ảnh hưởng:** Tạo mã cửa (khi có kết nối). **Đi kèm:** `door_code_min_digits`
 - **Đội đề xuất:** TTLock – INV-TT.
@@ -2596,7 +2596,7 @@ Hai khóa đã có trên Desk; v1.0.5 chỉ đổi cách Desk kiểm khi lưu. G
 
 - **`weekend_nights`:** Desk nhận dạng mã thứ ["FRI","SAT"] (dạng đang chạy) và từ chối số 1–7.
 - **`min_stay`** – Desk chỉ nhận danh sách luật. Mỗi luật:
-  - `nights`: số nguyên từ 1 đến 7, và không quá **Đơn ngắn ngày dài nhất** (`short_stay_max_nights`, đang 29). 1 đêm = những ngày đó không có tối thiểu. Muốn trên 7 đêm: hỏi đội;
+  - `nights`: số nguyên từ 1 đến 7, và không quá **Đơn ngắn ngày dài nhất** (`short_stay_max_nights`, đề xuất 29). 1 đêm = những ngày đó không có tối thiểu. Muốn trên 7 đêm: hỏi đội;
   - `channels`: "all" (mọi kênh), hoặc danh sách trong "direct" (Trực tiếp), "agent" (CTV/môi giới), "ota". Không ghi "internal": kênh Nội bộ không áp ở tối thiểu (BR-113). Ở tối thiểu trên Booking, Agoda, Airbnb vẫn cài bằng tay trên trang của kênh;
   - `arrivalWeekdays`: danh sách mã thứ, mỗi thứ một lần, và/hoặc `"arrivalOnSpecialDates": true` (ngày trong `special_dates`). Mỗi luật phải áp vào ít nhất một ngày;
   - không thêm khóa nào khác. Gõ sai tên khóa (ví dụ thiếu chữ "s") thì Desk từ chối, không lưu luật rỗng;
@@ -2607,6 +2607,15 @@ Hai khóa đã có trên Desk; v1.0.5 chỉ đổi cách Desk kiểm khi lưu. G
 - Đổi `short_stay_max_nights` xuống thấp hơn số đêm lớn nhất trong `min_stay`: Desk từ chối.
 - Nếu giá trị hỏng đã có sẵn trong dữ liệu, từ v1.0.5 Desk bỏ qua luật hỏng và vẫn báo giá, tạo đơn được; đội nhận cảnh báo để sửa.
 - Luật chi tiết và ca kiểm: `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 8.4 (`weekend_nights`) và mục 12 (`min_stay`).
+
+### Sửa ở v1.0.5: Desk kiểm dạng khi lưu thêm 12 khóa có cấu trúc (V5-25, PR #96 và PR `damage_catalog`)
+
+- Các khóa: `special_dates`, `los_discount`, `cancel_policy_direct`, `early_checkin_tiers`, `late_checkout_tiers`, `early_departure_refund`, `checkout_reminders`, `max_open_holds_per_user`, `lease_terms`, `weekend_uplift_channels`, `special_uplift_channels`, `damage_catalog`. Dạng nhận ghi ở dòng **Giới hạn** của từng khóa.
+- v1.0.4 chưa kiểm các khóa này khi lưu. Tới khi v1.0.5 lên, sửa ô danh sách theo Quy tắc chung bước 10 (Hiệu lực từ ngày mai, nhắn đội kiểm trong ngày, sai thì Hủy lịch).
+- Giá trị đang chạy đều hợp lệ theo dạng mới. Trước khi lên v1.0.5, đội chạy một câu kiểm chỉ đọc trên production; dòng nào sai dạng thì anh/chị sửa trên Desk trước.
+- Giá trị hỏng đã có sẵn trong dữ liệu: Desk bỏ qua phần hỏng ở báo giá, Hôm nay và bảng đền bù; Desk chặn kèm lời báo rõ ở thao tác tính tiền hoàn hay phụ thu (hủy, trả sớm, nhận sớm, trả muộn) và ở giới hạn giữ chỗ của sale, CTV. Quản lý sửa tham số rồi làm lại.
+- Mười khóa danh sách khác (ví dụ `wo_sla`, `room_move_pricing`, `utility_estimate`) vẫn **chưa** được kiểm ở v1.0.5: dòng **Giới hạn** của từng khóa ghi rõ.
+- Luật chi tiết: `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 13.
 
 ### Phí dọn theo lượt cho khách thuê tháng (H3, V5-31)
 
@@ -2657,3 +2666,4 @@ Hai khóa đã có trên Desk; v1.0.5 chỉ đổi cách Desk kiểm khi lưu. G
 | 06/11/2026 | 1.1 | DOM | QC Round 4 ĐK-6, V5-1A: `night_from_month_divisor` đổi nhãn thành [Giá]. Khóa vẫn có tác dụng ở đường API (tạo căn, đổi giá thiếu giá đêm, công cụ nhập danh mục – BUG-R4-057); giữ 12, không sửa; gỡ ở v1.0.5. Ghi chú v1.0.5 ở `adhoc_cleaning_fee`, `short_stay_commission_pct`, `foc_alert_count_per_approver` (BR-438). Thêm mục "Sắp có ở v1.0.5" (H2, H3; không số hoa hồng; ESC-051). Bản `.json` sửa cùng mục `night_from_month_divisor` và ba ghi chú. |
 | 06/11/2026 | 1.2 | DOM | Trả lời UXD bảng chữ v1.0.5 (`rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 8). Tên tiếng Việt cho 29 khóa theo `params.k.*` của UXD (V5-21), ghi "hiện từ v1.0.5"; `c3_stepup_minutes` đổi tên, nghĩa gồm cả xem số tài khoản nhận hoàn. `weekend_nights`: dạng đúng là mã thứ ["FRI","SAT"], không dùng số 1–7; chỉ ảnh hưởng mức tăng cuối tuần, không ảnh hưởng ở tối thiểu; không sửa tới khi sửa BUG-R5-001 (sửa cả mục `min_stay` và đoạn "các cặp phải đổi cùng nhau"). `hold_expiry_reminder_hours`: 0 = không nhắc. `rounding.night_rate`: bỏ "phụ thu" khỏi nghĩa (phụ thu theo `rounding.fee`). Bản `.json` sửa cùng các mục trên. |
 | 06/11/2026 | 1.3 | DOM | Round 5 – Phản hồi & sửa (QA BUG-R5-001, BUG-R5-003; BA `a9927c78`). Lời dặn chung, dùng đúng câu BA ở sổ tay 1.4, 5.6, hướng dẫn `01` 9.2, 15.6, sổ vận hành 4.1: tới khi v1.0.5 lên, không bấm Lưu thay đổi ở `weekend_nights` (Đêm tính là cuối tuần) và `min_stay` (Ở tối thiểu); buộc phải đổi thì nhắn đội trước, Hiệu lực từ là ngày mai để còn Hủy lịch; lỡ lưu thì báo đội ngay, coi là P0. Sửa: Quy tắc chung bước 3, thêm bước 10 (ô JSON) và khung cảnh báo; đoạn "Các cặp phải đổi cùng nhau"; mục `min_stay` (bỏ câu sai "Desk kiểm đúng dạng khi lưu", thêm dạng đúng, ví dụ sai, Lưu ý khi sửa); mục `weekend_nights` (Lưu ý khi sửa, bỏ "Hiệu lực từ: hôm nay"); mục "Sắp có ở v1.0.5" thêm phần V5-25 (dạng lưu `min_stay` theo `rules-v1.0.5.md` mục 12). Bản `.json` sửa cùng `min_stay`, `weekend_nights`. |
+| 06/11/2026 | 1.4 | DOM | Review PR #96 (V5-25) và `damage_catalog` (ORC 06/11). Dòng **Giới hạn**: 12 khóa ghi "v1.0.4 chưa kiểm, từ v1.0.5 chỉ nhận …" (`special_dates`, `los_discount`, `cancel_policy_direct`, `early_checkin_tiers`, `late_checkout_tiers`, `early_departure_refund`, `checkout_reminders`, `max_open_holds_per_user`, `lease_terms`, hai khóa `*_uplift_channels`, `damage_catalog`); 10 khóa danh sách ghi "chưa kiểm, kể cả v1.0.5"; 6 khóa chữ ghi "chỉ kiểm là chữ". Mục Sắp có ở v1.0.5 thêm phần 12 khóa. `min_stay`: `short_stay_max_nights` "đề xuất 29" thay "đang 29" (production còn thấp hơn tới khi làm B5). Luật: `rules-v1.0.5.md` mục 13. Không đổi giá trị đề xuất nào. |
