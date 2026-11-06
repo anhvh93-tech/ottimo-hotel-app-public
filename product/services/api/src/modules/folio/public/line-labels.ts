@@ -47,7 +47,15 @@ export interface LabelContext {
   reasonOf?: (line: LabelSource) => string | null;
   /** Name of a damage catalogue item (`damage.<code>`). */
   catalogName?: (chargeCode: string) => string | null;
+  /**
+   * The bill the guest reads (getBill – print, PDF, sending): FOC/discount reasons in GUEST_HIDDEN_REASONS are left
+   * out, the line reads only "Miễn phí" / the discount (US-177 AC10). The Desk keeps every reason.
+   */
+  guestFacing?: boolean;
 }
+
+/** Reasons never printed for the guest (US-177 AC10, UXD copy v1.0.5 r1.5 9.5): "Ghi nhầm" is internal. */
+export const GUEST_HIDDEN_REASONS: readonly string[] = ['entered_in_error'];
 
 const qtyOf = (l: LabelSource): number => {
   const n = Number(l.quantity);
@@ -140,11 +148,20 @@ function rawLabel(l: LabelSource, ctx: LabelContext): LineLabel {
     case 'no_show_fee':
       return label('bill.line.no_show_fee', given);
     case 'foc':
-    case 'discount':
-      return label(l.category === 'foc' ? 'bill.line.foc' : 'bill.line.discount', {
+    case 'discount': {
+      const params: Record<string, string | number | null> = {
         reason: ctx.reasonOf?.(l) ?? null,
         ...given,
-      });
+      };
+      if (
+        ctx.guestFacing &&
+        typeof params.reason === 'string' &&
+        GUEST_HIDDEN_REASONS.includes(params.reason)
+      ) {
+        params.reason = null;
+      }
+      return label(l.category === 'foc' ? 'bill.line.foc' : 'bill.line.discount', params);
+    }
     case 'laundry':
       return label('bill.line.laundry', { ...given, qty: qtyOf(l) });
     case 'cleaning':
