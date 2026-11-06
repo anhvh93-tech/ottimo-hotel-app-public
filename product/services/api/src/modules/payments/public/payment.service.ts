@@ -19,7 +19,11 @@ import type { Tx } from '../../../db/database';
 import type { PaymentMethod, PaymentType } from '../../../db/schema/folio';
 import { type FieldError, problem } from '../../../shared/problem';
 import { localDate } from '../../../shared/time';
-import { assertNoCardNumber, optionalText } from '../../../shared/validation';
+import {
+  assertNoCardNumber,
+  assertNotCardNumberReference,
+  optionalText,
+} from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import {
   FolioService,
@@ -106,6 +110,11 @@ export interface PaymentCreateInput {
   note?: string | null;
   billingPeriodId?: string | null;
   attachmentId?: string | null;
+  /**
+   * 0.3.13 bổ sung 1 (5B-1, PR-B3 stores it and checks duplicates): optional. Its shape and V-09 reference rule are
+   * checked here for every PaymentCreate path already (C0313-25); the request schemas take it with PR-B3.
+   */
+  bankReference?: string | null;
 }
 
 export interface PaymentActor {
@@ -143,6 +152,8 @@ export function reconciliationFor(method: PaymentMethod): 'pending' | 'not_requi
 
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** OpenAPI `PaymentCreate.bankReference` pattern (same as `executeRefund`). */
+const BANK_REFERENCE = /^[A-Za-z0-9./_-]{1,64}$/;
 /** R2 receipt types (EP03-05 2.2): security_deposit / deposit_deduction are long-stay (R3); refund only via 2.6. */
 const R2_TYPES = ['deposit', 'charge'] as const;
 /** R2 methods (vnpay / momo – R3). */
@@ -216,6 +227,14 @@ export function checkPaymentShape(
   }
   if (raw.attachmentId !== undefined && raw.attachmentId !== null && !UUID.test(raw.attachmentId)) {
     errors.push({ field: f('attachmentId'), code: 'NOT_IN_LIST' });
+  }
+  // C0313-25 (SEC-responses 4.1 (a)): the reference card rule – a whole card number → CARD_NUMBER_DETECTED (thrown),
+  // a bank code with a long digit run is accepted; never the free-text V-09 rule.
+  const reference = typeof raw.bankReference === 'string' ? raw.bankReference.trim() || null : null;
+  if (reference !== null && !BANK_REFERENCE.test(reference)) {
+    errors.push({ field: f('bankReference'), code: 'VALIDATION_FAILED' });
+  } else {
+    assertNotCardNumberReference(f('bankReference'), reference);
   }
   if (errors.length) return { errors, receivedAt: null, posAuthCode: null, note: null };
   const note = optionalText(f('note'), raw.note, 300);

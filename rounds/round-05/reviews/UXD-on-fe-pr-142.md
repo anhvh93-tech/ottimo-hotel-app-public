@@ -119,3 +119,128 @@
 ## 6. Dòng decision-log đề xuất (ORC ghi)
 
 `| 2026-11-07 | 5 | **UXD – FE PR #142 (V5-11 Desk) @ 52a14957: DUYỆT CÓ ĐIỀU KIỆN** (rounds/round-05/reviews/UXD-on-fe-pr-142.md). Đạt: 4 khóa 9.13 đúng nguyên văn; thứ tự 409 useCheckout → minNewDepartureDate → câu chung ở cả tính thử và ghi; khoảng ngày rỗng trong 00:00–05:59 hiện use_checkout, không gọi B16; fee_business_date chỉ trong W và khi phí > 0; "Trả phòng ngay" ở bước ③ chỉ theo allowedActions; 390/1440 không cuộn ngang, đúng token DS. UXD quyết: ngày đặt sẵn trong W là ngày lịch (theo hợp đồng); giữ tính thử tự chạy sau "Dùng {date}" (chỉ đọc). Điều kiện gộp: FB-R5-UXD-FE-142-01 (Major) – hộp mở qua 00:00 kẹt "Đang tính thử…" ở bước ② và ra err.date_range thay err.min_date + "Dùng {date}" ở bước ①; sửa bằng dùng mức sàn giờ đêm của Desk cho câu 9.13 và về bước ① khi ngày thành lỗi. 142-02 Suggestion v1.0.6 | UXD | Chữ 9.13 phải hiện ở ca thật (hộp mở qua nửa đêm), không chỉ khi máy chủ trả 409 |`
+
+---
+
+## 7. Re-review delta `52a14957..710209ec` (07/11/2026, bước Review)
+
+- Đối tượng (chỉ đọc, không đẩy lên nhánh PR): **#142** @ **`710209ec`** (draft).
+  - Delta của PR: `3927e137` (UXD-01, DOM-01), `7baac854` (ARC-03, ARC-01), hai merge `main` (`877c9dde`, `710209ec`).
+  - Tệp của PR đổi trong delta: `pages/stay/EarlyDepartureDialog.tsx`, `app/dates.ts`, `__tests__/v5-11-early-departure-night-fea.test.tsx`.
+  - Trả lời của FE-4: `rounds/round-05/responses/FE-responses.md` (`6d5e02ec`).
+- Cách kiểm:
+  - worktree tách rời ở `710209ec` trong scratchpad, cài gói offline, build `@ottimo/contracts`;
+  - chạy **nguyên văn** tệp repro 2 ca của UXD (giữ ngoài repo) cùng tệp test V5-11 của PR: 18/18 đạt (repro 2/2, PR 16/16). Cả bộ admin-web: 89 tệp, 1011 ca đạt;
+  - 4 đột biến chạy tay, mỗi lần trả lại tệp gốc:
+    - bỏ đường về bước ① → 2 ca đỏ (repro 1, ca R2 của FE);
+    - bỏ kiểm lại đồng hồ khi focus → 3 ca đỏ (repro 2, ca R1, ca repro của FE);
+    - bỏ đồng hồ 00:00 → 1 ca đỏ (ca "để yên qua 00:00");
+    - mức sàn chỉ lấy từ máy chủ → 7 ca đỏ;
+  - Vite + mock MSW, Chromium qua Playwright, khóa đồng hồ trang (`page.clock`), múi giờ Asia/Ho_Chi_Minh, đăng nhập qa.fd (mật khẩu đọc từ `seed.ts`, không in ra). Đơn căn 101 của seed (05/11 → 09/11), ngày nghiệp vụ 07/11;
+  - chụp ở 1440 px và 390 px. Ảnh có tên khách giả của mock, để ngoài repo (`scratchpad/uxd-shots/142d/` của phiên UXD).
+- Các ca đã chạy trên trình duyệt:
+  - **B1.** Bước ② mở lúc 23:59, đã tick "Đã báo khách…", để yên. Đồng hồ của hộp chạy lúc 00:00.
+  - **B2.** Bước ② mở lúc 23:58. Đồng hồ nhảy sang 00:05 mà hẹn giờ không chạy (như máy ngủ), rồi bấm vào chữ "Đã báo khách…".
+  - **B3.** Như B2, nhưng dùng Tab tới ô tick rồi bấm Space.
+  - **C.** Bước ① để yên qua 00:00, con trỏ đang ở ô Giờ; sau đó bấm Esc.
+  - **G.** Bước ② với ngày 08/11 (vẫn hợp lệ sau 00:00), đã tick, qua 00:00.
+  - **T.** Thứ tự Tab sau khi về bước ①; đối chứng: Esc lúc 23:59 khi chưa sửa gì.
+
+### 7.0 Kết luận
+
+**#142 @ `710209ec`: DUYỆT.**
+
+- **FB-R5-UXD-FE-142-01: Closed.** Điều kiện gộp của UXD đã hết. Thứ tự gộp vẫn theo ARC/DOM (sau BE #114).
+- FB-R5-UXD-FE-142-02: nâng **Suggestion → Minor**, vẫn v1.0.6, không chặn gộp (lý do ở 7.4).
+- FB-R5-UXD-FE-142-03 **mới, Minor**, không chặn gộp.
+- **Không có ESC.**
+
+### 7.1 Đối chiếu từng mục
+
+| Mục | Kết quả | Bằng chứng |
+|---|---|---|
+| 142-01 (a): bước ② không còn kẹt | **Đạt** | B1 (1440, 390): lúc 00:00 hộp tự về bước ①, bỏ tick, focus ô "Ngày rời mới" (`aria-invalid="true"`), không còn "Đang tính thử…". B2, B3: hẹn giờ lỡ thì cú bấm hoặc Tab vào ô tick cũng đưa về bước ①, vì Desk kiểm lại đồng hồ khi focus. Repro (1) đạt. |
+| 142-01 (b): bước ① ra câu 9.13 kèm nút | **Đạt** | B1, C: dưới ô là "Đang sau nửa đêm nên đêm qua là đêm khách đã ở. Ngày rời mới sớm nhất là 08/11/2026." và nút "Dùng 08/11/2026". Không còn `err.date_range`. Gõ quá ngày cuối vẫn ra câu khoảng ngày (test FE). Repro (2) đạt. |
+| Mức sàn của Desk | **Đạt** | `nightFloor = serverMin ?? (night ? estimate : null)`, chỉ áp khi mức sàn quyết định ngày tối thiểu. `{date}` = `date(minDate)`, cùng ngày với nút. Đúng đề xuất (1) của thẻ 01; `estimate` = max(ngày nghiệp vụ, ngày lịch) theo ARC-03. |
+| "Dùng {date}" | **Đạt** | B1: bấm thì ô = 08/11, focus ở lại ô, tính thử tự chạy ("Bỏ 1 đêm: 08/11"). Lễ tân vẫn tự bấm "Xem trước số tiền". Bước ② mới: ô tick trống, số mới (hoàn 334.000 đ, phí 333.000 đ, kèm "Đang sau nửa đêm nên phí ghi vào ngày nghiệp vụ 07/11/2026."). |
+| Tự về bước ① lúc 00:00 | **Chấp nhận** | Xem 7.2. |
+| Focus và thông báo | **Đạt** | Xem 7.3. |
+| Ngày vẫn hợp lệ sau 00:00 (G) | **Đạt** | Hộp ở lại bước ②, giữ tick, số không đổi. Chỉ thêm dòng `fee_business_date` dưới dòng phí. Đúng: khách đã nghe đúng số; dòng mới là ghi sổ nội bộ. |
+| Chữ ngoài `gen_strings.py` | **Không có** | Delta chỉ dùng lại `err.min_date` và `use_min_date`. Cả PR không đổi gì trong `product/design/` hay `product/packages/` so với gốc tách từ `main`. Không có chữ viết cứng trong JSX. |
+| Thương hiệu | **Đạt** | Không thêm CSS, màu hay lớp mới. Ảnh B1, C: nền Ivory, tiêu đề Lora, nội dung Be Vietnam Pro, mã đơn JetBrains Mono, câu lỗi dùng màu `danger` của DS. 390 px và 1440 px không cuộn ngang (`scrollWidth` = chiều rộng cửa sổ). |
+
+### 7.2 Tự về bước ① lúc 00:00: chấp nhận
+
+- **Lý do đúng.** Số ở bước ② tính cho ngày rời 07/11, tức bỏ cả đêm 07/11 mà khách đã ở. Sau 00:00 máy chủ sẽ trả 409 cho đúng các số đó. Để lễ tân đọc tiếp số cũ cho khách còn tệ hơn là đổi bước.
+- **Cùng một cách hiện.** 9.13 đã định cho lần ghi: "về bước 1 như 412, focus ô". Nay Desk tự phát hiện trước thì cũng hiện đúng như vậy. Lễ tân chỉ gặp một kiểu, dù Desk hay máy chủ thấy trước.
+- **Lễ tân hiểu vì sao.**
+  - Câu 9.13 nói thẳng lý do ("Đang sau nửa đêm nên đêm qua là đêm khách đã ở") và ngày dùng được.
+  - Nút "Dùng 08/11/2026" ngay dưới câu là việc cần làm tiếp.
+  - Thanh bước chuyển về "Ngày rời và giờ báo".
+- **Bỏ tick là đúng.** Số hoàn và phí đổi (B1: từ "Bỏ 2 đêm: 07/11, 08/11" xuống "Bỏ 1 đêm: 08/11"), nên lễ tân phải báo lại khách số mới.
+- **Không mất gì đã nhập.** Giờ khách báo, ghi chú và ảnh giữ nguyên; chỉ ngày rời cần đổi.
+- **Cú bấm lỡ không gây hại (B2).**
+  - Khi hẹn giờ lỡ, hộp đổi bước ngay lúc nhấn chuột vào ô tick. Lúc nhả chuột, chỗ cũ là vùng trống (1440) hoặc một ô nhập của bước ① (390). Không giá trị nào đổi, focus vẫn ở ô ngày.
+  - Ở chân hộp, nút "Xem trước số tiền" nằm đúng chỗ của "Xác nhận trả sớm" nhưng đang khóa (`aria-disabled`), nên bấm lỡ không gửi gì.
+- **Không cần câu mới** kiểu "Đã qua 00:00, hộp quay lại bước 1". Câu 9.13 đã nói điều đó; thêm câu thì thành hai lời giải thích cho một việc.
+
+### 7.3 Focus và thông báo
+
+- **Về bước ① (B1, B2, B3).**
+  - Focus vào ô "Ngày rời mới". Trình đọc màn hình đọc nhãn, trạng thái không hợp lệ, rồi `aria-describedby` theo thứ tự: câu 9.13 → câu giúp "Từ 08/11/2026 đến 08/11/2026…".
+  - Thanh bước chuyển `aria-current` sang bước 1.
+  - Đúng 9.13 (lỗi dưới ô, `aria-invalid`, `aria-describedby`, focus ô).
+- **Thứ tự Tab (T, 1440 px):** ô ngày (3 phần ngày/tháng/năm) → "Dùng 08/11/2026" → Ngày khách báo → Giờ. Nút "Dùng" đứng ngay sau ô.
+- **Bấm "Dùng":** focus ở lại ô ngày, câu lỗi mất, vùng trạng thái `polite` đọc "Bỏ 1 đêm: 08/11".
+- **Bước ① để yên qua 00:00 (C):**
+  - câu lỗi và nút hiện, focus **không** bị kéo khỏi ô Giờ đang đứng. Đúng: người dùng không thao tác thì không giật focus;
+  - câu lỗi dưới ô không phải vùng live (`Field` làm vậy ở mọi ô của Desk). Người dùng trình đọc màn hình chỉ nghe khi tới ô ngày, hoặc khi tới nút khóa. Nút khóa lúc này đọc "Chờ tính thử xong để xem trước." (xem 142-02).
+- **Kiểm lại đồng hồ khi focus (B3):** Tab vào ô tick sau 00:00 → về bước ①, focus ô ngày. Space sau đó không đổi gì.
+
+### 7.4 Thẻ
+
+#### FB-R5-UXD-FE-142-01 – Closed
+Đạt cả (a), (b) và 3 đề xuất sửa. Đồng hồ 00:00 và kiểm lại khi focus nằm ngoài đề xuất của UXD, nhưng cần cho ca thật (hộp để yên qua nửa đêm, máy ngủ). UXD đồng ý.
+
+#### FB-R5-UXD-FE-142-02 – nâng Suggestion → Minor (v1.0.6, không chặn gộp)
+- Lý do nâng:
+  - trước bản sửa, câu `to_preview_wait` "Chờ tính thử xong để xem trước." cạnh nút khóa chỉ hiện ở ca lẻ;
+  - nay **mọi** hộp mở qua 00:00 đều dừng ở trạng thái này (B1, B2, C). Ô ngày báo lỗi, nút "Dùng" ở ngay dưới, mà chân hộp vẫn bảo chờ một lần tính không chạy;
+  - ở ca C, với trình đọc màn hình, đây là câu đầu tiên nghe được về nút khóa.
+- Trả lời FE ghi "bản sửa làm ca này hiếm hơn". Thực tế ca này nay thường hơn, nhưng câu 9.13 ngay dưới ô đã giảm hại. Vì vậy vẫn không chặn gộp.
+- Việc:
+  - UXD viết `early_departure.to_preview_fix` ở bảng chữ v1.0.6 (đã hẹn ở mục 3);
+  - FE nối: khi còn lỗi ở client, lý do của nút "Xem trước số tiền" dùng khóa này.
+- Trạng thái: Open (UXD viết chữ trước, FE-4 nối; v1.0.6)
+
+#### FB-R5-UXD-FE-142-03 (mới)
+- Mức độ: **Minor** (không chặn gộp; làm luôn nếu FE-4 còn đẩy PR này, nếu không thì v1.0.6)
+- Vị trí: `pages/stay/EarlyDepartureDialog.tsx`, prop `dirty` của `Modal` ở bước ①: vế `newDate !== minDate`.
+- Vấn đề:
+  - lúc 00:00 `minDate` dời từ 07/11 sang 08/11, nên một hộp chưa sửa gì cũng thành "có thay đổi";
+  - ca C (1440, 390): mở lúc 23:59, không nhập gì, qua 00:00, bấm Esc → hộp hỏi "Bỏ các thay đổi chưa lưu? Bạn đã nhập thông tin trong form này.";
+  - đối chứng T: bấm Esc lúc 23:59 thì hộp đóng ngay;
+  - nút X và bấm ra ngoài đi cùng đường Esc (`requestClose` của `Modal`). Nút Hủy gọi thẳng `onClose` nên không hỏi;
+  - vế `newDate !== minDate` có từ trước, nhưng trước đây phải có một lần vẽ lại sau 00:00 mới lộ ra. Đồng hồ 00:00 của bản sửa làm nó luôn xảy ra.
+- Vì sao quan trọng: câu nói sai với lễ tân ("Bạn đã nhập…"), đúng trong cửa sổ V5-11, và thêm một cú bấm "Bỏ thay đổi" khi khách đang chờ. Không mất dữ liệu.
+- Đề xuất sửa:
+  - so với ngày hộp đã điền lúc mở, không so với mức sàn đang dời. Ví dụ `const [filledDate] = useState(minDate)`, rồi dùng `newDate !== filledDate`;
+  - bấm "Dùng {date}" vẫn tính là đã sửa (đúng, lễ tân đã chọn ngày);
+  - thêm 1 ca test: mở 23:59, qua 00:00, bấm Esc → hộp đóng, không hỏi.
+  - Không cần khóa chữ mới.
+- Trạng thái: Open (FE-4)
+
+### 7.5 Chưa kiểm
+
+- Desk EN ở 1366 px: như mục 4, QA chạy cùng ca T-11-4 trên staging.
+- Máy ngủ qua 06:00: mốc 06:00 do `useBusinessDay` lo (R3-Q36), không thuộc delta.
+
+### 7.6 Điểm nên giữ
+
+- Một đường cho "ngày thành sai khi đang ở bước ②": về bước ①, bỏ tick, focus ô ngày. Dùng chung cho lỗi ở client và 409 ở lần ghi.
+- Đồng hồ 00:00 cộng kiểm lại khi focus phủ cả hộp để yên lẫn máy ngủ. Mỗi phần có test đỏ khi bỏ (đã thử bằng đột biến).
+- Không thêm khóa chữ: câu 9.13 được dùng lại đúng chỗ.
+
+### 7.7 Dòng decision-log đề xuất (ORC ghi)
+
+`| 2026-11-07 | 5 | **UXD – re-review FE PR #142 (V5-11 Desk) delta 52a14957..710209ec: DUYỆT @ 710209ec.** FB-R5-UXD-FE-142-01 Closed: hộp mở qua 00:00 tự vẽ lại lúc 00:00 và kiểm lại đồng hồ khi focus; bước ① ra err.min_date + "Dùng {date}" theo mức sàn của Desk (max(ngày nghiệp vụ, ngày lịch)); bước ② tự về bước ①, bỏ tick, focus ô ngày – UXD chấp nhận vì cùng đường với 409 ở lần ghi và câu 9.13 nói rõ lý do. Repro UXD 2/2 đạt nguyên văn, tệp V5-11 16/16, admin-web 1011/1011, 4 đột biến đều đỏ; 1440/390 đúng token DS, không có chữ ngoài gen_strings.py. 142-02 nâng Minor (v1.0.6, UXD viết to_preview_fix trước); 142-03 mới Minor (hộp chưa sửa gì vẫn hỏi "Bỏ các thay đổi chưa lưu?" sau 00:00); cả hai không chặn gộp | UXD | rounds/round-05/reviews/UXD-on-fe-pr-142.md |`

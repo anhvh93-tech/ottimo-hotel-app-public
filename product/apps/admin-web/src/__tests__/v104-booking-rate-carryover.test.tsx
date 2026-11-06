@@ -516,7 +516,11 @@ describe('FB-R4-UXD-FE-PR70-01 – a 422 on nightlyRates is said under the rate 
     await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
     expect(
       await within(rateFieldError(dlg)).findByText(
-        tv('booking.error.rate_range', { min: '500000', max: '900000', group: '' }),
+        // FB-R5-UXD-FE-PR122-01: the bounds as money, no "(… nhóm )"
+        tv('booking.error.rate_range', {
+          min: tv('common.currency_vnd', { amount: '500.000' }),
+          max: tv('common.currency_vnd', { amount: '900.000' }),
+        }),
       ),
     ).toBeInTheDocument();
   });

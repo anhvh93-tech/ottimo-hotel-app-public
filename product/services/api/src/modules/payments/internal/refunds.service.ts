@@ -27,7 +27,7 @@ import { problem } from '../../../shared/problem';
 import { toZonedIso } from '../../../shared/time';
 import {
   assertNoCardNumber,
-  containsCardNumber,
+  assertNotCardNumberReference,
   luhnValid,
   optionalText,
   requireReason,
@@ -759,12 +759,10 @@ export class RefundsService {
         errors: [{ field: 'bankReference', code: 'VALIDATION_FAILED' }],
       });
     }
-    if (input.bankReference !== null && containsCardNumber(input.bankReference)) {
-      // SEC-BE-44: a 13–19 digit Luhn-valid reference is a card number – never stored.
-      throw problem('CARD_NUMBER_DETECTED', {
-        errors: [{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }],
-      });
-    }
+    // SEC-BE-44 as C0313-25 corrected it (SEC-responses 4.1 (a)): a reference that IS a card number as a whole
+    // (13–19 digits once `.` `/` `_` `-` are removed, Luhn) is never stored; a bank code with a long digit run is not
+    // a card. Free text (`note`) keeps the general V-09 rule.
+    assertNotCardNumberReference('bankReference', input.bankReference);
     // ARC-BE-S3-25 lock order (reservation → folio → payment → approval): folio first, then the request; every
     // state check below runs under both locks.
     const target = await this.targetOf(tx, approvalId);
