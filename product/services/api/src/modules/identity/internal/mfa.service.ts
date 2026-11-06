@@ -17,7 +17,7 @@ import { AuditService } from '../../audit/public/audit.service';
 import { CryptoService } from '../../crypto/public/crypto.service';
 import { IDENTITY_OPTIONS, type IdentityOptions } from '../public/identity-options';
 import { IdentityParamsService } from '../public/identity-params';
-import { MFA_REQUIRED_ROLES, MfaStore, type MfaUserRow, secretAad } from '../public/mfa-store';
+import { MfaStore, type MfaUserRow, isMfaRequiredRole, secretAad } from '../public/mfa-store';
 import { REAUTH_LOCK_MS, REAUTH_MAX_FAILURES } from '../public/password-reauth';
 import { type ClientOrigin, type NewSession, SessionService } from '../public/session.service';
 import {
@@ -93,7 +93,7 @@ export class MfaService {
         const now = this.clock.now();
         return {
           enabled: u.mfa_enabled,
-          required: roles.some((r) => (MFA_REQUIRED_ROLES as readonly string[]).includes(r)),
+          required: isMfaRequiredRole(roles),
           enforced: this.options.mfaEnforced === true,
           pendingSetup: !!u.mfa_pending_expires_at && u.mfa_pending_expires_at > now,
           ...(u.mfa_enrolled_at ? { enrolledAt: u.mfa_enrolled_at.toISOString() } : {}),
@@ -314,10 +314,7 @@ export class MfaService {
       },
       { readOnly: true },
     );
-    if (
-      need === 'disable' &&
-      roles.some((r) => (MFA_REQUIRED_ROLES as readonly string[]).includes(r))
-    ) {
+    if (need === 'disable' && isMfaRequiredRole(roles)) {
       throw problem('FORBIDDEN_ACTION', { detail: 'mandatory role' });
     }
     if (!enabled) throw problem('INVALID_TRANSITION');
@@ -330,7 +327,7 @@ export class MfaService {
       const u = await this.mfa.lockUser(tx, userId);
       if (!u || !u.mfa_enabled) throw problem('INVALID_TRANSITION');
       const roles = await this.roles(tx, userId);
-      if (roles.some((r) => (MFA_REQUIRED_ROLES as readonly string[]).includes(r))) {
+      if (isMfaRequiredRole(roles)) {
         throw problem('FORBIDDEN_ACTION', { detail: 'mandatory role' });
       }
       await this.mfa.clear(tx, u, 'disabled');

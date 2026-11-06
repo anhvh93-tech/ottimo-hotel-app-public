@@ -4631,7 +4631,8 @@ export class ReservationsService {
    * (FB-R2-SEC-BE-24). A hold with money received (DOM D-9, US-085 AC4) is never auto-cancelled: its creator/closer +
    * FD/FDL/MGR are told once (`hold_overdue_with_deposit`), MGR/OWN once the BR-302 cap (12:00 on arrival day) has
    * passed (`hold_overdue_cap`); a cancelled hold tells its creator/closer + every active FD/FDL (`hold_expired`,
-   * V5-1B) – inbox + SSE, DOM A.5, v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until check-in (BUG-R3-042).
+   * V5-1B) – inbox + SSE, DOM A.5, v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until
+   * check-in (BUG-R3-042).
    */
   async expireHolds(
     tx: Tx,
