@@ -15,6 +15,7 @@
  * Money goes through FolioService/PaymentService (BE-B public FolioPort, already on main).
  */
 import type { Tx } from '../../../db/database';
+import type { LocalDate } from '../../../shared/time';
 
 export const FD_REGISTRATION_PORT = Symbol('FD_REGISTRATION_PORT');
 export const FD_GUEST_ACCESS_PORT = Symbol('FD_GUEST_ACCESS_PORT');
@@ -113,19 +114,36 @@ export interface MinibarCheckoutStatus {
   checked: boolean;
 }
 
+/**
+ * OpenAPI 0.3.13 bổ sung 1 (V5-15, BE C0313-10 ý 5) – which `checkout` count of the fridge of the room the stay
+ * is in still counts. Absent = K11-09: only a count of TODAY's business day (B18's). `countFrom` = the overdue
+ * check-out (business day > effective departure): a count whose business date is ≥ `countFrom` (the effective
+ * departure date) counts – the desk counts the fridge after the guest has gone (exception of K11-09). The fridge
+ * of a room the stay left (B14) is not concerned (any live count after its mark).
+ */
+export interface MinibarCountWindow {
+  countFrom?: LocalDate;
+}
+
 export interface FrontdeskMinibarPort {
-  checkoutStatus(tx: Tx, reservationId: string, roomId: string): Promise<MinibarCheckoutStatus>;
+  checkoutStatus(
+    tx: Tx,
+    reservationId: string,
+    roomId: string,
+    window?: MinibarCountWindow,
+  ): Promise<MinibarCheckoutStatus>;
   /** B18: refill task when the checkout count used items – returns the task id (createdTaskIds). */
   onCheckedOut(tx: Tx, reservationId: string, roomId: string): Promise<string | null>;
   /**
    * 0.3.7 bổ sung 4 (ARC 16.2 R9, BUG-R2-136): the minibars of the stay (every room it lived in – the old room
    * before a B14 included) with a chargeable item and no `checkout` count yet – `CheckoutSummary.
    * minibarUncheckedRooms` and the B18 blocker. Optional while BE-B wires it: absent → the desk asks
-   * `checkoutStatus` room by room.
+   * `checkoutStatus` room by room. `window`: see MinibarCountWindow (V5-15).
    */
   uncheckedRooms?(
     tx: Tx,
     reservationId: string,
+    window?: MinibarCountWindow,
   ): Promise<
     Array<{
       roomId: string;
