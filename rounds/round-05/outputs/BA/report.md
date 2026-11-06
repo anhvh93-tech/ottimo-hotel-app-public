@@ -331,3 +331,23 @@ Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | BA – sổ tay 1.19, bộ hướng dẫn 1.17, sổ vận hành 1.7 theo SEC 6.5.6, DOM lượt 2 và K-MB: sổ tay 2.21 / 02 16.1 có câu CPY (bản đầy đủ; bản ngắn Zalo số cơ sở; bản không có vế xóa cho Zalo OA, hộp thư OTA, Messenger), xóa theo kênh (thùng rác SMS, WhatsApp Xóa ở phía tôi, Viber Delete for myself, Telegram không đánh dấu ô xóa cho khách, từng máy), dòng kênh không xóa được là ca thường (4 việc, không đánh dấu spam), ca gọi ngay "không xóa được tin" thu hẹp theo SEC 6.5.3; điện thoại cơ sở tắt tự lưu ảnh (luật lễ tân 2.4/4.1, việc chủ đầu tư trong lượt thử TEST XOA, kiểm hằng tháng). DOM BA-02: Khách đi sạch lúc đóng quầy, ca đêm không gõ cửa, không chắc thì để từ 06:00. DOM BA-03: đếm lại minibar là hàng Đảo dòng folio + Thêm dòng folio, chưa ở bộ lọc 7 ngày. DOM BA-04: tủ thiếu nhiều hơn số đã tính. K-MB: chủ đầu tư đếm kho minibar mỗi tuần, phiếu nạp, so 3 dòng với Folio, lệch quá 2 món thì hỏi. rbac A111 không đổi (đã có ở 0.2.9) | BA | Không ESC; SEC 6.5, DOM-on-ba-v105-docs mục 4, DOM-responses (A) 2 |`
+
+**Bổ sung lượt 3, phần 2 (07/11) – PO giá cao bất thường, DOM FB-R5-DOM-BA-120-02 (Wi-Fi).** Commit lượt 3 phần 1: `d467578b`.
+1. **PO (`3279a4ec`, Giới hạn đã biết):** sổ tay 1.3 và `01` 9.1, sau gạch "Desk cảnh báo khi giá đêm thấp hơn…": Desk chưa cảnh báo giá đêm cao bất thường (gõ thừa số 0); đổi giá xong báo giá thử 1 đêm của căn đó; áp dụng ngay, tới V5-5C. `so-van-hanh.md` 4.1 bước 7 thêm cùng ý cho giá căn.
+2. **DOM FB-R5-DOM-BA-120-02:** sổ tay 1.4 và `01` 9.2, ngay dưới khối "Lỗi đang sửa – Wi-Fi": khối **[Chờ xác nhận – Wi-Fi trên Desk vào v1.0.5]** gồm ngày lên bản (chủ đầu tư nhập, kiểm trên trang khách một đơn đang ở, không chụp, không chép ra chat; ô trống là mạng mở), quy trình đổi mật khẩu 6 bước theo DOM, luật tên mạng/mật khẩu theo hợp đồng 0.3.13 mục 1.13. Ghi chú HTML liệt kê các câu phải bỏ khi phần Desk lên (sổ tay 2.9, 2.21, 5.4, 5.6; `02` 16.1, 17.6; `03` 11.2, 12; `01` 9.2, 15.6). Các câu "sửa ở v1.0.3 hoặc v1.0.4" về Wi-Fi (đã sai vì v1.0.4 đang chạy) đổi thành "v1.0.5 hoặc v1.0.6", khớp release notes.
+3. Lịch sử: ghi "Bổ sung cùng ngày" vào sổ tay 1.19, `01` 1.16, `00` 1.17, `so-van-hanh.md` 1.7 (cùng ngày, UXD chưa dựng HTML các bản này).
+
+**Giả định (phần 2):**
+- Tên màn và nút Wi-Fi trên Desk chưa có (FE-2 chưa có PR): khối không ghi tên menu; BA điền khi phần Desk lên.
+- Câu báo khách ở bước 4 ("The new Wi-Fi password is now on your guest page." / "Mật khẩu Wi-Fi mới đã có trên trang khách.") là bản nháp của BA theo ý DOM, chờ CPY duyệt; nằm trong khối chờ xác nhận nên chưa dùng.
+- "Ra số lạ" sau báo giá thử: BA ghi "dừng, kiểm lại, tắt giá web nếu đã hiện, rồi sửa giá hoặc báo đội", không trỏ vào cách sửa giá đang áp hôm nay vì sổ tay chỉ có cách sửa giá tương lai.
+
+**Chuyển vai (phần 2):**
+- **ORC:** báo BA khi phần Desk của V5-58 có PR và biết bản (v1.0.5 hay v1.0.6), để bật hoặc dời khối Wi-Fi, bỏ các câu cũ; và khi V5-5C lên để sửa gạch giá cao.
+- **PO:** đưa "chủ đầu tư nhập Wi-Fi trên Desk, kiểm trang khách" vào danh sách việc ngày lên bản có phần Desk V5-58.
+- **CPY:** duyệt câu báo khách ở bước 4.
+- **UXD:** không dựng HTML khối Wi-Fi trước khi ORC báo.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi), bổ sung:
+
+`| 2026-11-07 | 5 | BA – sổ tay 1.3, 01 9.1: Desk chưa cảnh báo giá đêm cao bất thường, đổi giá xong báo giá thử 1 đêm của căn đó (áp dụng ngay, tới V5-5C; PO 3279a4ec). Sổ tay 1.4, 01 9.2: khối [Chờ xác nhận – Wi-Fi trên Desk vào v1.0.5] (DOM FB-R5-DOM-BA-120-02): ngày lên bản chủ đầu tư nhập Wi-Fi và kiểm trang khách; đổi mật khẩu: bộ phát trước rồi lưu Desk, báo mọi khách đang ở, thay thẻ Wi-Fi trong căn, không ghi mật khẩu vào sổ hay chat; câu Wi-Fi "v1.0.3 hoặc v1.0.4" đổi thành "v1.0.5 hoặc v1.0.6" | BA | Không ESC |`
