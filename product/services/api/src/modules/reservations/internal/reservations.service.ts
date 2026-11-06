@@ -46,6 +46,7 @@ import {
 } from '../public/pricing';
 import type { NightSource } from '../public/added-night-price';
 import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
+import { rateOutOfRange } from '../public/rate-out-of-range';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
 import type { ConfirmedStay } from '../public/sales-port';
 import {
@@ -730,19 +731,14 @@ export class ReservationsService {
         nightlyRates,
         otaRoomAmountVnd,
       });
+      // V5-22 (BUG-R4-040): `dates[]` + `min`/`max` of the first night out of range, block and warning alike.
       if (priced.outOfRange.length > 0) {
         if (group === 'ota') {
           if (!rateOverrideReason) {
-            throw problem('VALIDATION_FAILED', {
-              errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE_WARNING' }],
-              extras: { dates: priced.outOfRange },
-            });
+            throw rateOutOfRange(priced.outOfRange, priced.nights, { warning: true });
           }
         } else {
-          throw problem('RATE_OUT_OF_RANGE', {
-            errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
-            extras: { dates: priced.outOfRange },
-          });
+          throw rateOutOfRange(priced.outOfRange, priced.nights);
         }
       }
     }
