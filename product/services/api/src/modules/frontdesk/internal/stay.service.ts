@@ -16,6 +16,7 @@ import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
 import { AttachmentService } from '../../files/public/attachment.service';
 import { ChannelsService } from '../../platform/public/channels';
+import { earlyDepartureRefundIssue } from '../../platform/public/parameter-shapes';
 import { applyPct, nightDates, noticeDays } from '../../reservations/public/pricing';
 import { roomReturnsOn } from '../../reservations/public/room-return';
 import {
@@ -376,9 +377,10 @@ export class StayService {
         // BUG-R2-134 (BR-105, BR-107 v0.3.8): the default is checked like a typed rate.
         const rate = typed ?? d.calendarVnd;
         if (rate < floor || rate > ceiling) {
+          // V5-22 (contract 1.24 BE 12): `dates[]` like every RATE_OUT_OF_RANGE; `date` kept for older clients.
           throw problem('RATE_OUT_OF_RANGE', {
             errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
-            extras: { date, min: floor, max: ceiling },
+            extras: { dates: [date], date, min: floor, max: ceiling },
           });
         }
         // ARC 16.18 (BR-417 appendix 5A step 3 (i)): a night with an element in `nightlyRates` is typed (`manual`)
@@ -1537,6 +1539,14 @@ export class StayService {
       if (!policy) {
         throw problem('PAYMENT_NOT_CONFIGURED', {
           detail: 'early_departure_refund (BR-428) is not configured',
+        });
+      }
+      // V5-25 (DOM rules-v1.0.5 13.2, ARC review #96 10, QA T-13-8): a stored value of the wrong shape (written before
+      // the save rule) blocks the early departure with the same 409 – never a 500, never a guessed refund. The detail
+      // names the key only, never the value.
+      if (earlyDepartureRefundIssue(policy)) {
+        throw problem('PAYMENT_NOT_CONFIGURED', {
+          detail: 'early_departure_refund (BR-428) is not usable',
         });
       }
       refund = earlyDepartureRefund({

@@ -14,6 +14,11 @@
  * - Roles: user_property_role of that property (non-revoked), cached ≤ 60 s per roles_version (SR-AZ-08).
  * - No role at the property → 404 NOT_FOUND (no existence leak, architecture 6). Role not in x-roles →
  *   403 FORBIDDEN_ACTION + audit_event access.denied (US-002 AC2).
+ * - x-write-roles (OpenAPI 0.3.13 bổ sung 1 (a), contract 1.16; SEC FB-R5-SEC-ARC-02): a role allowed by x-roles that
+ *   sends a body field none of its roles may send (write-roles.ts) is refused the same way – part of the role
+ *   decision, so it comes after the Idempotency-Key lookup (ADR-009 replay) and BEFORE any body check or price
+ *   calculation of the handler. The 403 body carries no extension field (no min/max/dates/errors); the
+ *   access.denied entry names the fields (`reason = WRITE_ROLES`, `after.fields`).
  */
 import { createHash } from 'node:crypto';
 import {
@@ -27,6 +32,7 @@ import { ModuleRef, Reflector } from '@nestjs/core';
 import { CLOCK, type Clock } from '../../clock';
 import { DATABASE, Database, type TenantContext } from '../../db/database';
 import { AuditService } from '../../modules/audit/public/audit.service';
+import { MFA_REQUIRED_ROLES } from '../../modules/identity/public/mfa-roles';
 import { MONOTONIC_CLOCK, RateLimiter } from '../../modules/identity/public/rate-limiter';
 import type { OperationMeta } from '../openapi-types';
 import { problem } from '../problem';
@@ -46,6 +52,7 @@ import {
 } from './guest-session';
 import { OPERATION_KEY, PUBLIC_ROUTE_KEY, operationMeta } from './operation';
 import { parseEntityTag } from './precondition';
+import { deniedWriteFields } from './write-roles';
 
 export const AUTH_OPTIONS = Symbol('AUTH_OPTIONS');
 
@@ -62,8 +69,9 @@ export interface AuthOptions {
    */
   staffRequestsPerMinute?: number;
   /**
-   * 0.3.8 (US-143, SEC 06.3/06.4) – deployment flag MFA_ENFORCED: an owner/manager without 2FA only reaches the
-   * enrolment operations (`MFA_ENROLLMENT_OPERATIONS`), every other one → 403 MFA_ENROLLMENT_REQUIRED.
+   * 0.3.8 (US-143, SEC 06.3/06.4) – deployment flag MFA_ENFORCED: a mandatory role (MFA_REQUIRED_ROLES –
+   * owner/manager; front_desk_lead from v1.0.5, V5-40) without 2FA only reaches the enrolment operations
+   * (`MFA_ENROLLMENT_OPERATIONS`), every other one → 403 MFA_ENROLLMENT_REQUIRED.
    */
   mfaEnforced?: boolean;
 }
@@ -115,6 +123,11 @@ export interface RequestAuth {
   guest?: GuestPrincipal;
   /** Role decision; enforced by the guard, or by UnitOfWork after the idempotent replay lookup. */
   allowed: boolean;
+  /**
+   * x-write-roles: body fields the caller's roles may not send (non-empty ⇒ `allowed` is false). Kept so the
+   * deferred decision (UnitOfWork after the replay lookup) writes the same access.denied as the guard.
+   */
+  deniedFields?: string[];
   /** Set once the role decision has been enforced (403 thrown or passed). */
   enforced: boolean;
   /** Version from `If-Match: "<n>"` (operations that declare If-Match; absent for dryRun). */
@@ -179,6 +192,8 @@ function header(req: GuardedRequest, name: string): string | undefined {
 @Injectable()
 export class AuthGuard implements CanActivate, OnModuleInit {
   private readonly roleCache = new Map<string, { roles: string[]; until: number }>();
+  /** V5-40: "a mandatory 2FA role at any property" per user + roles_version (same lifetime as roleCache). */
+  private readonly mfaRoleCache = new Map<string, { required: boolean; until: number }>();
   private readonly deviceTouched = new Map<string, number>();
   private names!: { session: string; device: string };
 
@@ -331,15 +346,21 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const ifMatchVersion = this.checkPreconditionHeaders(req, operation);
 
     // any_staff = any authenticated staff member (e.g. getMe), even before a property is chosen.
-    const allowed =
+    const roleAllowed =
       operation.roles.includes('any_staff') ||
       principal.roles.some((r) => operation.roles.includes(r));
+    // x-write-roles: only for a role x-roles lets in (a forbidden role is already a 403 for the operation itself).
+    const deniedFields = roleAllowed
+      ? deniedWriteFields(operation.writeRoles, principal.roles, req.body)
+      : [];
+    const allowed = roleAllowed && deniedFields.length === 0;
     req.ottimoAuth = {
       operationId,
       operation,
       principal,
       allowed,
       enforced: false,
+      ...(deniedFields.length > 0 ? { deniedFields } : {}),
       ...(ifMatchVersion !== undefined ? { ifMatchVersion } : {}),
     };
     // SEC-BE-33 / ARC-BE-S3-04: a dry run never goes through the unit of work (nothing stored, nothing to
@@ -391,15 +412,22 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     auth.enforced = true;
     if (auth.allowed || !auth.principal) return;
     const p = auth.principal;
+    const fields = auth.deniedFields ?? [];
     await this.audit.recordDenied(tenantOf(p), {
       action: 'access.denied',
       entityType: 'operation',
       entityId: auth.operationId,
+      ...(fields.length > 0 ? { reason: 'WRITE_ROLES' } : {}),
       requestId: req.id,
       sessionId: p.sessionId,
       ...(p.trustedDeviceId ? { trustedDeviceId: p.trustedDeviceId } : {}),
-      after: { operationId: auth.operationId, roles: p.roles },
+      after: {
+        operationId: auth.operationId,
+        roles: p.roles,
+        ...(fields.length > 0 ? { fields } : {}),
+      },
     });
+    // No extension field on this 403 (contract 1.16): the caller learns nothing about bounds or other checks.
     throw problem('FORBIDDEN_ACTION');
   }
 
@@ -433,6 +461,13 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const roles = propertyId ? await this.rolesAt(s, propertyId, now) : [];
     // A property the user has no role at is "not found" – same answer as another organisation's id.
     if (pathProperty !== undefined && roles.length === 0) throw problem('NOT_FOUND');
+    // SEC 06.4: MFA_ENFORCED + a mandatory role without 2FA → restricted session, also for a session opened
+    // before the flag or before the role was given.
+    const enrollmentOnly =
+      s.enrollment_only === true ||
+      (this.options.mfaEnforced === true &&
+        s.mfa_enabled !== true &&
+        (await this.mfaRequired(s, now)));
     return {
       kind: 'staff',
       sessionId: s.session_id,
@@ -448,11 +483,44 @@ export class AuthGuard implements CanActivate, OnModuleInit {
         lastActiveAt: s.last_active_at ?? null,
         mustChangePassword: s.must_change_password === true,
         mfaAt: s.mfa_at ?? null,
-        enrollmentOnly:
-          s.enrollment_only === true ||
-          (this.options.mfaEnforced === true && s.mfa_required === true && s.mfa_enabled !== true),
+        enrollmentOnly,
       },
     };
+  }
+
+  /**
+   * A live role of MFA_REQUIRED_ROLES at ANY property (SEC 06.2). `auth_resolve_session().mfa_required` (migration
+   * 0079) only knows owner/manager; front_desk_lead (V5-40, v1.0.5 has no migration) is read here, cached per
+   * roles_version like the roles (a role change bumps it).
+   */
+  private async mfaRequired(s: SessionRow, now: Date): Promise<boolean> {
+    if (s.mfa_required === true) return true;
+    const cacheKey = `${s.user_id}:${s.roles_version}`;
+    const hit = this.mfaRoleCache.get(cacheKey);
+    if (hit && hit.until > now.getTime()) return hit.required;
+    const ctx: TenantContext = {
+      organizationId: s.organization_id,
+      propertyId: null,
+      userId: s.user_id,
+      actorType: 'user',
+    };
+    const required = await this.db.withContext(
+      ctx,
+      async (tx) => {
+        const r = await tx.query(
+          `SELECT 1 FROM user_property_role
+            WHERE user_id = $1 AND revoked_at IS NULL AND role = ANY($2::text[]) LIMIT 1`,
+          [s.user_id, [...MFA_REQUIRED_ROLES]],
+        );
+        return (r.rowCount ?? 0) > 0;
+      },
+      { readOnly: true },
+    );
+    this.mfaRoleCache.set(cacheKey, {
+      required,
+      until: now.getTime() + (this.options.roleCacheMs ?? 60_000),
+    });
+    return required;
   }
 
   private async rolesAt(s: SessionRow, propertyId: string, now: Date): Promise<string[]> {

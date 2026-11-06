@@ -14,6 +14,10 @@
  * - departures: still in house first; a room with a guest arriving the same day first (US-031 AC2); then the
  *   BR-425 state (overdue > call_needed > reminded_waiting > replied); `allowedActions` = check_out;
  * - holdsArrivingToday: hold expiry ascending, never an action (SM-01: a hold cannot check in).
+ * - `departuresDate` (0.3.13 bổ sung 1, BE C0313-02, BUG-R4-036 – V5-10 part of PR-D1): `date` absent in the
+ *   post-midnight window (calendar date = business date + 1, before the rollover) → the departures list is the one
+ *   of the CALENDAR date (guests leaving later this morning, B18 already offered); arrivals and holds keep the
+ *   business date. getTonightKpi is not concerned: it stays on the business date (tonight-kpi.ts).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
@@ -51,8 +55,10 @@ export interface SummaryRow extends Record<string, unknown> {
   status: string;
 }
 
+const dateAbsent = (raw: string | undefined) => raw === undefined || raw === '';
+
 function parseDate(raw: string | undefined, today: LocalDate): LocalDate {
-  if (raw === undefined || raw === '') return today;
+  if (dateAbsent(raw)) return today;
   const ok =
     /^\d{4}-\d{2}-\d{2}$/.test(raw) &&
     !Number.isNaN(Date.parse(`${raw}T00:00:00Z`)) &&
@@ -68,6 +74,19 @@ function parseDate(raw: string | undefined, today: LocalDate): LocalDate {
     });
   }
   return raw;
+}
+
+/**
+ * Date of the departures list (`ArrivalsDepartures.departuresDate`, BE C0313-02): the calendar date when `date` is
+ * absent and the clock is in the post-midnight window of the business date; `date` otherwise.
+ */
+export function departuresDateFor(
+  rawDate: string | undefined,
+  date: LocalDate,
+  today: LocalDate,
+  calendarDate: LocalDate,
+): LocalDate {
+  return dateAbsent(rawDate) && calendarDate === addDays(today, 1) ? calendarDate : date;
 }
 
 @Injectable()
@@ -89,8 +108,10 @@ export class DashboardService {
     const date = parseDate(rawDate, p.today);
     const checkinTime = await this.params.get<LocalTime>(tx, 'checkin_time', p.today);
     const rollover = await this.params.get<LocalTime>(tx, 'business_day_rollover', p.today);
+    const calendarDate = localDate(p.now, p.timezone);
+    const departuresDate = departuresDateFor(rawDate, date, p.today, calendarDate);
     const arrivals = await arrivalRows(tx, date);
-    const departures = await departureRows(tx, date);
+    const departures = await departureRows(tx, departuresDate);
     const holds = await holdRows(tx, date);
 
     const arrivalDtos: SummaryRow[] = [];
@@ -114,21 +135,31 @@ export class DashboardService {
     ];
     const sortedArrivals = sortBy(arrivals, arrivalDtos, arrivalOrder);
 
-    const departureDtos = await this.departures(tx, roles, date, departures, p);
+    const departureDtos = await this.departures(
+      tx,
+      roles,
+      departuresDate,
+      calendarDate,
+      departures,
+      p,
+    );
     const holdDtos: SummaryRow[] = [];
     for (const r of holds) holdDtos.push(await this.summary(tx, r, p));
     return {
       date,
+      departuresDate,
       arrivals: sortedArrivals,
       departures: departureDtos,
       holdsArrivingToday: holdDtos,
     };
   }
 
+  /** `date` = the departures date (a same-room arrival is one on that day – US-031 AC2). */
   private async departures(
     tx: Tx,
     roles: readonly string[],
     date: LocalDate,
+    calendarDate: LocalDate,
     rows: StayListRow[],
     p: PropertyNow,
   ): Promise<SummaryRow[]> {
@@ -145,7 +176,6 @@ export class DashboardService {
       rows.flatMap((r) => (r.room_id ? [r.room_id] : [])),
     );
     const nowTime = p.iso(p.now).slice(11, 16);
-    const calendarDate = localDate(p.now, p.timezone);
     const out: Array<{
       row: StayListRow;
       dto: SummaryRow;

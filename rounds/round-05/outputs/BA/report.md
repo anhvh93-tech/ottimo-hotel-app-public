@@ -148,3 +148,138 @@ Viết theo SEC N4 và runbook N5:
   - PO kiểm release-notes v1.0.4;
   - UXD dựng HTML từ `a9927c78`.
 - **V5-71:** gỡ lời dặn và 3 dòng sự cố khi v1.0.5 lên.
+
+## 7. Cập nhật 07/11 – Phản hồi & sửa: tài liệu v1.0.5 (Báo cần dọn, FDL 2 bước, tin `hold_expired`, BUG-R5-005/006)
+
+Giao việc ORC 07/11. Nguồn: UXD `rounds/round-05/outputs/UXD/copy-v1.0.5.md` 9.7, 9.8; SEC `rounds/round-05/reviews/SEC-on-be-pr-100-d1.md` mục 4, 7; ARC `rounds/round-05/reviews/ARC-on-be-pr-100-d1.md` mục 2, 5, thẻ FB-R5-ARC-MOB-V51B-01; QA `rounds/round-05/qa/bug-list.md` (BUG-R5-005, 006); SEC `rounds/round-05/reviews/SEC-on-be-prs-101-108.md` (V516-02, V530-01); mã trên `main` (`hold-notices.ts`, `notifications.tsx`, `session.ts`, `SessionProvider.tsx`).
+
+**Đã làm:**
+- **Release notes v1.0.5:**
+  - nhãn nút **Báo cần dọn** / **Mark for cleaning** ở 3 chỗ (dòng nhóm Trả phòng, v1.0.4 "Giới hạn đã biết", bảng "Chưa có"); grep không còn nhãn cũ;
+  - dòng mới **Tin giữ chỗ tự hủy** (V5-1B): tin ở hộp Thông báo trên app nhân viên; người nhận là người tạo, người chốt và mọi tài khoản `active` có vai FD/FDL tại cơ sở;
+  - FDL 2 bước: bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên, kể cả đang đăng nhập; thao tác vừa bấm không lưu; không tự tắt được nữa;
+  - mục mới **Lỗi đội tìm thấy trong Round 5, sửa ở v1.0.5** (BUG-R5-005, BUG-R5-006, có cách làm tạm);
+  - mục mới **Việc anh/chị làm trước ngày lên v1.0.5** (FDL bật 2 bước; máy quầy đăng nhập app nhân viên; 8 chữ số cuối của mã giao dịch);
+  - v1.0.4 "Giới hạn đã biết" thêm dòng BUG-R5-006 và câu nhắc FDL;
+  - sửa câu sai ở v1.0.4 bảng "Báo giữ chỗ quá hạn": app nhân viên v1.0.4 chưa có câu riêng cho 3 tin giữ chỗ, hiện câu chung "Thông báo mới – xem chi tiết trên OTTIMO Desk";
+  - hai câu ORC thêm theo SEC V516-02: `line_reduction_count` tháng 11 chỉ đếm từ lúc v1.0.5 lên; "Chưa có tỷ lệ hoa hồng" và chưa tạo dòng hoa hồng tới khi OWN nhập tỷ lệ. Kèm câu SEC V530-01: trên production bảng cũ vẫn còn nên câu này chưa hiện, vẫn nhập bảng mới trước 01/12. Không ghi tỷ lệ nào.
+- **V5-71, ba điểm** (sổ tay 1.17, bộ hướng dẫn 1.15):
+  - FDL 2 bước: sổ tay 0.3, 1.5 (bảng vai, bước 7); `01` 1.9 (bảng, bước 8); `02` 1.3, 1.7 (dòng "Mất cả điện thoại lẫn mã khôi phục", phần lễ tân trưởng), 1.8;
+  - tin `hold_expired`: sổ tay 2.4, 3.11; `02` 4.5; Tờ 2a dòng **Ở đâu** và **Hết hạn, chưa cọc**. Mọi chỗ ghi rõ **hộp Thông báo trên app nhân viên**, Desk không có hộp này. Ghi cả v1.0.4 (câu chung, chỉ người tạo, người chốt) và từ v1.0.5. Vẫn rà theo mã đơn;
+  - **Báo cần dọn**: sổ tay 2.10 (ca 2), 2.19 bước 5, 3.5; `01` 14; `02` 7.4 (ca 2), 13.2 bước 5; `03` 6.
+- **Tài liệu nghiệp vụ:**
+  - EP02 0.2.1, mục 10.5: bảng tin J1 (3 kind, người nhận, khóa chống trùng, nơi đọc). Đóng phần người nhận của FB-R4-PO-BA-P420-01;
+  - EP07-08 0.1.1, mục 2.1: nhãn và khóa `hk.action.needs_cleaning` (thay `hk.mark_dirty`), chỗ đặt nút;
+  - rbac-matrix 0.2.9: chỉ sửa ghi chú A111 (FDL bắt buộc 2FA từ v1.0.5). **Không đổi mục 3, không đổi ô quyền**, `rbac-matrix.json` không đổi, nên không đụng test `SCREENS_BY_ROLE`.
+- **Sổ vận hành 1.6** (tài liệu của BA, viết cho INV):
+  - mục 1.5: trước ngày lên mọi FDL đã bật 2 bước;
+  - mục 1.5: đổi vai chỉ trên Desk. Đội buộc phải sửa vai thẳng trong cơ sở dữ liệu thì phải đăng xuất người đó và tăng `roles_version` như Desk, nếu không quyền cũ còn dùng tới khoảng 1 phút (SEC Info);
+  - mục 6: không tắt 2 bước của lễ tân trưởng.
+
+**File sửa:** `product/docs/release-notes.md`, `product/docs/manual/user-manual-v1.0.md`, `product/docs/manual/guides/00-index.md`, `01-chu-dau-tu-quan-ly.md`, `02-le-tan.md`, `03-buong-phong.md`, `product/docs/staff-one-pager.md` (Tờ 2a), `product/docs/specs/EP02-reservations.md`, `product/docs/specs/EP07-08-housekeeping-maintenance.md`, `product/docs/rbac-matrix.md`, `product/docs/so-van-hanh.md`, tệp này.
+
+**Giả định:**
+- Mọi câu "Từ v1.0.5" giả định MOB #117 (câu riêng cho tin giữ chỗ), FE #102 và MOB #97 (nút Báo cần dọn) lên cùng tag v1.0.5, như ARC yêu cầu. Thiếu PR nào thì BA sửa câu tương ứng trước khi cắt bản.
+- Nút **Báo cần dọn** trên app nhân viên: chỉ tả việc nút làm, không đặt luật khi nào buồng phòng bấm (thuộc DOM).
+- Desk giữa ca với FDL chưa bật 2 bước: thao tác vừa bấm bị máy chủ từ chối (403), không lưu, Desk mở **Bật xác thực 2 bước** (`SessionProvider.tsx`); app nhân viên mở màn "bật trên Desk", hàng đợi giữ thao tác chờ (`queue.ts`).
+- BUG-R5-005: câu cho lễ tân khi khách nhắn vì lỗi ("nhờ khách bỏ dãy số thẻ rồi gửi lại, không hỏi số thẻ") là cách xử lý BA đề xuất theo V-09, chưa có DOM.
+- Vai **Lễ tân** (FD) giữ "Chưa" ở bảng 2 bước: chưa có quyết định DOM + SEC cho thẻ FB-R4-PO-BA-032-07. "Dòng Lễ tân ở `02` 1.7" của V5-40 hiểu là phần lễ tân trưởng ở dòng "Mất cả điện thoại lẫn mã khôi phục" (vị trí thẻ 032-07).
+- ESC mới: không có.
+
+**Rủi ro/vướng mắc:**
+1. Tờ 2a là tài liệu PO + DOM; BA sửa theo giao việc ORC. Bản in chưa dựng lại.
+2. Bản HTML (`ottimo-manual-v1.0.html`, `guides/html/`) và PDF Tờ 2a còn chữ cũ tới khi UXD dựng lại.
+3. Sổ tay 2.4 và `02` 4.5, 17.1 vẫn còn các khung cũ "tới v1.0.3". V5-71 viết lại hẳn 2.4 theo v1.0.4 và Tờ 2a: chưa làm ở lượt này.
+
+**Việc chưa xong trong V5-71:**
+- viết lại sổ tay 2.4 và `02` 4.5, 17.1 theo v1.0.4 + Tờ 2a;
+- dọn sau #69 (PR69-02/04);
+- `so-van-hanh` 4.2, 5.4 "ô giá OTA nền" (V5-21);
+- câu giá web ở sổ tay lễ tân;
+- gỡ các lời dặn tạm khi v1.0.5 lên.
+
+**Chuyển vai khác (ORC giao):**
+- **PO:** đọc lại phần BA sửa ở release notes (của PO, V5-72), nhất là câu sửa ở v1.0.4 bảng "Báo giữ chỗ quá hạn" và mục "Việc anh/chị làm trước ngày lên"; đọc lại Tờ 2a. **DOM:** đọc Tờ 2a và câu BUG-R5-005 cho lễ tân.
+- **UXD:** dựng lại HTML sổ tay, bộ hướng dẫn và PDF Tờ 2a từ commit này.
+- **OPS:** đưa quy tắc "sửa `user_property_role` bằng SQL tay phải tăng `app_user.roles_version` và thu hồi phiên, như `setRoles`" vào runbook của OPS (`product/infra/server/README.md` hoặc runbook v1.0.5, PR #95). Sổ vận hành của BA chỉ ghi phần INV cần biết. `staging-add-owner.mjs` chỉ tạo người dùng mới nên không vướng (SEC mục 1.1).
+- **ORC:** đưa "cho mọi FDL bật 2 bước trước ngày lên v1.0.5" vào danh sách việc INV ở `round-summary.md`.
+- **ORC:** MOB #117 phải lên cùng tag với #100 (ARC), nếu không thì câu "Từ v1.0.5" về tin giữ chỗ sai.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | BA – tài liệu v1.0.5 (V5-71 phần V5-15, V5-40, V5-1B; release notes v1.0.5): nhãn trên màn hình "Báo cần dọn" / "Mark for cleaning" ở sổ tay và release notes, tên việc "nút Cần dọn" giữ trong plan, hợp đồng, luật (UXD 9.7); FDL chưa bật 2 bước bị hạn chế ngay ở lượt bấm kế tiếp sau khi lên bản, INV cho FDL bật trước ngày lên; tin hold_expired đọc ở hộp Thông báo trên app nhân viên, người nhận người tạo, người chốt và mọi tài khoản active có vai FD/FDL tại cơ sở. Cách trình bày: mỗi chỗ ghi cả v1.0.4 và "Từ v1.0.5", không gỡ lời dặn tạm trước khi bản lên. | BA |`
+
+## 8. Cập nhật 07/11 (lượt 2) – Phản hồi & sửa: câu sổ tay theo DOM (#101, #108, #110; tài liệu BA v1.0.5) và SEC (số thẻ qua tin nhắn)
+
+**Đã làm** (không dựng HTML; UXD dựng sau khi PO, DOM đọc xong):
+1. **Ca đêm, ARC A4** (DOM `DOM-on-be-prs-101-108-110.md` mục 4, thẻ FB-R5-DOM-ARC-D1-01). Từ v1.0.5 tới v1.0.6, lúc 00:00–05:59 danh sách **Khách đi** không hiện lượt có ngày đi hôm qua theo lịch mà khách còn ở (#100). Thêm câu DOM: trước 06:00 rà **Sơ đồ phòng**, kiểm căn hoặc hỏi buồng phòng, rồi **Trả phòng** (ghi giờ khách rời thật) hoặc **Gia hạn**. Có ví dụ ngày cụ thể, vì Desk lúc đó vẫn tính "hôm nay" là ngày hôm trước. Chỗ thêm: `02` mục 2 (bảng việc), 13.3, 17.6; sổ tay 2.20, 5.6.
+2. **Đóng ca – dòng tự sửa giảm** (DOM mục 3.2 ý 2). Tới v1.0.6 chưa có `ShiftReport.lineReductions[]`.
+   - Lễ tân: trước khi giao ca, mở **Nhật ký tiền → Nhật ký thao tác tiền**, tìm dòng **Điều chỉnh dòng folio** của mình mà **Trước → sau** nhỏ đi, ghi sổ giao ca, báo người nhận ca. Chỗ thêm: `02` 2, 12.4, 17.6; sổ tay 2.1 (cuối ca bước 3), 5.6.
+   - Quản lý, chủ đầu tư: mỗi tuần rà bộ lọc **Sửa giảm dòng – 7 ngày**. Chỗ thêm: `01` 2.1, 8.1; sổ tay 1.1, 1.15.
+3. **Buồng phòng – bổ sung minibar** (DOM mục 3.3, trả lời SEC V516-01). Luôn nạp đủ định mức theo bảng trong căn, không theo số món trên việc. Tủ thiếu nhiều hơn số trên việc thì báo lễ tân **trước khi** bấm **Làm xong** (nhãn thật `hk.task.complete`; DOM viết "Xong"). Chỗ thêm: `03` 7; sổ tay 3.7.
+4. **Lễ tân đếm lại minibar thấp hơn – hai khối [Chờ xác nhận]** ở `02` 11.1 bước 2 và sổ tay 2.14 bước 2. Một khối cho trường hợp BE-A2 `r5-v516-minibar` không kịp v1.0.5 (câu DOM 3.3 cộng ý ORC "báo quản lý"), một khối cho trường hợp kịp. Có ghi chú HTML: ORC báo thì giữ một khối, bỏ ngoặc vuông; UXD không dựng hai khối này trước đó.
+5. **FB-R5-DOM-PO-08** (DOM `DOM-on-ba-v105-docs.md` mục 1), làm cùng ý với Tờ 2a PO đã sửa. Chỗ sửa: sổ tay 2.4, `02` 4.5.
+   - Tin ở hộp Thông báo không đổ chuông và chỉ để nhắc. Gõ mã đơn, bấm **Tất cả**, làm theo trạng thái đơn.
+   - Tới v1.0.5, câu chung kèm mã đơn có thể là một trong ba loại tin giữ chỗ. Tài khoản có vai quản lý nhận cả ba.
+   - Tách hai trạng thái:
+     - đơn **Đã hủy**, lý do **Hết hạn giữ chỗ**: kiểm tiền về rồi báo khách;
+     - đơn còn **Giữ chỗ · chờ cọc**: không báo khách đơn đã hủy; làm theo gạch **Đã nhận cọc** (sổ tay) hoặc `02` 17.1 ý (2)/(3).
+6. **FB-R5-DOM-BA-01, release notes** dòng BUG-R5-005, cột "Tới khi v1.0.5 lên", theo chữ DOM:
+   - nhận yêu cầu ngay trên kênh khách đang nhắn, không bắt khách gửi lại;
+   - lời nhắn có dãy từ 13 chữ số trở lên bị chặn: số thẻ, số tài khoản, hai số điện thoại viết liền;
+   - không hỏi dãy số đó là gì;
+   - khách muốn trả thẻ thì mời trả tại máy POS.
+
+   Thêm câu chốt SEC 6.1 và một câu báo chủ đầu tư (6.3).
+7. **Luật chung "khách lỡ gửi số thẻ hoặc ảnh thẻ qua tin nhắn, email"** (SEC `SEC-responses.md` mục 6.1–6.3). Thêm một dòng ngay dưới "Khách đọc số thẻ qua điện thoại" ở sổ tay 2.21 và `02` 16.1, gồm:
+   - câu chốt SEC;
+   - (b) một dòng sổ giao ca không có số, theo mẫu SEC;
+   - (c) báo chủ đầu tư trước khi hết ca. Ca bất thường thì gọi ngay, muộn nhất 1 giờ, kể cả ban đêm. Gọi, không nhắn số.
+
+   Câu trả lời khách để "(chờ CPY)". Bản nháp SEC nằm trong ghi chú HTML ngay dưới bảng, để CPY/UXD chỉnh.
+8. Số bản:
+   - sổ tay 1.17 → **1.18**;
+   - bộ hướng dẫn 1.15 → **1.16**: `01` 1.15, `02` 1.15, `03` 1.7;
+   - mỗi tệp có dòng lịch sử.
+
+**File sửa:**
+- `product/docs/manual/user-manual-v1.0.md`;
+- `product/docs/manual/guides/00-index.md`, `01-chu-dau-tu-quan-ly.md`, `02-le-tan.md`, `03-buong-phong.md`;
+- `product/docs/release-notes.md` (chỉ dòng BUG-R5-005 và ghi chú nguồn);
+- tệp này.
+
+**Giả định:**
+- Lễ tân **không** thấy bộ lọc **Sửa giảm dòng – 7 ngày**: US-177 AC7 (i), UXD 9.5 "Chỉ MGR, OWN". Câu DOM 3.2 viết "lễ tân mở Nhật ký, lọc Sửa giảm dòng của mình". BA đổi sang tab **Nhật ký thao tác tiền**, nơi lễ tân thấy khoản của mình và có hàng `folio_line.adjusted` ("Điều chỉnh dòng folio (đảo + dòng mới)") với cột **Trước → sau**. Giả định cột này hiện đúng số trước, sau cho cả lần bỏ dòng (`after.amountVnd = 0`) và đếm lại minibar (`reason: minibar_recount`).
+- Bộ lọc nằm ở **Nhật ký tiền**, theo UXD 9.5. BA không ghi tên tab.
+- Ca đêm: lượt có ngày đi = ngày nghiệp vụ vẫn bấm **Trả phòng** được trước 06:00. Điều này đúng ở v1.0.4 và #100 không đổi. BA chỉ thêm câu, không đổi luật.
+- "Phải nhờ quản lý" sau 06:00: người trực hiện nay giữ vai quản lý, nên làm bằng quyền quản lý, có lý do (phần **Cách đọc tệp này**).
+- Câu "Từ v1.0.5 mỗi loại có câu riêng" đúng khi MOB #117 lên cùng tag với #100 (DOM giả định 1).
+- ESC mới: không có.
+
+**Rủi ro/vướng mắc:**
+1. **Chốt chặn đếm lại minibar (BR-438 (2a)) ít tác dụng ở OTTIMO hiện nay.** App nhân viên chưa có màn đếm minibar (sổ tay 3.7, 5.6). Buồng phòng báo số bằng lời, rồi lễ tân tự gõ ở bước **Minibar** của **Trả phòng**. Mã chỉ gọi `recordMinibarCheck` từ `CheckOutPage.tsx`. Vì vậy:
+   - dòng đếm "gốc" thường là của chính lễ tân, gõ trong ngày. Hạ số sau đó vẫn hợp lệ theo (1);
+   - lễ tân cũng có thể gõ thấp ngay lần đầu, không phải lần "sửa giảm" nào;
+   - lối "nhờ buồng phòng đếm lại" (DOM 3.3 ý 2) không gỡ được chặn: buồng phòng đếm lại thì vẫn do lễ tân gõ. Hai khối [Chờ xác nhận] nên chỉ ghi "báo quản lý".
+
+   Cần DOM + SEC xem: chấp nhận rủi ro tới khi có màn đếm minibar cho buồng phòng, hay thêm kiểm soát thao tác. Ví dụ: buồng phòng ghi số đếm vào sổ giao ca, quản lý đối chiếu ở lượt rà tuần.
+2. **FE chưa có nhánh dựng bộ lọc "Sửa giảm dòng – 7 ngày"** (`mlog.filter_reductions`): không nhánh nào có chuỗi này hay `reductionsOnly` trong `admin-web`. Release notes và tài liệu đã hứa bộ lọc ở v1.0.5. Không kịp thì `01` 2.1, 8.1 và sổ tay 1.1, 1.15 phải đổi.
+3. Bản HTML và PDF còn chữ cũ tới khi UXD dựng lại.
+
+**Chuyển vai khác:**
+- **ORC:** báo BA khi biết BE-A2 có kịp v1.0.5, để giữ một trong hai khối [Chờ xác nhận]. Rủi ro 1 gửi DOM + SEC; rủi ro 2 hỏi FE-A.
+- **PO:** release notes v1.0.5 chưa có mục "Giới hạn đã biết". Khi cắt bản, nên thêm:
+  - A4 (rà **Sơ đồ phòng** trước 06:00);
+  - danh sách đóng ca chưa có dòng tự sửa giảm (tới v1.0.6).
+- **CPY:** câu trả lời khách khi khách lỡ gửi số thẻ (bản nháp SEC 6.1). Khi có, BA thay "(chờ CPY)" ở sổ tay 2.21 và `02` 16.1.
+- **UXD:** dựng HTML sổ tay 1.18 và bộ hướng dẫn 1.16 sau khi PO, DOM đọc. Không dựng hai khối [Chờ xác nhận].
+- **DOM:** đọc lại một lượt:
+  - câu ca đêm, đóng ca và bổ sung minibar;
+  - sổ tay 2.4, `02` 4.5 (thẻ PO-08);
+  - rủi ro 1.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | BA – câu sổ tay theo DOM #101/#108/#110 và DOM, SEC trên tài liệu v1.0.5: ca đêm rà Sơ đồ phòng trước 06:00 (A4, v1.0.5–v1.0.6); lễ tân ghi sổ giao ca dòng tự sửa giảm từ Nhật ký thao tác tiền (lễ tân không thấy bộ lọc 7 ngày – US-177 AC7 (i)), quản lý rà bộ lọc mỗi tuần; buồng phòng nạp đủ định mức; hai khối [Chờ xác nhận] đếm lại minibar chờ BE-A2; hộp Thông báo chỉ để nhắc, làm theo trạng thái đơn (PO-08); BUG-R5-005 theo DOM BA-01; luật chung khách lỡ gửi số thẻ (SEC mục 6) ở sổ tay 2.21, 02 16.1, câu khách chờ CPY. Sổ tay 1.18, bộ hướng dẫn 1.16 | BA | Không ESC |`
+
+**Bổ sung cùng ngày (ORC, theo DOM `DOM-responses.md` thẻ FB-R5-QA-DOM-BR438-01 chọn A):** thêm vào sổ tay 2.15 và `02` 11.3 (khối **Hẹn trả muộn trước**) câu "Muốn miễn phụ thu trả muộn: làm trước khi bấm **Trả phòng** (đặt giờ trả muộn rồi gửi miễn có duyệt: **Xin miễn phụ thu (gửi duyệt)** ở bước 2, hoặc ở folio). Sau **Trả phòng** chỉ quản lý sửa được." Áp dụng ngay, không chặn v1.0.5. Nút ghi theo nhãn thật trên hộp **Trả muộn**, vì nhãn "Gửi miễn có duyệt" của DOM chỉ có từ v1.0.5. Không đổi số bản: ghi vào dòng sổ tay 1.18, bộ hướng dẫn 1.16, `02` bản 1.15. Hai khối [Chờ xác nhận] minibar và "(chờ CPY)" giữ nguyên, chờ ORC.
