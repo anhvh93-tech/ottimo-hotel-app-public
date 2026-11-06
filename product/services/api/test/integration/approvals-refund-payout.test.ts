@@ -425,4 +425,70 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
     });
     expect(before).toMatchObject({ paidVnd: deposit, refundedVnd: 0 });
   });
+
+  it('BUG-R5-006 / C0313-25 (SEC-responses 4.3) + SEC 119-01: executeRefund bankReference – a card number (public test number, with - . _, or followed by expiry / CVV) → 422 CARD_NUMBER_DETECTED, nothing paid; a bank code with a long digit run, 16 digits failing Luhn, 12 digits and the last 8 characters are paid; a card in the note → 422 (free-text rule unchanged)', async () => {
+    const { reservationId, approvalId } = await cancelledWithRefund('2026-11-30', '2026-12-07');
+    const dest = await destination('fd', approvalId, {
+      method: 'bank_transfer',
+      bankBin: '970436',
+      accountNo: '0071000123457',
+      accountHolder: 'KHACH HOAN TIEN',
+    });
+    expect(dest.statusCode, dest.body).toBe(200);
+    expect((await approve('mgr', approvalId)).statusCode).toBe(200);
+    const refunds = async () =>
+      (
+        await db.withContext(t.ctx(), (tx) =>
+          tx.query<{ n: number }>(
+            `SELECT count(*)::int AS n FROM payment WHERE type = 'refund' AND reservation_id = $1`,
+            [reservationId],
+          ),
+        )
+      ).rows[0]!.n;
+    // MGR2 pays (requester FD, approver MGR – three-person rule), 10.000 at a time.
+    const pay = (bankReference: string, extra: Record<string, unknown> = {}) =>
+      payOut('mgr2', 'execute-refund', approvalId, reservationId, 10_000, {
+        bankReference,
+        ...extra,
+      });
+    for (const ref of [
+      '4111111111111111',
+      '4111-1111-1111-1111',
+      '4111.1111.1111.1111',
+      '4111_1111_1111_1111',
+      '4111111111111111/1228', // 119-01: card + expiry
+      '4111-1111-1111-1111-123', // 119-01: card + CVV
+      '4111111111111111-EXP1228', // 119-03: card + a group with letters
+    ]) {
+      const r = await pay(ref);
+      expect(r.statusCode, `${ref} ${r.body}`).toBe(422);
+      expect(r.json()).toMatchObject({
+        code: 'CARD_NUMBER_DETECTED',
+        errors: [{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }],
+      });
+      expect(r.body).not.toContain('4111');
+    }
+    expect(await refunds()).toBe(0);
+    const note = await pay('FT26290001', { note: 'Khách đọc số 4111 1111 1111 1111' });
+    expect(note.statusCode, note.body).toBe(422);
+    expect(note.json().errors).toEqual([{ field: 'note', code: 'CARD_NUMBER_DETECTED' }]);
+    expect(await refunds()).toBe(0);
+    // BUG-R5-006: the first four (a Luhn window inside, the QA table) were refused as a card before.
+    const accepted = [
+      '2026110700000000',
+      '26110700000004',
+      'FT26110700000000',
+      'FT26290012345671',
+      '4111111111111112',
+      '202611070001',
+      '00000000',
+      '20261107-000123', // 119-01: two groups, not Luhn
+      'FT2629-0012345671', // 119-01: letters
+    ];
+    for (const ref of accepted) {
+      const r = await pay(ref);
+      expect(r.statusCode, `${ref} ${r.body}`).toBe(201);
+    }
+    expect(await refunds()).toBe(accepted.length);
+  });
 });
