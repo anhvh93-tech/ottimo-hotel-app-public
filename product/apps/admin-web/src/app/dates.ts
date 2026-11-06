@@ -73,6 +73,42 @@ export function shiftDay(day: string, n: number): string {
 }
 
 /**
+ * V5-11 (OpenAPI 0.3.13 bổ sung 1 `earlyDeparture`; DOM rules-v1.0.5 2.1 (2)): the earliest new departure date of
+ * Trả sớm (B16). From 00:00 to the rollover the night of business day D is a night the guest has already slept, so
+ * the floor is the CALENDAR day D + 1; from the rollover on it is the business day.
+ * ARC review #142 §3 (FB-R5-ARC-FE-142-03): the same formula as the server's `minCalendarDate`
+ * (`shared/business-day.ts`) – max(business day, calendar day), no rollover. `businessDay` is the server-anchored day
+ * (`useBusinessDay`). A Desk estimate – a 409 `INVALID_TRANSITION` + `minNewDepartureDate` still wins.
+ * - 03:00 on 21/10, business day 20/10 → 21/10. 06:00 (business day 21/10) → 21/10. 23:00 on 20/10 → 20/10.
+ * - FB-R5-DOM-FE-142-01: the server already at 06:01 (business day 21/10), the desk clock 2 min slow → 21/10, never
+ *   22/10 (the Desk must not block a date the server takes). A business day a day behind still gives the calendar day.
+ */
+export function minCalendarDay(
+  businessDay: string,
+  timeZone = 'Asia/Ho_Chi_Minh',
+  now = new Date(),
+): string {
+  const calendar = todayLocal(timeZone, now);
+  return calendar > businessDay ? calendar : businessDay;
+}
+
+/**
+ * V5-11 W (UXD 9.13, DOM-142-01, ARC review #142 §3 (2); server `inEarlyHours`): from 00:00 to the rollover with the
+ * business day still before the calendar day – BOTH, so a business day a day behind after 06:00, or a desk clock a
+ * little slow at 05:59, is not W (no "after midnight" lines).
+ */
+export function inEarlyHours(
+  businessDay: string,
+  timeZone = 'Asia/Ho_Chi_Minh',
+  now = new Date(),
+  rollover = DEFAULT_ROLLOVER,
+): boolean {
+  // Some ICU builds write midnight as 24:00 even with hour12 false.
+  const hhmm = timeHHmm(now, timeZone).replace(/^24:/, '00:');
+  return hhmm < rollover.slice(0, 5) && businessDay < todayLocal(timeZone, now);
+}
+
+/**
  * BUG-R4-050 (ARC-on-v104-bug050-rule.md mục 1, FB-R4-ARC-FE-PR86-01): the instant of a check-out time `hhmm` typed
  * on H16, for the reads that take an instant (`createVietQr.checkoutAt`: the typed extra-night rate probe and the
  * check-out VietQR). B18 keeps sending `checkoutTime` only (BR-416) – never this instant.
