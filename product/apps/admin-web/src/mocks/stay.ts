@@ -808,7 +808,13 @@ export function createStayMock(ctx: Ctx) {
   const trusted = (g: { user: MockUser; roles: Role[] }) =>
     g.user.deviceTrusted === true || (g.roles.includes('owner') && ctx.db().currentDeviceTrusted);
   const roleName = (g: { user: MockUser }) => g.user.displayName;
-  const audit = (g: { user: MockUser }, action: string, code: string | undefined, after: Body) =>
+  const audit = (
+    g: { user: MockUser },
+    action: string,
+    code: string | undefined,
+    after: Body,
+    before?: Body,
+  ) =>
     st.audit.unshift({
       occurredAt: nowIso(),
       actorType: 'user',
@@ -818,6 +824,7 @@ export function createStayMock(ctx: Ctx) {
       action,
       entityType: 'folio',
       entityCode: code,
+      ...(before ? { before } : {}),
       after,
     });
 
@@ -1133,8 +1140,26 @@ export function createStayMock(ctx: Ctx) {
    */
   const postMidnightWindow = (r: MockReservation) =>
     today() === r.departureDate && nowHHmm() < '06:00';
-  function lateSurcharge(r: MockReservation, time: string) {
-    if (postMidnightWindow(r) && time < '06:00') return { tierPct: 0, surchargeVnd: 0, base: 0 };
+  /**
+   * The server's `postMidnight` (checkout-at.ts): the departure INSTANT is in the post-midnight window (calendar date =
+   * departure, before the rollover) or on the evening before (only resolved while the clock is in that window). The
+   * tiers follow the instant, not the clock: 05:30 typed at 07:00 on the departure day is no surcharge (ARC
+   * FB-R5-ARC-FE-125-01), as is 23:50 typed at 01:05 (T10-8). Check-out only (summary, QR, B18): B15 Trả muộn agrees
+   * a later time on the departure day and keeps the clock rule.
+   */
+  const postMidnightAt = (r: MockReservation, time: string, sentAt?: unknown) => {
+    const iso = resolveCheckoutAt(r, time, sentAt).checkoutAt;
+    const day = iso.slice(0, 10);
+    return (
+      (day === r.departureDate && iso.slice(11, 16) < '06:00') ||
+      day === addDays(r.departureDate, -1)
+    );
+  };
+  function lateSurcharge(r: MockReservation, time: string, checkout?: { sentAt?: unknown }) {
+    const noTier = checkout
+      ? postMidnightAt(r, time, checkout.sentAt)
+      : postMidnightWindow(r) && time < '06:00';
+    if (noTier) return { tierPct: 0, surchargeVnd: 0, base: 0 };
     const base =
       r.paymentModel !== 'direct'
         ? (roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000)
@@ -1258,7 +1283,7 @@ export function createStayMock(ctx: Ctx) {
    * step of the longer stay (mock: 10 % from 7 nights), credit taken off, clamped once.
    */
   function dueAtCheckout(r: MockReservation, time: string, rate?: number, lateFee = false) {
-    const s = lateSurcharge(r, time);
+    const s = lateSurcharge(r, time, {});
     const tt = totals(r);
     const live = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
     const lateNew = s.treatAsExtension ? 0 : s.surchargeVnd;
@@ -1289,7 +1314,7 @@ export function createStayMock(ctx: Ctx) {
   /** `CheckoutSummary.lateFeeAsNightVnd`: after the last tier while the night of departure is sold. */
   function lateFeeAsNight(r: MockReservation, time: string) {
     if (st.legacyNoLateFeeAsNight) return undefined;
-    return lateSurcharge(r, time).treatAsExtension && arrivalSameDay(r)
+    return lateSurcharge(r, time, {}).treatAsExtension && arrivalSameDay(r)
       ? extraNightRate(r)
       : undefined;
   }
@@ -3022,7 +3047,7 @@ export function createStayMock(ctx: Ctx) {
       const asked = new URL(request.url).searchParams.get('checkoutTime') ?? undefined;
       const at = resolveCheckoutAt(r, asked);
       const time = asked ?? r.agreedCheckoutTime ?? '12:00';
-      const s = lateSurcharge(r, time);
+      const s = lateSurcharge(r, time, { sentAt: at.checkoutAt });
       const tt = totals(r);
       const f = folioOf(r);
       const blockers: string[] = [];
@@ -3059,7 +3084,7 @@ export function createStayMock(ctx: Ctx) {
         extraNightAvailable: s.treatAsExtension ? !arrivalSameDay(r) : undefined,
         lateFeeAsNightVnd: lateFeeAsNight(r, time),
         minibarUncheckedRooms: unchecked.length ? unchecked : undefined,
-        postMidnightWindow: postMidnightWindow(r),
+        postMidnightWindow: postMidnightAt(r, time, at.checkoutAt),
         // V5-10: the instant every figure here is priced at, and what B18 will say about it.
         checkoutAt: at.checkoutAt,
         checkoutTimeNoteRequired: at.noteRequired,
@@ -3096,7 +3121,7 @@ export function createStayMock(ctx: Ctx) {
             : String(body.checkoutTime ?? '12:00');
         const timeErr = timeCheck(time, body.checkoutTimeNote, 'checkoutTime', 'checkoutTimeNote');
         if (timeErr) return timeErr;
-        const s = lateSurcharge(r, time);
+        const s = lateSurcharge(r, time, { sentAt: body.checkoutAt });
         const extraNight = body.extraNight as { rateVnd?: number } | undefined;
         // BR-416-06 (0.3.7 add. 4): the night of departure is sold → a late fee of one night, confirmed at the
         // desk by an OWN/MGR (password), instead of the extra night.
@@ -3609,11 +3634,15 @@ export function createStayMock(ctx: Ctx) {
           },
           g.user.displayName,
         );
-      audit(g, 'folio_line.adjusted', r.code, {
-        before: l.amountVnd,
-        amountVnd: body.voidLine === true ? 0 : round1000(unit * qty),
-        reason: String(body.reason),
-      });
+      // like the server's audit row: before / after amounts, the line kind on `before` (0.3.13 bổ sung 1)
+      audit(
+        g,
+        'folio_line.adjusted',
+        r.code,
+        { amountVnd: body.voidLine === true ? 0 : round1000(unit * qty) },
+        { amountVnd: l.amountVnd, category: l.category },
+      );
+      st.audit[0]!.reason = String(body.reason);
       return rsv().remember(key, 201, folioView(r, g.roles));
     }),
     http.post(`${prop}/folios/:folioId/lines/:lineId/foc`, async ({ request, params }) => {
@@ -4341,9 +4370,35 @@ export function createStayMock(ctx: Ctx) {
       const q = new URL(request.url).searchParams;
       const actor = q.get('actorUserId');
       const mgr = has(g.roles, OWN_MGR);
+      // like audit-log.controller: `from`/`to` = calendar dates in Asia/Ho_Chi_Minh, inclusive; default the last 7 days.
+      const day = (iso: string) =>
+        new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(iso));
+      const to = q.get('to') ?? day(new Date().toISOString());
+      const from = q.get('from') ?? addDays(to, -6);
+      // 0.3.13 bổ sung 1: `reductionsOnly` = every `folio_line.adjusted` that lowers a line (removals included),
+      // not the night lines (room, extra person, room-change difference); pins category money.
+      const NIGHT_LINES = ['room', 'extra_person', 'room_change_difference'];
+      const reduction = (e: (typeof st.audit)[number]) => {
+        const b = Number((e.before as Body | undefined)?.amountVnd);
+        const a = Number((e.after as Body | undefined)?.amountVnd);
+        const cat = String((e.before as Body | undefined)?.category ?? '');
+        return (
+          e.action === 'folio_line.adjusted' &&
+          Number.isFinite(a) &&
+          Number.isFinite(b) &&
+          a < b &&
+          !NIGHT_LINES.includes(cat)
+        );
+      };
+      const reductionsOnly = q.get('reductionsOnly') === 'true';
       const data = st.audit
         .filter((e) => !q.get('category') || e.category === q.get('category'))
         .filter((e) => !actor || e.actorUserId === actor)
+        .filter((e) => {
+          const d = day(String(e.occurredAt));
+          return d >= from && d <= to;
+        })
+        .filter((e) => !reductionsOnly || (e.category === 'money' && reduction(e)))
         // FD/FDL: only their own money actions (US-006 AC2, x-scope own).
         .filter((e) => mgr || e.actorUserId === g.user.id)
         .map((e) => {
@@ -4351,7 +4406,14 @@ export function createStayMock(ctx: Ctx) {
           delete out.actorUserId;
           return out;
         });
-      return json({ data, page: { hasMore: false } });
+      // `PageInfo` (Cursor, Limit 1–100, default 50): the cursor is opaque – the mock keeps an offset in it.
+      const limit = Math.min(Math.max(Number(q.get('limit') ?? 50) || 50, 1), 100);
+      const start = Math.max(Number(q.get('cursor') ?? 0) || 0, 0);
+      const more = start + limit < data.length;
+      return json({
+        data: data.slice(start, start + limit),
+        page: { limit, nextCursor: more ? String(start + limit) : null },
+      });
     }),
     http.post('*/v1/me/step-up', async ({ request }) => {
       const g = guard(request, FD_PLUS);
@@ -4932,6 +4994,16 @@ export function createStayMock(ctx: Ctx) {
     if (kind === 'transfer' && dest === 'bank_transfer' && !String(body.bankReference ?? '').trim())
       errors.push({ field: 'bankReference', code: 'REQUIRED' });
     if (errors.length) return problem(422, 'VALIDATION_FAILED', { errors, max: left });
+    // C0313-25 (SEC-responses 4.1 (a), BE PR #119 `assertNotCardNumberReference`): a reference that IS a card number
+    // as a whole – 13–19 digits once `.` `/` `_` `-` are removed, Luhn – is refused; a bank code with letters or a
+    // long digit run that fails Luhn is accepted. Nothing is stored and the value is never echoed.
+    const refDigits = String(body.bankReference ?? '')
+      .trim()
+      .replace(/[./_-]/g, '');
+    if (/^\d{13,19}$/.test(refDigits) && luhn(refDigits))
+      return problem(422, 'CARD_NUMBER_DETECTED', {
+        errors: [{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }],
+      });
     const r = rsv().state.reservations.find((x) => x.folioId === a.folioId)!;
     const p: MockPayment = {
       id: uid(95_000 + next()),

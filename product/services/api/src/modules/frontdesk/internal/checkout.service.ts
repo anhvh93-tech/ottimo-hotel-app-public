@@ -1549,9 +1549,16 @@ export class CheckoutService {
     // BR-012 (5), 0.3.7 D1: the bill keeps the room names it had when settled (folio.settled_room_names).
     await snapshotSettledRoomNames(tx, folioId);
     // SM-11 / DOM S3-3 (FB-R2-DOM-BE-15): checked out + folio owes nothing → commissions may be earned now.
+    // FB-R5-DOM-BE-101-01 (ARC H1-03): the sold nights go with it – a booking confirmed while its payee had no rate
+    // gets its commission row here (B9 / B18 never resync), at the rate in force today.
     await this.s.folios.tryEarnCommissions(
       tx,
-      { reservationId: row.id, reservationCode: row.code, status: 'checked_out' },
+      {
+        reservationId: row.id,
+        reservationCode: row.code,
+        status: 'checked_out',
+        stay: await this.s.stay.confirmedStay(tx, row),
+      },
       ctx.requestId,
     );
     await this.audit.record(tx, {

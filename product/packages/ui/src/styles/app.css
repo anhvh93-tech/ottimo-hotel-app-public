@@ -317,6 +317,14 @@ body:has(.app-mnav) .toasts {
   }
 }
 
+/* v1.0.5 FB-R5-UXD-FE-PR102-03 – Desk room board (S10 Trạng thái buồng) on a phone: the row's buttons
+   ("Báo cần dọn") reach the 44 px touch target of DS 4; from 521 px they stay `.btn.sm` (32 px). */
+@media (max-width: 520px) {
+  .room-acts .btn {
+    min-height: 44px;
+  }
+}
+
 /* UXR S4 P-03 – H17 Cần duyệt card: text, status, then the two buttons. On a phone everything stacks (no
    ~60 px text column, the amount never under the chip); from 861 px one row as before. */
 .appr-card {
@@ -528,4 +536,20 @@ body:has(.app-mnav) .toasts {
 .input.is-prefilled {
   border-color: var(--oak-ink);
   box-shadow: 0 0 0 1px var(--oak-ink);
+}
+
+/*
+ * FB-R5-UXD-FE-PR125-04, PR140-01/02 (Desk H15 Nhận phòng, H16 Trả phòng – `.desk-foot` only, never the guest web):
+ * under 600 px the reason a button is locked (`.li-s` between "Quay lại" and the main button) takes a row of its own
+ * above the two buttons (it was squeezed into a ~40 px column at 390 px). From 600 px the footer stays one row, the
+ * main button on the right.
+ */
+@media (max-width: 599px) {
+  .wiz-foot.desk-foot {
+    flex-wrap: wrap;
+  }
+  .wiz-foot.desk-foot > .li-s {
+    flex: 1 0 100%;
+    order: -1;
+  }
 }

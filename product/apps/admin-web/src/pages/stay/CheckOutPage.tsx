@@ -390,10 +390,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     setToBill(false);
     setStep(2);
   }, [toBill, sum.state.status, res.state.status]);
+  // FB-R5-ARC-FE-125-02: B18 refused the instant (`checkoutAt`, e.g. a read from before 06:00 kept past it) – the
+  // summary is read again and "Tiếp tục" waits for that read, so the next B18 never sends the refused value again.
+  const [atRecheck, setAtRecheck] = useState(false);
   // "Tiếp tục" pressed while the summary is still priced for another time (typed < 300 ms ago): the click is
   // kept and carried out once the server amount for the typed time is on screen – never lost, never stale.
   const timedSummary = !!s && !!time && sum.state.data?.askedTime === time;
   const priced = !time || timedSummary;
+  const atRechecking = atRecheck && sum.state.status === 'loading';
+  useEffect(() => {
+    if (atRecheck && sum.state.status !== 'loading') setAtRecheck(false);
+  }, [atRecheck, sum.state.status]);
   /**
    * V5-10 (0.3.13 1.1 ý 3, 1.19; T10-6): the ONE instant of this check-out – the server's `checkoutAt` of the last
    * summary read with the time on screen, sent as is to the check-out VietQR (and its due probe) and to B18. No read
@@ -411,10 +418,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const [wantBill, setWantBill] = useState(false);
   const goBillRef = useRef<() => void>(() => undefined);
   useEffect(() => {
-    if (!wantBill || !priced) return;
+    if (!wantBill || !priced || atRechecking) return;
     setWantBill(false);
     goBillRef.current();
-  }, [wantBill, priced]);
+  }, [wantBill, priced, atRechecking]);
   useEffect(() => {
     if (!focusNote || step !== 1) return;
     noteRef.current?.focus();
@@ -1027,6 +1034,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           setNoteAsked(true);
           setFocusNote(true);
         }
+        // FB-R5-ARC-FE-125-02: the summary is being read again above (`sum.reload()`) – wait for its new instant
+        if (e.fieldErrors.some((fe) => fe.field.replace(/^body\./, '') === 'checkoutAt'))
+          setAtRecheck(true);
         setStep(1);
       }
       return;
@@ -1047,7 +1057,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     ? t('field.TIME_AFTER_ACTION')
     : // FB-R5-UXD-FE-PR125-02: the server already said B18 will ask for the note – no going on with it empty
       // (else the desk collects the money, then "Hoàn tất" sends them back to this step).
-      timedSummary && s.checkoutTimeNoteRequired && !timeNote.trim()
+      // FB-R5-UXD-FE-PR125-05: the server takes a note of 3–300 characters (`checkoutTimeNote`, min 3).
+      timedSummary && s.checkoutTimeNoteRequired && timeNote.trim().length < 3
       ? t('field.TIME_NOTE_REQUIRED')
       : extraRangeError
         ? extraRangeError
@@ -1060,7 +1071,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               : null;
   const goBill = async () => {
     if (toBill || lateAct.busy) return;
-    if (!priced) {
+    if (!priced || atRechecking) {
       setWantBill(true);
       return;
     }
@@ -1525,8 +1536,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       </section>
     );
   } else if (step === 1) {
+    // FB-R5-ARC-FE-125-02: B18's error on the instant (`checkoutAt`) is shown here too – the desk was sent back to
+    // this box with nothing under it.
     const timeError =
-      act.fields.checkoutTime ?? (timeAfterNow ? t('field.TIME_AFTER_ACTION') : undefined);
+      act.fields.checkoutAt ??
+      act.fields.checkoutTime ??
+      (timeAfterNow ? t('field.TIME_AFTER_ACTION') : undefined);
     // FB-R5-UXD-FE-PR125-01: the brown ring is only a second sign – the sentence says the time was filled in by Desk and
     // costs the guest money (DOM 15.1: key returned 11:40, clicked 12:10). PR125-03: an error is the only thing shown.
     const prefilledHint = timePrefilledCharged && !timeError;
@@ -2059,7 +2074,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           <div className="stack">{summaryCard}</div>
         </div>
         {done ? null : (
-          <div className="wiz-foot">
+          <div className="wiz-foot desk-foot">
             {step === 0 ? (
               <Link className="btn ghost" to={`/reservations/${reservationId}`}>
                 {t('ci.back_to_booking')}

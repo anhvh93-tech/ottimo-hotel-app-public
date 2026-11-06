@@ -42,6 +42,7 @@ interface Ctx {
 
 const OWN_MGR: Role[] = ['owner', 'manager'];
 const FD_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
+const FDL_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead'];
 const HK: Role = 'housekeeping';
 const MT: Role = 'maintenance';
 const has = (roles: Role[], set: Role[]) => roles.some((r) => set.includes(r));
@@ -599,50 +600,128 @@ export function createOpsMock(ctx: Ctx) {
     return { errors, name, code };
   }
 
+  /**
+   * Scope T of an HK-only caller (FB-R5-ARC-FE-102-02, server `scopeRooms` / `inScope`): rooms with a task of the
+   * business day (or an open one carried over), not cancelled, unassigned or assigned to the caller. Anyone with a
+   * desk role sees every room.
+   */
+  function inScope(roomId: string, g: { user: { id: string }; roles: Role[] }): boolean {
+    if (!g.roles.includes(HK) || has(g.roles, FD_PLUS)) return true;
+    return st.hkTasks.some(
+      (t) =>
+        t.roomId === roomId &&
+        t.status !== 'cancelled' &&
+        (t.dueDate === T() ||
+          (t.dueDate < T() && (t.status === 'open' || t.status === 'in_progress'))) &&
+        (!t.assignedUserId || t.assignedUserId === g.user.id),
+    );
+  }
+
+  /** RoomStatusEntry of one room; `allowedEvents` as the server computes it (rules.ts allowedEvents, EP07 2.1). */
+  function roomEntry(r: Room, g: { user: { id: string }; roles: Role[] }): RoomStatusEntry {
+    const { roles } = g;
+    const fd = has(roles, FD_PLUS);
+    const res = ctx.rsv().reservations;
+    const status = (ctx.roomStatus()[r.roomNo] ?? 'VC') as RoomStatusEntry['status'];
+    const guest = res.find((x) => x.roomId === r.id && x.status === 'in_house');
+    const next = res
+      .filter((x) => x.roomId === r.id && x.status === 'confirmed' && x.arrivalDate >= T())
+      .sort((a, b) => a.arrivalDate.localeCompare(b.arrivalDate))[0];
+    // rules.ts allowedEvents: an HK-only caller gets events only for rooms in scope T.
+    const events: RoomStatusEntry['allowedEvents'] = !(
+      fd ||
+      (roles.includes(HK) && inScope(r.id, g))
+    )
+      ? []
+      : status === 'VD' || status === 'OD'
+        ? ['start_cleaning']
+        : status === 'CL'
+          ? ['finish_cleaning']
+          : status === 'OC'
+            ? ['needs_cleaning']
+            : status === 'VC' && has(roles, FDL_PLUS)
+              ? ['inspect']
+              : [];
+    return {
+      roomId: r.id,
+      roomNo: r.roomNo,
+      roomName: r.name ?? null,
+      status,
+      statusLabel: STATUS_LABEL[status],
+      since: at(T(), '08:00'),
+      ...(fd && guest ? { currentGuest: guest.guestName } : {}),
+      ...(next
+        ? {
+            nextArrival: {
+              date: next.arrivalDate,
+              etaTime: next.etaTime,
+              ...(fd ? { guestDisplayName: next.guestName } : {}),
+            },
+          }
+        : {}),
+      allowedEvents: events,
+      openTaskIds: st.hkTasks
+        .filter((t) => t.roomId === r.id && (t.status === 'open' || t.status === 'in_progress'))
+        .map((t) => t.id),
+      inspectionFailed: false,
+      version: 1,
+    };
+  }
+
   const handlers = [
     // ---------- housekeeping (S10) ----------
     http.get(`${prop}/room-statuses`, ({ request }) => {
       const g = guard(request, [...FD_PLUS, HK, MT]);
       if (isResponse(g)) return g;
-      const fd = has(g.roles, FD_PLUS);
-      const res = ctx.rsv().reservations;
       const data: RoomStatusEntry[] = ctx
         .db()
         .rooms.filter((r) => r.isSellable !== false)
-        .map((r) => {
-          const status = (ctx.roomStatus()[r.roomNo] ?? 'VC') as RoomStatusEntry['status'];
-          const guest = res.find((x) => x.roomId === r.id && x.status === 'in_house');
-          const next = res
-            .filter((x) => x.roomId === r.id && x.status === 'confirmed' && x.arrivalDate >= T())
-            .sort((a, b) => a.arrivalDate.localeCompare(b.arrivalDate))[0];
-          return {
-            roomId: r.id,
-            roomNo: r.roomNo,
-            roomName: r.name ?? null,
-            status,
-            statusLabel: STATUS_LABEL[status],
-            since: at(T(), '08:00'),
-            ...(fd && guest ? { currentGuest: guest.guestName } : {}),
-            ...(next
-              ? {
-                  nextArrival: {
-                    date: next.arrivalDate,
-                    etaTime: next.etaTime,
-                    ...(fd ? { guestDisplayName: next.guestName } : {}),
-                  },
-                }
-              : {}),
-            allowedEvents: [],
-            openTaskIds: st.hkTasks
-              .filter(
-                (t) => t.roomId === r.id && (t.status === 'open' || t.status === 'in_progress'),
-              )
-              .map((t) => t.id),
-            inspectionFailed: false,
-            version: 1,
-          };
-        });
+        .map((r) => roomEntry(r, g));
       return json({ data, asOf: nowIso() });
+    }),
+    // SM-03 manual events (US-053). The desk sends R8 `needs_cleaning` (V5-15, ARC 0.3.13 1.4): OC → OD plus a
+    // stay-over cleaning task when the room has none open or in progress (R8a, FB-R5-ARC-FE-102-02 – a stay-over
+    // clean done this morning does not stop a second one). `expectedFrom` ≠ current → 409 INVALID_TRANSITION +
+    // currentState. HK-only outside scope T → 404 (EP07 2.3, before anything else).
+    http.post(`${prop}/rooms/:roomId/status-transitions`, async ({ request, params }) => {
+      const g = guard(request, [...FD_PLUS, HK]);
+      if (isResponse(g)) return g;
+      const room = roomById(params.roomId);
+      if (!room || !inScope(room.id, g)) return problem(404, 'NOT_FOUND');
+      const { key, replay } = idem(request, `room-status:${room.id}`);
+      if (replay) return replay;
+      const b = (await request.json()) as Body;
+      if (!b.performedAt) return validation([{ field: 'performedAt', code: 'REQUIRED' }]);
+      const from = (ctx.roomStatus()[room.roomNo] ?? 'VC') as RoomStatusEntry['status'];
+      if (b.expectedFrom !== from)
+        return problem(409, 'INVALID_TRANSITION', { currentState: from });
+      const inHouse = ctx
+        .rsv()
+        .reservations.some((x) => x.roomId === room.id && x.status === 'in_house');
+      const to =
+        b.event === 'needs_cleaning' && from === 'OC'
+          ? 'OD'
+          : b.event === 'start_cleaning' && (from === 'VD' || from === 'OD')
+            ? 'CL'
+            : b.event === 'finish_cleaning' && from === 'CL'
+              ? inHouse
+                ? 'OC'
+                : 'VC'
+              : null;
+      if (!to) return problem(409, 'INVALID_TRANSITION', { currentState: from });
+      ctx.roomStatus()[room.roomNo] = to;
+      if (
+        b.event === 'needs_cleaning' &&
+        !st.hkTasks.some(
+          (t) =>
+            t.roomId === room.id &&
+            t.type === 'stayover_clean' &&
+            (t.status === 'open' || t.status === 'in_progress'),
+        )
+      ) {
+        st.hkTasks.push(newTask(room, 'stayover_clean', { dueDate: T(), source: 'manual' }));
+      }
+      return remember(key, 200, roomEntry(room, g));
     }),
     http.get(`${prop}/hk-tasks`, ({ request }) => {
       const g = guard(request, [...FD_PLUS, HK, MT]);

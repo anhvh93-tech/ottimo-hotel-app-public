@@ -12,6 +12,12 @@
  *   otherwise the live line is reversed and ONE line is posted = used × the fill's price, `charge_code` = the item
  *   code (FOC key `item:minibar:<code>` – R8); a free item only records consumption. Counting the fridge of a room
  *   the stay has left (B14) creates its refill task at once (R9).
+ * - V5-16 (FB-R5-SEC-BE-V516-01 ý 2, BR-438 (4)): an R7 re-count that makes the live minibar line of an item smaller
+ *   (0 included – no line posted) writes ONE `folio_line.adjusted` on that line, like adjustFolioLine: `before` =
+ *   category, the live amount, the role at the time and the four facts of the ROOT line (folio/public/
+ *   line-reduction.ts), `after` = the new amount, reason `minibar_recount` – so `reductionsOnly` / `removalsOnly`
+ *   and "Cần chú ý" `line_reduction_count` see it. Every role, HK included. Nothing is refused here: the BR-438 403
+ *   on this path (ý 1) needs a contract response for recordMinibarCheck first.
  * Housekeeping enters quantities, never sees money (serializer, rbac note 26) – scope "today": an in-house
  * booking (checkout count: departing today). Lock order: folio → minibar_check.
  */
@@ -20,10 +26,24 @@ import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { type FieldError, problem } from '../../../shared/problem';
-import { type LocalDate, businessDate, localDate, toZonedIso } from '../../../shared/time';
+import {
+  type LocalDate,
+  type LocalTime,
+  businessDate,
+  localDate,
+  toZonedIso,
+} from '../../../shared/time';
+import { actorRoleOf } from '../../audit/public/actor-role';
+import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { FolioService, type FolioLineRow } from '../../folio/public/folio.service';
-import { ParameterService } from '../../platform/public/parameter.service';
+import {
+  type ReductionScope,
+  isLineReduction,
+  reductionScope,
+  rootLineOf,
+} from '../../folio/public/line-reduction';
+import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { publishEvent } from '../../platform/public/staff-notify';
 import { isOverdue } from '../../reservations/public/overdue-checkout';
 import {
@@ -82,12 +102,16 @@ interface ItemHistory {
 
 const DESK = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 
+/** `reason` of the R7 reversal and of its `folio_line.adjusted` (V516-01 ý 2). */
+export const MINIBAR_RECOUNT_REASON = 'minibar_recount';
+
 @Injectable()
 export class MinibarService {
   constructor(
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(FolioService) private readonly folios: FolioService,
     @Inject(ParameterService) private readonly params: ParameterService,
+    @Inject(AuditService) private readonly audit: AuditService,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
@@ -145,6 +169,33 @@ export class MinibarService {
       if (!inScope) throw problem('NOT_FOUND');
     }
     return info;
+  }
+
+  /**
+   * V516-01 ý 2: the BR-438 facts of a live minibar line for the person counting again – measured on the ROOT of its
+   * adjustFolioLine chain, on the business-day axis of the root's posting date (same reading as
+   * FolioLinesService.lineOrigin). A count line (`minibar_check`) is typed by hand; its poster is who counted.
+   */
+  private async recountOrigin(
+    tx: Tx,
+    lineId: string,
+    actorUserId: string,
+    day: { today: LocalDate; tz: string; now: Date },
+  ): Promise<ReductionScope> {
+    const root = await rootLineOf(tx, lineId);
+    if (!root) throw new Error(`folio line ${lineId} not found for its origin`);
+    const rolloverOn = async (d: LocalDate) => {
+      try {
+        return await this.params.get<LocalTime>(tx, 'business_day_rollover', d);
+      } catch (e) {
+        if (e instanceof ParameterMissingError) return null;
+        throw e;
+      }
+    };
+    const rollover =
+      (await rolloverOn(localDate(root.postedAt, day.tz))) ??
+      (await this.params.get<LocalTime>(tx, 'business_day_rollover', localDate(day.now, day.tz)));
+    return reductionScope(root, actorUserId, { today: day.today, tz: day.tz, rollover });
   }
 
   /**
@@ -499,14 +550,39 @@ export class MinibarService {
         continue;
       }
       // R7: a new count – the live line is reversed (BR-008) and ONE line posted at the fill's price.
+      const amount = item.priceVnd !== null && used > 0 ? used * item.priceVnd : 0;
+      // V516-01 ý 2: the live line goes down (or away) – its origin is read before anything is written.
+      const reduced =
+        h?.live && isLineReduction('minibar', h.live.amount_vnd, amount)
+          ? {
+              line: h.live,
+              scope: await this.recountOrigin(tx, h.live.id, actor.userId, { today, tz, now }),
+            }
+          : null;
       if (h?.live) {
-        await this.folios.reverseLine(tx, h.live.id, 'minibar_recount', folioActor, {
+        await this.folios.reverseLine(tx, h.live.id, MINIBAR_RECOUNT_REASON, folioActor, {
           skipReductionSync: true,
         });
         reversedOnly = true;
       }
+      if (reduced) {
+        await this.audit.recordMoney(tx, {
+          action: 'folio_line.adjusted',
+          entityType: 'folio_line',
+          entityId: reduced.line.id,
+          entityCode: s.code,
+          before: {
+            category: 'minibar',
+            amountVnd: reduced.line.amount_vnd,
+            actorRole: actorRoleOf(actor.userId, actor.roles),
+            ...reduced.scope,
+          },
+          after: { category: 'minibar', amountVnd: amount },
+          reason: MINIBAR_RECOUNT_REASON,
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+      }
       let folioLineId: string | null = null;
-      const amount = item.priceVnd !== null && used > 0 ? used * item.priceVnd : 0;
       if (amount > 0) {
         [folioLineId] = (await this.folios.postLines(
           tx,
