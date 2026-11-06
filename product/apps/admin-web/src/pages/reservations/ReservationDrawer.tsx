@@ -167,10 +167,14 @@ export function ReservationDrawer({
       : undefined;
   // V5-13 (ARC A1 (b), UXD 9.12 U4): FD+ see under "Còn phải thu" what is still to be handed back to the guest
   // (`Folio.totals.openRefunds`, every reason, whoever asked it) – one total. SAL/CTV never receive the field: no row.
-  // Absent field or a failed read is said (U5), never shown as "nothing pending".
+  // Absent field or a failed read is said (U5), never shown as "nothing pending" – a failed re-read too (ARC-134-01):
+  // the copy kept from the read before may be out of date, so the failed read wins over it for this row.
   const refundRow =
     fd && folioId && (ownFolio || folioUnread === folioId) ? (
-      <OpenRefundRows variant="total" refunds={ownFolio?.totals.openRefunds} />
+      <OpenRefundRows
+        variant="total"
+        refunds={folioUnread === folioId ? undefined : ownFolio?.totals.openRefunds}
+      />
     ) : null;
   const rVersion = r?.version;
   useEffect(() => {

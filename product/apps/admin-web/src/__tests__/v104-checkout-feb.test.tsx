@@ -184,7 +184,7 @@ const BOTH = [
   [tv('folio.open_refunds_total'), num(832_000)],
   [tv('audit.reason.early_departure'), num(732_000)],
   [tv('audit.reason.overpayment'), num(100_000)],
-  [tv('approvals.refund_may_decrease')],
+  [tv('folio.open_refunds_may_decrease')],
 ];
 
 describe('GN-R4-QA-03, V5-13 – refund still due on step 3 and on the result (server `openRefunds`)', () => {
@@ -210,7 +210,9 @@ describe('GN-R4-QA-03, V5-13 – refund still due on step 3 and on the result (s
     // the group rows and the note are dashed sub rows; the note is said once
     const trs = within(card).getAllByRole('row').slice(head);
     expect(trs.slice(1).every((x) => x.classList.contains('sub'))).toBe(true);
-    expect(within(card).getAllByText(tv('approvals.refund_may_decrease'))).toHaveLength(1);
+    expect(within(card).getAllByText(tv('folio.open_refunds_may_decrease'))).toHaveLength(1);
+    // UXD-134-01: not the approval queue's per-request line ("yêu cầu này") under a total of several requests
+    expect(within(card).queryByText(tv('approvals.refund_may_decrease'))).toBeNull();
     // the folio owes nothing – "Đã thanh toán đủ" stays, the rows only inform; the queue is never read for this
     expect(screen.getByText(tv('drawer.folio.settled'))).toBeInTheDocument();
     await settle();
@@ -241,7 +243,7 @@ describe('GN-R4-QA-03, V5-13 – refund still due on step 3 and on the result (s
     expect(refundRows(card).rows).toEqual([
       [tv('folio.open_refunds_total'), num(732_000)],
       [tv('audit.reason.early_departure'), num(732_000)],
-      [tv('approvals.refund_may_decrease')],
+      [tv('folio.open_refunds_may_decrease')],
     ]);
     expect(screen.queryByText(tv('checkout.pending_refund_unavailable'))).toBeNull();
   });
@@ -269,7 +271,7 @@ describe('GN-R4-QA-03, V5-13 – refund still due on step 3 and on the result (s
     await toBill(user);
     await settle();
     expect(screen.queryByText(tv('folio.open_refunds_total'))).toBeNull();
-    expect(screen.queryByText(tv('approvals.refund_may_decrease'))).toBeNull();
+    expect(screen.queryByText(tv('folio.open_refunds_may_decrease'))).toBeNull();
     expect(screen.queryByText(tv('checkout.pending_refund_unavailable'))).toBeNull();
     // (this folio still holds the credit the mock never paid out, so "Hoàn tất" waits for the overpayment reason –
     // only the label is checked here; the confirmation follows the same rule, see the case above)

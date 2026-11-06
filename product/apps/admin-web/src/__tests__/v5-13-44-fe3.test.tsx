@@ -164,7 +164,7 @@ describe('V5-13 – Folio (U4): pending refund of the stay, every request whoeve
     expect(balance).toBeGreaterThanOrEqual(0);
     expect(rows.indexOf(row)).toBe(balance + 1);
     expect(within(drawer).queryByText(tv('audit.reason.early_departure'))).toBeNull();
-    expect(within(drawer).queryByText(tv('approvals.refund_may_decrease'))).toBeNull();
+    expect(within(drawer).queryByText(tv('folio.open_refunds_may_decrease'))).toBeNull();
   });
 
   it('booking drawer: nothing pending → no row; SAL (field not sent) → no row', async () => {
@@ -200,6 +200,35 @@ describe('V5-13 – Folio (U4): pending refund of the stay, every request whoeve
     expect(within(drawer).queryByText(tv('drawer.folio.open_refunds'))).toBeNull();
   });
 
+  it('booking drawer, FD: read once, then the re-read after a save fails → "cannot load", not the old total (ARC-134-01)', async () => {
+    const r = withPending();
+    r.doorAccessHandedOverAt = null; // a one-click save on the drawer that gives the booking a new version
+    const { drawer, user } = await openDrawer(r, 'qa.fd');
+    await within(drawer).findByText(tv('drawer.folio.open_refunds'));
+    server.use(
+      http.get('*/v1/properties/:propertyId/folios/:folioId', () =>
+        HttpResponse.json(
+          { type: 'about:blank', title: 'Internal', status: 500, code: 'INTERNAL_ERROR' },
+          { status: 500 },
+        ),
+      ),
+    );
+    const version = r.version;
+    await user.click(
+      within(drawer).getByRole('button', { name: tv('drawer.action.door_handed_over') }),
+    );
+    const confirm = (await screen.findByText(tv('ci.door_late_body'))).closest('[role]')!;
+    await user.click(
+      within(confirm as HTMLElement).getByRole('button', {
+        name: tv('drawer.action.door_handed_over'),
+      }),
+    );
+    await waitFor(() => expect(r.version).toBeGreaterThan(version));
+    const note = await within(drawer).findByText(tv('checkout.pending_refund_unavailable'));
+    expect(note.closest('tr')).toHaveClass('sub');
+    expect(within(drawer).queryByText(tv('drawer.folio.open_refunds'))).toBeNull();
+  });
+
   it('folio box: the total, one row per group and the note under "Còn phải thu"', async () => {
     const r = withPending();
     const { user, drawer } = await openDrawer(r, 'qa.mgr');
@@ -215,7 +244,7 @@ describe('V5-13 – Folio (U4): pending refund of the stay, every request whoeve
       [tv('folio.open_refunds_total'), num(1_032_000)],
       [tv('audit.reason.early_departure'), num(732_000)],
       [tv('audit.reason.cancellation'), num(300_000)],
-      [tv('approvals.refund_may_decrease')],
+      [tv('folio.open_refunds_may_decrease')],
     ]);
   });
 });
@@ -328,4 +357,29 @@ describe('V5-44 – 409 FOLIO_LOCKED: the sentence follows `lockReason` (UXD 9.1
     expect(await within(dlg).findByText(tv('error.FOLIO_LOCKED_closed'))).toBeVisible();
     expect(within(dlg).queryByRole('button', { name: tv('folio.adjust') })).toBeNull();
   });
+
+  it.each([
+    ['qa.mgr', 'error.FOLIO_LOCKED_settled_mgr'],
+    ['qa.fd', 'error.FOLIO_LOCKED_settled'],
+  ])(
+    'booking boxes outside useSubmit follow the role too (ARC-134-02): B4 `settled` for %s → %s',
+    async (as, key) => {
+      const r = rsvOf('Lê Minh');
+      const { user } = renderApp(`/reservations/${r.id}`, as);
+      const drawer = await screen.findByRole('dialog', { name: 'Lê Minh' });
+      await user.click(
+        await within(drawer).findByRole('button', { name: tv('drawer.action.confirm_deposit') }),
+      );
+      const dlg = await screen.findByRole('dialog', {
+        name: tv('rsv.deposit_title', { code: r.code }),
+      });
+      await user.selectOptions(within(dlg).getByLabelText(tv('pay.method')), 'cash');
+      mockControl.failNext(/\/actions\/confirm-deposit:POST$/, 409, {
+        code: 'FOLIO_LOCKED',
+        lockReason: 'settled',
+      });
+      await user.click(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') }));
+      expect(await within(dlg).findByText(tv(key))).toBeInTheDocument();
+    },
+  );
 });

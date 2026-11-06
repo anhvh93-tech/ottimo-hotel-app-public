@@ -27,10 +27,18 @@ export interface SubmitFieldMap {
   labels?: Record<string, string>;
 }
 
+/**
+ * Who reads an error sentence – one place for every box that says a Problem, so a new caller does not forget the
+ * role (ARC-134-02). `manager` = OWN/MGR: a 409 FOLIO_LOCKED `settled` says what they can still do (V5-44, UXD 9.12).
+ */
+export function useProblemRoles(): { manager: boolean } {
+  const { roles } = useSession();
+  return { manager: roles.some((r) => r === 'owner' || r === 'manager') };
+}
+
 export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
   const { t, locale } = useI18n();
-  // V5-44 (UXD 9.12): a 409 FOLIO_LOCKED `settled` says what an OWN/MGR can still do – the sentence follows the role.
-  const manager = useSession().roles.some((r) => r === 'owner' || r === 'manager');
+  const { manager } = useProblemRoles();
   const write = useWrite(writeOptions);
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});

@@ -3409,6 +3409,7 @@
   "audit.reason.refund_other": "Refund",
   "approvals.refund_may_decrease": "The amount may go down at approval: charges posted after this request are taken off first.",
   "folio.open_refunds_total": "Refund pending for the guest",
+  "folio.open_refunds_may_decrease": "Amounts not yet approved may go down at approval: charges posted after the request are taken off first.",
   "drawer.folio.open_refunds": "Refund pending",
   "mlog.a_refund_destination_carried": "Refund destination carried over to the replacement request",
   "mlog.a_money_not_found": "Money not received for cancelled booking",

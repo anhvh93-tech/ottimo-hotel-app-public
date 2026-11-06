@@ -9,8 +9,9 @@ import { openRefundGroups, type OpenRefund } from '../../app/auditReason';
  *   (`checkout.pending_refund_unavailable`, muted, never blocking) – never shown as "nothing pending". An empty list
  *   (Σ = 0) = nothing pending: no row.
  * - `full` (Trả phòng step 3 and result, folio): the total, one dashed row per label group in the fixed order, then
- *   "may go down at approval". The contract gives no status per group, so that line is said whenever something is
- *   pending (a fixed amount is never promised – proposed to ARC: `awaitingDecision` per group, 0.3.14).
+ *   `folio.open_refunds_may_decrease` ("amounts not yet approved may go down", UXD 9.14 (b)) – not the approval
+ *   queue's per-request line. The contract gives no status per group, so that line is said whenever something is
+ *   pending (from 0.3.14: only when a group has `awaitingDecision`, ARC 5.1).
  * - `total` (Folio card of the booking drawer, U4): the total only.
  * The caller renders this only for roles that receive the field (FD+).
  */
@@ -52,7 +53,7 @@ export function OpenRefundRows({
         </tr>
       ))}
       <tr className="sub">
-        <td colSpan={2}>{t('approvals.refund_may_decrease')}</td>
+        <td colSpan={2}>{t('folio.open_refunds_may_decrease')}</td>
       </tr>
     </>
   );

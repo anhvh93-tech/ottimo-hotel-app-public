@@ -3409,6 +3409,7 @@
   "audit.reason.refund_other": "Hoàn tiền",
   "approvals.refund_may_decrease": "Số có thể giảm khi duyệt: phát sinh ghi sau yêu cầu này được trừ trước khi hoàn.",
   "folio.open_refunds_total": "Đang chờ hoàn cho khách",
+  "folio.open_refunds_may_decrease": "Số chưa duyệt có thể giảm khi duyệt: phát sinh ghi sau yêu cầu được trừ trước khi hoàn.",
   "drawer.folio.open_refunds": "Đang chờ hoàn",
   "mlog.a_refund_destination_carried": "Chép nơi nhận hoàn sang yêu cầu thay thế",
   "mlog.a_money_not_found": "Không thấy tiền về cho đơn đã hủy",
