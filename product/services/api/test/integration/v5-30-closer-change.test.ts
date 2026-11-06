@@ -514,6 +514,29 @@ describe.skipIf(!HAS_DB)(
       expect(await closerAudits(O)).toEqual([]);
     });
 
+    it('SEC 154-03: in house, FD sends closerUserId with a room / door flag → 403 + ONE access.denied each (the closer check comes before the flag 409s or writes), nothing written', async () => {
+      const stateOf = async () =>
+        (
+          await q(
+            `SELECT version, closer_user_id, room_disclosed_to_guest, door_access_handed_over_at,
+                    (SELECT count(*)::int FROM audit_event WHERE entity_id = $2) AS audits
+               FROM reservation WHERE id = $1`,
+            [O.id, O.id],
+          )
+        )[0];
+      const before = await stateOf();
+      // The door branch would write here (code not handed over yet); the disclosure branch answers 409 in house.
+      expect(before.door_access_handed_over_at).toBeNull();
+      const rows = await commissions(O);
+      const n = await denials();
+      for (const flag of ['roomDisclosedToGuest', 'doorAccessHandedOver', 'roomReturnRecorded']) {
+        await expect403(O, { closerUserId: sal2(), [flag]: true }, 'fd');
+      }
+      expect(await denials()).toBe(n + 3);
+      expect(await stateOf()).toEqual(before);
+      expect(await commissions(O)).toEqual(rows);
+    });
+
     it('(b) OWN after check-in: no reason / too short → 422 REASON_REQUIRED; a card number → 422 CARD_NUMBER_DETECTED; with a reason → sal void (closer_corrected), sal2 projected', async () => {
       expect(await reasonError(O, { closerUserId: sal2() })).toMatchObject({
         code: 'VALIDATION_FAILED',

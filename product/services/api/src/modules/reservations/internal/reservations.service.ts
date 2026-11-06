@@ -1387,6 +1387,27 @@ export class ReservationsService {
       ['hold', 'confirmed', 'in_house'].includes(row.status) ||
       (row.status === 'checked_out' && closerChange && closerOnly);
     if (!editable) throw this.invalid(row);
+    // The closer drives the commission (contract 0.3.13 bổ sung 1h; EP02 5.4, BR-903 (3)), checked under the booking
+    // lock and before the 422s of the body and the 409 of a commission in a pay-out (SEC FB-R5-SEC-ARC-1H-03: 403 →
+    // 422 → 409): after confirmation only MGR+ may change it; after check-in only the owner. Every such 403 writes ONE
+    // access.denied (the controller, after the rollback), never the reason the caller typed. SEC FB-R5-SEC-BE-154-03:
+    // also before the room / door flags below, so a flag sent with it neither answers 409 first (no denial) nor writes
+    // and runs its hook before the 403 rolls it back.
+    if (closerChange && row.status !== 'hold') {
+      if (checkedIn) {
+        if (!hasAny(ctx.actor.roles, ['owner'])) {
+          throw problem('FORBIDDEN_ACTION', {
+            detail: 'closer change after check-in needs OWN',
+            auditReason: CLOSER_CHANGE_AFTER_CHECKIN,
+          });
+        }
+      } else if (!hasAny(ctx.actor.roles, MGR_PLUS)) {
+        throw problem('FORBIDDEN_ACTION', {
+          detail: 'closer change after confirmation needs MGR+',
+          auditReason: CLOSER_CHANGE_BEFORE_CHECKIN,
+        });
+      }
+    }
     if (returned === true) {
       if (!hasAny(ctx.actor.roles, FD_PLUS)) throw problem('FORBIDDEN_ACTION');
       await this.hooks.roomReturn(tx, {
@@ -1438,25 +1459,6 @@ export class ReservationsService {
       const kind = await this.closerKind(tx, closerUserId);
       if (!kind) f.add('closerUserId', 'NOT_IN_LIST');
       else this.checkCloserForChannel(f, row.channel_group, row.direct_source, closerUserId, kind);
-    }
-    // The closer drives the commission (contract 0.3.13 bổ sung 1h; EP02 5.4, BR-903 (3)), checked under the booking
-    // lock and before the 422s of the body and the 409 of a commission in a pay-out (SEC FB-R5-SEC-ARC-1H-03: 403 →
-    // 422 → 409): after confirmation only MGR+ may change it; after check-in only the owner. Every such 403 writes ONE
-    // access.denied (the controller, after the rollback), never the reason the caller typed.
-    if (closerChange && row.status !== 'hold') {
-      if (checkedIn) {
-        if (!hasAny(ctx.actor.roles, ['owner'])) {
-          throw problem('FORBIDDEN_ACTION', {
-            detail: 'closer change after check-in needs OWN',
-            auditReason: CLOSER_CHANGE_AFTER_CHECKIN,
-          });
-        }
-      } else if (!hasAny(ctx.actor.roles, MGR_PLUS)) {
-        throw problem('FORBIDDEN_ACTION', {
-          detail: 'closer change after confirmation needs MGR+',
-          auditReason: CLOSER_CHANGE_BEFORE_CHECKIN,
-        });
-      }
     }
     // 1h `closerChangeReason` (3–500, V-08, V-09): required for the owner's correction after check-in, optional
     // before (kept in the audit); sent without a closer change → NOT_ALLOWED.
