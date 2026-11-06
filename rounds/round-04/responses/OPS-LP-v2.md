@@ -76,3 +76,46 @@ Rủi ro chấp nhận (mới, LPV2-04): id identity tăng theo thứ tự cấp
 Dòng decision-log đề xuất (ORC chép):
 
 `| 2026-11-06 | 4 | OPS – FB-R4-SEC-OPS-OR-01 Done: pull-backups.sh kéo bằng --ignore-existing (không thay tệp đã có trên máy nhận, kể cả .sha256; vẫn không --delete); so nội dung tệp cùng tên bằng rsync --checksum --dry-run qua rrsync -ro, khác → "WARNING: server copy changed: <tên> – local copy kept" + thoát 3; .last_pull chỉ ghi khi thoát 0; mất kết nối → thoát 2. Test pull-backups.test.sh (rrsync thật, 11/11; script cũ 4 FAIL) vào CI infra-scripts. OR-L3: state/privacy-notice.log staging root:root 0644 → ottimo:ottimo 0600 (sửa tay một lần, SEC cho phép, ls -l trước/sau trong responses/OPS-LP-v2.md). OR-02 vẫn chờ INV (launchd) | OPS | Quyền OPS (thực thi thẻ SEC) |`
+
+## Thẻ SEC tối 06/11 (QC Round 4 ĐK-8; SEC `SEC-on-bug-r4-054.md` và `SEC-on-lp-v2-s6d.md`)
+
+- Người trả lời: OPS | Ngày: 06/11/2026 | Round 5 (bảo trì v1.0.5) – Bước: Sản xuất. Không SSH, không đổi gì trên server. Phần code nằm trong các PR nhánh `r5-ops-caddy` (V5-67) và `r5-ops` (V5-73, V5-62, V5-65); runbook ở nhánh `r5-ops-runbooks` (V5-70, V5-64, V5-65 phần gỡ khóa). Cả ba chờ SEC + ARC review, OPS không tự merge. "Done" dưới đây nghĩa là bản sửa đã có trong PR kèm test; thẻ chỉ Closed khi SEC xác nhận.
+- Trong commit này: README `infra/server` dòng 120 bỏ "nhất là sau khi nhập lại bảng giá 01/11", thay bằng câu QA/SEC đề nghị (phần "làm ngay" của V5-73).
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-SEC-OPS-054-01 (Minor) | Done → V5-67 (PR `r5-ops-caddy`) | Snippet `(public_api)` trong `infra/caddy/Caddyfile.landing` thêm `header_up -Authorization`. Staging và production dùng chung tệp này (chỉ khác snippet bí mật `landing_access`), nên áp cho cả hai. `check-caddy-landing.sh` thêm ca: snippet production, client tự gửi `Authorization` trên 3 route (form-token, booking-requests, price-estimate) → api giả nhận rỗng; snippet staging (basic auth, mật khẩu thử sinh ngẫu nhiên trong lượt chạy, không vào repo) đúng mật khẩu → qua được 3 route và api giả vẫn nhận rỗng; thiếu mật khẩu → 401 kèm `X-Robots-Tag`. Đối chứng: chạy test với Caddyfile cũ thì đỏ. Bước "kiểm một lần trên staging qua edge thật" nằm trong runbook v1.0.5 (cửa sổ bảo trì), vì lượt này không được SSH. Container landing phải dựng lại (`--force-recreate`) mới nạp Caddyfile mới, runbook có ghi |
+| FB-R4-SEC-OPS-054-02 (Major) | Deferred → backlog B-OPS (cùng A+) | Thẻ là điều kiện để làm A+. PO quyết 06/11 không làm A+ ở v1.0.5 (plan Round 5 mục 6, dòng V5-67), SEC A4.1 cho dời A+ và giữ cách C (README 12.3, chèn header). Khi chưa có A+ thì không có công tắc mở 3 route api staging, nên không có rủi ro R4 "quên tắt". Khi nhận A+, 054-02 làm đầu tiên: cửa sổ tự đóng ≤ 4 giờ (ví dụ `LANDING_PREVIEW_FORM_OPEN_UNTIL`), hoặc nhắc tới phòng "Báo động", vì staging chỉ có journal |
+| FB-R4-SEC-OPS-054-03 (Minor) | Deferred → B-OPS (cùng A+) | Matcher method + path cho đúng 3 thao tác, ca CI `PUT` → 401, từ chối mở khi `INCLUDE_TEST_SUPPORT≠0`. Chỉ có nghĩa khi làm A+ |
+| FB-R4-SEC-OPS-054-04 (Minor) | Deferred → B-OPS (cùng A+) | So 8 ký tự đầu sha256 của `id_hash_key` / `public_form_signing_key` giữa hai stack trước lần mở đầu tiên. Chỉ có nghĩa khi làm A+ |
+| FB-R4-SEC-OPS-054-05 (Minor) | Deferred → B-OPS (cùng A+) | Biên bản đếm yêu cầu lạ mỗi lần mở, xóa theo WR8 trong 24 giờ, luật "không mở khi thử bảng giá chưa công bố" (R3). Ghi vào runbook A+ khi làm |
+| FB-R4-SEC-OPS-054-06 (Suggestion) | Deferred → B-OPS (cùng A+), gộp OR-L5 | `--refresh-landing-access` ghi nguyên tử 0400, smoke CSP/HSTS lúc mở. Giữ ý SEC: không cấp `root:ottimo 0440` cho mật khẩu xem trước |
+| FB-R4-SEC-OPS-OR-01 | Closed (SEC, mục "Xác nhận OR-01") | Không cần trả lời thêm |
+| FB-R4-SEC-OPS-OR-02 (Major) | Open – chờ INV → V5-60 | Không đổi từ lượt trước: chờ INV đồng ý cài launchd (`esc-pending-06-11.md` mục 3). Khi làm, ping chỉ khi thoát 0 **và** bản `db-*` mới nhất trên máy nhận ≤ 36 giờ; thoát 1/2/3 → `/fail`. Đủ 6 điều kiện của thẻ (URL ping ngoài repo, loại khỏi Time Machine và iCloud, khóa `age` không cùng máy, FileVault, khóa kéo giữ `restrict` + `rrsync -ro`). Tới lúc đó ORC kéo tay ≥ 2 ngày/lần |
+| FB-R4-SEC-OPS-OR-03 (Minor) | Phần code Done (PR `r5-ops`); phần server Deferred → V5-65, cửa sổ bảo trì đầu tiên | (3) `ops-check sshkeys`: đọc `authorized_keys` của user `ottimo`, mọi dòng khóa phải có `command="…"` **và** `restrict` trong phần tùy chọn, nếu không → FAIL, tin chỉ nêu số dòng vi phạm (không in khóa, vân tay hay chú thích). Không đọc được tệp → FAIL. Có test. (4) README bootstrap ghi rõ `--deploy-key` chỉ là đường vào lúc dựng máy lần đầu, gỡ ngay khi `ottimo-admin` chạy. (1)(2) Gỡ khóa `ottimo-ops`: bước có sẵn lệnh trong runbook v1.0.5 (kiểm `ottimo-admin` và `sudo -n -u ottimo` trước, ghi 8 ký tự đầu vân tay, chỉ xóa đúng dòng đó, sau đó `sshkeys` ok). Thẻ đóng khi `sshkeys` ok trên cả hai máy |
+| FB-R4-SEC-OPS-OR-04 (Minor) | Deferred → V5-63 (ARC chọn cách) | Chờ ARC chọn driver (SEC nghiêng `journald` + `MaxRetentionSec=90day`). OPS làm sau khi ARC chốt, giữ đủ 5 yêu cầu SEC (qua deploy, trần 90 ngày, 0640 nhóm quản trị, không đổi cách che, không đưa log ra ngoài máy). Không nằm trong lượt này |
+| FB-R4-SEC-OPS-OR-05 | Không có thẻ | `SEC-on-bug-r4-054.md` Phần B2 chỉ có OR-01 … OR-04. Ghi ở đây để QC không phải tìm |
+| FB-R4-SEC-OPS-S6D-01 (Minor) | Done → V5-73 (PR `r5-ops`) | `pricegap` có hai phần độc lập: phần log 24 giờ như cũ và phần tĩnh SQL READ ONLY qua `psql_ro` (role `ottimo_readonly`, giao dịch chỉ đọc, dòng chặn `ro-ok`). Phần tĩnh theo đúng mục 6.4: căn `is_sellable`, có `public_room_type`, `active_from <= hôm nay + 365`, `active_to` rỗng hoặc `>= hôm nay`, và không có dòng giá `effective_from <= greatest(active_from, hôm nay)`. "Hôm nay" tính theo múi giờ của property. Truy vấn chỉ trả **một số đếm**, không chọn id. FAIL khi phần log **hoặc** phần tĩnh > 0; tin chỉ nêu số căn. Lỗi truy vấn hoặc câu trả lời không phải số → FAIL riêng, không coi là 0. Test `ops-check-price.test.sh` thêm ca đếm tĩnh 1 → FAIL không lộ id (kiểm cả webhook và tệp trạng thái) và 0 → ok, cùng các ca lỗi. README dòng 120 sửa trong commit này |
+| X4 gợi ý 1 (tên mang ngày tương lai) | Deferred → V5-60 | Làm cùng đợt tự động hóa OR-02: không kéo tệp đó, `WARNING: future-dated name`, thoát 3 |
+| X4 gợi ý 2 (trần một lượt kéo) | Deferred → V5-60 | Cùng đợt: quá 50 tệp mới hoặc quá 2 GB theo lượt chạy thử thì dừng, thoát 3 |
+| X4 gợi ý 3 (ca A "bản Mac hỏng") | Deferred → V5-60 | Thêm vào `pull-backups.test.sh` cùng đợt |
+| X4 gợi ý 4 (diễn tập từ bản trên máy nhận) | Deferred → V5-61 | Diễn tập khôi phục Round 5 lấy bản từ máy nhận (Mac), không lấy từ VPS, để kiểm trọn chuỗi ngoài máy. Ghi vào kế hoạch diễn tập khi INV có 30 phút |
+
+Mục B1 không có thẻ riêng (để QC thấy đủ):
+
+| Mục | Đi về đâu | Ghi chú |
+|---|---|---|
+| OR-M1 (diễn tập quá hạn) | V5-61 | Chờ INV 30 phút. `ops-check drill` làm cùng V5-61 |
+| OR-M2 (RPO 24 giờ) | V5-62, PR `r5-ops` | Lượt sao lưu thứ hai 14:00 (staging 14:30), vòng xoay theo tuổi, mọi bản < 35 ngày, ngưỡng `backup` của ops-check 26 → 14 giờ. INV xác nhận "RPO 12 giờ" (B4.4); SEC sửa SR-BAK-01 khi bản lên |
+| OR-M3 | V5-63 | Như OR-04 |
+| OR-M4 | V5-64, PR `r5-ops-runbooks` | Runbook "VPS mới" một trang, chỉ viết |
+| OR-L1 (khóa `.env` trùng) | V5-65 | Chưa làm trong lượt này. Khi làm: chỉ in tên khóa |
+| OR-L2 (`fwupd`) | V5-65, cửa sổ bảo trì | Bước tùy chọn trong runbook v1.0.5 |
+| OR-L5 | B-OPS | Gộp 054-06 |
+| OR-L6 (dọn image) | B-OPS | Luật giữ 4 nhãn + image diễn tập gần nhất ghi vào runbook v1.0.5 phần dọn |
+| OR-L7 (người thứ hai phòng "Báo động") | INV tự quyết (B4.5) | Không phải việc OPS |
+| Mục 9 – `TEST_SUPPORT_ALLOW_IPS` và 6 bản `env.before-*` staging | V5-65, cửa sổ bảo trì | Bước trong runbook v1.0.5: làm rỗng giá trị, chỉ giữ bản `env.before-*` mới nhất |
+
+Dòng decision-log đề xuất (ORC chép):
+
+`| 2026-11-06 | 5 | OPS – trả lời đủ thẻ SEC tối 06/11 (QC R4 ĐK-8, responses/OPS-LP-v2.md): 054-01 Done (V5-67, PR r5-ops-caddy); S6D-01 Done (V5-73, PR r5-ops) + README dòng 120 sửa trên main; OR-03 phần code Done (sshkeys + README bootstrap), gỡ khóa ottimo-ops ở cửa sổ bảo trì (runbook v1.0.5); 054-02…06 Deferred B-OPS cùng A+ (PO 06/11); OR-02 Open chờ INV (V5-60); OR-04 Deferred V5-63; X4.1–3 → V5-60, X4.4 → V5-61; không có thẻ OR-05 | OPS | Quyền OPS (trả lời thẻ) |`
