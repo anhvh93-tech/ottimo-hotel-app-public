@@ -717,7 +717,7 @@ export function EarlyDepartureDialog({
           </Field>
           {beforeServerMin && serverMin ? (
             // UXD 9.13: only fills the box (the preview then runs by itself, as for any date); focus stays on it.
-            <div className="row">
+            <div className="row mb-16">
               <Button
                 size="sm"
                 onClick={() => {
