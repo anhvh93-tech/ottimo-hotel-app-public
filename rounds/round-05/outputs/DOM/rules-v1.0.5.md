@@ -5,6 +5,7 @@
 - Sửa: DOM | Bước: Review | 07/11/2026 – review PR #101, #108, #110 (`rounds/round-05/reviews/DOM-on-be-prs-101-108-110.md`): **mục 14 mới** – "nhập tay" của BR-438 là dòng A30 hoặc dòng đếm minibar, không xét mã `source`; đếm lại minibar là sửa giảm (thẻ SEC V516-01); hoa hồng của đơn chốt lúc thiếu tỷ lệ phải có bản ghi chậm nhất ở mốc "đạt"; lượt đi hôm qua còn ở trong cửa sổ sau nửa đêm (ARC A4, v1.0.6); `lease_terms` là khóa dừng lên bản thứ 7; BR-111 áp trên giá gõ. Sửa kèm mục 0 việc (4), 3.1, 3.5 (T-16-12…15), 7.2 ý 3, 12.3 (bỏ số dòng), 13.2.
 - Sửa: DOM | Bước: Review | 07/11/2026 – review PR #106 (V5-10) và PR #99 (V5-15) (`rounds/round-05/reviews/DOM-on-be-prs-106-99-checkout.md`): **mục 15 mới** – phụ thu trả muộn, khai báo và mốc giữ chứng cứ theo giờ khách rời thật, lúc bấm chỉ để kiểm dung sai; Desk điền giờ máy quầy, máy chủ vắng giờ lấy giờ hẹn hoặc giờ chuẩn, "tối hôm trước" chỉ khi lễ tân gõ; không rõ giờ thì 12:00, không phụ thu nếu không có bằng chứng; xác nhận giả định BE-A2 cho đơn quá ngày đi; mốc "tiền về sau trả phòng" của hoa hồng là lúc ghi Trả phòng, không phải giờ rời thật.
 - Sửa: DOM | Bước: Phản hồi & sửa | 07/11/2026 – trả lời QA FB-R5-QA-DOM-BR438-01 (`rounds/round-05/reviews/QA-on-DOM-br438-oracles.md`): chọn phương án A. Dòng trả muộn B18 nằm trên folio đã chốt, nên theo A32, không theo BR-438 (mục 7.2 ý 3, ca T-16-4, mục 14.6); BR v0.5.15 sửa ví dụ, không đổi luật.
+- Sửa: DOM | Bước: Review | 07/11/2026 – theo DATA FB-R5-DATA-DOM-01 (`rounds/round-05/reviews/DATA-on-pr-114-k22e.md`): mục 2.1 (5) và 2.3 gọi đúng tên chỉ số. Doanh thu khác theo ngày là K-07, không phải K-22e; K-22e chỉ có phí hủy và phí không đến; phí trả sớm vào K-22g. Không đổi luật ngày.
 - Người đọc: ARC (hợp đồng 0.3.13), BE, FE-A, BA, QA, SEC, DATA.
 - Nguồn sự thật: `product/docs/business-rules.md` **v0.5.15** (BR-010, BR-101, BR-111, BR-204, BR-212, BR-303, BR-309, BR-311, BR-428, BR-438 mới, BR-506, BR-903, mục 13); `product/docs/tham-so-quy-tac.md` bản 1.3; oracle `product/tests/fixtures/br-examples.json`. Tệp này giải thích và gom ca kiểm, không thay BR.
 - **Không có tỷ lệ, số tiền hoa hồng hay thưởng, hay ranh giới khoảng kỳ hạn của bảng nội bộ** trong tệp này. Ca kiểm hoa hồng dùng tham số thử `test_rate_*` (SEC G3).
@@ -103,7 +104,7 @@ Gọi **W** là khoảng 00:00–05:59 ngày lịch D+1, khi ngày nghiệp vụ
 3. **Khách rời đúng ngày đi trên đơn** (ngày đi = D+1): không phải trả sớm. B16 từ chối kèm chỉ dẫn sang **Trả phòng** (B18, phụ thu 0). Nút Trả phòng có từ 00:00 thuộc V5-10.
    - Trong W, lượt có ngày đi hiệu lực = ngày lịch D+1 **không có nút Trả sớm**: Desk chỉ hiện Trả phòng. Lệnh trả sớm gửi thẳng → 409 `INVALID_TRANSITION` kèm `useCheckout: true`, đơn và folio không đổi (hợp đồng 0.3.13 mục 1.21; câu này đã thêm vào BR-428).
 4. **Số ngày báo trước** không đổi: BR-011, ngày mốc (Ngày rời mới) − ngày nghiệp vụ lúc báo. Khách báo trong W rời ngay hôm đó (ngày lịch) = báo trước 1 ngày (như BR-428-12 đã có).
-5. **Dòng phí giữ lại** `cancellation_fee`, `no_show_fee`, `early_departure_fee`, `deposit_forfeit`: ngày dịch vụ = **ngày nghiệp vụ lúc thao tác** (hủy, đánh dấu không đến, trả sớm), không phải ngày lịch (BUG-R3-036). Báo cáo doanh thu khác theo ngày (K-22e) đếm theo ngày này.
+5. **Dòng phí giữ lại** `cancellation_fee`, `no_show_fee`, `early_departure_fee`, `deposit_forfeit`: ngày dịch vụ = **ngày nghiệp vụ lúc thao tác** (hủy, đánh dấu không đến, trả sớm), không phải ngày lịch (BUG-R3-036). Báo cáo doanh thu khác theo ngày (**K-07**) đếm theo ngày này. Phí hủy và phí không đến còn vào K-22e (doanh thu bù từ hủy/không đến); phí trả sớm vào K-22g; `deposit_forfeit` (tiền thừa khách để lại lúc Trả phòng) chỉ vào K-07 (metrics v0.3, DATA FB-R5-DATA-DOM-01).
 6. **Khai báo tạm trú**: ngày khách rời thật là ngày lịch lúc khách đi (BR-010 không áp cho hạn pháp lý).
 
 ### 2.2 Ví dụ số
@@ -122,7 +123,7 @@ Gọi **W** là khoảng 00:00–05:59 ngày lịch D+1, khi ngày nghiệp vụ
 - ARC: mã 409 và trường gợi ý trong hợp đồng 0.3.13 (B16 `earlyDeparture`); ghi một chỗ hàm "ngày lịch tối thiểu" dùng chung `businessDay` + `rollover` (plan mục rủi ro V5-10, V5-11).
 - BE: `stay.service.ts` `earlyDeparture` – thêm điều kiện W trước kiểm tra ngày; `folio.service.ts` dòng phí giữ lại – `serviceDate` = ngày nghiệp vụ (cùng chỗ dùng `business_day_rollover`). Đóng BUG-R3-036, FB-R4-ARC-DOM-B16-01, RN-05.
 - FE-A: ô Ngày rời mới trong W mặc định ngày lịch; hiện chỉ dẫn 409; trong W, đơn có ngày đi = ngày lịch hiện nút Trả phòng (V5-10), không hiện Trả sớm như lối chính.
-- DATA: xác nhận K-22e đếm phí theo ngày dịch vụ mới.
+- DATA: xác nhận K-07, K-22e và K-22g đếm phí theo ngày dịch vụ mới (DATA đã xác nhận ở `DATA-on-pr-114-k22e.md`).
 
 ### 2.4 Ca kiểm QA (chạy giờ thật trên staging, trong W và lúc 06:00)
 

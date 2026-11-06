@@ -26,7 +26,13 @@
   - khách nhận phòng sau giờ đổi;
   - đơn hôm nay đã có 2 tin chủ động (trần BR-974).
 
-  Các khách này được báo ở quầy khi hỏi; lễ tân ghi sổ giao ca mã đơn. Một đơn nhiều phòng: gửi một tin cho người liên hệ của đơn. Chủ đầu tư quyết đổi gấp ngoài khung giờ: tin này là tin sự cố, gửi ngay.
+  Các khách này được báo ở quầy khi hỏi; lễ tân ghi sổ giao ca mã đơn. Một đơn nhiều phòng: gửi một tin cho người liên hệ của đơn.
+- **Ngoại lệ – đổi gấp** (DOM BA-10): chủ đầu tư quyết đổi ngoài 13:00–17:00, ví dụ mạng bị dùng sai. Tin này là **tin sự cố** (BR-973 (4)): gửi ngay, mọi giờ, không tính trần 2 tin.
+  - Gửi **mọi khách đang ở** (đã nhận phòng, chưa trả phòng), kể cả khách đi hôm nay và đơn đã có 2 tin.
+  - Không gửi khách đã trả phòng hay chưa nhận phòng.
+  - Đổi sau 21:00: người trực hoặc chủ đầu tư nghe số cơ sở ít nhất 2 giờ sau lúc đổi. Ghi sổ giao ca giờ đổi, không ghi mật khẩu.
+  - Thẻ trong phòng thay từ ca sáng hôm sau, như bước 5. Câu 4 vẫn đúng.
+  - Chữ gửi khách giữ nguyên (mục 2, 3).
 - **Một ngôn ngữ mỗi tin, theo khách:** tiếng Việt cho khách Việt, tiếng Anh cho khách khác. Bản tiếng Anh là bản gốc.
 - **Chọn bản:**
   - Zalo (OA hoặc số cơ sở): bản ngắn (mục 3);
@@ -159,3 +165,16 @@ Câu dài nhất: câu 1 bản Zalo, 21 chữ tiếng Anh, để giữ trong 2 c
 - Hỏi DOM, không chặn: khi đổi gấp ngoài khung, tin là tin sự cố nên không tính trần (BR-974). Vậy có còn bỏ khách đi hôm nay và đơn đã có 2 tin không?
   - CPY đề xuất: đổi gấp thì gửi mọi khách đang ở, kể cả khách đi hôm nay chưa trả phòng, vì họ đang mất Wi-Fi.
   - Chữ ở mục 1 tạm theo nguyên văn DOM ("tin sự cố, gửi ngay").
+
+---
+
+## Lượt 3 – ngoại lệ đổi gấp (DOM FB-R5-DOM-BA-10)
+
+- Nguồn: DOM `rounds/round-05/reviews/DOM-on-ba-v105-docs.md` mục 7 (`820d3a85`), FB-R5-DOM-BA-10. DOM trả lời câu CPY hỏi ở Lượt 2 và đồng ý với đề xuất của CPY.
+- Mục 1, gạch **Lúc gửi**: câu cuối "đổi gấp… gửi ngay" thay bằng gạch **Ngoại lệ – đổi gấp**, theo chữ DOM đề xuất:
+  - tin sự cố, gửi ngay mọi giờ, không tính trần;
+  - gửi mọi khách đang ở, kể cả khách đi hôm nay và đơn đã có 2 tin; không gửi khách đã trả hay chưa nhận phòng;
+  - đổi sau 21:00 thì có người nghe số cơ sở ít nhất 2 giờ;
+  - thẻ thay từ ca sáng hôm sau.
+- Không đổi chữ gửi khách. Câu 4 ("…until then, it shows the previous password") vẫn đúng khi thẻ thay từ sáng hôm sau.
+- Câu "ask reception" / "hỏi lễ tân" vẫn đúng khi đổi sau 21:00, vì người trực nghe số cơ sở theo gạch trên.
