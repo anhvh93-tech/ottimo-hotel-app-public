@@ -1,8 +1,8 @@
-# Luật nghiệp vụ cho v1.0.5 – V5-1A, V5-11, V5-16, V5-30, V5-31
+# Luật nghiệp vụ cho v1.0.5 – V5-1A, V5-11, V5-16, V5-30, V5-31; trả lời ARC, UXD, CPY
 
 - Tác giả: DOM | Round 5 – v1.0.5 | Bước: Sản xuất (Gói 0) | Ngày: 06/11/2026
 - Người đọc: ARC (hợp đồng 0.3.13), BE, FE-A, BA, QA, SEC, DATA.
-- Nguồn sự thật: `product/docs/business-rules.md` **v0.5.12** (BR-010, BR-101, BR-204, BR-212, BR-309, BR-311, BR-428, BR-438 mới, BR-506, BR-903, mục 13); `product/docs/tham-so-quy-tac.md` bản 1.1; oracle `product/tests/fixtures/br-examples.json`. Tệp này giải thích và gom ca kiểm, không thay BR.
+- Nguồn sự thật: `product/docs/business-rules.md` **v0.5.12** (BR-010, BR-101, BR-204, BR-212, BR-309, BR-311, BR-428, BR-438 mới, BR-506, BR-903, mục 13); `product/docs/tham-so-quy-tac.md` bản 1.2; oracle `product/tests/fixtures/br-examples.json`. Tệp này giải thích và gom ca kiểm, không thay BR.
 - **Không có tỷ lệ, số tiền hoa hồng hay thưởng, hay ranh giới khoảng kỳ hạn của bảng nội bộ** trong tệp này. Ca kiểm hoa hồng dùng tham số thử `test_rate_*` (SEC G3).
 - Tên khóa, mã lỗi, tên trường dưới đây là **đề xuất**; ARC chốt ở hợp đồng 0.3.13. ARC đổi tên thì DOM đồng bộ BR và từ điển.
 
@@ -15,6 +15,10 @@
 | V5-16 | **Chọn đề xuất SEC (a), thêm báo cáo (b)** → BR-438 | Không (NGÀNH); hạn mức duyệt vẫn là ESC-007 |
 | V5-30 | Chỉ chốt cấu trúc H2. 4 điểm bảng nội bộ chưa rõ → **ESC-051**, tới khi trả lời áp phương án A | **Có – ESC-051** |
 | V5-31 | Giá lượt dọn khách thuê tháng theo căn, khóa mới, INV nhập; thiếu → phí dọn lẻ kèm báo | Không (giá đã có ở bảng 01/11) |
+| V5-15 (SEC ARC-03) | Quản lý tự trả phòng đơn quá ngày đi khi bỏ ≤ 1 đêm; từ 2 đêm chỉ chủ đầu tư; audit `nightsNotBilled`, lọc `overdueOnly` (mục 7.1) | Không (theo hạn mức ESC-007 A) |
+| UXD bảng chữ | G6 dùng chung câu cho `penalty` và `damage`; `hold_expiry_reminder_hours` = 0 là không nhắc; 29 tên tham số đúng; `weekend_nights` dạng mã thứ; thẻ FB-R5-DOM-UXD-01 (mục 8) | Không |
+| Tin tự hủy giữ chỗ | Gửi thêm lễ tân, lễ tân trưởng (mục 9) | Không (NGÀNH) |
+| CPY thẻ 04 | Nhãn `late_fee_after_limit` khi số tiền khác `limit_ref_vnd` (mục 10) | Không |
 
 ### Việc chủ đầu tư nhập trên Desk sau khi v1.0.5 lên (đội không đổi tham số trên production)
 
@@ -332,8 +336,26 @@ Lý do nghiệp vụ:
 Kèm theo (không đổi hợp đồng):
 1. `overdueReason`: Desk gợi ý 3 lý do – "Khách đi không báo", "Lễ tân quên bấm Trả phòng", "Khác (ghi rõ)". Máy chủ vẫn nhận chữ tự do.
 2. Khai báo tạm trú ghi **ngày khách rời thật** (`checkoutAt`), không ghi ngày Desk ghi nhận (BR-010, BR-602). BA thêm câu này vào sổ tay.
-3. Phụ thu trả muộn tính theo `checkoutAt`, như ARC ghi. Khách ở thêm đêm thì gia hạn B13 trước. Cả hai đúng BR-421, BR-413.
+3. Phụ thu trả muộn tính theo `checkoutAt`, như ARC ghi. Khách ở thêm đêm thì gia hạn B13 trước. Cả hai đúng BR-412 (phụ thu trả muộn), BR-421 (gia hạn).
 4. Xem lại hướng hậu kiểm ở v1.0.6 chỉ khi một tháng có trên 2 ca phải chờ quản lý quá 2 giờ (QA/DATA đếm trên audit `after.overdue`).
+
+**Bổ sung theo SEC FB-R5-SEC-ARC-03 (06/11 tối) – kiểm soát với chính quản lý:**
+
+**Chốt:** chọn **(a)**. Quản lý tự trả phòng đơn quá ngày đi khi `nightsNotBilled` ≤ 1. Từ 2 đêm trở lên thì **chỉ chủ đầu tư**. Không thêm bước nhập lại mật khẩu. Đồng ý SEC mục 1, 2, 4: audit ghi `nightsNotBilled`; bộ lọc `overdueOnly` "Trả phòng quá ngày đi – tuần này" (OWN thấy mọi bản ghi, MGR thấy bản ghi của MGR khác); `overdueReason` qua cùng hàm đọc chữ với `checkoutTimeNote`. Không migration.
+
+Lý do chọn (a), không chọn (b):
+- Chủ đầu tư đã chốt hạn mức quản lý: miễn tối đa **giá 1 đêm mỗi lần** (ESC-007 A, BR-433). Ở đường cũ (gia hạn rồi FOC 100 %), quản lý tự miễn được 1 đêm; từ 2 đêm thì phải lên chủ đầu tư. (a) giữ đúng mức kiểm soát đó ở đường mới.
+- Rủi ro SEC nêu là chính quản lý giấu đêm khách ở thêm. Nhập lại mật khẩu chỉ chứng minh đúng người bấm, không thêm người thứ hai.
+- Ca thật ở 10 căn: khách đi sáng ngày đi, quầy quên bấm, buồng phòng vào căn và phát hiện trong ngày, tức 1 đêm. Quá từ 2 đêm là hiếm và đáng ngờ, đúng chỗ cần chủ đầu tư xem.
+- Trong lúc chờ chủ đầu tư, không ai mất tiền (như trên). Chủ đầu tư làm được trên điện thoại.
+
+Cách đếm và mã:
+- `nightsNotBilled` = số đêm từ ngày đi của lượt tới ngày nghiệp vụ lúc ghi (BR-010).
+  - Ví dụ: căn 202, ngày đi 10/11. Quản lý phát hiện lúc 09:00 ngày 11/11 → 1 đêm (đêm 10/11), quản lý ghi được. Phát hiện lúc 06:30 ngày 12/11 → 2 đêm → quản lý bị chặn, gọi chủ đầu tư. Phát hiện lúc 05:00 ngày 12/11: ngày nghiệp vụ còn là 11/11 → 1 đêm.
+- Ngưỡng 1 là hằng số theo BR-433, không thêm tham số (thêm khóa phải có migration).
+- Quản lý vượt ngưỡng: 403 `FORBIDDEN_ACTION`, folio và đơn không đổi. ARC chốt `extras`; DOM đề nghị `requiredRole: owner` và `nightsNotBilled`, để Desk viết "Quá 1 đêm: cần chủ đầu tư trả phòng." `dryRun` trả cùng kết quả.
+- Gợi ý FE/UXD ở SEC mục 5 (hiện dấu hiệu sau ngày đi: yêu cầu từ trang khách, lần đếm minibar, kiểm phòng): DOM đồng ý, để v1.0.6.
+- QA: T15-x quản lý, quá 1 đêm → ghi được, audit `nightsNotBilled = 1`; quản lý, quá 2 đêm → 403, không đổi gì; chủ đầu tư, quá 2 đêm → ghi được, audit `nightsNotBilled = 2`; lọc `overdueOnly` ra đúng hai bản ghi.
 
 ### 7.2 V5-16 – phần chặn theo vai
 
@@ -394,3 +416,108 @@ Lý do nghiệp vụ:
 - `useCheckout: true` khi ngày đi của đơn = ngày lịch.
 
 Điều kiện 00:00–05:59 xét trước các kiểm tra ngày khác, áp cả `dryRun`. Dòng phí giữ lại lấy `serviceDate` = ngày nghiệp vụ, không đổi hợp đồng. Không migration.
+
+---
+
+## 8. Trả lời UXD – bảng chữ v1.0.5 (`rounds/round-05/outputs/UXD/copy-v1.0.5.md`)
+
+### 8.1 G6 – câu "không tính vào doanh thu phòng" (mục 4.3)
+
+**Chốt:** hiện cho cả `penalty` và `damage`, dùng **chung một câu**. FE đổi điều kiện thành `item.category === 'penalty' || item.category === 'damage'`.
+
+Lý do:
+- Hai nhóm cùng là "Phạt & bồi thường" trong Doanh thu khác (K-07, `product/docs/metrics-definitions.md`), không vào doanh thu phòng (K-06).
+- Khoản đền hư hỏng thường lớn, nên lễ tân dễ tưởng nó bù vào tiền phòng hơn cả phí phạt.
+- Các nhóm khác (minibar, giặt, dọn lẻ, phí dịch vụ) cũng không phải doanh thu phòng, nhưng không cần câu này.
+
+Chữ: bản UXD chỉ nói "phí phạt". DOM đề xuất, UXD và CPY chốt chữ:
+- VI: "Phí phạt và tiền bồi thường hư hỏng không tính vào doanh thu phòng."
+- EN: "Fines and damage charges don't count as room revenue."
+
+### 8.2 `hold_expiry_reminder_hours = 0` (mục 4, `sale.hold_next_*`)
+
+**Chốt:** 0 = **không nhắc**. Đã ghi vào từ điển bản 1.2.
+- Mã: J2 tìm giữ chỗ hết hạn trong khoảng (bây giờ, bây giờ + 0 giờ], nên không có tin. Dòng "Giữ chỗ sắp hết hạn" ở Cần chú ý cũng không hiện (`hold-reminder-job.ts`; `attention-sources.ts`, `holdsExpiring`).
+- Hết hạn vẫn như cũ: chưa cọc thì J1 tự hủy; có cọc một phần thì báo đỏ (`hold_overdue`, không đọc khóa này).
+- Không nên đặt 0. Dòng "Giữ chỗ sắp hết hạn" là cách duy nhất quầy thấy trước giữ chỗ do sale, CTV tạo.
+
+**FB-R5-DOM-UXD-01 (Major, gửi UXD, PO):** vế "Bạn sẽ được nhắc {hours} giờ trước khi hết hạn" ở `sale.hold_next_*`, `sale.hold_next_ctv_*`, `sale.hold_next_no_qr_*` **sai với v1.0.x, kể cả khi giá trị > 0**.
+- Tin nhắc J2 chỉ gửi người tạo, người chốt, vào hộp thông báo của app nhân viên.
+- Sale, CTV không dùng được app đó (`product/apps/mobile/src/app/session.ts`: vai sale, CTV không có màn nào).
+- Desk không có hộp thông báo. Trang Hôm nay (nơi có Cần chú ý) chỉ mở cho OWN, MGR, FDL, FD (`product/apps/admin-web/src/session/nav.ts`).
+- Kết quả: sale, CTV không nhận được nhắc nào. Câu hứa nhắc làm họ yên tâm chờ, rồi giữ chỗ tự hủy mà không ai báo khách.
+- Đề xuất: bỏ vế nhắc ở cả ba biến thể, thay bằng giờ hạn. Ví dụ VI "Giữ chỗ hết hạn lúc {time}. Chưa nhận cọc thì Desk tự hủy." (UXD, CPY chốt chữ). Khi bỏ vế nhắc thì không cần câu riêng cho giá trị 0.
+- Dòng thời gian của giữ chỗ (`hold_expires_at`) đã có trên đơn, nên câu không cần dữ liệu mới.
+
+### 8.3 Tên 29 khóa `params.k.*` (V5-21, mục 2.1) và `c3_stepup_minutes` (mục 4.4)
+
+**Chốt:** cả 29 tên đúng nghĩa, không có thẻ. DOM đã đưa vào từ điển bản 1.2, ghi "hiện từ v1.0.5; v1.0.4 hiện mã khóa".
+
+Các điểm DOM kiểm kỹ:
+
+| Khóa | Tên UXD | DOM |
+|---|---|---|
+| `rounding.deposit` | Làm tròn tiền cọc | Đúng. Chỉ cọc ngắn ngày (BR-305). Desk gọi tiền đảm bảo HĐ thuê tháng là "ký quỹ", nên không lẫn |
+| `rounding.night_rate` | Làm tròn giá đêm | Đúng mã: giá đêm từ giá tháng, giá sau tăng hoặc giảm, giá một ngày khi tính lẻ thuê tháng. Phụ thu theo `rounding.fee`. Từ điển bản 1.1 ghi "giá đêm, phụ thu" là sai; đã sửa |
+| `rate_floor_pct`, `rate_ceiling_pct` | Giá sàn / Giá trần (% giá gốc) | Đúng BR-105: theo giá đêm niêm yết, đơn OTA theo `ota_base_rate` nếu có |
+| `long_stay_required_from_nights` | Bắt buộc thuê dài hạn từ | Đúng. Desk báo "thuê dài hạn" khi tới ngưỡng |
+| `weekend_uplift_pct` | Tăng giá đêm cuối tuần | Đúng. UXD bỏ "thứ Sáu, thứ Bảy" là đúng, vì đêm nào là cuối tuần do `weekend_nights` quyết |
+| `c3_stepup_minutes` | Thời gian xem giấy tờ, số tài khoản sau khi nhập lại mật khẩu | Đúng. Cửa C3 gồm cả xem đủ số tài khoản nhận hoàn (`c3-access-gate.ts`, `getRefundDestination`). Từ điển đổi tên, nghĩa và ảnh hưởng |
+
+### 8.4 `weekend_nights` – dạng giá trị đúng (BUG-R5-001)
+
+**Chốt nghiệp vụ:** dạng đúng là **mã thứ**: `["FRI","SAT"]` (đêm thứ Sáu, đêm thứ Bảy). Không dùng số 1–7.
+- Đây là dạng bộ tính giá đọc (`pricing.ts`, kiểu `Weekday`), cũng là giá trị đang chạy trên production (`production-defaults.ts`) và trong DS-E.
+- `min_stay.arrivalWeekdays` cũng dùng mã thứ.
+
+Hiện trạng:
+- Bộ kiểm khi lưu (`parameter-rules.ts` 180–187) chỉ nhận số 1–7. Lưu dạng đúng bị từ chối.
+- Lưu dạng số thì qua kiểm, nhưng không đêm nào khớp: mức tăng cuối tuần mất mà không ai được báo.
+
+DOM đề nghị ARC, BE sửa **bộ kiểm** cho nhận mã thứ, không đổi bộ tính giá sang số. Lý do: chỉ một chỗ sửa, không đổi giá trị đang chạy, không migration. Đổi sang số thì phải đổi giá trị production, DS-E và cả `min_stay`. ARC chốt và sửa `erd.md` 9.1a.
+
+Từ điển bản 1.1 sai ở ba chỗ, bản 1.2 đã sửa:
+- `weekend_nights` **chỉ** chọn đêm được cộng `weekend_uplift_pct`;
+- luật ở tối thiểu 2 đêm khi đến thứ Sáu, thứ Bảy nằm trong `min_stay.arrivalWeekdays`, không đọc `weekend_nights` (QA đúng ở BUG-R5-001);
+- ba chỗ sửa là mục `weekend_nights`, mục `min_stay` (bỏ khỏi "Đi kèm"), và đoạn "Các cặp phải đổi cùng nhau".
+
+Tới khi BE sửa: chủ đầu tư, quản lý **không sửa** khóa này. Mức tăng đang 0 % (ESC-045 câu 1), nên hiện không sai tiền.
+
+---
+
+## 9. Tin "giữ chỗ tự hủy" gửi thêm lễ tân (DOM sửa luật A.5 của chính mình)
+
+Nguồn: DOM đọc lại Tờ 2a lượt 2 (`rounds/round-05/reviews/DOM-on-staff-one-pager-2a.md`, thẻ FB-R5-DOM-PO-07).
+
+**Chốt:** tin `hold_expired` gửi người tạo, người chốt **và** mọi lễ tân, lễ tân trưởng đang hoạt động, như tin `hold_overdue_with_deposit`. Bỏ nhánh "chỉ gửi lễ tân khi không có người tạo, người chốt".
+
+Lý do:
+- Ở v1.0.x, sale và CTV không có chỗ nào nhận tin: không dùng app nhân viên, Desk không có hộp thông báo.
+- Giữ chỗ do sale, CTV tạo mà tự hủy thì hiện không ai được báo, nên không ai báo khách. Khách vẫn chuyển cọc vào đơn đã hủy, hoặc đến quầy khi căn đã bán.
+- Lễ tân là người báo khách theo Tờ 2a, nên lễ tân phải có tin.
+
+Việc:
+- BE: `product/services/api/src/modules/reservations/internal/hold-notices.ts`, đặt `HOLD_NOTICE_ROLES.hold_expired` = `front_desk`, `front_desk_lead`. Giữ khóa chống trùng theo đơn. Không migration, không đổi hợp đồng (kind đã có).
+- PO xếp bản: v1.0.5 nếu kịp, không thì v1.0.6. Tới khi lên, Tờ 2a dùng cách rà theo mã đơn (thẻ 07).
+- Khi lên: BA sửa sổ tay 2.4 (V5-71). PO có thể đổi Tờ 2a sang dựa hộp Thông báo.
+- J2 "Giữ chỗ sắp hết hạn" không cần đổi. Quầy đã thấy dòng này ở Cần chú ý cho mọi giữ chỗ.
+- QA: giữ chỗ do sale tạo, chưa cọc, tới hạn → mỗi lễ tân, lễ tân trưởng đang hoạt động có đúng một tin; nhịp sau không có tin thứ hai; giữ chỗ có cọc một phần vẫn đi tin `hold_overdue_with_deposit` như cũ.
+- BR-303 giữ chữ "báo sale". DOM thêm "và lễ tân" ở lần sửa BR kế tiếp.
+
+---
+
+## 10. Trả lời CPY thẻ FB-R5-CPY-UXD-V105-04 – nhãn `bill.line.late_fee_as_night`
+
+**Chốt:** ca này **xảy ra được**. Dùng khóa CPY đề xuất: BE-B trả `bill.line.late_fee_as_night` khi số tiền dòng **bằng** `limit_ref_vnd`, trả `bill.line.late_fee_after_limit` khi **khác**.
+
+Ca xảy ra thế nào:
+- Quản lý, chủ đầu tư sửa thẳng đơn giá hoặc số lượng dòng phụ thu thay đêm. Mã cho phép:
+  - `folio-lines.service.ts` chỉ chặn `PRICE_NOT_EDITABLE` với lễ tân, lễ tân trưởng;
+  - dòng thay thế giữ `charge_code`, `label_params`, và `limit_ref_vnd` chép từ dòng gốc.
+- Vì B18 chốt folio ngay, ca thường gặp là trên folio `settled` trong cửa sổ sau trả phòng (A32, BR-433 (e)). Hiếm hơn là trên folio còn mở (BR-438 (3)).
+
+Nghiệp vụ không đổi:
+- Giảm, miễn khoản này đi **FOC** (BR-416, hạn mức BR-433). Dòng giữ đúng giá một đêm, FOC là dòng riêng, nên nhãn "bằng giá 1 đêm" vẫn đúng.
+- Sửa thẳng chỉ để sửa ghi nhầm. v1.0.5 không chặn thêm.
+
+Chữ CPY đề xuất ("Phụ thu trả muộn (rời sau mốc trả muộn)", "Late check-out fee (after the late check-out limit)") đúng nghĩa BR-416 (khách rời sau mốc cuối, đêm ngày đi không bán được). QA: quản lý giảm đơn giá dòng `late_fee_as_night` 800.000 → 400.000 → phiếu ra nhãn `after_limit`; dòng 800.000 kèm FOC 400.000 → phiếu vẫn ra nhãn `as_night`.
