@@ -24,6 +24,7 @@
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.1**: theo việc thêm của ORC sau review PR #97, #116, #117, #118, #122. Mục 9.11 mới: chữ chốt `mlog.a_money_not_found` (ARC đặt tạm ở PR #111, đã gộp `ce404dd6`; UXD áp trên `main` cùng commit này) và EN nút `today.money_after_cancel_not_found` ở 9.1. Mục 9.12 mới: nhãn 6 nhóm lý do hoàn (V5-13) và câu theo `lockReason` (V5-44), theo DOM FB-R5-DOM-UXD-112-01. Mục 9.8 thêm ghi chú: hợp đồng còn ghi "8 ký tự cuối", ARC sửa. Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.2**: mục 9.13 mới, chữ Desk cho V5-11 (Trả sớm trong 00:00–05:59; hợp đồng 0.3.13 mục 1.21, DOM `rules-v1.0.5.md` mục 2, BE PR #114) theo việc ORC giao cho làn FE-A V5-11: câu cho hai 409 `INVALID_TRANSITION` (`minNewDepartureDate`, `useCheckout`) và dòng ngày ghi phí giữ lại. 4 khóa mới, UXD đã áp trên `main` cùng commit này. Kèm một chỗ FE phải sửa để chữ đúng ở bước ③ (`canCheckOut`). Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.3**: mục 9.14 mới, theo review FE-3 Desk #134, #137, #141 (`rounds/round-05/reviews/UXD-on-fe3-prs-134-137-141.md`). Gồm: chữ chốt V5-18 `deposit.accept_shortfall_unverified` (thay nháp FE-3); khóa mới `folio.open_refunds_may_decrease` thay câu của hàng chờ duyệt dưới tổng chờ hoàn, kèm điều kiện hiện (V5-13); sửa `error.closed_booking_payment_sales`; B4 nhập tay trên đơn đã đóng dùng câu 9.1a (V5-48). FE-3 áp trong PR. UXD không áp trên `main`, để không đụng `gen_strings.py` của 3 PR đang mở. Ghi chú ở 9.1a, 9.12. Cùng mục 0, 6, 8.
+- Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.4**: mục 9.15 mới, chữ chốt hộp Trả phòng quá ngày đi (V5-15 Desk, FE-A2 PR #145 @ `011d44e7`) theo review `rounds/round-05/reviews/UXD-on-fe-prs-145-146.md`. Gồm: 10 khóa FE-A2 viết nháp (8 giữ, 2 sửa chữ, 1 sửa EN); 2 khóa chỉ dẫn gọi ai đã chốt ở review #125; 4 khóa mới theo DOM `DOM-on-fe-pr-145.md` (145-01 dòng nhắc khi có giờ hẹn, 145-02 giờ trước mốc đổi ngày theo ARC 3.4, 145-03 nhắc Gia hạn, 145-04 cách biết giờ); 1 khóa để sẵn cho v1.0.6 (145-05). FE-A2 áp trong #145. UXD không áp trên `main`. Cùng mục 0, 6, 8.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -69,7 +70,8 @@
 | V5-13, V5-44 (bản 2.1, mục 9.12) | 4 | 10 | 1 | **15** | Ngoài Gói 2. 3 nhãn lý do hoàn mới (3 nhãn còn lại đã có), 2 khóa tổng chờ hoàn, 5 câu `lockReason`. Sửa 4, xóa `checkout.pending_refund_line` khi V5-13 lên |
 | V5-11 Trả sớm trong 00:00–05:59 (bản 2.2, mục 9.13) | 0 | 4 | 0 | **4** | Ngoài Gói 2. Đi cùng FE-A V5-11 (cùng tag với #114). Đã áp trên `main`. Thêm ghi chú cho 4 khóa có sẵn, không đếm |
 | V5-18, V5-13, V5-48 sau review FE-3 (bản 2.3, mục 9.14) | 1 | 2 | 0 | **3** | Ngoài Gói 2. `deposit.accept_shortfall_unverified` (FE-3 thêm ở #141, UXD chốt chữ) và `folio.open_refunds_may_decrease`: điều kiện gộp #141, #134. `error.closed_booking_payment_sales` (sửa): cùng PR sau #137, trước tag v1.0.5. FE-3 áp trong PR |
-| **Tổng** | **82** | **152** | **9** | **243** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243 |
+| V5-15 hộp Trả phòng quá ngày đi, Desk (bản 2.4, mục 9.15) | 0 | 16 | 0 | **16** | Ngoài Gói 2. Đi cùng #145. 10 khóa FE-A2 (UXD chốt), 2 khóa `checkout.overdue_need_*` (chốt ở `UXD-on-fe-prs-125-128.md` mục 3, nay đếm ở đây), 4 khóa mới. `checkout.overdue_told_guest` để sẵn cho v1.0.6, chưa đếm |
+| **Tổng** | **82** | **168** | **9** | **259** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243. Bản 2.4: 259 |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
@@ -86,6 +88,7 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Mục 9.12 (bản 2.1):** nhãn lý do hoàn và 3 khóa tổng chờ hoàn bắt buộc, lên cùng V5-13. `lockReason`: bắt buộc cùng V5-44 phần chọn câu theo trường (không dò `detail`) và 2 câu `settled`, vì câu chung "kể cả quản lý" nói sai ở ca này. 3 câu mới còn lại và 3 câu sửa nên có cùng V5-44, không kịp thì v1.0.6, không chặn QC.
 - **Mục 9.13 (bản 2.2):** `err.min_date`, `use_min_date`, `use_checkout` và chỗ sửa `canCheckOut` bắt buộc, lên cùng FE-A V5-11 (cùng tag với #114, DOM review #114 mục 4). Thiếu thì lễ tân ca đêm chỉ thấy câu chung `INVALID_TRANSITION`. `fee_business_date` nên có cùng lượt, không kịp thì v1.0.6, không chặn QC. FE trễ cả làn thì release notes ghi dòng (b) của DOM.
 - **Mục 9.14 (bản 2.3):** bắt buộc. (a) là điều kiện gộp #141 (FB-R5-UXD-FE-141-01), (b) là điều kiện gộp #134 (FB-R5-UXD-FE-134-01). (c) lên cùng PR sau #137 (FB-R5-UXD-FE-137-01), trước tag v1.0.5. Phần (b) chỉ hiện câu theo `awaitingDecision` chờ hợp đồng 0.3.14, không chặn QC.
+- **Mục 9.15 (bản 2.4):** bảng A bắt buộc, điều kiện gộp #145 (FB-R5-UXD-FE-145-01, gồm DOM 145-01). `checkout.overdue_time_early` (DOM 145-02) vào #145 theo ARC 3.4; không kịp thì #145 vẫn gộp được và release notes v1.0.5 ghi dòng ARC 3.3. Bảng B: `checkout.overdue_extend_hint` nên có cùng lượt (FB-R5-UXD-FE-145-02), không kịp thì v1.0.6 và sổ tay BA; `checkout.overdue_reason_evidence` tùy FE-A2, không thì v1.0.6. `checkout.overdue_told_guest`: v1.0.6. Không chặn QC ngoài bảng A.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -1325,6 +1328,69 @@ FE-3 áp cả 3 dòng trong PR (`gen_strings.py`, sinh lại). UXD không áp tr
 - `_sales` thêm "xác nhận cọc", vì sale có nút "Xác nhận đã nhận cọc" trong hộp này. "Đã trả tiền" thay "đã chuyển tiền", vì sale có thể cầm tiền mặt. Hai câu FD+ đã nói "xác nhận cọc hay tạo mã VietQR", giữ nguyên.
 - Theo DS hiện có: `Alert bad` (9.1a), `Alert warn` (V5-18), dòng `tr.sub` chữ Stone Grey. Không thêm màu.
 
+### 9.15 Hộp Trả phòng quá ngày đi (V5-15 Desk, #145) – bản 2.4
+
+Căn cứ:
+- `rounds/round-05/reviews/UXD-on-fe-prs-145-146.md` mục 2 (đo trên mock ở `011d44e7`, 1440 và 390 px, sáng và tối, VI và EN);
+- DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 7.1, 15.3 (gồm ý 2a mới), 15.4, 15.7; `rounds/round-05/reviews/DOM-on-fe-pr-145.md` thẻ 145-01 … 145-05;
+- ARC `rounds/round-05/reviews/ARC-on-fe-prs-145-146.md` mục 3.3, 3.4 (FB-R5-FE-ARC-V515-01: máy chủ v1.0.5 đọc giờ trước 06:00 của đơn quá ngày đi là rạng sáng hôm sau; sửa ở v1.0.6);
+- hợp đồng 0.3.13: B18 `checkoutAt`, `checkoutTime`, `overdueReason`; `CheckoutSummary.overdue`, `nightsNotBilled`, `extraNightRequired`, `standardCheckoutTime`; 403 `FORBIDDEN_ACTION` có `requiredRole`, `nightsNotBilled`.
+
+FE-A2 áp trong #145 (`gen_strings.py`, sinh lại). UXD không áp trên `main`: các khóa chỉ có ở nhánh #145. Ghi chú khóa: thay "chờ UXD duyệt" bằng "UXD duyệt 07/11 (UXD-on-fe-prs-145-146)". Giữ phần mô tả chỗ hiện và biến.
+
+Ký hiệu: **D** = ngày đi hiệu lực (`stayDeparture`, đã tính gia hạn). `date()` cho dd/mm/yyyy.
+
+**Bảng A – điều kiện gộp #145 (FB-R5-UXD-FE-145-01, gồm DOM 145-01).**
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `checkout.overdue_title` | Mới, giữ chữ FE-A2 | Trả phòng quá ngày đi | Check-out past the departure date | Như ghi chú FE-A2 |
+| `checkout.overdue_body` | Mới, giữ chữ FE-A2 | Ngày đi là {date}, đã qua {nights}. Ghi giờ khách rời căn và lý do. Khách ở thêm đêm nào thì gia hạn trước, rồi mới trả phòng. | The departure date was {date}, {nights} ago. Enter when the guest left and why. If the guest stayed another night, extend the stay first, then check out. | Như ghi chú FE-A2 |
+| `checkout.overdue_time_help` | Mới, **sửa chữ** | Giờ khách rời căn, ngày {date}. Không có bằng chứng thì ghi {time} (giờ trả chuẩn), hoặc giờ thấy căn trống nếu sớm hơn – không phụ thu. | The time the guest left, on {date}. With no proof, enter {time} (standard check-out), or the time the room was found empty if earlier – no surcharge. | help ô giờ, đơn quá ngày đi **không** có `agreedCheckoutTime`. {date} = `date(D)`, {time} = `standardCheckoutTime ?? rules.checkoutTime` |
+| `checkout.overdue_time_help_agreed` | **Mới** (DOM 145-01, luật 15.3 ý 2a) | Giờ khách rời căn, ngày {date}. Không có bằng chứng thì giữ {time} (giờ trả muộn đã hẹn) và phụ thu đã hẹn. Có bằng chứng khách đi sớm hơn (trả chìa, tin nhắn, buồng phòng thấy căn trống) thì ghi giờ đó. | The time the guest left, on {date}. With no proof, keep {time} (the agreed late check-out) and the agreed charge. With proof the guest left earlier (key returned, a message, housekeeping found the room empty), enter that time. | help ô giờ, đơn quá ngày đi **có** `agreedCheckoutTime`. {date} = `date(D)`, {time} = `agreedCheckoutTime`. Thay `checkout.overdue_time_help`. Trên nhánh quá ngày đi **bỏ** `co.time_from_late`, vì câu này đã có giờ hẹn |
+| `checkout.overdue_reason_label` | Mới, giữ chữ FE-A2 | Lý do quá ngày đi | Why it's past the departure date | Như ghi chú FE-A2 |
+| `checkout.overdue_reason_pick` | Mới, giữ chữ FE-A2 | Lý do thường gặp | Common reasons | Chỉ là `aria-label` của nhóm nút, không hiện chữ |
+| `checkout.overdue_reason.no_notice` | Mới, **sửa EN** | Khách đi không báo | Guest left without notice | Nút gợi ý 1; chọn thì điền chữ này vào ô lý do |
+| `checkout.overdue_reason.desk_forgot` | Mới, giữ chữ FE-A2 | Lễ tân quên bấm Trả phòng | Front desk forgot to check out | Nút gợi ý 2 |
+| `checkout.overdue_reason.other` | Mới, giữ chữ FE-A2 | Khác (ghi rõ) | Other (please specify) | Nút gợi ý 3 |
+| `checkout.overdue_after_limit` | Mới, **sửa chữ** | Giờ này quá mốc trả muộn của ngày đi nên tính thêm 1 đêm. Gia hạn thêm đêm đó trước, rồi trả phòng. | This time is after the departure day's late check-out limit, so it counts as one more night. Extend the stay by that night first, then check out. | Lỗi ô giờ và câu khóa nút (`overdueWhy`) khi `extraNightRequired` hoặc 422 `LATE_CHECKOUT_AFTER_LIMIT`, **và** ngày của `checkoutAt` máy chủ trả = D. Ngày khác D: dùng `checkout.overdue_time_early` (bảng B) |
+| `checkout.overdue_effect` | Mới, giữ chữ FE-A2 | Ghi giờ khách rời: {time} ngày {date}. | Records when the guest left: {time} on {date}. | Như ghi chú FE-A2 ({time}, {date} ← `checkoutAt` máy chủ) |
+| `checkout.overdue_need_manager` | Mới, đã chốt ở `UXD-on-fe-prs-125-128.md` mục 3 | Đơn đã quá ngày đi 1 đêm: cần quản lý hoặc chủ đầu tư trả phòng. | This stay is 1 night past departure: a manager or the owner needs to check it out. | Không đổi. Đếm ở bản này |
+| `checkout.overdue_need_owner` | Mới, đã chốt ở `UXD-on-fe-prs-125-128.md` mục 3 | Đơn đã quá ngày đi {n} đêm: cần chủ đầu tư trả phòng. | This stay is {n} nights past departure: the owner needs to check it out. | Không đổi. Đếm ở bản này |
+
+`checkout.overdue_reason_help` (mục 9.9) giữ nguyên, đã đếm ở bản 1.9.
+
+**Bảng B – cùng lượt sửa nếu kịp, không chặn gộp #145.**
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `checkout.overdue_time_early` | **Mới** (DOM 145-02, ARC 3.4) | Desk hiểu {time} là rạng sáng {next}. Khách đi lúc {time} ngày {date}: ghi {rollover}, ghi giờ thật vào lý do, không gia hạn. Khách đi rạng sáng {next} là đã ở thêm đêm {date}: gia hạn trước. | Desk reads {time} as early on {next}. If the guest left at {time} on {date}: enter {rollover}, put the real time in the reason, don't extend. If they left early on {next}, they stayed the night of {date}: extend first. | Điều kiện ARC 3.4: `overdue && extraNightRequired && localDayTime(checkoutAt).day !== D` (cả đơn đã gia hạn mà vẫn quá ngày đi). {time} = giờ của `checkoutAt` máy chủ, {next} = `date()` ngày của `checkoutAt`, {date} = `date(D)`, {rollover} = `property.businessDayRollover`. Thay `checkout.overdue_after_limit` ở cả lỗi ô giờ và `overdueWhy`. Tự tắt khi v1.0.6 sửa máy chủ (không cần đổi Desk). Không kịp: dòng release notes ARC 3.3 thay câu này |
+| `checkout.overdue_extend_hint` | **Mới** (DOM 145-03) | Trước khi gọi, kiểm căn: khách còn ở hoặc đã ở thêm đêm thì bấm Gia hạn, không cần chờ. | Before calling, check the room: if the guest is still there or stayed extra nights, use Extend stay – no need to wait. | Ngay sau câu `checkout.overdue_need_*`: trong Alert info của màn chỉ dẫn (CheckOutPage) và trong dòng `li-s` cạnh nút Trả phòng bị khóa (ReservationDrawer). Chỉ khi `allowedActions` có `extend_stay`. Không kịp: v1.0.6, BA đưa ý này vào sổ tay |
+| `checkout.overdue_reason_evidence` | **Mới** (DOM 145-04) | Ghi thêm cách biết giờ khách rời: ai thấy căn trống, lúc nào, khách có nhắn không. | Add how you know when the guest left: who found the room empty, when, and whether the guest sent a message. | help ô lý do, đứng trước `checkout.overdue_reason_help` (cùng một dòng `help`, câu này trước). Sau khi chọn nút gợi ý 1 hoặc 2, con trỏ ở cuối ô để ghi tiếp. Tùy FE-A2, không thì v1.0.6 |
+
+**Bảng C – để sẵn cho v1.0.6, chưa đếm.**
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `checkout.overdue_told_guest` | Mới (DOM 145-05) | Tôi sẽ nhắn khách khoản phụ thu này cùng bill | I'll message the guest about this surcharge with the bill | Nhãn ô đánh dấu trong hộp xác nhận, khi đơn quá ngày đi có phụ thu. Chờ DOM, PO chốt có lưu hay không |
+
+**(a) Vì sao sửa.**
+- `checkout.overdue_time_help`: "Không có bằng chứng giờ:" đọc như nhãn mục. Viết thành câu điều kiện, và đặt "không phụ thu" sau gạch ngang để đọc ra là kết quả của cả hai cách ghi. Nghĩa giữ theo DOM 15.3.
+- `checkout.overdue_time_help_agreed` (DOM 15.3 ý 2a): đơn có giờ trả muộn đã hẹn thì "không có bằng chứng" nghĩa là **giữ** giờ hẹn và phụ thu hẹn (B15), không phải giờ chuẩn. Câu nêu 3 loại bằng chứng hay gặp ở quầy, để lễ tân không phải đoán. Không nói phụ thu tính lại ra sao: bước ② đã hiện số mới.
+- `checkout.overdue_after_limit`: nháp FE-A2 viết "Khách ở thêm đêm đó thì gia hạn", nhưng đã quá mốc thì Desk **luôn** tính thêm đêm, không có nhánh "không ở". Câu mới nói rõ hệ quả (thêm 1 đêm) và việc làm (gia hạn trước). Lễ tân muốn ghi giờ sớm hơn thì sửa giờ: câu help ngay trên đã nói cách ghi.
+- `no_notice` EN: "without telling us" là giọng của khách sạn nói với khách. Ô này lưu vào nhật ký nội bộ, nên dùng "without notice", ngắn và trung tính.
+- Các khóa giữ chữ: ngắn, đúng nghĩa DOM 7.1, đúng tên nút "Trả phòng", "Gia hạn" đang có trên Desk.
+
+**(b) `checkout.overdue_time_early` – cách viết.**
+- Câu đầu nói Desk đang hiểu giờ thế nào. Lễ tân thấy ngay vì sao có thêm đêm, dù đã gõ giờ khách thật sự rời.
+- Hai câu sau là hai ca, mỗi ca một việc. Giữ đúng cách tạm của DOM 3.3 và ARC 3.3: ghi giờ đổi ngày (06:00) cho ngày đi, ghi giờ thật vào lý do.
+- {rollover} lấy từ thuộc tính, không viết cứng 06:00.
+- Không nhắc v1.0.6 hay lỗi máy chủ trên màn: lễ tân không cần biết, release notes đã ghi.
+
+**(c) `checkout.overdue_extend_hint` – đặt sau câu gọi ai.** DOM 145-03 đề xuất đặt câu này trước. UXD đặt sau, vì câu trạng thái (vì sao nút khóa) cần đứng đầu. "Trước khi gọi" đã nói thứ tự việc. Câu chỉ hiện với người có nút Gia hạn, để không bảo ai bấm nút họ không có.
+
+**(d) Theo DS hiện có.** Dòng `help` chữ Stone Grey, `.err` của Field, `Alert info` (màu `--info` chỉ trong Alert, DS 2.4). Không thêm màu, không thêm cỡ chữ.
+
 ---
 
 ## 6. Yêu cầu cho FE, BE (gom theo tệp)
@@ -1378,6 +1444,10 @@ FE-3 áp cả 3 dòng trong PR (`gen_strings.py`, sinh lại). UXD không áp tr
 | FE (sau 0.3.14) | `pages/stay/OpenRefundRows.tsx` | Bản 2.3: chỉ hiện `folio.open_refunds_may_decrease` khi có nhóm `awaitingDecision = true`; trường vắng thì giữ Σ > 0 | 9.14 (b) |
 | ARC | `openapi.yaml` `OpenRefund.awaitingDecision` (0.3.14, đã có trong kế hoạch ARC 5.1) | Bản 2.3: mô tả trường ghi "true = nhóm còn ít nhất một yêu cầu chưa duyệt", để Desk chọn câu `folio.open_refunds_may_decrease` | 9.14 (b) |
 | UXD | `design/content-guide.md` | Bản 2.3: sau khi #134, #141 và PR 137-01 gộp, thêm 3 khóa 9.14 vào mục 8 | 9.14 |
+| FE-A2 (#145) | `design/tools/gen_strings.py` (+ sinh lại, gộp `main` trước), `pages/stay/CheckOutPage.tsx`, `pages/stay/overdue.tsx` | Bản 2.4, bảng A: sửa `overdue_time_help`, `overdue_after_limit`, EN `no_notice`; thêm `overdue_time_help_agreed`, chọn theo `agreedCheckoutTime`; bỏ `co.time_from_late` trên nhánh quá ngày đi; `after_limit` chỉ khi ngày `checkoutAt` = D; ghi chú khóa "UXD duyệt 07/11". Điều kiện gộp #145 (FB-R5-UXD-FE-145-01) | 9.15 bảng A |
+| FE-A2 (#145, cùng lượt nếu kịp) | `gen_strings.py`, `CheckOutPage.tsx`, `ReservationDrawer.tsx`, test | Bản 2.4, bảng B: `overdue_time_early` theo điều kiện ARC 3.4 (thay `after_limit` ở lỗi ô giờ và `overdueWhy`); `overdue_extend_hint` sau `overdue_need_*` khi có `extend_stay` (FB-R5-UXD-FE-145-02); `overdue_reason_evidence` và con trỏ cuối ô (tùy) | 9.15 bảng B |
+| BA | sổ tay Desk v1.0.5 | Bản 2.4: nếu #145 gộp chưa có `overdue_time_early` hoặc `overdue_extend_hint`, đưa ý của hai câu vào sổ tay (cùng dòng release notes ARC 3.3) | 9.15 (b), (c) |
+| UXD | `design/content-guide.md` | Bản 2.4: sau khi #145 gộp, thêm các khóa 9.15 vào mục 8 | 9.15 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
 - lưu lại đúng giá trị đề xuất của từ điển sẽ bị 422, kèm câu "Chọn một trong: 1, 2, 3, 4, 5, 6, 7";
@@ -1460,3 +1530,10 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
   - câu 9.1a có "Đã hủy" ngay trong hộp. Không có "Dữ liệu vừa được người khác thay đổi", không có "Đơn vừa chuyển sang";
   - nút chính khóa, focus ở câu;
   - sale, cùng ca → "…không xác nhận cọc hay tạo mã VietQR được nữa. Khách đã trả tiền: báo lễ tân kèm mã đơn."
+- Bản 2.4, mục 9.15, quản lý, mock (giờ trả chuẩn 12:00), đơn quá ngày đi 1 đêm:
+  - không có giờ hẹn → dưới ô giờ: "Giờ khách rời căn, ngày dd/mm/yyyy. Không có bằng chứng thì ghi 12:00 (giờ trả chuẩn), hoặc giờ thấy căn trống nếu sớm hơn – không phụ thu.";
+  - có giờ trả muộn hẹn 14:00 → câu "…thì giữ 14:00 (giờ trả muộn đã hẹn) và phụ thu đã hẹn. Có bằng chứng khách đi sớm hơn …". Không còn câu riêng "Theo giờ trả muộn đã hẹn 14:00.";
+  - gõ giờ quá mốc cuối của ngày đi → lỗi ô giờ và câu cạnh nút khóa cùng là "Giờ này quá mốc trả muộn của ngày đi nên tính thêm 1 đêm. …".
+- Bản 2.4, mục 9.15 bảng B, cùng đơn (ngày đi D), gõ 03:00 (mock tái hiện V515-01) → "Desk hiểu 03:00 là rạng sáng <D+1>. Khách đi lúc 03:00 ngày <D>: ghi 06:00, …". Không có câu "quá mốc trả muộn". Lặp lại với đơn đã gia hạn mà vẫn quá ngày đi: <D> là ngày đi sau gia hạn. Sau khi v1.0.6 lên staging: cùng thao tác → không có câu này.
+- Bản 2.4, mục 9.15 bảng B, lễ tân (FD, FDL), đơn quá ngày đi 1 đêm → màn chỉ dẫn và ngăn đơn: câu "cần quản lý hoặc chủ đầu tư trả phòng." rồi "Trước khi gọi, kiểm căn: …". Nút Gia hạn còn bấm được. EN ở 390 px: hai câu không tràn khung ngăn đơn.
+- Bản 2.4: `grep` trên `strings-en.json`: không còn "without telling us"; `strings-vi.json` không còn "Không có bằng chứng giờ:".
