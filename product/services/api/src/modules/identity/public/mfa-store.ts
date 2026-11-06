@@ -69,8 +69,8 @@ export function secretAad(
   return { table: 'app_user', column, recordId: userId };
 }
 
-/** Roles that make 2FA mandatory (SEC 06.2). */
-export const MFA_REQUIRED_ROLES = ['owner', 'manager'] as const;
+/** Roles that make 2FA mandatory (SEC 06.2; v1.0.5 V5-40 adds front_desk_lead) – see mfa-roles.ts. */
+export { MFA_REQUIRED_ROLES, isMfaRequiredRole } from './mfa-roles';
 
 @Injectable()
 export class MfaStore {

@@ -3,7 +3,8 @@
  * - BUG-R3-042 (P1): an overdue hold that received money is topped up and confirmed by FD+ (200, `confirmed`, check-in
  *   offered on the arrival day); a sale gets HOLD_EXPIRED; an unpaid overdue hold: `receivedAt` before the deadline →
  *   200, after → HOLD_EXPIRED, and B4 is not offered; MGR accepts the shortfall after the deadline (BR-303 (2));
- * - BUG-R3-041 (DOM A.5): J1 writes inbox rows (`staff_notification`) to the right people, once;
+ * - BUG-R3-041 (DOM A.5): J1 writes inbox rows (`staff_notification`) to the right people, once; `hold_expired` also
+ *   to every active FD/FDL (v1.0.5 V5-1B, DOM rules-v1.0.5 mục 9);
  * - ĐX-R3-QA-01 AC1–AC3: "Cần chú ý" hold_overdue (FD+, any arrival date) and hold_overdue_cap (MGR/OWN from 12:00);
  * - FB-R3-ARC-BEB-WA-04: in a process that loads ONLY the worker, J1 cancels an overdue hold carrying a FOC request
  *   still waiting (request auto-cancelled, its pending line rejected, creator told) instead of failing every tick.
@@ -144,8 +145,9 @@ describe.skipIf(!HAS_DB)(
         users('fd', 'lead', 'mgr', 'mgr2'),
       );
       expect(await inbox(paidSal.id, 'hold_overdue_cap')).toEqual([]);
-      expect(await inbox(unpaidCtv.id, 'hold_expired')).toEqual(users('ctv'));
-      expect(await inbox(unpaidLate.id, 'hold_expired')).toEqual(users('fd'));
+      // V5-1B: creator + every active FD/FDL – never MGR/OWN for this kind
+      expect(await inbox(unpaidCtv.id, 'hold_expired')).toEqual(users('ctv', 'fd', 'lead'));
+      expect(await inbox(unpaidLate.id, 'hold_expired')).toEqual(users('fd', 'lead'));
       const [st] = await x.q(`SELECT status FROM reservation WHERE id = $1`, [unpaidCtv.id]);
       expect(st).toEqual({ status: 'cancelled' });
       // The push row is still there (same kind/payload/dedupe key as v1.0.3) – one per notice.
@@ -276,8 +278,8 @@ describe.skipIf(!HAS_DB)(
         [folioId],
       );
       expect(pending).toEqual([{ n: 0 }]);
-      // The worker writes the inbox row too (BUG-R3-041 in the worker composition).
-      expect(await inbox(h.id, 'hold_expired')).toEqual(users('fd'));
+      // The worker writes the inbox rows too (BUG-R3-041 in the worker composition; V5-1B FD + FDL).
+      expect(await inbox(h.id, 'hold_expired')).toEqual(users('fd', 'lead'));
     }, 240_000);
 
     // HOLDS-01/02 timeline: holds made 11/11 12:00 (deadline 12/11 12:00), arrival 20/12.
@@ -450,7 +452,7 @@ describe.skipIf(!HAS_DB)(
       );
     }, 120_000);
 
-    it('DOM P4-20 §0: hold_expired whose creator is no longer active in the property → FD and FDL instead, once', async () => {
+    it('V5-1B (was DOM P4-20 §0): hold_expired whose creator is no longer active in the property → FD and FDL, once', async () => {
       await x.at('2026-11-12T10:00:00+07:00');
       const h = await hold('302', 'ctv', '2026-12-10', '2026-12-12');
       // The CTV leaves before the hold expires (role revoked) – nobody of creator/closer is active here any more.
@@ -462,6 +464,64 @@ describe.skipIf(!HAS_DB)(
       expect((await j1()).stats).toMatchObject({ expired: 1, failed: 0 });
       await j1();
       expect(await inbox(h.id, 'hold_expired')).toEqual(users('fd', 'lead'));
+    }, 120_000);
+
+    it('V5-1B (QA): a sale hold, no money, past the deadline → each active FD and FDL gets exactly one hold_expired (+ the sale); a disabled FD none; next tick none; a part-paid hold still hold_overdue_with_deposit', async () => {
+      await x.at('2026-11-14T10:00:00+07:00');
+      const unpaid = await hold('103', 'sal', '2026-12-14', '2026-12-16');
+      const part = await hold('201', 'sal', '2026-12-14', '2026-12-16');
+      const paid = await deposit(part.id, cash(200_000));
+      expect(paid.statusCode, paid.body).toBe(200);
+      // a second FD account, disabled before the deadline: not "active" → not told
+      const [gone] = await x.q(
+        `INSERT INTO app_user (id, organization_id, username, display_name, password_hash, status, created_at, updated_at)
+         VALUES ($1, $2, $3, 'fd-off', 'x', 'disabled', $4, $4) RETURNING id`,
+        [
+          uuidv7(),
+          x.t.organizationId,
+          `t.fdoff.${uuidv7().slice(-8)}`,
+          new Date('2026-11-14T10:00:00+07:00'),
+        ],
+      );
+      await x.q(
+        `INSERT INTO user_property_role (user_id, property_id, organization_id, role, granted_at)
+         VALUES ($1, $2, $3, 'front_desk', $4)`,
+        [gone.id, x.t.propertyIds[0], x.t.organizationId, new Date('2026-11-14T10:00:00+07:00')],
+      );
+      await x.at('2026-11-15T10:01:00+07:00');
+      expect((await j1()).stats).toMatchObject({ expired: 1, failed: 0 });
+      await x.at('2026-11-15T10:02:00+07:00');
+      await j1(); // the next tick tells nobody again
+      const perUser = await x.q(
+        `SELECT user_id, count(*)::int AS n FROM staff_notification
+          WHERE ref_id = $1 AND kind = 'hold_expired' GROUP BY user_id ORDER BY user_id`,
+        [unpaid.id],
+      );
+      expect(perUser).toEqual(users('sal', 'fd', 'lead').map((u) => ({ user_id: u, n: 1 })));
+      expect(perUser.map((r) => r.user_id)).not.toContain(gone.id);
+      // never MGR / OWN / CTV for this kind
+      for (const w of ['mgr', 'mgr2', 'owner', 'ctv']) {
+        expect(perUser.map((r) => r.user_id)).not.toContain(x.t.users[w]!.id);
+      }
+      // one push row (the gate), its payload: kind, roles FD/FDL, the creator – ids and code only
+      const pushes = await x.q(
+        `SELECT payload FROM outbox_message WHERE topic = 'staff.push' AND dedupe_key = $1`,
+        [`hold_expired:${unpaid.id}`],
+      );
+      expect(pushes).toHaveLength(1);
+      expect(pushes[0].payload).toEqual({
+        kind: 'hold_expired',
+        roles: ['front_desk', 'front_desk_lead'],
+        userIds: [x.t.users.sal!.id],
+        refType: 'reservation',
+        refId: unpaid.id,
+        refCode: (await x.get(unpaid.id)).code,
+      });
+      // the part-paid hold is kept and told as before (creator + FD/FDL/MGR), no hold_expired
+      expect(await inbox(part.id, 'hold_overdue_with_deposit')).toEqual(
+        users('sal', 'fd', 'lead', 'mgr', 'mgr2'),
+      );
+      expect(await inbox(part.id, 'hold_expired')).toEqual([]);
     }, 120_000);
   },
 );

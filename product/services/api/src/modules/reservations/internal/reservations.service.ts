@@ -4628,8 +4628,8 @@ export class ReservationsService {
    * Each hold runs in its own SAVEPOINT – one bad row is reported in `failures` and the others still expire
    * (FB-R2-SEC-BE-24). A hold with money received (DOM D-9, US-085 AC4) is never auto-cancelled: its creator/closer +
    * FD/FDL/MGR are told once (`hold_overdue_with_deposit`), MGR/OWN once the BR-302 cap (12:00 on arrival day) has
-   * passed (`hold_overdue_cap`); a cancelled hold tells its creator/closer (`hold_expired`) – inbox + SSE, DOM A.5,
-   * v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until check-in (BUG-R3-042).
+   * passed (`hold_overdue_cap`); a cancelled hold tells its creator/closer + every active FD/FDL (`hold_expired`,
+   * V5-1B) – inbox + SSE, DOM A.5, v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until check-in (BUG-R3-042).
    */
   async expireHolds(
     tx: Tx,
@@ -4747,7 +4747,8 @@ export class ReservationsService {
       segs.map((s) => ({ roomId: s.room_id, from: s.from_date, to: s.to_date })),
       'hold.expired',
     );
-    // DOM A.5: creator + closer only (a CTV tells the guest); inbox, no "Cần chú ý".
+    // DOM A.5 + V5-1B: creator + closer + every active FD/FDL (the desk tells the guest – Tờ 2a); inbox, no
+    // "Cần chú ý".
     await notifyHoldOnce(
       tx,
       this.events,

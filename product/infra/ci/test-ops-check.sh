@@ -12,6 +12,11 @@
 # that is not that role answers no number and FAILs; email_missing counts locked users too (ARC PR30-08);
 # email_changes prints `via owner: <n>` (SEC PR32-02 (b)); email_ascii FAILs above 0 (v1.0.4 adapter); new checks
 # email_config (.env mail settings, same address rule as email_ascii) and db_triggers (PN-01 + 0094 triggers).
+# + v1.0.5 (V5-65, SEC FB-R4-SEC-OPS-OR-03): check `sshkeys` – every key line of the deploy user's authorized_keys
+# (+ authorized_keys2) has command="…" and restrict; counts only, never a key or a comment in the output.
+# + SEC FB-R5-SEC-OPS-93-02: only the two known forced commands (deploy-from-ci.sh, rrsync -ro of a stack's backup
+# directory); pty / port-forwarding / agent-forwarding / X11-forwarding / user-rc after restrict → FAIL; authorized_keys
+# or .ssh writable by group or others → FAIL.
 #   bash product/infra/ci/test-ops-check.sh
 set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -455,9 +460,57 @@ else fail=$((fail + 1)); echo "FAIL an e-mail check is missing from the full run
 if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* pricelimit pricegap priceswitch( [a-z0-9_]+)*\)' "$src"; then
   pass=$((pass + 1)); echo "ok   pricelimit + pricegap + priceswitch in the full run (LP-v2)"
 else fail=$((fail + 1)); echo "FAIL an LP-v2 price check is missing from the full run"; fi
-if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* email_config db_triggers\)' "$src"; then
+if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* email_config db_triggers( [a-z0-9_]+)*\)' "$src"; then
   pass=$((pass + 1)); echo "ok   email_config + db_triggers in the full run (v1.0.4)"
 else fail=$((fail + 1)); echo "FAIL a v1.0.4 check is missing from the full run"; fi
+if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* db_triggers sshkeys( [a-z0-9_]+)*\)' "$src"; then
+  pass=$((pass + 1)); echo "ok   sshkeys in the full run (v1.0.5)"
+else fail=$((fail + 1)); echo "FAIL sshkeys is missing from the full run"; fi
+
+# v1.0.5 sshkeys (V5-65, SEC FB-R4-SEC-OPS-OR-03). Test keys are made-up base64, never real ones.
+sk="$T/ssh"; mkdir -p "$sk"; chmod 0700 "$sk"; um=$(umask); umask 077
+ci_line='command="/opt/ottimo-prod/infra/server/bin/deploy-from-ci.sh",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICIci ci-prod'
+pull_line='command="/usr/bin/rrsync -ro /var/backups/ottimo-prod",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPull pull-mac'
+person_line='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPerson ottimo-ops-secret-comment'
+envfile ''
+printf '%s\n' "# keys of the deploy user" "$ci_line" "" "$pull_line" > "$sk/authorized_keys"
+CHECK=sshkeys run "sshkeys: CI + pull keys only -> ok" 0 '^ok   sshkeys: 2 key line\(s\) of the deploy user, all a known forced command with restrict$' OPS_CHECK_SSH_DIR="$sk"
+printf '%s\n' "$ci_line" "$person_line" "$pull_line" > "$sk/authorized_keys"
+CHECK=sshkeys run "sshkeys: a person key -> FAIL, count only" 1 '^FAIL sshkeys: 1 of 3 key line\(s\) of the deploy user are not a known forced command with restrict \(0 unknown command\(s\), 0 option' OPS_CHECK_SSH_DIR="$sk"
+out=$(env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" OPS_CHECK_SSH_DIR="$sk" bash "$T/bin/ops-check.sh" sshkeys 2>&1 || true)
+if grep -qE 'AAAA|ottimo-ops-secret-comment|ci-prod|pull-mac|ed25519' <<<"$out$(cat "$T/home/state/ops-check/sshkeys")"; then
+  fail=$((fail + 1)); echo "FAIL sshkeys prints a key or a comment: $out"
+else pass=$((pass + 1)); echo "ok   sshkeys output and state hold numbers only"; fi
+for c in "restrict without command:restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIx a" \
+  "command without restrict:command=\"/usr/bin/true\" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIx a" \
+  "restrict only inside the command text:command=\"/x ,restrict, y\",no-pty ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIx a" \
+  "other options only:no-pty,no-port-forwarding ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIx a" \
+  "indented person key:   ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYx a"; do
+  printf '%s\n%s\n' "$ci_line" "${c#*:}" > "$sk/authorized_keys"
+  CHECK=sshkeys run "sshkeys: ${c%%:*} -> FAIL" 1 '^FAIL sshkeys: 1 of 2 key line' OPS_CHECK_SSH_DIR="$sk"
+done
+printf '%s\r\n%s\r\n' "$ci_line" 'restrict,command="/usr/bin/rrsync -ro /var/backups/ottimo" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIy b' > "$sk/authorized_keys"
+CHECK=sshkeys run "sshkeys: options in any order, CRLF -> ok" 0 '^ok   sshkeys: 2 key line' OPS_CHECK_SSH_DIR="$sk"
+printf '%s\n' "$ci_line" > "$sk/authorized_keys"; printf '%s\n' "$person_line" > "$sk/authorized_keys2"
+CHECK=sshkeys run "sshkeys: person key in authorized_keys2 -> FAIL" 1 '^FAIL sshkeys: 1 of 2 key line' OPS_CHECK_SSH_DIR="$sk"
+# SEC 93-02
+printf '%s\n' "$ci_line" 'command="/bin/bash",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIx a' > "$sk/authorized_keys"; rm -f "$sk/authorized_keys2"
+CHECK=sshkeys run "sshkeys: unknown forced command (a shell) -> FAIL" 1 '^FAIL sshkeys: 1 of 2 key line\(s\) .*\(1 unknown command\(s\), 0 option' OPS_CHECK_SSH_DIR="$sk"
+printf '%s\n' "$ci_line" 'command="/opt/ottimo/infra/server/bin/deploy-from-ci.sh.bak",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIx a' > "$sk/authorized_keys"
+CHECK=sshkeys run "sshkeys: near-miss command path -> FAIL" 1 '^FAIL sshkeys: 1 of 2 key line\(s\) .*\(1 unknown command' OPS_CHECK_SSH_DIR="$sk"
+for o in pty port-forwarding agent-forwarding X11-forwarding user-rc; do
+  printf '%s\n' "$ci_line" "command=\"/usr/bin/rrsync -ro /var/backups/ottimo-prod\",restrict,$o ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIx a" > "$sk/authorized_keys"
+  CHECK=sshkeys run "sshkeys: restrict then $o -> FAIL" 1 '^FAIL sshkeys: 1 of 2 key line\(s\) .*\(0 unknown command\(s\), 1 option\(s\) re-opening' OPS_CHECK_SSH_DIR="$sk"
+done
+printf '%s\n' "$ci_line" "$pull_line" > "$sk/authorized_keys"; chmod 0664 "$sk/authorized_keys"
+CHECK=sshkeys run "sshkeys: authorized_keys mode 0664 -> FAIL" 1 '^FAIL sshkeys: authorized_keys or .ssh of the deploy user writable by group or others \(1\)' OPS_CHECK_SSH_DIR="$sk"
+chmod 0600 "$sk/authorized_keys"; chmod 0770 "$sk"
+CHECK=sshkeys run "sshkeys: .ssh mode 0770 -> FAIL" 1 '^FAIL sshkeys: authorized_keys or .ssh of the deploy user writable' OPS_CHECK_SSH_DIR="$sk"
+chmod 0700 "$sk"
+CHECK=sshkeys run "sshkeys: modes fixed -> ok" 0 '^ok   sshkeys: 2 key line' OPS_CHECK_SSH_DIR="$sk"
+rm -f "$sk/authorized_keys2" "$sk/authorized_keys"
+CHECK=sshkeys run "sshkeys: no authorized_keys -> FAIL" 1 '^FAIL sshkeys: authorized_keys of the deploy user missing or unreadable$' OPS_CHECK_SSH_DIR="$sk"
+umask "$um"
 
 
 # SEC FB-R4-SEC-OPS-P404R1-S1: "-c role=" only guards against mistakes; SQL that resets the role or turns READ ONLY
