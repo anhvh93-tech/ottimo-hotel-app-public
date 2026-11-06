@@ -440,6 +440,7 @@ Câu trả lời mục 3: OPS làm theo quyết định của SEC (không `log_m
      - (a) thay "Production không đổi gì" bằng "Production: app và container không đổi; chỉ ghi ngày bắt đầu nhật ký vào thư mục trạng thái của production";
      - (b) chuyển phần `/opt/ottimo-prod` của W6 bước 2 sang Đợt C, trước W6 bước 3 production.
      - ARC chọn (a): ít đổi nhất. `journald_since` là mốc của cả máy, ghi sớm không sai.
+     - Trùng ý 1 của SEC FB-R5-SEC-OPS-95-08 (câu Đợt A). OPS sửa một lần theo thẻ SEC, vì thẻ đó rộng hơn (câu Đợt B, C). Thẻ này đóng cùng lúc.
   2. Bước 5: "muốn giữ user thì ghi lại, đặt `LOG_READER_USERS`/`SUDO_USERS` ở bước 7 (SEC đồng ý)".
 - Trạng thái: Open
 
