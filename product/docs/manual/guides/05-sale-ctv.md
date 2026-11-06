@@ -183,7 +183,7 @@ Khung đơn giữ chỗ của mình có **Hủy giữ chỗ** và **Gia hạn gi
   - lý do khách nói (không ghi tên khách).
 - Không hứa số tiền hoàn. Nói với khách: lễ tân OTTIMO sẽ báo số hoàn theo chính sách hủy.
 - Vì sao: hủy đơn có tiền tạo yêu cầu hoàn. Nơi nhận hoàn chỉ nhập được trên máy quầy đã cấp quyền, chủ đầu tư duyệt và chi. Mức hoàn tính theo ngày khách báo, nên giờ khách báo phải tới lễ tân sớm nhất.
-- Khung đơn giữ chỗ hiện **Tạo link check-in online**: **không bấm**. Sale/CTV không cấp hay gửi link check-in online (mục 8.3).
+- Khung đơn giữ chỗ hiện **Tạo link check-in online**: **không bấm**. Sale/CTV không cấp hay gửi link check-in online; lễ tân gửi (mục 8.3).
 
 ### 4.3 Giữ chỗ tới hạn – Desk tự làm gì
 
@@ -321,7 +321,7 @@ Từ 03/11 (v1.0.1), Desk đăng tin báo yêu cầu mới vào một phòng Goo
 - Không nhận số thẻ thanh toán.
 - Không tự hủy đơn của mình khi đơn đã có tiền hoặc đã báo chuyển cọc (mục 4.2).
 - Không nhận tiền cọc, tiền phòng vào tài khoản của mình; không đưa khách số tài khoản nào.
-- Không tạo, không gửi link check-in online.
+- Không tạo, không gửi, không chuyển tiếp link check-in online. Lễ tân gửi thẳng cho khách (mục 8.3).
 - Không gửi thông tin khách vào nhóm Zalo; không chụp màn hình có dữ liệu khách để gửi ai.
 - Không nhắn khách ngoài 08:00–21:00.
 
@@ -329,7 +329,7 @@ Từ 03/11 (v1.0.1), Desk đăng tin báo yêu cầu mới vào một phòng Goo
 
 ## 8. Tạm thời tới v1.0.3 và các bản sau
 
-Các việc dưới đây làm theo cách tạm tới khi chủ đầu tư báo bản có sửa đã lên. Giữ chỗ quá hạn (8.1) và check-in online (8.3) sửa ở **v1.0.3** (dự kiến 07/11); lý do hủy "Khác" (8.2) sửa ở v1.0.3 hoặc v1.0.4. Bản v1.0.1 (đã lên 03/11) chưa sửa các việc này.
+Các việc dưới đây làm theo cách tạm tới khi chủ đầu tư báo bản có sửa đã lên. Giữ chỗ quá hạn (8.1) sửa ở **v1.0.3** (dự kiến 07/11); lý do hủy "Khác" (8.2) sửa ở v1.0.3 hoặc v1.0.4. Check-in online đã mở lại từ 06/11/2026 (8.3). Bản v1.0.1 (đã lên 03/11) chưa sửa các việc này.
 
 ### 8.1 Giữ chỗ của anh/chị quá hạn – người trực sẽ nhắn
 
@@ -345,9 +345,9 @@ Desk chưa báo giữ chỗ quá hạn, nên người trực quầy rà **3 mố
 
 Chọn **Khác (ghi rõ)** thì hộp hủy khóa nút. Chọn **Khách đổi ý**, **Khách tìm được chỗ khác**, **Giá chưa phù hợp**, **Đổi ngày** hoặc **Không liên lạc được**. Cần giải thích thêm: nhắn lễ tân ghi sổ giao ca, không ghi tên khách.
 
-### 8.3 Check-in online tạm dừng
+### 8.3 Check-in online (mở lại từ 06/11/2026)
 
-Không ai tạo hay gửi link check-in online cho khách thật. Mọi khách làm giấy tờ tại quầy. Khách hỏi: báo khách làm thủ tục tại quầy khi đến.
+Lễ tân gửi link check-in online cho khách của đơn **đã xác nhận**. Anh/chị không cấp, không gửi link. Khách của anh/chị hỏi link: nhắn lễ tân **mã đơn** `OTM-…`, không kèm tên hay số điện thoại khách. Đơn còn giữ chỗ: xác nhận cọc trước. Khách không làm online thì làm thủ tục tại quầy khi đến.
 
 ---
 

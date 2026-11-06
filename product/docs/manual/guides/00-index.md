@@ -70,7 +70,7 @@ Mỗi người **một tài khoản, đúng vai của mình**, và đọc tệp 
 |---|---|---|---|
 | `desk.ottimo.vn` | **OTTIMO Desk** | Chủ đầu tư, quản lý, lễ tân, sale, CTV; buồng phòng, bảo trì lần đầu đổi mật khẩu tạm | Máy quầy, laptop; sale/CTV dùng được trên điện thoại |
 | `staff.ottimo.vn` | **App nhân viên** | Buồng phòng, bảo trì, lễ tân trưởng (kiểm phòng) | Điện thoại |
-| `g.ottimo.vn` | **Trang khách** | Khách của từng đơn | Điện thoại của khách. **Từ 02/11 tới v1.0.3 chưa gửi link cho khách thật** |
+| `g.ottimo.vn` | **Trang khách** | Khách của từng đơn | Điện thoại của khách. **Check-in online mở lại từ 06/11/2026**: lễ tân gửi link cho đơn đã xác nhận (`02` mục 17.3) |
 | `ottimo.vn` | **Website** | Khách tìm hiểu | Form đặt phòng **đã bật từ chiều 30/10**; 5 ngôn ngữ và giá ước tính từ 06/11; thông báo quyền riêng tư bản 2026-11-04. Desk mở trên máy quầy và điện thoại người trực 07:00–22:00 (`02` mục 13.1) |
 
 **Phòng Google Chat** (tài khoản `@ottimo.vn`, trên điện thoại, không mở trên máy quầy):
@@ -78,7 +78,7 @@ Mỗi người **một tài khoản, đúng vai của mình**, và đọc tệp 
 | Phòng | Ai ở trong phòng | Từ khi nào | Ở đâu trong bộ hướng dẫn |
 |---|---|---|---|
 | **"OTTIMO – Yêu cầu đặt phòng"** | Chủ đầu tư, quản lý (hai người này là quản lý phòng), lễ tân trưởng, lễ tân. Không sale, CTV, buồng phòng, bảo trì | Đã có từ **03/11 (v1.0.1)**, tin **mức A**: chỉ mã yêu cầu, giờ, hạn phản hồi, mức gấp, link Desk; không có tên, liên hệ, lời nhắn của khách. Mức có chi tiết khách chưa bật (chờ ESC-046), khi bật bộ hướng dẫn cập nhật. Desk vẫn mở 07:00–22:00 | `02` mục 13.1a, 13.1b; `01` mục 12.1, 12.2 |
-| **"OTTIMO – Báo động"** | Chỉ chủ đầu tư | Đang chạy | `01` mục 17.1 |
+| **"OTTIMO – Báo động"** | Chủ đầu tư. Có thể thêm **một** người thứ hai chủ đầu tư chọn (`01` mục 17.1) | Đang chạy | `01` mục 17.1 |
 
 Luật chung cho mọi người:
 - **Mỗi người một tài khoản.** Không dùng chung, không đọc mật khẩu qua điện thoại, không gõ mật khẩu cho người khác.
@@ -134,7 +134,7 @@ Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn qu
 7. Khách đã làm giấy tờ trước giờ thay **không** phải xem lại. Người đi cùng đến sau thì xem tờ v2.
 8. Tờ v1 gỡ ra: cất khỏi quầy, chỗ khách không thấy. Có tin "Đã đặt v2" thì hủy. Không để tờ v1 và v2 cùng ở quầy.
 9. **Từ hôm sau ngày sổ giao ca có dòng "Thay tờ v2 hh:mm – tham số v2 hh:mm"** (hoặc từ ngày ghi ở dòng "Tờ v2 từ 06:00 dd/mm"), lúc mở quầy người trực kiểm chân tờ có chữ v2, cả tờ trong ngăn quầy. Chưa có dòng đó: tờ v1 là đúng, người trực **không** tự thay tờ v2 (`02` mục 2).
-10. Sau bước 3, đội bảo mật kiểm trang khách và tham số. Check-in online vẫn dừng tới khi đội báo anh/chị mở lại (`02` mục 17.3).
+10. Sau bước 3, đội bảo mật kiểm trang khách và tham số. Đã làm ngày 06/11/2026: đội bảo mật kiểm đạt, check-in online mở lại cùng ngày (`02` mục 17.3).
 
 ## 5. Đào tạo
 
@@ -170,6 +170,8 @@ Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn qu
 - Con số theo tham số ngày 27/10/2026. Desk khác tệp: làm theo Desk; khác về **tiền** mà không rõ vì sao thì báo ngay (có thể là lỗi "P0").
 
 ## 7. Lịch sử
+
+**Sửa 06/11/2026 – Round 5, chưa đánh số bản** (BA; QC Round 4 ĐK-4, ĐK-5, V5-08). **Áp dụng ngay.** Check-in online đã mở lại từ 06/11/2026 cùng v1.0.4. Bỏ các câu "tạm dừng", "chưa gửi link": `00` mục 3 (dòng `g.ottimo.vn`), mục 4 bước 10; `01` 14.1 (dòng gửi nhầm link), 15 (đoạn mở đầu), 15.4 (viết lại); `02` 4.5 (nút link ở đơn giữ chỗ), 9.7, 16.2, 17 (đoạn mở đầu), 17.3 (viết lại thành các bước gửi link), 20.3 (bài tập 8); `05` 4.2, 7.2, 8 (đoạn mở đầu), 8.3 (viết lại); `screenshot-additions.md` (ảnh C0-10 dùng lại được). Phòng "OTTIMO – Báo động" có thể thêm một người thứ hai chủ đầu tư chọn: `00` mục 3, `01` 17.1 (theo sổ vận hành bản 1.2). Câu còn đúng, giữ nguyên: đơn giữ chỗ chưa tạo được link (dự kiến sửa ở v1.0.5); Wi-Fi trên trang khách ghi "hỏi lễ tân".
 
 **Sửa 06/11/2026, chưa đánh số bản** (BA, Round 4 – Phản hồi & sửa; quyết định của chủ đầu tư 06/11: bật giá web với tham số đang chạy). **Áp dụng ngay.** Website theo thực tế 06/11: form đã bật từ 30/10, 5 ngôn ngữ, giá ước tính đã bật, thông báo quyền riêng tư bản 2026-11-04. `01` 9.1a (bỏ điều kiện "khi gói LP-v2 phát hành"; công tắc `public_show_prices` đang bật, tắt gấp, tin phòng Báo động; ngày cuối có giá `web_estimate.open_until`; tham số giá còn lệch sổ tay), 9.2 (thông báo quyền riêng tư; dòng trỏ tới sổ vận hành và từ điển tham số); `02` 13.1, 13.1c, 13.1d, bài tập 11 (bỏ điều kiện LP-v2, người bản xứ, luật sư); `05` 6.3a; bảng tệp và bảng địa chỉ ở tệp này. Ảnh C2-39 cần chụp lại (ảnh đang có là màn form tắt), QA kiểm che dữ liệu trước khi đưa vào. Bản HTML `guides/html/` cần dựng lại. Số bản ghi ở lần đánh số tới.
 

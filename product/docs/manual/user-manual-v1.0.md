@@ -44,7 +44,7 @@
 | `g.ottimo.vn` | **Trang khách** | Khách của từng đơn | Điện thoại của khách | Làm thủ tục trước (check-in online), Wi-Fi, gửi yêu cầu trong lúc ở |
 | `ottimo.vn` | **Website** | Khách tìm hiểu, gửi yêu cầu đặt phòng | Mọi thiết bị | Giới thiệu OTTIMO bằng 5 ngôn ngữ; form **Yêu cầu đặt phòng** có giá ước tính; nút Zalo, gọi điện, email |
 
-- Trang khách không có tên đăng nhập. Mỗi đơn có một link riêng do lễ tân tạo (mục 2.9). **Từ 02/11 tới bản v1.0.3, chưa gửi link cho khách thật** (mục 2.9).
+- Trang khách không có tên đăng nhập. Mỗi đơn có một link riêng do lễ tân tạo (mục 2.9). **Check-in online đã mở lại từ 06/11/2026**: lễ tân gửi link cho khách của đơn đã xác nhận (mục 2.9).
 - Website ngày 06/11: form "Yêu cầu đặt phòng" **đã bật từ chiều 30/10**; đủ **5 ngôn ngữ** – tiếng Anh ở trang chính, tiếng Việt `/vi/`, tiếng Hàn `/ko/`, tiếng Trung giản thể `/zh/`, tiếng Nga `/ru/`; **giá ước tính đã bật từ 06/11**; thông báo quyền riêng tư bản **2026-11-04**, đủ 5 ngôn ngữ. Yêu cầu khách gửi hiện ở **Yêu cầu từ website** (mục 2.18). Chủ đầu tư tắt được form hoặc giá ngay trên Desk (mục 1.4).
 
 [ẢNH: C0-10-Trang khách trên điện thoại]
@@ -251,7 +251,7 @@ OTTIMO gửi thư báo tới địa chỉ này khi có việc quan trọng với
 >   - **Không** ghi số giấy tờ, mã cửa, email, số tài khoản.
 > - Danh sách luôn nằm **trong ngăn khóa**, chìa do người đang trực giữ. Không để trên mặt quầy, không chụp ảnh, không mang ra khỏi cơ sở, không gửi qua tin nhắn.
 > - Chỉ giữ **một bản**. Chép bản mới xong thì hủy bản cũ ngay: **cắt nhỏ** (máy hủy giấy, hoặc xé ngang dọc nhiều lần), bỏ vào thùng rác khu nhân viên, không bỏ thùng rác sảnh.
-> - Mất mạng: dùng danh sách để giao căn đã sạch cho khách có tên trong danh sách **sau khi xem giấy tờ gốc** của người đứng tên, thu tiền, ghi sổ giấy, nhập bù trong 24 giờ. **Không chụp giấy tờ khách bằng điện thoại** để nhập sau. Có mạng lại thì nhập giấy tờ trên máy quầy (khách đưa lại giấy tờ tại quầy; link check-in online đang tạm dừng – mục 2.9) và giữ đúng hạn khai báo (mục 2.11).
+> - Mất mạng: dùng danh sách để giao căn đã sạch cho khách có tên trong danh sách **sau khi xem giấy tờ gốc** của người đứng tên, thu tiền, ghi sổ giấy, nhập bù trong 24 giờ. **Không chụp giấy tờ khách bằng điện thoại** để nhập sau. Có mạng lại thì nhập giấy tờ trên máy quầy (khách đưa lại giấy tờ tại quầy) và giữ đúng hạn khai báo (mục 2.11).
 > - **Ba ngày đầu (02, 03, 04/11)** lễ tân ghi thêm **sổ giấy** (đơn, tiền thu), đối chiếu với Desk lúc 22:00.
 > - **Sổ giấy** (ba ngày đầu, và mọi lần mất mạng) không ghi số giấy tờ, số thẻ, mã cửa. Hết dùng thì nộp chủ đầu tư cất két cùng chứng từ kế toán.
 <!-- Theo SEC FB-R3-SEC-BA-06 (đóng phần SEC của DOM thẻ 10): SEC chấp nhận SĐT khách đến trên giấy theo BR-961 với các điều kiện trên. -->
@@ -805,7 +805,7 @@ Lưu ý:
 - Mã VietQR hết hạn: bấm **Tạo mã VietQR mới** (mã cũ hết hiệu lực), hoặc ghi như chuyển khoản tay (**Chờ đối soát**).
 - Gia hạn giữ chỗ: **Gia hạn giữ chỗ (1 lần)**, tối đa thêm 24 giờ, không quá 12:00 ngày đến. **Chỉ làm trước hạn**; sau hạn nút này không còn.
 - Sale/CTV đã báo khách chuyển cọc: khung đơn hiện **CTV/sale đã báo chuyển cọc** kèm **Xem ảnh biên nhận**. Vẫn kiểm sao kê trước khi xác nhận.
-- Khung đơn giữ chỗ hiện **Tạo link check-in online** và **Thu hồi link**: **không bấm**. Desk chỉ cấp link cho đơn đã xác nhận nên luôn từ chối (lỗi nhỏ, dự kiến sửa ở v1.0.3 hoặc v1.0.4); check-in online cũng đang tạm dừng (mục 2.9).
+- Khung đơn giữ chỗ hiện **Tạo link check-in online** và **Thu hồi link**: **không bấm**. Desk chỉ cấp link cho đơn đã xác nhận nên luôn từ chối (lỗi nhỏ, dự kiến sửa ở v1.0.5). Xác nhận cọc trước, rồi gửi link theo mục 2.9.
 
 > **Lỗi nhỏ đã biết (sửa ở v1.0.3 hoặc v1.0.4):** hộp "Giữ chỗ" hiện số cọc và nội dung chuyển khoản hai lần; khách đến hôm nay vẫn hiện ô chọn thời hạn giữ dù không giữ được.
 
@@ -1003,12 +1003,12 @@ Mở đơn (từ **Sơ đồ phòng**, **Đơn đặt phòng** hoặc **Hôm nay
 
 ### 2.9 Gửi link check-in online cho khách
 
-> **Tạm dừng với khách thật từ 02/11 tới bản v1.0.3:** trang khách của bản `v1.0.0` còn thông báo xử lý dữ liệu bản cũ, chưa nêu hạn lưu thông tin giấy tờ. **Không tạo, không gửi link check-in online cho khách thật**, kể cả đơn chuyển đổi ngày D. Mọi khách làm giấy tờ tại quầy (mục 2.10): chỉ tờ **Your ID details** trước khi nhận giấy tờ, rồi hỏi đồng ý lưu ảnh ở Khối 1 (mục 0.8 điểm 4). Khách muốn gửi yêu cầu trong lúc ở: nhắn Zalo hoặc gọi lễ tân.
-> - **Lỡ gửi link:** mở đơn → **Thu hồi link** ngay (bước 6). Ghi **mã đơn** vào sổ giao ca (không ghi tên khách), báo chủ đầu tư trong ngày. Khách tới quầy thì chỉ tờ **Your ID details** như mọi khách. Không xóa ảnh khách đã gửi (cần cho khai báo lưu trú).
-> - Đội kiểm mỗi sáng số link mới tạo trên Desk thật; khác 0 thì đội báo chủ đầu tư **mã đơn** để đối chiếu với sổ giao ca.
-> - Đơn **giữ chỗ** cũng hiện nút **Tạo link check-in online**: không bấm (Desk luôn từ chối với đơn giữ chỗ – lỗi nhỏ, v1.0.3 hoặc v1.0.4).
-> - Chỉ dùng lại mục này khi chủ đầu tư báo "mở lại check-in online". Trên Desk tập vẫn tập các bước dưới với dữ liệu giả.
-<!-- Quyết định PO 30/10 (D-T4 phương án a, QC v1-gate.md mục 4.2): rounds/round-03/outputs/PO/v1.0.0-docs-update.md. SEC đồng ý 30/10 (SEC-on-PO-v1.0.0-docs.md mục A, S4, S5; thẻ D05). Mở lại khi: v1.0.3 có privacy-2026-10-v2 trên production ở mọi ngôn ngữ trang khách (gồm RU), cùng chữ với tờ Your ID details, OWN/OPS đặt privacy_notice_version mới, SEC kiểm 4 việc ở mục C.1. -->
+> **Mở lại từ 06/11/2026** (bản v1.0.4). Trang khách có thông báo xử lý dữ liệu bản 2 bằng tiếng Việt, Anh, Nga, cùng nội dung với tờ **Your ID details** v2 ở quầy. Đội bảo mật đã kiểm xong.
+> - **Ai gửi:** lễ tân, lễ tân trưởng, quản lý, chủ đầu tư. Sale, CTV không cấp, không gửi link (mục 4.2).
+> - **Đơn nào:** chỉ đơn **đã xác nhận**. Đơn giữ chỗ cũng hiện nút **Tạo link check-in online** nhưng Desk luôn từ chối (lỗi nhỏ, dự kiến sửa ở v1.0.5): xác nhận cọc trước.
+> - Khách không làm check-in online: làm giấy tờ tại quầy như cũ (mục 2.10).
+> - **Chủ đầu tư báo "dừng check-in online"** (đội có thể báo dừng khi kiểm thấy lỗi): ngừng tạo, ngừng gửi link. Mọi khách làm giấy tờ tại quầy tới khi chủ đầu tư báo mở lại.
+<!-- Mở lại 06/11/2026 14:22 (runbook v1.0.4 N1–N5: rounds/round-04/outputs/OPS/v1.0.4-release-runbook.md; SEC N4 ĐẠT: rounds/round-04/reviews/SEC-on-v104-release-N4.md; decision-log 06/11 dòng "v1.0.4 lên production"). N6 / K11 (d): SEC đếm sau lượt đồng ý thật đầu tiên; lệch thì dừng gửi link tới khi SEC + MOB sửa. Quyền cấp link: rbac-matrix A22, A22a (OWN, MGR, FDL, FD; không SAL, CTV). Nút link ở đơn giữ chỗ: BUG-R3-047 → V5-53. Quyết định tạm dừng cũ: PO D-T4 30/10, SEC đồng ý 30/10. -->
 
 1. Mở đơn **đã xác nhận**. Mục **Link check-in online** → **Tạo link check-in online**. (Đơn giữ chỗ ở v1.0 cũng hiện mục này nhưng Desk không cấp link; xác nhận cọc trước.)
 2. Hộp **Link check-in online · đơn …** hiện link, **mã QR của link** và hạn link. Bấm **Sao chép link**. **Link chỉ hiện một lần.** Đóng hộp là không xem lại được; cần thì **Tạo link mới** (link cũ ngừng hoạt động). **Không chụp màn hình hộp này** (mã QR là link).
@@ -1019,7 +1019,7 @@ Mở đơn (từ **Sơ đồ phòng**, **Đơn đặt phòng** hoặc **Hôm nay
 
 [ẢNH: C2-14-Link check-in online]
 
-Trang khách tiếng Anh dẫn, có tiếng Việt. Trong lúc ở, khách xem nội quy và gửi yêu cầu (khăn, dọn thêm, báo hỏng, trả muộn). Wi-Fi trên trang khách chưa hiện (mục 1.4, lỗi đang sửa; trang ghi "hỏi lễ tân"): khách xem thẻ Wi-Fi trong căn.
+Trang khách tiếng Anh dẫn, có tiếng Việt; thông báo xử lý dữ liệu có thêm tiếng Nga. Trong lúc ở, khách xem nội quy và gửi yêu cầu (khăn, dọn thêm, báo hỏng, trả muộn). Wi-Fi trên trang khách chưa hiện (mục 1.4, lỗi đang sửa; trang ghi "hỏi lễ tân"): khách xem thẻ Wi-Fi trong căn.
 
 > **Lỗi nhỏ đã biết:**
 > - Trang khách hiện câu "Ngôn ngữ theo trình duyệt của bạn" cả khi ngôn ngữ lấy theo hồ sơ khách. Không ảnh hưởng.
@@ -1757,7 +1757,7 @@ Luôn nhớ:
 
 [ẢNH: C4-08-Đơn của tôi, hoa hồng dự kiến]
 
-> **Tạm ở v1.0:** chưa có màn hoa hồng theo đợt chi (dự kiến v1.3), bảng theo dõi khách tiềm năng (chưa xếp lịch), mẫu tin nhắn (dự kiến v1.2). Sale/CTV không cấp hay gửi link check-in online; lễ tân gửi (đang tạm dừng tới v1.0.3, mục 2.9).
+> **Tạm ở v1.0:** chưa có màn hoa hồng theo đợt chi (dự kiến v1.3), bảng theo dõi khách tiềm năng (chưa xếp lịch), mẫu tin nhắn (dự kiến v1.2). Sale/CTV không cấp hay gửi link check-in online; lễ tân gửi (mục 2.9). Khách của bạn hỏi link: nhắn lễ tân mã đơn `OTM-…`.
 
 ### 4.3 Kế toán
 
@@ -1983,7 +1983,6 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Mã cửa trên app, báo tự động khi khách quá giờ trả | v1.1 | Tạo mã trên app khóa như hiện nay; lễ tân theo dõi giờ trả ở **Hôm nay** |
 | Bảng dự phòng in sẵn khi mất mạng | v1.1 | Chép tay danh sách khách đến/đi ngày mai lúc 22:00; sổ giấy 3 ngày đầu |
 | Giữ ngày kết thúc HĐ khi gia hạn đơn dài hạn nhập tay | v1.0.4 | Tới khi v1.0.4 lên: ghi ngày kết thúc HĐ vào bảng kỳ thu và sổ giao ca trước khi gia hạn (mục 2.12, 2.14a) |
-| Check-in online cho khách thật (chờ thông báo xử lý dữ liệu bản mới) | v1.0.3 | Khách làm giấy tờ tại quầy; tờ **Your ID details** trước khi nhận giấy tờ, câu đồng ý ở Khối 1 (mục 0.8, 2.9) |
 | "Chấp nhận cọc thiếu" trên Desk | v1.0.3 | Xin khách chuyển đủ trước hạn; không được thì giữ đơn và làm lại khi khách đến (mục 2.4) |
 | Danh sách giá đã lên lịch, nút hủy giá đã lên lịch | Có từ v1.0.2 | Tới khi v1.0.2 lên: ghi sổ mỗi lần lên lịch giá (mục 1.3) |
 | Thông báo tiền chuyển khoản về tại quầy | Đang chờ chủ đầu tư quyết | Hỏi chủ đầu tư/quản lý; ban đêm mời trả tiền mặt/thẻ (mục 2.13) |
@@ -2010,7 +2009,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Giữ chỗ **có cọc** đã quá hạn: Desk từ chối **Xác nhận đã nhận cọc**, không gia hạn được; chỉ còn **Hủy giữ chỗ** | Phòng trước (xác nhận, gia hạn trước hạn). Sau hạn: hủy – hoàn, hoặc để nguyên đơn rồi hủy – đặt lại (thu đủ cọc lúc đặt) – thu phần còn lại khi nhận phòng – chủ đầu tư hoàn cọc cũ khi khách đến | 2.4 |
 | Giữ chỗ có cọc quá hạn: khung đơn ghi "**đơn đã tự hủy**", câu lỗi ghi "căn đã **mở bán lại**", hộp hủy ghi "**Không thu phí**" | Tin trạng thái **Giữ chỗ · chờ cọc**: đơn chưa hủy, căn vẫn giữ. Hủy thì Desk vẫn tạo yêu cầu hoàn đủ số đã nhận | 2.4, 2.8 |
 | Hủy với lý do **Khác (ghi rõ)**: hộp hủy khóa nút | Chọn **Không liên lạc được** hoặc **Khách đổi ý**; điều cần giải thích ghi sổ giao ca | 2.4, 2.8 |
-| Khung đơn giữ chỗ hiện nút link check-in online, Desk luôn từ chối | Không bấm (check-in online đang tạm dừng) | 2.4, 2.9 |
+| Khung đơn giữ chỗ hiện nút link check-in online, Desk luôn từ chối | Không bấm. Xác nhận cọc trước, rồi tạo link trên đơn đã xác nhận | 2.4, 2.9 |
 | Folio đã khóa: câu báo ghi "Chỉ quản lý ghi được bút toán điều chỉnh" (sai – không ai ghi được); nút **Thêm phát sinh** / **Điều chỉnh** còn hiện tới khoảng 1 giờ | Bỏ qua vế "chỉ quản lý". Thu công nợ hoặc Xóa công nợ; phát hiện mới ghi sổ giao ca, báo chủ đầu tư | 1.11 |
 | Chưa nhập được **Wi-Fi** trên Desk; trang khách ghi "hỏi lễ tân" | Khách xem thẻ Wi-Fi trong căn; lễ tân đọc khi khách hỏi | 1.4 |
 | Hộp **Đổi phòng** lẫn căn chưa dọn (`VD`); chọn thì Desk báo, không lưu | Kiểm trạng thái căn trên Buồng phòng/Sơ đồ phòng trước khi chọn | 2.12 |
@@ -2028,6 +2027,8 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 <!-- BUG-R3-021 (phần Desk), 023 (phần lọc), 024…031, 032, 041, 042, 043, 044, 045, FB-R3-ARC-BEB-WA-04 (bug-list.md). BUG-R4-026 (P3, đề xuất QA 04/11 – rounds/round-04/qa/v1.0.2-dk10-b18.md mục 9.6, ORC cấp số khi gộp; đích v1.0.4): dòng "Yêu cầu hoàn thay thế". Theo ORC: ghi "đang sửa", không hứa ngày. Bản 1.3 bỏ dòng 019, 020, 022 (Closed ở rc.4). -->
 
 ### 5.7 Lịch sử sổ tay
+
+**Sửa 06/11/2026 – Round 5, chưa đánh số bản** (BA; QC Round 4 ĐK-5, V5-08). **Áp dụng ngay.** Check-in online đã mở lại từ 06/11/2026 cùng v1.0.4, sau khi đội bảo mật kiểm thông báo xử lý dữ liệu bản 2. Bỏ các câu "tạm dừng", "chưa gửi link": mục 0.1, 0.9 (nhập giấy tờ sau khi có mạng lại), 2.4, 2.9 (khung đầu mục viết lại: ai gửi link, đơn nào, khi chủ đầu tư báo dừng; thông báo có thêm tiếng Nga), 4.2, 5.6 (bỏ dòng "Check-in online cho khách thật" ở bảng **Chưa có**; sửa cách tạm ở dòng nút link của đơn giữ chỗ), 5.8 (bài tập lễ tân: gửi link, gửi nhầm người). Câu còn đúng, giữ nguyên: đơn giữ chỗ chưa tạo được link (dự kiến sửa ở v1.0.5); Wi-Fi trên trang khách ghi "hỏi lễ tân"; lỗi mở lại link sau khi chọn **Bổ sung tại quầy**.
 
 **Sửa 06/11/2026, chưa đánh số bản** (BA, Round 4 – Phản hồi & sửa; quyết định của chủ đầu tư 06/11: bật giá web với tham số đang chạy). **Áp dụng ngay.** Website theo thực tế 06/11: form đã bật từ 30/10 (bỏ câu "đang tắt tới khi luật sư trả lời"), 5 ngôn ngữ, giá ước tính đã bật, thông báo quyền riêng tư bản 2026-11-04 – mục 0.1, 2.18; công tắc `public_show_prices` và ngày cuối có giá `web_estimate.open_until` – mục 1.4; bỏ dòng form website ở bảng việc chưa có – mục 5.6; dòng trỏ tới sổ vận hành và từ điển tham số – mục **Cách đọc sổ tay**, 1.4. Ảnh C2-39 cần chụp lại (ảnh đang có là màn form tắt; `screenshot-list.md` đã sửa), QA kiểm che dữ liệu trước khi đưa vào. Bản HTML `ottimo-manual-v1.0.html` cần dựng lại. Số bản ghi ở lần đánh số tới.
 
@@ -2064,7 +2065,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Bộ phận | Đọc | Bài tập (trên Desk tập) | Thời lượng |
 |---|---|---|---|
 | Chủ đầu tư, quản lý | Chương 0, 1, mục 2.13–2.15, 5 | (1) Đăng nhập 2 bước, tạo bộ mã khôi phục mới (trên máy riêng). Chủ đầu tư: làm thử một lượt kiểm bảo mật buổi sáng (mục 1.1). (2) Đổi giá đêm một căn có ngày hiệu lực. (3) Duyệt và từ chối một yêu cầu miễn phí ở **Cần duyệt**. (4) Xem lại một phụ thu trả muộn bằng giá 1 đêm: **Mở folio** → **Đã xem**. (5) Đối soát một khoản ở **Chờ đối soát** | 2 giờ |
-| Lễ tân, lễ tân trưởng | Chương 0, 2, mục 3.2, 5 | (1) Báo giá → giữ chỗ → xác nhận cọc; nhận diện mã VietQR có dòng "Tài khoản nhận vừa đổi" và nói được việc phải làm. (2) Đặt phòng Trực tiếp và đơn OTA nhập tay. (3) Nhận phòng đủ 4 bước, có khách nhận sớm; nói được điều kiện giao mã cửa và câu từ chối gửi mã qua tin nhắn. (4) Thêm phát sinh, gia hạn 1 đêm. (5) Trả phòng 3 bước, xem và in phiếu thanh toán. (6) Rà giữ chỗ ở **Đơn đặt phòng** → **Đang hiệu lực** → **Giữ chỗ · chờ cọc**; nói được 3 mốc rà, việc trước hạn, và cách xử lý sau hạn cho giữ chỗ chưa cọc (hủy ngay, tạo lại 1 lần) và có cọc (hủy – hoàn, hoặc để nguyên rồi làm lại khi khách đến); nhận ra dòng "đơn đã tự hủy" và "Không thu phí" sai với đơn có cọc; chọn đúng lý do hủy (không chọn **Khác**); nói được vì sao chủ đầu tư phải duyệt và chi khoản hoàn người trực tạo, và hẹn khách thế nào khi chủ đầu tư vắng (mục 2.4). (7) Chỉ tờ **Your ID details** trước khi nhận giấy tờ, rồi đọc câu hỏi đồng ý lưu ảnh (EN và VI) ở Khối 1; nói được việc phải làm khi lỡ gửi link check-in online. Lễ tân trưởng thêm: duyệt một yêu cầu, kiểm phòng trên app nhân viên | 3 giờ |
+| Lễ tân, lễ tân trưởng | Chương 0, 2, mục 3.2, 5 | (1) Báo giá → giữ chỗ → xác nhận cọc; nhận diện mã VietQR có dòng "Tài khoản nhận vừa đổi" và nói được việc phải làm. (2) Đặt phòng Trực tiếp và đơn OTA nhập tay. (3) Nhận phòng đủ 4 bước, có khách nhận sớm; nói được điều kiện giao mã cửa và câu từ chối gửi mã qua tin nhắn. (4) Thêm phát sinh, gia hạn 1 đêm. (5) Trả phòng 3 bước, xem và in phiếu thanh toán. (6) Rà giữ chỗ ở **Đơn đặt phòng** → **Đang hiệu lực** → **Giữ chỗ · chờ cọc**; nói được 3 mốc rà, việc trước hạn, và cách xử lý sau hạn cho giữ chỗ chưa cọc (hủy ngay, tạo lại 1 lần) và có cọc (hủy – hoàn, hoặc để nguyên rồi làm lại khi khách đến); nhận ra dòng "đơn đã tự hủy" và "Không thu phí" sai với đơn có cọc; chọn đúng lý do hủy (không chọn **Khác**); nói được vì sao chủ đầu tư phải duyệt và chi khoản hoàn người trực tạo, và hẹn khách thế nào khi chủ đầu tư vắng (mục 2.4). (7) Chỉ tờ **Your ID details** trước khi nhận giấy tờ, rồi đọc câu hỏi đồng ý lưu ảnh (EN và VI) ở Khối 1; gửi link check-in online cho một đơn đã xác nhận trên Desk tập, nói được việc phải làm khi gửi nhầm người (mục 2.9). Lễ tân trưởng thêm: duyệt một yêu cầu, kiểm phòng trên app nhân viên | 3 giờ |
 | Buồng phòng | Chương 0 (0.2, 0.8), 3 | (1) Bắt đầu dọn → Dọn xong. (2) Khách không muốn dọn. (3) Báo sự cố có ảnh, đề nghị khóa căn. (4) Bấm một việc khi tắt mạng, xem **Thao tác trên máy**, bật mạng lại | 1 giờ |
 | Bảo trì | Chương 0 (0.2, 0.8), 3.9, 4.1 | (1) Nhận việc phiếu Gấp. (2) Chờ vật tư rồi Sửa tiếp. (3) Sửa xong có ảnh, xem căn mở bán lại | 45 phút |
 | Sale, CTV | Chương 0 (0.2, 0.8), 4.2 | (1) Báo giá, sao chép gửi Zalo. (2) Giữ chỗ. (3) CTV: báo đã chuyển cọc kèm ảnh biên nhận giả | 45 phút |

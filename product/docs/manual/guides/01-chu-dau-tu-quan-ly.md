@@ -873,7 +873,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 | Lễ tân hỏi cách ghi trễ ngày đi trên cổng khai báo lưu trú (đơn quá ngày đi, khách đã đi) | Ghi ngay trong ngày phát hiện, đúng ngày khách rời thật (ngày đi trên đơn cũ), không dán ô ngày đi Desk đang hiện. Ghi sổ giao ca. Hạn ghi trễ: đội đang hỏi luật sư (BR mục 15). Tới khi có câu trả lời, vẫn ghi ngay trong ngày phát hiện và báo chủ đầu tư (tệp 02 mục 11.1, **Đơn quá ngày đi**) |
 | Lễ tân báo căn vẫn hiện có khách mà đơn trước đã **Đã trả phòng** | Không có ngoại lệ nhận phòng. Lễ tân đổi khách sang căn trống sẵn sàng khác (cùng hạng, không có thì nâng hạng, OTTIMO chịu chênh). Nhắn đội kỹ thuật số căn và mã đơn trước để sửa trạng thái căn; không còn căn nào thì gọi đội trong ca. Không dùng **Khóa phòng** (`OOO`) để đặt lại trạng thái (tệp 02 mục 7.4) |
 | Khách yêu cầu xem/xóa dữ liệu | Xử lý tay, không hứa ngày (mục 12) |
-| Lễ tân lỡ gửi link check-in online | Ghi nhận mã đơn từ sổ giao ca; đội đối chiếu mỗi sáng (mục 15.3) |
+| Lễ tân gửi nhầm link check-in online cho người khác | Lễ tân **Thu hồi link** ngay, tạo link mới gửi đúng khách (tệp 02 mục 17.3) |
 | Nhân viên quên mật khẩu | **Đặt lại mật khẩu** (mục 1.9) |
 | Nhân viên mất điện thoại | Không có 2 bước: **Đặt lại mật khẩu** hoặc **Khóa tài khoản**. Có 2 bước mà mất cả mã khôi phục: gặp tận mặt; từ v1.0.4 **Đặt lại xác thực 2 bước** (mục 1.9), ở v1.0.3 làm theo mục 1.7 |
 | Nhân viên bị khóa do sai mật khẩu | **Mở khóa** (mục 1.9). Người đó nói không gõ sai: **Đặt lại mật khẩu**, xem **Cần chú ý** |
@@ -897,7 +897,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 
 ## 15. Tạm thời tới v1.0.3 và các bản sau
 
-Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/chị (chủ đầu tư) báo bản có sửa đã lên. Thư bảo mật, giữ chỗ quá hạn, check-in online sửa ở **v1.0.3** (dự kiến 07/11; thư bảo mật chậm nhất 09/11). Các lỗi ở mục 15.6 sửa ở v1.0.3 hoặc bản vá sau. Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
+Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/chị (chủ đầu tư) báo bản có sửa đã lên. Thư bảo mật, giữ chỗ quá hạn sửa ở **v1.0.3** (dự kiến 07/11; thư bảo mật chậm nhất 09/11). Check-in online đã mở lại từ 06/11/2026 (mục 15.4). Các lỗi ở mục 15.6 sửa ở v1.0.3 hoặc bản vá sau. Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
 
 ### 15.1 Kiểm bảo mật mỗi sáng trước 09:00
 
@@ -922,11 +922,11 @@ Ngày v1.0.3 lên (mục 1.6a):
 - Không dùng lý do hủy **Khác (ghi rõ)** (Desk khóa nút hủy). Chọn **Không liên lạc được** hoặc **Khách đổi ý**; lý do thật ghi sổ giao ca.
 - Anh/chị xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca cùng lượt kiểm sáng. Báo người trực khi v1.0.3 lên.
 
-### 15.4 Check-in online tạm dừng
+### 15.4 Check-in online – đã mở lại 06/11/2026
 
-- Không tạo, không gửi link check-in online cho khách thật. Mọi khách làm giấy tờ tại quầy, được xem tờ **Your ID details** trước khi đưa giấy tờ.
-- Đội kiểm mỗi sáng số link mới tạo trên Desk thật; khác 0 thì đội báo anh/chị mã đơn để đối chiếu với sổ giao ca.
-- Anh/chị báo "mở lại check-in online" chỉ khi đội báo bản v1.0.3 đã có thông báo xử lý dữ liệu mới và bảo mật đã kiểm xong.
+- Từ 06/11/2026 (v1.0.4), lễ tân gửi link check-in online cho khách thật, chỉ với đơn đã xác nhận (tệp 02 mục 17.3). Trang khách có thông báo xử lý dữ liệu bản 2, cùng nội dung tờ **Your ID details** v2 ở quầy. Cách tạm cũ (không gửi link, đội đếm link mỗi sáng) đã bỏ.
+- Sale, CTV vẫn không cấp, không gửi link.
+- Đội có thể báo dừng lại khi kiểm thấy lỗi, ví dụ ở lượt đồng ý thật đầu tiên. Khi đó anh/chị báo người trực "dừng check-in online": ngừng tạo, ngừng gửi link, mọi khách làm giấy tờ tại quầy tới khi đội báo mở lại.
 
 ### 15.5 Khách trả phòng sớm
 
@@ -990,9 +990,11 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 
 Khi báo lỗi cho đội: theo mục 12 – mô tả bằng lời, mã đơn, mã tham chiếu; không tên khách, không ảnh có dữ liệu khách.
 
-### 17.1 Phòng Google Chat "OTTIMO – Báo động" (chỉ chủ đầu tư)
+### 17.1 Phòng Google Chat "OTTIMO – Báo động" (chủ đầu tư và tối đa một người thứ hai)
 
-- Phòng cảnh báo kỹ thuật, **chỉ chủ đầu tư** ở trong phòng; không thêm người trực hay nhân viên. Tin không có dữ liệu khách.
+- Phòng cảnh báo kỹ thuật. Trong phòng có chủ đầu tư, và tối đa **một** người thứ hai anh/chị chọn. Đội đề xuất quản lý hoặc lễ tân trưởng, tài khoản `@ottimo.vn`. Không thêm ai khác. Tin chỉ có tên mục kiểm và số đếm, không có dữ liệu khách.
+- Thêm người thứ hai: mở phòng trong Google Chat, thêm người đó bằng tài khoản `@ottimo.vn`, rồi nhắn đội "đã thêm người thứ hai vào phòng Báo động – vai …" (không ghi tên, email). Người đó nghỉ việc: gỡ khỏi phòng cùng ngày. Cách làm đầy đủ: sổ vận hành `product/docs/so-van-hanh.md` mục 7.2.
+- Người thứ hai nhận **FAIL**: mở thử `desk.ottimo.vn` trên 4G. Không vào được: gọi anh/chị ngay, người trực ghi sổ giấy (tệp 02 mục 15). Vào được: nhắn anh/chị trong ngày. Anh/chị báo đội như dưới đây.
 - Nhận gì: tin **FAIL** khi máy chủ hoặc một dịch vụ có lỗi (ví dụ sao lưu, ổ đĩa, bộ nhớ, lỗi máy chủ), nhắc lại mỗi 6 giờ khi lỗi còn; tin **OK** khi đã hồi phục. Thêm **email** từ **Healthchecks.io** (máy chủ báo lỗi hoặc im lặng quá 1 giờ) và **UptimeRobot** (trang không mở được từ bên ngoài) về `info@ottimo.vn`.
 - Nhận **FAIL**: mở thử `desk.ottimo.vn` bằng dấu trang. **Không vào được**: báo đội ngay bằng `/feedback` có chữ **"P0"**, ghi **giờ nhận tin** và tên mục trong tin; người trực ghi sổ giấy (tệp 02 mục 15). Vào được: người trực làm việc bình thường; anh/chị vẫn báo đội trong ngày kèm giờ nhận tin.
 - **Không tự sửa máy chủ**, không đăng nhập máy chủ. Tin **OK** sau FAIL: không cần làm gì.
