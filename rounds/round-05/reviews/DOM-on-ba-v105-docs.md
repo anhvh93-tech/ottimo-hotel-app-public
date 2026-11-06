@@ -409,3 +409,106 @@ Khối [Chờ xác nhận – Wi-Fi trên Desk] vẫn theo chú thích của BA:
 Dòng decision-log đề xuất (ORC ghi):
 
 `| 2026-11-07 | 5 | DOM – lượt 4 tài liệu BA (da596507): BA-05 Closed phần BA (Wi-Fi 13:00–17:00, in sẵn thẻ, câu CPY nguyên văn, ba nhóm không gửi, thay đủ 10 căn, buồng phòng thay ở lần dọn đầu; còn một dòng Lúc gửi ở CPY mục 1, không đổi sổ tay), BA-06 Closed (báo giá thử từ ngày hiệu lực, giá theo lúc lưu ở 1.3, 5.4, 01 9.1, sổ vận hành 4.1), BA-07 Closed (phiếu nạp có dòng không vào tủ), BA-08 còn Open; đọc đúng phần đếm lại minibar theo 0b2ebb45 (điều kiện #110 trong tag); không thẻ đổi chữ, UXD dựng HTML sổ tay 1.19 từ da596507 được, khối Wi-Fi chờ ORC | DOM | Không ESC; DOM-on-ba-v105-docs mục 6 |`
+
+## 7. Lượt 5 – câu CPY về ảnh giấy tờ (`1f5fb23e`) và đổi Wi-Fi gấp (07/11/2026)
+
+ORC giao 07/11, hai việc:
+
+1. Đọc `rounds/round-05/outputs/CPY/guest-reply-id-photos.md` (`1f5fb23e`, theo BA-08 và SEC 6.6) ở góc vận hành quầy.
+2. Trả lời câu CPY hỏi ở `guest-notice-wifi-change.md`, Lượt 2.
+
+Đối chiếu:
+
+- SEC `SEC-responses.md` 6.5, 6.6;
+- `guides/02-le-tan.md` 17.3 (link check-in online);
+- BR-972, BR-973, BR-974, BR-976;
+- INT `message-deletion-by-channel.md`.
+
+Ở `main` hiện tại, sổ tay và `02` chưa có dòng BA-08. BA đang chờ câu CPY này.
+
+### 7.1 Câu trả lời khi khách gửi ảnh giấy tờ: luồng ở quầy chạy được
+
+| Bước | Kết luận |
+|---|---|
+| Trả lời trước, xóa sau, bằng **tin mới** | Làm được trên điện thoại cơ sở. Cùng thứ tự và cùng cách xóa với câu số thẻ, nên lễ tân chỉ phải nhớ một luồng. Câu nói "sẽ xóa", nên đúng cả khi bấm xóa sau câu trả lời |
+| Ba bản theo kênh | Khớp bảng kênh của INT. Email và SMS bỏ câu thu hồi. Zalo OA, hộp thư OTA và Messenger dùng bản không có vế xóa. Đúng |
+| 5a: đơn đã xác nhận → link riêng tới liên hệ trên đơn | Đúng `02` 17.3 bước 3, kể cả đơn OTA (gửi trong hội thoại OTA của đơn) và đơn CTV (gửi khách, không gửi CTV). Người nhắn không phải liên hệ trên đơn vẫn nhận câu 5a. Câu đã nói rõ link đi tới "contact details in your booking", nên người đó biết chờ ở đâu |
+| 5b: chưa xác nhận hoặc chưa có đơn → mang bản gốc | Đúng. Quầy vẫn đối chiếu bản gốc lúc nhận phòng với mọi khách |
+| Mức báo: ca thường không ghi sổ | Đồng ý ở góc quầy (SEC 6.6 (c)) |
+
+Có hai khe nhỏ. Cả hai sửa ở dòng BA sắp viết, **không đổi chữ gửi khách** của CPY: thẻ BA-09.
+
+Thêm một gợi ý cho CPY, không chặn: thẻ CPY-03.
+
+### 7.2 Đổi Wi-Fi gấp ngoài 13:00–17:00: DOM đồng ý với CPY, kèm giới hạn
+
+**Quyết định:** khi chủ đầu tư quyết đổi gấp (mạng bị dùng sai, không chờ được), tin báo là **tin sự cố** (BR-973 (4)): gửi ngay, không tính trần, không gộp (BR-974).
+
+- **Gửi cho mọi khách đang ở**, tức đơn đã nhận phòng và chưa trả phòng. Gồm cả khách đi hôm nay chưa trả phòng và đơn hôm nay đã có 2 tin.
+  - Lý do: ba nhóm loại trừ ở bước 4 chỉ có vì trần BR-974 và vì trong 13:00–17:00 khách đi hôm nay đã rời căn.
+  - Đổi gấp thì không còn hai lý do đó. Khách còn trong căn đang mất Wi-Fi ngay lúc này.
+- **Vẫn không gửi** cho:
+  - khách đã trả phòng;
+  - khách chưa nhận phòng. Căn trống thay thẻ trước khi khách tới, trang khách đã có mật khẩu mới.
+- Một khách nhiều căn: vẫn một tin cho người liên hệ của đơn.
+- **Giờ:**
+  - Gửi ngay, kể cả ban đêm. Tin chat không có chuông riêng, và khách mất mạng sẽ mở tin tìm lý do.
+  - Tin mẫu Zalo bị chặn [22:00, 07:00), nên đi kênh kế tiếp theo BR-973 (5). Lễ tân nhắn tay từ chat OA hay số cơ sở thì không vướng.
+  - Chủ đầu tư nên tránh đổi trong 22:00–07:00 nếu việc dùng sai chờ được vài giờ.
+- **Người trả lời khách:**
+  - Đổi sau giờ đóng quầy (21:00) thì phải có người trực, hoặc chủ đầu tư, nghe số cơ sở ít nhất 2 giờ sau lúc đổi.
+  - Trước khi Wi-Fi trên Desk lên bản, câu báo là "ask reception". Không ai nghe máy thì không đổi ngoài giờ quầy.
+- **Thẻ trong căn:** làm như bước 5, từ ca sáng hôm sau.
+- Ghi sổ giao ca giờ đổi gấp, không ghi mật khẩu, để ca sau biết vì sao khách hỏi.
+
+Việc theo đó: thẻ BA-10 cho BA và CPY. Chữ thay nằm trong khối [Chờ xác nhận – Wi-Fi trên Desk]. Khối này UXD chưa dựng, nên không ảnh hưởng bản HTML 1.19 đang dựng.
+
+### FB-R5-DOM-BA-09
+
+- **Mức độ:** Minor
+- **Vị trí:** dòng BA-08 sắp viết ở sổ tay 2.21 và `02` 16.1. Chỗ cụ thể là gạch "Trả lời khách: …" theo CPY `guest-reply-id-photos.md` mục 5.
+- **Vấn đề:**
+  1. **5a hứa gửi link, nhưng chưa có câu dặn gửi ngay.**
+     - Ca thường không ghi sổ (SEC 6.6 (c)). Nếu lễ tân trả lời rồi để gửi link sau, ca sau không biết có lời hứa.
+     - Khách không nhận link, tới quầy rồi nói "tôi đã gửi giấy tờ rồi".
+  2. **5a chưa xét lúc nào link còn dùng được.** Link chỉ có ích trước khi khách tới và còn trong hạn (BR-976). Không dùng được khi:
+     - khách đến hôm nay đã quá hạn mềm 12:00 (khách đến sau 22:00 thì hạn 20:00);
+     - khách đang ở gửi ảnh người mới thêm vào đoàn;
+     - chủ đầu tư đang cho "dừng check-in online" (`02` 17.3).
+
+     Trong các ca này, câu 5a hứa một việc lễ tân không nên làm.
+- **Đề xuất sửa (chữ cho BA, không đổi chữ khách):**
+  > - Chọn câu cuối: **5a** khi đơn đã xác nhận, khách chưa nhận phòng, còn trước hạn check-in online (12:00 ngày đến; khách đến sau 22:00: 20:00 ngày đến) và check-in online không đang dừng. Còn lại dùng **5b**.
+  > - Chọn 5a thì gửi link ngay sau khi xóa tin, theo mục 17.3, trong cùng lượt. Không gửi được ngay (ví dụ liên hệ trên đơn là email, máy quầy đang bận): ghi sổ giao ca "mã đơn – chờ gửi link check-in online". Không ghi gì về ảnh.
+- **Trạng thái:** Open (BA, khi viết dòng BA-08).
+
+### FB-R5-DOM-CPY-03
+
+- **Mức độ:** Suggestion (không chặn; v1.0.6 hoặc khi làm mẫu tin v1.2)
+- **Vị trí:** `guest-reply-id-photos.md`, câu 5b ("…when you check in").
+- **Vấn đề:** khách **đang ở** gửi ảnh giấy tờ của người mới tới ở cùng. Người này phải khai báo trong ngày, vì khai báo theo người ở thật. Câu "when you check in" không đúng với khách đã nhận phòng. Lễ tân lại được dặn "sao chép, không gõ lại".
+- **Đề xuất sửa:** thêm một câu cuối **5c** cho khách đang ở, cùng giọng. Ý: mời mang bản gốc của người mới tới quầy hôm nay, lễ tân làm ngay. Ví dụ ý (CPY viết chữ): "Please bring the original documents to reception today, and we will complete this for you." Tới khi có 5c, lễ tân nói trực tiếp hoặc gọi điện, không dùng 5b.
+- **Trạng thái:** Open (CPY).
+
+### FB-R5-DOM-BA-10
+
+- **Mức độ:** Minor. Nằm trong khối chờ xác nhận, chưa áp dụng.
+- **Vị trí:**
+  - sổ tay 1.4 và `01` 9.2, khối [Chờ xác nhận – Wi-Fi trên Desk], bước 4, gạch "Đổi gấp ngoài khung giờ: tin này là tin sự cố, gửi ngay";
+  - CPY `guest-notice-wifi-change.md` mục 1, gạch **Lúc gửi**, câu cuối.
+- **Đề xuất sửa (chữ thay cho gạch đó):**
+  > - Chủ đầu tư quyết đổi gấp ngoài 13:00–17:00 (mạng bị dùng sai): tin này là tin sự cố, gửi ngay, mọi giờ, không tính trần 2 tin.
+  >   - Gửi **mọi khách đang ở** (đã nhận phòng, chưa trả phòng), kể cả khách đi hôm nay và đơn đã có 2 tin. Không gửi khách đã trả phòng hay chưa nhận phòng.
+  >   - Đổi sau 21:00: người trực hoặc chủ đầu tư nghe số cơ sở ít nhất 2 giờ sau lúc đổi. Ghi sổ giao ca giờ đổi, không ghi mật khẩu. Thẻ trong căn thay từ ca sáng hôm sau, như bước 5.
+- **Việc của DOM:** ghi ca đổi gấp vào BR-012 (7) và BR-973 (4) ở bản BR kế tiếp, cùng việc đã ghi ở BA-05.
+- **Trạng thái:** Open (BA, CPY).
+
+### 7.3 Giả định
+
+1. Lễ tân nhắn tin Wi-Fi bằng tay từ chat OA hoặc số cơ sở, không qua tin mẫu ZBS. Nếu sau này tin này thành mẫu tự động, giờ cấm của Zalo chuyển kênh theo BR-973 (5).
+2. Khai báo lưu trú người mới tới ở cùng phải làm trong ngày. Đây là thực hành chung, theo luật khai báo của BR-010 và BR-602. Câu 5c chỉ là cách nói với khách.
+3. Không ESC mới.
+
+Dòng decision-log đề xuất (ORC ghi):
+
+`| 2026-11-07 | 5 | DOM – lượt 5 (CPY 1f5fb23e): câu trả lời khách gửi ảnh giấy tờ chạy được ở quầy (trả lời trước bằng tin mới, xóa sau; ba bản theo kênh; 5a link riêng tới liên hệ trên đơn theo 02 17.3, 5b mang bản gốc). BA-09 Minor (dòng BA-08): 5a chỉ khi đơn đã xác nhận, chưa nhận phòng, còn trước hạn BR-976 và check-in online không dừng; chọn 5a thì gửi link ngay trong cùng lượt, không được thì sổ giao ca "chờ gửi link" không ghi về ảnh. CPY-03 Suggestion: câu 5c cho khách đang ở. Đổi Wi-Fi gấp (chủ đầu tư quyết): tin sự cố, gửi ngay mọi giờ, không tính trần, gửi mọi khách đang ở kể cả khách đi hôm nay và đơn đã có 2 tin; không gửi khách đã trả hoặc chưa nhận phòng; sau 21:00 phải có người nghe số cơ sở ≥ 2 giờ; thẻ thay từ sáng hôm sau (BA-10, BA và CPY áp; khối Wi-Fi chưa dựng HTML) | DOM | Không ESC; DOM-on-ba-v105-docs mục 7 |`
