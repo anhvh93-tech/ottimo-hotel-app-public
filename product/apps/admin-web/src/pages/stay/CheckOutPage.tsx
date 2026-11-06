@@ -1,8 +1,6 @@
 import {
   isApiError,
   newIdempotencyKey,
-  type ApprovalRequest,
-  type ApprovalStatus,
   type Bill,
   type CheckOutBody,
   type Folio,
@@ -33,7 +31,6 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
-import { listApprovals } from '../../app/approvals';
 import { useBusinessDay } from '../../app/businessDay';
 import { DEFAULT_ROLLOVER, checkoutInstant, timeHHmm } from '../../app/dates';
 import { hasLineKey, lineLabel, signed } from '../../app/folio';
@@ -48,6 +45,7 @@ import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { MoneyField, STAY_WRITE_RETRY, amountOf, useSubmit } from './common';
+import { OpenRefundRows, openRefundTotal } from './OpenRefundRows';
 import { PaymentPanel, type StagedPayment } from './PaymentPanel';
 import { AddChargeDialog } from './StayDialogs';
 import {
@@ -88,36 +86,6 @@ const EXTRAS: Array<{ key: string; preset: string }> = [
   { key: 'checkout.extras.smoking', preset: 'SMOKING' },
   { key: 'checkout.extras.card', preset: 'CARD_LOST' },
 ];
-
-/** GN-R4-QA-03: refund requests still in play – waiting for a decision, or approved and not fully paid out. */
-const OPEN_REFUND: readonly ApprovalStatus[] = ['pending', 'escalated', 'approved'];
-
-/**
- * GN-R4-QA-03 (QA v1.0.2 ĐK10 5.3): what the guest is still to get back from Trả sớm (B16) – Σ (`amountVnd` −
- * `refundedVnd`) of this booking's open `refund` requests with reason `early_departure` (B16 asks it on the primary
- * booking, `reservationCode`). Other reasons (`overpayment` …) and other bookings are not counted. Read from the
- * requests the API already has (`listApprovalRequests`) – no new field in v1.0.4.
- * FB-R4-UXD-FE-P432-01 (ARC 6.4, GN-R4-QA-01): `awaitingDecision` – one of those still waits for a decision (`pending` /
- * `escalated`), so charges posted after it (minibar, extras of this very page) come off at approval: the amount may go
- * down. An `approved` request has its amount fixed.
- */
-export function earlyDepartureRefundPending(
-  requests: readonly ApprovalRequest[],
-  reservationCode: string,
-): { vnd: number; awaitingDecision: boolean } {
-  const open = requests.filter(
-    (a) =>
-      a.type === 'refund' &&
-      a.reasonCode === 'early_departure' &&
-      a.reservationCode === reservationCode &&
-      OPEN_REFUND.includes(a.status) &&
-      a.amountVnd - (a.refundedVnd ?? 0) > 0,
-  );
-  return {
-    vnd: open.reduce((sum, a) => sum + (a.amountVnd - (a.refundedVnd ?? 0)), 0),
-    awaitingDecision: open.some((a) => a.status === 'pending' || a.status === 'escalated'),
-  };
-}
 
 /** ESC-031: 422 NOT_ALLOWED on `lateFeeInsteadOfNight` itself – the night of departure can be sold again. */
 function lateFeeNotAllowed(e: unknown): boolean {
@@ -314,20 +282,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       (e: unknown) => setDoneFolioError(e),
     );
   };
-  // GN-R4-QA-03: the refund still due from Trả sớm, read for step 3 and again for the result (after B18). Nothing is
-  // read on steps 1–2. The line only informs – it never blocks "Hoàn tất"; a failed read says so (UXD P432-03).
-  const refundPhase = done ? 'done' : step === 2 ? 'bill' : '';
-  const rsvCode = r?.code;
-  const edRefund = useResource(
-    async () =>
-      refundPhase && rsvCode
-        ? earlyDepartureRefundPending(await listApprovals(propertyId, OPEN_REFUND), rsvCode)
-        : { vnd: 0, awaitingDecision: false },
-    [propertyId, rsvCode, refundPhase],
-  );
-  const edRefundVnd = refundPhase ? (edRefund.state.data?.vnd ?? 0) : 0;
-  const edRefundMayDecrease = edRefundVnd > 0 && !!edRefund.state.data?.awaitingDecision;
-  const edRefundUnread = !!refundPhase && edRefund.state.status === 'error';
+  // GN-R4-QA-03 → V5-13 (ARC A1 (b), contract 0.3.13): what OTTIMO still owes the guest back, every reason and
+  // whoever asked it – the server's `openRefunds`: of the check-out summary on step 3, of the settled folio on the
+  // result (the summary is gone after B18). Shown on those two only; it never blocks "Hoàn tất". Absent (older
+  // server) is said – never read as "nothing pending" (UXD U5).
+  const openRefunds = done ? doneFolio?.totals.openRefunds : s?.openRefunds;
+  const refundShown = !!done || step === 2;
+  const refundVnd = refundShown ? (openRefundTotal(openRefunds) ?? 0) : 0;
+  const refundUnread = refundShown && (done ? !!doneFolio : !!s) && openRefunds === undefined;
   // SEC FB-R3-SEC-FE-A-16: money received but not on the folio yet lives only in this page (never in browser
   // storage – no `posAuthCode` kept anywhere) – leaving asks first: reload / close (`beforeunload`) and any link of
   // the app (capture phase, before React Router's Link handles the click).
@@ -1098,23 +1060,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     </ol>
   );
 
-  // GN-R4-QA-03: under "Còn phải thu" on step 3 and on the result – the desk tells the guest what Trả sớm still owes.
-  // UXD P432-01: a request still waiting for a decision may go down at approval – said in the same cell (one row).
-  // UXD P432-03: a failed read is said (muted, no retry, never blocking) – never mistaken for "nothing to hand back".
-  const pendingRefundRow = edRefundUnread ? (
-    <tr className="sub">
-      <td colSpan={2}>{t('checkout.pending_refund_unavailable')}</td>
-    </tr>
-  ) : edRefundVnd > 0 ? (
-    <tr className="sub">
-      <td colSpan={2}>
-        {t('checkout.pending_refund_line', { amount: money(edRefundVnd) })}
-        {edRefundMayDecrease ? (
-          <div className="li-s">{t('approvals.refund_may_decrease')}</div>
-        ) : null}
-      </td>
-    </tr>
-  ) : null;
+  // GN-R4-QA-03, V5-13 (UXD 9.12): under "Còn phải thu" on step 3 and on the result – the desk tells the guest what is
+  // still to be handed back, per reason. UXD P432-03 / U5: no field is said (muted, no retry, never blocking).
+  const pendingRefundRow = <OpenRefundRows refunds={openRefunds} />;
 
   const summaryCard = (
     <section className="card" aria-labelledby={`${ids}-sum`}>
@@ -1989,7 +1937,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // UXD P432-02: with a refund pending from Trả sớm, "Đã thu {all received}" next to it reads as what the stay cost –
   // the plain label then (button and confirmation alike); so too when that list could not be read (U5: a refund may
   // be pending). A debt keeps its own label.
-  const paidLabel = balance === 0 && edRefundVnd === 0 && !edRefundUnread;
+  const paidLabel = balance === 0 && refundVnd === 0 && !refundUnread;
   const completeLabel = debtActive
     ? t('co.complete_debt', { amount: money(balance) })
     : paidLabel && paidShown > 0

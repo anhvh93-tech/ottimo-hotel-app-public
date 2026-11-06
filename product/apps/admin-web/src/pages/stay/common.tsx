@@ -8,6 +8,7 @@ import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import { rsvErrorText } from '../../app/reservations';
 import { isRetryable, useWrite, type WriteOptions } from '../../app/useWrite';
+import { useSession } from '../../session/SessionProvider';
 
 /** ARC 16.17 bổ sung (af): B13, B14, B18 resend a CONCURRENT_UPDATE once (same key), after `Retry-After` or ~1 s. */
 export const STAY_WRITE_RETRY: WriteOptions = {
@@ -28,6 +29,8 @@ export interface SubmitFieldMap {
 
 export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
   const { t, locale } = useI18n();
+  // V5-44 (UXD 9.12): a 409 FOLIO_LOCKED `settled` says what an OWN/MGR can still do – the sentence follows the role.
+  const manager = useSession().roles.some((r) => r === 'owner' || r === 'manager');
   const write = useWrite(writeOptions);
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -73,7 +76,7 @@ export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
           .join(' ');
       }
     }
-    return rsvErrorText(t, e, { locale, canSeeGuest: true, ...extra });
+    return rsvErrorText(t, e, { locale, canSeeGuest: true, manager, ...extra });
   };
 
   const view = (extra?: Record<string, unknown>, actions?: ReactNode): ReactNode =>

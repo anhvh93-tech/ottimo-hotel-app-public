@@ -1,4 +1,4 @@
-import { isApiError, type ApiError, type FieldError } from '@ottimo/api-client';
+import { isApiError, type ApiError, type FieldError, type Problem } from '@ottimo/api-client';
 import { formatLocalDate, formatNumber, hasKey, translate, type Args } from '@ottimo/i18n';
 
 type T = (key: string, args?: Args) => string;
@@ -73,14 +73,62 @@ function serverError(t: T, requestId: string | undefined): ProblemView {
   return { text: t('error.server', { request_id: requestId }), reference: requestId };
 }
 
+/** `Problem.lockReason` of a 409 FOLIO_LOCKED (OpenAPI 0.3.13, V5-44) – the closed list of the contract. */
+export type FolioLockReason = NonNullable<Problem['lockReason']>;
+
+/**
+ * V5-44 (P4-41, UXD copy-v1.0.5 9.12): why the server refused with 409 FOLIO_LOCKED – read from `lockReason`, never
+ * from the words of `detail` (log text). Undefined: another error, or a value this Desk does not know / an older
+ * server without the field (→ the general sentence).
+ */
+export function folioLockReason(error: unknown): FolioLockReason | undefined {
+  if (!isApiError(error) || error.code !== 'FOLIO_LOCKED') return undefined;
+  const r = (error.problem as { lockReason?: unknown }).lockReason;
+  return typeof r === 'string' && Object.hasOwn(LOCK_KEY, r) ? (r as FolioLockReason) : undefined;
+}
+
+const LOCK_KEY: Record<FolioLockReason, { fd: string; mgr: string }> = {
+  closed: { fd: 'error.FOLIO_LOCKED_closed', mgr: 'error.FOLIO_LOCKED_closed' },
+  // A manager may still adjust a settled folio (A32) – "managers included" would be wrong here (UXD 9.12).
+  settled: { fd: 'error.FOLIO_LOCKED_settled', mgr: 'error.FOLIO_LOCKED_settled_mgr' },
+  post_checkout_window_over: {
+    fd: 'error.FOLIO_LOCKED_window_over',
+    mgr: 'error.FOLIO_LOCKED_window_over',
+  },
+  // BR-525: only OWN/MGR write a debt off; any other role gets the sentence that names who can (no button).
+  debt_reduction_requires_write_off: { fd: 'folio.debt_fd', mgr: 'folio.adjust_debt_locked' },
+  invoice_issued: {
+    fd: 'error.FOLIO_LOCKED_invoice_issued',
+    mgr: 'error.FOLIO_LOCKED_invoice_issued',
+  },
+};
+
+/** The sentence key for a folio lock reason; `manager` = OWN/MGR. Unknown / absent → `error.FOLIO_LOCKED`. */
+export function folioLockedKey(reason: string | null | undefined, manager: boolean): string {
+  const k = reason && Object.hasOwn(LOCK_KEY, reason) ? LOCK_KEY[reason as FolioLockReason] : null;
+  return k ? (manager ? k.mgr : k.fd) : 'error.FOLIO_LOCKED';
+}
+
+export interface ProblemViewOptions {
+  /** The person is OWN or MGR – a few sentences say what THEY can do (409 FOLIO_LOCKED `settled`, debt rule). */
+  manager?: boolean;
+}
+
 /**
  * Request-level message (EP00 0.2): `error.<CODE>` from the UXD strings; never the raw `detail`.
  * Unknown codes / 5xx → `error.server` + requestId. Network failure → `common.error_network_body`.
  */
-export function problemView(t: T, error: unknown, locale: 'vi' | 'en' = 'vi'): ProblemView {
+export function problemView(
+  t: T,
+  error: unknown,
+  locale: 'vi' | 'en' = 'vi',
+  opts: ProblemViewOptions = {},
+): ProblemView {
   if (!isApiError(error)) return serverError(t, undefined);
   if (error.isNetwork) return { text: t('common.error_network_body') };
   const code = error.code;
+  if (code === 'FOLIO_LOCKED')
+    return { text: t(folioLockedKey(folioLockReason(error), opts.manager === true)) };
   const args = argsFor(error, locale);
   // DS 6.21: the server wrote nothing – never "Máy chủ đang gặp sự cố", no reference on first sight.
   if (code === 'SERVICE_UNAVAILABLE' || code === 'CONCURRENT_UPDATE') {
