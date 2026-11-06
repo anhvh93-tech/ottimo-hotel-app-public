@@ -675,7 +675,10 @@ describe.skipIf(!HAS_DB)(
         [X.id],
       );
       expect(recognized.map((x) => x.status)).toEqual(['void', 'earned']);
-      expect(recognized[0].recognized_at).toBeNull();
+      // DOM 154-01 (ARC chose): the voided row keeps the date it was earned on – the B18 of 21/10 11:00.
+      expect(new Date(recognized[0].recognized_at).toISOString()).toBe(
+        new Date('2026-10-21T11:00:00+07:00').toISOString(),
+      );
       // DOM 154-02 (ARC R1): the new closer earns at the time OWN made the correction, not at the B18 of 21/10 11:00.
       expect(new Date(recognized[1].recognized_at).toISOString()).toBe(
         new Date('2026-10-21T12:00:00+07:00').toISOString(),
