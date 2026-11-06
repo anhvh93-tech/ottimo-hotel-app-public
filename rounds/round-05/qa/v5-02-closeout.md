@@ -173,6 +173,17 @@ Bảng tổng R1 sau dọn: 34 lỗi = Open 1 / Reopened 0 / Closed 33 / Deferre
 
 Bảng tổng R3 sau dọn: 58 lỗi = Open 19 / Fixed 1 / Closed 38.
 
+## 6a. R2 – 4 dòng loại (c) (phụ lục A4, ORC giao thêm 06/11)
+
+| Mã | Mức | PR (commit gộp) | Bằng chứng | Mới |
+|---|---|---|---|---|
+| BUG-R2-097 | P3 | #52 (`386672a6`, P4-41) | `MoneyPage.tsx` dòng 872 dùng `Math.abs`. Unit `v104-money-labels-fea` khối "BUG-R2-097 – refund paid sentence" trong CI và QA-13. ML-05 STG chưa có kết quả | **Closed** |
+| BUG-R2-103 | P3 | Đã sửa từ R2 Sprint 4 (`20f69f8d`, 18/10) | `ReservationDrawer.tsx` `linesShown`: có danh sách dòng thì chỉ một "Còn phải thu". Unit `s4-50b-fea` ca "103 … chỉ một dòng" trong CI và QA-13. Dòng trạng thái R2 chưa cập nhật từ R2. ML-04 STG chưa có kết quả | **Closed** |
+| BUG-R2-216 | P3 | #60 (`58183764`) | Unit `v104-hold-dialog-feb`. HD-01 3/3 lượt local; `zz-qa104-holds` 4/4 trên mã cắt (QA-13) | **Closed** |
+| BUG-R2-219 | P3 | #60 | Unit `v104-hold-dialog-feb`. HD-02 3/3 lượt local; `zz-qa104-holds` 4/4 trên mã cắt | **Closed** |
+
+Bảng tổng R2 sau dọn (bảng chỉ đếm 213 lỗi đầu, chưa cộng 214–222): P3 Open 12 / Closed 43; Tổng Open 12 / Deferred 1 / Closed 200.
+
 ## 7. Phát hiện khác (không phải lỗi mới)
 
 1. **Plan R5 có 3 chỗ không khớp bằng chứng.** ORC sửa phụ lục khi tiện:
@@ -182,8 +193,8 @@ Bảng tổng R3 sau dọn: 58 lỗi = Open 19 / Fixed 1 / Closed 38.
 2. **Sổ tay còn hộp "Lỗi nhỏ đã biết" tả lỗi v1.0.4 đã sửa.** Số dòng tính tại `b9f017f7`. Đề xuất gộp vào V5-08 (BA):
    - BUG-R4-025: `02-le-tan.md` dòng 1033, `user-manual-v1.0.md` dòng 2020;
    - BUG-R4-026: `01-chu-dau-tu-quan-ly.md` dòng 563, `user-manual-v1.0.md` dòng 639;
-   - lỗi R2 sửa ở v1.0.4 (216, 219, 097), nếu QA đóng các lỗi này: `02-le-tan.md` dòng 300, 1153.
-3. **R2 loại (c) ngoài phạm vi V5-02.** BUG-R2-097, 103, 216, 219 được phụ lục A4 ghi "QA xác nhận" nhưng không có trong lời giao. ORC giao thêm nếu muốn đóng. Bằng chứng có sẵn: PR #60, HD-01/HD-02 4/4 trên mã cắt (QA-13), ML-04/05.
+   - lỗi R2 sửa ở v1.0.4 (216, 219, 097), nay đã Closed (mục 6a): `02-le-tan.md` dòng 300, 1153.
+3. **R2 loại (c):** ORC giao thêm ngày 06/11. Cả 4 dòng đã Closed (mục 6a).
 4. **`product/docs/qa/traceability.md` bảng SM chưa cập nhật từ R2.** Ví dụ SM-06 H4 "Gia hạn HĐ" vẫn ghi TRỐNG, dù có ca ở test case v1.0.2–v1.0.4. Việc của QA, xếp B-KYTHUAT.
 5. **Ca STG của v1.0.4 chưa có kết quả ghi.** `v1.0.4-traceability.md` vẫn ghi "Chưa chạy" ở các ca MF-09…15, ML-01…07, CO-02, MT-01, LE-06, RG-07…11, RG-18, RG-30. QA không dựa vào các ca này để đóng lỗi. Khi ORC có kết quả thì QA chép vào traceability.
 6. **Máy QA không chạy được vitest của admin-web** (thiếu liên kết `@ottimo/contracts` trong `node_modules`). Đây là lỗi môi trường local, không phải lỗi sản phẩm. QA không chạy `pnpm install` trên bản làm việc chung. Bằng chứng unit lấy từ CI `41999716963` và QA-13.
