@@ -32,7 +32,7 @@ import { ModuleRef, Reflector } from '@nestjs/core';
 import { CLOCK, type Clock } from '../../clock';
 import { DATABASE, Database, type TenantContext } from '../../db/database';
 import { AuditService } from '../../modules/audit/public/audit.service';
-import { MFA_REQUIRED_ROLES } from '../../modules/identity/public/mfa-roles';
+import { holdsMfaRequiredRole } from '../../modules/identity/public/mfa-required';
 import { MONOTONIC_CLOCK, RateLimiter } from '../../modules/identity/public/rate-limiter';
 import type { OperationMeta } from '../openapi-types';
 import { problem } from '../problem';
@@ -489,9 +489,10 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   }
 
   /**
-   * A live role of MFA_REQUIRED_ROLES at ANY property (SEC 06.2). `auth_resolve_session().mfa_required` (migration
-   * 0079) only knows owner/manager; front_desk_lead (V5-40, v1.0.5 has no migration) is read here, cached per
-   * roles_version like the roles (a role change bumps it).
+   * A live role of MFA_REQUIRED_ROLES at ANY property (SEC 06.2) – the one predicate `holdsMfaRequiredRole`, shared
+   * with login and getMe (SEC D1-03). `auth_resolve_session().mfa_required` (migration 0079) only knows
+   * owner/manager; front_desk_lead (V5-40, v1.0.5 has no migration) is read here, cached per roles_version like the
+   * roles (a role change bumps it).
    */
   private async mfaRequired(s: SessionRow, now: Date): Promise<boolean> {
     if (s.mfa_required === true) return true;
@@ -504,18 +505,9 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       userId: s.user_id,
       actorType: 'user',
     };
-    const required = await this.db.withContext(
-      ctx,
-      async (tx) => {
-        const r = await tx.query(
-          `SELECT 1 FROM user_property_role
-            WHERE user_id = $1 AND revoked_at IS NULL AND role = ANY($2::text[]) LIMIT 1`,
-          [s.user_id, [...MFA_REQUIRED_ROLES]],
-        );
-        return (r.rowCount ?? 0) > 0;
-      },
-      { readOnly: true },
-    );
+    const required = await this.db.withContext(ctx, (tx) => holdsMfaRequiredRole(tx, s.user_id), {
+      readOnly: true,
+    });
     this.mfaRoleCache.set(cacheKey, {
       required,
       until: now.getTime() + (this.options.roleCacheMs ?? 60_000),

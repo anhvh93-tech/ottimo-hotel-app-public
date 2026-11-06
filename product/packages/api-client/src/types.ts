@@ -116,6 +116,15 @@ export type MovePreviewQuery = NonNullable<
   operations['previewMoveReservation']['parameters']['query']
 >;
 export type MovePreview = Schemas['MovePreview'];
+/**
+ * `listAuditEvents` query, straight from the contract (FB-R5-ARC-FE-128-02): a hand-written copy once sent
+ * `dateFrom`/`dateTo`, which the server never read. Without `action` for now: it is a repeated parameter
+ * (`action=a&action=b`) and the client's query takes single values; no Desk screen filters by action yet.
+ */
+export type ListAuditQuery = Omit<
+  NonNullable<operations['listAuditEvents']['parameters']['query']>,
+  'action'
+>;
 /** 0.3.7 D1 (S4-08): no-show with the service lines the desk keeps. */
 export type MarkNoShowBody = BodyOf<'markNoShow'>;
 /** 0.3.7 D1 (S4-08): one kept service line (`cancelReservation` / `markNoShow`). */

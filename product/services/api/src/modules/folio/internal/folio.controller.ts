@@ -25,7 +25,7 @@ import { Operation } from '../../../shared/http/operation';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { rejectDryRun } from '../../../shared/http/dry-run';
-import { problem } from '../../../shared/problem';
+import { ProblemError, problem } from '../../../shared/problem';
 import { ApprovalService } from '../../approvals/public/approval.service';
 import { PasswordReauth } from '../../identity/public/password-reauth';
 import { parseBody } from '../../platform/public/validation';
@@ -36,6 +36,7 @@ import {
 import { optionalText } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { folioDto } from '../public/folio-view';
+import { BR438_DENIAL } from '../public/line-reduction';
 import { type FolioRow, FolioService } from '../public/folio.service';
 import { BillService, invoiceDto } from './bill.service';
 import { FolioLinesService } from './folio-lines.service';
@@ -289,25 +290,48 @@ export class FolioController {
     const input = parseBody(adjustSchema, body);
     const version = expectedVersion(req);
     const p = principal(req);
-    const result = await this.uow.run(req, async (tx) => {
-      const folio = await this.folios.get(tx, folioId);
-      if (!folio) throw problem('NOT_FOUND');
-      const own = this.reservations
-        ? await this.reservations.ownership(tx, folio.primary_reservation_id)
-        : null;
-      await this.lineService.adjust(
-        tx,
-        { userId: p.userId, roles: p.roles, requestId: req.id },
-        folio.id,
-        lineId,
-        version,
-        input,
-        own?.code ?? null,
-        async (rid) => (await this.reservations?.stayInfo(tx, rid))?.status ?? null,
-      );
-      const fresh = (await this.folios.get(tx, folio.id)) as FolioRow;
-      return { status: 201, body: await this.folioBody(tx, fresh) };
-    });
+    let result;
+    try {
+      result = await this.uow.run(req, async (tx) => {
+        const folio = await this.folios.get(tx, folioId);
+        if (!folio) throw problem('NOT_FOUND');
+        const own = this.reservations
+          ? await this.reservations.ownership(tx, folio.primary_reservation_id)
+          : null;
+        await this.lineService.adjust(
+          tx,
+          { userId: p.userId, roles: p.roles, requestId: req.id },
+          folio.id,
+          lineId,
+          version,
+          input,
+          own?.code ?? null,
+          async (rid) => (await this.reservations?.stayInfo(tx, rid))?.status ?? null,
+        );
+        const fresh = (await this.folios.get(tx, folio.id)) as FolioRow;
+        return { status: 201, body: await this.folioBody(tx, fresh) };
+      });
+    } catch (err) {
+      // BR-438 (contract 0.3.13 1.20, H-09): a front-desk reduction outside its own hand-typed line of the day –
+      // the transaction is rolled back (nothing written), then ONE access.denied in its own transaction.
+      if (
+        err instanceof ProblemError &&
+        err.code === 'FORBIDDEN_ACTION' &&
+        err.options.auditReason === BR438_DENIAL
+      ) {
+        await this.audit.recordDenied(tenantOf(p), {
+          action: 'access.denied',
+          entityType: 'operation',
+          entityId: 'adjustFolioLine',
+          reason: BR438_DENIAL,
+          requestId: req.id,
+          sessionId: p.sessionId,
+          ...(p.trustedDeviceId ? { trustedDeviceId: p.trustedDeviceId } : {}),
+          after: { operationId: 'adjustFolioLine', roles: p.roles },
+        });
+      }
+      throw err;
+    }
     reply.header('etag', etag(result.body.version as number));
     return applyResult(reply, result);
   }

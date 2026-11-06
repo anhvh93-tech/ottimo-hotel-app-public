@@ -1065,7 +1065,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
             )}
           </div>
         </div>
-        <div className="wiz-foot">
+        <div className="wiz-foot desk-foot">
           {step === 0 || c3Blocked ? (
             <Link className="btn ghost" to={`/reservations/${reservationId}`}>
               {t('ci.back_to_booking')}

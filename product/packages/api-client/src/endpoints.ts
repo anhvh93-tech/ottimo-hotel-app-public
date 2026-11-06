@@ -18,6 +18,7 @@ import type {
   DepositNoticeBody,
   Locale,
   MarkNoShowBody,
+  ListAuditQuery,
   MovePreview,
   MovePreviewQuery,
   MoveReservationBody,
@@ -171,14 +172,6 @@ export interface ListPaymentsQuery {
   recordedBy?: string;
   recordedByRole?: string;
   method?: PaymentMethod;
-  cursor?: string;
-  limit?: number;
-}
-export interface ListAuditQuery {
-  category?: AuditEvent['category'];
-  actorUserId?: string;
-  dateFrom?: string;
-  dateTo?: string;
   cursor?: string;
   limit?: number;
 }
