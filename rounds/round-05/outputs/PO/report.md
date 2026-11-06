@@ -157,3 +157,31 @@ Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 `| 2026-11-07 | 5 | **PO – quyết định 27 (plan R5): FB-R5-DOM-FE-121-01 vào v1.0.5 thành V5-5C** (Gói 5, nên có): Desk kiểm cả hai biên BR-101 (4) trước khi gửi và đọc warnings[] NIGHTLY_PRICE_UNUSUAL sau khi lưu, theo UXD copy-v1.0.5 9.3; không đổi hợp đồng, máy chủ, chính sách; ước FE-A khoảng 0,5 ngày, sau phần bắt buộc của FE-A, đầu Gói 5; 13/11 chưa mở PR thì sang v1.0.6 (giữ mã, việc đầu bản đó), release notes theo plan 4a T10. Release notes v1.0.5 thêm mục Giới hạn đã biết: ca đêm rà Sơ đồ phòng trước 06:00 tới v1.0.6 (A4, R5-B-09; chữ BA 792e510a + DOM BA-02), đóng ca chưa có dòng tự sửa giảm tới v1.0.6 (R5-B-10; lễ tân dùng Nhật ký thao tác tiền), luật đếm lại minibar thấp hơn (BR-438 (2a)) chưa có tác dụng thật ở OTTIMO, đội đề nghị K-MB (DOM 7496e5bc); v1.0.4 thêm dòng áp dụng ngay "đổi giá xong báo giá thử 1 đêm". Plan 4a sửa T4, T5, T9, thêm T10 (V5-5C), T11 (#121 + ĐK-6 + từ điển); ĐK-6 ghi việc khi #121 gộp (PO sửa ĐK-6 cùng lúc DOM sửa dòng Đội đề xuất). Backlog R5-B-15 (B-SAU): màn đếm minibar cho buồng phòng trên app nhân viên, cùng phần chặn SEC V516-01 (DOM đề xuất, chờ SEC) | PO | Quyền PO (phạm vi trong round, release notes, backlog); không ESC |`
 
 `| 2026-11-07 | 5 | Điều kiện thêm cho quyết định INV 29/10 (một tài khoản 6 vai; "khi có nhân viên lễ tân/buồng phòng thật thì mỗi người một tài khoản, đúng một vai"): trước ngày giao tài khoản lễ tân riêng không giữ vai quản lý, cần màn đếm minibar cho buồng phòng trên app nhân viên (backlog R5-B-15) hoặc phiếu đếm giấy có chữ ký buồng phòng (lễ tân nhập đúng số phiếu, phiếu kẹp sổ giao ca, quản lý so 3 phiếu ngẫu nhiên với bill mỗi tuần); giữ K-MB cả khi đã có (DOM DOM-responses.md (A) 3, 7496e5bc) | DOM / PO | Không ESC; INV đã chấp nhận mô hình 6 vai 29/10 |`
+
+## Cập nhật 07/11 (lượt 2) – Phản hồi & sửa: bảng kiểm T12–T14, câu minibar theo BE-A2, Wi-Fi ngày lên
+
+- **Đã làm:**
+  - Plan R5 mục 4a: thêm **T12** (#112 + FE V5-13 + FE V5-18), **T13** (FE V5-44 (a) cần #112, chặn), **T14** (#120 + Desk V5-58 Wi-Fi); sửa **T5** theo BA lượt 4 (`da596507`): phần audit BE-A2 `0b2ebb45` vào tag cùng #110, phần chặn không vào v1.0.5; mặc định release notes không có câu "Lần đếm lại minibar chưa hiện trong bộ lọc…", kiểm bằng `grep -n "chưa hiện trong bộ lọc" product/docs/release-notes.md` lúc cắt; thiếu #110 hoặc audit thì đổi ba câu theo T5. Quyết định 28. Gạch "Thêm khi cắt" về K-MB ghi BA đã thêm.
+  - Release notes v1.0.5:
+    - dòng **Đóng ca**: lần đếm lại minibar thấp hơn hiện là **Điều chỉnh dòng folio**, lý do **Đếm lại minibar** (khớp sổ tay BA lượt 4);
+    - dòng minibar: thêm "Desk không chặn lần đếm lại thấp hơn; lần đếm lại làm tiền minibar nhỏ đi hiện ở bộ lọc **Sửa giảm dòng – 7 ngày**";
+    - mục mới **Việc anh/chị làm ngày lên v1.0.5**: nhập Wi-Fi trên Desk, kiểm trên trang khách; in thẻ Wi-Fi mới chỉ khi đổi mật khẩu luôn trong ngày (13:00–17:00, 10 căn + 2 dự phòng).
+  - Trả lời thẻ ARC trong `rounds/round-05/responses/PO-responses.md`.
+- **File sửa:** `rounds/round-05/plan.md`, `product/docs/release-notes.md`, `rounds/round-05/responses/PO-responses.md`, tệp này.
+- **Giả định:** "in thẻ mới" ngày lên chỉ cần khi chủ đầu tư đổi mật khẩu luôn trong ngày. Sổ tay 1.4 ghi ngày lên chỉ nhập tên mạng, mật khẩu đang dùng; thẻ trong căn vẫn đúng nếu không đổi. ORC muốn in thẻ mới bắt buộc thì PO bỏ vế "không cần in lại".
+- **ESC mới:** không.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | **PO – quyết định 28 (plan R5): bảng kiểm cắt tag 4a thêm T12–T14** (theo ARC FB-R5-ARC-PO-112-01, BA lượt 4 da596507). T12: #112 + FE V5-13 + FE V5-18 – thiếu FE thì bỏ hai câu ở dòng Trả phòng và tiền ở quầy (tổng đang chờ hoàn kể cả yêu cầu người khác tạo; cọc chưa đối soát), thiếu FE V5-13 thì lời dặn "hỏi quản lý" của v1.0.4 (ca CO-01b) thành giới hạn v1.0.5, đích v1.0.6. T13 (chặn): Desk đọc lockReason (V5-44 (a)) không vào tag thiếu #112. T14: bước nhập Wi-Fi ngày lên chỉ giữ khi Desk V5-58 cùng tag với #120. T5: audit đếm lại minibar BE-A2 0b2ebb45 vào tag cùng #110, phần chặn không vào v1.0.5 (R5-B-15); release notes không có câu "đếm lại chưa hiện trong bộ lọc", kiểm bằng grep lúc cắt. Release notes v1.0.5: câu đóng ca và minibar theo BE-A2; mục mới Việc anh/chị làm ngày lên (nhập Wi-Fi; in thẻ mới chỉ khi đổi mật khẩu) | PO | Quyền PO (release notes, bảng kiểm cắt bản); không ESC |`
+
+## Cập nhật 07/11 (lượt 3) – bảng kiểm T15 (#99 cần #127)
+
+- **Đã làm:** plan R5 mục 4a thêm **T15** (chặn) theo SEC `rounds/round-05/reviews/SEC-on-be-pr-99-delta.md` mục 0, 2: tag có #99 thì có #127 (`r5-text-strip`). #127 không kịp: bỏ #99 khỏi tag hoặc dời ngày cắt, ORC + PO chọn. Bỏ #99 thì V5-15 phía máy chủ dời (Gói 1, cần dòng decision-log PO + ORC), release notes bỏ câu "Trả phòng được đơn quá ngày đi" và giữ lời dặn v1.0.4 "Đơn quá ngày đi mà vẫn Đang ở", đích v1.0.6. Quyết định 29. Đã ghi nhận: ORC chấp nhận giả định Wi-Fi (in thẻ mới chỉ khi đổi mật khẩu).
+- **File sửa:** `rounds/round-05/plan.md`, tệp này.
+- **Giả định:** nút **Báo cần dọn** (T2) không phụ thuộc #99, vì máy chủ R8 đã trên `main`.
+- **ESC mới:** không.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | **PO – quyết định 29 (plan R5): bảng kiểm cắt tag 4a thêm T15 (chặn) – tag có #99 (BE-A2 V5-15) thì phải có #127 (BE-A1 r5-text-strip)** (theo SEC SEC-on-be-pr-99-delta.md mục 0, 2): #99 ghi giờ khai vào actual_checkout_at, khai báo lưu trú và hồ sơ khách ở mọi B18 kể cả giờ quy đổi; #127 thêm notBeforeCheckIn cho mọi B18 (ca A1A-01) và bỏ ký tự điều khiển ở Fields.text (A1B-01). #127 không kịp lúc cắt: bỏ #99 khỏi tag hoặc dời ngày cắt, ORC + PO chọn và ghi decision-log; bỏ #99 là dời V5-15 phía máy chủ (Gói 1, QC điều 1), release notes bỏ câu "Trả phòng được đơn quá ngày đi", giữ lời dặn v1.0.4 "Đơn quá ngày đi mà vẫn Đang ở", đích v1.0.6 | PO | Quyền PO (bảng kiểm cắt bản); không ESC |`
