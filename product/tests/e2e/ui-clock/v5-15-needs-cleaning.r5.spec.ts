@@ -1,6 +1,6 @@
-// E2E UI v1.0.5 – V5-15 nút "Cần dọn" trên Desk (S10 Buồng phòng → Trạng thái buồng). Không đổi hợp đồng (ARC 0.3.13
+// E2E UI v1.0.5 – V5-15 nút "Báo cần dọn" trên Desk (S10 Buồng phòng → Trạng thái buồng). Không đổi hợp đồng (ARC 0.3.13
 // mục 1.4, ca T15-8 phần Desk): `transitionRoomStatus` `event = needs_cleaning` (R8, OC → OD). Nút chỉ hiện khi máy chủ
-// trả `needs_cleaning` trong `allowedEvents`. Lượt 1: bấm Cần dọn căn đang ở → 200, căn thành OD, có việc dọn ở lại.
+// trả `needs_cleaning` trong `allowedEvents`. Lượt 1: bấm Báo cần dọn căn đang ở → 200, căn thành OD, có việc dọn ở lại.
 // Lượt 2: căn khác bị đổi trạng thái qua API sau khi trang đã tải (như buồng phòng bấm trên PWA) → bấm nút cũ → 409
 // INVALID_TRANSITION, Desk tải lại danh sách và báo câu UXD. Dữ liệu dựng bằng API trên ngày ảo riêng.
 // Project desk-clock (MutableClock, tuần tự). axe 0 critical/serious (ngưỡng ui/axe.ts) trước và sau khi bấm.
@@ -42,13 +42,13 @@ function roomRow(page: Page, no: string): Locator {
 }
 
 test.describe(
-  'v1.0.5 V5-15 – nút Cần dọn trên Desk (R8 needs_cleaning)',
+  'v1.0.5 V5-15 – nút Báo cần dọn trên Desk (R8 needs_cleaning)',
   { tag: ['@ui', '@r5', '@clock', '@a11y'] },
   () => {
     test.skip(!UI, 'Chạy với E2E_UI=1');
     test.skip(!SEED_PASSWORD, 'Thiếu QA_SEED_PASSWORD');
 
-    test('V5-15 (E) T15-8 phần Desk, US-053: qa.fd bấm Cần dọn căn 301 đang ở (OC) → R8 200, căn OD, có việc dọn ở lại, nút mất; căn 302 bị đổi qua API sau khi trang tải → bấm nút cũ → 409 INVALID_TRANSITION, danh sách tải lại, câu "Danh sách đã tải lại"; axe', async ({
+    test('V5-15 (E) T15-8 phần Desk, US-053: qa.fd bấm Báo cần dọn căn 301 đang ở (OC) → R8 200, căn OD, có việc dọn ở lại, nút mất; căn 302 bị đổi qua API sau khi trang tải → bấm nút cũ → 409 INVALID_TRANSITION, danh sách tải lại, câu "Danh sách đã tải lại"; axe', async ({
       browser,
       request,
     }) => {
@@ -76,7 +76,7 @@ test.describe(
         const rowB = roomRow(page, '302');
         const btnA = rowA.getByRole('button', { name: t('hk.action.needs_cleaning'), exact: true });
         const btnB = rowB.getByRole('button', { name: t('hk.action.needs_cleaning'), exact: true });
-        await expect(btnA, 'nút Cần dọn ở căn OC').toBeVisible({ timeout: 15_000 });
+        await expect(btnA, 'nút Báo cần dọn ở căn OC').toBeVisible({ timeout: 15_000 });
         await expect(btnB).toBeVisible();
         await expect(rowA.getByText(t('status.room.OC'))).toBeVisible();
         await scan(page, test.info(), 'S10-rooms-needs-cleaning');
@@ -91,7 +91,7 @@ test.describe(
           page.getByText(tf('hk.desk.needs_cleaning_toast', { room: '301' })),
         ).toBeVisible();
         await expect(rowA.getByText(t('status.room.OD'))).toBeVisible({ timeout: 15_000 });
-        await expect(btnA, 'OD không còn nút Cần dọn').toHaveCount(0);
+        await expect(btnA, 'OD không còn nút Báo cần dọn').toHaveCount(0);
         expect(await roomStatusOf(request, a.room.id)).toBe('OD');
         const tasks = await call<{ data: Array<{ roomId: string; type: string; status: string }> }>(
           request,

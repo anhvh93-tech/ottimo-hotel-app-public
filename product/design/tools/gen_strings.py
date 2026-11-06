@@ -1774,7 +1774,7 @@ g("R2 hi-fi Sprint 4 – PWA buồng phòng (H19–H21)", [
     ("hk.done_at", "Xong lúc {time}", "Done at {time}"),
     ("hk.action.start_cleaning", "Bắt đầu dọn", "Start cleaning", None, "event start_cleaning (R1)"),
     ("hk.action.finish_cleaning", "Dọn xong", "Finished cleaning", None, "event finish_cleaning (R2/R3)"),
-    ("hk.action.needs_cleaning", "Cần dọn", "Needs cleaning", None, "event needs_cleaning (R8, OC → OD). v1.0.5 V5-15: nút trên Desk (S10 Trạng thái buồng) – tên nút theo plan R5; app nhân viên dùng chung khóa này. Chờ UXD duyệt"),
+    ("hk.action.needs_cleaning", "Báo cần dọn", "Mark for cleaning", None, "event needs_cleaning (R8, OC → OD). v1.0.5 V5-15: nút trên Desk (S10 Trạng thái buồng); app nhân viên dùng chung khóa này. Nút là động từ, không trùng bộ lọc 'Cần dọn ({n})' và hk.status.VD. UXD duyệt 06/11 (FB-R5-UXD-FE-PR102-01; UXD-on-fe-prs-98-102-107; copy-v1.0.5 9.7)"),
     ("hk.empty_title", "Hết việc rồi!", "All done!"),
     ("hk.empty_body", "Không còn việc nào hôm nay. Có việc mới sẽ hiện ở đây.", "No more tasks today. New ones will appear here."),
     ("hk.error_title", "Chưa tải được việc hôm nay", "Couldn't load today's tasks"),
@@ -4150,12 +4150,13 @@ g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa 
 # trạng thái bị lệch (a), không bao giờ ở (b).
 # UXD-on-v104-pr77 lượt 4 (DOM lượt 7 mục 3): v1.0.4 không có nút đưa căn khỏi OC, nên trạng thái kẹt thì đổi căn và
 # báo quản lý (đuôi room_occupied; room_status_stuck khi máy chủ trả cause = room_status trên OC/OD).
+# v1.0.5 V5-15 (UXD-on-fe-prs-98-102-107): có nút Báo cần dọn – room_status_stuck (OC) chỉ tới nút đó; OD → room_status_stuck_od.
 g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
     ("checkin.room_occupied",
      "Căn {room} còn khách của đơn trước, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. Nếu đơn trước đã trả phòng: đổi căn cho đơn này và báo quản lý để sửa trạng thái căn.",
      "Room {room} still has the previous guest, not checked out yet. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case. If that stay is already checked out, move this booking and tell the manager so the room status can be fixed.",
      None,
-     "v1.0.4 BUG-R4-039 (BR-402 (1)). Alert bad trong dòng room_ready khi buồng OC/OD và máy chủ không trả cause (API trước #74 C2) hoặc trả cause lạ, chỉ khi đơn đã có căn. Không ô lý do, không nút duyệt. Thứ tự lối ra theo DOM lượt 5 mục 2: trả phòng đơn trước, mời khách chờ, đổi căn. Câu cuối cho trạng thái kẹt (v1.0.4 không có nút đưa căn khỏi OC: đổi căn và báo quản lý, DOM lượt 7 mục 3). Có cause: held_by_other_stay → checkin.room_held_code / checkin.room_held; room_status trên OC/OD → checkin.room_status_stuck. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01; UXD-on-v104-pr77 lượt 4, 5). {room} = số căn"),
+     "v1.0.4 BUG-R4-039 (BR-402 (1)). Alert bad trong dòng room_ready khi buồng OC/OD và máy chủ không trả cause (API trước #74 C2) hoặc trả cause lạ, chỉ khi đơn đã có căn. Không ô lý do, không nút duyệt. Thứ tự lối ra theo DOM lượt 5 mục 2: trả phòng đơn trước, mời khách chờ, đổi căn. Câu cuối cho trạng thái kẹt (v1.0.4 không có nút đưa căn khỏi OC: đổi căn và báo quản lý, DOM lượt 7 mục 3). Có cause: held_by_other_stay → checkin.room_held_code / checkin.room_held; room_status trên OC → checkin.room_status_stuck, trên OD → checkin.room_status_stuck_od (v1.0.5). UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01; UXD-on-v104-pr77 lượt 4, 5). {room} = số căn"),
     ("checkin.room_held",
      "Căn {room} còn đơn khác đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
      "Room {room} still has another stay in house. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
@@ -4165,12 +4166,12 @@ g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
      "Căn {room} còn đơn {code} đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
      "Room {room} still has booking {code} in house. Check out that booking first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
      None,
-     "v1.0.4 BUG-R4-039 (#74 C2, heldByReservationCode). Như checkin.room_held, khi cause = held_by_other_stay và máy chủ trả mã đơn gốc đang giữ căn, kể cả khi buồng OC/OD. Chỉ đọc mã khi cause = held_by_other_stay. {code} = heldByReservationCode, hiện mono (monoArgs ['code']); {room} = số căn. Chọn câu (UXD lượt 4): OOO → ci.ooo_never; no_room → không câu (not_unassigned); held_by_other_stay → khóa này, thiếu mã → checkin.room_held; room_status trên OC/OD → checkin.room_status_stuck; không có cause → OC/OD: checkin.room_occupied, còn lại: checkin.room_held. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 3, 5)"),
+     "v1.0.4 BUG-R4-039 (#74 C2, heldByReservationCode). Như checkin.room_held, khi cause = held_by_other_stay và máy chủ trả mã đơn gốc đang giữ căn, kể cả khi buồng OC/OD. Chỉ đọc mã khi cause = held_by_other_stay. {code} = heldByReservationCode, hiện mono (monoArgs ['code']); {room} = số căn. Chọn câu (UXD lượt 4): OOO → ci.ooo_never; no_room → không câu (not_unassigned); held_by_other_stay → khóa này, thiếu mã → checkin.room_held; room_status trên OC → checkin.room_status_stuck, trên OD → checkin.room_status_stuck_od (v1.0.5); không có cause → OC/OD: checkin.room_occupied, còn lại: checkin.room_held. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 3, 5)"),
     ("checkin.room_status_stuck",
-     "Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Đổi đơn này sang căn trống và báo quản lý để sửa trạng thái căn. Trường hợp này không có ngoại lệ.",
-     "Room {room} still shows as occupied, but no stay is in house. Move this booking to a vacant room and tell the manager so the room status can be fixed. No exception applies in this case.",
+     "Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Kiểm căn đã trống, rồi bấm Báo cần dọn ở Buồng phòng → Trạng thái buồng; buồng phòng dọn xong là nhận phòng được. Khách không chờ được thì đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
+     "Room {room} still shows as occupied, but no stay is in house. Check the room is empty, then select Mark for cleaning in Housekeeping → Room status; once housekeeping has cleaned it, check-in can go ahead. If the guest can't wait, move this booking to a vacant room. No exception applies in this case.",
      None,
-     "v1.0.4 BUG-R4-039 (#74 C2). Alert bad trong dòng room_ready khi cause = room_status và buồng OC/OD: không còn lượt Đang ở nào, trạng thái buồng kẹt. Không ô lý do, không nút duyệt; link Đổi căn / đổi ngày như các câu chặn khác. 'đang ở' = status.booking.in_house. v1.0.5 có nút Cần dọn thì UXD đổi câu. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 4). {room} = số căn"),
+     "v1.0.4 BUG-R4-039 (#74 C2). Alert bad trong dòng room_ready khi cause = room_status và buồng OC: không còn lượt Đang ở nào, trạng thái buồng kẹt. Không ô lý do, không nút duyệt; link Đổi căn / đổi ngày như các câu chặn khác. 'đang ở' = status.booking.in_house. v1.0.5 V5-15: theo nút Báo cần dọn (UXD-on-fe-prs-98-102-107; FB-R5-UXD-FE-PR102-02; copy-v1.0.5 9.7) – bỏ vế báo quản lý, lễ tân tự đưa căn về quy trình dọn. Buồng OD → checkin.room_status_stuck_od. {room} = số căn"),
 ])
 
 
@@ -4183,10 +4184,15 @@ g("v1.0.4 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều 
     ("co.minibar_cabinet_saved", "Đã lưu số đếm tủ căn {room}.", "Room {room} minibar count saved.", None, "H16 bước 1, toast của DS sau 201 khi trang chuyển sang tủ khác. {room} = tủ vừa đếm (không phải tủ đang hiện). Sang thẳng bước 2 thì không có toast"),
 ])
 
-# ---------- v1.0.5 V5-15 – nút Cần dọn trên Desk (S10 Trạng thái buồng) ----------
-g("v1.0.5 V5-15 – FE-A: nút Cần dọn trên Desk (R8 needs_cleaning, ARC 0.3.13 mục 1.4). Chờ UXD duyệt", [
+# ---------- v1.0.5 V5-15 – nút Báo cần dọn trên Desk (S10 Trạng thái buồng) ----------
+g("v1.0.5 V5-15 – FE-A: nút Báo cần dọn trên Desk (R8 needs_cleaning, ARC 0.3.13 mục 1.4). UXD duyệt 06/11 (UXD-on-fe-prs-98-102-107; copy-v1.0.5 9.7)", [
     ("hk.desk.needs_cleaning_toast", "Căn {room} chuyển cần dọn và có việc dọn.", "Room {room} needs cleaning and gets a cleaning task.", None, "Toast sau transitionRoomStatus needs_cleaning 200 (OC → OD; máy chủ tạo việc dọn ở lại nếu căn chưa có). Cùng câu với stay.change_effect_old của UXD. {room} = số căn"),
-    ("error.INVALID_TRANSITION_generic_reloaded", "Dữ liệu vừa thay đổi nên thao tác này không còn dùng được. Danh sách đã tải lại.", "This just changed, so the action no longer applies. The list has been reloaded.", None, "Câu UXD copy-v1.0.5 mục 4.12 (UXD-F1-01), nguyên văn. 409 INVALID_TRANSITION ở chỗ tự tải lại: nút Cần dọn (trạng thái căn đã đổi – Desk tải lại danh sách căn). Làn Gói 2 không thêm lại khóa này"),
+    ("checkin.room_status_stuck_od",
+     "Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Kiểm căn đã trống và nhờ buồng phòng dọn căn này; dọn xong là nhận phòng được. Khách không chờ được thì đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
+     "Room {room} still shows as occupied, but no stay is in house. Check the room is empty and ask housekeeping to clean it; once it's cleaned, check-in can go ahead. If the guest can't wait, move this booking to a vacant room. No exception applies in this case.",
+     None,
+     "v1.0.5 V5-15 (FB-R5-UXD-FE-PR102-02; copy-v1.0.5 9.7). Như checkin.room_status_stuck, khi cause = room_status và buồng OD: căn đã ở 'cần dọn', Desk không có nút Báo cần dọn – nhờ buồng phòng dọn. UXD duyệt 06/11 (UXD-on-fe-prs-98-102-107). {room} = số căn"),
+    ("error.INVALID_TRANSITION_generic_reloaded", "Dữ liệu vừa thay đổi nên thao tác này không còn dùng được. Danh sách đã tải lại.", "This just changed, so the action no longer applies. The list has been reloaded.", None, "Câu UXD copy-v1.0.5 mục 4.12 (UXD-F1-01), nguyên văn. 409 INVALID_TRANSITION ở chỗ tự tải lại: nút Báo cần dọn (trạng thái căn đã đổi – Desk tải lại danh sách căn). Làn Gói 2 không thêm lại khóa này"),
 ])
 
 def build():

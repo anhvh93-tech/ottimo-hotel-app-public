@@ -1,4 +1,4 @@
-// V5-15 – nút "Cần dọn" trên Desk (S10 Buồng phòng → Trạng thái buồng). Không đổi hợp đồng (ARC 0.3.13 mục 1.4):
+// V5-15 – nút "Báo cần dọn" trên Desk (S10 Buồng phòng → Trạng thái buồng). Không đổi hợp đồng (ARC 0.3.13 mục 1.4):
 // `transitionRoomStatus` `event = needs_cleaning` (R8, OC → OD, FD+ và HK). Nút chỉ hiện khi máy chủ trả
 // `needs_cleaning` trong `RoomStatusEntry.allowedEvents`; `expectedFrom` = trạng thái đang hiện; 409
 // INVALID_TRANSITION (căn đã đổi) → Desk tải lại danh sách và báo bằng câu UXD `error.INVALID_TRANSITION_generic_reloaded`
@@ -34,7 +34,7 @@ function captureTransitions() {
   return { sent, stop: () => server.events.removeListener('request:start', on) };
 }
 
-describe('V5-15 – "Cần dọn" on the Desk room board (R8, OC → OD)', () => {
+describe('V5-15 – "Báo cần dọn" (Mark for cleaning) on the Desk room board (R8, OC → OD)', () => {
   it('only an OC room has the button (server allowedEvents); a click sends R8 with expectedFrom, the room turns OD and gets a cleaning task', async () => {
     mockControl.stay.roomStatus['301'] = 'OC';
     mockControl.ops.hkTasks = mockControl.ops.hkTasks.filter((t) => t.roomNo !== '301');

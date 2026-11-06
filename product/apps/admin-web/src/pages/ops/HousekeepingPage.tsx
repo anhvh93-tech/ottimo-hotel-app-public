@@ -34,7 +34,7 @@ type RoomFilter = keyof typeof ROOM_FILTERS;
  * S10 Buồng phòng – Desk (US-054 AC3, US-052): the front desk sees the same tasks and counter as housekeeping
  * (`listHkTasks.summary` "{done}/{total}"), live over SSE (`hk_task.changed`, `room.status_changed`), and the
  * 10 rooms with their status. FD+ may tick a task done, cancel it with a reason (SM-14) or add a task by hand
- * (A83-create). Room status changes stay on the housekeeping PWA, except R8 "Cần dọn" (OC → OD, V5-15): the desk
+ * (A83-create). Room status changes stay on the housekeeping PWA, except R8 "Báo cần dọn" (OC → OD, V5-15): the desk
  * gets the button when the server lists `needs_cleaning` in `allowedEvents` (ARC 0.3.13 1.4).
  */
 export function HousekeepingPage() {
@@ -510,7 +510,7 @@ function RoomBoard({ rooms, onChanged }: { rooms: RoomStatusEntry[]; onChanged: 
 }
 
 /**
- * One room of the board. V5-15: "Cần dọn" = R8 `needs_cleaning` (OC → OD, plus a stay-over cleaning task – server
+ * One room of the board. V5-15: "Báo cần dọn" = R8 `needs_cleaning` (OC → OD, plus a stay-over cleaning task – server
  * side) when the server lists it in `allowedEvents` – never decided here. No If-Match: `expectedFrom` = the status
  * on screen; 409 INVALID_TRANSITION (the room changed meanwhile) reloads the board and says so. Online only – the
  * desk has no offline queue (the PWA has).
@@ -590,7 +590,7 @@ function RoomRow({ room: r, onChanged }: { room: RoomStatusEntry; onChanged: () 
         )}
       </div>
       {canMarkDirty ? (
-        <div className="row wrap">
+        <div className="row wrap room-acts">
           <Button
             size="sm"
             disabled={!online}
