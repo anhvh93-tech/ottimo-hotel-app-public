@@ -8,7 +8,9 @@
  *   calculateQuote + nightlyRates), H-07 (SAL nightlyRates under the floor → 403, no min/max), H-09 (one access.denied
  *   each);
  * - the gate comes before every body check (an otherwise invalid body still gets 403, `null` and `[]` count as sent),
- *   and after the Idempotency-Key lookup (ADR-009: a key completed while the user could send the field replays).
+ *   and after the Idempotency-Key lookup (ADR-009: a key completed while the user could send the field replays);
+ * - FB-R5-SEC-BE-S1-01 / FB-R5-ARC-BE-S1-04 (SEC probe P1): only the SAME request on a completed key is a replay –
+ *   another body with the field on that key → 403 + access.denied in the guard (not 422 REUSED / VALIDATION_FAILED).
  * H-01…H-04 (B18 / QR check_out of an overdue stay) belong to PR-A1b (V5-15), H-08 to PR-B2 (V5-16).
  */
 import 'reflect-metadata';
@@ -80,6 +82,7 @@ describe.skipIf(!HAS_DB)('x-write-roles gate (contract 0.3.13 1.16)', () => {
   let guestSal: string;
   let guestCtv: string;
   let guestFdsal: string;
+  let guestFdsal3: string;
   const userBySubject: Record<string, string> = {
     'qa.owner': 'owner',
     'qa.mgr': 'mgr',
@@ -102,12 +105,14 @@ describe.skipIf(!HAS_DB)('x-write-roles gate (contract 0.3.13 1.16)', () => {
         ctv: ['collaborator'],
         fdsal: ['front_desk', 'sales_staff'],
         fdsal2: ['front_desk', 'sales_staff'],
+        fdsal3: ['front_desk', 'sales_staff'],
       },
     });
     ids = await seedSales(db, t);
     guestSal = await seedGuest(db, t, t.users.sal!.id);
     guestCtv = await seedGuest(db, t, t.users.ctv!.id);
     guestFdsal = await seedGuest(db, t, t.users.fdsal2!.id);
+    guestFdsal3 = await seedGuest(db, t, t.users.fdsal3!.id);
     fa = await startFeatureApp(db);
   });
   afterAll(async () => {
@@ -352,6 +357,85 @@ describe.skipIf(!HAS_DB)('x-write-roles gate (contract 0.3.13 1.16)', () => {
       expect((await denied('saveQuote', 'fdsal2')).length).toBe(before);
       const fresh = await c.send('POST', `${P(t)}/quotes`, body);
       await expectFieldDenied(fresh, 'saveQuote', 'fdsal2', before);
+    });
+
+    // FB-R5-SEC-BE-S1-01 + FB-R5-ARC-BE-S1-04 (SEC probe P1): only a replay of the SAME request defers the role
+    // decision – a completed key reused with another body is a denial in the guard (403 + access.denied), never the
+    // 422 IDEMPOTENCY_KEY_REUSED / VALIDATION_FAILED of the unit of work or the body check.
+    it('P1: a completed key reused with another body + nightlyRates → 403 WRITE_ROLES + access.denied, not 422', async () => {
+      const key = randomUUID();
+      const c = Client.of(fa, t, 'sal');
+      const plain = { ...quote(), guestId: guestSal };
+      const first = await c.send('POST', `${P(t)}/quotes`, plain, { 'idempotency-key': key });
+      expect(first.statusCode, first.body).toBe(201);
+      const quotes = await quoteCount('sal');
+      // (a) a valid quote with typed prices under the floor on the same key
+      let before = (await denied('saveQuote', 'sal')).length;
+      const typed = await c.send(
+        'POST',
+        `${P(t)}/quotes`,
+        {
+          ...plain,
+          nightlyRates: untouched.map((n) => ({ ...n, amountVnd: 100_000, edited: true })),
+        },
+        { 'idempotency-key': key },
+      );
+      await expectFieldDenied(typed, 'saveQuote', 'sal', before);
+      // (b) an invalid body with the field on the same key: still 403 before any body check
+      before = (await denied('saveQuote', 'sal')).length;
+      const invalid = await c.send(
+        'POST',
+        `${P(t)}/quotes`,
+        { type: 'weekly', nightlyRates: 'x' },
+        { 'idempotency-key': key },
+      );
+      await expectFieldDenied(invalid, 'saveQuote', 'sal', before);
+      expect(await quoteCount('sal')).toBe(quotes);
+      // (c) the same body on the same key still replays (ADR-009), no access.denied
+      before = (await denied('saveQuote', 'sal')).length;
+      const replay = await c.send('POST', `${P(t)}/quotes`, plain, { 'idempotency-key': key });
+      expect(replay.statusCode, replay.body).toBe(201);
+      expect(replay.headers['idempotent-replayed']).toBe('true');
+      expect(replay.json().id).toBe(first.json().id);
+      expect((await denied('saveQuote', 'sal')).length).toBe(before);
+      // A body without the field on the same key is not a denial: the unit of work answers it as before.
+      const other = await c.send(
+        'POST',
+        `${P(t)}/quotes`,
+        { ...plain, nights: 2 },
+        { 'idempotency-key': key },
+      );
+      expect(other.statusCode, other.body).toBe(422);
+      expect(other.json().code).toBe('IDEMPOTENCY_KEY_REUSED');
+      expect((await denied('saveQuote', 'sal')).length).toBe(before);
+    });
+
+    it('P1 (x-roles): a user who lost the role reuses a completed key with another body → 403 now, not 422', async () => {
+      const key = randomUUID();
+      const c = Client.of(fa, t, 'fdsal3');
+      const body = { ...quote({ nightlyRates: untouched }), guestId: guestFdsal3 };
+      const first = await c.send('POST', `${P(t)}/quotes`, body, { 'idempotency-key': key });
+      expect(first.statusCode, first.body).toBe(201);
+      await db.withContext(t.ctx(), async (tx) => {
+        await tx.query(
+          `UPDATE user_property_role SET role = 'housekeeping' WHERE user_id = $1 AND role = 'front_desk'`,
+          [t.users.fdsal3!.id],
+        );
+        await tx.query('UPDATE app_user SET roles_version = roles_version + 1 WHERE id = $1', [
+          t.users.fdsal3!.id,
+        ]);
+      });
+      const before = (await denied('saveQuote', 'fdsal3')).length;
+      const changed = await c.send(
+        'POST',
+        `${P(t)}/quotes`,
+        {
+          ...body,
+          nightlyRates: untouched.map((n) => ({ ...n, amountVnd: 800_000, edited: true })),
+        },
+        { 'idempotency-key': key },
+      );
+      await expectFieldDenied(changed, 'saveQuote', 'fdsal3', before);
     });
   });
 });
