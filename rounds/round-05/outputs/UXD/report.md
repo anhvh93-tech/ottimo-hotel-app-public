@@ -127,3 +127,15 @@
   - BE: chạy lại `gen-quote-copy.mjs` (RU dòng 2 và 4, VI dòng 2).
   - BE-B: một dòng, chờ DOM.
 - Còn chờ: DOM (thẻ 04, ca `damage`, `hold_expiry_reminder_hours = 0`). PO đã chốt 3 khóa mục 4.19: vào V5-23.
+
+## 7. Cập nhật 06/11 tối – bản in, thẻ CPY 12, V5-04
+- **Bản in** (`bb67605d`):
+  - Tờ 1: A4 một mặt, 2 cột, **8,25 pt**. Ở 9 pt bị tràn; bớt khoảng cách cũng chỉ lên được 8,5 pt.
+  - Tờ 2a: chuyển sang **A4 dọc, in riêng, 11 pt** (`to-2a-giu-cho-qua-han-a4.pdf`). Ở A5 thì chỉ vừa 8 pt.
+  - Tờ 2b: không đổi chữ; tách thành `to-2b-a4-2-ban.pdf` (2 bản trên một tờ A4, cắt đôi).
+  - Đã xóa `to-2a-2b-a4-cat-doi.*` để không ai in nhầm bản 30/10.
+  - Nét kẻ bảng và chân tờ đổi sang Stone Grey.
+- **Thẻ CPY 12** (Major) Fixed ở `copy-v1.0.5.md` bản 1.3 (`5525baab`): sale, CTV tự bấm "Gia hạn giữ chỗ (1 lần)". Vẫn 146 khóa.
+- **V5-04** (`a099cb9e`): sổ tay 1.15, bộ hướng dẫn 1.13 (`01` 1.12, `02` 1.13, `05` 1.8). Đã dựng lại HTML từ `main`; bộ kiểm 390/1440 px, font khi mất mạng, ảnh chỉ từ `img/` đều ĐẠT. HTML nằm ngoài repo theo `.gitignore`.
+- **Việc chuyển PO** (ORC đã giao): sửa mục "Cách in và dán" và ghi chú khổ giấy trong `staff-one-pager.md`; giữ Tờ 1 ở 8,25 pt; tùy chọn bọc "OTM-…" bằng backtick.
+- **ORC ghi thêm:** khi xem bản in, ORC thấy Tờ 2a dòng 86 hướng dẫn "Tiền về trước hạn → Xác nhận đã nhận cọc" cho giữ chỗ quá hạn chưa nhận đồng nào. Desk không cho việc này (QA BUG-R5-002, `allowed-actions.ts` 72–74). Tờ 2a chưa in tới khi DOM viết chữ thay và PO sửa. Sau đó UXD dựng lại Tờ 2a. BA đang thêm lời dặn về hai tham số vào sổ tay, nên UXD dựng lại HTML sau khi BA xong.
