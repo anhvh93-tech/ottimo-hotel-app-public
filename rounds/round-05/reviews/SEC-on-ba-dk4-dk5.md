@@ -24,13 +24,13 @@ SEC chỉ đọc repo. Không SSH, không gọi staging hay production. Tệp n�
 
 ---
 
-## 0. Kết luận: **DUYỆT CÓ ĐIỀU KIỆN**
+## 0. Kết luận: ~~DUYỆT CÓ ĐIỀU KIỆN~~ **DUYỆT** (lượt 4, 06/11 khuya – mục 2a)
 
 | Phần | Kết luận | Điều kiện |
 |---|---|---|
-| Sổ vận hành 1.2 (ĐK-4) | **DUYỆT CÓ ĐIỀU KIỆN** | FB-R5-SEC-BA-02 (Major): sửa chữ trước lần kéo 08/11; ORC kiểm Time Machine ở lần kéo đó. Các thẻ Minor 03–07 sửa trước buổi review 20/11 |
-| Sổ tay + bộ hướng dẫn (ĐK-5 / V5-08) | **DUYỆT CÓ ĐIỀU KIỆN** | FB-R5-SEC-BA-01 (Major): bước "gửi nhầm người" thêm ghi sổ và báo chủ đầu tư. Hạn **08/11**, sớm hơn hạn ĐK-5, vì luồng gửi link đang chạy thật từ 06/11 14:22 |
-| Tờ dán quầy (PO) | ~~Tờ 1: chưa in.~~ **Tờ 1: được in** (lượt 2 `106722d7`; lượt 3 `451d3230` vẫn được in, mục 3a). ~~Tờ 2a: được in~~ **Tờ 2a: chưa in tới khi sửa PO-04** (lượt 3) | PO-01, PO-02, PO-03 đã **Closed**. PO-04 (Major, nơi nhận hoàn cọc) chặn in Tờ 2a. PO-05 (Minor) và PO-06 (Suggestion) không chặn. Phần giữ chỗ của Tờ 2a vẫn chờ DOM đọc |
+| Sổ vận hành 1.3 (ĐK-4) | ~~DUYỆT CÓ ĐIỀU KIỆN~~ **DUYỆT** (lượt 4) | BA-02 (Major) **Closed**. BA-03, 04, 06, 07, 11 **Closed**. ~~Còn BA-05 (Minor) Open~~ **BA-05 Closed** (ORC grep sổ vận hành 1.4, `16eaa635`): 15:00 và con số "máy chủ mất hẳn" có ở 2.1a, 2.2, 5.4 |
+| Sổ tay + bộ hướng dẫn (ĐK-5 / V5-08) | ~~DUYỆT CÓ ĐIỀU KIỆN~~ **DUYỆT** (lượt 4) | BA-01 (Major) **Closed** ở cả ba chỗ. BA-08, 09, 10 **Closed**. Grep ĐK-5 vẫn đạt trên `main` mới nhất (sau PR #69) |
+| Tờ dán quầy (PO) | **Tờ 1: được in** (lượt 2 `106722d7`, lượt 3 `451d3230`). ~~Tờ 2a: chưa in tới khi sửa PO-04~~ **Tờ 2a: được in**, xét về bảo mật và tiền (PO-04 Closed bằng grep, ORC `1d9e54f1`) | PO-01…06 **Closed**. Phần giữ chỗ của Tờ 2a do DOM quyết |
 
 - QC ĐK-5, tiêu chí grep: **đạt**. Trong `product/docs/manual/`, `grep "tạm dừng\|chưa gửi link"` còn 6 dòng, đều đúng: chú thích nguồn ẩn, phiếu sửa chờ vật tư, mục lịch sử.
 - QC ĐK-4 (a), (b), (c): **đạt phần nội dung**. Nhịp 2 ngày, mã 3 là P0 bảo mật, giữ bản Mac, người thứ hai ở phòng Báo động, nhắc diễn tập 35 ngày: đều đúng quyết định 06/11. Các thẻ dưới đây là độ chính xác và chỗ hở còn lại.
@@ -99,7 +99,7 @@ Thêm:
      - báo chủ đầu tư **ngay trong ca**.
   5. `guides/01` 14.1, cột việc của chủ đầu tư: "Đọc dòng sổ giao ca. Báo đội bằng `/feedback` (không cần P0): mã đơn, giờ gửi, giờ thu hồi, kênh, đơn có hiện **Đã làm thủ tục trước** trước giờ thu hồi không. Không ghi tên khách hay người nhận nhầm. Đội bảo mật trả lời trong ngày có cần làm gì thêm."
   - Không cần báo khách hay báo người nhận nhầm, trừ khi đội bảo mật đề nghị.
-- Trạng thái: Resolved (BA, 06/11)
+- Trạng thái: Resolved (BA, 06/11) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: Làm đủ 4 ý ở sổ tay 2.9 bước 6 và `02` 17.3 bước 5: (1) **Thu hồi link** rồi **Tạo link mới**, gửi đúng khách; (2) ghi sổ giao ca mã đơn, giờ gửi nhầm, giờ thu hồi, kênh, không ghi tên khách, không ghi tên hay số người nhận nhầm; (3) báo chủ đầu tư trong ngày; (4) đơn đã hiện **Đã làm thủ tục trước**, giờ đến hay yêu cầu lạ: không dùng giấy tờ để khai báo, đối chiếu bản gốc, không **Gắn người**, quản lý **Xóa ảnh** (sổ tay 2.11, `02` 8.3), báo chủ đầu tư ngay trong ca. Thêm một câu vì sao (người nhận nhầm thấy gì, ghi được gì; chủ đầu tư cùng SEC quyết việc báo cơ quan chức năng) và câu "không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị". `01` 14.1: cột việc thêm phần của chủ đầu tư theo ý 5. Tờ 1 là thẻ PO-01 của PO.
 
 ### FB-R5-SEC-BA-02
@@ -126,7 +126,7 @@ Thêm:
     - ghi kết quả có/không vào dòng decision-log của lần kéo.
   - **Nếu Time Machine đã từng chép thư mục này:** OPS và SEC đề xuất cách bỏ các bản đó trước khi bản cũ nhất quá 35 ngày. Việc xóa trên Time Machine là xóa vĩnh viễn, nên **INV tự làm** theo hướng dẫn của đội.
   - Mac không bật Time Machine thì thẻ đóng ngay, chỉ còn sửa chữ.
-- Trạng thái: Resolved (BA, 06/11) – phần chữ. Phần ORC (kiểm ở lần kéo 08/11) theo mục 4
+- Trạng thái: Resolved (BA, 06/11) – phần chữ. Phần ORC (kiểm ở lần kéo 08/11) theo mục 4 → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a). Phần ORC: đã kiểm chỉ đọc ngày 06/11 (decision-log, `fa596477`); mỗi lần kéo từ 08/11 kiểm lại theo sổ vận hành 1.1a
 - Phản hồi BA: 1.1a: câu "bản quá 35 ngày tự xóa" chỉ nói thư mục sao lưu, bỏ vế "đúng lời hứa". Thêm gạch **Giữ đúng lời hứa 35 ngày** áp cho mọi bản trên Mac, ghi đúng kết quả ORC kiểm chỉ đọc 06/11 (decision-log, `fa596477`): chưa cấu hình ổ Time Machine nên chưa có bản chép nào; thư mục chưa được loại khỏi Time Machine nên sẽ bị chép nếu sau này bật; thư mục ngoài Desktop/Documents nên iCloud Drive không đồng bộ. Đội chỉ đổi khi chủ đầu tư đồng ý trong chat; chủ đầu tư định bật Time Machine thì báo đội trước; mỗi lần kéo từ 08/11 đội kiểm lại chỉ đọc, ghi có/không vào decision-log. 5.4: câu "đồng ý loại thư mục khỏi Time Machine" tách khỏi câu lịch tự kéo, đứng ngay trên nó, có thể đồng ý sớm qua chat. Không ghi đường dẫn thư mục trong sổ vận hành (đã có ở README `infra/server`). Mac chưa bật Time Machine nên nhánh "bỏ các bản Time Machine cũ" chưa cần.
 
 ### FB-R5-SEC-BA-03
@@ -143,7 +143,7 @@ Thêm:
   - Dòng 52: "lượt kéo kết thúc với mã 3: bản trên máy chủ khác bản đã có trên Mac. Coi là P0 bảo mật, nghi máy chủ bị xâm nhập, tới khi đội bảo mật kết luận".
   - Dòng 51: "Từ lần kéo 08/11".
   - Dòng 53: "đội xử lý, báo anh/chị trong ngày" (bỏ "kéo lại" với mã 1).
-- Trạng thái: Resolved (BA, 06/11)
+- Trạng thái: Resolved (BA, 06/11) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: Cả 4 ý: dòng báo lại có giờ chạy, mã thoát (0 là ổn), số tệp mới, tên bản mới nhất, có dòng "server copy changed" không; "Cách kéo từ lần kéo 08/11"; mã 3 viết "lượt kéo kết thúc với mã 3: bản trên máy chủ khác bản đã có trên Mac … tới khi đội bảo mật kết luận"; tách mã 2 (mạng, kết nối: kéo lại lần sau) với mã 1 (mã kiểm tra trên Mac không khớp: đội xử lý, báo trong ngày, kéo lại không tự sửa được). Mã thoát đối chiếu với `pull-backups.sh` dòng 17–19.
 
 ### FB-R5-SEC-BA-04
@@ -159,7 +159,7 @@ Thêm:
   - (a) "Không duyệt phát hành nào ('Review deployments') tới khi đội bảo mật báo."
   - (b) "Đội có thể đề nghị tạm tắt máy chủ. Khi đó Desk ngừng, quầy làm theo mục 3.2 với sổ giấy. Anh/chị quyết."
   - (c) "Nếu xác nhận dữ liệu khách bị lộ, có thể phải báo cơ quan chức năng trong 72 giờ. Đội và luật sư chuẩn bị, anh/chị quyết."
-- Trạng thái: Resolved (BA, 06/11)
+- Trạng thái: Resolved (BA, 06/11) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: Ba dòng (a), (b), (c) thêm ngay dưới gạch mã 3 ở 1.1a, mở đầu "Khác với P0 thường ở mục 3.4". 3.4 thêm một câu đầu mục: nghi máy chủ bị xâm nhập thì không làm bước 2–5, làm theo 1.1a, chờ đội bảo mật báo. Runbook SR-INC-01 là việc SEC tự nhận (mục 5 ý 1).
 
 ### FB-R5-SEC-BA-05
@@ -178,8 +178,8 @@ Thêm:
 - Đề xuất sửa:
   - 2.1a: ghi con số OPS chốt cho cả hai dòng.
   - 5.4: "Xác nhận: máy chủ còn – mất tối đa 12 (hoặc 13) giờ từ v1.0.5; máy chủ mất hẳn – mất tối đa khoảng … (nhịp kéo hiện nay), khoảng … khi Mac tự kéo hằng ngày."
-- Trạng thái: Open – chờ OPS chọn giờ lượt dump hai
-- Phản hồi BA: Chưa sửa số theo giao việc ORC. 2.1a, 2.2, 5.4 giữ "12 giờ"; dòng "Máy chủ mất hẳn" chưa có con số. Lịch sử bản 1.3 ghi rõ phần này còn chờ. OPS chọn 15:00 (12 giờ) hoặc giữ 14:00 (13 giờ) và chốt con số khi máy chủ mất hẳn; BA sửa ba chỗ trong ngày khi có, trước buổi 20/11.
+- Trạng thái: Resolved (BA, 06/11)
+- Phản hồi BA: Lượt 1 (06/11): chưa sửa số, chờ OPS. Lượt 2 (06/11, sau mục 2a): sửa đúng chữ SEC đề xuất ở mục 2a, sổ vận hành bản 1.4. 2.1a: "Tới **12 giờ**: thêm lượt sao lưu lúc **15:00**"; dòng "Máy chủ mất hẳn" cột Hiện nay thêm "Kéo đúng nhịp 2 ngày: mất tới khoảng **64 giờ** (gần 3 ngày); kéo trễ thì hơn.", cột Từ v1.0.5 "Khoảng **60 giờ** khi vẫn kéo tay; khoảng **36 giờ** khi Mac tự kéo hằng ngày (mục 2.2)." 2.2: "thêm lượt **15:00**, mất tối đa 12 giờ". 5.4: câu xác nhận nêu 12 giờ khi máy chủ còn, 60 giờ nếu kéo tay, 36 giờ nếu Mac tự kéo, và mức hiện nay (24 giờ, khoảng 64 giờ). Ghi nhận ngoài thẻ: `02` 17.3 bước 5 sửa thành "(mục 8.1, 8.3)". Câu cũ "sau hạn Desk từ chối xác nhận cọc" ở sổ tay 2.4, `02` 4.5, 17.1 ghi vào V5-71 trong plan, chưa sửa lần này.
 
 ### FB-R5-SEC-BA-06
 - Mức độ: Minor
@@ -192,7 +192,7 @@ Thêm:
 - Đề xuất sửa: "…Lượt tự kéo lỗi thì có email báo ngay; lỗi 'server copy changed' là P0 như mục 1.1a. Quá 48 giờ không có lượt kéo nào thành công (ví dụ Mac tắt) cũng có email."
   - SEC chốt phần của mình cho V5-60: ngưỡng im lặng **48 giờ**, kèm điều kiện ping của OR-02 (thoát 0 **và** bản mới nhất ≤ 36 giờ). Thay cho 8 ngày.
   - Gợi ý cho OPS (không bắt buộc): cho check `ottimo-offsite` báo thêm vào phòng "Báo động", nếu không phải đưa bí mật mới vào repo.
-- Trạng thái: Resolved (BA, 06/11)
+- Trạng thái: Resolved (BA, 06/11) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: 2.2, cột đề xuất của dòng tự kéo: "Lượt tự kéo lỗi thì có email báo ngay về `info@ottimo.vn`; lỗi 'server copy changed' là P0 như mục 1.1a. Quá 48 giờ không có lượt kéo nào thành công (ví dụ Mac tắt) cũng có email." Gợi ý báo vào phòng Báo động để OPS cân nhắc ở V5-60, BA không ghi vào sổ.
 
 ### FB-R5-SEC-BA-07
@@ -208,7 +208,7 @@ Thêm:
   - 7.2 "Cách thêm": "thêm là **thành viên** (không làm quản lý phòng); điện thoại người đó đã cài theo `01` mục 12.1; trong phòng không có ứng dụng hay webhook nào khác ngoài `ottimo-alert`; cho người đó đọc mục 2.3 bước 6".
   - Bước 5 của khối 8 bước (`01` 1.9 và sổ tay 1.5): thêm "và phòng 'OTTIMO – Báo động' nếu người đó là người thứ hai".
   - Tùy chọn: thêm 3 dòng 2.3 bước 6 vào `02` mục 13 hoặc 15.
-- Trạng thái: Resolved (BA, 06/11)
+- Trạng thái: Resolved (BA, 06/11) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: (1) 7.2 và `01` 17.1: thêm là **thành viên**, không làm quản lý phòng; không thêm ứng dụng hay webhook nào khác (7.2 ghi "ngoài cảnh báo `ottimo-alert`", không ghi địa chỉ). (2) Trước khi thêm: điện thoại đã cài theo `01` 12.1. (3) Bước 5 khối **Ngày cuối của người nghỉ** ở `01` 1.9 và sổ tay 1.5: "và phòng 'OTTIMO – Báo động' nếu người đó là người thứ hai". (4) Làm luôn phần tùy chọn: `02` mục 13.5 mới (nhận FAIL thì làm gì, 4 bước theo 2.3 bước 6); 7.2 và 17.1 trỏ tới 13.5 cho lễ tân trưởng.
 
 ### FB-R5-SEC-BA-08
@@ -217,7 +217,7 @@ Thêm:
 - Vấn đề: "Gửi riêng 1–1 **cho khách của đơn**" chưa nói gửi **tới đâu**. Link là thẻ vào cửa: ai cầm cũng vào được mức 1. SR-GST-13 đã đặt luật cho mã xác minh: chỉ gửi tới hội thoại OTA của đơn, Zalo hoặc email của liên hệ trên đơn, không gửi tới tài khoản khác "dù người nhắn tự xưng là khách". Link nên theo cùng luật.
 - Vì sao quan trọng: cách gửi nhầm hay gặp nhất là người lạ nhắn từ số khác, xưng là khách, xin link. Đây cũng là cách phòng FB-R5-SEC-BA-01 từ gốc.
 - Đề xuất sửa: bước 3 thêm: "tới số điện thoại (Zalo), email hoặc hội thoại OTA **ghi trên đơn**. Người nhắn từ số hoặc tài khoản khác, dù xưng là khách: không gửi; gửi tới liên hệ trên đơn, hoặc mời làm thủ tục tại quầy. Đơn CTV: gửi khách, không gửi CTV."
-- Trạng thái: Resolved (BA, 06/11)
+- Trạng thái: Resolved (BA, 06/11) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: Sổ tay 2.9 bước 3 và `02` 17.3 bước 3: gửi tới số điện thoại (Zalo), email hoặc hội thoại OTA ghi trên đơn; người nhắn từ số hoặc tài khoản khác, dù xưng là khách: không gửi, gửi tới liên hệ trên đơn hoặc mời làm thủ tục tại quầy; đơn CTV gửi khách, không gửi CTV. `02` 16.2: thêm "không gửi tới số hay tài khoản không ghi trên đơn, kể cả người xưng là khách".
 
 ### FB-R5-SEC-BA-09
@@ -231,7 +231,7 @@ Thêm:
 - Vấn đề: câu "đơn giữ chỗ cũng hiện nút **Tạo link check-in online**, Desk luôn từ chối (dự kiến sửa ở v1.0.5)" đã sai từ v1.0.4. BUG-R3-047 đã sửa ở `5539b7e6`: đơn giữ chỗ không còn nút này (release notes v1.0.4; plan R5 mục 8 ý 8). PO phát hiện. ORC đã giao BA sửa.
 - Vì sao quan trọng: không có tác động bảo mật, vì luật "chỉ đơn đã xác nhận" vẫn đúng, máy chủ vẫn từ chối. Ghi lại để ĐK-5 khép đúng sự thật.
 - Đề xuất sửa: thay bằng "Đơn giữ chỗ không có nút link: xác nhận cọc trước." Giữ nguyên luật chỉ đơn đã xác nhận.
-- Trạng thái: Resolved (BA, 06/11, `64025107`)
+- Trạng thái: Resolved (BA, 06/11, `64025107`) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: Sửa ở sổ tay 2.4, 2.9 (khung đầu, bước 1, chú thích nguồn), bỏ dòng ở 5.6, đính chính ở 5.7; `02` 4.5, 17.3; `05` 4.2 (Sale/CTV không thấy mục link: Desk chỉ hiện cho lễ tân trở lên, `FD_PLUS`); `00` mục 7. Chữ theo release notes v1.0.4 và Tờ 1: "Đơn giữ chỗ không có mục Link check-in online: xác nhận cọc trước." Báo cáo BA mục 1: gạch câu sai, ghi đính chính.
 
 ### FB-R5-SEC-BA-10
@@ -243,7 +243,7 @@ Thêm:
 - Đề xuất sửa:
   - "Đội bảo mật đã kiểm trang khách (06/11); còn kiểm lượt đồng ý thật đầu tiên."
   - Thêm vào ý dừng: "Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi."
-- Trạng thái: Resolved (BA, 06/11)
+- Trạng thái: Resolved (BA, 06/11) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: Sổ tay 2.9 khung đầu: "Đội bảo mật đã kiểm trang khách (06/11); còn kiểm lượt đồng ý thật đầu tiên." Câu dừng ở sổ tay 2.9, `01` 15.4, `02` 17.3 thêm "Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi."
 
 ### FB-R5-SEC-BA-11
@@ -251,8 +251,75 @@ Thêm:
 - Vị trí: `so-van-hanh.md` 5.4 dòng 323, ý (c).
 - Vấn đề: FileVault trên Mac của INV đã được xác nhận ngày 27/10 (decision-log). Câu hỏi lặp lại nguyên văn câu B4 (c) của SEC.
 - Đề xuất sửa: "(c) FileVault trên Mac vẫn bật (đã xác nhận 27/10)". INV chỉ cần trả lời "vẫn bật". Bớt một câu phải nghĩ trong danh sách vốn đã dài.
-- Trạng thái: Resolved (BA, 06/11)
+- Trạng thái: Resolved (BA, 06/11) → **Closed – SEC đọc lại lượt 4, 06/11** (mục 2a)
 - Phản hồi BA: 5.4 ý (c): "FileVault trên Mac vẫn bật (đã xác nhận 27/10)".
+
+### 2a. Đọc lại lượt 4 – thẻ BA (commit `e4a55b64`, `64025107`)
+
+Round 5 · bước **Review**, lượt 4 · SEC · 06/11/2026 (khuya).
+- SEC đọc trên `main` mới nhất, sau khi PR #69 gộp (`cd438a92`) và `575ca45e`. Lúc đọc, các tệp đích không có thay đổi nào chưa commit.
+- Đối chiếu thêm:
+  - decision-log, dòng "ORC – kiểm chỉ đọc Time Machine/iCloud" (`fa596477`);
+  - OPS `c224f0e8` (V5-62, lượt sao lưu hai lúc 15:00) và dòng V5-62 trong `rounds/round-05/plan.md`;
+  - `pull-backups.sh` dòng 17–19 (mã thoát).
+
+| Thẻ | Kết quả | Bằng chứng |
+|---|---|---|
+| BA-01 (Major) | **Closed** | Đủ ý 1–5 của thẻ, cùng câu với Tờ 1, ở cả ba chỗ: sổ tay 2.9 bước 6 (dòng 1020–1026), `02` 17.3 bước 5 (dòng 1642–1648), `01` 14.1 (dòng 874). Thêm: câu "vì sao", và "không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị". `02` 20.3 bài tập 8 (dòng 1805) có "nói được việc phải làm khi gửi nhầm người" |
+| BA-02 (Major) | **Closed** | 1.1a dòng 51–56: câu 35 ngày chỉ nói về thư mục sao lưu. Gạch "Giữ đúng lời hứa 35 ngày" áp cho mọi bản trên Mac, ghi đúng kết quả ORC kiểm chỉ đọc: chưa có ổ Time Machine nên chưa có bản chép; thư mục chưa được loại; iCloud không đồng bộ. Đổi máy chỉ khi INV đồng ý. Kiểm lại mỗi lần kéo. 5.4 dòng 335 tách câu đồng ý loại khỏi Time Machine, cho đồng ý sớm qua chat. Sổ không ghi đường dẫn thư mục. Không cần nhánh "bỏ bản Time Machine cũ" vì chưa có bản nào |
+| BA-03 | **Closed** | 1.1a dòng 50: giờ chạy, mã thoát, số tệp, bản mới nhất, dòng "server copy changed". Dòng 51: "từ lần kéo 08/11". Dòng 57: "kết thúc với mã 3", "khác bản đã có trên Mac". Dòng 61–62: mã 2 và mã 1 tách riêng, khớp script dòng 17–19 |
+| BA-04 | **Closed** | 1.1a dòng 58–60: ba ý (a), (b), (c). 3.4 dòng 227: nghi xâm nhập thì không làm bước 2–5 |
+| BA-05 | ~~Open~~ **Closed** (ORC grep, sổ vận hành 1.4 `16eaa635`) | "15:00" ở 2.1a dòng 151 và 2.2 dòng 163; "36 giờ" ở 2.1a dòng 152 và 5.4 dòng 337; dòng "Máy chủ mất hẳn" có khoảng 64 giờ (hiện nay), khoảng 60 giờ kéo tay / 36 giờ tự kéo (v1.0.5). Không còn "14:00" cho sao lưu. ~~Sổ vận hành còn ghi "14:00" ở 2.1a dòng 151 và 2.2 dòng 163. Dòng "Máy chủ mất hẳn" chưa có con số~~ |
+| BA-06 | **Closed** | 2.2 dòng 162: lượt lỗi báo ngay, mã 3 là P0, 48 giờ là ngưỡng im lặng |
+| BA-07 | **Closed** | Đủ cả 4 ý, kể cả phần tùy chọn. Sổ vận hành 7.2: thành viên, điện thoại cài theo `01` 12.1, không webhook khác, đọc 2.3 bước 6. `01` 17.1 dòng 990. Bước 5 khối người nghỉ: `01` 1.9 dòng 261, sổ tay 1.5 dòng 413. `02` 13.5 mới (dòng 1415) khớp 2.3 bước 6 |
+| BA-08 | **Closed** | Sổ tay 2.9 bước 3, `02` 17.3 bước 3: gửi tới liên hệ ghi trên đơn; người xưng là khách từ số khác thì không gửi; đơn CTV gửi khách. `02` 16.2: không gửi tới số hay tài khoản không ghi trên đơn |
+| BA-09 | **Closed** | Grep các tệp md trong `product/docs/manual/`: không còn câu "đơn giữ chỗ hiện nút link, Desk luôn từ chối". Sổ tay 2.4 dòng 810, 2.9, `02` 4.5 dòng 318, 17.3, `05` dòng 350 đều ghi giữ chỗ không có mục link, xác nhận cọc trước. Báo cáo BA dòng 89 gạch câu sai và ghi đính chính |
+| BA-10 | **Closed** | Sổ tay 2.9 khung đầu: "còn kiểm lượt đồng ý thật đầu tiên". Câu "Link đã gửi: đội báo có cần thu hồi không…" có ở 2.9, `01` 15.4, `02` 17.3 |
+| BA-11 | **Closed** | 5.4 dòng 334 ý (c) |
+
+**BA-05 – chữ đề xuất** (BA sửa, hạn trước 20/11):
+- 2.1a, dòng "máy chủ vẫn còn", cột "Từ v1.0.5": "Tới **12 giờ**: thêm lượt sao lưu lúc **15:00**".
+- 2.1a, dòng "Máy chủ mất hẳn":
+  - cột "Hiện nay", thêm: "Kéo đúng nhịp 2 ngày: mất tới khoảng **64 giờ** (gần 3 ngày); kéo trễ thì hơn."
+  - cột "Từ v1.0.5": "Khoảng **60 giờ** khi vẫn kéo tay; khoảng **36 giờ** khi Mac tự kéo hằng ngày (mục 2.2)."
+- 2.2, dòng "Lượt sao lưu thứ hai": "thêm lượt **15:00**, mất tối đa 12 giờ".
+- 5.4, dòng "Xác nhận": "mất tối đa **12 giờ** từ v1.0.5 khi máy chủ còn; khi máy chủ mất hẳn: khoảng 60 giờ nếu kéo tay, khoảng 36 giờ nếu Mac tự kéo hằng ngày".
+- Vì sao cột "Hiện nay" ghi 64 giờ, không phải 60:
+  - hôm nay máy chủ chỉ có lượt 03:00, nên lần kéo khoảng 19:00 lấy về bản 03:00 cùng ngày;
+  - ngay trước lần kéo sau, phần mất là 2 ngày 16 giờ;
+  - con số 60 giờ của OPS đúng cho lúc đã có lượt 15:00.
+  OPS thấy khác thì OPS sửa, BA ghi theo số của OPS.
+- BA dùng đúng các số trên thì SEC không cần đọc lại. ORC grep để đóng thẻ:
+  - "15:00" ở 2.1a và 2.2;
+  - "36 giờ" ở 2.1a và 5.4.
+
+**Ghi nhận ngoài thẻ (không mở lại thẻ nào):**
+- `02` 17.3 bước 5 trỏ "quản lý **Xóa ảnh** (mục 8.3)". Trong tệp `02`, **Xóa ảnh** nằm ở 8.1 ý 8; mục 8.3 có **Gắn người**. Nên ghi "mục 8.1, 8.3". BA sửa khi tiện.
+- Bản HTML trên máy còn là bản 04/11:
+  - các tệp `product/docs/manual/ottimo-manual-v1.0.html` và `guides/html/*.html` nằm ngoài repo theo `.gitignore`, nên không tính vào ĐK-5;
+  - bản này vẫn ghi check-in online "tạm dừng" và cách "lỡ gửi link" cũ;
+  - phải dựng lại trước khi phát cho nhân viên hay in (mục 4).
+- Một số câu về cọc sau hạn đã cũ từ v1.0.4:
+  - câu "sau hạn Desk từ chối **Xác nhận đã nhận cọc**, kể cả khi tiền về trước hạn" còn ở sổ tay 2.4 (dòng 803, 820, 832) và `02` 4.5, 17.1 (dòng 311, 1556, 1592);
+  - đây là việc V5-71 (viết lại 2.4), không thuộc BA-09;
+  - câu cũ lệch về phía an toàn: người trực không xác nhận thêm tiền;
+  - `05` dòng 212 vẫn đúng cho sale và CTV, vì máy chủ vẫn chặn họ sau hạn.
+- Kiểm lộ thông tin trong phần thêm của `e4a55b64` và `64025107`:
+  - 0 IP, 0 bí mật, 0 số điện thoại, 0 dữ liệu khách, 0 tên đăng nhập của INV;
+  - email chỉ có `info@ottimo.vn`;
+  - sổ vận hành không ghi đường dẫn thư mục sao lưu.
+- Grep ĐK-5 (`tạm dừng\|chưa gửi link`) trên các tệp md: vẫn 6 dòng, đều đúng như lượt 1.
+
+**Kết luận chung mới (lượt 4):**
+- **ĐK-4, sổ vận hành 1.3: DUYỆT.**
+  - Không còn thẻ Blocker hay Major mở.
+  - BA-05 (Minor) còn mở, hạn trước 20/11. Lý do hạn: INV xác nhận con số ở buổi đó.
+- **ĐK-5 / V5-08, sổ tay và bộ hướng dẫn: DUYỆT.** Mọi thẻ đã Closed.
+- **Tờ dán quầy:** Tờ 1 và Tờ 2a được in, xét về bảo mật và tiền. Phần giữ chỗ của Tờ 2a do DOM quyết.
+
+Dòng decision-log đề xuất (lượt 4):
+
+`| 2026-11-06 | 5 | SEC – đọc lại thẻ BA (e4a55b64, 64025107, đọc trên main sau PR #69; rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md mục 2a): ĐK-4 sổ vận hành 1.3 DUYỆT, ĐK-5 sổ tay + hướng dẫn DUYỆT. Closed: BA-01 (gửi nhầm link: thu hồi, link mới, ghi sổ giao ca, báo chủ đầu tư trong ngày, ở sổ tay 2.9, 02 17.3, 01 14.1), BA-02 (Time Machine: chưa có ổ nên chưa có bản chép; loại thư mục khi INV đồng ý), BA-03, 04, 06–11. Còn BA-05 (Minor, hạn 20/11): OPS chọn lượt hai 15:00 (12 giờ); BA đổi 14:00 → 15:00 và ghi máy chủ mất hẳn khoảng 64 giờ hiện nay, khoảng 60 giờ kéo tay / 36 giờ tự kéo từ v1.0.5. Dựng lại HTML sổ tay trước khi phát cho nhân viên | SEC | Quyền SEC (yêu cầu bảo mật, dữ liệu cá nhân) |`
 
 ---
 
@@ -370,14 +437,14 @@ Round 5 · bước **Review**, lượt 3 · SEC · 06/11/2026 (tối). PO đổi
 - Đề xuất sửa:
   - Tờ 1, sau "…tài khoản của OTTIMO", thêm "(ảnh chụp, SMS khách gửi không tính)". Khoảng 7 chữ.
   - Tờ 2a: "ô **Giờ nhận tiền** ghi đúng giờ trên tin báo tiền vào, không sớm hơn, không sau bây giờ." Hiện người trực biết giờ này qua chủ đầu tư (sổ tay 2.13, chờ ESC-039).
-- Trạng thái: **Fixed** – PO 06/11 khuya, cùng commit, trước khi in. Tờ 1 dòng Cọc thêm "(ảnh chụp, SMS khách gửi không tính)". Tờ 2a: "ô **Giờ nhận tiền** ghi đúng giờ trên tin báo tiền vào, không sớm hơn, không sau bây giờ." (Câu cũ của trạng thái: Không chặn in. PO thêm trước khi in thì tốt hơn. In rồi thì sửa ở lần in sau. Không cần SEC đọc lại.)
+- Trạng thái: **Fixed** – PO 06/11 khuya, cùng commit, trước khi in. Tờ 1 dòng Cọc thêm "(ảnh chụp, SMS khách gửi không tính)". Tờ 2a: "ô **Giờ nhận tiền** ghi đúng giờ trên tin báo tiền vào, không sớm hơn, không sau bây giờ." (Câu cũ của trạng thái: Không chặn in. PO thêm trước khi in thì tốt hơn. In rồi thì sửa ở lần in sau. Không cần SEC đọc lại.) → **Closed – SEC đọc lại lượt 4, 06/11** (Tờ 1 dòng 41, Tờ 2a dòng 90, chú thích dòng 78)
 
 ##### FB-R5-SEC-PO-06
 - Mức độ: Suggestion
 - Vị trí: Tờ 1 dòng 41 "(có cọc: xem Tờ 2a)"; chú thích đầu Tờ 2a (điều kiện gỡ tờ).
 - Vấn đề: Tờ 2a là tờ tạm. Khi gỡ Tờ 2a, Tờ 1 vẫn chỉ tới một tờ không còn. Người trực sẽ đọc "bấm trước giờ hạn" thành luật cứng, không thu nốt cọc sau hạn. Lệch này về phía an toàn, không phải lỗ hổng, nhưng giữ chỗ có cọc sẽ bị treo.
 - Đề xuất sửa: thêm vào chú thích đầu Tờ 2a: "Gỡ tờ này thì sửa Tờ 1 dòng Cọc: 'xem Tờ 2a' → 'xem sổ tay 2.4'." Chữ in không đổi.
-- Trạng thái: **Fixed** – PO 06/11 khuya, cùng commit. Chú thích đầu Tờ 2a thêm: "Gỡ tờ này thì sửa Tờ 1 dòng Cọc: 'xem Tờ 2a' → 'xem sổ tay 2.4'." Chữ in không đổi
+- Trạng thái: **Fixed** – PO 06/11 khuya, cùng commit. Chú thích đầu Tờ 2a thêm: "Gỡ tờ này thì sửa Tờ 1 dòng Cọc: 'xem Tờ 2a' → 'xem sổ tay 2.4'." Chữ in không đổi → **Closed – SEC đọc lại lượt 4, 06/11** (Tờ 1 dòng 41, Tờ 2a dòng 90, chú thích dòng 78)
 
 **Kết luận lượt 3:**
 - **Tờ 1: vẫn được in.**
@@ -402,22 +469,23 @@ Dòng decision-log đề xuất (lượt 3):
 
 | Việc | Vai | Hạn | Liên quan |
 |---|---|---|---|
-| Lần kéo 08/11: kiểm Time Machine, iCloud (chỉ đọc), xin INV đồng ý trước khi loại thư mục khỏi Time Machine, ghi có/không vào decision-log. Ghi thêm mã thoát và giờ chạy như ĐK-3 | ORC | 08/11 | BA-02, BA-03 |
-| Chọn giờ lượt dump hai (15:00, hoặc 14:00 và ghi 13 giờ). Cho con số mất dữ liệu khi máy chủ mất hẳn | OPS (+ ARC) | Trước 20/11 | BA-05 |
+| Lần kéo 08/11: kiểm Time Machine, iCloud (chỉ đọc), xin INV đồng ý trước khi loại thư mục khỏi Time Machine, ghi có/không vào decision-log. Ghi thêm mã thoát và giờ chạy như ĐK-3. **Lượt 4:** ORC đã kiểm chỉ đọc ngày 06/11 (`fa596477`); từ 08/11 kiểm lại mỗi lần kéo | ORC | 08/11 | BA-02, BA-03 |
+| ~~Chọn giờ lượt dump hai (15:00, hoặc 14:00 và ghi 13 giờ). Cho con số mất dữ liệu khi máy chủ mất hẳn~~ **Xong** – OPS chọn 15:00 (`c224f0e8`). Còn: OPS xem con số "hiện nay" khoảng 64 giờ ở mục 2a, BA-05 | OPS (+ ARC) | Trước 20/11 | BA-05 |
 | V5-60: thông báo ngay khi lượt tự kéo lỗi, im lặng 48 giờ, mã 3 là P0 | OPS | Cùng V5-60 | BA-06 |
-| Cách bỏ bản Time Machine cũ nếu có, INV tự xóa | OPS + SEC | Trước khi bản cũ nhất quá 35 ngày | BA-02 |
+| ~~Cách bỏ bản Time Machine cũ nếu có, INV tự xóa~~ **Không cần** – Mac chưa có ổ Time Machine nào (ORC kiểm 06/11) | OPS + SEC | – | BA-02 |
+| **Lượt 4:** dựng lại bản HTML của sổ tay và bộ hướng dẫn (`product/docs/manual/ottimo-manual-v1.0.html`, `guides/html/*.html`, nằm ngoài repo theo `.gitignore`) từ bản md hiện tại, trước khi đưa cho nhân viên hay in. Bản trên máy là bản 04/11, vẫn ghi check-in online "tạm dừng" và cách "lỡ gửi link" cũ | BA (ORC nhắc) | Trước khi phát cho nhân viên | BA-01, BA-09 |
 
 ## 5. Việc SEC tự nhận
 
-1. **Runbook sự cố dữ liệu SR-INC-01 chưa có** (phát hiện → khoanh vùng → đánh giá → 72 giờ → báo chủ thể). SEC + OPS viết một trang, kèm nhánh "server copy changed" và nhánh "gửi nhầm link". Đề xuất ORC xếp mã V5 (Minor). Tới khi có, BA-04 là lớp tạm ở sổ vận hành.
-2. Sửa SR-BAK-01 theo con số OPS chốt (12 hoặc 13 giờ) khi V5-62 lên. Ghi rõ dòng "máy chủ mất hẳn" theo nhịp kéo.
+1. **Runbook sự cố dữ liệu SR-INC-01 chưa có** (phát hiện → khoanh vùng → đánh giá → 72 giờ → báo chủ thể). SEC + OPS viết một trang, kèm nhánh "server copy changed" và nhánh "gửi nhầm link". Đề xuất ORC xếp mã V5 (Minor). Tới khi có, BA-04 là lớp tạm ở sổ vận hành. **Nay là V5-74, hạn 14/11.**
+2. Sửa SR-BAK-01 theo con số OPS chốt (~~12 hoặc 13 giờ~~ **12 giờ, lượt hai 15:00**) khi V5-62 lên. Ghi rõ dòng "máy chủ mất hẳn" theo nhịp kéo.
 3. Sửa phạm vi OR-02 điểm 3 trong hồ sơ SEC: loại khỏi Time Machine, iCloud áp cho **mọi** bản trên Mac từ 26/10, không chỉ lượt tự động.
 4. N6 / K11 (d): SEC chạy sau lượt đồng ý thật đầu tiên, chỉ số đếm. Lệch thì báo dừng theo sổ tay 2.9.
 5. Trả lời "gửi nhầm" cho đội trong ngày khi INV báo qua `/feedback` (BA-01 ý 5).
 
 ## 6. Giả định SEC dùng
 
-- [GIẢ ĐỊNH] Chưa biết Mac của INV có bật Time Machine không. BA-02 viết theo trường hợp xấu. Không bật thì thẻ chỉ còn sửa chữ.
+- ~~[GIẢ ĐỊNH] Chưa biết Mac của INV có bật Time Machine không. BA-02 viết theo trường hợp xấu. Không bật thì thẻ chỉ còn sửa chữ.~~ Đã rõ (ORC kiểm chỉ đọc 06/11): chưa có ổ Time Machine, thư mục chưa được loại. BA-02 đóng ở phần chữ.
 - Dữ liệu người nhận nhầm link thấy là mức 1, lấy theo mã `guest-portal.service.ts` ở `main` và ảnh C0-10. SEC không mở link nào.
 - Con số 64 giờ ở BA-05 là ước tính, theo giờ kéo khoảng 19:00 và lượt sao lưu 03:00. OPS chốt.
 

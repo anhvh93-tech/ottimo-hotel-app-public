@@ -1,7 +1,7 @@
 # Sổ vận hành OTTIMO – dành cho chủ đầu tư
 
 - Dành cho: chủ đầu tư (OWN). Quản lý (MGR) và lễ tân trưởng (FDL) đọc phần của mình ở mục 1.
-- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
+- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.5 (06/11/2026, Round 5: không lưu `weekend_nights`, `min_stay` tới khi v1.0.5 lên; con số "máy chủ mất hẳn" theo cùng một cách tính) · Bản 1.4 (06/11/2026, Round 5: lượt sao lưu thứ hai lúc 15:00, mức mất dữ liệu khi máy chủ mất hẳn) · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
 - Áp dụng từ: 06/11/2026. Hôm nay OTTIMO chạy thật đủ 4 trang: Desk, app nhân viên, trang khách, website 5 ngôn ngữ (form đặt phòng và giá ước tính đã bật).
 - Cách dùng: in mục 1 dán cạnh bàn làm việc. Đánh dấu ô `[ ]` khi xong. Mục 3 mở ra khi có sự cố.
 - Đọc cùng: sổ tay sử dụng `product/docs/manual/user-manual-v1.0.md`, từ điển tham số `product/docs/tham-so-quy-tac.md`, bộ hướng dẫn theo vai `product/docs/manual/guides/`.
@@ -148,8 +148,8 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 
 | Sự cố | Hiện nay | Từ v1.0.5 |
 |---|---|---|
-| Dữ liệu hỏng hoặc bị xóa nhầm, máy chủ vẫn còn | Tới **24 giờ**: máy chủ sao lưu mỗi đêm một lượt | Tới **12 giờ**: thêm lượt sao lưu lúc 14:00 |
-| Máy chủ mất hẳn (hỏng đĩa, nhà cung cấp khóa tài khoản, bị chiếm quyền) | Chỉ còn bản trên Mac. Mất phần dữ liệu sau bản mới nhất có trên Mac. Vì vậy kéo đúng nhịp mục 1.1a | Như cột bên trái, tới khi Mac tự kéo hằng ngày (mục 2.2) |
+| Dữ liệu hỏng hoặc bị xóa nhầm, máy chủ vẫn còn | Tới **24 giờ**: máy chủ sao lưu mỗi đêm một lượt | Tới **12 giờ**: thêm lượt sao lưu lúc **15:00** |
+| Máy chủ mất hẳn (hỏng đĩa, nhà cung cấp khóa tài khoản, bị chiếm quyền) | Chỉ còn bản trên Mac. Mất phần dữ liệu sau bản mới nhất có trên Mac. Vì vậy kéo đúng nhịp mục 1.1a. Kéo đúng nhịp 2 ngày: mất tới **72 giờ** (thường khoảng **64 giờ**, khi kéo lúc khoảng 19:00); kéo trễ thì cộng thêm đúng số giờ trễ. | Tới **60 giờ** (thường khoảng **52 giờ**) khi vẫn kéo tay; tới khoảng **36 giờ** khi Mac tự kéo hằng ngày (mục 2.2). |
 
 - Con số "mất tối đa 15 phút" ghi từ trước chưa đúng: máy chủ chưa có cách sao lưu liên tục.
 - Anh/chị xác nhận mức **12 giờ** ở buổi review 20/11 (mục 5.4). Muốn dưới 12 giờ thì cần máy chủ phụ, có chi phí. Đội sẽ trình phương án riêng khi anh/chị muốn.
@@ -160,7 +160,7 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 | Việc | Hiện nay làm thế nào | Đề xuất |
 |---|---|---|
 | Bản sao lưu ngoài máy chủ tự kéo về theo lịch | Đội kéo tay về Mac **ít nhất 2 ngày một lần**, vào ngày anh/chị cho phép (mục 1.1a) | chưa có – đề xuất v1.0.5: Mac của anh/chị tự kéo hằng ngày, chỉ cài khi anh/chị đồng ý (mục 5.4). Lượt tự kéo lỗi thì có email báo ngay về `info@ottimo.vn`; lỗi "server copy changed" là P0 như mục 1.1a. Quá **48 giờ** không có lượt kéo nào thành công (ví dụ Mac tắt) cũng có email |
-| Lượt sao lưu thứ hai trong ngày | Mỗi đêm một lượt, mất tối đa 24 giờ (mục 2.1a) | chưa có – đề xuất v1.0.5: thêm lượt 14:00, mất tối đa 12 giờ |
+| Lượt sao lưu thứ hai trong ngày | Mỗi đêm một lượt, mất tối đa 24 giờ (mục 2.1a) | chưa có – đề xuất v1.0.5: thêm lượt **15:00**, mất tối đa 12 giờ |
 | Tự báo khi tin Google Chat không gửi được ("chat dead") | Đội kiểm bằng lệnh khi có việc. Lễ tân luôn xem Desk nên không sót yêu cầu | chưa có – đề xuất v1.0.5: thêm vào lượt kiểm 30 phút |
 | Nhắc hạn tên miền, máy chủ, Google Workspace | Anh/chị tự nhớ (mục 1.4) | chưa có – đề xuất v1.0.5: nhắc trước 30 ngày vào phòng Báo động |
 | Nhắc diễn tập khôi phục sao lưu | Đội diễn tập ít nhất mỗi round, cần anh/chị khoảng 30 phút mở khóa giải mã. Lần gần nhất 29/10/2026; lần tới chậm nhất 20/11/2026 (mục 1.4) | chưa có – đề xuất v1.0.5: quá **35 ngày** chưa diễn tập thì phòng Báo động nhận tin **FAIL**. Biên bản trình ở buổi review, chỉ có số đếm |
@@ -186,7 +186,7 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 
 | Mức | Khi nào | Ví dụ |
 |---|---|---|
-| **P0 – báo ngay** | Khách không đặt được | Form trên ottimo.vn báo lỗi với mọi khách; Desk không tạo được đơn, giữ chỗ |
+| **P0 – báo ngay** | Khách không đặt được | Form trên ottimo.vn báo lỗi với mọi khách; Desk không tạo được đơn, giữ chỗ; mọi báo giá trên Desk báo lỗi |
 | | Hệ thống sập | Desk, app nhân viên, trang khách hoặc website không mở được trên 4G |
 | | Không làm được việc chính ở quầy | Không nhận phòng, trả phòng, thu tiền được |
 | | **Sai tiền** | Báo giá, folio, cọc, hoàn sai; giá web khác giá Desk khi thử cùng ca, cùng lúc; mã VietQR ra tên chủ tài khoản sai |
@@ -204,6 +204,7 @@ Không chắc: coi là P0.
 | Desk không mở cả trên 4G | Sổ giấy + danh sách khách đến/đi chép lúc 22:00 (sổ tay mục 0.9). Chưa xem được phòng trống thì không nhận đơn mới: ghi số, hẹn gọi lại. Có lại thì nhập bù trong 24 giờ | Lễ tân trưởng → quản lý → OWN gõ `/feedback P0` |
 | Form web lỗi, hoặc web gửi yêu cầu sai | OWN tắt form: **Tham số quy tắc** → `public_booking_requests_enabled` = false. Khách liên hệ qua Zalo hoặc điện thoại như trước khi có form | OWN gõ `/feedback P0` |
 | Giá web sai | OWN tắt giá web: `public_show_prices` = false. Lâu nhất khoảng 2 phút là web hết hiện giá. Phòng Báo động sẽ nhận một tin công tắc – đúng thiết kế. Báo giá Desk vẫn là giá cuối | OWN gõ `/feedback P0` |
+| Lỡ bấm **Lưu thay đổi** ở `weekend_nights` hoặc `min_stay` (tới khi v1.0.5 lên), hoặc mọi báo giá trên Desk báo lỗi | Không lưu lại khi đội chưa hướng dẫn. Ghi sổ giấy đơn, báo giá chưa làm được; nhập bù khi Desk chạy lại | OWN gõ `/feedback P0` ngay: tên dòng tham số, giờ lưu, **Hiệu lực từ**. P0 vì báo giá có thể dừng tới hết ngày, không gỡ được trên Desk (mục 4.1) |
 | Số tiền trên Desk lạ | Không thu thêm, không hoàn khi chưa rõ. Ghi mã đơn và số Desk hiện vào sổ giao ca | Lễ tân trưởng → quản lý → OWN gõ `/feedback P0` |
 | Mã VietQR hiện "Tài khoản nhận vừa đổi" mà chưa nghe OWN báo, hoặc tên chủ tài khoản sai | Chưa cho khách chuyển. Mời trả tiền mặt hoặc thẻ | Gọi OWN ngay. OWN làm hướng dẫn `01` mục 10.2 rồi gõ `/feedback P0` |
 | Nghi lộ mật khẩu, tài khoản lạ đăng nhập | OWN **Đặt lại mật khẩu** người đó (đăng xuất mọi máy) hoặc **Khóa tài khoản** | OWN gõ `/feedback P0` |
@@ -245,12 +246,14 @@ Mục tiêu: xong trong ngày.
 
 Anh/chị tự làm được, không cần báo đội:
 - Giá đêm, giá tháng từng căn: **Quản trị → Danh mục căn → Sửa**.
-- Tham số giá: cuối tuần, ngày đặc biệt, giảm theo số đêm, phụ thu người, cọc.
+- Tham số giá: cuối tuần, ngày đặc biệt, giảm theo số đêm, phụ thu người, cọc. Trừ `weekend_nights` và `min_stay` tới khi v1.0.5 lên (khung dưới).
 - Danh sách ngày đặc biệt, giờ nhận/trả, hạn giữ chỗ.
 - Hai công tắc web: form đặt phòng (`public_booking_requests_enabled`), hiện giá (`public_show_prices`). Tắt được ngay trong ngày.
 - Ngày cuối web hiện giá (`web_estimate.open_until`).
 - Danh mục minibar, người dùng và vai, máy quầy được cấp.
 - Tài khoản nhận VietQR: chỉ OWN, nhập lại mật khẩu và mã 2 bước, có hiệu lực từ hôm sau.
+
+> **Lỗi đang sửa – hai tham số (sửa ở v1.0.5):** **Tới khi v1.0.5 lên**, không bấm **Lưu thay đổi** ở hai dòng `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**), nhóm **Khác**: Desk v1.0.4 nhận cả giá trị sai dạng, lưu sai thì Desk không nhận ra đêm cuối tuần, hoặc mọi báo giá và đơn trực tiếp mới báo lỗi, không gỡ được trong ngày (BUG-R5-001, BUG-R5-003). Buộc phải đổi: nhắn đội trước, chọn **Hiệu lực từ** từ ngày mai để còn **Hủy lịch** được. Lỡ lưu: báo đội ngay, coi là **P0** (chủ đầu tư gõ `/feedback P0`, quản lý gọi chủ đầu tư).
 
 **Các bước (mỗi lần sửa):**
 - [ ] 1. Đọc mục của tham số trong từ điển `product/docs/tham-so-quy-tac.md`: ý nghĩa, giới hạn, tham số đi kèm, mức đội đề xuất.
@@ -264,7 +267,7 @@ Anh/chị tự làm được, không cần báo đội:
 
 **Lưu ý:**
 - Đã lưu thì **trong ngày không sửa lại được**. Lỡ sai: lưu lại với **Hiệu lực từ = ngày mai**, hoặc **Hủy lịch** dòng chưa tới ngày. Giá sai đang hiện trên web: tắt `public_show_prices` trước.
-- Một số tham số phải đổi cùng nhau (ví dụ cuối tuần với ở tối thiểu, giá căn với giá OTA nền). Xem "Các cặp phải đổi cùng nhau" trong từ điển.
+- Một số tham số phải đổi cùng nhau (ví dụ mức tăng cuối tuần với đêm tính là cuối tuần, giá căn với giá OTA nền). Xem "Các cặp phải đổi cùng nhau" trong từ điển.
 - Đổi giá căn và tham số giá nên làm trong một lần. Làm lệch nhau thì Desk và web ra số lai.
 - Quản lý sửa được tham số vận hành. **Chỉ OWN** sửa hạn mức FOC, hoa hồng, VAT, lưu trữ dữ liệu, tham số bảo mật.
 - Tham số ghi **[Bảo mật]**: chỉ sửa khi đội khuyên. **[Chưa dùng]**, **[Đã bỏ]**: không cần sửa.
@@ -334,7 +337,7 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 - [ ] Trả lời **có hoặc không**, không gửi giá trị: (a) sao lưu tự động của nhà cung cấp máy chủ đang tắt, hoặc giữ tối đa 7 ngày; (b) bản ngoại tuyến của khóa dữ liệu và khóa giải mã sao lưu vẫn còn, anh/chị mở được; (c) FileVault trên Mac vẫn bật (đã xác nhận 27/10).
 - [ ] **Đồng ý hay không** cho đội loại thư mục sao lưu trên Mac khỏi Time Machine (mục 1.1a). Chỉ đổi danh sách loại trừ của Time Machine, không xóa gì. Đồng ý sớm hơn thì nhắn đội trong chat, không cần chờ buổi này.
 - [ ] **Đồng ý hay không** cho đội cài lịch tự kéo sao lưu hằng ngày về Mac của anh/chị (v1.0.5). Chưa đồng ý thì đội vẫn kéo tay theo mục 1.1a.
-- [ ] **Xác nhận** mức mất dữ liệu tối đa **12 giờ** từ v1.0.5, thay con số 15 phút ghi từ trước (mục 2.1a). Hiện mức thật là 24 giờ.
+- [ ] **Xác nhận** mức mất dữ liệu, thay con số 15 phút ghi từ trước (mục 2.1a): mất tối đa **12 giờ** từ v1.0.5 khi máy chủ còn; khi máy chủ mất hẳn: tới 60 giờ (thường khoảng 52 giờ) nếu kéo tay, tới khoảng 36 giờ nếu Mac tự kéo hằng ngày. Hiện mức thật là 24 giờ khi máy chủ còn, tới 72 giờ (thường khoảng 64 giờ) khi máy chủ mất hẳn.
 - [ ] Chọn **một người thứ hai** vào phòng "OTTIMO – Báo động" (mục 7.2). Không tốn tiền.
 - [ ] Chọn việc cho v1.0.5: ô nhập giá OTA nền trên Desk, các việc "chưa có" ở mục 2.2.
 
@@ -442,3 +445,5 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | 06/11/2026 | 1.1 | BA | Round 4 – Phản hồi & sửa. Mục 5.4: việc cần chốt ở buổi review 20/11 là giá 2027 và gia hạn `web_estimate.open_until`; chưa gia hạn thì từ 01/01/2027 web ghi "giá theo yêu cầu". Mục 7.4: bản HTML của sổ tay cần dựng lại |
 | 06/11/2026 | 1.2 | BA | Round 5 – Sản xuất (QC Round 4 ĐK-4). Mục 1.1a mới: kéo sao lưu về Mac ít nhất 2 ngày một lần vào ngày anh/chị cho phép; cách kéo mới không ghi đè bản trên Mac; "server copy changed" là P0 bảo mật. Mục 1.2, 5.3 ý 5, G2 theo nhịp này. Mục 1.3, 1.5, 2.3, 6, 7.2: phòng Báo động có thể thêm một người thứ hai. Mục 2.1a mới: mất dữ liệu tối đa 24 giờ, 12 giờ từ v1.0.5. Mục 2.2: báo kéo chậm sau 48 giờ, lượt sao lưu 14:00, nhắc diễn tập sau 35 ngày thay cho "hằng quý". Mục 1.4, 5.4: diễn tập chậm nhất 20/11 và các việc mang vào buổi review 20/11. Mục 3.1: thêm ví dụ P0 |
 | 06/11/2026 | 1.3 | BA | Round 5 – Phản hồi & sửa (review SEC `rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md`). Mục 1.1a: dòng báo lại có giờ chạy và mã thoát; cách kéo mới từ lần kéo 08/11; Time Machine, iCloud áp cho mọi bản trên Mac, ghi đúng kết quả kiểm chỉ đọc 06/11 (chưa có ổ Time Machine, thư mục chưa được loại, iCloud không đồng bộ); mã 3 = bản trên máy chủ khác bản trên Mac, không duyệt phát hành, có thể tạm tắt máy chủ, có thể phải báo trong 72 giờ; tách mã 1 với mã 2. Mục 3.4: nhánh nghi xâm nhập không làm bước 2–5. Mục 2.2: lượt tự kéo lỗi báo ngay, 48 giờ là ngưỡng im lặng. Mục 5.4: câu Time Machine tách khỏi câu lịch tự kéo; FileVault đã xác nhận 27/10. Mục 7.2: người thứ hai là thành viên, điện thoại cài theo `01` 12.1, không thêm webhook khác, đọc 2.3 bước 6. Chưa sửa: con số 12/13 giờ và dòng máy chủ mất hẳn ở 2.1a, 2.2, 5.4, chờ OPS chọn giờ lượt sao lưu thứ hai (FB-R5-SEC-BA-05) |
+| 06/11/2026 | 1.4 | BA | Round 5 – Phản hồi & sửa (SEC FB-R5-SEC-BA-05, chữ ở mục 2a của review; OPS `c224f0e8`, V5-62). Lượt sao lưu thứ hai lúc **15:00** (production 03:00 + 15:00): mục 2.1a, 2.2, 5.4. Mục 2.1a dòng "Máy chủ mất hẳn" có con số: hiện nay khoảng 64 giờ; từ v1.0.5 khoảng 60 giờ nếu kéo tay, khoảng 36 giờ nếu Mac tự kéo hằng ngày. Mục 5.4: câu xác nhận nêu cả hai kịch bản |
+| 06/11/2026 | 1.5 | BA | Round 5 – Phản hồi & sửa (BUG-R5-001, BUG-R5-003; OPS PR #93, `hosting-plan.md` mục 7 dòng RPO / RTO). **Áp dụng ngay, tới khi v1.0.5 lên:** mục 4.1 khung "Lỗi đang sửa – hai tham số" (không bấm **Lưu thay đổi** ở `weekend_nights`, `min_stay`; buộc phải đổi thì nhắn đội trước, **Hiệu lực từ** từ ngày mai để còn **Hủy lịch**; lỡ lưu thì báo đội, coi là P0) và câu "Trừ…" ở danh sách tự làm; mục 3.1 ví dụ P0 "mọi báo giá trên Desk báo lỗi"; mục 3.2 dòng "Lỡ bấm Lưu thay đổi…". Mục 4.1 ví dụ cặp tham số: "mức tăng cuối tuần với đêm tính là cuối tuần" thay "cuối tuần với ở tối thiểu" (theo từ điển 1.2: `weekend_nights` không ảnh hưởng ở tối thiểu). Mục 2.1a, 5.4: con số "máy chủ mất hẳn" theo cùng một cách – mức tối đa, kèm mức thường khi kéo lúc khoảng 19:00: hiện nay tới 72 giờ (thường khoảng 64 giờ); từ v1.0.5 kéo tay tới 60 giờ (thường khoảng 52 giờ); Mac tự kéo hằng ngày tới khoảng 36 giờ |

@@ -290,7 +290,23 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   2. `ops-check` thêm ngưỡng dưới: tuổi bản ghi cũ nhất < min(90 ngày, số ngày từ lúc đổi driver) − 1 → WARN "journal xoay sớm vì dung lượng".
   3. `ops-check` đếm dòng "Suppressed" của journald trong 24 giờ; > 0 thì WARN.
   4. Kiểm nhóm gồm `adm`, `systemd-journal` **và `docker`**.
-- Trạng thái: Open
+- Trạng thái: Closed phần mã (SEC đọc lại PR #93 @ `b1354a4f`, 06/11, `SEC-on-ops-prs-92-93-95.md` mục 3) – ý 2–4 Done; ý 1 Deferred tới 7 ngày sau W6 production (OPS). Có hiệu lực khi W6 + W7 ok. Chỗ hở WARN dính chuyển sang FB-R5-SEC-OPS-93-01
+- Phản hồi OPS: Làm trong PR #93 (nhánh `r5-ops`, commit `b1354a4f`), cùng với V5-63 (driver `journald`, `server/journald/50-ottimo.conf`).
+  1. `SystemMaxUse=4G` là số đầu (đĩa ≥ 40 GB, đang dùng 18 %). `SystemKeepFree=8G`. `ForwardToSyslog=no`, nên chỉ có một bản, một trần.
+     - Runbook v1.0.5 W6 bước 1 ghi `journalctl --disk-usage` làm mốc. Sau 7 ngày OPS đặt `SystemMaxUse` ≥ 3 lần lượng 90 ngày và ghi số vào `hosting-plan.md` mục 7 (đang để [GIẢ ĐỊNH]).
+     - Deferred, vì cần số đo thật sau khi đổi driver.
+  2. `ops-check journal` WARN khi bản ghi cũ nhất trẻ hơn min(90, số ngày từ `state/journald_since`) − 1. Bootstrap và W6 bước 2 ghi tệp ngày này.
+     - `notify` có thêm trạng thái WARN: ghi journal mức warning, gửi webhook một lần khi đổi trạng thái, không nhắc 6 giờ, lượt kiểm vẫn đạt, Healthchecks không báo fail.
+     - Thiếu `journald_since` cũng là WARN.
+  3. Đếm dòng `Suppressed …` của `systemd-journald` trong 24 giờ, > 0 thì WARN. `RateLimitBurst=20000`/30 s, vì mọi container chung nguồn `docker.service`.
+  4. Kiểm nhóm `adm`, `systemd-journal` và `docker`:
+     - tính cả thành viên theo nhóm chính (`/etc/passwd`);
+     - `adm` và `systemd-journal` chỉ cho `LOG_READER_USERS` (`.env`, mặc định `syslog ottimo-admin`); `docker` chỉ cho `ottimo`;
+     - tin chỉ có số người lạ, không in tên.
+  - Thêm (ngoài thẻ):
+    - FAIL khi có container chưa sang journald, khi không đọc được journal, khi bản ghi cũ nhất > 91 ngày, khi `/var/log/journal` không phải `root:systemd-journal` hoặc có tệp ai cũng đọc được.
+    - Đọc journal bằng `SupplementaryGroups=systemd-journal` trên unit ops-check. User `ottimo` không vào nhóm, nên phép kiểm nhóm ở ý 4 vẫn sạch.
+  - Test: `server/test/ops-check-journal.test.sh` 30 passed, 0 failed (trên mã `main`: 36 FAIL), có trong CI.
 
 ### FB-R5-SEC-ARC-08
 - Mức độ: Minor
@@ -308,7 +324,18 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   - service `postgres` thêm `command: ['postgres', '-c', 'log_error_verbosity=terse']`. `terse` bỏ DETAIL, HINT, QUERY, CONTEXT, vẫn giữ mã lỗi và câu lỗi;
   - giữ `log_parameter_max_length_on_error` = 0 (mặc định);
   - test trên DB thử ở CI: gây một vi phạm unique có email giả → dòng log Postgres không chứa email đó.
-- Trạng thái: Open
+- Trạng thái: Closed phần mã (SEC đọc lại PR #93 @ `b1354a4f`, 06/11). SEC quyết không bắt `log_min_error_statement=panic`, kèm FB-R5-SEC-OPS-93-03 và 95-05 (b) (`SEC-on-ops-prs-92-93-95.md` mục 1.1)
+- Phản hồi OPS: PR #93, commit `b1354a4f`. Service `postgres` có `command: ['postgres', '-c', 'log_error_verbosity=terse']`. `log_parameter_max_length_on_error` giữ mặc định 0.
+  - Test `server/test/postgres-log-terse.test.sh` (7 passed, 0 failed, có trong CI):
+    - dựng Postgres theo đúng image và `command` đọc từ compose;
+    - gây lỗi unique, CHECK, NOT NULL bằng tham số bind (extended protocol, như api);
+    - log có mã và câu lỗi, không có email, số điện thoại hay `DETAIL`;
+    - lượt đối chứng không có setting phải lộ email và "Failing row", nên test chứng minh được chỗ rò.
+  - Có hiệu lực khi container Postgres được dựng lại: runbook v1.0.5 W6 bước 4, kiểm `SHOW log_error_verbosity` = `terse`.
+  - Còn lại, nhờ SEC xét:
+    - (a) câu lỗi chính vẫn có thể chứa giá trị, ví dụ `invalid input syntax for type uuid: "…"`. Api kiểm đầu vào trước khi gửi DB, nên ca này hiếm.
+    - (b) dòng `STATEMENT` (`log_min_error_statement`, mặc định ERROR) in nguyên văn câu SQL. Với câu có tham số thì chỉ thấy `$1`. Câu SQL viết thẳng giá trị (psql tay) thì lộ. Runbook chỉ chạy câu đếm READ ONLY.
+    - Muốn chặn hẳn thì thêm `-c log_min_error_statement=panic`. Đánh đổi: mất câu SQL khi gỡ lỗi. OPS chưa thêm, chờ SEC quyết.
 
 ### FB-R5-SEC-ARC-09
 - Mức độ: Suggestion
@@ -316,7 +343,15 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
 - Vấn đề: ARC viết "03:30 + 15:30". `plan.md` V5-62 (OPS 06/11, PR #93) đã chốt production 03:00 + 15:00, staging 03:30 + 15:30, mỗi khoảng 12 giờ.
 - Vì sao quan trọng: câu RPO trình chủ đầu tư và SR-BAK-01 phải theo một nguồn.
 - Đề xuất sửa: sửa 1.14 và G7 theo dòng V5-62 của plan, hoặc trỏ sang đó. SEC sửa SR-BAK-01 khi bản lên, như ARC ghi.
-- Trạng thái: Open
+- Trạng thái: Open – phần xác nhận của OPS đã xong; chờ ARC sửa 1.14 và G7 trong `contract-0.3.13.md`
+- Phản hồi OPS (xác nhận theo repo, không SSH): đúng như SEC ghi.
+  - Production chạy `ottimo-backup@ottimo-prod.timer` (tệp `ottimo-backup@.timer`), lượt đầu 03:00. Staging chạy `ottimo-backup.timer`, lượt đầu 03:30. Nguồn:
+    - `bootstrap-vps.sh` mục 7: production bật `ottimo-backup@$stack.timer`, staging bật `ottimo-backup.timer`;
+    - OPS kiểm chỉ đọc 06/11 (`ops-readiness-06-11.md` dòng 27, 38–39): 4 timer bật, production chạy timer lúc 03:05, staging lúc 03:33;
+    - tệp `db-20261106T070832Z` trên Mac là bản chạy tay trước LP-v2, không phải lượt timer.
+  - Mỗi môi trường có đúng một timer sao lưu, không timer nào thừa.
+  - PR #93 đặt production 03:00 + 15:00, staging 03:30 + 15:30, mỗi khoảng 12 giờ. Mô tả PR #93 có mục "Lượt đầu là 03:00 hay 03:30?". Dòng V5-62 trong `plan.md` đã sửa (`c224f0e8`).
+  - 15:30 của ARC đúng cho staging, vì ARC tính từ tệp staging. Mục "Việc của OPS" ở 1.14 chỉ nêu `ottimo-backup.timer`, nên ARC thêm `ottimo-backup@.timer` (production) khi sửa 1.14.
 
 ### FB-R5-SEC-ARC-10
 - Mức độ: Suggestion

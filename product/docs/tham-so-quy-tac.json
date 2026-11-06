@@ -2777,18 +2777,19 @@
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Ở tối thiểu: đến vào những ngày này thì phải ở ít nhất bao nhiêu đêm.",
-  "unit": "Danh sách quy tắc {nights, channels, arrivalWeekdays (mã thứ như \"FRI\", \"SAT\") hoặc arrivalOnSpecialDates}",
-  "bounds": "Không có giới hạn số. Desk kiểm đúng dạng khi lưu.",
+  "unit": "Danh sách luật. Mỗi luật: {\"nights\": số đêm, \"channels\": \"all\" hoặc danh sách nhóm kênh, \"arrivalWeekdays\": danh sách mã thứ như \"FRI\", \"SAT\", và/hoặc \"arrivalOnSpecialDates\": true}",
+  "bounds": "Desk v1.0.4 chưa kiểm đúng dạng khi lưu (BUG-R5-003): cho lưu cả 2 hay {\"nights\":2}, rồi mọi báo giá và đơn trực tiếp mới báo lỗi – xem Lưu ý khi sửa. Từ v1.0.5 (V5-25) Desk chỉ nhận danh sách luật: nights từ 1 đến 7 và không quá short_stay_max_nights; channels là \"all\" hoặc danh sách trong \"direct\", \"agent\", \"ota\"; mỗi luật áp vào ít nhất một ngày; [] = không có ở tối thiểu (xem mục Sắp có ở v1.0.5).",
   "default": "Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).",
-  "example": "Đến thứ Sáu, quy tắc 2 đêm → báo giá 1 đêm bị chặn (\"chưa đủ số đêm tối thiểu\"); 2 đêm thứ Sáu + thứ Bảy Studio = 1.600.000.",
+  "example": "Giá trị đúng dạng: [{\"nights\":2,\"channels\":\"all\",\"arrivalWeekdays\":[\"FRI\",\"SAT\"]},{\"nights\":2,\"channels\":\"all\",\"arrivalOnSpecialDates\":true}]. Đến thứ Sáu, quy tắc 2 đêm → báo giá 1 đêm bị chặn (\"chưa đủ số đêm tối thiểu\"); 2 đêm thứ Sáu + thứ Bảy Studio = 1.600.000. Sai: 2 hoặc {\"nights\":2} – Desk v1.0.4 cho lưu, rồi báo giá lỗi.",
   "affects": "Báo giá Desk, form web, đơn mới.",
   "related": [
    "special_dates",
-   "min_stay_orphan_night_exception"
+   "min_stay_orphan_night_exception",
+   "short_stay_max_nights"
   ],
   "recommended": "2 đêm khi ngày đến là thứ Sáu, thứ Bảy hoặc ngày đặc biệt; mọi kênh.",
   "recommended_reason": "INV quyết ESC-004 (BR-113).",
-  "caution": "Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Trên OTA phải cài cùng quy tắc bằng tay (chưa có channel manager). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
+  "caution": "Tới khi v1.0.5 lên, không bấm Lưu thay đổi ở dòng này (cùng weekend_nights). Buộc phải đổi thì nhắn đội trước, chọn Hiệu lực từ là ngày mai để còn Hủy lịch; giữ nguyên dạng danh sách, chỉ đổi số nights hoặc mã thứ. Lỡ lưu thì báo đội ngay, coi là P0: mọi báo giá, đơn trực tiếp mới (và giá ước tính trên web) báo lỗi tới 06:00 hôm sau, khi đội đã lưu lại giá trị đúng cho ngày mai (BUG-R5-003). Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi tới ngày hiệu lực, báo giá thử một ca trên Desk (không lưu báo giá). Trên OTA phải cài cùng quy tắc bằng tay (chưa có channel manager). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu.",
   "edit_roles": [
    "owner",
    "manager"
@@ -4971,7 +4972,7 @@
   ],
   "recommended": "[\"FRI\",\"SAT\"]",
   "recommended_reason": "Giá trị đang chạy trên production. Mức tăng đang 0 % (ESC-045 câu 1) nên hiện chưa đổi số tiền nào; giữ để khi bật mức tăng thì đúng đêm.",
-  "caution": "Tới khi đội sửa lỗi BUG-R5-001: không sửa khóa này. Desk v1.0.4 từ chối dạng đúng [\"FRI\",\"SAT\"] và nhận dạng số 1–7, là dạng làm hỏng phép tính. Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
+  "caution": "Tới khi v1.0.5 lên, không bấm Lưu thay đổi ở dòng này (cùng min_stay). Desk v1.0.4 từ chối dạng đúng [\"FRI\",\"SAT\"] và nhận dạng số 1–7, là dạng làm hỏng phép tính (BUG-R5-001). Buộc phải đổi thì nhắn đội trước, chọn Hiệu lực từ là ngày mai để còn Hủy lịch. Lỡ lưu thì báo đội ngay, coi là P0. Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi tới ngày hiệu lực, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu.",
   "edit_roles": [
    "owner",
    "manager"

@@ -2,8 +2,8 @@
 
 - Dành cho: **sale nội bộ (SAL)** – nhân viên bán hàng của OTTIMO; **CTV / môi giới** – cộng tác viên ngoài
 - Thiết bị: **điện thoại hoặc máy tính**, địa chỉ `desk.ottimo.vn`
-- Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.6 – 04/11/2026 (gộp sau bản 1.5), **áp dụng từ v1.0.4**: Desk chặn cả `booking@` (mục 1.5; theo review DOM PR #68); bản 1.5 – 04/11/2026, **áp dụng từ v1.0.4**: đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục thì chủ đầu tư gặp tận mặt rồi **Đặt lại xác thực 2 bước** (mục 1.6; BUG-R4-032; sửa cùng ngày theo review SEC, PO: đăng nhập 2 bước không bắt buộc nhưng nên bật, cách bật ở mục 1.2; mất cả điện thoại lẫn mã khôi phục thì bật lại ngay buổi đó; điện thoại bị lấy cắp hoặc có lưu mật khẩu thì chủ đầu tư đặt lại mật khẩu luôn; sửa theo SEC lượt 2: cất mã khôi phục như lễ tân, không tải mã về chính điện thoại có ứng dụng xác thực); bản 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; form website đã bật, sale không ở trong phòng Google Chat; bản 1.3 ngày 01/11 thêm mục 6.3a giá ước tính và khách viết tiếng Hàn, Trung, Nga – áp dụng khi gói website LP-v2 phát hành; bản 1.4 ngày 03/11, áp dụng khi v1.0.3 lên: menu **Bảo mật tài khoản** và email nhận thông báo bảo mật – email riêng chỉ mình đọc, Desk chỉ chặn `info@` – mục 1.5)
+- Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
+- Lập: BA · 30/10/2026 · Tệp này bản 1.8 (thuộc bộ hướng dẫn bản 1.13) – 06/11/2026, áp dụng ngay: các mục ghi ở `00` mục 7, hai khối "Sửa 06/11/2026" (check-in online mở lại, gửi nhầm link, website theo thực tế 06/11). Bản 1.7 – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, số tài khoản hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -85,7 +85,7 @@ Sale/CTV chỉ thấy đơn và khách **của mình**. Không thấy giấy t�
 1. Bấm **tên của mình** ở góc trên bên phải.
 2. Bấm **Đăng xuất**.
 
-Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. Menu dưới tên của mình có thêm **Đổi mật khẩu**, **Bảo mật tài khoản** (trước v1.0.3 có tên **Xác thực 2 bước**), **Ngôn ngữ giao diện**, **Giao diện**. Từ v1.0.3, ở **Bảo mật tài khoản** anh/chị có thể thêm **Email nhận thông báo bảo mật** (không bắt buộc với sale, CTV). Dùng **email riêng chỉ mình đọc**. Không dùng hộp thư chung (`info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho OTA): ai đọc hộp thư chung cũng xóa được thư báo của anh/chị. **Tới v1.0.3, Desk chỉ chặn được `info@`.** Từ v1.0.4 chặn cả `booking@` (kể cả `info+…@`, `booking+…@`). Các hộp thư chung khác phải tự tránh. Cách nhập và câu Desk báo: như `02` mục 1.6.
+Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. Menu dưới tên của mình có thêm **Đổi mật khẩu**, **Bảo mật tài khoản** (trước v1.0.3 có tên **Xác thực 2 bước**), **Ngôn ngữ giao diện**, **Giao diện**. Từ v1.0.3, ở **Bảo mật tài khoản** anh/chị có thể thêm **Email nhận thông báo bảo mật** (không bắt buộc với sale, CTV). Dùng **email riêng chỉ mình đọc**. Không dùng hộp thư chung (`info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho OTA): ai đọc hộp thư chung cũng xóa được thư báo của anh/chị. **Desk chặn `info@` và `booking@` của cơ sở** (kể cả `info+…@`, `booking+…@`). Các hộp thư chung khác phải tự tránh. Cách nhập và câu Desk báo: như `02` mục 1.6.
 
 [ẢNH: C0-06-Menu Tài khoản]
 
@@ -96,7 +96,7 @@ Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. M
 | Quên mật khẩu | **Báo chủ đầu tư.** Desk không có nút "quên mật khẩu". Chủ đầu tư **Đặt lại mật khẩu**, đưa mật khẩu tạm tận tay |
 | Tài khoản bị khóa do sai nhiều lần | Chờ đúng số phút Desk báo, hoặc nhờ chủ đầu tư **Mở khóa**. Bị khóa mà mình **không** gõ sai: báo chủ đầu tư ngay (có thể có người dò mật khẩu) |
 | **Mất điện thoại** đang đăng nhập Desk | **Báo chủ đầu tư ngay** để đặt lại mật khẩu (Desk đăng xuất trên mọi máy) hoặc khóa tài khoản |
-| Đã tự bật 2 bước rồi mất cả điện thoại lẫn mã khôi phục | **Báo chủ đầu tư.** Từ v1.0.4: chủ đầu tư **gặp tận mặt** anh/chị rồi **Đặt lại xác thực 2 bước**. Anh/chị giữ tài khoản cũ, đăng nhập lại bằng mật khẩu như cũ, Desk không hỏi mã. Điện thoại bị lấy cắp, hoặc mật khẩu Desk có lưu hay ghi trên điện thoại đó: nói với chủ đầu tư để đặt lại mật khẩu luôn. Bật lại 2 bước ngay buổi đó cùng chủ đầu tư (nên bật, mục 1.2). Ở v1.0.3: chủ đầu tư khóa tài khoản cũ và tạo tài khoản mới |
+| Đã tự bật 2 bước rồi mất cả điện thoại lẫn mã khôi phục | **Báo chủ đầu tư.** Chủ đầu tư **gặp tận mặt** anh/chị rồi **Đặt lại xác thực 2 bước**. Anh/chị giữ tài khoản cũ, đăng nhập lại bằng mật khẩu như cũ, Desk không hỏi mã. Điện thoại bị lấy cắp, hoặc mật khẩu Desk có lưu hay ghi trên điện thoại đó: nói với chủ đầu tư để đặt lại mật khẩu luôn. Bật lại 2 bước ngay buổi đó cùng chủ đầu tư (nên bật, mục 1.2). |
 | Nghi người khác biết mật khẩu | Đổi mật khẩu ngay (**tên của mình → Đổi mật khẩu**) và báo chủ đầu tư |
 | Nghỉ việc, hết hợp tác | Đăng xuất, báo chủ đầu tư khóa tài khoản |
 
@@ -391,3 +391,11 @@ Tập trên **Desk tập** bằng **tài khoản tập** chủ đầu tư đưa 
 3. Giữ chỗ; gia hạn 1 lần.
 4. CTV: **Báo đã chuyển cọc** kèm ảnh biên nhận giả. Sale nội bộ: nói được cách kiểm tiền về trước khi **Xác nhận đã nhận cọc**.
 5. Nói được: chính sách hủy; vì sao không gửi ảnh QR cũ; việc phải làm khi mã hiện "Tài khoản nhận vừa đổi".
+
+## Lịch sử tệp
+
+Chuyển từ dòng **Lập:** đầu tệp (04/11/2026). Mới nhất ở trên.
+
+- Bản 1.6 – 04/11/2026 (gộp sau bản 1.5), **áp dụng từ v1.0.4**: Desk chặn cả `booking@` (mục 1.5; theo review DOM PR #68)
+- Bản 1.5 – 04/11/2026, **áp dụng từ v1.0.4**: đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục thì chủ đầu tư gặp tận mặt rồi **Đặt lại xác thực 2 bước** (mục 1.6; BUG-R4-032; sửa cùng ngày theo review SEC, PO: đăng nhập 2 bước không bắt buộc nhưng nên bật, cách bật ở mục 1.2; mất cả điện thoại lẫn mã khôi phục thì bật lại ngay buổi đó; điện thoại bị lấy cắp hoặc có lưu mật khẩu thì chủ đầu tư đặt lại mật khẩu luôn; sửa theo SEC lượt 2: cất mã khôi phục như lễ tân, không tải mã về chính điện thoại có ứng dụng xác thực)
+- Bản 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; form website đã bật, sale không ở trong phòng Google Chat; bản 1.3 ngày 01/11 thêm mục 6.3a giá ước tính và khách viết tiếng Hàn, Trung, Nga – áp dụng khi gói website LP-v2 phát hành; bản 1.4 ngày 03/11, áp dụng khi v1.0.3 lên: menu **Bảo mật tài khoản** và email nhận thông báo bảo mật – email riêng chỉ mình đọc, Desk chỉ chặn `info@` – mục 1.5)

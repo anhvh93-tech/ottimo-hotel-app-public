@@ -124,3 +124,27 @@ Viết theo SEC N4 và runbook N5:
 - SEC và UXD review sổ tay và bộ hướng dẫn.
 - PO sửa dòng V5-08 trong plan Round 5 cho đúng phạm vi đã mở rộng.
 - Rủi ro 1 (PO) và 4 (OPS, ARC): ORC giao.
+
+## 6. Cập nhật 06/11 tối – Phản hồi & sửa (commit `a9927c78`)
+- **Lời dặn về hai tham số** (BUG-R5-001, BUG-R5-003):
+  - đặt cùng một câu ở 5 chỗ: sổ tay 1.4 và 5.6, `01` 9.2 và 15.6, sổ vận hành 4.1 (grep 5/5 khớp);
+  - nội dung: tới khi v1.0.5 lên, không bấm **Lưu thay đổi** ở `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**). Buộc phải đổi thì nhắn đội trước, **Hiệu lực từ** chọn ngày mai để còn **Hủy lịch**. Lỡ lưu thì báo đội ngay, coi là P0;
+  - tên ô và tên nút đã đối chiếu với `strings-vi.json` và `ParamDialog.tsx`.
+- **Dòng sự cố mới:** "Lỡ bấm Lưu thay đổi… hoặc mọi báo giá báo lỗi" (P0) ở sổ tay 5.5, `01` mục 17, sổ vận hành 3.2. Sổ vận hành 3.1 thêm ví dụ P0 "mọi báo giá trên Desk báo lỗi".
+- **Con số "máy chủ mất hẳn"** ở 2.1a và 5.4, theo con số OPS (PR #93, `hosting-plan.md` mục 7 trên nhánh `r5-ops`):
+  - trước v1.0.5: tới 72 giờ (thường khoảng 64);
+  - từ v1.0.5, kéo tay: tới 60 giờ (thường khoảng 52);
+  - Mac tự kéo: khoảng 36 giờ.
+- **Sửa thêm ở 4.1:** ví dụ cặp tham số đổi thành "mức tăng cuối tuần với đêm tính là cuối tuần".
+- **Số bản mới:**
+  - sổ tay 1.16;
+  - bộ hướng dẫn 1.14 (`01` 1.13);
+  - sổ vận hành 1.5.
+- **Giả định:**
+  - lỡ lưu ô nào trong hai ô cũng là P0;
+  - thêm ý "nhắn đội trước".
+- **Chuyển vai khác** (ORC đã giao):
+  - DOM sửa từ điển: câu "Desk kiểm đúng dạng khi lưu" và "Hiệu lực từ: hôm nay";
+  - PO kiểm release-notes v1.0.4;
+  - UXD dựng HTML từ `a9927c78`.
+- **V5-71:** gỡ lời dặn và 3 dòng sự cố khi v1.0.5 lên.

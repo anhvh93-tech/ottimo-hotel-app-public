@@ -81,3 +81,40 @@ ORC lưu tệp này từ báo cáo bàn giao của DOM (subagent không ghi tệ
 - BE-B: nhãn `late_fee_after_limit`.
 - ARC: điểm còn mở ở mục 7.1 và 11.4.
 - DOM: lần sửa BR tới thêm "và lễ tân" vào BR-303.
+
+## 6. Cập nhật 06/11 khuya – Phản hồi & sửa sau QA BUG-R5-002/003 (commit `e9e0e2e4`)
+- **11.2:** bỏ câu "J1 đứng thì Xác nhận đã nhận cọc". Không mở nút; lễ tân chỉ học một cách là hủy rồi đặt lại.
+  - Chữ thay cho Tờ 2a dòng 86 đã dán nguyên văn (ORC `128643f6`).
+  - Ca 2 đổi sang "cùng giá đã báo" cho khớp Tờ 2a.
+- **11.3:** "dòng tay" (`addFolioLine`) bị chặn với mọi vai trên đơn đã hủy; "khoản thu" (`recordPayment`) thì không, kể cả tiền mặt, không ảnh, không đối soát. SEC xem riêng.
+- **11.4 / V5-5B:**
+  - 5B-1: dùng lại `recordPayment` cho mọi đơn `cancelled`/`no_show`:
+    - chỉ FD+, chỉ chuyển khoản hoặc VietQR, ảnh bắt buộc, chờ đối soát;
+    - tự tạo yêu cầu hoàn 100 %;
+    - `deposit_after_cancel` thay lỗi 409 khi sale, CTV báo đã chuyển.
+  - 5B-2: khôi phục mọi đơn bị hủy lúc còn là giữ chỗ, khi căn còn trống và chưa qua ngày đến.
+- **Mục 12 mới – luật lưu `min_stay`:**
+  - chỉ nhận danh sách, tối đa 20 luật;
+  - `nights` 1–7 và không quá `short_stay_max_nights`, kiểm cả chiều ngược;
+  - `channels` bắt buộc;
+  - mỗi luật áp vào ít nhất một ngày; khóa lạ thì 422;
+  - `[]` nghĩa là không có ở tối thiểu;
+  - bộ tính giá bỏ qua luật hỏng, không trả 500;
+  - giá trị production 06/11 hợp lệ.
+  - Oracle BR-113-06…30 (`pendingFix: BUG-R5-003`).
+- **Từ điển tham số 1.3:**
+  - dùng đúng câu BA ở quy tắc chung, `min_stay`, `weekend_nights`, "Sắp có ở v1.0.5";
+  - bỏ câu sai "Desk kiểm đúng dạng khi lưu".
+- **BR v0.5.13:**
+  - BR-303 thêm "và lễ tân, lễ tân trưởng";
+  - BR-522 phân biệt dòng phí với khoản thu;
+  - mục 13 thêm dạng lưu `min_stay[]`.
+- **Việc chuyển** (ORC đã giao):
+  - PO: V5-5B, V5-25.
+  - ARC: kỹ thuật 11.4, `setParameter`, `extras`.
+  - SEC: ai được khôi phục, kẽ hở tiền mặt.
+  - UXD: hộp ghi thu, câu lỗi 422.
+  - QA: ca (a) đổi, các ca mới ở 11.4, oracle 12.6.
+  - BE: V5-25 theo 12.1–12.3.
+- **Quan sát cho BA (V5-71):** `user-manual-v1.0.md` dòng 820–822 và 2017 còn ghi hành vi v1.0 ("sau hạn Desk từ chối Xác nhận đã nhận cọc"). Ở v1.0.4, FD+ đã xác nhận được giữ chỗ quá hạn có cọc.
+- **Giả định:** trần 7 đêm theo chuẩn ngành; tên mã lỗi và `extras` do ARC chốt. ESC mới: không có.

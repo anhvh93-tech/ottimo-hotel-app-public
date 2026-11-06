@@ -1,6 +1,6 @@
 # Từ điển tham số quy tắc – OTTIMO Desk
 
-- Lập: DOM · Round 4 – Sản xuất · 06/11/2026 · Bản 1.0. Sửa: DOM · Round 5 – Sản xuất · 06/11/2026 · Bản 1.1 (mục `night_from_month_divisor` theo QC Round 4 ĐK-6; thêm mục [Sắp có ở v1.0.5](#sap-co-v105)) · **Bản 1.2** (tên tiếng Việt của 29 khóa theo UXD V5-21; dạng giá trị `weekend_nights` – BUG-R5-001; `hold_expiry_reminder_hours` = 0)
+- Lập: DOM · Round 4 – Sản xuất · 06/11/2026 · Bản 1.0. Sửa: DOM · Round 5 – Sản xuất · 06/11/2026 · Bản 1.1 (mục `night_from_month_divisor` theo QC Round 4 ĐK-6; thêm mục [Sắp có ở v1.0.5](#sap-co-v105)) · Bản 1.2 (tên tiếng Việt của 29 khóa theo UXD V5-21; dạng giá trị `weekend_nights` – BUG-R5-001; `hold_expiry_reminder_hours` = 0) · **Bản 1.3** (Round 5 – Phản hồi & sửa: cảnh báo không lưu `min_stay` và `weekend_nights` tới khi v1.0.5 lên – BUG-R5-003, BUG-R5-001; dạng lưu `min_stay` từ v1.0.5 – V5-25)
 - Dành cho: chủ đầu tư và quản lý, khi đọc và sửa **Quản trị → Tham số quy tắc** trên Desk.
 - Phạm vi: đủ **198 tham số** trong danh mục của Desk (bản v1.0.4 trên production). Bản máy đọc: `product/docs/tham-so-quy-tac.json` (cùng nội dung cho 198 tham số; mục "Sắp có ở v1.0.5" chỉ có ở bản này vì các khóa đó chưa có trên Desk).
 - Căn cứ: `business-rules.md` (BR, mục 13), sổ tay vận hành bản 1.10 (v1.0.4, PR #85), `decision-log.md` (ESC-004, 006, 007, 043, 045, 050), hướng dẫn chuyển giá `rounds/round-04/outputs/DOM/inv-price-switch-guide.md`, mã Desk (`paramCatalog.ts`, `ParamDialog.tsx`, `parameters.service.ts`).
@@ -23,13 +23,16 @@ Ký hiệu: **[Bảo mật]** = tham số bảo mật – chỉ sửa khi đội
 
 1. **Quản trị → Tham số quy tắc** → chọn tab nhóm → tìm dòng (tên in đậm, mã khóa in nhỏ bên dưới; tab **Khác** dài, dùng Cmd + F hoặc Ctrl + F gõ mã khóa) → **Sửa**.
 2. Ô **Giá trị mới** (dòng dạng danh sách là ô **Giá trị (JSON)**): xóa hết chữ cũ, gõ hoặc dán đúng nội dung. Với ô JSON nên sao chép rồi dán, giữ đủ dấu ngoặc và dấu ngoặc kép.
-3. **Hiệu lực từ**: để ngày Desk điền sẵn (hôm nay theo ngày làm việc, đổi lúc 06:00) hoặc chọn ngày sau. Không chọn được ngày đã qua.
+3. **Hiệu lực từ**: để ngày Desk điền sẵn (hôm nay theo ngày làm việc, đổi lúc 06:00) hoặc chọn ngày sau. Không chọn được ngày đã qua. **Trừ hai dòng ở khung dưới:** tới khi v1.0.5 lên, không lưu hai dòng đó; buộc phải đổi thì chọn ngày mai.
 4. **Lý do**: ghi ngắn vì sao đổi. Bấm **Lưu thay đổi**.
 5. **Đã lưu thì trong ngày không sửa lại được.** Lỡ sai: lưu lại với **Hiệu lực từ = ngày mai**, hoặc báo đội. Dòng đã lên lịch cho ngày sau mà chưa tới ngày thì **Hủy lịch** được.
 6. Thay đổi áp cho đơn, báo giá tạo **sau** ngày hiệu lực. Đơn, báo giá, hợp đồng đã tạo **giữ số cũ** (BR-006).
 7. Ai sửa: chủ đầu tư và quản lý sửa tham số vận hành. **Chỉ chủ đầu tư** sửa hạn mức FOC, hoa hồng, VAT, lưu trữ dữ liệu và mọi tham số bảo mật. Chỉ **tài khoản nhận chuyển khoản** phải nhập lại mật khẩu và mã 2 bước.
 8. Hai công tắc tắt được ngay trong ngày: `public_booking_requests_enabled` = false (tắt form web) và `public_show_prices` = false (ẩn giá web). Bật lại theo luật thường.
 9. Giá đêm, giá tháng của từng căn **không** nằm ở đây mà ở **Quản trị → Danh mục căn**. Đổi giá căn và đổi tham số giá nên làm cùng một lần, nếu không Desk ra số lai.
+10. Ô **Giá trị (JSON)** (tham số dạng danh sách): Desk v1.0.4 chưa kiểm dạng khi lưu ở nhiều ô loại này (ví dụ `los_discount`, `early_checkin_tiers`; đội đang rà cùng V5-25). Chọn **Hiệu lực từ** là ngày mai, nhắn đội kiểm trong ngày; sai thì **Hủy lịch** ngay trong ngày lưu. Chỉ đổi số hoặc mã bên trong khối đang có, giữ nguyên tên khóa, dấu ngoặc và kiểu (số không để trong ngoặc kép).
+
+> **Lỗi đang sửa – hai tham số (sửa ở v1.0.5):** Tới khi v1.0.5 lên, không bấm **Lưu thay đổi** ở `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**). Buộc phải đổi thì nhắn đội trước, chọn **Hiệu lực từ** là ngày mai để còn **Hủy lịch**. Lỡ lưu thì báo đội ngay, coi là P0. Desk v1.0.4 nhận cả giá trị sai dạng ở hai dòng này. Lưu sai thì Desk không nhận ra đêm cuối tuần (`weekend_nights`), hoặc mọi báo giá và đơn trực tiếp mới báo lỗi (`min_stay`), không gỡ được trong ngày: lỗi kéo dài tới 06:00 hôm sau, khi đội đã lưu lại giá trị đúng cho ngày mai (BUG-R5-001, BUG-R5-003).
 
 ## Mục lục
 
@@ -74,7 +77,7 @@ Ra 1.840.000 ở ca đầu → mức tăng cuối tuần chưa về 0. Có dòng
 **Các cặp phải đổi cùng nhau:**
 - `short_stay_max_nights` = `long_stay_required_from_nights` − 1 (đề xuất 29 và 30). Đổi `long_stay_required_from_nights` trước, rồi tới `short_stay_max_nights`; `long_stay_compare_from_nights` để cùng 30.
 - `special_uplift_pct` với `special_dates` và `min_stay`: đưa mức tăng về 0 **không** bỏ ở tối thiểu 2 đêm và không hoàn cọc ngày lễ – hai việc đó theo danh sách `special_dates`.
-- `weekend_uplift_pct` với `weekend_nights`: `weekend_nights` chỉ chọn đêm nào được cộng mức tăng cuối tuần. Ở tối thiểu 2 đêm khi đến thứ Sáu, thứ Bảy nằm riêng trong `min_stay` (danh sách ngày đến của chính nó), không đọc `weekend_nights`. Tới khi sửa lỗi BUG-R5-001, không sửa `weekend_nights`.
+- `weekend_uplift_pct` với `weekend_nights`: `weekend_nights` chỉ chọn đêm nào được cộng mức tăng cuối tuần. Ở tối thiểu 2 đêm khi đến thứ Sáu, thứ Bảy nằm riêng trong `min_stay` (danh sách ngày đến của chính nó), không đọc `weekend_nights`. Tới khi v1.0.5 lên, không bấm **Lưu thay đổi** ở `weekend_nights` và `min_stay` (khung ở mục Quy tắc chung).
 - `extra_adult_fee` và `child_fee_6_11`: từ 6 tuổi tính như người lớn, nên hai số bằng nhau.
 - Giá căn (Danh mục căn) với `ota_base_rate`: nếu có dòng `ota_base_rate` thì mỗi lần đổi giá căn phải đổi dòng này cùng lúc. Không có dòng là ổn.
 - `public_show_prices` chỉ bật sau khi đội báo giá web khớp giá Desk.
@@ -596,12 +599,12 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 
 - **Tên trên Desk:** Ở tối thiểu (hiện từ v1.0.5; v1.0.4 hiện mã khóa) · **Nhóm:** Khác · **Quy tắc:** BR-113
 - **Ý nghĩa:** Ở tối thiểu: đến vào những ngày này thì phải ở ít nhất bao nhiêu đêm.
-- **Đơn vị:** Danh sách quy tắc {nights, channels, arrivalWeekdays (mã thứ như "FRI", "SAT") hoặc arrivalOnSpecialDates}
-- **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
-- **Ví dụ:** Đến thứ Sáu, quy tắc 2 đêm → báo giá 1 đêm bị chặn ("chưa đủ số đêm tối thiểu"); 2 đêm thứ Sáu + thứ Bảy Studio = 1.600.000.
-- **Ảnh hưởng:** Báo giá Desk, form web, đơn mới. **Đi kèm:** `special_dates`, `min_stay_orphan_night_exception`
+- **Đơn vị:** Danh sách luật. Mỗi luật: {"nights": số đêm, "channels": "all" hoặc danh sách nhóm kênh, "arrivalWeekdays": danh sách mã thứ như "FRI", "SAT", và/hoặc "arrivalOnSpecialDates": true}
+- **Giới hạn:** Desk v1.0.4 **chưa** kiểm đúng dạng khi lưu (BUG-R5-003): cho lưu cả `2` hay `{"nights":2}`, rồi mọi báo giá và đơn trực tiếp mới báo lỗi – xem Lưu ý khi sửa. Từ v1.0.5 (V5-25) Desk chỉ nhận danh sách luật: `nights` từ 1 đến 7 và không quá `short_stay_max_nights`; `channels` là "all" hoặc danh sách trong "direct", "agent", "ota"; mỗi luật áp vào ít nhất một ngày; `[]` = không có ở tối thiểu (xem mục Sắp có ở v1.0.5). · **Mặc định:** Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).
+- **Ví dụ:** Giá trị đúng dạng: [{"nights":2,"channels":"all","arrivalWeekdays":["FRI","SAT"]},{"nights":2,"channels":"all","arrivalOnSpecialDates":true}]. Đến thứ Sáu, quy tắc 2 đêm → báo giá 1 đêm bị chặn ("chưa đủ số đêm tối thiểu"); 2 đêm thứ Sáu + thứ Bảy Studio = 1.600.000. Sai: 2 hoặc {"nights":2} – Desk v1.0.4 cho lưu, rồi báo giá lỗi.
+- **Ảnh hưởng:** Báo giá Desk, form web, đơn mới. **Đi kèm:** `special_dates`, `min_stay_orphan_night_exception`, `short_stay_max_nights` (từ v1.0.5)
 - **Đội đề xuất:** 2 đêm khi ngày đến là thứ Sáu, thứ Bảy hoặc ngày đặc biệt; mọi kênh. – INV quyết ESC-004 (BR-113).
-- **Lưu ý khi sửa:** Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Trên OTA phải cài cùng quy tắc bằng tay (chưa có channel manager). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
+- **Lưu ý khi sửa:** **Tới khi v1.0.5 lên, không bấm Lưu thay đổi ở dòng này** (cùng `weekend_nights`). Buộc phải đổi thì nhắn đội trước, chọn **Hiệu lực từ** là ngày mai để còn **Hủy lịch**; giữ nguyên dạng danh sách, chỉ đổi số `nights` hoặc mã thứ. Lỡ lưu thì báo đội ngay, coi là P0: mọi báo giá, đơn trực tiếp mới (và giá ước tính trên web) báo lỗi tới 06:00 hôm sau, khi đội đã lưu lại giá trị đúng cho ngày mai (BUG-R5-003). Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi tới ngày hiệu lực, báo giá thử một ca trên Desk (không lưu báo giá). Trên OTA phải cài cùng quy tắc bằng tay (chưa có channel manager). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu.
 
 <a id="k-min-stay-orphan-night-exception"></a>
 #### `min_stay_orphan_night_exception` [Giá]
@@ -793,7 +796,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Ví dụ:** ["FRI","SAT"]: đêm thứ Sáu và đêm thứ Bảy là cuối tuần. Sai: [5,6] – Desk v1.0.4 cho lưu, nhưng bộ tính giá không nhận ra đêm nào, mức tăng cuối tuần mất mà không báo.
 - **Ảnh hưởng:** Chỉ mức tăng cuối tuần (`weekend_uplift_pct`): báo giá Desk, giá ước tính trên web, đơn OTA để trống giá. Không ảnh hưởng ở tối thiểu (`min_stay` có danh sách ngày đến riêng). **Đi kèm:** `weekend_uplift_pct`, `weekend_uplift_channels`
 - **Đội đề xuất:** ["FRI","SAT"] – Giá trị đang chạy trên production. Mức tăng đang 0 % (ESC-045 câu 1) nên hiện chưa đổi số tiền nào; giữ để khi bật mức tăng thì đúng đêm.
-- **Lưu ý khi sửa:** **Tới khi đội sửa lỗi BUG-R5-001: không sửa khóa này.** Desk v1.0.4 từ chối dạng đúng ["FRI","SAT"] và nhận dạng số 1–7, là dạng làm hỏng phép tính. Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
+- **Lưu ý khi sửa:** **Tới khi v1.0.5 lên, không bấm Lưu thay đổi ở dòng này** (cùng `min_stay`). Desk v1.0.4 từ chối dạng đúng ["FRI","SAT"] và nhận dạng số 1–7, là dạng làm hỏng phép tính (BUG-R5-001). Buộc phải đổi thì nhắn đội trước, chọn **Hiệu lực từ** là ngày mai để còn **Hủy lịch**. Lỡ lưu thì báo đội ngay, coi là P0. Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi tới ngày hiệu lực, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu.
 
 <a id="k-weekend-uplift-channels"></a>
 #### `weekend_uplift_channels` [Giá]
@@ -2585,6 +2588,26 @@ Các tham số còn lại khớp mức đề xuất, hoặc chưa có giá trị
 
 Các khóa dưới đây **chưa có** trên Desk v1.0.4. Tên khóa là tên đội đề xuất; ARC chốt tên thật ở hợp đồng 0.3.13. Khi v1.0.5 lên production, đội cập nhật mục này theo tên thật và chuyển từng khóa vào nhóm của nó. **Mã không có số mặc định** cho các khóa này: anh/chị tự nhập trên Desk sau khi bản lên (đội không đổi tham số giá trên production). Luật chi tiết và ca kiểm: `rounds/round-05/outputs/DOM/rules-v1.0.5.md`.
 
+### Sửa ở v1.0.5: Desk kiểm đúng dạng `min_stay` và `weekend_nights` khi lưu (V5-25)
+
+> **Tới khi v1.0.5 lên:** không bấm **Lưu thay đổi** ở `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**). Buộc phải đổi thì nhắn đội trước, chọn **Hiệu lực từ** là ngày mai để còn **Hủy lịch**. Lỡ lưu thì báo đội ngay, coi là P0. Lưu sai `min_stay` thì mọi báo giá và đơn trực tiếp mới báo lỗi tới 06:00 hôm sau (mốc đổi ngày làm việc), khi đội đã lưu lại giá trị đúng cho ngày mai; không gỡ được trong ngày (BUG-R5-003). Lưu sai `weekend_nights` thì Desk không nhận ra đêm cuối tuần (BUG-R5-001).
+
+Hai khóa đã có trên Desk; v1.0.5 chỉ đổi cách Desk kiểm khi lưu. Giá trị đang chạy không đổi và vẫn hợp lệ.
+
+- **`weekend_nights`:** Desk nhận dạng mã thứ ["FRI","SAT"] (dạng đang chạy) và từ chối số 1–7.
+- **`min_stay`** – Desk chỉ nhận danh sách luật. Mỗi luật:
+  - `nights`: số nguyên từ 1 đến 7, và không quá **Đơn ngắn ngày dài nhất** (`short_stay_max_nights`, đang 29). 1 đêm = những ngày đó không có tối thiểu. Muốn trên 7 đêm: hỏi đội;
+  - `channels`: "all" (mọi kênh), hoặc danh sách trong "direct" (Trực tiếp), "agent" (CTV/môi giới), "ota". Không ghi "internal": kênh Nội bộ không áp ở tối thiểu (BR-113). Ở tối thiểu trên Booking, Agoda, Airbnb vẫn cài bằng tay trên trang của kênh;
+  - `arrivalWeekdays`: danh sách mã thứ, mỗi thứ một lần, và/hoặc `"arrivalOnSpecialDates": true` (ngày trong `special_dates`). Mỗi luật phải áp vào ít nhất một ngày;
+  - không thêm khóa nào khác. Gõ sai tên khóa (ví dụ thiếu chữ "s") thì Desk từ chối, không lưu luật rỗng;
+  - tối đa 20 luật. Hai luật cùng ngày đến: Desk áp số đêm lớn hơn.
+- **`[]` (danh sách rỗng):** Desk cho lưu, nghĩa là **không có ở tối thiểu** ngày nào. Dùng khi muốn tắt hẳn, ví dụ mùa thấp điểm. Bật lại: dán lại giá trị đề xuất.
+- **Ví dụ đúng (giá trị đang chạy, mức anh/chị đã chọn ở ESC-004):** `[{"nights":2,"channels":"all","arrivalWeekdays":["FRI","SAT"]},{"nights":2,"channels":"all","arrivalOnSpecialDates":true}]`
+- **Ví dụ bị từ chối từ v1.0.5:** `2`; `{"nights":2}`; `nights` = 0 hoặc 8; `"arrivalWeekdays":["FRI","FRI"]`; `"arrivalWeekdays":[5,6]`; luật thiếu `channels`; `"channels":["internal"]`.
+- Đổi `short_stay_max_nights` xuống thấp hơn số đêm lớn nhất trong `min_stay`: Desk từ chối.
+- Nếu giá trị hỏng đã có sẵn trong dữ liệu, từ v1.0.5 Desk bỏ qua luật hỏng và vẫn báo giá, tạo đơn được; đội nhận cảnh báo để sửa.
+- Luật chi tiết và ca kiểm: `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 8.4 (`weekend_nights`) và mục 12 (`min_stay`).
+
 ### Phí dọn theo lượt cho khách thuê tháng (H3, V5-31)
 
 #### `long_stay_cleaning_fee_by_room` [Giá] (tên đề xuất)
@@ -2633,3 +2656,4 @@ Các khóa dưới đây **chưa có** trên Desk v1.0.4. Tên khóa là tên đ
 | 06/11/2026 | 1.0 | DOM | Bản đầu, 198 tham số theo danh mục production 06/11. |
 | 06/11/2026 | 1.1 | DOM | QC Round 4 ĐK-6, V5-1A: `night_from_month_divisor` đổi nhãn thành [Giá]. Khóa vẫn có tác dụng ở đường API (tạo căn, đổi giá thiếu giá đêm, công cụ nhập danh mục – BUG-R4-057); giữ 12, không sửa; gỡ ở v1.0.5. Ghi chú v1.0.5 ở `adhoc_cleaning_fee`, `short_stay_commission_pct`, `foc_alert_count_per_approver` (BR-438). Thêm mục "Sắp có ở v1.0.5" (H2, H3; không số hoa hồng; ESC-051). Bản `.json` sửa cùng mục `night_from_month_divisor` và ba ghi chú. |
 | 06/11/2026 | 1.2 | DOM | Trả lời UXD bảng chữ v1.0.5 (`rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 8). Tên tiếng Việt cho 29 khóa theo `params.k.*` của UXD (V5-21), ghi "hiện từ v1.0.5"; `c3_stepup_minutes` đổi tên, nghĩa gồm cả xem số tài khoản nhận hoàn. `weekend_nights`: dạng đúng là mã thứ ["FRI","SAT"], không dùng số 1–7; chỉ ảnh hưởng mức tăng cuối tuần, không ảnh hưởng ở tối thiểu; không sửa tới khi sửa BUG-R5-001 (sửa cả mục `min_stay` và đoạn "các cặp phải đổi cùng nhau"). `hold_expiry_reminder_hours`: 0 = không nhắc. `rounding.night_rate`: bỏ "phụ thu" khỏi nghĩa (phụ thu theo `rounding.fee`). Bản `.json` sửa cùng các mục trên. |
+| 06/11/2026 | 1.3 | DOM | Round 5 – Phản hồi & sửa (QA BUG-R5-001, BUG-R5-003; BA `a9927c78`). Lời dặn chung, dùng đúng câu BA ở sổ tay 1.4, 5.6, hướng dẫn `01` 9.2, 15.6, sổ vận hành 4.1: tới khi v1.0.5 lên, không bấm Lưu thay đổi ở `weekend_nights` (Đêm tính là cuối tuần) và `min_stay` (Ở tối thiểu); buộc phải đổi thì nhắn đội trước, Hiệu lực từ là ngày mai để còn Hủy lịch; lỡ lưu thì báo đội ngay, coi là P0. Sửa: Quy tắc chung bước 3, thêm bước 10 (ô JSON) và khung cảnh báo; đoạn "Các cặp phải đổi cùng nhau"; mục `min_stay` (bỏ câu sai "Desk kiểm đúng dạng khi lưu", thêm dạng đúng, ví dụ sai, Lưu ý khi sửa); mục `weekend_nights` (Lưu ý khi sửa, bỏ "Hiệu lực từ: hôm nay"); mục "Sắp có ở v1.0.5" thêm phần V5-25 (dạng lưu `min_stay` theo `rules-v1.0.5.md` mục 12). Bản `.json` sửa cùng `min_stay`, `weekend_nights`. |

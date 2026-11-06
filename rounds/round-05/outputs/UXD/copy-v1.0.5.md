@@ -7,6 +7,14 @@
   - 4.20 ("căn" trên chữ VI gửi khách), 4.21 (dấu "!" khác, chờ PO);
   - 5.1 ("Предоплата", 3 câu `msg.*`, `gw.req.clean_long_fee`), 5.3 (kiểm tự động);
   - mục 6, 7, 8.
+- Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.2**: áp trả lời DOM (`rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 8 và 10). Chỗ đổi gồm:
+  - mục 0 (số khóa);
+  - 4.3 (G6: một câu cho `penalty` và `damage`);
+  - 4.8 (thẻ CPY 04: `bill.line.late_fee_after_limit` vào bảng chính);
+  - 4.14 (FB-R5-DOM-UXD-01: bỏ vế "Bạn sẽ được nhắc…", thay bằng giờ hạn; bỏ dạng số nhiều);
+  - mục 6, 7, 8.
+- Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.3**: áp thẻ FB-R5-CPY-UXD-V105-12 (CPY lượt 3, mục 12 tệp review). Chỉ đổi chữ 3 câu `sale.hold_next*` ở 4.14 (sale, CTV tự bấm Gia hạn giữ chỗ), cùng mục 0, 7, 8. Số khóa không đổi.
+- Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.4**: thêm mục 9, chữ Desk nội bộ ngoài Gói 2 theo DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` (`e9e0e2e4`): 9.1 hộp ghi tiền về cho đơn đã hủy (V5-5B, DOM 11.4), 9.2 câu lỗi khi lưu `min_stay` sai dạng (V5-25, DOM 12.7). Cùng mục 0, 6, 8. Chữ Desk nội bộ, không cần CPY.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -37,16 +45,19 @@
 | V5-20 Bỏ chữ theo mức giá cũ | 12 | 5 | 5 | **22** | Thêm 3 chỗ chỉ đổi cách hiện (FE) |
 | V5-21 Tham số trên Desk | 1 | 38 | 0 | **39** | Gồm 29 tên `params.k.*` |
 | V5-22 Hộp Đặt phòng mới | 2 | 6 | 0 | **8** | |
-| V5-23 Chữ sai sự thật | 46 | 23 | 4 | **73** | Gồm 25 khóa EN thêm U+2011. 3 khóa ở mục 4.19 là phát hiện thêm, PO quyết. Bản 1.1 thêm 6 khóa: `gw.req.clean_makeup_free` và `gw.req.clean_second_fee` (4.20 a, bắt buộc), `gw.lang_auto_sr` (4.6), 3 khóa ở 4.21 (nên có) |
+| V5-23 Chữ sai sự thật | 48 | 19 | 2 | **69** | Gồm 25 khóa EN thêm U+2011. 3 khóa ở mục 4.19 là phát hiện thêm, PO quyết. Bản 1.1 thêm 6 khóa: `gw.req.clean_makeup_free` và `gw.req.clean_second_fee` (4.20 a, bắt buộc), `gw.lang_auto_sr` (4.6), 3 khóa ở 4.21 (nên có). Bản 1.2: 4.14 còn 3 khóa (2 sửa, 1 mới) thay cho 6 mới và 2 xóa; thêm `bill.line.late_fee_after_limit` (4.8) |
 | V5-24 Tiếng Nga | 8 | 0 | 0 | **8** | Bản 1.1 thêm `gw.req.clean_long_fee`. `sale.quote_text`, `msg.booking_confirmed`, `msg.deposit_received`, `msg.hot_water_issue` đổi thêm cột VI và/hoặc EN, vẫn đếm một lần ở đây. Kèm yêu cầu font (mục 5.2) |
-| **Tổng** | **69** | **72** | **9** | **150** | Bản 1.0: 143 |
+| V5-5B Tiền về sau khi hủy (bản 1.4, mục 9.1) | 0 | 13 | 0 | **13** | Ngoài Gói 2. Đi cùng 5B-1. Thêm 1 khóa có điều kiện và 3 khóa để sẵn cho 5B-2, chưa đếm |
+| V5-25 Lưu `min_stay` (bản 1.4, mục 9.2) | 0 | 3 | 0 | **3** | Ngoài Gói 2. Đi cùng PR V5-25 của BE |
+| **Tổng** | **71** | **84** | **7** | **162** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2) |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
 - **Nên có, làm cùng lượt C5:** 4.20 (b), 4.21, thẻ 06 và 08 ở 5.1. Không kịp thì chuyển US-125 (B-SAU). Không chặn QC.
 - **Xếp sau:** 5.3 (kiểm tự động).
-- **Chưa đếm, chờ DOM:** khóa `bill.line.late_fee_after_limit` (4.8).
+- 3 câu `sale.hold_next*` (4.14): bản 1.3 dùng nguyên chữ CPY (thẻ 12), không còn chờ.
 - **v1.0.6:** 4.20 (c) và C6.
+- **Mục 9 (bản 1.4):** theo lịch của việc đi kèm, không theo Gói 2. 9.1 lên cùng V5-5B (5B-1; PO xếp v1.0.5 nếu kịp, không thì v1.0.6). 9.2 lên cùng V5-25.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -291,9 +302,11 @@ FE (`app/folio.ts`, `VARIANT` và `lineLabel`) chọn khóa như sau:
 | Khóa | Kiểu | Chữ cũ | Chữ mới VI | Chữ mới EN |
 |---|---|---|---|---|
 | `stay.charge_default` | Sửa | Giá mặc định {amount} theo {rule}. Phí phạt không tính vào doanh thu phòng. | Giá mặc định {amount} theo {rule}. | Default price {amount} per {rule}. |
-| `stay.charge_penalty_note` | Mới | – | Phí phạt không tính vào doanh thu phòng. | Fines don't count as room revenue. |
+| `stay.charge_penalty_note` | Mới | – | Phí phạt và tiền bồi thường hư hỏng không tính vào doanh thu phòng. | Fines and damage charges don't count as room revenue. |
 
-FE: ghép `stay.charge_penalty_note` sau `stay.charge_default` (StayDialogs 755), chỉ khi `item.category === 'penalty'`. DOM xác nhận có cần hiện cho `damage` không. Mặc định là không.
+FE: ghép `stay.charge_penalty_note` sau `stay.charge_default` (StayDialogs 755), chỉ khi `item.category === 'penalty' || item.category === 'damage'`.
+
+Bản 1.2 (DOM `rules-v1.0.5.md` mục 8.1, G6): DOM chốt hiện câu cho cả `penalty` và `damage`, dùng chung một câu. Hai nhóm cùng là "Phạt & bồi thường" trong Doanh thu khác (K-07), không vào doanh thu phòng (K-06). UXD lấy nguyên chữ DOM đề xuất. Câu nói cả hai khoản, nên đúng với cả hai nhóm. Giữ tên khóa `stay.charge_penalty_note` để FE không phải đổi tên. Các nhóm khác (minibar, giặt, dọn lẻ, phí dịch vụ) không hiện câu này.
 
 ### 4.4 BUG-R2-098 – Hộp nhập lại mật khẩu ghi "xem giấy tờ" khi xem số tài khoản
 
@@ -369,15 +382,21 @@ Bản 1.1 (FB-R5-CPY-UXD-V105-05, UXD nhận): bản VI đặt phần cách tín
 
 BE-B (`folio/public/line-labels.ts`, case `late_checkout`): dòng có `chargeCode = 'late_fee_as_night'` trả `labelKey: 'bill.line.late_fee_as_night'`, không kèm `time`. Bỏ giờ khỏi dòng này vì khoản tính bằng giá một đêm, không theo giờ. Như vậy cũng hết ca "00:15" dễ đọc thành sáng của ngày dịch vụ. FE không cần sửa: `lineLabel` dùng `labelKey` khi `hasKey`.
 
-**Chờ DOM (FB-R5-CPY-UXD-V105-04).** Nhãn này khẳng định số tiền bằng giá một đêm. Điều đó đúng khi dòng do B18 ghi và khi miễn/giảm đi bằng dòng FOC riêng (BR-416, BR-433). Nhưng nếu BR-438 (3) cho quản lý **sửa giảm thẳng** dòng này, mà dòng thay thế vẫn giữ `chargeCode = 'late_fee_as_night'`, thì nhãn sai. ORC đã hỏi DOM.
-- Nếu DOM trả lời "chỉ giảm bằng FOC": giữ nguyên, đóng thẻ.
-- Nếu DOM trả lời "được sửa thẳng": BE-B trả nhãn không nói số tiền cho dòng thay thế có số < `limit_ref_vnd`. Khóa dự phòng, chưa đếm ở mục 0, chỉ thêm khi DOM xác nhận:
+**Bản 1.2 (FB-R5-CPY-UXD-V105-04, DOM `rules-v1.0.5.md` mục 10).** Nhãn `late_fee_as_night` khẳng định số tiền bằng giá một đêm. Điều đó đúng khi dòng do B18 ghi, và khi miễn hoặc giảm đi bằng dòng FOC riêng (BR-416, BR-433). DOM xác nhận vẫn có ca quản lý, chủ đầu tư **sửa thẳng** đơn giá hoặc số lượng dòng này (`folio-lines.service.ts` chỉ chặn `PRICE_NOT_EDITABLE` với lễ tân, lễ tân trưởng). Ca thường gặp là trên folio `settled`, trong cửa sổ sau trả phòng (A32, BR-433 (e)). Dòng thay thế giữ `charge_code`, `label_params` và `limit_ref_vnd` của dòng gốc. Ca đó cần nhãn không nói số tiền:
 
 | Khóa | Kiểu | VI | EN |
 |---|---|---|---|
-| `bill.line.late_fee_after_limit` | Mới (chờ DOM) | Phụ thu trả muộn (rời sau mốc trả muộn) | Late check-out fee (after the late check-out limit) |
+| `bill.line.late_fee_after_limit` | Mới | Phụ thu trả muộn (rời sau mốc trả muộn) | Late check-out fee (after the late check-out limit) |
 
-Không chặn v1.0.5 nếu V5-16 (sửa giảm thẳng dòng phát sinh) không lên cùng bản.
+Chữ của CPY, DOM xác nhận đúng nghĩa BR-416 (khách rời sau mốc cuối, đêm ngày đi không bán được). Chữ khách cầm, cùng khuôn ngoặc với `late_fee_as_night`. "Phụ thu" giữ trong v1.0.5, đổi cùng họ ở v1.0.6 (C6).
+
+BE-B chọn nhãn theo số tiền dòng:
+- `amount_vnd` **bằng** `limit_ref_vnd` → `bill.line.late_fee_as_night`;
+- **khác** (nhỏ hơn hoặc lớn hơn, ví dụ sửa số lượng) → `bill.line.late_fee_after_limit`.
+
+Cả hai nhãn không kèm `time`. Dòng FOC riêng không đổi nhãn của dòng gốc: dòng 800.000 kèm FOC 400.000 vẫn ra `late_fee_as_night`. Ràng buộc `folio_line_limit_ref_required_check` (migration 0082) bảo đảm dòng `late_fee_as_night` luôn có `limit_ref_vnd`, nên không có ca thiếu số so.
+
+Không chặn v1.0.5 nếu V5-16 (sửa giảm thẳng dòng phát sinh) không lên cùng bản: ca sửa thẳng của quản lý đã có từ trước V5-16.
 
 ### 4.9 BUG-R3-051 – Banner công tắc ghi "mở chat Zalo"
 
@@ -429,22 +448,32 @@ Thẻ F1 trước đây đề xuất câu "Đã tải lại…" cho mọi chỗ.
 
 ### 4.14 Hộp xanh "Gửi mã QR cho khách…" khi chưa có mã QR (GN-V104-QR-green-box)
 
-QuoteDialog 773: hộp xanh luôn nói "Gửi mã QR cho khách", kể cả khi ngay dưới là câu đỏ `error.PAYMENT_NOT_CONFIGURED` ("Chưa cài tài khoản nhận chuyển khoản…") hoặc `dep.qr_failed`. Câu mới đúng cho cả hai ca. Câu nhắc giờ cũng thêm dạng số nhiều EN, vì `hold_expiry_reminder_hours` cho phép từ 0 đến 24 (sẽ có ca "1 hours").
+QuoteDialog 773: hộp xanh luôn nói "Gửi mã QR cho khách", kể cả khi ngay dưới là câu đỏ `error.PAYMENT_NOT_CONFIGURED` ("Chưa cài tài khoản nhận chuyển khoản…") hoặc `dep.qr_failed`. Câu mới đúng cho cả hai ca.
 
-| Khóa | Kiểu | VI | EN (`_one`) | EN (`_other`) | Khi nào |
-|---|---|---|---|---|---|
-| `sale.hold_next_one` / `_other` | Mới (2) | Gửi mã QR cho khách. Bạn sẽ được nhắc {hours} giờ trước khi hết hạn. | Send the QR code to the guest. You'll get a reminder {hours} hour before it expires. | Send the QR code to the guest. You'll get a reminder {hours} hours before it expires. | Sale nội bộ, mã QR đang tạo hoặc đã có |
-| `sale.hold_next_ctv_one` / `_other` | Mới (2) | Nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cọc cho khách. Bạn sẽ được nhắc {hours} giờ trước khi giữ chỗ hết hạn. | Ask the front desk or sales staff to send the guest the deposit VietQR. You'll get a reminder {hours} hour before the hold expires. | … {hours} hours before the hold expires. | CTV |
-| `sale.hold_next_no_qr_one` / `_other` | Mới (2) | Thu cọc của khách theo hướng dẫn bên dưới. Bạn sẽ được nhắc {hours} giờ trước khi giữ chỗ hết hạn. | Collect the deposit as shown below. You'll get a reminder {hours} hour before the hold expires. | Collect the deposit as shown below. You'll get a reminder {hours} hours before the hold expires. | Sale nội bộ, `DepositQr` báo lỗi hoặc `PAYMENT_NOT_CONFIGURED` |
-| `sale.hold_next` | Xóa | (chữ như dòng `_other`) | – | – | Sau khi FE chuyển sang `_one` / `_other` |
-| `sale.hold_next_ctv` | Xóa | (chữ như dòng `_other`) | – | – | Như trên |
+**Bản 1.2 (FB-R5-DOM-UXD-01, Major; DOM `rules-v1.0.5.md` mục 8.2).** Vế "Bạn sẽ được nhắc {hours} giờ trước khi hết hạn" sai với v1.0.x, kể cả khi tham số > 0:
+- tin nhắc J2 chỉ vào hộp thông báo của app nhân viên;
+- sale, CTV không có màn nào trên app đó;
+- Desk không có hộp thông báo, và trang Hôm nay (có Cần chú ý) chỉ mở cho OWN, MGR, FDL, FD.
+
+Sale, CTV yên tâm chờ nhắc thì giữ chỗ tự hủy mà không ai báo khách. Bản 1.2 bỏ vế nhắc ở cả ba câu. Thay vào đó, câu nêu **giờ hạn**, điều xảy ra lúc đó, và việc người tạo phải làm. Câu không hứa nhắc mà cũng không nói "Desk không nhắc", vì lễ tân, quản lý tạo giữ chỗ trong hộp này vẫn thấy dòng "Giữ chỗ sắp hết hạn".
+
+**Bản 1.3 (FB-R5-CPY-UXD-V105-12, Major).** Bản 1.2 bảo sale, CTV nhờ lễ tân gia hạn, là chỉ sai người làm. Sale, CTV tự gia hạn được giữ chỗ của mình: BR-303, `rbac-matrix.md` A03 (SAL, CTV "M"), `allowed-actions.ts` 74–76 (`extend_hold` khi `fd || sal || ctv`, chưa gia hạn lần nào, chưa quá hạn). Họ mở đơn ở "Đơn của tôi" và bấm nút **Gia hạn giữ chỗ (1 lần)**. Bản 1.3 dùng nguyên chữ CPY: vế cuối là việc tự làm, có tên nút; VI thêm "lúc" trước giờ; EN nói rõ mốc là giờ hạn. Tên nút trong câu phải khớp nguyên văn `drawer.action.extend_hold` (VI "Gia hạn giữ chỗ (1 lần)", EN "Extend hold (once)"). Đổi tên nút thì đổi cả 3 câu. Câu đúng với mọi vai và mọi giá trị `hold_expiry_reminder_hours`, kể cả 0 (DOM: 0 là không nhắc). Không còn `{hours}` nên bỏ dạng số nhiều. "Chưa cọc thì tự hủy" cùng chữ với `sale.hold_until` ngay trước bước tạo. Giữ chỗ có cọc một phần không tự hủy (báo đỏ cho quầy), nên câu không nói "chưa đủ cọc".
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `sale.hold_next` | Sửa | Gửi mã QR cho khách. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Send the QR code to the guest. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | Sale nội bộ, mã QR đang tạo hoặc đã có |
+| `sale.hold_next_ctv` | Sửa | Nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cọc cho khách. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Ask the front desk or sales staff to send the guest the deposit VietQR. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | CTV |
+| `sale.hold_next_no_qr` | Mới | Thu cọc của khách theo hướng dẫn bên dưới. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Collect the deposit as shown below. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | Sale nội bộ, `DepositQr` báo lỗi hoặc `PAYMENT_NOT_CONFIGURED` |
+
+Bản 1.1 có 6 khóa `_one`/`_other` mới và xóa `sale.hold_next`, `sale.hold_next_ctv`. Bản 1.2 bỏ cả 6 khóa đó, giữ 2 khóa cũ (đổi chữ) và thêm 1 khóa `_no_qr`. FE chưa áp bản 1.1, nên không có gì phải gỡ.
 
 FE:
+- `{time}` lấy từ `held.holdExpiresAt` (giờ máy chủ trả, đã tính mốc chặn `holdLatestTime`). Định dạng như `sale.hold_until`: `timeHHmm` + `dayMonth` theo giờ Asia/Ho_Chi_Minh, ví dụ "15:30 07/11". Thiếu `holdExpiresAt` thì dùng `holdUntil` đã tính. Không truyền `hours`; `rules.holdWarnHours` không còn dùng ở đây;
 - `DepositQr` báo ra ngoài khi lỗi (ví dụ thêm `onFail`, đối xứng với `onQr`);
-- QuoteDialog chọn `sale.hold_next_no_qr_*` khi đã có lỗi và chưa có mã QR;
-- trong lúc đang tạo, giữ `sale.hold_next_*`.
+- QuoteDialog chọn `sale.hold_next_no_qr` khi đã có lỗi và chưa có mã QR;
+- trong lúc đang tạo, giữ `sale.hold_next`.
 
-DOM xác nhận khi `hold_expiry_reminder_hours = 0` thì có còn nhắc không. Nếu 0 nghĩa là không nhắc, UXD cấp thêm câu không có vế nhắc.
+Ba câu này là chữ cho sale, CTV. CPY đã viết lại ở thẻ 12 (bản 1.3); áp nguyên văn.
 
 ### 4.15 U+2011 cho "2-step" (CPY P401-11) và các cụm số–chữ EN
 
@@ -649,6 +678,77 @@ Yêu cầu cho FE-B, xếp **sau** khi đã áp 4.20 (a) và (b) (PO quyết đ�
 
 Ghi chú: trong bảng, `\|` là dấu "hoặc" của regex, viết thoát để không vỡ bảng Markdown. Trong mã, viết `|`.
 
+## 9. Chữ thêm ở bản 1.4 (ngoài Gói 2)
+
+Chữ Desk nội bộ (VI, EN). Không có chữ cho khách, không cần CPY. Mã lỗi, tên `extras` và tên mã lý do do ARC chốt; bảng dưới gọi theo nghĩa, FE nối với mã ARC chốt.
+
+### 9.1 Ghi tiền về cho đơn đã hủy (V5-5B, 5B-1; DOM 11.4)
+
+Ca: khách chuyển tiền vào tài khoản OTTIMO sau khi đơn đã hủy hoặc đã đánh dấu không đến, ví dụ chuyển theo mã QR cũ. Luật DOM:
+- chỉ FD+ ghi;
+- chỉ chuyển khoản, VietQR;
+- ảnh chứng từ và ghi chú bắt buộc;
+- khoản thu luôn chờ đối soát;
+- trong cùng giao dịch tạo yêu cầu hoàn đủ số, không phí. Người ghi không tự duyệt.
+
+Một khoản tiền chỉ ghi một lần, nên hộp phải nói rõ: khách muốn đặt lại thì không ghi ở đây.
+
+Dùng lại, không đổi chữ:
+- `pay.bank_transfer`, `pay.vietqr` (hai lựa chọn duy nhất của ô cách thanh toán);
+- `deposit.received_at` (Giờ nhận tiền);
+- `pay.pending_reconcile` (Chờ đối soát);
+- `today.money_after_cancel` (dòng Cần chú ý "Tiền về cho đơn đã hủy {code}").
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `drawer.action.money_after_cancel` | Mới | Ghi tiền về sau khi hủy | Record money received after cancellation | Nút trên khung đơn `cancelled`, `no_show`. Chỉ FD+, không hiện cho sale, CTV |
+| `rsv.after_cancel.title` | Mới | Ghi tiền về cho đơn đã hủy {code} | Record money for cancelled booking {code} | Tiêu đề hộp |
+| `rsv.after_cancel.intro` | Mới | Ghi khoản này sẽ tạo yêu cầu hoàn đủ số tiền, không phí. Khách muốn đặt lại: không ghi ở đây. Tạo giữ chỗ mới, xác nhận cọc trên đơn mới, ghi chú giờ tiền về và mã đơn {code}. | Recording this creates a refund request for the full amount, with no fee. If the guest wants to book again, don't record it here. Create a new hold, confirm the deposit on the new booking, and note the time received and booking {code}. | Khung cảnh báo đầu hộp, luôn hiện. Câu đầu theo chữ DOM 11.4 mục 3 |
+| `rsv.after_cancel.methods_hint` | Mới | Chỉ ghi tiền đã vào tài khoản OTTIMO: chuyển khoản hoặc VietQR. Khách đưa tiền mặt hay quẹt thẻ: tạo đơn mới và thu trên đơn mới. | Only money already in OTTIMO's account: bank transfer or VietQR. Cash or card at the desk: create a new booking and take the payment there. | Dòng phụ dưới ô cách thanh toán |
+| `rsv.after_cancel.proof` | Mới | Ảnh chứng từ tiền về (bắt buộc) | Proof of the incoming payment (required) | Nhãn ô ảnh (`deposit_receipt`) |
+| `rsv.after_cancel.note_hint` | Mới | Ví dụ: tiền về 14:05 06/11 theo mã {code}. Không ghi tên khách. | For example: received 14:05 06/11 with reference {code}. Don't write the guest's name. | Chữ gợi ý ô Ghi chú (bắt buộc) |
+| `rsv.after_cancel.submit` | Mới | Ghi khoản thu và tạo yêu cầu hoàn | Record payment and create refund request | Nút chính |
+| `rsv.after_cancel.done` | Mới | Đã ghi {amount} cho đơn {code}, chờ đối soát. Yêu cầu hoàn {amount} đã tạo – cần quản lý duyệt. Bạn là người ghi nên không tự duyệt. | {amount} recorded for booking {code}, awaiting reconciliation. A refund request for {amount} was created – a manager must approve it. You recorded it, so you can't approve it yourself. | Thông báo sau khi ghi |
+| `field_error.after_cancel_method` | Mới | Đơn đã hủy chỉ ghi được chuyển khoản hoặc VietQR. Tiền mặt, thẻ: tạo đơn mới và thu trên đơn mới. | A cancelled booking only takes bank transfer or VietQR. For cash or card, create a new booking and take the payment there. | 422 khi cách thanh toán khác hai cách trên (mã ARC chốt) |
+| `field_error.after_cancel_proof` | Mới | Cần ảnh chứng từ tiền về trước khi ghi. | Attach proof of the incoming payment first. | 422 khi thiếu `attachmentId` |
+| `today.money_after_cancel_not_found` | Mới | Không thấy tiền | Money not found | Nút ở dòng Cần chú ý `deposit_after_cancel`, FD+. Đóng dòng khi chưa thấy tiền về |
+| `today.money_after_cancel_not_found_note` | Mới | Ghi chú (bắt buộc): đã kiểm ở đâu, lúc nào. | Note (required): where and when you checked. | Ô ghi chú của nút trên |
+| `rsv.notice.after_cancel_sent` | Mới | Đã báo lễ tân. Đơn đã hủy nên lễ tân kiểm tiền về rồi xử lý. | The front desk has been told. The booking is cancelled, so they'll check the money and handle it. | Sale, CTV bấm Báo đã chuyển cọc trên đơn đã đóng (thay 409; mã trả về ARC chốt) |
+
+Có điều kiện, chưa đếm: nếu ARC thêm mã lý do hoàn mới thay vì dùng lại `overpayment`, thêm `audit.reason.money_after_cancel`: VI "Tiền về sau khi hủy", EN "Money received after cancellation". Hiện ở cột Lý do, Cần duyệt, Hoàn tiền như `audit.reason.overpayment`.
+
+Để sẵn cho 5B-2 (khôi phục), chưa đếm, thêm khi 5B-2 lên:
+
+| Khóa | VI | EN | Khi nào |
+|---|---|---|---|
+| `rsv.after_cancel.restore` | Khôi phục giữ chỗ và xác nhận cọc | Restore the hold and confirm the deposit | Lựa chọn trong hộp, thay lối hoàn. Chỉ hiện khi đơn bị hủy lúc còn là giữ chỗ, căn cũ còn trống đủ đêm, chưa qua ngày đến |
+| `rsv.after_cancel.restore_help` | Cùng mã đơn, cùng căn, cùng giá. Không tạo yêu cầu hoàn. Thiếu cọc thì đơn thành giữ chỗ có cọc một phần đã quá hạn. | Same booking code, room and rate. No refund request. If the deposit is short, the booking becomes an overdue hold with a part deposit. | Dòng phụ dưới lựa chọn |
+| `error.after_cancel_restore_blocked` | Không khôi phục được: căn đã bán hoặc đã qua ngày đến. Chọn hoàn, hoặc mời khách căn khác. | This can't be restored: the room is sold or the arrival date has passed. Choose a refund, or offer the guest another room. | Lỗi khôi phục (mã ARC chốt; DOM gợi ý dùng lại mã của B12) |
+
+### 9.2 Câu lỗi khi lưu `min_stay` sai dạng (V5-25; DOM 12.1, 12.7)
+
+Sau V5-25, `min_stay` sai dạng trả 422 `PARAM_OUT_OF_RANGE`. Theo DOM 12.1:
+- `nights` sai: `extras` có `min`, `max`;
+- `channels`, `arrivalWeekdays` sai: `extras` có `allowed`;
+- các lỗi còn lại không có `allowed`: không phải mảng, quá 20 luật, khóa lạ, thiếu `channels`, luật không áp vào ngày nào, `arrivalOnSpecialDates` là chữ.
+
+Câu chung `_SHAPE` (mục 2.3) không chỉ được chỗ sai. Câu `_MINMAX` ("Giá trị phải từ 1 đến 7.") đọc như cả ô phải là một số. Vì vậy `min_stay` có câu riêng. Câu dạng lấy theo đề xuất của DOM, thêm một câu nói mỗi luật cần gì, để sửa lỗi gõ mà không phải mở từ điển.
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `params.err_min_stay_shape` | Mới | Giá trị chưa đúng dạng danh sách luật. Mỗi luật cần nights (số đêm), channels (kênh) và ít nhất một ngày áp: arrivalWeekdays hoặc arrivalOnSpecialDates. Xem từ điển tham số, mục Ở tối thiểu. | This isn't a valid list of rules. Each rule needs nights, channels and at least one arrival day: arrivalWeekdays or arrivalOnSpecialDates. See the parameter dictionary, Minimum stay. | `min_stay`, 422 không có `allowed`, `min`, `max` |
+| `params.err_min_stay_nights` | Mới | Số đêm (nights) của mỗi luật phải từ {min} đến {max}. | Each rule's nights must be from {min} to {max}. | `min_stay`, 422 có `min` và `max` |
+| `params.err_short_stay_below_min_stay` | Mới | Phải từ {min} đêm trở lên, vì Ở tối thiểu đang có luật {min} đêm. | Must be at least {min} nights, because Minimum stay has a {min}‑night rule. | `short_stay_max_nights`, 422 chỉ có `min` (kiểm chiều ngược, DOM 12.2) |
+
+FE (`app/problem.ts`, nhánh `PARAM_OUT_OF_RANGE`; ParamDialog biết khóa đang lưu), xét trước thứ tự 6 bước ở mục 2.3:
+1. khóa `min_stay`, có `allowed` → giữ `error.PARAM_OUT_OF_RANGE` ("Chọn một trong: all, direct, agent, ota" hoặc 7 mã thứ);
+2. khóa `min_stay`, có `min` và `max` → `params.err_min_stay_nights`;
+3. khóa `min_stay`, còn lại → `params.err_min_stay_shape`;
+4. khóa `short_stay_max_nights`, chỉ có `min` → `params.err_short_stay_below_min_stay`;
+5. các khóa khác: theo mục 2.3.
+
+JSON gõ sai (thiếu ngoặc, thiếu dấu ngoặc kép) vẫn báo `params.err_json` ở máy khách, trước khi gửi. `[]` lưu được (DOM 12.2), không có câu lỗi.
+
 ---
 
 ## 6. Yêu cầu cho FE, BE (gom theo tệp)
@@ -657,28 +757,29 @@ Ghi chú: trong bảng, `\|` là dấu "hoặc" của regex, viết thoát để
 |---|---|---|---|
 | FE-A | `design/tools/gen_strings.py` (+ sinh lại) | Áp mọi dòng Sửa, Mới, Xóa của bảng này. Ghi chú mỗi khóa: "v1.0.5 – V5-xx" | toàn bộ |
 | FE-A | `app/rules.ts` | `RULE_DEFAULTS` theo mức đề xuất (30, 30) | 1.1 |
-| FE-A | `quotes/QuoteDialog.tsx` | `n` cho `LONG_STAY_REQUIRES_CONTRACT`; gom đêm theo số tiền với `sale.nights_at_rate_*`; `sale.hold_next_*` theo số nhiều và `_no_qr`; `sale.quote_expires` truyền `expiresAt − 1 phút` | 1.1, 1.4, 4.7, 4.14 |
+| FE-A | `quotes/QuoteDialog.tsx` | `n` cho `LONG_STAY_REQUIRES_CONTRACT`; gom đêm theo số tiền với `sale.nights_at_rate_*`; `sale.hold_next*` với `{time}` từ `held.holdExpiresAt` và nhánh `_no_qr`; `sale.quote_expires` truyền `expiresAt − 1 phút` | 1.1, 1.4, 4.7, 4.14 |
 | FE-A | `booking/BookingDialog.tsx` | Khóa bản xem gồm số người; "–" và `aria-busy` khi chờ; chữ OTA chưa gõ giá; câu sàn–trần có số, dự phòng `rate_out_of_range_dates`; `role="alert"`, `aria-invalid` | 1.6, 3 |
-| FE-A | `stay/CheckOutPage.tsx`, `stay/StayDialogs.tsx` | `rate.calendar_short` ở 2 chỗ luôn hiện; `stay.after_noon_hint` với `{time}`; `stay.agreed_time`; `stay.companion_field`; `stay.charge_penalty_note` có điều kiện | 1.2, 1.5, 4.2, 4.3, 4.7 |
+| FE-A | `stay/CheckOutPage.tsx`, `stay/StayDialogs.tsx` | `rate.calendar_short` ở 2 chỗ luôn hiện; `stay.after_noon_hint` với `{time}`; `stay.agreed_time`; `stay.companion_field`; `stay.charge_penalty_note` khi `category` là `penalty` hoặc `damage` | 1.2, 1.5, 4.2, 4.3, 4.7 |
 | FE-A | `stay/common.tsx`, `money/MoneyPage.tsx` | `StepUpDialog` thêm `purpose` | 4.4 |
 | FE-A | `pages/paramCatalog.ts`, `ParamDialog.tsx`, `ParamsPage.tsx`, `app/problem.ts` | `KNOWN` cho 29 khóa, đơn vị `nights`; 6 nhánh câu `PARAM_OUT_OF_RANGE`; `params.err_*`; câu `ota_base_rate` | 2 |
 | FE-A | `app/folio.ts` | Biến thể phí trả sớm (`_same_day`, số nhiều) | 4.1 |
 | FE-A | `reservations/ReservationsPage.tsx`, `ReservationDialogs.tsx`, `pages/UsersPage.tsx`, `UserEmailDialog.tsx`, `webreq/*` | `rsv.list_empty_body_sales`; `money()` trong `DEPOSIT_INSUFFICIENT`; `INVALID_TRANSITION_generic(_reloaded)`; `users.email_purpose`; `webreq.pii_erased` | 4.7, 4.10, 4.12, 4.13, 4.16 |
-| FE-A | test | Sửa các test nhắc khóa bị xóa hoặc chữ cũ, ví dụ `v104-rate-source-typed.test.tsx` (`bk.src_weekend`), test so `error.DEPOSIT_INSUFFICIENT`, `sale.hold_next` | 1.3, 4.13, 4.14 |
+| FE-A | test | Sửa các test nhắc khóa bị xóa hoặc chữ cũ, ví dụ `v104-rate-source-typed.test.tsx` (`bk.src_weekend`), test so `error.DEPOSIT_INSUFFICIENT`, `sale.hold_next` (bỏ `hours`, thêm `time`) | 1.3, 4.13, 4.14 |
 | FE-B | `apps/guest-web` | `gw.lang_auto` 3 ngôn ngữ; `gw.lang_auto_sr` ở `#gw-lang-state` (GuestShell 66); 3 chuỗi RU trang khách; `gw.req.clean_*` (4.20 a, 5.1); font (5.2) | 4.6, 4.20, 5.1, 5.2 |
 | FE-B | test chữ khách (`apps/guest-web` hoặc `packages/i18n`) | Kiểm tự động 5 bước ở mục 5.3, bật dần. Làm **sau** 4.20 (a), (b) | 5.3 |
 | MOB | `apps/mobile` | Font (5.2). Kiểm các chuỗi U+2011 trên thẻ 362 px | 4.15, 5.2 |
 | BE-A | `reservations.service.ts` 739–743 | `min`, `max` trong Problem `RATE_OUT_OF_RANGE` (theo ARC 0.3.13) | 3 |
-| BE-B | `folio/public/line-labels.ts` | `bill.line.late_fee_as_night` cho `chargeCode = 'late_fee_as_night'`, không có `time` | 4.8 |
+| BE-B | `folio/public/line-labels.ts` | Dòng `chargeCode = 'late_fee_as_night'`: `amount_vnd` bằng `limit_ref_vnd` → `bill.line.late_fee_as_night`; khác → `bill.line.late_fee_after_limit`. Cả hai không có `time`. `LabelSource` cần thêm `amount_vnd`, `limit_ref_vnd`. Test: sửa đơn giá 800.000 → 400.000 ra `after_limit`; dòng 800.000 kèm FOC 400.000 vẫn ra `as_night` (DOM mục 10) | 4.8 |
 | BE | `services/api/scripts/gen-quote-copy.mjs` | Chạy lại sau khi đổi `sale.quote_text` (RU dòng 2 và 4, VI dòng 2). `quote-copy.ts` không còn "Апартаменты", "Депозит", "Căn " | 4.20, 5.1 |
-| BE-B (chờ DOM) | `folio/public/line-labels.ts` | Chỉ khi DOM xác nhận sửa giảm thẳng: `bill.line.late_fee_after_limit` cho dòng thay thế có số < `limit_ref_vnd` | 4.8 |
+| FE-A | `reservations/ReservationDialogs.tsx` (hoặc tệp ARC chỉ), `pages/TodayPage.tsx` | Bản 1.4: nút và hộp ghi tiền về cho đơn đã hủy, nút Không thấy tiền ở Cần chú ý, câu báo cho sale, CTV. Lên cùng 5B-1 | 9.1 |
+| FE-A | `app/problem.ts`, `pages/ParamDialog.tsx` | Bản 1.4: chọn câu lỗi riêng cho `min_stay`, `short_stay_max_nights` trước 6 bước ở 2.3. Lên cùng V5-25 | 9.2 |
 | UXD | `design/content-guide.md` | Sau khi FE áp: đồng bộ mục 8 theo `strings-tables.md`, ghi phiên bản v0.4.7, xóa dòng `fo.tabs.holds`, sửa ô `bk.src_weekend` trong `hifi/09-booking.html` | 1.3, 4.18 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
 - lưu lại đúng giá trị đề xuất của từ điển sẽ bị 422, kèm câu "Chọn một trong: 1, 2, 3, 4, 5, 6, 7";
 - còn lưu dạng số thì bộ tính giá không còn nhận ra đêm cuối tuần.
 
-Hôm nay INV không cần sửa tham số này (mức tăng = 0, hướng dẫn chuyển giá giữ FRI/SAT), nên chưa gây sai tiền. Nhưng đây là bẫy. Đề xuất: BE đổi validator sang tập `MON…SUN`, và `allowed` trả các mã này.
+Hôm nay INV không cần sửa tham số này (mức tăng = 0, hướng dẫn chuyển giá giữ FRI/SAT), nên chưa gây sai tiền. Nhưng đây là bẫy. Đề xuất: BE đổi validator sang tập `MON…SUN`, và `allowed` trả các mã này. DOM đã chốt cùng hướng (`rules-v1.0.5.md` mục 8.4, BUG-R5-001): sửa bộ kiểm, không đổi bộ tính giá; ARC chốt.
 
 ## 7. CPY duyệt (kết quả review 06/11, `rounds/round-05/reviews/CPY-on-uxd-copy-v1.0.5.md`)
 
@@ -687,11 +788,13 @@ Hôm nay INV không cần sửa tham số này (mức tăng = 0, hướng dẫn 
 | C1 | 7 chuỗi RU ở mục 5.1 | Duyệt có điều kiện (thẻ 01) | Thẻ 01: "Предоплата" ở dòng 4 `sale.quote_text` (5.1) |
 | C2 | `gw.lang_auto` (EN, VI, RU) | Duyệt | Thêm `gw.lang_auto_sr` (thẻ 10, 4.6) |
 | C3 | `bill.line.early_departure_fee_same_day`, `_notice_one`, `_notice_other` | Duyệt | Thẻ 03: U+00A0 sau `{noticeDays}` (4.1) |
-| C4 | `bill.line.late_fee_as_night` | Duyệt | Thẻ 05: VI có ngoặc. Thẻ 04 chờ DOM (4.8) |
+| C4 | `bill.line.late_fee_as_night` | Duyệt | Thẻ 05: VI có ngoặc. Thẻ 04 (bản 1.2): DOM xác nhận ca sửa thẳng, thêm `bill.line.late_fee_after_limit` theo chữ CPY (4.8) |
 | C5 | Dấu "!" ở `msg.hot_water_issue` | Duyệt có điều kiện (thẻ 06) | 3 câu của CPY (5.1). Mức nên có, cùng lượt với 4.20 (b), 4.21, thẻ 08 |
 | C6 | "phụ thu" ở họ `bill.line.*` | Đồng ý để sau | v1.0.6, gộp 4.20 (c) (backlog R5-B-03). Hướng VI đã có ở mục 2 của tệp review CPY |
 
 Các khóa khách CPY viết thêm trong review: 4.20, 4.21, `gw.req.clean_long_fee` (5.1), `gw.lang_auto_sr` (4.6). Khi áp thì không cần CPY duyệt lại. UXD kiểm khớp nguyên văn khi review PR.
+
+CPY lượt 3 (mục 12 tệp review): thẻ 04 Closed; `stay.charge_penalty_note` (4.3) DUYỆT; 3 câu `sale.hold_next`, `sale.hold_next_ctv`, `sale.hold_next_no_qr` (4.14) DUYỆT CÓ ĐIỀU KIỆN theo thẻ 12. Bản 1.3 áp nguyên chữ CPY của thẻ 12.
 
 Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol.
 
@@ -702,6 +805,9 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - `quote-copy.ts` VI và `gw.req.clean_makeup_free`, `gw.req.clean_second_fee`: không còn "căn" đứng riêng. Nếu lượt C5 đã áp thì 3 mẫu `msg.*` VI cũng không còn.
 - Nếu lượt C5 đã áp: `msg.hot_water_issue`, `msg.house_rules_smoking`, `guest.late.done_title`, `msg.bill` RU không còn "!", trừ lời chào RU "Здравствуйте, {name}!".
 - Phiếu VI/EN: `bill.line.early_departure_fee_notice_*` có U+00A0 sau số (soát bằng `tv(key)`, không gõ lại). Ở khung 362 px, số và chữ "ngày"/"days'" không tách dòng.
+- `strings-vi.json`, `strings-en.json`: không còn "được nhắc", "get a reminder", không còn khóa `sale.hold_next*_one` / `_other`. Hộp xanh sau khi tạo giữ chỗ hiện đúng giờ hạn của đơn (so với khung đơn), cả khi giữ chỗ bị chặn ở `holdLatestTime`. Đăng nhập vai sale và vai CTV: tạo giữ chỗ, đọc hộp xanh, mở đơn ở "Đơn của tôi" → nút "Gia hạn giữ chỗ (1 lần)" hiện trước hạn, đúng chữ trong câu (so với `drawer.action.extend_hold`).
+- Hộp thêm khoản phát sinh (StayDialogs 755): chọn khoản nhóm `penalty`, rồi nhóm `damage`. Câu "Phí phạt và tiền bồi thường hư hỏng…" hiện ở cả hai; khoản minibar, giặt không hiện.
+- Phiếu: quản lý sửa đơn giá dòng `late_fee_as_night` 800.000 → 400.000 → nhãn "Phụ thu trả muộn (rời sau mốc trả muộn)"; dòng 800.000 kèm FOC 400.000 → nhãn "Phụ thu trả muộn (bằng giá 1 đêm)".
 - Trình đọc màn hình (VoiceOver hoặc NVDA) ở ô chọn ngôn ngữ trang khách: đọc "Language selected for you" khi khách chưa tự chọn.
 - Đổi thử tham số trên stack QA: `long_stay_required_from_nights` = 21, `checkout_time` = 11:00, `los_discount` có 1 bậc, `weekend_uplift_pct` = 10. Chữ theo đúng số mới:
   - hộp thuê dài hạn;
@@ -711,3 +817,5 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - ParamDialog: thử 6 dạng lỗi `PARAM_OUT_OF_RANGE`, JSON thiếu ngoặc kép, giờ sai dạng. Không còn `{min}`, `{max}` lộ ra; không còn "danh sách" ở ô không có danh sách.
 - Đặt phòng mới, kênh OTA để trống giá: không có "0 đ". Trực tiếp gõ dưới sàn: câu có số sàn, trần thật.
 - Desk EN ở khung 362 px (PWA) và 1440 px: các cụm U+2011 không gãy dòng.
+- Bản 1.4, mục 9.1 (khi 5B-1 lên staging): lễ tân mở đơn đã hủy → nút "Ghi tiền về sau khi hủy" có, sale và CTV không thấy nút. Hộp chỉ có Chuyển khoản, VietQR. Khung cảnh báo đầu hộp luôn hiện. Thiếu ảnh hoặc chọn tiền mặt thì hiện đúng câu 9.1. Ghi xong hiện câu `rsv.after_cancel.done` có số tiền và mã đơn.
+- Bản 1.4, mục 9.2 (khi V5-25 lên staging, theo oracle BR-113-06…30): ca 08, 09, 20, 23, 27 → `params.err_min_stay_shape`; ca 11, 12 → `params.err_min_stay_nights` với số đúng; ca 17, 24, 25 → câu "Chọn một trong: …"; ca 28 → `params.err_short_stay_below_min_stay` với số 2. Không còn `{min}`, `{max}` lộ ra.
