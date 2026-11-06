@@ -8,5 +8,7 @@ After=docker.service
 Type=oneshot
 User=ottimo
 Group=ottimo
+# v1.0.5 V5-63: check `journal` reads the host journal – the group is given to this unit only, not to the user.
+SupplementaryGroups=systemd-journal
 Environment=OTTIMO_HOME=/opt/%i
 ExecStart=/opt/%i/infra/server/bin/ops-check.sh

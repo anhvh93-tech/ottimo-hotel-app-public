@@ -373,7 +373,9 @@ describe('Desk link and notification labels', () => {
         refCode: 'OTM-00171',
         createdAt: '2026-11-04T10:00:00Z',
       } as unknown as StaffNotification;
-      expect(notifText(n, t)).toBe(tv('staff.notif.k.other'));
+      // v1.0.5 FB-R5-ARC-MOB-V51B-01: the hold kinds have their own UXD sentence (was the general one).
+      expect(notifText(n, t)).toBe(tv(`staff.notif.k.${kind}`));
+      expect(notifText(n, t)).not.toBe(tv('staff.notif.k.other'));
       expect(notifRef(n, t)).toBe('OTM-00171');
     }
     const locked = {

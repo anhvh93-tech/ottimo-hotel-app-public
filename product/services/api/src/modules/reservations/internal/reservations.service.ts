@@ -13,7 +13,7 @@ import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { CANCEL_REASON_CODES, type CancelReasonCode } from '../../../db/schema';
 import { ProblemError, problem } from '../../../shared/problem';
 import { assertNoCardNumber, containsCardNumber } from '../../../shared/validation';
-import { type LocalDate, type LocalTime, addDays, atLocal } from '../../../shared/time';
+import { type LocalDate, type LocalTime, addDays, atLocal, localDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { ApprovalService, type ApprovalRow } from '../../approvals/public/approval.service';
@@ -46,6 +46,7 @@ import {
 } from '../public/pricing';
 import type { NightSource } from '../public/added-night-price';
 import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
+import { rateOutOfRange } from '../public/rate-out-of-range';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
 import type { ConfirmedStay } from '../public/sales-port';
 import {
@@ -447,6 +448,8 @@ export class ReservationsService {
       arrivalDate: row.arrival_date,
       departureDate: row.departure_date,
       today: ctx.today,
+      // 0.3.13 (V5-10, BE C0313-09): check_out from 00:00 of the departure day (post-midnight window).
+      calendarDate: localDate(ctx.now, ctx.tz),
       holdExpired: !!row.hold_expires_at && row.hold_expires_at.getTime() <= ctx.now.getTime(),
       holdExtendedCount: row.hold_extended_count,
       depositPaidVnd,
@@ -728,19 +731,14 @@ export class ReservationsService {
         nightlyRates,
         otaRoomAmountVnd,
       });
+      // V5-22 (BUG-R4-040): `dates[]` + `min`/`max` of the first night out of range, block and warning alike.
       if (priced.outOfRange.length > 0) {
         if (group === 'ota') {
           if (!rateOverrideReason) {
-            throw problem('VALIDATION_FAILED', {
-              errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE_WARNING' }],
-              extras: { dates: priced.outOfRange },
-            });
+            throw rateOutOfRange(priced.outOfRange, priced.nights, { warning: true });
           }
         } else {
-          throw problem('RATE_OUT_OF_RANGE', {
-            errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
-            extras: { dates: priced.outOfRange },
-          });
+          throw rateOutOfRange(priced.outOfRange, priced.nights);
         }
       }
     }
@@ -4628,8 +4626,8 @@ export class ReservationsService {
    * Each hold runs in its own SAVEPOINT – one bad row is reported in `failures` and the others still expire
    * (FB-R2-SEC-BE-24). A hold with money received (DOM D-9, US-085 AC4) is never auto-cancelled: its creator/closer +
    * FD/FDL/MGR are told once (`hold_overdue_with_deposit`), MGR/OWN once the BR-302 cap (12:00 on arrival day) has
-   * passed (`hold_overdue_cap`); a cancelled hold tells its creator/closer (`hold_expired`) – inbox + SSE, DOM A.5,
-   * v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until check-in (BUG-R3-042).
+   * passed (`hold_overdue_cap`); a cancelled hold tells its creator/closer + every active FD/FDL (`hold_expired`,
+   * V5-1B) – inbox + SSE, DOM A.5, v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until check-in (BUG-R3-042).
    */
   async expireHolds(
     tx: Tx,
@@ -4747,7 +4745,8 @@ export class ReservationsService {
       segs.map((s) => ({ roomId: s.room_id, from: s.from_date, to: s.to_date })),
       'hold.expired',
     );
-    // DOM A.5: creator + closer only (a CTV tells the guest); inbox, no "Cần chú ý".
+    // DOM A.5 + V5-1B: creator + closer + every active FD/FDL (the desk tells the guest – Tờ 2a); inbox, no
+    // "Cần chú ý".
     await notifyHoldOnce(
       tx,
       this.events,

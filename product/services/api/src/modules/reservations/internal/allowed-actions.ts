@@ -4,6 +4,7 @@
  * buttons. Event/transition codes from state-machines.md section 18; `action` = path segment.
  */
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
+import { isCheckoutDay } from '../../../shared/business-day';
 import { type LocalDate, addDays } from '../../../shared/time';
 
 export interface AllowedAction {
@@ -29,7 +30,13 @@ export interface ActionContext {
   channelGroup: ChannelGroup;
   arrivalDate: LocalDate;
   departureDate: LocalDate;
+  /** Business date (BR-010). */
   today: LocalDate;
+  /**
+   * 0.3.13 (V5-10, BE C0313-09): calendar date at the same instant – `check_out` from 00:00 of the departure day
+   * (post-midnight window, BUG-R4-036). Absent = no window (calendar date = business date).
+   */
+  calendarDate?: LocalDate;
   holdExpired: boolean;
   holdExtendedCount: number;
   /**
@@ -51,6 +58,19 @@ export interface ActionContext {
    * B16 is offered only while a valid new departure exists: max(today, arrival + 1) < stayDepartureDate.
    */
   stayDepartureDate?: LocalDate;
+}
+
+/**
+ * 0.3.13 (V5-10, BE C0313-09): B18 is offered on the stay's EFFECTIVE departure (`stayDepartureDate` – the primary
+ * booking + its extension children, BR-422; absent on a child, which B18 refuses) at the business date or from 00:00 of
+ * that calendar day – the shared rule of the server (shared/business-day.ts `isCheckoutDay`).
+ */
+export function checkOutOpen(c: ActionContext): boolean {
+  if (!c.stayDepartureDate) return false;
+  return isCheckoutDay(
+    { today: c.today, calendarDate: c.calendarDate ?? c.today },
+    c.stayDepartureDate,
+  );
 }
 
 /** B16 new-departure window [max(today, arrival + 1), stayDepartureDate − 1] is not empty (same rule as the server). */
@@ -112,7 +132,7 @@ export function allowedActions(roles: readonly string[], c: ActionContext): Allo
         if (earlyDepartureOpen(c)) {
           out.push({ event: 'early_departure', transition: 'B16', action: 'early-departure' });
         }
-        if (c.today === c.departureDate) {
+        if (checkOutOpen(c)) {
           out.push({ event: 'check_out', transition: 'B18', action: 'check-out' });
         }
       }

@@ -20,7 +20,7 @@
 #                         `rrsync -ro /var/backups/<stack>` – read-only, that directory only, no shell
 # Every run also refreshes /opt/ottimo-edge/infra (the shared edge – infra/edge, bin/edge.sh) from this bundle.
 # What it does (hosting-plan 5): OS updates + automatic security updates (reboot 02:30 Vietnam time), Docker Engine
-# from Docker's apt repository (key fingerprint checked), daemon.json (log rotation, live-restore, no userland proxy,
+# from Docker's apt repository (key fingerprint checked), daemon.json (log driver journald, live-restore, no userland proxy,
 # no-new-privileges), deploy user `ottimo` (uid 2001, group docker – NOT uid 1000, which the api container uses),
 # firewall (22, 80, 443 only), SSH key-only, directories under /opt/ottimo, the bundle in /opt/ottimo/infra, systemd
 # timers for backup + ops checks. It does NOT create secrets (bin/init-secrets.sh), log in to the registry or deploy.
@@ -113,8 +113,8 @@ fi
 install -d -m 0755 /etc/docker
 cat > /etc/docker/daemon.json.new <<'EOF'
 {
-  "log-driver": "local",
-  "log-opts": { "max-size": "20m", "max-file": "5" },
+  "log-driver": "journald",
+  "log-opts": { "tag": "{{.Name}}" },
   "live-restore": true,
   "userland-proxy": false,
   "no-new-privileges": true
@@ -209,6 +209,18 @@ template="$OTTIMO_HOME/infra/server/env.example"
 if [ ! -f "$OTTIMO_HOME/.env" ]; then
   install -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0600 "$template" "$OTTIMO_HOME/.env"
   log "created $OTTIMO_HOME/.env from $(basename "$template") – fill the <...> values"
+fi
+# Host journal (v1.0.5 V5-63): container logs kept 90 days, size cap, no syslog copy (server/journald/50-ottimo.conf).
+# state/journald_since = the day the journal started to hold container logs: ops-check `journal` measures early
+# rotation from it (SEC FB-R5-SEC-ARC-07).
+install -d -m 0755 /etc/systemd/journald.conf.d
+if ! cmp -s "$OTTIMO_HOME/infra/server/journald/50-ottimo.conf" /etc/systemd/journald.conf.d/50-ottimo.conf 2>/dev/null; then
+  install -m 0644 "$OTTIMO_HOME/infra/server/journald/50-ottimo.conf" /etc/systemd/journald.conf.d/50-ottimo.conf
+  systemctl restart systemd-journald
+fi
+if [ ! -s "$OTTIMO_HOME/state/journald_since" ]; then
+  date +%F > "$OTTIMO_HOME/state/journald_since"
+  chown "$DEPLOY_USER:$DEPLOY_USER" "$OTTIMO_HOME/state/journald_since"
 fi
 # Shared edge (one per VPS): its own root-owned copy of the bundle; nginx.conf is rendered by bin/edge.sh.
 install -d -o root -g root -m 0755 "$EDGE_HOME"

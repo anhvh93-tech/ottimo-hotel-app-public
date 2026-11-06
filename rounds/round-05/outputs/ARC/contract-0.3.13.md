@@ -170,7 +170,7 @@ Lần chạy lại sau bổ sung 1b/1c (V5-48, 5B-1, V5-25, ARC-09; gộp `main`
 | T14-1 | Gõ 2 đêm giá thỏa thuận trong sàn–trần → lưu báo giá → giữ chỗ | Đêm của đơn = giá gõ, nguồn `manual`, cọc tính theo giá gõ |
 | T14-2 | Giá ngoài sàn–trần | 422 kèm `min`/`max` |
 | T14-3 | SAL gửi `nightlyRates` | 403 |
-| T14-4 | Kênh OTA, hoặc `type = long` | 422 `NOT_ALLOWED` |
+| T14-4 | Kênh OTA (có hoặc không `nightlyRates`); `type = long` kèm `nightlyRates` | OTA: 422 `VALIDATION_FAILED`, `NOT_IN_LIST` (`field` = `channelId`) như mục 1.17 và `QuoteInput.channelId`; `long`: 422 `NOT_ALLOWED` (`field` = `nightlyRates`). Sửa ở bổ sung 1f (QA review PR #103) – chữ cũ ghi chung `NOT_ALLOWED` |
 | T14-5 | `createHoldFromQuote` kèm `nightlyRates` | 422 `NOT_ALLOWED`, không có đơn nào được tạo |
 | T14-6 | E2E Desk: gõ giá → Giữ chỗ | Số cọc trên hộp = số máy chủ |
 
@@ -613,8 +613,8 @@ Thay T14-4 cũ ("kênh Nội bộ theo BR-421") bằng T14-8.
 
 **Luật (DOM chọn SEC (a) + báo cáo (b)):**
 - "Sửa giảm" = `voidLine`, giảm `newQuantity`, giảm `newUnitPriceVnd`; dòng khác `room`, `extra_person`, `room_change_difference`; folio chưa `settled`.
-- FD/FDL sửa giảm trực tiếp khi dòng **gốc** của chuỗi `related_line_id` (BE 04): `source = manual`, do chính người gọi ghi, ngày nghiệp vụ ghi = hôm nay. Ngoài ra → 403 + `requiredFlow: foc_request`; Desk chuyển sang "Gửi miễn có duyệt" (A35).
-- Audit tính trên dòng gốc: `before.postedByActor`, `before.sameBusinessDay`, thêm `before.rootLineId`, `before.rootLineManual`. Allowlist `folio_line` thêm 4 khóa (BE).
+- FD/FDL sửa giảm trực tiếp khi dòng **gốc** của chuỗi `related_line_id` (BE 04): **gõ tay**, do chính người gọi ghi, ngày nghiệp vụ ghi = hôm nay. **Bổ sung 1f (DOM `DOM-on-be-prs-101-108-110.md` 3.1, BR-438 v0.5.14):** "gõ tay" = dòng A30 (`addFolioLine`, nguồn `manual`, danh mục A30) hoặc dòng đếm minibar (nguồn `minibar_check`); không xét riêng mã `source` – phụ thu trả muộn B13/B15/B16 (lưu `manual`) và B18 (lưu `checkout`) là dòng hệ thống. Chữ cũ ghi "`source = manual`"; hành vi không đổi (PR #110 dùng `typedByHand`). Ngoài ra → 403 + `requiredFlow: foc_request`; Desk chuyển sang "Gửi miễn có duyệt" (A35).
+- Audit tính trên dòng gốc: `before.postedByActor`, `before.sameBusinessDay`, thêm `before.rootLineId`, `before.rootLineManual` (= dòng gốc gõ tay theo nghĩa trên). Allowlist `folio_line` thêm 4 khóa (BE).
 - Báo cáo: `listAuditEvents.reductionsOnly`; `ShiftReport.lineReductions[]` (tính lúc đọc từ audit; không kịp thì v1.0.6 – DOM 7.2 ý 4); "Cần chú ý" `foc_threshold` `check = line_reduction_count` (ngưỡng chung `foc_alert_count_per_approver`, tháng theo ngày nghiệp vụ).
 - FOC `reasonCode` thêm `entered_in_error` (không CHECK DB). Sửa giảm theo luật (1) không tính FOC tháng, không tính hạn mức BR-433.
 - `removalsOnly`, `reductionsOnly`: máy chủ ghim `category = money`, `action = folio_line.adjusted` (BE 20).
@@ -656,7 +656,7 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
    - `type` = `deposit` nếu hủy lúc còn giữ chỗ, `charge` với đơn khác (DOM 2 (f));
    - yêu cầu hoàn mã **mới** `payment_after_cancel` (không dùng lại `overpayment` – báo cáo và nhãn tách "Tiền về sau khi hủy"; `reason_code` là text), đứng tên **người ghi**, người ghi vào `origin_actor_ids` (S2);
    - nơi nhận cố định `original_method`, `setRefundDestination` → 409, không chi tiền mặt (S3; DOM B002-04 ý 1);
-   - **"Có thể trùng" – bắt buộc khi 5B-1 lên** (DOM B002-04 ý 4): `possibleDuplicateCodes` trên `Payment` và `ApprovalRequest`, tính lúc đọc;
+   - **"Có thể trùng" – bắt buộc khi 5B-1 lên** (DOM B002-04 ý 4): `possibleDuplicateCodes` trên `Payment` và `ApprovalRequest`, tính lúc đọc; **bổ sung 1f (SEC ARC-16, PR riêng gộp trước PR-B3):** cả hai trường `x-visible-to` FD+ (OWN, MGR, FDL, FD) – HK, MT, SAL, CTV đọc `listApprovalRequests` không thấy; test `serializer.test.ts`; `duplicateReservationCode` chỉ cho FD+ ghi cả ở bảng mã lỗi, bảng trường mở rộng và `Problem` (SEC ARC-21); tập đóng `money` thêm `attention_event.resolved` (SEC ARC-20 – "Không thấy tiền" trên `deposit_after_cancel`, `after = {kind, afterClosure}`), cùng PR với `money-actions.ts` và câu `mlog.a_money_not_found` (ARC sửa mã nhỏ theo ORC);
    - **`bankReference` tùy chọn trong `PaymentCreate` – ARC thêm ở 0.3.13**: lễ tân thường không đọc được mã, nên không bắt buộc; có mã mà trùng khoản thu chưa đảo của cơ sở → **409 `DUPLICATE_BANK_REFERENCE`** (mã mới, `duplicateReservationCode`); kiểm dưới khóa tư vấn (cơ sở, mã) trong giao dịch, cột có từ 0040 → không migration;
    - **ô mã giao dịch ở bước đối soát và luật "một dòng sao kê chỉ khớp một khoản" ở máy chủ: v1.0.6** (DOM B002-04 ý 2 – tới đó MGR+ áp bằng tay; người đối soát luôn có sao kê nên chặn ở đó chắc hơn, nhưng đổi `reconcilePayment` thêm một PR vào làn BE-B đang kín);
    - lỡ ghi hai lần: `disputed` → `reversePayment` → yêu cầu hoàn đi kèm `superseded` (DOM đã kiểm `folio.service.ts`) – không đổi hợp đồng;
@@ -719,13 +719,78 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
   - `weekend_nights` = `Weekday[]` (`MON`…`SUN`), không rỗng, không trùng; số → 422; sửa bộ kiểm, không sửa bộ tính giá; `erd.md` 9.1, 9.1a đã sửa;
   - `min_stay` theo DOM 12.1: 0–20 luật; khóa chỉ `nights`, `channels`, `arrivalWeekdays`, `arrivalOnSpecialDates`; `nights` 1–min(7, `short_stay_max_nights`); `channels` bắt buộc (`"all"` hoặc con của `direct`/`agent`/`ota`); mỗi luật áp ít nhất một ngày; `[]` = không tối thiểu;
   - lỗi báo điểm sai đầu tiên: `errors[0].field` = `value[<i>].<khóa>`, `code` thuộc bảng mã trường có sẵn (`REQUIRED`, `VALUE_OUT_OF_RANGE`, `NOT_IN_LIST`, `DUPLICATE`, `NOT_ALLOWED`); `min`/`max`/`allowed` như bảng DOM;
-  - kiểm ngược `short_stay_max_nights` < `nights` lớn nhất của `min_stay` (hiệu lực ở `effectiveFrom` hoặc đã lên lịch sau) → 422, `min` = số đó;
+  - kiểm ngược `short_stay_max_nights` < `nights` lớn nhất của `min_stay` ~~(hiệu lực ở `effectiveFrom` hoặc đã lên lịch sau)~~ **bổ sung 1e:** trong khoảng [`effectiveFrom`, ngày hiệu lực của dòng kế tiếp cùng khóa) của dòng mới (ARC review PR #96 mục 1) → 422, `min` = số đó; chiều kia: `nights` ≤ min(7, `short_stay_max_nights` nhỏ nhất trong khoảng);
+  - hủy dòng đã lên lịch (`cancelScheduledParameter`) chưa kiểm lại luật chéo – 0.3.14;
   - bộ đọc phòng thủ ở 3 chỗ gọi `minStayNights`: không mảng → không luật; phần tử hỏng → bỏ; log một lần; không 500;
   - không mở đường sửa dòng hiệu lực hôm nay (R5-B-06).
 
 - **BA (a) – `rbac-matrix.json` A07b, A33 trỏ `channelWebhook`, `paymentCallback`:** ARC đề nghị BA **bỏ** hai operationId này (không đổi tên): đường hệ thống thật là `webhookPost`/`webhookGet` (`x-roles: [system]`, R3); gắn vào A07b/A33 (vai FD+) sẽ làm `rbac_check` báo lệch. BA ghi chú "đường cổng thanh toán/OTA: `webhookPost` (system)". **Bổ sung 1d:** BA đã bỏ ở rbac 0.2.8 (`4bb9e68d`); hợp đồng không đổi.
 - **BA (b) – ghi chú 46b:** chốt hợp quyền, xem 1.16.
 - **SEC ARC-13:** id `rbac-cases` ổn định `RB-<operationId>-<subject>`, ca trường `RBF-<operationId>-<field>-<subject>`; id cũ trong tài liệu trước 0.3.13 (`RB-0387`…) theo đánh số của commit đó – tra git. Thêm `x-round: R5` cho `getPropertyWifi`, `setPropertyWifi`, `getManagerPerformanceBonus`.
+
+
+### 1.25 Bổ sung 1e – ghi chú triển khai sau #94 (BE C0313-22, 23; SEC `SEC-responses.md`; ARC review PR #96 mục 7; UXD 9.5)
+
+Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi mới, không migration. PR nhỏ sau #94 (ORC 06/11).
+
+**BE C0313-22 – nguồn dữ liệu của V5-48/5B-1 (SEC xác nhận có điều kiện):**
+- Ý 1 – đồng ý: `Payment.afterClosure` tính lúc đọc, **chỉ để hiển thị**: đơn chính của folio `cancelled`/`no_show` và `payment.created_at` (giờ máy chủ) ≥ `cancelled_at`/`no_show_marked_at`. Không so bằng `receivedAt` (người dùng nhập, ghi lùi được). Đơn khôi phục sau → đọc `false`. Quyết định lúc ghi đọc trạng thái đơn dưới khóa đơn, không đọc trường này. Không cột.
+- Ý 3 – **bắt buộc** (SEC 1.2): allowlist `payment` + `afterClosure`, `reservationStatus`; `deposit_notice` + `afterClosure`; thực thể mới `attention_event` (`kind`, `afterClosure`) cho audit `money` `attention_event.resolved` khi đóng mục `deposit_after_cancel` bằng "Không thấy tiền" (S8 – hiện `resolveAttentionEvent` chưa ghi audit). `afterClosureOnly` lọc theo `after.afterClosure = true` trong `audit_event`.
+- Ý 2 – chọn **"chưa trả tới 0.3.14"** (SEC thích phương án này): `Payment.refundRequestId` vắng ở v1.0.5; Desk tìm qua `openRefunds` (`reasonCode = payment_after_cancel`) và màn duyệt. Cột nối thêm ở migration 5B-2. Không đọc từ audit (thêm bề mặt, thêm luật phạm vi).
+- Test (BE PR-B1/V5-48, QA dẫn vào ca): đọc lại `audit_event` (`after.afterClosure`, `after.reservationStatus`); `afterClosureOnly` đúng một dòng cho ca h1; ca khôi phục no-show – `Payment.afterClosure` = `false` mà bộ lọc vẫn trả dòng; mục đóng bằng "Không thấy tiền" có trong bộ lọc kèm người và giờ bấm.
+
+**BE C0313-23 – phép so mật khẩu ở `setPropertyWifi` (SEC chốt SR-RL-15; 06/11 ghi SR-RL-10, đổi số ở bổ sung 1f):** ghi vào mô tả `setPropertyWifi`. Tóm tắt: chỉ so khi mật khẩu đã qua kiểm dạng và khác giá trị đang lưu; mỗi lần so đều đếm; 5 lần / 24 giờ / người, bộ đếm PostgreSQL `rate_limit_counter` khóa `wifi_pw_cmp:<user_id>`, cửa sổ cố định 24 giờ (bổ sung 1f), không khóa tài khoản; quá ngưỡng bỏ qua phép so (vẫn đếm), lưu như thường, audit `security` khi `count` = 6, không 429, không `x-rate-limit`; bộ đếm và audit commit ở giao dịch riêng trước khi trả 422.
+
+| # | Ca | Mong đợi |
+|---|---|---|
+| T58-11 | 6 lần PUT với mật khẩu khác nhau, khác mật khẩu đăng nhập, trong 24 giờ | 5 lần đầu có so (đếm 5); lần 6 bỏ qua phép so, 200, một audit `property.wifi_password_check_skipped` |
+| T58-12 | PUT mật khẩu = mật khẩu đăng nhập của người gọi (lần 1 trong cửa sổ) | 422 `NOT_ALLOWED`; bộ đếm = 1 và audit `property.wifi_password_matches_login` còn sau rollback |
+| T58-13 | Mạng mở, hoặc chỉ đổi `ssid` | Không so, bộ đếm không đổi |
+| T58-14 | (bổ sung 1f) Đếm 3 lần, khởi động lại API, PUT tiếp | Bộ đếm = 4 (dòng `rate_limit_counter` khóa `wifi_pw_cmp:<user_id>` còn nguyên) |
+| T58-15 | (bổ sung 1f) Sau T58-11 và T58-12 | `login_lockout` của người gọi không đổi; tài khoản không bị khóa |
+| T58-16 | (bổ sung 1f) Mọi ca T58-11…15 | Không chuỗi mật khẩu thử nào trong `audit_event`, log, phản hồi |
+
+**ARC review PR #96 mục 7:** ý 1 vào mô tả `setParameter` và `cancelScheduledParameter`; ý 2 sửa 1.24 dưới đây; ý 3 sửa `erd.md` 9.1a (bảng theo khóa, biên DOM chốt ở `rules-v1.0.5.md` 13.1, 13.4 – `6b5b8f34`: phần trăm tối đa 2 chữ số thập phân, `max_open_holds_per_user` đủ hai vai, `cancel_policy_direct` không rỗng, `damage_catalog`).
+
+**SEC thẻ mới trên 0.3.13 (`SEC-on-contract-0.3.13.md` 5.6):**
+- ARC-15 (Minor) – chữ vào `recordPayment` (B) và `PaymentCreate.bankReference`: chuẩn hóa chữ hoa, kiểm `CARD_NUMBER_DETECTED`, năm điều kiện G15 ở SEC 5.3, chọn cách "409 không có `duplicateReservationCode` cho người gọi không có vai FD+" (không dùng `x-write-roles` – PR này không đổi phần mở rộng). BE làm ở PR-B3.
+- ARC-17 (Minor) – chữ vào `confirmPaymentReceived`, `createVietQr`: 409 đơn đã đóng đi **sau** 403 vai và 404 phạm vi. Test ở PR-B1.
+- ARC-16 (Minor) – cần `x-visible-to` cho `ApprovalRequest.possibleDuplicateCodes` (đổi phần mở rộng, serializer sinh lại) nên **không** ở PR chỉ chữ này; ARC làm PR hợp đồng riêng trước khi gộp PR-B3 (ORC xếp).
+- ARC-18 (Suggestion) – vào danh sách 0.3.14 dưới.
+
+**Danh sách 0.3.14 (gom một chỗ):**
+- **`PARAM_NOT_USABLE`** (409, trường mở rộng `parameterKey`, `parameterState`) cho giá trị tham số đã lưu bị hỏng (ARC review PR #96); `cancelScheduledParameter` kiểm lại mọi luật chéo.
+- **`FolioLine` trường chỉ đọc** (UXD copy v1.0.5 r1.5 mục 9.5; V5-16, BR-438; DOM: nên có): `source` (`manual` | …), `businessDate` (ngày nghiệp vụ ghi), `rootLineId`, và cờ tính cho người gọi (đề xuất `reductionPolicy` = `direct` | `foc_request`) để Desk biết trước dòng nào bị chặn sửa giảm. v1.0.5 Desk dựa vào 403 `requiredFlow = foc_request`.
+- **SEC ARC-18:** (1) `recordPayment.restoreHold` (5B-2, hành động `restore_hold`) gắn `x-write-roles` FD+ – SAL/CTV gửi trường này → 403 trước mọi kiểm; (2) B1 `createReservation`: đêm `edited` ≠ `true` dùng giá lịch của máy chủ như báo giá (đuôi ARC-06); (3) `x-write-roles` cho luật trường cũ (G13).
+- `Payment.refundRequestId` + cột nối (migration 5B-2); nếu cần cờ `afterClosure` cố định thì thêm cột cùng migration.
+- 5B-2 `recordPayment.restoreHold` (1.21 ý 4).
+
+### 1.26 Bổ sung 1f – PR #111 (SEC ARC-16, 20, 21, 22; SEC `SEC-responses.md` 3–5; BE C0313-24, 25; ARC review PR #100 mục 6.3)
+
+Đổi phần mở rộng một chỗ (ARC-16), thêm một giá trị vào tập đóng `money` (ARC-20, cùng hằng `MONEY_AUDIT_ACTIONS`), còn lại chỉ mô tả. Không đổi schema, `enum`, `required`, `x-roles`, `x-rbac`; không mã lỗi mới; không migration. **Gộp trước PR-B3 (BE-D)**.
+
+| Việc | Nội dung | Ai làm tiếp |
+|---|---|---|
+| SEC ARC-16 | `ApprovalRequest.possibleDuplicateCodes` thêm `x-visible-to` FD+ như `Payment` – serializer sinh lại; HK, MT, SAL, CTV đọc `listApprovalRequests` không thấy. Test `serializer.test.ts` | BE-D dùng ở PR-B3 |
+| SEC ARC-20 | Tập đóng `money` thêm `attention_event.resolved` (`after = {kind, afterClosure}`, không ghi chú tự do). Cùng PR: `money-actions.ts`, câu `mlog.a_money_not_found` (Desk, UXD rà). Hạn (SEC 07/11, mục 5): gộp trước PR-B3; không PR nào trước PR-B3 được sinh mục `deposit_after_cancel` hay đóng mục bằng "Không thấy tiền" | BE-D ghi audit, đăng ký thực thể `attention_event`, test đọc lại `audit_event` ở PR-B3 |
+| SEC ARC-21 | `duplicateReservationCode` chỉ cho FD+ ở bảng mã, bảng trường mở rộng, `Problem` | BE-D ở PR-B3 |
+| SEC ARC-22 | `setPropertyWifi`: "thay 'không đếm'; vẫn không cộng vào `login_lockout`"; "Lỗi kiểm → không ghi `property`, không audit – trừ bộ đếm và audit `security` của SR-RL-15". `Payment.afterClosure`: "`true` khi … (tính lúc đọc, xem `recordPayment`)" | – |
+| BE C0313-24 (SEC 3) | Luật Wi-Fi đổi số **SR-RL-15**. Nơi lưu `rate_limit_counter` (0086), khóa `wifi_pw_cmp:<user_id>`, cửa sổ cố định 24 giờ, UPSERT ở giao dịch riêng, commit trước khi so và trước 422; đếm cả lần bị bỏ qua, audit `property.wifi_password_check_skipped` khi `count` = 6. **Không** `x-rate-limit` (luật không trả 429). T58-14…16 ở 1.25 | BE V5-58 (xem quyết định dưới) |
+| BE C0313-25 (SEC 4) | Ô `bankReference` (`PaymentCreate` mọi đường, `executeRefund`): sau mẫu `^[A-Za-z0-9./_-]{1,64}$`, bỏ `.` `/` `_` `-`; chỉ chặn (422 `CARD_NUMBER_DETECTED`) khi **toàn bộ** là 13–19 chữ số qua Luhn. Ô chữ tự do giữ `containsCardNumber`. Không mã lỗi mới | BE-B/BE-D: hàm `isCardNumberReference` + test SEC 4.3; UXD: câu báo "nhập 8 ký tự cuối"; QA: bug P2 `executeRefund` (SEC 4.4, ORC giao) |
+| ARC review #100, A1 | `front_desk_lead` ở 6 chỗ 2FA (`MFA_ENROLLMENT_REQUIRED`, `login`, summary `getMy2fa`, `getMy2fa.required`, `disableMy2fa`, `Me.mfaRequiredButMissing`) + `erd.md` `mfa_enabled` | BA (`rbac-matrix.md` A111), SEC (SR-AUTH-06), FE-A (mock `MFA_ROLES`) – ngoài PR này |
+| ARC review #100, A2 | 0.3.12 (f): `serializeSchema` (SSE, outbox) không bao giờ trả `x-self-data`, với mọi vai (V5-43) | – |
+| QA review PR #103 | Bảng test mục 1.3: T14-4 sửa theo mục 1.17 – kênh OTA trả `NOT_IN_LIST` (`channelId`), `type = long` kèm `nightlyRates` trả `NOT_ALLOWED`. `openapi.yaml` đã đúng, PR #103 làm đúng; chỉ sửa tài liệu này | QA dẫn T14-4 mới vào ca |
+| ARC review #100, A3 (chữ) | `getArrivalsDepartures` và `TonightKpi.departures`: trong cửa sổ sau nửa đêm khi vắng `date`, danh sách theo `departuresDate`, số KPI vẫn theo ngày nghiệp vụ – lệch tới 0.3.14 | Phần máy chủ: 0.3.14 dưới |
+
+**Quyết định ARC cho V5-58 (SEC 3.1, "không chép câu SQL sang module thứ hai"):** `module-boundaries.test.ts` không cấm module khác ghi `rate_limit_counter`, nhưng câu UPSERT hiện chỉ nằm trong `public-site` (`PublicBookingService.bumpAt`). BE V5-58 chuyển câu này ra một hàm dùng chung ở `shared/` (ví dụ `bumpRateLimitCounter(q, bucketKey, windowStart, windowMs)`, nhận `q` là client của giao dịch do người gọi chọn), `public-site` gọi lại hàm đó (không đổi hành vi, test SR-RL-11 giữ), `setPropertyWifi` gọi bằng client của giao dịch riêng. Không import `public-site/internal`.
+
+**Thêm vào danh sách 0.3.14 (1.25):**
+- `TonightKpi.departuresDate` (thêm trường, không phá); `departures`, `departuresCheckedOut` theo `departuresDateFor` như danh sách; Desk ghi ngày ở ô khi khác `businessDate` (BE ~0,25 ngày, không migration).
+- **A4 (DOM trả lời: có, v1.0.6 – `DOM-on-be-prs-101-108-110.md` mục 4, thẻ FB-R5-DOM-ARC-D1-01):** trong 00:00 tới trước `business_day_rollover` (06:00), khi vắng `date`, "Khách đi" gồm (1) lượt đi theo `departuresDate` như #100 và (2) **thêm** lượt còn `in_house` có ngày đi hiệu lực (`stayDepartureDate`, gồm gia hạn B13 và đơn con) = ngày nghiệp vụ – nhóm (2) **đặt trên cùng**, trạng thái `overdue`, nút Trả phòng như thường. Lượt có ngày đi trước ngày nghiệp vụ vẫn thuộc V5-15 (`overdueOnly`). Ô "Khách đi" (`TonightKpi`) đếm cả nhóm (2) là chưa trả phòng. v1.0.5: BA thêm câu sổ tay ca đêm.
+- **FB-R5-DOM-BE-101-02:** báo giá có `commission.status = rate_missing` → `ottimoRemainingVnd` **vắng** (cột `quote.ottimo_remaining_vnd` null), không bằng tổng tiền như hoa hồng 0 (DOM 4.1 "không tính 0"). Tới đó DATA không dùng cột này ở báo giá có `commission_vnd` null mà có người hưởng.
+- **Khóa `typedByHand` (DOM 3.5, đề nghị, không bắt buộc):** QA thêm `typedByHand` vào `input.line` của oracle BR-438 (`br-examples.json`) ngay khi sửa thẻ FB-R5-DOM-QA-BR438-01 – không cần hợp đồng. Audit: ARC **giữ** khóa `before.rootLineManual` (đổi tên làm lệch bản ghi cũ và bộ lọc); nếu 0.3.14 cần tên rõ hơn thì thêm khóa `before.rootLineTypedByHand` song song, không bỏ khóa cũ.
+- `executeRefund.bankReference` thêm `pattern: '^[A-Za-z0-9./_-]{1,64}$'` vào schema (máy chủ và CHECK 0040 đã áp; 1f chỉ ghi ở mô tả).
+- Hàm SQL `auth_resolve_session().mfa_required` (migration 0079) – mục 7.
 
 ---
 
@@ -804,6 +869,7 @@ Luật chung:
   `fieldCases`); `docs/erd.md` 9.1, 9.1a (`weekend_nights`, `min_stay`); `docs/qa/traceability.md` (sinh lại); `apps/admin-web/src/pages/RoomsPage.tsx` (một dòng: `count` thành tùy chọn);
   `rounds/round-05/responses/ARC-on-contract-0.3.13-reviews.md`.
 - **Bổ sung 1d:** `openapi.yaml` (S36, A120, ÷ 5, `restore_hold`); `services/api/src/modules/identity/internal/screens.ts` (S36); sinh lại meta, api-client, `rbac-cases`, `traceability.md`.
+- **Bổ sung 1e** (PR sau #94): `openapi.yaml` (chỉ mô tả), `docs/erd.md` 9.1a, `api-client` sinh lại; tệp này 1.24, 1.25; `responses/ARC-on-contract-0.3.13-reviews.md` mục 7.
 - `rounds/round-05/outputs/ARC/contract-0.3.13.md` (tệp này).
 - `rounds/round-05/outputs/ARC/report.md`: ARC gửi nội dung trong kết quả trả về; ORC lưu tệp, như đã làm với báo cáo PO.
 
@@ -838,6 +904,8 @@ Luật chung:
 - **Bổ sung 1:** đổi id `rbac-cases` làm mọi id cũ đổi một lần (QA biết; tài liệu cũ tra git). Bổ sung 1 thêm nhiều luật vào PR-A1b, PR-B2, PR-S1 – hạn PR-S1 ≤ 08/11 sát; nếu trễ, ORC dời phần `x-write-roles` guard chung sang PR riêng nhưng **không** cho PR-S1 lên mà thiếu chặn SAL/CTV.
 - PR-M phụ thuộc V5-61; H2 có thể trượt sang bản sau 01/12 nếu diễn tập trễ.
 - BR-438 chưa có story/TC tham chiếu (`traceability.md` 5.5): PO gắn vào story V5-16, QA viết TC theo T16-6…T16-12.
+- **0.3.14 (thêm vào danh sách 1.25, bổ sung 1f):** sửa hàm SQL `auth_resolve_session().mfa_required` (migration 0079) để đọc đủ danh sách vai bắt buộc 2FA (OWN, MGR, FDL – V5-40),
+  rồi bỏ phần kiểm FDL riêng ở guard (PR #100). Có migration (thay hàm) – theo QC R4 ĐK-2. Ở 0.3.13 chữ hợp đồng đã ghi FDL ở 6 chỗ 2FA và `erd.md` (bổ sung 1f, mục 1.26).
 
 ---
 
