@@ -231,3 +231,61 @@ Cột cuối tính theo ESC-045: không tăng cuối tuần/lễ (câu 1 = A), t
 Lỗi mới: **0**. BUG-R4-055 **Closed** (đã kiểm ở trên). BUG-R4-054 vẫn Open (Playwright vẫn phải chèn `Authorization`). Dữ liệu QA để lại: không có. S6b không gửi yêu cầu nào, không tạo dòng DB nào. Bộ đếm RAM của (M) tăng thêm khoảng 30 lượt trong ngày.
 
 Dòng decision-log đề nghị (quyền QA): `| 2026-11-06 | 4 | QA – LP-v2 staging S6b giá (sha-6414be25f20d, edge thật, nhãn + giá production đã chép): 13/13 ca giá lệch 0 đ (8 trường shortStay, oracle độc lập), 7/7 ca không số, khối giá 5 ngôn ngữ 10/10 = API; SEC 9.5 ca 1, 12 ĐẠT, ca 3/4/8/10 chờ Desk; BUG-R4-055 đóng; ota_base_rate không ảnh hưởng số web (chỉ priceVersion). F2 CHƯA: tham số production vẫn bảng cũ (15/30 %, LOS 10/15 %, trẻ 100.000, mốc 28) ≠ ESC-045/QC P6–P7; City 700.000 ≠ bảng 800.000 (ESC-050) | QA | Quyền QA (kết luận kiểm thử) |`
+
+---
+
+## S6c – chạy lại giá với tham số đang chạy (06/11/2026, 18:02–18:03 giờ VN)
+
+- Bối cảnh, theo tin ORC: INV (06/11) quyết bật giá web với **bảng tham số đang chạy**, không chờ bảng 01/11, và sẽ chỉnh sau theo từ điển tham số. Trên production, `weekend_uplift_pct` = 0 từ 06/11 17:37; City View (Amber, Mist) = 800.000 / 8.500.000; Ember = 1.100.000; các tham số khác giữ nguyên. ORC đã đặt staging giống hệt, **trừ** Amber/Mist vẫn là 700.000. QA không sửa giá.
+- SQL READ ONLY lúc 18:02 (`default_transaction_read_only = on`). `weekend_uplift_pct` = **0**, hiệu lực 2026-11-06, ghi lúc 11:02 UTC. Các khóa sau không đổi so với S6b: `special_uplift_pct` 30, `los_discount` 7 đêm/10 % và 14 đêm/15 %, `extra_adult_fee` 150.000, `child_fee_6_11` 100.000, `long_stay_required_from_nights` 28, `short_stay_max_nights` 27, `min_stay`, `rounding.night_rate` 1.000. Không có tham số nào hiệu lực sau 06/11. Giá đêm từ 06/11: Amber, Mist 700.000; Garden 800.000; Premium 1.100.000 (gồm Ember); Signature 1.300.000. Nhãn `11|10|4`, không có khóa OOO.
+- Cách chạy: dùng lại script `s6b` (cùng 20 truy vấn, cùng oracle độc lập), chỉ đổi tham số oracle thành cuối tuần 0 %. Gọi từ (M) qua edge, 18:03, **20/20 trả 200** (0,13–0,19 s).
+
+### S6c.1 Kết quả trên staging (giá staging đang có, City 700.000)
+
+| Ca | Đầu vào | Kỳ vọng | Web | Lệch | KQ |
+|---|---|---|---|---|---|
+| P01 | Garden, 2 NL, 10→11/11 | 800.000 | 800.000 | 0 | Đạt |
+| P02 | Garden, 2 NL, 13→15/11 (thứ Sáu + thứ Bảy) | 2 × 800.000 = **1.600.000** (`upliftNights` 0) | 1.600.000 | 0 | Đạt |
+| P03 | Premium, 2 NL, 31/12→02/01 (đặc biệt +30 %) | 2 × 1.430.000 = **2.860.000** | 2.860.000 | 0 | Đạt |
+| P04 | Garden, 2 NL, 7 đêm 09→16/11 | 7 × 720.000 = **5.040.000** (giảm 10 % = 560.000) | 5.040.000 | 0 | Đạt |
+| P05 | Garden, 2 NL, 14 đêm 09→23/11 | 14 × 680.000 = **9.520.000** (giảm 15 %) | 9.520.000 | 0 | Đạt |
+| P06 | Garden, 2 NL, 27 đêm 09/11→06/12 | 27 × 680.000 = **18.360.000** | 18.360.000 | 0 | Đạt |
+| P07 | City, 3 NL, 13→15/11 | 2 × 700.000 + 2 × 150.000 = **1.700.000** | 1.700.000 | 0 | Đạt |
+| P08 | Garden, 2 NL + trẻ 8, 1 đêm | 800.000 + 100.000 = **900.000** | 900.000 | 0 | Đạt |
+| P09 | Garden, 2 NL + trẻ 4, 1 đêm | **800.000** | 800.000 | 0 | Đạt |
+| P10 | Signature, 4 NL + trẻ 8 + trẻ 3, 16→23/11 | 7 × 1.170.000 + 7 × 100.000 = **8.890.000** | 8.890.000 | 0 | Đạt |
+| P11 | Signature, 5 NL, 23→30/11 | 7 × 1.170.000 + 7 × 150.000 = **9.240.000** | 9.240.000 | 0 | Đạt |
+| P12 | Premium, 3 NL + trẻ 8, 10→12/11 | 2 × 1.100.000 + 2 × 100.000 = **2.400.000** | 2.400.000 | 0 | Đạt |
+| P13 | City, 2 NL, 10→13/11 | 3 × 700.000 = **2.100.000** | 2.100.000 | 0 | Đạt |
+| N01–N05, L01, L02 | như S6b.1 | N01, N05 `party_exceeds_room`; N02, N03 `on_request` + `min_stay` 2; N04 (28 đêm), L01, L02 `monthly_offer`, không có số, không có token | như kỳ vọng | – | Đạt 7/7 |
+
+**13/13 ca giá đạt, lệch 0 đ ở cả 8 trường `shortStay`. 7/7 ca không số đạt.** Đổi tham số là web đổi theo ngay: lúc 18:03 không còn số cũ trong bộ đệm, vì đổi tham số xóa bộ đệm.
+
+Do staging để City 700.000, còn production là 800.000, hai ca City có số khác nhau giữa hai nơi. Production sẽ hiện **P07 = 1.900.000** (2 × 800.000 + 300.000) và **P13 = 2.400.000**. N02 (City) không có số ở cả hai nơi. 11 ca còn lại giống nhau trên staging và production.
+
+### S6c.2 Ba ca mẫu – số production sẽ hiện (bảng production ORC gửi, City 800.000)
+
+Đối chiếu ngay sau khi bật: web trang chủ (hoặc `GET …/price-estimate`) và Desk production → Báo giá, kênh **Trực tiếp**, **từng căn**.
+
+| Mẫu | Đầu vào (query) | Web production phải hiện | Desk từng căn |
+|---|---|---|---|
+| A = P13 | City, 2 NL, 10→13/11 – `roomType=standard-studio-city-view&stayType=short&arrival=2026-11-10&departure=2026-11-13&adults=2` | **2.400.000** (3 × 800.000) | Amber 2.400.000; Mist 2.400.000 |
+| B = P10 | Signature, 4 NL + trẻ 8 + trẻ 3, 16→23/11 – `roomType=signature-two-bedrooms&stayType=short&arrival=2026-11-16&departure=2026-11-23&adults=4&children=1&infants=1` | **8.890.000** (7 × 1.170.000 sau giảm 10 % + 7 × 100.000 trẻ) | Pine 8.890.000; Velvet 8.890.000 |
+| C = P12 | Premium, 3 NL + trẻ 8, 10→12/11 – `roomType=premium-one-bedroom-1&stayType=short&arrival=2026-11-10&departure=2026-11-12&adults=3&children=1` | **2.400.000** | Ivory 2.400.000; **Ember 2.400.000** (nếu ra 22.200.000 thì Ember còn gõ sai; web không lộ vì lấy căn rẻ nhất) |
+
+Thêm, nếu cần một ca cuối tuần: P02 Garden, 2 NL, 13→15/11 = **1.600.000** (giống staging).
+
+Giả định: production có `rounding.night_rate` = 1.000, không có `web_estimate.open_until`, nhãn và sức chứa như staging (P2 dòng 10 = `10|10|4`). Gọi API production cần thêm header `Sec-Fetch-Site: same-origin`; trước khi bật thì trả 404.
+
+### S6c.3 Kết luận
+
+- Phần giá trên staging **đạt** với tham số đang chạy, nên QA không còn chặn F2 về mặt số. Theo quyết định mới của INV (bật với bảng đang chạy), điều kiện P6/P7 ở S6b.5 thay bằng quyết định này. ORC ghi vào decision-log là INV đổi cách làm so với ESC-045 (bật giá trước, chỉnh sau).
+- ESC-050: theo ORC, production City View đã là 800.000, tức phương án A. QA ghi "Đã quyết: A" theo tin ORC.
+- Sau khi bật thì vẫn còn các việc này, không chặn F2:
+  - Ngày lễ vẫn +30 % (P03 = 2.860.000). ESC-045 câu 1 = A ghi cả lễ lẫn cuối tuần về 0 %, INV chỉnh sau.
+  - Web hiện "Includes our longer-stay rate" từ 7 đêm.
+  - Trẻ 6–11 tuổi tính 100.000.
+  - Từ 28 đêm, web mời thuê tháng. Khi bật giá, gợi ý dưới ô ngày theo câu trả lời của API, nên không mâu thuẫn trên trang. Khi giá tắt, landing vẫn tính 29 đêm là ngắn ngày (`shortMaxNights` 29). Nếu giữ mốc 28 lâu dài thì FE cần đặt `shortMaxNights` = 27.
+  - Sổ tay v1.0.4 (#85) đang viết theo bảng 01/11, nên DOM/BA sửa nếu bảng đang chạy được giữ.
+  - SEC ca 3, 4, 8, 10 vẫn chờ Desk (S6b.3).
+- Lỗi mới: 0. S6c không tạo dữ liệu nào. Lượt này dùng thêm khoảng 20 lượt trong bộ đếm ngày của (M).
