@@ -722,7 +722,8 @@ export class CheckoutService {
    * V5-10 (OpenAPI 0.3.13 `checkOut` "Quy đổi giờ trả"; BE C0313-01, 07, 08): the ONE departure instant of the stay for
    * `getCheckoutSummary`, `createVietQr purpose=check_out` (cap and `amountDueNow`) and B18 – `checkoutAt` as sent
    * (checked: 422 DATE_INVALID on another day), else `checkoutTime` ?? agreed late time ?? `checkout_time` resolved
-   * against the server clock (see checkout-at.ts).
+   * against the server clock (see checkout-at.ts). Never before the actual check-in (SEC A1A-01): a sent instant →
+   * DATE_INVALID on `checkoutAt`; a typed time with no candidate at or after it → DATE_INVALID on `checkoutTime`.
    */
   private async resolveCheckoutAt(
     tx: Tx,
@@ -744,12 +745,12 @@ export class CheckoutService {
       toleranceMinutes: await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes'),
       sent: q.checkoutAt,
       time,
+      typed: q.checkoutTime !== undefined,
       checkedInAt: row.actual_checkin_at,
     });
     if (!resolved) {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'checkoutAt', code: 'DATE_INVALID' }],
-      });
+      const field = !q.checkoutAt && q.checkoutTime !== undefined ? 'checkoutTime' : 'checkoutAt';
+      throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'DATE_INVALID' }] });
     }
     return resolved;
   }
@@ -1145,6 +1146,8 @@ export class CheckoutService {
       balanceDueVnd: balance.balanceDueVnd,
       creditVnd: balance.rawCreditVnd,
       unhandledCreditVnd: balance.unhandledCreditVnd,
+      // 0.3.13 V5-13: the open refund requests of the stay by reason, whoever asked (FD+ – x-visible-to).
+      openRefunds: balance.openRefunds,
       ...(old.lines.length > 0
         ? {
             lateSurchargeRecalc: {

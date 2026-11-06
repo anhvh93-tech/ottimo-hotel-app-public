@@ -281,3 +281,75 @@ SEC sửa `product/docs/security/security-requirements.md`, dòng **SR-INP-05**:
 - SEC không review phần nghiệp vụ của PR106-01 (thuộc DOM) và chữ hợp đồng 0.3.14 (thuộc ARC). Bộ chọn và bước UI của E2E thuộc FE và QA.
 - Bản gộp tạm #99 + #127, worktree, tệp probe và PostgreSQL tạm chỉ nằm trong scratchpad, xóa sau review. Không commit hay đẩy gì lên `r5-text-strip`, `r5-v5-46-server` hay `r5-a1b`.
 - SEC không approve hay gộp trên GitHub. ORC gộp.
+
+---
+
+## 8. #127 delta `5c66ca15..ad507f94` và PR #143 @ `d574b518` (bổ sung 07/11/2026)
+
+Round 5 · bước **Review** · SEC.
+- Cách đọc: `git show` từng commit của phần chênh; `git show --remerge-diff` cho 3 merge (`15c9cb85`, `3075a6b1`, `ad6b40ab`) và merge gộp `17cbcd6f`; diff ba chấm của #143 với `main`. Không chạy test trên máy, dựa vào CI ở đúng SHA.
+- #127 đã được ORC gộp vào `main` ở `17cbcd6f`, đúng head `ad507f94`. Phần này là xác nhận sau khi gộp.
+- Mục này không có bí mật, mã đơn hay dữ liệu khách. Chỉ nhắc các số mẫu giả theo tên hằng.
+
+### 8.1 Kết luận
+
+| PR | SHA | Kết luận | Ghi chú |
+|---|---|---|---|
+| #127 (đã gộp `17cbcd6f`) | `ad507f94` | **DUYỆT** phần chênh | CI ở `ad507f94`: `format · lint · audit · test · build` xanh. E2E smoke, gitleaks, shellcheck còn đang chạy lúc đọc |
+| #143 (DRAFT, chỉ test) | `d574b518` | **DUYỆT** | Gộp khi CI xanh trên đúng SHA. Mọi job đang chờ lúc đọc |
+
+0 Blocker · 0 Major · 1 Minor mới (127-02, chuyện có từ trước, không nằm trong phần chênh) · không ESC.
+
+| Thẻ | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-SEC-BE-127-01 (Minor) | **Done @ `ad507f94`** (`6a670f3a`), đã lên `main` | Mục 8.2 |
+| FB-R5-SEC-BE-113-01 (Suggestion) | **Done ở #143 @ `d574b518`**. Đóng hẳn khi #143 gộp | Mục 8.4 |
+| FB-R5-SEC-BE-127-02 (Minor) | Open (mới) | Mục 8.5 |
+
+### 8.2 127-01 đã sửa, không có gì làm yếu bộ lọc hay bộ dò
+- `shared/validation.ts`: `CONTROL_CHARS = /[^\P{Cc}\t\n\r]|[\p{Cf}\p{Default_Ignorable_Code_Point}\p{Cs}]/gu`. Khớp từng ký tự với ý 1 của thẻ.
+  - Tập mới là tập **cha** của danh sách cũ: C0, C1, DEL thuộc Cc; U+200B–200F, U+202A–202E, U+2066–2069 thuộc Cf. Không ký tự nào trước đây bị bỏ mà nay lại được giữ.
+  - Tab, LF, CR giữ như cũ. U+2800 (tùy chọn) không làm. Bộ dò vẫn đọc U+2800 là khoảng trắng, nên không có kẽ hở mới.
+- `arrivalNote` dùng `stripControlChars` chung. Bản riêng `stripControl` (chỉ C0 + DEL) đã bị xóa. Thứ tự giữ nguyên: bỏ ký tự → `trim` → ≤ 300 → `containsCardNumber` → `looksLikeIdNumber` (V5-46 của #113, còn nguyên sau merge `ad6b40ab`).
+- Bỏ thêm ký tự trước khi dò không làm yếu bộ dò, vì ba lý do:
+  - các ký tự này không phải chữ số hay dấu phân cách;
+  - bộ dò (`sensitive-number.ts`) vốn đã bỏ `Default_Ignorable`;
+  - bỏ đi chỉ có thể làm các nhóm số liền nhau hơn, tức là dễ bị bắt hơn, không khó hơn.
+- Test:
+  - unit `be-a1-v105-units`: 9 chuỗi chỉ gồm ký tự ẩn (U+2060, tag chars, U+00AD, U+061C, VS16, chữ đệm Hangul, U+2062/206A/180E, U+FFF9/034F/1D173, surrogate lẻ) → `REASON_REQUIRED`; `"ok"` + tag chars → `REASON_REQUIRED`; surrogate lẻ giữa chữ bị bỏ; chữ Việt NFC/NFD, Hàn, Trung, Nga, Ả Rập, emoji giữ nguyên;
+  - integration `v105-overdue-checkout`: `overdueReason` chỉ gồm ký tự ẩn → 422; lý do có U+D800 + U+2060 + tag → 200 và lưu bản sạch (trước đây là 500, `22P02`).
+
+  Chuỗi test viết bằng escape, không có ký tự ẩn thật trong tệp. Đủ ý 3 của thẻ.
+
+### 8.3 Các merge giữ nguyên mã PR
+- `15c9cb85` là merge duy nhất có hunk tự ghép, ở `frontdesk/audit-entities.ts`. Kết quả giữ **cả hai**: `systemTime`, `extraNight`, `postMidnightWindow` (B18) và `overdue` (V5-15). Mỗi khóa xuất hiện đúng một lần, cùng ở module `frontdesk`, đúng yêu cầu ghi ở mục 5. Không thêm khóa nào khác vào allowlist.
+- `3075a6b1`, `ad6b40ab` (main @ `74189d2c`, gồm #113) và merge gộp `17cbcd6f`: `--remerge-diff` rỗng, không tự sửa hunk nào.
+- `ad507f94` chỉ thêm test cho ARC 127-01 (nhánh "không còn ứng viên", trường nào nhận 422). Không đụng bộ lọc hay đường ghi.
+
+### 8.4 PR #143 (113-01): đạt
+- Hằng `SECRETS` đổi tên thành `MUST_NOT_APPEAR`, có chú thích "số mẫu giả, không phải bí mật". Đủ ý 1.
+- Ca mới cho `createGuestRequest` có chữ chứa số giấy tờ, gửi kèm `Idempotency-Key`:
+  - bị từ chối thì **0 dòng** `idempotency_key` cho khóa đó;
+  - gửi lại cùng khóa với chữ sạch → **201** và đúng 1 dòng, dòng này không chứa số mẫu nào.
+
+  Ca tự chứng minh là nó đọc thấy bảng: đếm 1 sau lần 201, nên số 0 trước đó có nghĩa thật, không phải do RLS che. 201 thay vì 422 `IDEMPOTENCY_KEY_REUSED` cũng cho thấy hash của thân lệnh bị từ chối không được lưu. Đủ ý 2.
+- `updateOnlineCheckin` (PUT) không khai báo `Idempotency-Key` trong `openapi.yaml`, nên ca idempotency không áp cho nó. Lần từ chối của nó đã có ca so dòng `online_checkin` giữ. Đồng ý không phủ thêm.
+- `KNOWN_OVERBLOCK` (3 số phòng liền nhau, một số 9 chữ số) ghim đúng các ca chặn thừa SEC đã chấp nhận từ PR #24 (G2). Bộ dò đổi thì test báo ngay.
+- E2E: hai chỗ kiểm chặt hơn (`etaTime` không có mặt trong body; danh sách khớp `{ data: [] }`). Không nới gì.
+
+### 8.5 Thẻ mới
+
+#### FB-R5-SEC-BE-127-02
+- Mức độ: Minor
+- Người nhận: BE-D, cùng PR-B3 vì 5B-1 sửa đích hoàn tiền trong chính tệp này. Không thì BE-B, một PR nhỏ. Hạn v1.0.6. Không chặn tag v1.0.5.
+- Vị trí: `payments/internal/refunds.service.ts` dòng 118–119 (`CONTROL_CHARS = /[\u0000-\u001f\u007f]/g`, bản riêng) và dòng 452 (`accountHolder`) @ `ad507f94`.
+- Vấn đề: tên chủ tài khoản nhận hoàn tiền vẫn dùng bộ lọc riêng chỉ có C0 + DEL. Đây là ô chữ tự do cuối cùng chưa theo luật chung của 127-01 / SR-INP-05:
+  - tên chỉ gồm ký tự ẩn (ví dụ 3 × U+2060) qua được `REQUIRED`;
+  - ký tự đảo chiều (U+202E) đổi được cách tên hiện ra trước người duyệt.
+- Vì sao quan trọng: người duyệt hoàn tiền (MGR/OWN) dựa vào tên chủ tài khoản để đối chiếu với khách. Tên rỗng thật hoặc hiển thị đảo làm mất giá trị của bước đối chiếu đó. Rủi ro thấp: số tài khoản vẫn kiểm chặt (6–19 chữ số, không nhận số thẻ), và ngân hàng thường hiện tên thật khi chuyển.
+- Đề xuất sửa: thay bằng `stripControlChars` của `shared/validation.ts`, xóa hằng riêng. Thêm một unit/integration: `accountHolder` chỉ có ký tự ẩn → 422 `REQUIRED`; có U+202E → lưu bản đã bỏ.
+- Trạng thái: Open
+
+### 8.6 Dòng decision-log đề xuất (ORC ghi)
+
+`| 2026-11-07 | 5 | SEC – delta #127 5c66ca15..ad507f94 (đã gộp 17cbcd6f): DUYỆT. FB-R5-SEC-BE-127-01 Done – một regex chung (Cc trừ tab/LF/CR, Cf, Default_Ignorable, surrogate lẻ) cho mọi ô chữ tự do, arrivalNote bỏ bản riêng, tập mới bao trọn tập cũ, bộ dò thẻ/giấy tờ không yếu đi; merge 15c9cb85 giữ cả overdue và 3 khóa B18 ở frontdesk/audit-entities.ts, các merge khác không tự sửa hunk. PR #143 @ d574b518 (chỉ test): DUYỆT, FB-R5-SEC-BE-113-01 Done (MUST_NOT_APPEAR; createGuestRequest bị từ chối không để dòng idempotency_key, gửi lại cùng khóa với chữ sạch → 201, 1 dòng sạch), gộp khi CI xanh. Thẻ mới FB-R5-SEC-BE-127-02 Minor: accountHolder hoàn tiền còn bộ lọc riêng C0+DEL – chuyển sang stripControlChars trong PR-B3 hoặc v1.0.6, không chặn tag. Không ESC | SEC | rounds/round-05/reviews/SEC-on-be-a1-prs-127-113.md |`

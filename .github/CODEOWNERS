@@ -78,3 +78,12 @@
 /product/infra/server/bin/requeue-email-changed.sh @anhvh93-tech
 # SEC (+ OPS) – the G2 gate itself (SEC-on-commission-numbers G2): editing the path list switches the CI job off.
 /product/infra/ci/check-confidential-paths.sh @anhvh93-tech
+# SEC (+ OPS owns the code) – the evidence for SEC-ARC-08 and SEC-OPS-93-03: Postgres logs carry no row value and the 5
+# log settings stay pinned on the command line. An edit can weaken it unseen, e.g. drop the control run or loosen a
+# grep (ARC FB-R5-ARC-OPS-126-01).
+/product/infra/server/test/postgres-log-terse.test.sh @anhvh93-tech
+# SEC (+ BE owns the code) – admin commands run on production (gate (b)): the 2FA reset when no owner can sign in
+# (SR-AUTH-06 06.33) and the first-owner bootstrap (prints a one-time password). The wrappers are scripts/*.sh, the
+# code is src/admin/ (SEC FB-R5-SEC-OPS-126-01). Not the whole scripts/ folder: the .mjs generators are not SEC paths.
+/product/services/api/scripts/*.sh @anhvh93-tech
+/product/services/api/src/admin/ @anhvh93-tech
