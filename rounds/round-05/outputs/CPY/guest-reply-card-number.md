@@ -58,13 +58,13 @@
 | 2 | For your security, OTTIMO does not accept card details by message or email. | Vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn hay email. |
 | 3 | We will delete your message on our side straight away. | Ở phía OTTIMO, lễ tân sẽ xóa ngay tin bạn đã gửi. |
 | 4 | If your app allows, please unsend it as well. | Nếu ứng dụng cho phép, bạn vui lòng thu hồi tin đó. |
-| 5 | You are welcome to pay by card at our front desk, or we can suggest another way to pay. | Bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc chọn cách khác theo hướng dẫn của lễ tân. |
+| 5 | You are welcome to pay by card at reception, or we can suggest another way to pay. | Bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc chọn cách khác theo hướng dẫn của lễ tân. |
 
 Bản để sao chép.
 
 EN:
 
-> Hello {name}, thank you for getting in touch. For your security, OTTIMO does not accept card details by message or email. We will delete your message on our side straight away. If your app allows, please unsend it as well. You are welcome to pay by card at our front desk, or we can suggest another way to pay.
+> Hello {name}, thank you for getting in touch. For your security, OTTIMO does not accept card details by message or email. We will delete your message on our side straight away. If your app allows, please unsend it as well. You are welcome to pay by card at reception, or we can suggest another way to pay.
 
 VI:
 
@@ -75,13 +75,13 @@ VI:
 | # | English (gốc) | Tiếng Việt |
 |---|---|---|
 | 1 | Thank you – for your security, OTTIMO does not accept card details over chat, so we are deleting your message on our side now. | Cảm ơn bạn – vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn, nên lễ tân sẽ xóa ngay tin bạn đã gửi ở phía OTTIMO. |
-| 2 | If you can, please recall it too; card payments are welcome at our front desk, or we can suggest another way. | Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn. |
+| 2 | If you can, please recall it too; card payments are welcome at reception, or we can suggest another way. | Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn. |
 
 Bản để sao chép.
 
 EN:
 
-> Thank you – for your security, OTTIMO does not accept card details over chat, so we are deleting your message on our side now. If you can, please recall it too; card payments are welcome at our front desk, or we can suggest another way.
+> Thank you – for your security, OTTIMO does not accept card details over chat, so we are deleting your message on our side now. If you can, please recall it too; card payments are welcome at reception, or we can suggest another way.
 
 VI:
 
@@ -98,7 +98,7 @@ VI:
 | "…does not accept card details by message." | Chưa nói tới email, mà sổ tay ghi cả email | Bản đầy đủ: "…by message or email." / "…qua tin nhắn hay email." |
 | "We will delete your message on our side; please also recall it if you can." | Hai việc trong một câu. Thiếu chữ "ngay" của SEC ("xóa ngay, không chờ") | Tách làm câu 3 và câu 4, thêm "straight away" / "ngay" |
 | "recall" | Chỉ Zalo gọi nút này là "Recall" | Zalo giữ "recall" / "thu hồi". Kênh khác dùng "unsend" |
-| "You are welcome to pay by card at our front desk terminal." | "terminal" là chữ kỹ thuật. Chưa có vế "hoặc theo cách lễ tân hướng dẫn" (ORC giao), nên khách cần trả cọc trước khi đến không biết làm gì | "You are welcome to pay by card at our front desk, or we can suggest another way to pay." Bản tiếng Việt giữ "máy POS" vì khách Việt quen chữ này |
+| "You are welcome to pay by card at our front desk terminal." | "terminal" là chữ kỹ thuật. Chưa có vế "hoặc theo cách lễ tân hướng dẫn" (ORC giao), nên khách cần trả cọc trước khi đến không biết làm gì | "You are welcome to pay by card at reception, or we can suggest another way to pay." Bản tiếng Việt giữ "máy POS" vì khách Việt quen chữ này |
 | "anh/chị" | Mẫu tin dùng "bạn" (content-guide mục 1) | "bạn". Lễ tân đổi sang "anh/chị" cho cả tin khi cần |
 | ORC giao ý "đã xóa tin" | SEC 6.1 bảo gửi trả lời **trước**, xóa **ngay sau**. Lúc gửi tin, tin của khách chưa bị xóa, nên viết "đã xóa" là chưa đúng | Bản đầy đủ: "We will delete … straight away" / "sẽ xóa ngay". Bản Zalo: "we are deleting … now" / "sẽ xóa ngay". SEC giữ thứ tự và duyệt chữ này (6.5.1). Không dùng "đã xóa" |
 
@@ -115,13 +115,13 @@ Không thêm lời hứa nào. "On our side" / "ở phía OTTIMO" giữ đúng p
 
 | | English (gốc) | Tiếng Việt |
 |---|---|---|
-| Bản không có vế xóa | Thank you – for your security, OTTIMO does not accept card details by message. If you can, please recall or unsend your message; card payments are welcome at our front desk, or we can suggest another way. | Cảm ơn bạn – vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn. Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn. |
+| Bản không có vế xóa | Thank you – for your security, OTTIMO does not accept card details by message. If you can, please recall or unsend your message; card payments are welcome at reception, or we can suggest another way. | Cảm ơn bạn – vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn. Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn. |
 
 Bản để sao chép.
 
 EN:
 
-> Thank you – for your security, OTTIMO does not accept card details by message. If you can, please recall or unsend your message; card payments are welcome at our front desk, or we can suggest another way.
+> Thank you – for your security, OTTIMO does not accept card details by message. If you can, please recall or unsend your message; card payments are welcome at reception, or we can suggest another way.
 
 VI:
 
@@ -165,10 +165,10 @@ Số đo (đếm bằng script; `{name}` tính 6 ký tự):
 
 | Bản | EN | VI |
 |---|---|---|
-| Đầy đủ, 5 câu | 310 ký tự | 320 ký tự |
-| Đầy đủ, bỏ câu 4 (email, SMS) | 264 ký tự | 268 ký tự |
-| Zalo, 2 câu | 236 ký tự | 253 ký tự |
-| Không có vế xóa (mục 5) | 204 ký tự | 200 ký tự |
+| Đầy đủ, 5 câu | 305 ký tự | 320 ký tự |
+| Đầy đủ, bỏ câu 4 (email, SMS) | 259 ký tự | 268 ký tự |
+| Zalo, 2 câu | 231 ký tự | 253 ký tự |
+| Không có vế xóa (mục 5) | 199 ký tự | 200 ký tự |
 
 - Gửi bằng SMS: bản tiếng Việt có dấu nên tách thành nhiều tin SMS (khoảng 70 ký tự một tin). Điện thoại tự ghép lại; chấp nhận được.
 - Câu dài nhất tính bằng chữ tiếng Anh: câu 1 bản Zalo, 23 chữ. Dài hơn mốc 20 chữ của content-guide một chút, để giữ trong 2 câu như ORC giao. Mọi câu ở bản đầy đủ ≤ 20 chữ.
@@ -222,3 +222,27 @@ Số đo (đếm bằng script; `{name}` tính 6 ký tự):
   - INT tra cách xóa trên Messenger.
 
   Có kết quả thì CPY sửa bảng "Chọn bản" ở lượt sau, không đổi chữ gửi khách.
+
+---
+
+## Lượt 3 – "front desk" thành "reception" (chỉ đổi một từ)
+
+- Lý do: chữ khách nhìn thấy dùng thống nhất "reception":
+  - trang khách, ví dụ `gw.wifi_ask_desk` "Please ask reception…";
+  - landing (`en.ts`);
+  - tin đổi mật khẩu Wi-Fi (`guest-notice-wifi-change.md`).
+
+  ORC đồng ý 07/11.
+- SEC đã duyệt nghĩa ở `SEC-responses.md` mục 6.5. Lượt này **chỉ đổi một từ**, không đổi nghĩa, không đổi câu nào khác.
+- Đổi "at our front desk," thành "at reception," ở cả ba bản EN:
+  - bản đầy đủ: câu 5, mục 2 (bảng và đoạn để sao chép);
+  - bản ngắn Zalo: câu 2, mục 3 (bảng và đoạn để sao chép);
+  - bản không có vế xóa: mục 5 (bảng và đoạn để sao chép);
+  - cột "Câu mới" ở mục 4. Cột "Câu cũ (SEC)" giữ nguyên văn bản nháp của SEC.
+- Tiếng Việt không đổi: "qua máy POS tại quầy", "theo hướng dẫn của lễ tân", "theo cách lễ tân hướng dẫn" đã đúng.
+- Số đo mục 7 (EN):
+  - đầy đủ 310 thành 305 ký tự;
+  - đầy đủ bỏ câu 4 264 thành 259;
+  - Zalo 236 thành 231;
+  - không có vế xóa 204 thành 199.
+- BA áp vào sổ tay cùng lượt dán câu Wi-Fi, sau khi DOM chốt bước 5 của quy trình đổi mật khẩu.
