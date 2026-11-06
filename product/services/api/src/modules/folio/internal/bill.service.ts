@@ -23,6 +23,7 @@ import {
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
 import { folioLineDto } from '../public/folio-view';
+import { folioLocked } from '../public/folio-locked';
 import {
   type FolioLineRow,
   type FolioRow,
@@ -312,7 +313,7 @@ export class BillService {
     if (address.length > 300) errors.push({ field: 'address', code: 'TOO_LONG' });
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
     const existing = await this.invoice(tx, folio.id);
-    if (existing && existing.einvoice_status === 'issued') throw problem('FOLIO_LOCKED');
+    if (existing && existing.einvoice_status === 'issued') throw folioLocked('invoice_issued');
     const now = this.clock.now();
     const values = company ? [name, tax, address || null, email] : [null, null, null, null];
     const { rows } = await tx.query<InvoiceRequestRow>(

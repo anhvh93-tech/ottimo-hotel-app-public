@@ -27,6 +27,7 @@ import {
   PAYMENT_JOINS,
   type PaymentRowLite,
 } from '../../folio/public/folio.service';
+import { folioLocked } from '../../folio/public/folio-locked';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import {
@@ -335,9 +336,12 @@ export class PaymentService {
       ? await folios.lock(tx, folioId)
       : await folios.lockForPosting(tx, folioId, { allowPostCheckout: true });
     if (!folio) throw problem('NOT_FOUND');
-    if (ctx.debtCollection ? folio.status === 'open' : folio.status === 'closed') {
-      throw problem('FOLIO_LOCKED');
+    // 0.3.13 bổ sung 1 (BE C0313-11): a debt collection on a folio still OPEN is not a lock – the folio has no debt
+    // cycle yet (409 INVALID_TRANSITION, currentState open); any other receipt refuses a closed folio.
+    if (ctx.debtCollection && folio.status === 'open') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: 'open' } });
     }
+    if (!ctx.debtCollection && folio.status === 'closed') throw folioLocked('closed');
     const now = this.clock.now();
     const tz = await folios.timezone(tx);
     const at = receivedAt ?? now;

@@ -34,6 +34,7 @@ import { applyPct } from '../../reservations/public/pricing';
 import { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { StayNightPricingPort } from '../../reservations/public/stay-night-pricing';
 import { FolioService } from '../public/folio.service';
+import { folioLocked } from '../public/folio-locked';
 import { StayWaiverAlertService } from './stay-waiver-alert';
 
 export interface ChargeCatalogItem {
@@ -505,7 +506,7 @@ export class FolioLinesService {
       throw problem('VERSION_CONFLICT', { extras: { currentVersion: folio.version } });
     }
     const managers = actor.roles.some((r) => MANAGERS.includes(r));
-    if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    if (folio.status === 'closed') throw folioLocked('closed');
     // N-15 (ARC 16.31.1/16.31.4, BR-427 (d)): past `post_checkout_window_until` the folio is final even before J15
     // (hourly) has closed it – treated as `closed`.
     const windowUntil = folio.post_checkout_window_until ?? null;
@@ -514,9 +515,8 @@ export class FolioLinesService {
       windowUntil !== null &&
       this.clock.now().getTime() >= windowUntil.getTime()
     ) {
-      // Desk (admin-web FolioDialog `debtRule`) tells this 409 from the debt one below by `detail`: only a sentence
-      // naming BR-525 / debt_write_off is the debt case. Keep those words in the debt sentence and out of this one.
-      throw problem('FOLIO_LOCKED', { detail: 'post-checkout window over (BR-427 d)' });
+      // V5-44: the Desk tells this 409 from the debt one below by `lockReason` (no longer by the `detail` words).
+      throw folioLocked('post_checkout_window_over', 'post-checkout window over (BR-427 d)');
     }
     // US-038 AC2 / A32: after checkout only MGR+ posts corrections.
     if (folio.status === 'settled' && !managers) throw problem('FORBIDDEN_ACTION');
@@ -573,10 +573,10 @@ export class FolioLinesService {
           // FB-R3-SEC-BE-B-01 (b): a debt written before 0076 (no cycle yet) keeps R2 N-7 – no reduction at all; the
           // right to reduce never rests on the number derived back from the lines.
           if (!debt.cycleOpened || before - after > windowVnd) {
-            throw problem('FOLIO_LOCKED', {
-              detail:
-                'reduction above the charges still in their window – the debt goes down through a FOC debt_write_off (BR-525)',
-            });
+            throw folioLocked(
+              'debt_reduction_requires_write_off',
+              'reduction above the charges still in their window – the debt goes down through a FOC debt_write_off (BR-525)',
+            );
           }
           debtCheck = { openDebtVnd, windowVnd, reducedVnd: before - after };
         }

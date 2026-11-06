@@ -1005,6 +1005,8 @@ export class CheckoutService {
       balanceDueVnd: balance.balanceDueVnd,
       creditVnd: balance.rawCreditVnd,
       unhandledCreditVnd: balance.unhandledCreditVnd,
+      // 0.3.13 V5-13: the open refund requests of the stay by reason, whoever asked (FD+ – x-visible-to).
+      openRefunds: balance.openRefunds,
       ...(old.lines.length > 0
         ? {
             lateSurchargeRecalc: {
