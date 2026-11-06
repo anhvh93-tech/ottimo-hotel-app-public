@@ -690,8 +690,9 @@ export interface paths {
      *     - **Bổ sung 1e – giới hạn phép so (BE C0313-23; SEC SR-RL-15 – bổ sung 1f đổi số, 06/11 ghi SR-RL-10)**, thay "không đếm"; vẫn không cộng vào `login_lockout`:
      *       - chỉ so (và đếm) khi `password` đã qua kiểm dạng và **khác** mật khẩu Wi-Fi đang lưu; mạng mở hoặc chỉ đổi `ssid` → không so, không đếm;
      *       - **mỗi lần so đều đếm**, trùng hay không; tối đa **5 lần / 24 giờ / người gọi**; **bổ sung 1f (SEC C0313-24)**: PostgreSQL `rate_limit_counter` (migration 0086), khóa
-     *         `wifi_pw_cmp:<user_id>` (chỉ mã luật và id), cửa sổ cố định 24 giờ (SEC SR-RL-15) – `INSERT … ON CONFLICT (bucket_key, window_start) DO UPDATE SET count = count + 1
-     *         RETURNING count`, cùng hàm UPSERT với trang công khai (không chép câu SQL); không migration; **không** cộng vào `login_lockout`, không khóa tài khoản;
+     *         `wifi_pw_cmp:<user_id>` (chỉ mã luật và id), cửa sổ cố định 24 giờ (SEC SR-RL-15) = **ngày UTC** (bổ sung 1g, BE C0313-27: `window_start` = 00:00Z, tức 07:00 giờ
+     *         Việt Nam; `expires_at` = `window_start` + 24 giờ; như khóa ngày theo IP của SR-RL-11) – `INSERT … ON CONFLICT (bucket_key, window_start) DO UPDATE SET count = count + 1
+     *         RETURNING count`, cùng hàm UPSERT với trang công khai (`shared/rate-limit-counter.ts` – bổ sung 1g, BE C0313-26; không chép câu SQL); không migration; **không** cộng vào `login_lockout`, không khóa tài khoản;
      *       - trong ngưỡng: so như trên; trùng → 422 `NOT_ALLOWED` + audit `security` `property.wifi_password_matches_login` (không giá trị);
      *       - quá ngưỡng: **bỏ qua phép so** (lần bị bỏ qua vẫn đếm), mọi kiểm khác vẫn áp, lưu như thường; audit `security` `property.wifi_password_check_skipped` khi `count` = 6
      *         (đúng một lần mỗi cửa sổ); phản hồi giống hệt bình thường (không 429, không mã mới). **Không** khai `x-rate-limit` ở operation này: có `x-rate-limit` là phải khai `429`,
@@ -956,6 +957,9 @@ export interface paths {
      *     `note`: mục `critical` (ví dụ `channel_sync_error`, `security_alert`) **bắt buộc** 3–500 ký tự (thiếu/ngắn → 422 `VALIDATION_FAILED`, `errors[{field: note, code: REASON_REQUIRED}]`);
      *     mục khác không bắt buộc; dài quá 500 → `TOO_LONG`; chứa chuỗi giống số thẻ → 422 `CARD_NUMBER_DETECTED` (V-09). Ghi người, lúc, ghi chú vào mục; phát SSE `attention.changed`
      *     (FD+). `ota_no_show_report`: đóng = lễ tân đã làm trên extranet (US-136 AC2/AC5).
+     *     **0.3.13 bổ sung 1g (SEC S8, BE C0313-28) – cài ở PR-B3**: `deposit_after_cancel` (mức `warning`, `recordPayment` (B)) – đóng tay = "Không thấy tiền": `note` **bắt buộc**
+     *     3–500 ký tự dù mục không `critical` (thiếu/ngắn → 422 `VALIDATION_FAILED`, `errors[{field: note, code: REASON_REQUIRED}]`); cùng giao dịch ghi audit `money`
+     *     `attention_event.resolved`, `entityType = attention_event`, `after = {kind, afterClosure: true}` – **không** có `note` (ghi chú chỉ nằm ở mục).
      */
     post: operations['resolveAttentionEvent'];
     delete?: never;
@@ -2834,15 +2838,27 @@ export interface paths {
      *       (tới đó MGR+ áp bằng tay: dòng đã khớp khoản khác → `disputed`, chép mã vào ghi chú đối soát – DOM 3a).
      *       **Bổ sung 1e (SEC ARC-15, `SEC-on-contract-0.3.13.md` 5.3)** – cài ở PR-B3:
      *       - chuẩn hóa trước khi khóa, kiểm và lưu: bỏ khoảng trắng đầu/cuối, lưu và so dạng **chữ hoa** (`abc123` = `ABC123`);
-     *       - **luật số thẻ riêng cho ô mã (bổ sung 1f, SEC C0313-25 – thay V-09 ở ô này)**: giá trị đã qua mẫu `^[A-Za-z0-9./_-]{1,64}$`, bỏ `.` `/` `_` `-`; nếu **toàn bộ**
-     *         phần còn lại là 13–19 chữ số **và** qua Luhn → 422 `CARD_NUMBER_DETECTED` (`field` = `bankReference`; không lặp lại giá trị, không lưu, không log). Còn lại thì nhận: mã có chữ,
-     *         dãy số ngắn hơn 13 hoặc dài hơn 19, dãy số không qua Luhn. **Không** quét đoạn số bên trong chuỗi – `containsCardNumber` (V-09) chỉ giữ cho ô chữ tự do (`note`, lý do…).
-     *         Cùng một hàm (BE đặt tên, ví dụ `isCardNumberReference` trong `shared/validation.ts`) ở `executeRefund`. Câu báo chỉ cách nhập 8 ký tự cuối của mã (UXD); không gợi ý để trống;
+     *       - **luật số thẻ riêng cho ô mã (bổ sung 1f, SEC C0313-25 – thay V-09 ở ô này; bổ sung 1g: theo SR-PAY-10 bản 07/11, SEC 119-01, ARC 119-03)**: giá trị đã qua
+     *         mẫu `^[A-Za-z0-9./_-]{1,64}$`; tách theo `.` `/` `_` `-`, ghép dần các nhóm từ đầu chuỗi; tại một ranh giới nhóm mà phần đã ghép có 13–19 chữ số, không chữ cái, **và** qua
+     *         Luhn → 422 `CARD_NUMBER_DETECTED` (`field` = `bankReference`; không lặp lại giá trị, không lưu, không log). Vượt 19 ký tự trước ranh giới đạt → nhận. Chữ cái làm hỏng mọi
+     *         ranh giới sau nó: mã chữ đứng đầu (`FT…`) luôn được nhận; số thẻ viết liền, có dấu, hoặc có hạn thẻ/CVV nối sau (kể cả nhóm có chữ, ví dụ `…-EXP1228`) bị chặn.
+     *         **Không** quét cửa sổ số bên trong chuỗi như chữ tự do – `containsCardNumber` (V-09) chỉ giữ cho ô chữ tự do (`note`, lý do…).
+     *         Cùng một hàm (`isCardNumberReference`, `shared/validation.ts`) ở `executeRefund` – **bổ sung 1g (BE C0313-29)**: hàm cài ở PR #119 (BUG-R5-006) cho `executeRefund` và mọi
+     *         đường `PaymentCreate`; PR-B3 chỉ dùng lại. Thứ tự lỗi như `note`: lỗi dạng của mọi trường (`VALIDATION_FAILED`) trước; chỉ trả `CARD_NUMBER_DETECTED` khi không còn lỗi dạng
+     *         (`executeRefund` đã theo thứ tự này; `PaymentCreate` làm ở PR-B3 cùng việc khai `bankReference` ở các bộ đọc – trước đó trường chưa tới được qua HTTP).
+     *         Câu báo chỉ cách nhập **8 chữ số cuối** của mã (bổ sung 1g, UXD `pay.bank_reference_card_like`: "Nhập 8 chữ số cuối của mã giao dịch." / "Enter the last 8 digits of the
+     *         transaction reference."); không gợi ý để trống;
      *       - khóa `pg_advisory_xact_lock(hashtextextended('bank-ref:' || property_id || ':' || <mã đã chuẩn hóa>, 0))` **trước** câu kiểm trùng, cùng giao dịch với `INSERT`, `READ COMMITTED`;
      *       - chỉ so với **khoản thu** (`type` ∈ `deposit`, `charge`; `reversal_of_id IS NULL`; chưa `reversed`) – mã của khoản chi hoàn không làm khoản thu nhận 409;
      *       - áp ở **mọi** đường dùng `PaymentCreate` (`recordPayment`, `confirmDeposit`, `checkIn`, `checkOut.finalPayment`, `ReservationCreate.payment`, `GroupDepositInput`);
      *       - người gọi **không** có vai FD+ (OWN, MGR, FDL, FD) nhận 409 `DUPLICATE_BANK_REFERENCE` **không** có `duplicateReservationCode` (mã đơn có thể ngoài phạm vi – SR-AZ-02);
      *       - test: hai giao dịch song song cùng mã khác hoa thường → một 201, một 409; mã trùng một khoản chi hoàn → 201. Unique index ở DB: v1.0.6 (không bắt buộc).
+     *       - **test bắt buộc ở PR-B3 (bổ sung 1g, SEC ARC-24)**: (i) SEC ARC-21 – SAL `recordPayment` (cọc) và SAL `confirmDeposit` với mã đã có ở khoản thu của đơn khác → 409
+     *         **không** có `duplicateReservationCode`; FD cùng ca → có mã đơn; (ii) C0313-25 – các ca ở `SEC-responses.md` 4.3 (bốn dạng số thẻ thử công khai, có hoặc không `-` `.` `_`
+     *         → 422; số thẻ thử kèm hạn/CVV (`…-EXP1228`, `…/1228`) → 422; mã chữ đứng đầu kèm 14 chữ số → nhận; 16 chữ số không qua Luhn, 12 chữ số, 8 chữ số cuối của mã bị chặn →
+     *         nhận; ô ghi chú chứa số thẻ thử → vẫn 422); (iii) SEC ARC-20 –
+     *         đóng `deposit_after_cancel` bằng "Không thấy tiền" → đọc lại `audit_event` (`attention_event.resolved`, `after = {kind, afterClosure: true}`, không ghi chú tự do), dòng có
+     *         trong `afterClosureOnly` kèm người và giờ bấm (`SEC-responses.md` mục 5).
      *     - **Lỡ ghi hai lần (DOM 3b):** MGR+ đối soát khoản thừa `disputed`, MGR/OWN `reversePayment` → yêu cầu hoàn đi kèm tự `superseded` (refundPlan, kể cả đã duyệt chưa chi). Không đổi hợp đồng.
      *     - **Trần (S5, nên có):** `amountVnd` > tổng tiền phòng của đơn theo giá đã chốt → FD/FDL 422 `AMOUNT_EXCEEDS_BALANCE` (`max`); MGR/OWN ghi được kèm `note`.
      *     - Mục "Cần chú ý" `deposit_after_cancel` của đơn đóng khi đã hoàn xong (hoặc đã khôi phục **và** khoản thu đã đối soát – 5B-2), hoặc FD+ đóng "Không thấy tiền" (`resolveAttentionEvent`,
@@ -7786,7 +7802,7 @@ export interface components {
       /** @description Mã chuẩn chi máy POS (R-PAY-04) – không nhập số thẻ */
       posAuthCode?: string;
       note?: string;
-      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4, DOM 11.4 3a)** – tùy chọn, mọi đường ghi dùng schema này; chỉ `bank_transfer`/`vietqr` (khác → 422 `NOT_ALLOWED`); trùng khoản thu chưa đảo của cơ sở → 409 `DUPLICATE_BANK_REFERENCE`, không ghi gì. Máy chủ chưa có PR 5B-1 thì từ chối trường lạ – Desk chỉ gửi khi PR đó lên. **Bổ sung 1e (SEC ARC-15)**: chuẩn hóa chữ hoa, kiểm số thẻ, `duplicateReservationCode` chỉ cho FD+ – xem `recordPayment` (B). **Bổ sung 1f (SEC C0313-25)**: chỉ chặn khi toàn bộ giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số qua Luhn */
+      /** @description **0.3.13 bổ sung 1 (5B-1, SEC S4, DOM 11.4 3a)** – tùy chọn, mọi đường ghi dùng schema này; chỉ `bank_transfer`/`vietqr` (khác → 422 `NOT_ALLOWED`); trùng khoản thu chưa đảo của cơ sở → 409 `DUPLICATE_BANK_REFERENCE`, không ghi gì. Máy chủ chưa có PR 5B-1 thì từ chối trường lạ – Desk chỉ gửi khi PR đó lên. **Bổ sung 1e (SEC ARC-15)**: chuẩn hóa chữ hoa, kiểm số thẻ, `duplicateReservationCode` chỉ cho FD+ – xem `recordPayment` (B). **Bổ sung 1f (SEC C0313-25)**: luật số thẻ riêng của ô mã – tách theo `.` `/` `_` `-`, ghép dần các nhóm từ đầu; tại một ranh giới nhóm mà phần đã ghép có 13–19 chữ số (không chữ cái) qua Luhn – luật SR-PAY-10 bản 07/11 (bổ sung 1g; SEC 119-01, ARC 119-03) */
       bankReference?: string;
       /** @description Ghi thu kỳ hợp đồng dài hạn (US-119 AC5) – cập nhật `billing_period.paid_amount_vnd`, đủ tiền → kỳ `paid` (T2) */
       billingPeriodId?: components['schemas']['Uuid'];
@@ -11576,7 +11592,7 @@ export interface operations {
     requestBody?: {
       content: {
         'application/json': {
-          /** @description Ghi chú xử lý (V-08/V-09) – bắt buộc ≥ 3 ký tự với mục `critical` (0.3.7 bổ sung 1). Không ghi tên/SĐT/giấy tờ của khách */
+          /** @description Ghi chú xử lý (V-08/V-09) – bắt buộc ≥ 3 ký tự với mục `critical` (0.3.7 bổ sung 1) và với `deposit_after_cancel` (0.3.13 bổ sung 1g, SEC S8). Không ghi tên/SĐT/giấy tờ của khách */
           note?: string;
         };
       };
@@ -11610,7 +11626,7 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
-      /** @description VALIDATION_FAILED (`note` thiếu với mục `critical` – mã trường `REASON_REQUIRED`; `TOO_LONG`) / CARD_NUMBER_DETECTED (V-09) / IDEMPOTENCY_KEY_REUSED (0.3.7 bổ sung 1) */
+      /** @description VALIDATION_FAILED (`note` thiếu với mục `critical` hoặc `deposit_after_cancel` (0.3.13 bổ sung 1g) – mã trường `REASON_REQUIRED`; `TOO_LONG`) / CARD_NUMBER_DETECTED (V-09) / IDEMPOTENCY_KEY_REUSED (0.3.7 bổ sung 1) */
       422: {
         headers: {
           [name: string]: unknown;
@@ -16415,7 +16431,7 @@ export interface operations {
         'application/json': {
           amountVnd: components['schemas']['MoneyVnd'];
           paidAt: components['schemas']['Instant'];
-          /** @description Mã giao dịch ngân hàng – **bắt buộc** khi nơi nhận `bank_transfer` hoặc hoàn qua POS (`REQUIRED`) – 0.3.6 E15-02. Máy chủ kiểm mẫu `^[A-Za-z0-9./_-]{1,64}$` sau khi bỏ khoảng trắng đầu/cuối (CHECK 0040; sai → 422). **0.3.13 bổ sung 1f (SEC C0313-25)**: `CARD_NUMBER_DETECTED` **chỉ** khi toàn bộ giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số qua Luhn – cùng hàm với `recordPayment` (B); mã chỉ chứa một đoạn số giống thẻ vẫn nhận. Máy chủ v1.0.4 còn quét cả đoạn bên trong (V-09) – sửa ở v1.0.5 */
+          /** @description Mã giao dịch ngân hàng – **bắt buộc** khi nơi nhận `bank_transfer` hoặc hoàn qua POS (`REQUIRED`) – 0.3.6 E15-02. Máy chủ kiểm mẫu `^[A-Za-z0-9./_-]{1,64}$` sau khi bỏ khoảng trắng đầu/cuối (CHECK 0040; sai → 422). **0.3.13 bổ sung 1f (SEC C0313-25)**: `CARD_NUMBER_DETECTED` theo luật riêng của ô mã – tách theo `.` `/` `_` `-`, ghép dần các nhóm từ đầu; tại một ranh giới nhóm mà phần đã ghép có 13–19 chữ số (không chữ cái) qua Luhn – luật SR-PAY-10 bản 07/11 (bổ sung 1g; SEC 119-01, ARC 119-03); cùng hàm với `recordPayment` (B). Máy chủ v1.0.4 còn quét mọi cửa sổ số (V-09) – sửa ở v1.0.5 (#119) */
           bankReference?: string;
           /** @description Ảnh ủy nhiệm chi / biên nhận ký nhận (`uploadAttachment purpose=refund_proof`) – **bắt buộc** khi `bank_transfer` (`EVIDENCE_REQUIRED`), không bắt buộc với `cash` – 0.3.6 E15-02 */
           attachmentId?: components['schemas']['Uuid'];

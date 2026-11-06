@@ -1,7 +1,7 @@
 # ARC review PR #149 (BE-H) – che hoa hồng trong audit (T18): cổng `audit/public/audit-visibility.ts`
 
 - Round 5 (v1.0.5), bước **Review** kỹ thuật. Người review: ARC. Ngày 07/11/2026.
-- PR: [#149](https://github.com/anhvh93-tech/ottimo-hotel-app-public/pull/149), nhánh `r5-audit-visibility`, HEAD **`91907134`**, `base = main`, không phải draft. 8 tệp, +562/−12: 6 tệp `src`, 2 tệp test. Không migration, không sửa `openapi.yaml` hay tệp sinh.
+- PR: [#149](https://github.com/anhvh93-tech/ottimo-hotel-app-public/pull/149), nhánh `r5-audit-visibility`, HEAD lúc review đầu **`91907134`**, nay là **`80f2d239`** (bản sửa SEC 149-01, ARC đọc lại ở mục 11), `base = main`, không phải draft. 8 tệp, +562/−12: 6 tệp `src`, 2 tệp test. Không migration, không sửa `openapi.yaml` hay tệp sinh.
 - Việc của PR:
   - ARC FB-R5-ARC-BE-131-01 (Major) và SEC FB-R5-SEC-BE-131-01, cả hai ở `ARC-on-be-h-prs-110-123-131.md` mục 4.1;
   - phần chú thích của ARC FB-R5-ARC-BE-110-01 (Minor).
@@ -12,7 +12,7 @@
   - review cũ của ARC: mục 2.6 (probe), 4.1 (chỗ đặt), thẻ 110-01, 131-01.
 - Cách kiểm:
   - Đọc mã trên ref riêng `refs/remotes/arc/pr149`, trong hai worktree ở scratchpad (`arc-149-wt` để chạy đủ, `arc-149-mut` để thử đột biến). Không checkout trong thư mục chính, không push vào nhánh PR.
-  - PostgreSQL 17 riêng: container `arc-149-pg`, cùng image CI, chỉ nghe `127.0.0.1:55617`, mật khẩu là mật khẩu CI công khai của repo. Có thêm một database `arc_perf` riêng để đo hiệu năng (mục 6), dữ liệu tổng hợp hoàn toàn. Đã xóa container và cả hai worktree sau review.
+  - PostgreSQL 17 riêng: container `arc-149-pg`, cùng image CI, chỉ nghe `127.0.0.1:55617`, mật khẩu là mật khẩu CI công khai của repo. Có thêm một database `arc_perf` riêng để đo hiệu năng (mục 6), dữ liệu tổng hợp hoàn toàn. Container và các worktree được xóa khi ARC xong đợt review.
   - Không gọi staging hay production. Tệp này không có bí mật, IP máy chủ, tỷ lệ hay số tiền hoa hồng thật, dữ liệu khách.
 - CI của #149 lúc viết: 7 job xanh (gitleaks, OpenAPI lint, contract RBAC `--strict`, confidential paths, shellcheck, landing, no test endpoints). Job `format · lint · audit · test · build` còn đang chạy.
 
@@ -22,7 +22,8 @@
 
 | PR @ SHA | Kết luận ARC | Điều kiện | Thẻ ARC mới |
 |---|---|---|---|
-| **#149 @ `91907134`** | **DUYỆT** | Không. Gộp trước khi cắt tag v1.0.5, như plan 4a T18 | 149-01 (Minor), 149-02 (Suggestion, lỗi có từ trước #149) |
+| #149 @ `91907134` (đã thay) | DUYỆT | Không. Gộp trước khi cắt tag v1.0.5, như plan 4a T18 | 149-01 (Minor), 149-02 (Suggestion, lỗi có từ trước #149) |
+| **#149 @ `80f2d239`** (HEAD hiện tại) | **DUYỆT** | Không. Như trên. Phần chênh chỉ là test đơn vị theo G3, xem mục 11 | Không thẻ mới. 149-01, 149-02 giữ nguyên |
 
 - Cổng đúng thiết kế ở 5.1. Cả hai đường đọc đều đi qua cổng, ranh giới module đúng, và mỗi đột biến ARC thử đều làm test đỏ (11/11).
 - `tsc` sạch. Toàn bộ API trên PostgreSQL thật: **209 tệp (207 qua, 2 tự bỏ qua), 5030 ca qua, 0 hỏng**. Khớp số BE-H báo.
@@ -150,7 +151,7 @@ Phần ARC (câu hợp đồng) ở #147 mục (a), cùng ý. Phần QA (oracle 
 | `pnpm --filter @ottimo/api typecheck` (`tsc --noEmit`) | Sạch |
 | `vitest run` toàn bộ API | **Test Files 207 passed, 2 skipped (209); Tests 5030 passed, 19 skipped, 1 todo (5064)**, 148,7 s |
 | `eslint` trên 8 tệp của PR | Sạch |
-| `git merge-tree origin/main arc/pr149` (`main` @ `ec4bcbe2`) | Không xung đột. Từ `68c7ebb7` tới `ec4bcbe2`, `main` chỉ đổi `packages/api-client` và `packages/ui` CSS, không chạm `services/api`. Kết quả API ở trên vẫn đúng với `main` hiện tại |
+| `git merge-tree origin/main arc/pr149` (`main` @ `ec4bcbe2`) | Không xung đột. Từ `68c7ebb7` tới `ec4bcbe2`, `main` chỉ đổi `packages/api-client` và `packages/ui` CSS, không chạm `services/api`. **Đính chính:** câu này chỉ đúng tới `ec4bcbe2`. Sau đó `main` nhận #131 (`456f259a`) và #123 (`8598bb5a`), cả hai chạm `services/api`. ARC chạy lại trên bản gộp thử với `main` mới, xem mục 11 |
 
 ## 8. Thẻ feedback ARC
 
@@ -206,8 +207,40 @@ Phần ARC (câu hợp đồng) ở #147 mục (a), cùng ý. Phần QA (oracle 
 - Ca tích hợp kiểm trước rằng bản ghi hoa hồng **có thật trong bảng**, dưới tên FD/FDL, rồi mới kiểm FD/FDL không thấy. Nhờ vậy test không thể xanh vì bảng rỗng. Ca này còn đọc theo con trỏ tới trang cuối, và gọi thẳng `action=commission.*` theo tên.
 - Thêm lớp `null` ở mức bản ghi trong `redactAuditFields` và `COALESCE` cho bản ghi không có loại. Cả hai là chi tiết nhỏ, dễ quên, và đều có test bắt (M8, M9).
 
-## 11. Dòng đề xuất cho `01-decisions/decision-log.md`
+## 11. Đọc lại tại HEAD mới `80f2d239` (sửa SEC FB-R5-SEC-BE-149-01, G3)
+
+SEC nêu 149-01 (Major): test đơn vị viết thẳng tỷ lệ và số tiền hoa hồng, trái G3. `91907134` coi như đã thay. ARC đọc lại phần chênh `91907134..80f2d239`.
+
+**Phần chênh:**
+- 1 commit, 1 tệp `test/audit-visibility-gate.test.ts`, +15/−3. Không đổi `src`, migration, hợp đồng hay tệp sinh. Vì vậy các mục 1–6 (ranh giới module, đối chiếu 5.1, test quét, chú thích 110-01, hiệu năng) giữ nguyên kết luận.
+- Tỷ lệ dùng hằng thử có tên `test_rate_short`. Đây là cùng tên và cùng giá trị thử mà SEC đã chấp nhận ở `v5-30-commission-rate.test.ts`, `integration/v5-30-commission-status.test.ts` và `integration/v105-early-hours.test.ts`. Số tiền phòng là hằng thử `test_room_vnd`. Số tiền hoa hồng tính bằng `applyPct` lúc chạy, không viết thẳng.
+- `applyPct` lấy từ `reservations/public/pricing`, tức lối `public` của module. Không phạm ranh giới module. Test dùng đúng hàm làm tròn của mã thật.
+- ARC `grep` toàn bộ phần thêm của PR (8 tệp so với `main`): không còn tỷ lệ hay số tiền hoa hồng viết thẳng. Con số duy nhất còn lại cạnh `amountVnd` là một dòng minibar, không phải hoa hồng. Mô tả PR đã sửa câu tương ứng. Phần G3 còn lại do SEC đọc.
+
+**Test có còn bắt lỗi không.** Mỗi lần ARC sửa một chỗ trong `redactAuditFields`, chạy tệp test, rồi trả mã về:
+
+| # | Đột biến | Kết quả |
+|---|---|---|
+| D1 | Không bỏ khóa `commissionVnd` với FD | Đỏ (1/3 ca) |
+| D2 | Giữ bản ghi `commission.*` với FDL | Đỏ (1/3 ca) |
+
+- `applyPct` trả một số dương, nên khóa `commissionVnd` có giá trị thật trong đầu vào.
+- Nhờ vậy `toEqual` không thể xanh nhờ một khóa `undefined`. Nếu khóa đó là `undefined`, `toEqual` bỏ qua nó và ca có thể xanh dù mã không che gì.
+
+**Chạy lại:**
+
+| Lệnh | Kết quả |
+|---|---|
+| `prettier --check`, `eslint` trên tệp đổi | Sạch |
+| Bản gộp thử `80f2d239` + `main` @ `8598bb5a` (commit cục bộ `b30220e7` trong scratchpad, không push), có #131 và #123: `tsc --noEmit` | Sạch |
+| Như trên: `vitest run test/audit-visibility-gate.test.ts` | 3/3 |
+| Như trên: `vitest run` toàn bộ API, PostgreSQL 17 tạm, CSDL bootstrap tạo mới | **Test Files 216 passed, 2 skipped (218); Tests 5147 passed, 19 skipped, 1 todo (5181)**, 160,7 s. 0 hỏng |
+| CI #149 @ `80f2d239` lúc viết | 7 job xanh (gitleaks, OpenAPI lint, contract RBAC `--strict`, confidential paths, shellcheck, landing, no test endpoints). Job `format · lint · audit · test · build` còn đang chạy. Gộp khi job này và E2E smoke (điều kiện SEC) xanh |
+
+**Kết luận:** **DUYỆT @ `80f2d239`.** Không điều kiện ARC, không thẻ mới. Thẻ 149-01 (Minor, `r5-h1c`) và 149-02 (Suggestion, v1.0.6) giữ nguyên. SEC 149-01 do SEC đóng.
+
+## 12. Dòng đề xuất cho `01-decisions/decision-log.md`
 
 | Ngày | Round | Quyết định | Người quyết | Tài liệu |
 |---|---|---|---|---|
-| 2026-11-07 | 5 | ARC duyệt BE-H #149 @ `91907134` (T18, che hoa hồng trong audit): cổng `audit/public/audit-visibility.ts` do `folio` khai báo, `audit` thực thi, không import ngược; dùng ở `listAuditEvents` và `getReservationHistory`; 11/11 đột biến đỏ; `tsc` sạch, API 209 tệp / 5030 ca xanh trên PostgreSQL 17. Đóng ARC 131-01, H1-01 khi gộp. Thẻ mới 149-01 Minor (test quét: regex rộng hơn, ngoại lệ theo số lần đọc, `seesFullAudit` ở controller; làm ở `r5-h1c`), 149-02 Suggestion (chỉ mục `(property_id, entity_code)` cho lịch sử đơn, có từ R2, B-KYTHUAT v1.0.6). ARC sửa chữ ký `redactAuditFields` ở 5.1 trong #147 | ARC | rounds/round-05/reviews/ARC-on-be-h-pr-149.md |
+| 2026-11-07 | 5 | ARC duyệt BE-H #149 @ `80f2d239` (thay `91907134`; T18, che hoa hồng trong audit). Phần chênh chỉ là test đơn vị theo G3: tỷ lệ là `test_rate_short`, số tiền tính bằng `applyPct` từ `reservations/public`, không còn số hoa hồng viết thẳng; 2 đột biến che khóa / che bản ghi vẫn đỏ; bản gộp thử với `main` @ `8598bb5a`: `tsc` sạch, API 218 tệp / 5147 ca xanh trên PostgreSQL 17. Kết luận ở `91907134` giữ nguyên: cổng `audit/public/audit-visibility.ts` do `folio` khai báo, `audit` thực thi, không import ngược; dùng ở `listAuditEvents` và `getReservationHistory`; 11/11 đột biến đỏ; `tsc` sạch, API 209 tệp / 5030 ca xanh trên PostgreSQL 17. Đóng ARC 131-01, H1-01 khi gộp. Thẻ mới 149-01 Minor (test quét: regex rộng hơn, ngoại lệ theo số lần đọc, `seesFullAudit` ở controller; làm ở `r5-h1c`), 149-02 Suggestion (chỉ mục `(property_id, entity_code)` cho lịch sử đơn, có từ R2, B-KYTHUAT v1.0.6). ARC sửa chữ ký `redactAuditFields` ở 5.1 trong #147 | ARC | rounds/round-05/reviews/ARC-on-be-h-pr-149.md |

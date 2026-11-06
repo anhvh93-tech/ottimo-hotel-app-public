@@ -3,7 +3,9 @@
  * reports nightly prices outside the BR-105 floor–ceiling carries `dates[]` (the nights out of range) and `min`/`max`
  * = floor and ceiling (VND) of the FIRST night in `dates[]`, so the desk says "from 530.000 to 1.900.000" instead of
  * `{min}`/`{max}`. One builder for createReservation (block for direct/agent, `_WARNING` for OTA) and the quote with
- * typed prices (V5-14) – the reservations PricingService puts the bounds on every priced night.
+ * typed prices (V5-14) – the reservations PricingService puts the bounds on every priced night – and extendStay (B13,
+ * FB-R5-ARC-BE-S1-03: every added night out of range, `date` = `dates[0]` kept for older Desk clients). A night without
+ * a bound leaves the key out (never a stand-in such as 0 or MAX_SAFE_INTEGER).
  */
 import { type ProblemError, problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
@@ -17,11 +19,13 @@ export interface BoundedNight {
 export function rateOutOfRange(
   dates: readonly LocalDate[],
   nights: readonly BoundedNight[],
-  opts: { warning?: boolean } = {},
+  opts: { warning?: boolean; legacyDate?: boolean } = {},
 ): ProblemError {
   const first = nights.find((n) => n.date === dates[0]);
   const extras = {
     dates: [...dates],
+    // B13 answered `date` (one night) before V5-22; kept so an older Desk still points at the first night.
+    ...(opts.legacyDate && dates[0] !== undefined ? { date: dates[0] } : {}),
     ...(first?.floorVnd !== undefined ? { min: first.floorVnd } : {}),
     ...(first?.ceilingVnd !== undefined ? { max: first.ceilingVnd } : {}),
   };
