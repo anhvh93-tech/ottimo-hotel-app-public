@@ -476,7 +476,7 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 | `approval_pin_hash` | text null | C3 | PIN duyệt 6 số, argon2id (BR-432, SR-AUTH-09) |
 | `approval_pin_failed_count`, `approval_pin_locked_until` | int, timestamptz | | 5 sai → khóa duyệt 15 phút |
 | `roles_version` | int not null default 1 | | Tăng khi đổi vai/khóa/đặt lại mật khẩu → xóa cache quyền (SR-AZ-08) |
-| `mfa_enabled` | bool not null default false | | R3 – bắt buộc owner/manager (SR-AUTH-06) |
+| `mfa_enabled` | bool not null default false | | R3 – bắt buộc owner/manager/front_desk_lead (FDL từ 0.3.13, V5-40; SR-AUTH-06) |
 | `mfa_secret_enc` | bytea null | C3 | Bí mật TOTP, DEK riêng (`mfa_data_key_id`) – R3 |
 | `mfa_recovery_codes_hash` | text[] | C3 | 10 mã dùng một lần (argon2id) – R3 |
 | `status` | text | | `active\|locked\|disabled` |
