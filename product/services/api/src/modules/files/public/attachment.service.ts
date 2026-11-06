@@ -23,6 +23,7 @@ import type { Tx } from '../../../db/database';
 import { type AttachmentPurpose, ATTACHMENT_PURPOSES } from '../../../db/schema';
 import { problem } from '../../../shared/problem';
 import { inSavepoint } from '../../../shared/savepoint';
+import { primaryRoleOf } from '../../../shared/role-order';
 import { localDate } from '../../../shared/time';
 import { ParameterService } from '../../platform/public/parameter.service';
 import {
@@ -275,6 +276,19 @@ export class AttachmentService {
     }
   }
 
+  /**
+   * BE-B `AttachmentUsage.uploadedBySales` (FB-R5-SEC-BE-105-01, ARC FB-R5-ARC-BE-139-01): a sale or a CTV uploaded
+   * this file (`uploaded_by_role`, written in the shared role order – desk first). Unknown / not visible → false.
+   */
+  async uploadedBySales(tx: Tx, id: string): Promise<boolean> {
+    if (!UUID.test(id)) return false;
+    const { rows } = await tx.query<{ sales: boolean }>(
+      'SELECT uploaded_by_role = ANY($2::text[]) AS sales FROM attachment WHERE id = $1',
+      [id, [...SALES_UPLOAD_ROLES]],
+    );
+    return rows[0]?.sales === true;
+  }
+
   /** Start of the retention period (SEC I5): reconciled, checkout, closed… Idempotent. */
   async setRetentionAnchor(
     tx: Tx,
@@ -437,6 +451,14 @@ export class AttachmentService {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** The roles whose uploads are a forwarded image (the guest's word), never a proof of money. */
+const SALES_UPLOAD_ROLES: readonly string[] = ['sales_staff', 'collaborator'];
+
+/**
+ * `uploaded_by_role`: the primary role among those allowed for the purpose, in the shared STAFF_ROLE_ORDER – desk
+ * first (SEC-on-be-prs-135-139 6 (a), FB-R5-ARC-BE-139-02), never the array order (the guard sorts roles by name).
+ * New uploads only; no migration.
+ */
 function primaryRole(roles: readonly string[], allowed: readonly string[]): string {
-  return roles.find((r) => allowed.includes(r)) ?? roles[0] ?? 'unknown';
+  return primaryRoleOf(roles, allowed) ?? roles[0] ?? 'unknown';
 }

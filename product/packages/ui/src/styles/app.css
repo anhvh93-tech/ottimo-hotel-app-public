@@ -522,3 +522,10 @@ body:has(.app-mnav) .toasts {
   flex-wrap: nowrap;
   white-space: nowrap;
 }
+
+/* V5-10 (DOM rules-v1.0.5 15.2): the check-out time the page filled in (the desk's clock) while it still costs the
+   guest a late fee or a night – it stands out for the desk to check. Earth Brown ring (5.4:1 on Ivory, non-text 3:1). */
+.input.is-prefilled {
+  border-color: var(--oak-ink);
+  box-shadow: 0 0 0 1px var(--oak-ink);
+}

@@ -171,3 +171,116 @@ Dòng đề xuất cho `decision-log.md`:
 ```
 | 2026-11-07 | 5 | SEC chốt ARC FB-R5-ARC-BE-139-02 / SEC 139-01 theo phương án (a): attachment.uploaded_by_role lấy vai chính theo một thứ tự cố định, vai quầy trước (như payment.recorded_by_role / audit actorRoleOf), không theo thứ tự chữ cái; giữ vế deposit_notice (chặn ảnh người kiêm vai đã gửi kèm tin báo); chỉ áp ảnh tải mới, không migration; 4 ca test (CTV+FD → 201, FD+SAL → 201, FD+SAL ảnh tin báo → 422, chỉ CTV → 422). Làm trong #139 nếu kịp trước tag v1.0.5, không thì v1.0.6 + câu sổ tay; không chặn gộp; không ESC | SEC | rounds/round-05/reviews/SEC-on-be-prs-135-139.md |
 ```
+
+---
+
+## 7. Duyệt lại delta #139 @ `1dea8e4c` (luật (a) của mục 6)
+
+Round 5 · bước **Review** · SEC · 07/11/2026. Các mục 0–6 ở trên giữ nguyên, mục này chỉ xét phần mới.
+
+| PR | SHA đã review | Phần mới so với `97f03a65` | CI lúc đọc |
+|---|---|---|---|
+| #139 (DRAFT) | **`1dea8e4c`** | `5d1c88ea` (ca CTV, chỉ test) · merge `a289def3` (`main` @ `b77508f3`) · `1dea8e4c` (luật (a) + cổng `AttachmentUsage` của ARC 139-01) | Lượt chạy trên `1dea8e4c`: API contract, Redocly, đường dẫn mật, không endpoint test, gitleaks, shellcheck, landing đã xanh; `format · lint · audit · test · build` đang chạy |
+
+Cách kiểm:
+- Worktree tách riêng trong scratchpad, lấy `refs/pull/139/head` (= `1dea8e4c`).
+- PostgreSQL tạm cổng trống, roles theo `02-roles.sh`, migrate như CI. Thêm một container thứ hai cho các lượt đột biến, để không đụng lượt chạy đầy đủ. Chỉ dữ liệu fixture giả. Xong thì xóa hết worktree, ref và container.
+- Phần cổng `AttachmentUsage` (ARC 139-01) do ARC review riêng. SEC chỉ xét nó ở góc lộ thông tin (mục 7.3).
+- Không đẩy lên nhánh PR, không gộp, không đổi trạng thái draft.
+
+### 7.1 Luật (a): đạt, đúng như mục 6
+- `src/shared/role-order.ts` có `STAFF_ROLE_ORDER` = owner → manager → front_desk_lead → front_desk → sales_staff → collaborator → housekeeping → maintenance.
+  - Thứ tự này giống từng phần tử với `ROLE_ORDER` cũ vừa xóa khỏi `payment.service.ts`. Vì vậy `payment.recorded_by_role` (A-40) không đổi: phần này chỉ dời code. Các luật dựa vào nó (`SALES_ROLES` ở `payments.service.ts`, đảo khoản tiền mặt của chính sale) giữ nguyên.
+- `primaryRoleOf(roles, allowed?)` duyệt theo `STAFF_ROLE_ORDER`, không theo mảng `roles`.
+- `attachment.service.ts`: `uploaded_by_role` = `primaryRoleOf(roles, UPLOAD_ROLES[purpose]) ?? roles[0] ?? 'unknown'`.
+  - Nhánh dự phòng `roles[0]` chỉ chạy khi người gọi không có vai nào được tải loại ảnh đó. `attachments.controller` đã chặn trước bằng `canUpload` (403 + audit `access.denied`).
+  - Cả 8 vai đều có trong `STAFF_ROLE_ORDER`, và DB có CHECK chỉ cho 8 vai này (`0000_foundation`). Không có vai lạ nào rơi vào nhánh dự phòng.
+- Vẫn chỉ một chỗ INSERT `attachment`. Vai lấy từ `AuthGuard` phía máy chủ, máy khách không gửi vai được. Không migration, không đổi hợp đồng: đúng điều kiện "chỉ ảnh tải mới".
+- Đủ yêu cầu "một danh sách thứ tự dùng chung": `files` không giữ bản thứ tự riêng.
+  - Còn hai hằng "vai sale" cùng nội dung: `SALES_ROLES` (payments) và `SALES_UPLOAD_ROLES` (files). Đột biến M5 cho thấy ca CTV và ca 105-01 khóa nội dung của hằng phía files. Không mở thẻ.
+- Vế `deposit_notice` vẫn ở `recordAfterClosure`, chạy trước cổng. Đây là điều kiện bắt buộc của mục 6.
+- Vai audit (`actorRoleOf`) giữ thứ tự riêng, nhưng vai quầy > sale > CTV vẫn cùng chiều. Vai này không dùng để quyết chứng từ.
+- Đã grep `roles[0]`, `roles.find(` trong `src`. Ngoài nhánh dự phòng của audit và files, không còn chỗ nào chọn vai theo thứ tự mảng.
+
+### 7.2 Bốn ca của mục 6: có đủ, và đỏ khi đột biến
+
+| Ca mục 6 | Nơi | Kết quả |
+|---|---|---|
+| CTV + FD tải ảnh báo có → 201 `pending` | `v5-48-closed-booking-money.test.ts`, ca "SEC 6 (a)", `ctvFd` = `['collaborator', 'front_desk']` | Nhãn `front_desk`, ghi trên đơn đã hủy → 201 `pending` |
+| FD + sale tải ảnh báo có → 201 `pending` | cùng ca, `fdSal` = `['front_desk', 'sales_staff']` | Như trên |
+| FD + sale gửi ảnh kèm tin báo trên đơn mình giữ chỗ, đơn hủy, ghi chính ảnh đó → 422 | cùng ca | Ảnh mang nhãn `front_desk` (test kiểm). Cả `fdSal` và `fd` nhận 422 `attachmentId` `NOT_IN_LIST`; snapshot không đổi |
+| Chỉ CTV → 422 | ca "FB-R5-SEC-BE-139-02" (`5d1c88ea`) | Nhãn `collaborator`. FD, FDL, MGR, OWN đều nhận 422; snapshot không đổi |
+
+Ca đơn vị `be-b-s3-units.test.ts` có `primaryRoleOf`: CTV + FD, FD + sale, CTV + sale → sale, chỉ CTV, HK + sale → sale, chỉ HK → null; và `primaryRole` của A-40.
+
+Gốc chưa đột biến: 3 file (V5-48, `be-b-s3-units`, `module-boundaries`) **42/42 xanh**. Mỗi lượt đột biến chạy lại cả 3 file, xong thì khôi phục cây:
+
+| Đột biến | Ca đỏ |
+|---|---|
+| M1: nhãn ảnh quay về thứ tự mảng (đúng dòng mã cũ) | "SEC 6 (a)": `ctvFd` nhận nhãn `collaborator`, không phải `front_desk` |
+| M2: đưa `sales_staff`, `collaborator` lên trước vai quầy | "SEC 6 (a)" và 2 ca đơn vị (A-40 và "SEC 6 (a) / ARC 139-02") |
+| M3: tắt vế `deposit_notice` | "SEC 6 (a)": FD + sale dùng ảnh tin báo của mình → 201 |
+| M4: `uploadedBySales` luôn trả `false` | "105-01" và "139-02" |
+| M5: bỏ `collaborator` khỏi `SALES_UPLOAD_ROLES` | "139-02" |
+
+Một ghi chú về cách test: helper `attach` gọi thẳng `AttachmentService.upload` với vai khai trong fixture, không đi qua guard HTTP. Fixture khai vai theo thứ tự tên, giống như guard nạp. `primaryRoleOf` không phụ thuộc thứ tự mảng (ca đơn vị và phép kiểm vét cạn ở 7.3), nên điều này không làm yếu bằng chứng. Tin báo và lệnh ghi tiền vẫn đi qua HTTP với guard thật.
+
+### 7.3 Không tổ hợp vai nào cho ảnh sale/CTV lọt: đạt
+- **Kiểm vét cạn** bằng một file test tạm, không commit: duyệt cả 255 tổ hợp vai khác rỗng.
+  - 252 tổ hợp được tải `deposit_receipt`. 3 tổ hợp chỉ gồm HK và/hoặc bảo trì bị `canUpload` chặn.
+  - Với mỗi tổ hợp được tải, nhãn theo thứ tự tên và theo thứ tự ngược là như nhau.
+  - Nhãn là `sales_staff`/`collaborator` **khi và chỉ khi** người đó không giữ vai quầy nào (owner, manager, FDL, FD). Có sale thì nhãn `sales_staff`, chỉ có CTV thì `collaborator`.
+- Chứng từ chỉ nhận ảnh `deposit_receipt` (`assertUsable` trong `recordInTx`). Ảnh tải dưới mục đích khác thì không dùng được, dù nhãn là gì (ví dụ HK + sale tải `work_order` có nhãn `housekeeping`).
+- **Ảnh cũ, không migration**: so thứ tự tên cũ với thứ tự mới, chỉ các tổ hợp có CTV cộng một vai khác đổi nhãn.
+  - CTV + vai quầy: `collaborator` → vai quầy. Đây là chiều luật (a) chủ ý nới.
+  - CTV + sale: `collaborator` → `sales_staff`, vẫn bị chặn.
+  - Ảnh cũ giữ nhãn chặt hơn, nên chỉ có thể chặn nhầm, không thể lọt.
+- **Lỗ còn lại, đã chấp nhận ở mục 6.** Người kiêm quầy + sale/CTV có hai loại ảnh mang nhãn quầy và được nhận (201 `pending`):
+  - ảnh từng gửi kèm tin báo rồi **bị thay** khi báo lại;
+  - ảnh chưa gửi lần nào.
+
+  Đây đúng là hệ quả của (a): người đó vốn tải được ảnh bất kỳ ở quầy. Chốt chặn là đối soát sao kê. Vì vậy câu sổ tay/threat model ở mục 6 cần chính xác hơn: "…trừ ảnh **đang** nằm ở tin báo…" (xem 7.6).
+- **Cổng `uploadedBySales`, góc lộ thông tin**:
+  - SQL tham số hóa, kiểm UUID trước khi chạy.
+  - Bảng `attachment` có `FORCE ROW LEVEL SECURITY`. Id lạ hoặc của tài sản khác → `false` → `assertUsable` trả cùng 422 `NOT_IN_LIST`.
+  - Câu `deposit_notice` cũng chạy dưới RLS của tài sản (0012).
+  - Lời từ chối vẫn là một mã duy nhất, không `detail`, không ghi gì. Thứ tự lỗi giữ như #105: `method`/`attachmentId` REQUIRED trước, rồi mới đến luật ảnh.
+
+### 7.4 Merge từ `main`: không rơi gì
+- `git show --remerge-diff a289def3` **rỗng (0 dòng)**. Merge tự động, không sửa tay, không bỏ hunk nào. Merge cũ `97f03a65` cũng rỗng.
+- `git diff b77508f3 a289def3` chỉ có 2 tệp của nhánh (`payments.service.ts`, test V5-48), tức đúng phần nhánh có trước merge.
+- Với `main` hiện tại (`e039c62a`), `git merge-tree` không xung đột.
+  - `main` đã có PR-B1 #112, chạm `payments.service.ts`, `payment.service.ts`, `be-b-s3-units.test.ts`: vẫn gộp sạch.
+  - Test PR-B1 gọi `startFixture()` không đối số, vẫn khớp chữ ký mới `startFixture(opts = {})`.
+
+### 7.5 Toàn bộ Vitest API trên cây PR với PostgreSQL thật: đạt
+- Lượt sạch trên một container mới: **196 file đạt**, 2 file bỏ qua (có sẵn); **4872 ca đạt**, 19 bỏ qua, 1 todo; exit 0. Chạy với vai `ottimo_app` trên cây `1dea8e4c` sau `db:migrate` (`ottimo_migrator`), giống job CI.
+- Hai lượt trước, trên container đầu tiên, có đỏ. Cả hai đều không do PR:
+  - Lượt 1 chạy song song với các lượt đột biến. `reservations.test.ts` › "US-016 AC4 rack by role … p95 < 200 ms" đo được 343 ms. Đây là ca đo thời gian, đã biết là đỏ khi máy tải nặng (R4 `outputs/BE/v1.0.4-p4-13-pn01.md`). Chạy riêng file này 2 lần: 18/18 xanh. Diff không chạm rack.
+  - Lượt 2 chạy lại trên cùng container. `production-bootstrap.test.ts` từ chối vì DB bootstrap không còn trống sau lượt 1. Test làm đúng việc của nó. Lượt sạch ở trên dùng container mới và xanh.
+- `tsc --noEmit` của API sạch. ESLint trên 9 tệp đổi sạch.
+
+### 7.6 Kết luận delta
+
+| PR | SHA | Kết luận | Gộp khi |
+|---|---|---|---|
+| #139 | **`1dea8e4c`** | DUYỆT | `format · lint · audit · test · build` xanh trên đúng `1dea8e4c` (lúc đọc đang chạy). Phần cổng `AttachmentUsage` theo duyệt riêng của ARC. SEC không đặt thêm điều kiện |
+
+0 Blocker · 0 Major · 0 Minor · 0 Suggestion mới. ESC mới: **không**.
+
+| Thẻ | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-SEC-BE-105-01 (Minor) | Done @ `1dea8e4c`, đóng hẳn khi #139 gộp với CI xanh | Không đổi so với mục 0. M4 vẫn diệt được |
+| FB-R5-SEC-BE-139-01 (Suggestion) | **Done (mã) @ `1dea8e4c`** | Luật (a) đúng mục 6 (7.1–7.3). Phần câu chữ không chặn gộp: SEC tự thêm câu vào `product/docs/security/threat-model.md` ở lượt cập nhật tài liệu SEC của v1.0.5. Câu cho sổ tay người dùng do ORC giao người giữ sổ tay. Nội dung: "Tài khoản kiêm quầy và sale/CTV: ảnh tải lên được tính là ảnh quầy, trừ ảnh đang nằm ở tin báo 'khách đã chuyển'; chốt chặn là đối soát sao kê." |
+| FB-R5-SEC-BE-139-02 (Suggestion) | **Done @ `5d1c88ea`** | Ca "chỉ CTV → 422" có trong file; M5 làm ca này đỏ |
+
+Điểm làm tốt:
+- Một hằng thứ tự dùng chung cho cả `payment.recorded_by_role` lẫn `attachment.uploaded_by_role`, kèm chú thích nói rõ vì sao không dùng thứ tự mảng.
+- Test dùng tài khoản hai vai, khai theo đúng thứ tự guard nạp, và kiểm cả nhãn trong bảng lẫn mã HTTP. Ca 3 chứng minh vế `deposit_notice` nay là chốt duy nhất cho ảnh tin báo của người kiêm vai (M3 làm ca đỏ).
+- Mô tả PR khớp diff thật: không migration, không đổi hợp đồng, `startFixture({ extraUsers })` không đổi tenant chung của các file khác.
+
+Dòng đề xuất cho `decision-log.md`:
+
+```
+| 2026-11-07 | 5 | SEC – DUYỆT #139 @ 1dea8e4c (delta luật (a) mục 6): attachment.uploaded_by_role lấy vai chính theo STAFF_ROLE_ORDER dùng chung (src/shared/role-order.ts, vai quầy trước, giống payment.recorded_by_role), không theo thứ tự mảng; giữ vế deposit_notice; chỉ ảnh tải mới, không migration, không đổi hợp đồng; đủ 4 ca (CTV+FD → 201, FD+SAL → 201, FD+SAL ảnh tin báo → 422, chỉ CTV → 422), các đột biến thứ tự mảng / sale trước quầy / tắt vế tin báo / tắt cổng / bỏ CTV đều làm ca đỏ; kiểm vét cạn 252 tổ hợp vai: nhãn sale/CTV khi và chỉ khi không có vai quầy; merge a289def3 remerge-diff rỗng; Vitest API đầy đủ trên PostgreSQL thật xanh (196 file, 4872 ca). FB-R5-SEC-BE-139-01 Done (mã; câu threat model/sổ tay đi sau, không chặn), 139-02 Done @ 5d1c88ea. Gộp khi CI xanh trên đúng SHA; không ESC | SEC | rounds/round-05/reviews/SEC-on-be-prs-135-139.md |
+```
