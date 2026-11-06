@@ -5,6 +5,7 @@
  * does (BUG-R3-037/038, OPS j15-folio-close-check 10.2–10.3: J15 / J24 threw AuditEntityNotRegisteredError).
  */
 import { defineAuditEntity } from '../audit/public/audit-fields';
+import { defineManagerOnlyAudit } from '../audit/public/audit-visibility';
 
 // Audit allowlists (SR-AUD-03) for money events written by this module (category money).
 defineAuditEntity('folio', [
@@ -85,3 +86,7 @@ defineAuditEntity('commission', [
   'amountVnd',
   'voidReason',
 ]);
+// SEC FB-R5-SEC-BE-131-01 / ARC FB-R5-ARC-BE-131-01: the commission of a sale / CTV is OWN/MGR only in every audit
+// read – `commission.*` rows (ratePct, baseVnd, amountVnd) and the `commissionVnd` of the night sync
+// (folio.line_posted). Written as before; hidden at read time (audit/public/audit-visibility).
+defineManagerOnlyAudit({ entityTypes: ['commission'], fields: ['commissionVnd'] });

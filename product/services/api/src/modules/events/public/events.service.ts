@@ -140,8 +140,9 @@ export type AttentionKind =
  * never names, phones, notes or guest money details). A kind missing here carries no params.
  * 0.3.7 (BE-D): `ota_no_show_report` → `action`, `channel`; `ooo_ending_work_open` → `roomNo`, `endDate`
  * (contract); `foc_threshold` (BR-435, OWN only) → `check` (`foc_pct_of_room_revenue` |
- * `foc_count_per_approver`), `pct`, `threshold`, `count`, `max` – the approver is never named in params (the
- * item's `link` filters the approvals list); keys reported to ARC for the contract text.
+ * `foc_count_per_approver` | `line_reduction_count` – 0.3.13 1.20, BR-438), `pct`, `threshold`, `count`, `max` – the
+ * approver / front desk is never named in params (the item's `link` filters the approvals list or the audit log);
+ * keys reported to ARC for the contract text.
  */
 export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string[]>> = {
   reconcile_overdue: ['count', 'oldestDays'],

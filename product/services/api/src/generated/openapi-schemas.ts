@@ -1135,6 +1135,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         roomReturnRecorded: { s: { k: 'scalar' } },
         etaTime: { s: { k: 'ref', name: 'LocalTime' } },
         closerUserId: { s: { k: 'ref', name: 'Uuid' } },
+        closerChangeReason: { s: { k: 'scalar' }, f: 'D12c' },
         internalNote: { s: { k: 'scalar' }, f: 'D12c' },
         visaWarningAckReason: { s: { k: 'scalar' } },
       },

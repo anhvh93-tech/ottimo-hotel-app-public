@@ -5,10 +5,10 @@ import { useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
 import { notifyChanged } from '../../app/live';
 import { parseVnd } from '../../app/money';
-import { fieldErrors } from '../../app/problem';
+import { fieldErrors, fieldPairKey } from '../../app/problem';
 import { rsvErrorText } from '../../app/reservations';
 import { isRetryable, useWrite, type WriteOptions } from '../../app/useWrite';
-import { useSession } from '../../session/SessionProvider';
+import { useOptionalSession } from '../../session/SessionProvider';
 
 /** ARC 16.17 bổ sung (af): B13, B14, B18 resend a CONCURRENT_UPDATE once (same key), after `Retry-After` or ~1 s. */
 export const STAY_WRITE_RETRY: WriteOptions = {
@@ -32,7 +32,8 @@ export interface SubmitFieldMap {
  * role (ARC-134-02). `manager` = OWN/MGR: a 409 FOLIO_LOCKED `settled` says what they can still do (V5-44, UXD 9.12).
  */
 export function useProblemRoles(): { manager: boolean } {
-  const { roles } = useSession();
+  // Optional session: `useSubmit` is also rendered alone in tests (C0313-25) – no session, no role, nothing changes.
+  const roles = useOptionalSession()?.roles ?? [];
   return { manager: roles.some((r) => r === 'owner' || r === 'manager') };
 }
 
@@ -62,7 +63,14 @@ export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
 
   const text = (e: unknown = error, extra: Record<string, unknown> = {}) => {
     if (!e) return '';
-    if (isApiError(e) && e.code === 'VALIDATION_FAILED') {
+    // UXD copy-v1.0.5 9.8 (C0313-25): a 422 CARD_NUMBER_DETECTED that only points at reference fields is a field
+    // error like any other – its sentence sits under the field, never the note sentence `error.CARD_NUMBER_DETECTED`.
+    const fieldOnly =
+      isApiError(e) &&
+      e.code === 'CARD_NUMBER_DETECTED' &&
+      e.fieldErrors.length > 0 &&
+      e.fieldErrors.every((fe) => fieldPairKey(fe) !== undefined);
+    if (isApiError(e) && (e.code === 'VALIDATION_FAILED' || fieldOnly)) {
       const f = fieldErrors(t, e, {}, locale);
       const entries = Object.entries(f);
       if (entries.length && !map) return entries[0]![1];
@@ -73,7 +81,9 @@ export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
         if (!unbound.length) return t('error.VALIDATION_FAILED', { n: entries.length });
         const own = (k: string) =>
           e.fieldErrors.some(
-            (fe) => fe.field.replace(/^body\./, '') === k && hasKey(`field.${fe.code}`),
+            (fe) =>
+              fe.field.replace(/^body\./, '') === k &&
+              (hasKey(`field.${fe.code}`) || fieldPairKey(fe) !== undefined),
           );
         return unbound
           .map(([k, msg]) => {

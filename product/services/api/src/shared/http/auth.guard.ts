@@ -32,7 +32,7 @@ import { ModuleRef, Reflector } from '@nestjs/core';
 import { CLOCK, type Clock } from '../../clock';
 import { DATABASE, Database, type TenantContext } from '../../db/database';
 import { AuditService } from '../../modules/audit/public/audit.service';
-import { MFA_REQUIRED_ROLES } from '../../modules/identity/public/mfa-roles';
+import { holdsMfaRequiredRole } from '../../modules/identity/public/mfa-required';
 import { MONOTONIC_CLOCK, RateLimiter } from '../../modules/identity/public/rate-limiter';
 import type { OperationMeta } from '../openapi-types';
 import { problem } from '../problem';
@@ -52,6 +52,7 @@ import {
 } from './guest-session';
 import { OPERATION_KEY, PUBLIC_ROUTE_KEY, operationMeta } from './operation';
 import { parseEntityTag } from './precondition';
+import { isBinaryBody, requestHash } from './request-hash';
 import { deniedWriteFields } from './write-roles';
 
 export const AUTH_OPTIONS = Symbol('AUTH_OPTIONS');
@@ -385,18 +386,26 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     if (!operation.idempotencyKey) return false;
     const key = header(req, 'idempotency-key');
     if (!key || !UUID.test(key)) return false;
-    // SEC-BE-33: only a replay of THIS request (same method + path) may defer the decision to the unit of work.
+    // FB-R5-SEC-BE-S1-01 / FB-R5-ARC-BE-S1-04: a raw binary body (multipart) is hashed by its upload controller
+    // AFTER the guard – it is never a replay here: 403 now, never a 422 / 500 from the guard.
+    const body = req.body ?? null;
+    if (isBinaryBody(body)) return false;
+    // SEC-BE-33: only a replay of THIS request may defer the decision to the unit of work – same method + path
+    // and, since FB-R5-SEC-BE-S1-01, the same body (`request_hash`, the hash claimKey stored). Another body on a
+    // completed key (a SAL reusing a saved quote's key with `nightlyRates`) is a denial: 403 + access.denied here,
+    // before any body check, instead of the 422 IDEMPOTENCY_KEY_REUSED the unit of work would give.
     const url = req.url;
     const q = url.indexOf('?');
     const path = q < 0 ? url : url.slice(0, q);
+    const hash = requestHash(req.method, path, body);
     return this.db.withContext(
       tenantOf(p),
       async (tx) => {
         const r = await tx.query(
           `SELECT 1 FROM idempotency_key
             WHERE principal_type = 'user' AND principal_id = $1 AND key = $2 AND state = 'completed'
-              AND method = $3 AND path = $4`,
-          [p.userId, key, req.method.toUpperCase(), path],
+              AND method = $3 AND path = $4 AND request_hash = $5`,
+          [p.userId, key, req.method.toUpperCase(), path, hash],
         );
         return (r.rowCount ?? 0) > 0;
       },
@@ -489,9 +498,10 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   }
 
   /**
-   * A live role of MFA_REQUIRED_ROLES at ANY property (SEC 06.2). `auth_resolve_session().mfa_required` (migration
-   * 0079) only knows owner/manager; front_desk_lead (V5-40, v1.0.5 has no migration) is read here, cached per
-   * roles_version like the roles (a role change bumps it).
+   * A live role of MFA_REQUIRED_ROLES at ANY property (SEC 06.2) – the one predicate `holdsMfaRequiredRole`, shared
+   * with login and getMe (SEC D1-03). `auth_resolve_session().mfa_required` (migration 0079) only knows
+   * owner/manager; front_desk_lead (V5-40, v1.0.5 has no migration) is read here, cached per roles_version like the
+   * roles (a role change bumps it).
    */
   private async mfaRequired(s: SessionRow, now: Date): Promise<boolean> {
     if (s.mfa_required === true) return true;
@@ -504,18 +514,9 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       userId: s.user_id,
       actorType: 'user',
     };
-    const required = await this.db.withContext(
-      ctx,
-      async (tx) => {
-        const r = await tx.query(
-          `SELECT 1 FROM user_property_role
-            WHERE user_id = $1 AND revoked_at IS NULL AND role = ANY($2::text[]) LIMIT 1`,
-          [s.user_id, [...MFA_REQUIRED_ROLES]],
-        );
-        return (r.rowCount ?? 0) > 0;
-      },
-      { readOnly: true },
-    );
+    const required = await this.db.withContext(ctx, (tx) => holdsMfaRequiredRole(tx, s.user_id), {
+      readOnly: true,
+    });
     this.mfaRoleCache.set(cacheKey, {
       required,
       until: now.getTime() + (this.options.roleCacheMs ?? 60_000),
