@@ -17,6 +17,7 @@ import { AttachmentService } from '../../files/public/attachment.service';
 import { ChannelsService } from '../../platform/public/channels';
 import { earlyDepartureRefundIssue } from '../../platform/public/parameter-shapes';
 import { applyPct, nightDates, noticeDays } from '../../reservations/public/pricing';
+import { type BoundedNight, rateOutOfRange } from '../../reservations/public/rate-out-of-range';
 import { roomReturnsOn } from '../../reservations/public/room-return';
 import {
   type BookingContext,
@@ -359,10 +360,18 @@ export class StayService {
     }
     const added: NightPrice[] = [];
     if (!row.external_contract) {
+      // FB-R5-ARC-BE-S1-03 (contract 1.9, 1.24 BE 12): every added night out of BR-105 is reported at once – `dates[]`
+      // in date order, `min`/`max` of the first, through the same builder as createReservation and the quote.
+      const bounded: BoundedNight[] = [];
+      const outOfRange: LocalDate[] = [];
       for (const date of dates) {
         const d =
           o.defaults.find((x) => x.date === date) ??
           (() => {
+            // The nights already out of range come first (the answer an earlier night gave before S1-03).
+            if (outOfRange.length > 0) {
+              throw rateOutOfRange(outOfRange, bounded, { legacyDate: true });
+            }
             throw problem('VALIDATION_FAILED', {
               errors: [{ field: 'nights', code: 'EXTENSION_LIMIT_EXCEEDED' }],
             });
@@ -371,17 +380,19 @@ export class StayService {
         const bounds = (o.dto.nights as Array<Record<string, unknown>>).find(
           (x) => x.date === date,
         );
-        const floor = Number(bounds?.floorVnd ?? 0);
-        const ceiling = Number(bounds?.ceilingVnd ?? Number.MAX_SAFE_INTEGER);
+        const floorVnd = typeof bounds?.floorVnd === 'number' ? bounds.floorVnd : undefined;
+        const ceilingVnd = typeof bounds?.ceilingVnd === 'number' ? bounds.ceilingVnd : undefined;
+        bounded.push({ date, floorVnd, ceilingVnd });
         // BUG-R2-134 (BR-105, BR-107 v0.3.8): the default is checked like a typed rate.
         const rate = typed ?? d.calendarVnd;
-        if (rate < floor || rate > ceiling) {
-          // V5-22 (contract 1.24 BE 12): `dates[]` like every RATE_OUT_OF_RANGE; `date` kept for older clients.
-          throw problem('RATE_OUT_OF_RANGE', {
-            errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
-            extras: { dates: [date], date, min: floor, max: ceiling },
-          });
+        if (
+          (floorVnd !== undefined && rate < floorVnd) ||
+          (ceilingVnd !== undefined && rate > ceilingVnd)
+        ) {
+          outOfRange.push(date);
+          continue;
         }
+        if (outOfRange.length > 0) continue;
         // ARC 16.18 (BR-417 appendix 5A step 3 (i)): a night with an element in `nightlyRates` is typed (`manual`)
         // even at the suggested or calendar number, bound to the room bought now (`edited = false`: `default`);
         // none = `default`.
@@ -424,6 +435,7 @@ export class StayService {
           added.push({ ...d });
         }
       }
+      if (outOfRange.length > 0) throw rateOutOfRange(outOfRange, bounded, { legacyDate: true });
     }
     await this.s.occupancy.lockRooms(tx, [o.rm.id]);
     let child: ReservationRow | null = null;
