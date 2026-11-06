@@ -4,11 +4,12 @@
  * row only opens the booking. The server still checks everything when the action is called (409/422).
  *
  * Same rules as `Reservation.allowedActions` of the reservations module (internal/allowed-actions.ts – a
- * parity test keeps them aligned), plus the post-midnight check-out window of B18 (0.3.7: "gồm cửa sổ sau
- * nửa đêm" – business date = departure − 1 while the calendar date is the departure day, DOM S3-9).
+ * parity test keeps them aligned), including the post-midnight check-out window of B18 (0.3.7: "gồm cửa sổ sau
+ * nửa đêm" – business date = departure − 1 while the calendar date is the departure day, DOM S3-9). 0.3.13 (V5-10):
+ * both read that window from shared/business-day.ts; `departureDate` is the stay's effective departure.
  */
+import { isCheckoutDay } from '../../../shared/business-day';
 import type { LocalDate } from '../../../shared/time';
-import { addDays } from '../../../shared/time';
 
 export interface RowAction {
   event: string;
@@ -40,8 +41,7 @@ export function checkOutAction(
   b: { status: string; departureDate: LocalDate; today: LocalDate; calendarDate: LocalDate },
 ): RowAction[] {
   if (!fdPlus(roles) || b.status !== 'in_house') return [];
-  const postMidnight =
-    b.departureDate === addDays(b.today, 1) && b.calendarDate === b.departureDate;
-  if (b.today !== b.departureDate && !postMidnight) return [];
+  // 0.3.13 (V5-10): the one clock rule of B18 (shared/business-day.ts – also `Reservation.allowedActions` and B18).
+  if (!isCheckoutDay({ today: b.today, calendarDate: b.calendarDate }, b.departureDate)) return [];
   return [{ event: 'check_out', transition: 'B18', action: 'check-out' }];
 }

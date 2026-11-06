@@ -161,3 +161,8 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
   - (b) mặc định hoàn tiền. Khách đã chuyển đúng hạn mà mất căn, chỉ vì quầy chưa kịp bấm. Lỗi chậm ghi là của OTTIMO.
   - Chủ đầu tư không biết mã nào đã tự hủy nếu quầy không báo, nên khó dò ra trên sao kê.
 - Lý do nghiệp vụ, phần mềm còn thiếu, việc cho QA và BE: `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 11.
+
+## 5. Lượt 3 – đọc lại câu hộp Thông báo (BA `1217858a`, 07/11/2026)
+
+- Chi tiết ở `rounds/round-05/reviews/DOM-on-ba-v105-docs.md` mục 1.
+- Kết luận: chỗ đặt (app nhân viên), người nhận từ v1.0.5 và "vẫn rà theo mã đơn" đúng. Sai một ý: ở v1.0.4, câu chung kèm mã đơn còn là giữ chỗ có cọc quá hạn, hoặc giữ chỗ còn chờ cọc sau 12:00 ngày đến. Thẻ **FB-R5-DOM-PO-08** (Major, sửa trước khi in lại), có chữ thay nguyên văn.

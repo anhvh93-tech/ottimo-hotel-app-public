@@ -147,6 +147,8 @@ const ACTION_KEY: Record<string, string> = {
   // SEC BE-80: words with amounts – drawn in `AuditAction`.
   'approval.applied_capped': 'approval.applied_capped',
   'config.changed': 'mlog.a_receiving_account_changed',
+  // OpenAPI 0.3.13 bổ sung 1f (SEC ARC-20): "Không thấy tiền" on a deposit_after_cancel item.
+  'attention_event.resolved': 'mlog.a_money_not_found',
 };
 
 function AuditAction({ e }: { e: AuditEvent }) {

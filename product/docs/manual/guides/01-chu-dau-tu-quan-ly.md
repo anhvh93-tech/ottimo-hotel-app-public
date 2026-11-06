@@ -3,7 +3,7 @@
 - Dành cho: **chủ đầu tư (OWN)**, **quản lý (MGR)**, và người làm **kế toán/đối soát** cùng chủ đầu tư
 - Thiết bị: **máy tính hoặc laptop riêng** của anh/chị, địa chỉ `desk.ottimo.vn`. Máy quầy chỉ dùng khi duyệt tại quầy, xong đăng xuất ngay.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Tệp này bản 1.13 (thuộc bộ hướng dẫn bản 1.14) – 06/11/2026, áp dụng ngay tới khi v1.0.5 lên: không bấm **Lưu thay đổi** ở `weekend_nights` và `min_stay` (mục 9.2, 15.6, 17). Các bản trước: mục **Lịch sử tệp** cuối tệp.
+- Lập: BA · 30/10/2026 · Tệp này bản 1.16 (thuộc bộ hướng dẫn bản 1.17) – 07/11/2026, áp dụng ngay: đếm kho minibar mỗi tuần (K-MB, mục 2.1, 13); điện thoại cơ sở tắt tự lưu ảnh, lượt thử xóa tin (mục 13); lần đếm lại minibar chưa hiện ở bộ lọc 7 ngày (mục 2.1, 8.1); đổi giá xong báo giá thử 1 đêm (mục 9.1); chờ xác nhận Wi-Fi trên Desk (mục 9.2). Bản 1.15 – 07/11/2026, áp dụng từ v1.0.5: mỗi tuần rà bộ lọc **Sửa giảm dòng – 7 ngày** (mục 2.1, 8.1). Bản 1.14 – 07/11/2026: lễ tân trưởng bật 2 bước trước ngày lên v1.0.5 (mục 1.9); nút **Báo cần dọn** từ v1.0.5 (mục 14). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -204,7 +204,7 @@ OTTIMO chỉ có một tài khoản chủ đầu tư, nên không ai trong Desk 
 |---|---|---|---|
 | **Chủ đầu tư** | Chủ đầu tư | Bắt buộc | Desk |
 | **Quản lý** | Quản lý | Bắt buộc | Desk |
-| **Lễ tân trưởng** | Thêm quyền duyệt trong hạn mức, nhận phòng ngoại lệ, kiểm phòng | **Bắt buộc** – mặc định đội chọn, anh/chị đổi được (báo đội); Desk tự ép dự kiến từ v1.0.5 | Desk + app nhân viên |
+| **Lễ tân trưởng** | Thêm quyền duyệt trong hạn mức, nhận phòng ngoại lệ, kiểm phòng | **Bắt buộc** – mặc định đội chọn, anh/chị đổi được (báo đội); Desk tự ép từ v1.0.5: chưa bật thì bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên | Desk + app nhân viên |
 | **Lễ tân** | Lễ tân, người trực đêm | Chưa | Desk |
 | **Buồng phòng** | Nhân viên buồng phòng | Tùy chọn | App nhân viên |
 | **Bảo trì** | Kỹ thuật | Tùy chọn | App nhân viên |
@@ -222,7 +222,9 @@ Một người có thể có nhiều vai. Không có vai "Kế toán" riêng (m�
 6. Desk hiện **Mật khẩu tạm của …** **một lần**. Đưa tận tay người dùng. Không gửi qua chat.
 7. Ngồi cùng người đó lần đăng nhập đầu: đổi mật khẩu tạm. Người có vai quản lý: làm trên laptop riêng (không phải máy quầy), bật 2 bước trên điện thoại riêng của họ, cất mã khôi phục như mục 1.3 bước 5.
 8. **Đăng nhập 2 bước theo vai** (mặc định đội chọn; anh/chị đổi được, báo đội). App nhân viên đăng nhập được bằng 2 bước và đổi mật khẩu tạm ngay trên app; bật 2 bước chỉ làm trên Desk (mục 1.8).
-   - **Lễ tân trưởng: bắt buộc.** Desk chưa tự ép (dự kiến v1.0.5), nên anh/chị làm 3 việc: tạo tài khoản; ngồi cùng người đó bật 2 bước trên Desk ngay buổi đầu (quét mã bằng điện thoại riêng của họ, cất 10 mã khôi phục như mục 1.3); nhìn tận mắt khối **Xác thực 2 bước** ở trang **Bảo mật tài khoản** của họ đã bật, rồi mới giao việc. Dặn lễ tân trưởng **không tự tắt** 2 bước (Desk chưa chặn tới v1.0.5); cần tắt thì hỏi anh/chị.
+   - **Lễ tân trưởng: bắt buộc.** Desk chưa tự ép tới v1.0.5, nên anh/chị làm 3 việc: tạo tài khoản; ngồi cùng người đó bật 2 bước trên Desk ngay buổi đầu (quét mã bằng điện thoại riêng của họ, cất 10 mã khôi phục như mục 1.3); nhìn tận mắt khối **Xác thực 2 bước** ở trang **Bảo mật tài khoản** của họ đã bật, rồi mới giao việc. Dặn lễ tân trưởng **không tự tắt** 2 bước (Desk chưa chặn tới v1.0.5); cần tắt thì hỏi anh/chị.
+     - **Từ v1.0.5 Desk tự ép.** Lễ tân trưởng chưa bật bị hạn chế **ngay ở lượt bấm kế tiếp** sau khi bản lên, kể cả đang đăng nhập dở, không chờ lần đăng nhập sau. Desk chỉ còn màn **Bật xác thực 2 bước**, thao tác vừa bấm không được lưu; app nhân viên báo mở Desk để bật. Lễ tân trưởng cũng không tự tắt 2 bước được nữa.
+     - **Trước ngày lên v1.0.5:** cho mọi lễ tân trưởng bật 2 bước trên máy riêng như trên và nhìn tận mắt đã bật, nhất là người trực đêm. Không để ai bật lần đầu trên máy quầy giữa ca. Mất điện thoại sau khi đã bật: đặt lại 2 bước như cũ (khối **Đặt lại xác thực 2 bước** cuối mục này).
    - **Buồng phòng, bảo trì: tùy chọn.** Chỉ bật khi người đó có điện thoại riêng và giữ được mã khôi phục; không cần khuyến khích.
    - **Sale nội bộ, CTV** chỉ dùng Desk: tự bật được, nên bật.
    - Người đã bật mà mất cả điện thoại lẫn mã khôi phục: anh/chị **gặp tận mặt** rồi **Đặt lại xác thực 2 bước** cho người đó (khối **Đặt lại xác thực 2 bước** cuối mục này), không tạo tài khoản mới. Không nhờ đội đặt lại 2 bước, không làm theo tin nhắn.
@@ -366,6 +368,8 @@ Máy quầy phải được cấp quyền thì lễ tân mới nhận phòng, xe
 | Trong 24 giờ sau mỗi lần trả muộn quá 18:00 | Xem lại phụ thu bằng giá 1 đêm | **Tổng quan → Cần chú ý** (mục 5) |
 | Khi người trực hỏi (từ v1.0.2) | Khách thuê tháng rời trước hạn HĐ: xác nhận nhánh ký quỹ trước khi người trực báo khách | Điện thoại, sổ giao ca (mục 7.3) |
 | Mỗi ngày | Đối chiếu chuyển khoản với sao kê | **Nhật ký tiền → Chờ đối soát** |
+| **Mỗi tuần** (từ v1.0.5) | Rà các lần sửa giảm dòng phát sinh 7 ngày qua: ai, đơn nào, trước → sau, lý do. Chú ý người sửa giảm nhiều lần. Đối chiếu với các dòng lễ tân ghi ở sổ giao ca. Lần đếm lại minibar chưa hiện ở bộ lọc này: xem thêm **Đảo dòng folio**, lý do **Đếm lại minibar** (mục 8.1) | **Nhật ký tiền** → bộ lọc **Sửa giảm dòng – 7 ngày** (mục 8.1) |
+| **Mỗi tuần** (chủ đầu tư, khoảng 10 phút) | **Đếm kho minibar (K-MB).** Theo từng món: tồn đầu tuần + nhập − tồn cuối = số đã lấy ra; so với tổng phiếu nạp. Chọn ngẫu nhiên 3 dòng phiếu nạp sau trả phòng: mở đơn đã trả phòng của căn đó, ngày đó, xem **Folio**. Số món minibar tính tiền phải bằng số món trên phiếu; món miễn phí không có dòng trên bill nên không so. Không dùng trang **Buồng phòng** cho lượt này (chỉ hiện việc hôm nay). Phiếu nhiều hơn bill: xem **Nhật ký thao tác tiền** của đơn đó, có lần sửa giảm hay đếm lại thấp hơn không. Lệch quá 2 món một tuần, hoặc một dòng ngẫu nhiên lệch: hỏi người trực, ghi sổ | Kho minibar, sổ kho, phiếu nạp; **Đơn đặt phòng** → **Folio**; **Nhật ký tiền** |
 | Cuối ngày (3 ngày đầu: 22:00 cùng lễ tân, qua điện thoại được) | Đối chiếu tiền trong ngày với sổ giấy và két; nhận tiền vượt quỹ lẻ, ký sổ | **Nhật ký tiền** (mục 11) |
 | Trong 24 giờ sau mỗi lần xóa yêu cầu website theo yêu cầu người gửi (từ v1.0.1; quản lý, dự phòng chủ đầu tư) | Xóa luồng tin của mã đó trong Google Chat, ghi sổ xóa Chat | Google Chat (mục 12.2) |
 | Mỗi tháng (từ v1.0.1; chủ đầu tư) | Rà thành viên phòng "OTTIMO – Yêu cầu đặt phòng"; đối chiếu sổ xóa Chat | Google Chat, **Yêu cầu từ website** (mục 12.1, 12.2) |
@@ -558,6 +562,14 @@ Tháng lịch cuối của HĐ = tháng chứa ngày kết thúc HĐ (HĐ kết 
 | **Chờ đối soát** | Khớp từng khoản chuyển khoản, VietQR với sao kê ngân hàng |
 | **Hoàn tiền** | Nhập nơi nhận hoàn, chi hoàn tiền mặt, ghi đã hoàn chuyển khoản |
 
+**Từ v1.0.5 – bộ lọc Sửa giảm dòng – 7 ngày** (chỉ quản lý, chủ đầu tư thấy):
+- Hiện mọi lần một dòng phát sinh bị làm nhỏ đi trong 7 ngày gần nhất: bỏ dòng, giảm số lượng, giảm giá. Có cả lần sửa của quản lý, chủ đầu tư.
+- Tới khi có bản sửa, lần đếm lại minibar chưa hiện ở bộ lọc này: xem thêm hàng **Đảo dòng folio**, lý do **Đếm lại minibar**, ở **Nhật ký thao tác tiền**.
+- Không gồm tiền đêm (giá đêm, phụ thu người, chênh đổi căn).
+- 7 ngày tính theo ngày lịch: lần sửa lúc 00:00–05:59 nằm ở ngày lịch hôm sau.
+- Lễ tân không thấy bộ lọc này. Tới v1.0.6, lễ tân ghi các dòng mình đã sửa giảm vào sổ giao ca trước khi giao ca (`02` mục 12.4).
+<!-- Nguồn: BR-438 (4)(ii), US-177 AC7 (i), UXD copy-v1.0.5.md 9.5 (mlog.filter_reductions), PR #108 (reductionsOnly), DOM-on-be-prs-101-108-110.md mục 2, 3.2. FE chưa có nhánh dựng bộ lọc (07/11); chưa có ảnh. DOM-on-ba-v105-docs.md mục 4, FB-R5-DOM-BA-03: lần đếm lại minibar ghi folio.line_reversed (lý do minibar_recount) rồi folio.line_posted, bộ lọc chỉ đọc folio_line.adjusted. Bỏ câu "Tới khi có bản sửa…" khi BE-A2 làm xong phần audit của BR-438 (2a) (ORC báo). -->
+
 [ẢNH: C1-18-Nhật ký thao tác tiền]
 
 ### 8.2 Đối soát chuyển khoản (mỗi ngày)
@@ -626,6 +638,8 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 [ẢNH: C1-03-Sửa căn, giá đêm và giá tháng]
 
 - Desk cảnh báo khi giá đêm thấp hơn giá tháng chia 30 ngày. Nếu đúng ý anh/chị, vẫn lưu được.
+- **Desk chưa cảnh báo khi giá đêm cao bất thường** (ví dụ gõ thừa số 0: 8.000.000 thay 800.000): Desk vẫn lưu, và báo giá ở quầy cùng giá trên web sai cùng lúc. **Đổi giá xong, báo giá thử 1 đêm của căn đó để kiểm số** (không lưu báo giá). Ra số lạ: dừng, kiểm lại giá vừa lưu; giá sai đã hiện trên web thì tắt `public_show_prices` trước (mục 9.2), rồi sửa giá hoặc báo đội. Áp dụng ngay, tới khi Desk có cảnh báo giá đêm cao bất thường (v1.0.5 nếu kịp, không thì v1.0.6).
+  <!-- PO release notes, Giới hạn đã biết (3279a4ec); V5-5C, FB-R5-DOM-FE-121-01. Khi V5-5C lên: đổi gạch này thành câu Desk cảnh báo cả giá cao, giữ lời khuyên báo giá thử. -->
 - Đơn, báo giá, hợp đồng tạo **trước** ngày hiệu lực **giữ giá cũ**.
 - **Lỡ lên lịch nhầm một giá tương lai:** mở **Sửa**, chọn **đúng ngày hiệu lực** của giá nhầm, nhập giá đúng, **Lưu**. Giá đúng thay giá nhầm của ngày đó.
 
@@ -673,7 +687,22 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 - Đổi tham số làm số trên Desk khác số lễ tân đã học: báo người trực.
 - Nghĩa, giới hạn, mức đội đề xuất của từng tham số: từ điển `product/docs/tham-so-quy-tac.md`. Việc định kỳ, khi có báo động, khi có sự cố, khi đổi giá: sổ vận hành `product/docs/so-van-hanh.md`.
 
-> **Lỗi đang sửa – Wi-Fi (sửa ở v1.0.3 hoặc v1.0.4):** Desk chưa có chỗ nhập Wi-Fi của cơ sở, nên trang khách chưa hiện Wi-Fi (trang ghi "hỏi lễ tân"). Tới khi sửa xong: khách xem **thẻ Wi-Fi trong căn**; lễ tân đọc khi khách hỏi.
+> **Lỗi đang sửa – Wi-Fi (sửa ở v1.0.5 hoặc v1.0.6):** Desk chưa có chỗ nhập Wi-Fi của cơ sở, nên trang khách chưa hiện Wi-Fi (trang ghi "hỏi lễ tân"). Tới khi sửa xong: khách xem **thẻ Wi-Fi trong căn**; lễ tân đọc khi khách hỏi.
+
+<!-- Chờ ORC: phần Desk của V5-58 (FE-2, nhánh r5-fe-v5-58) chưa có PR; phía máy chủ là PR #120. Khi biết bản: vào v1.0.5 thì bỏ ngoặc vuông, bỏ khối "Lỗi đang sửa – Wi-Fi" ở trên và các câu "trang khách chưa hiện Wi-Fi", "Desk chưa có ô nhập" (sổ tay mục 2.9, 2.21, 5.4, 5.6; tệp 02 mục 16.1, 17.6; tệp 03 mục 11.2, 12; tệp 01 mục 9.2, 15.6); lễ tân đọc Wi-Fi trên Desk khi khách hỏi. Dời v1.0.6 thì đổi chữ trong ngoặc vuông. Tên màn, tên nút: lấy theo phần Desk khi có. Câu báo khách ở bước 4 chờ CPY duyệt. UXD không dựng HTML khối này trước khi ORC báo. Nguồn: DOM-on-be-pr-120-v5-58.md mục 3, FB-R5-DOM-BA-120-02; hợp đồng 0.3.13 mục 1.13 (A101: OWN, MGR sửa; S36: OWN, MGR, FDL, FD xem); BR-012 (7), BR-808. -->
+> **[Chờ xác nhận – Wi-Fi trên Desk vào v1.0.5] Wi-Fi của cơ sở trên Desk.** Chủ đầu tư và quản lý sửa; lễ tân trưởng, lễ tân chỉ xem. Trang khách đọc ngay ở lần tải sau, từ ngày đến.
+>
+> **Ngày lên bản:** chủ đầu tư nhập **tên mạng** và **mật khẩu** Wi-Fi trên Desk, đọc kỹ dòng xác nhận "Khách sẽ thấy: …" rồi lưu. Sau đó mở trang khách của một đơn đang ở để kiểm: đọc trên màn hình, không chụp ảnh, không chép ra chat. Ô mật khẩu để trống là **mạng mở**: chỉ dùng khi bộ phát cũng để mạng mở. OTTIMO dùng mạng có mật khẩu.
+>
+> **Đổi mật khẩu Wi-Fi:**
+> 1. Chọn giờ vắng khách.
+> 2. Đổi trên **bộ phát trước**, rồi lưu trên Desk ngay sau đó, cùng một lượt. Lưu trên Desk trước thì trang khách hiện mật khẩu bộ phát chưa nhận.
+> 3. Mở trang khách của một đơn để kiểm.
+> 4. Báo lễ tân. Lễ tân báo **mọi khách đang ở**, kể cả khách dài hạn, qua kênh đang dùng với từng khách: "The new Wi-Fi password is now on your guest page." / "Mật khẩu Wi-Fi mới đã có trên trang khách." Không gửi mật khẩu trong tin. Desk không tự báo quầy hay khách.
+> 5. Thay **thẻ Wi-Fi trong căn**: căn trống thay ngay; căn có khách thay lúc dọn, hoặc đưa thẻ ở quầy.
+> 6. Không ghi mật khẩu vào sổ giao ca, sổ giấy, tin nhắn nội bộ hay ảnh chụp.
+>
+> Tên mạng không được có số căn hay tên đăng nhập của người nào ở OTTIMO. Mật khẩu Wi-Fi không được trùng mật khẩu đăng nhập Desk của người lưu. Desk báo lỗi thì đổi chữ rồi lưu lại. Desk ghi nhật ký mỗi lần lưu, kể cả lưu lại đúng giá trị cũ; nhật ký không có mật khẩu.
 
 ### 9.3 Danh mục minibar
 
@@ -847,6 +876,10 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 - Form "Yêu cầu đặt phòng" trên ottimo.vn (đã bật chiều 30/10): người trực giữ Desk mở trên máy quầy và điện thoại 07:00–22:00 (tệp 02 mục 13.1).
 - Phòng Google Chat "OTTIMO – Yêu cầu đặt phòng" đã có từ 03/11 (v1.0.1): xem tận mắt điện thoại từng thành viên đã cài đặt (mục 12.1).
 - Lưu số điện thoại của chủ đầu tư (và quản lý nếu có) vào danh bạ **điện thoại cơ sở**, để lễ tân gọi xác nhận tiền về và tài khoản nhận.
+- **Kho minibar (K-MB, từ tuần này):** hàng minibar để ở một chỗ riêng có khóa, chủ đầu tư giữ chìa dự phòng. Nhập mua thì ghi sổ kho: ngày, món, số lượng. Đặt **phiếu nạp** ở kho: người nạp tủ ghi mỗi lần một dòng (ngày, căn, món, số lượng lấy ra), không ghi tên khách. Đếm kho lần đầu để có tồn đầu tuần. Vì sao: hiện buồng phòng báo số bằng lời và lễ tân nhập, nên Desk không bắt được lần đếm thấp ngay từ đầu. Đếm kho mỗi tuần (mục 2.1, dòng **Mỗi tuần**) bắt được cả gian lận lẫn đếm nhầm, và cho số thật để quyết nhập hàng.
+  <!-- K-MB: DOM rounds/round-05/responses/DOM-responses.md, đề xuất (A) 2 (rủi ro chốt chặn đếm lại minibar, DOM chấp nhận tới khi có màn đếm cho buồng phòng). -->
+- **Điện thoại cơ sở – tắt tự lưu ảnh** (đội bảo mật 07/11, quy định): ở Zalo, WhatsApp, Telegram, Viber, tắt tự lưu ảnh và file vào thư viện ảnh (WhatsApp: **Hiển thị file phương tiện** trên Android, **Lưu vào Camera Roll** trên iPhone). Làm trong **lượt thử xóa tin** cùng lễ tân: gửi tin "TEST XOA" từ tài khoản một nhân viên tới từng tài khoản OTTIMO, rồi xóa theo tệp 02 mục 16.1, hai dòng "Khách lỡ gửi số thẻ"; làm Zalo OA trước. Ghi lại kênh nào đã tắt. Ở bước email, cho đội biết Google Vault có bật quy tắc giữ thư không. Tin thử không có chữ số, không ảnh thẻ, kể cả số thẻ thử; không dùng tài khoản hay dữ liệu khách. Lượt thử không chặn bản phát hành; kết quả gửi đội qua điều phối viên. Thay điện thoại cơ sở: tắt lại ngay trên máy mới.
+  <!-- SEC SEC-responses.md 6.5.4 ý 4, 5 và 6.5.5 (lượt thử T1–T6 của INT rounds/round-05/outputs/INT/message-deletion-by-channel.md mục 4, người làm: lễ tân, có chủ đầu tư hoặc quản lý đi cùng). -->
 - Chuyển đổi dữ liệu ngày D theo hướng dẫn chuyển đổi ngày đầu (chủ đầu tư giữ).
 - Yêu cầu của khách về dữ liệu cá nhân: xử lý bằng tay.
 - Hóa đơn GTGT: vẫn xuất ngoài Desk (mục 11.6).
@@ -871,7 +904,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 | Yêu cầu giảm giá đặc biệt 100 % tiền phòng, lý do "Quên bấm Trả phòng, khách đi ngày …" | Đơn quá ngày đi, lễ tân đã **Gia hạn** tới hôm nay để **Trả phòng** được (tệp 02 mục 11.1, **Đơn quá ngày đi**). Duyệt khi có **ít nhất hai** dấu hiệu khách đã đi đúng ngày: buồng phòng xác nhận căn trống hoặc đã dọn từ ngày đó; thẻ hoặc chìa đã trả; app khóa (nếu có nhật ký mở cửa) không có lần mở bằng mã của khách sau ngày đi, và mã không bị kéo dài; sổ giao ca ngày đó. Khách ở thật hoặc còn nghi: từ chối, lễ tân thu đêm thêm như trường hợp (a), hoặc báo chủ đầu tư. Desk gửi mỗi đêm một yêu cầu và cho quản lý duyệt từng yêu cầu. Xin giảm từ 2 đêm trở lên: quản lý **không** bấm **Duyệt**, để chủ đầu tư duyệt. Cùng một người gửi lý do này nhiều lần trong tháng: báo chủ đầu tư. Kiểm mã cửa của khách đã xóa. Yêu cầu là loại FOC (lễ tân để nguyên ô **Loại**): từ chối, nhờ lễ tân gửi lại loại **Giảm giá đặc biệt (tiền phòng)** |
 | **Nhật ký thao tác tiền** có dòng **Bỏ cả dòng** do lễ tân làm trên đơn chưa trả phòng | Lễ tân chỉ được bỏ dòng minibar căn cũ bị ghi trùng lúc đổi phòng (tệp 02 mục 11.1); miễn, giảm làm theo tệp 02 mục 9.5. Lý do khác "Trùng minibar tủ căn cũ", hoặc sổ giao ca không ghi lần bỏ dòng: hỏi người làm. Cùng một người bỏ dòng nhiều lần trong tháng: báo chủ đầu tư |
 | Lễ tân hỏi cách ghi trễ ngày đi trên cổng khai báo lưu trú (đơn quá ngày đi, khách đã đi) | Ghi ngay trong ngày phát hiện, đúng ngày khách rời thật (ngày đi trên đơn cũ), không dán ô ngày đi Desk đang hiện. Ghi sổ giao ca. Hạn ghi trễ: đội đang hỏi luật sư (BR mục 15). Tới khi có câu trả lời, vẫn ghi ngay trong ngày phát hiện và báo chủ đầu tư (tệp 02 mục 11.1, **Đơn quá ngày đi**) |
-| Lễ tân báo căn vẫn hiện có khách mà đơn trước đã **Đã trả phòng** | Không có ngoại lệ nhận phòng. Lễ tân đổi khách sang căn trống sẵn sàng khác (cùng hạng, không có thì nâng hạng, OTTIMO chịu chênh). Nhắn đội kỹ thuật số căn và mã đơn trước để sửa trạng thái căn; không còn căn nào thì gọi đội trong ca. Không dùng **Khóa phòng** (`OOO`) để đặt lại trạng thái (tệp 02 mục 7.4) |
+| Lễ tân báo căn vẫn hiện có khách mà đơn trước đã **Đã trả phòng** | Không có ngoại lệ nhận phòng. Lễ tân đổi khách sang căn trống sẵn sàng khác (cùng hạng, không có thì nâng hạng, OTTIMO chịu chênh). Nhắn đội kỹ thuật số căn và mã đơn trước để sửa trạng thái căn; không còn căn nào thì gọi đội trong ca. Không dùng **Khóa phòng** (`OOO`) để đặt lại trạng thái (tệp 02 mục 7.4). **Từ v1.0.5** không cần nhắn đội: lễ tân kiểm căn đã trống rồi bấm **Báo cần dọn** ở **Buồng phòng → Trạng thái buồng**, buồng phòng dọn xong là nhận phòng được. Anh/chị vẫn thấy căn lệch ở **Cần chú ý** tới khi căn được dọn |
 | Khách yêu cầu xem/xóa dữ liệu | Xử lý tay, không hứa ngày (mục 12) |
 | Lễ tân gửi nhầm link check-in online cho người khác | Lễ tân **Thu hồi link** ngay, tạo link mới gửi đúng khách, ghi sổ giao ca, báo anh/chị trong ngày (tệp 02 mục 17.3). Anh/chị: đọc dòng sổ giao ca. Báo đội bằng `/feedback` (không cần P0): mã đơn, giờ gửi, giờ thu hồi, kênh, đơn có hiện **Đã làm thủ tục trước** trước giờ thu hồi không. Không ghi tên khách hay người nhận nhầm. Đội bảo mật trả lời trong ngày có cần làm gì thêm. Không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị |
 | Nhân viên quên mật khẩu | **Đặt lại mật khẩu** (mục 1.9) |
@@ -1068,6 +1101,9 @@ Bài tập kế toán: cùng chủ đầu tư đọc **Nhật ký tiền** một
 
 Chuyển từ dòng **Lập:** đầu tệp (04/11/2026; phần bổ sung 05/11 chuyển vào ngày 05/11, giữ nguyên chữ). Mới nhất ở trên.
 
+- Bản 1.16 – 07/11/2026 (bộ hướng dẫn 1.17), **áp dụng ngay** (BA, Round 5 – Phản hồi & sửa; SEC `SEC-responses.md` mục 6.5; CPY `guest-reply-card-number.md` lượt 2; DOM `DOM-on-ba-v105-docs.md` mục 4 thẻ FB-R5-DOM-BA-02, 03, 04; DOM `DOM-responses.md` đề xuất minibar (A) 2): mục 2.1, 13 – đếm kho minibar mỗi tuần (K-MB): kho có khóa, sổ kho, phiếu nạp; so 3 dòng phiếu nạp với Folio; lệch quá 2 món một tuần thì hỏi người trực. Mục 13 – điện thoại cơ sở tắt tự lưu ảnh ở Zalo, WhatsApp, Telegram, Viber, làm trong lượt thử xóa tin "TEST XOA" cùng lễ tân, Zalo OA trước; cho đội biết Google Vault có bật quy tắc giữ thư không. Mục 2.1, 8.1 – lần đếm lại minibar chưa hiện ở bộ lọc **Sửa giảm dòng – 7 ngày**: xem thêm hàng **Đảo dòng folio**, lý do **Đếm lại minibar**. **Bổ sung cùng ngày** (PO `3279a4ec`; DOM FB-R5-DOM-BA-120-02): mục 9.1 – đổi giá xong báo giá thử 1 đêm của căn đó, tới khi Desk cảnh báo giá đêm cao bất thường; mục 9.2 – khối **[Chờ xác nhận – Wi-Fi trên Desk vào v1.0.5]** (nhập Wi-Fi ngày lên bản, quy trình đổi mật khẩu).
+- Bản 1.15 – 07/11/2026 (bộ hướng dẫn 1.16), **áp dụng từ v1.0.5** (BA, theo DOM review PR #101, #108, #110 mục 2, 3.2, 3.3; US-177 AC7 (i)): mục 2.1, 8.1 – mỗi tuần rà bộ lọc **Sửa giảm dòng – 7 ngày** ở **Nhật ký tiền**, chú ý dòng minibar đếm lại thấp hơn và người sửa giảm nhiều lần; lễ tân không thấy bộ lọc, tới v1.0.6 ghi các dòng tự sửa giảm vào sổ giao ca.
+- Bản 1.14 – 07/11/2026 (bộ hướng dẫn 1.15), **áp dụng từ v1.0.5** ở các dòng ghi "Từ v1.0.5", phần còn lại áp dụng ngay (BA, V5-71 phần V5-40, V5-15; SEC, ARC review PR #100; UXD `copy-v1.0.5.md` 9.7): mục 1.9 bảng vai và bước 8 – từ v1.0.5 Desk tự ép lễ tân trưởng bật 2 bước, người chưa bật bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên, kể cả đang đăng nhập; cho lễ tân trưởng bật trước ngày lên; lễ tân trưởng không tự tắt được nữa. Mục 14 dòng "căn vẫn hiện có khách": từ v1.0.5 lễ tân tự bấm **Báo cần dọn**, không cần nhắn đội.
 - Bản 1.13 – 06/11/2026 (bộ hướng dẫn 1.14), **áp dụng ngay, tới khi v1.0.5 lên**: lời dặn không bấm **Lưu thay đổi** ở `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**); buộc phải đổi thì **Hiệu lực từ** từ ngày mai; lỡ lưu thì báo đội, coi là P0 (mục 9.2, 15.6, 17; BUG-R5-001, BUG-R5-003). Gỡ khi v1.0.5 lên.
 - Bản 1.12 – 06/11/2026 (bộ hướng dẫn 1.13), áp dụng ngay: các mục ghi ở `00` mục 7, hai khối "Sửa 06/11/2026" (check-in online mở lại, gửi nhầm link, website theo thực tế 06/11).
 - Bản 1.11 – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12); sửa theo SEC: bảng thiết bị mục 1.1 (app nhân viên đăng nhập bằng mã 6 số), mục 14.2 ("Trên máy quầy: …").

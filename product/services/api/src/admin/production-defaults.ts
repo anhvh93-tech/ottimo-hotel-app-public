@@ -14,7 +14,10 @@
  *   check-in keys per BR v0.4.6 (BR-401/BR-411, INV 26/10).
  * Deliberately NOT here (INV types them in the app after the first sign-in): room list prices
  * (`room_list_price`, BR-101), `ota_base_rate` (BR-103), `payment_receiving_account` (BR-521, R3-Q51 screen), the
- * Wi-Fi password (BR-012 (7), ESC-022 B), minibar items and their prices, `shift_max_hours` (no BR value).
+ * Wi-Fi password (BR-012 (7), ESC-022 B), minibar items and their prices, `shift_max_hours` (no BR value), and
+ * every staff/collaborator commission rate (V5-30, FB-R4-SEC-BE-01, SEC G3 – OWN's internal table, never in the repo;
+ * `short_stay_commission_pct`, no commission column in `lease_terms`). Removing them changes only a NEW bootstrap: the
+ * values already on production stay as they are (rows are append-only).
  */
 
 export const PRODUCTION_ORGANIZATION = { code: 'OTTIMO', name: 'OTTIMO Boutique Stay' } as const;
@@ -172,11 +175,16 @@ export const PRODUCTION_CHANNELS = [
   },
 ];
 
-/** Catalogue keys without a default that INV enters in the app – never written by the bootstrap. */
+/**
+ * Catalogue keys without a default that INV enters in the app – never written by the bootstrap.
+ * V5-30 (FB-R4-SEC-BE-01, SEC G3): the commission rates are OWN's internal table – the code holds none; until OWN
+ * types them the Desk shows `rate_missing` and `listParameters.missing[]` names the key.
+ */
 export const INV_ENTERS_KEYS: readonly string[] = [
   'payment_receiving_account',
   'ota_base_rate',
   'shift_max_hours',
+  'short_stay_commission_pct',
 ];
 
 export interface ProductionParameter {
@@ -465,14 +473,7 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'maintenance_due_warning_days', br: 'BR-810', status: 'NGANH', value: 7 },
   { key: 'guest_request_response_minutes', br: 'BR-811', status: 'GD', value: 10 },
   { key: 'front_desk_hours', br: 'BR-811', status: 'GD', value: ['07:00', '22:00'] },
-  // Old ESC-005 rates (before 01/11, superseded) – kept only so a fresh bootstrap is not empty. The rates from 01/11
-  // are the INV internal table and are NOT written in the repo (FB-R4-SEC-BE-01); OWN enters them on Desk at H2.
-  {
-    key: 'short_stay_commission_pct',
-    br: 'BR-903',
-    status: 'INV-005',
-    value: { collaborator: 8, staff: 3 },
-  },
+  // V5-30 (FB-R4-SEC-BE-01, SEC G3): no commission rate here – `short_stay_commission_pct` is in INV_ENTERS_KEYS.
   { key: 'contingency_sheet_time', br: 'BR-961', status: 'NGANH', value: '06:30' },
   { key: 'offline_backfill_max_hours', br: 'BR-963', status: 'NGANH', value: 24 },
   { key: 'power_outage_escalate_hours', br: 'BR-964', status: 'GD', value: 4 },
@@ -484,8 +485,8 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
     value: { collaborator: 3, sales_staff: 5 },
   },
   { key: 'staff_payment_backdate_max_hours', br: 'BR-527', status: 'NGANH', value: 24 },
-  // commissionStaffPct / commissionCollaboratorPct below: old ESC-005 rates (before 01/11, superseded); the 01/11
-  // table is entered by OWN on Desk at H2 and is not written in the repo (FB-R4-SEC-BE-01).
+  // V5-30 (FB-R4-SEC-BE-01, SEC G3; DOM 7.3): no commission column in the terms – the long-stay commission is its own
+  // key `long_stay_commission` (contract 0.3.13 1.22, PR-M), typed by OWN on the Desk; no code reads one here.
   {
     key: 'lease_terms',
     br: 'BR-201',
@@ -497,8 +498,6 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
         depositFactorVn: '0.5',
         depositFactorForeign: '1',
         billingCycleMonths: 1,
-        commissionStaffPct: '3',
-        commissionCollaboratorPct: '5',
       },
       {
         months: 3,
@@ -506,8 +505,6 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
         depositFactorVn: '1',
         depositFactorForeign: '1',
         billingCycleMonths: 3,
-        commissionStaffPct: '4',
-        commissionCollaboratorPct: '6',
       },
       {
         months: 6,
@@ -515,8 +512,6 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
         depositFactorVn: '1',
         depositFactorForeign: '1.5',
         billingCycleMonths: 3,
-        commissionStaffPct: '5',
-        commissionCollaboratorPct: '7',
       },
       {
         months: 12,
@@ -524,8 +519,6 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
         depositFactorVn: '1',
         depositFactorForeign: '2',
         billingCycleMonths: 3,
-        commissionStaffPct: '6',
-        commissionCollaboratorPct: '8.3',
       },
       {
         months: 24,
@@ -533,8 +526,6 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
         depositFactorVn: '2',
         depositFactorForeign: '2',
         billingCycleMonths: 3,
-        commissionStaffPct: '4',
-        commissionCollaboratorPct: '6',
       },
     ],
   },

@@ -63,3 +63,12 @@ Câu SEC gửi DOM ở cuối lượt 3 (tiền về trước hạn mà chưa ai
 - **Tờ 1 không đổi** ở lượt này: SEC không có gì mới phải đọc.
 - Không vừa A5 10 pt: in 9 pt, hoặc chuyển phần "đơn để nguyên" của dòng Sổ giao ca sang sổ tay 2.4, như DOM cho phép. Ba câu của thẻ 07 giữ trên tờ.
 - Câu SEC gửi DOM cuối lượt 3 (tiền về trước hạn mà chưa ai bấm; khách chuyển theo mã QR cũ): DOM đã quyết ở mục 11, Tờ 2a đã theo.
+
+## Review DOM tài liệu BA v1.0.5 (`rounds/round-05/reviews/DOM-on-ba-v105-docs.md`, `da9ac25d`) – 07/11/2026
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-DOM-PO-08 | Fixed | Tờ 2a gạch **Ở đâu** (câu hộp Thông báo) và vế đầu gạch **Hết hạn, chưa cọc**: dán chữ DOM nguyên văn. Phần sau "Khách còn muốn:…" giữ. Bảng **Cách in và dán** ghi Tờ 2a in bản 07/11 khi PDF dựng lại. Release notes v1.0.5 dòng **Tin giữ chỗ tự hủy** thêm "Tin không đổ chuông…, làm theo trạng thái đơn". Chờ DOM đọc lại một câu trước khi UXD dựng bản in. Không vừa 11 pt thì bỏ câu "Tới v1.0.5…" khi v1.0.5 lên, không cắt "Tin chỉ để nhắc…". Phần sổ tay 2.4, `guides/02`: BA |
+| FB-R5-DOM-UXD-02 | Deferred | Thẻ của UXD; PO đưa vào backlog v1.0.6 **R5-B-14** (UXD + CPY → SEC → FE-B). Không chặn v1.0.5 |
+
+- Giả định 1 của DOM (#117 cùng tag) nằm ở plan R5 mục 4a dòng T1. Giả định 2 (push vẫn Mock) nằm ở cuối mục 4a.
