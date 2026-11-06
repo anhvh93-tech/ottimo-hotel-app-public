@@ -2085,6 +2085,7 @@
   "refund.execute_transfer": "Record transfer / card terminal refund",
   "refund.proof": "Proof photo (transfer slip or receipt signed by the guest)",
   "refund.bank_reference": "Bank transaction ref / card refund code",
+  "pay.bank_reference_card_like": "This looks like a card number, so Desk can't save it. Enter the last 8 digits of the transaction reference.",
   "refund.transfer_waits_manager": "Transfer refunds are made by a manager – tell the guest when to expect it.",
   "refund.request_overpayment": "Request a refund of {amount}",
   "refund.requested": "Refund request sent – waiting for a manager to approve.",
