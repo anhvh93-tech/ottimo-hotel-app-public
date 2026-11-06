@@ -116,6 +116,15 @@ export type MovePreviewQuery = NonNullable<
   operations['previewMoveReservation']['parameters']['query']
 >;
 export type MovePreview = Schemas['MovePreview'];
+/**
+ * `listAuditEvents` query, straight from the contract (FB-R5-ARC-FE-128-02): a hand-written copy once sent
+ * `dateFrom`/`dateTo`, which the server never read. Without `action` for now: it is a repeated parameter
+ * (`action=a&action=b`) and the client's query takes single values; no Desk screen filters by action yet.
+ */
+export type ListAuditQuery = Omit<
+  NonNullable<operations['listAuditEvents']['parameters']['query']>,
+  'action'
+>;
 /** 0.3.7 D1 (S4-08): no-show with the service lines the desk keeps. */
 export type MarkNoShowBody = BodyOf<'markNoShow'>;
 /** 0.3.7 D1 (S4-08): one kept service line (`cancelReservation` / `markNoShow`). */
@@ -221,6 +230,8 @@ export type HkTaskStatus = Schemas['HkTaskStatus'];
 export type HkTaskSummary = ResponseOf<'listHkTasks'>['summary'];
 export type CreateHkTaskBody = BodyOf<'createHkTask'>;
 export type TransitionHkTaskBody = BodyOf<'transitionHkTask'>;
+/** R1/R2/R3/R8 (0.3.7): `expectedFrom` instead of If-Match; V5-15 Desk sends R8 `needs_cleaning` (0.3.13 1.4). */
+export type TransitionRoomStatusBody = BodyOf<'transitionRoomStatus'>;
 export type WorkOrder = Schemas['WorkOrder'];
 export type WorkOrderCreate = Schemas['WorkOrderCreate'];
 export type WorkOrderStatus = Schemas['WorkOrderStatus'];

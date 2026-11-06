@@ -23,6 +23,7 @@ import {
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
 import { folioLineDto } from '../public/folio-view';
+import { folioLocked } from '../public/folio-locked';
 import {
   type FolioLineRow,
   type FolioRow,
@@ -180,6 +181,8 @@ export class BillService {
       roomOn: roomResolver(segments),
       roomName,
       catalogName: await this.catalogNames(tx, today),
+      // US-177 AC10: the guest's bill never prints an internal FOC reason ("Ghi nhầm").
+      guestFacing: true,
     };
     const lastRoomNo = segments[segments.length - 1]?.roomNo;
     const { rows: prop } = await tx.query<{ name: string; address: string | null }>(
@@ -312,7 +315,7 @@ export class BillService {
     if (address.length > 300) errors.push({ field: 'address', code: 'TOO_LONG' });
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
     const existing = await this.invoice(tx, folio.id);
-    if (existing && existing.einvoice_status === 'issued') throw problem('FOLIO_LOCKED');
+    if (existing && existing.einvoice_status === 'issued') throw folioLocked('invoice_issued');
     const now = this.clock.now();
     const values = company ? [name, tax, address || null, email] : [null, null, null, null];
     const { rows } = await tx.query<InvoiceRequestRow>(

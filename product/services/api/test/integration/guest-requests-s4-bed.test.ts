@@ -30,6 +30,7 @@ import {
 import { GuestRequestStatusPort } from '../../src/modules/guest-portal/public/guest-request-status.port';
 import { RATE_LIMITER, type RateLimiter } from '../../src/modules/identity/public/rate-limiter';
 import { type FeatureApp, P, cookieValue, startFeatureApp } from '../helpers/feature-app';
+import { withoutRandomIds } from '../helpers/random-free';
 import {
   GUEST_TEST_ORIGIN,
   guest,
@@ -355,7 +356,7 @@ describe.skipIf(!HAS_DB)('EP14 guest requests + stay info (BE-D Sprint 4)', () =
         code: 'CARD_NUMBER_DETECTED',
         errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
       });
-      expect(r.body, note).not.toMatch(/1111/);
+      expect(withoutRandomIds(r.body), note).not.toMatch(/1111/); // the requestId is random hex
     }
     const early = await create(stays.b!.sid, { type: 'amenities' });
     expect(early.statusCode).toBe(422);

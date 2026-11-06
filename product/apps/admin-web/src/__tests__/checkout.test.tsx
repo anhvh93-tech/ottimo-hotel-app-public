@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { todayLocal } from '../app/dates';
+import { api } from '../app/api';
 import { mockControl } from '../mocks/handlers';
 import { translate } from '@ottimo/i18n';
 import { renderApp, tv } from '../test/render';
@@ -180,6 +181,16 @@ describe('H16 Trả phòng 3 bước + bill + VietQR (US-035…039, US-119, US-1
 
   it('checkout recorded long after the guest left asks for a note (TIME_NOTE_REQUIRED)', async () => {
     at('16:00');
+    // The B18 fallback (KB7 (3)): a server whose summary does not flag the note yet (≤ 0.3.12). With the flag, "Tiếp
+    // tục" waits for the note on step 2 (FB-R5-UXD-FE-PR125-02, v5-10-checkout-at-fea).
+    const orig = api.getCheckoutSummary.bind(api);
+    const spy = vi.spyOn(api, 'getCheckoutSummary').mockImplementation(async (...args) => {
+      const out = await orig(...args);
+      const data = { ...out.data };
+      delete data.checkoutTimeNoteRequired;
+      return { ...out, data };
+    });
+    onTestFinished(() => spy.mockRestore());
     const r = res('Phạm Huy');
     mockControl.stay.minibarChecks.set(r.id, []);
     mockControl.stay.payments.push({
@@ -382,12 +393,20 @@ describe('KB7 – trả phòng sau giờ ân hạn, vào thẳng H16', () => {
     const time = await screen.findByLabelText(new RegExp(tv('checkout.departure_time')));
     expect(time).toHaveValue('12:25');
     fireEvent.change(time, { target: { value: '11:00' } });
-    await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));
-    await user.click(await screen.findByRole('button', { name: /hoàn tất|Hoàn tất/ }));
-    await user.click(within(await screen.findByRole('alertdialog')).getAllByRole('button')[1]!);
-    const note = await screen.findByLabelText(new RegExp(`^${esc(tv('checkout.time_note'))}`));
-    await waitFor(() => expect(note).toHaveFocus());
-    expect(screen.getAllByText(tv('field.TIME_NOTE_REQUIRED')).length).toBeGreaterThan(0);
+    // V5-10 (FB-R5-UXD-FE-PR125-02): the summary of 11:00 says B18 will ask for the note – the box is there and
+    // "Tiếp tục" waits for it on step 2 (before, the desk only learnt it at "Hoàn tất", after the money).
+    expect(
+      await screen.findByLabelText(
+        new RegExp(`^${esc(tv('checkout.time_note'))}`),
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeInTheDocument();
+    const go = screen.getByRole('button', { name: tv('co.go_bill') });
+    await waitFor(() => expect(go).toHaveAccessibleDescription(tv('field.TIME_NOTE_REQUIRED')));
+    expect(go).toHaveAttribute('aria-disabled', 'true');
+    await user.click(go);
+    expect(screen.queryByRole('button', { name: /hoàn tất|Hoàn tất/ })).toBeNull();
     // The time was wrong, not the note: the real time clears every red line and the note request.
     fireEvent.change(screen.getByLabelText(new RegExp(tv('checkout.departure_time'))), {
       target: { value: '12:25' },

@@ -27,7 +27,7 @@ import { problem } from '../../../shared/problem';
 import { toZonedIso } from '../../../shared/time';
 import {
   assertNoCardNumber,
-  containsCardNumber,
+  assertNotCardNumberReference,
   luhnValid,
   optionalText,
   requireReason,
@@ -37,6 +37,7 @@ import { type ApprovalRow, ApprovalService } from '../../approvals/public/approv
 import { C3AccessGate } from '../../crypto/public/c3-access-gate';
 import { EventsService } from '../../events/public/events.service';
 import { FolioService, type PaymentRowLite } from '../../folio/public/folio.service';
+import { folioLocked } from '../../folio/public/folio-locked';
 import type { RefundDestinationCarry } from '../../folio/public/refund-routing';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { notifyStaff, publishEvent } from '../../platform/public/staff-notify';
@@ -376,7 +377,7 @@ export class RefundsService {
     if (!folio) throw problem('NOT_FOUND');
     // 0.3.8 bổ sung 3 (ARC FB-R3-ARC-FUZZ-01, BR-522 K11-06): an overpayment left after check-out is requested on the
     // `settled` folio too (J15 keeps it settled – `waiting_refund` – until it is paid back); `closed` holds no credit (I4).
-    if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    if (folio.status === 'closed') throw folioLocked('closed');
     // E15-05: the cap is the overpayment not routed to a refund request yet (open requests of every booking
     // of the folio already deducted by FolioService.balance).
     const max = (await this.folios.balance(tx, folio.id)).unhandledCreditVnd;
@@ -670,12 +671,10 @@ export class RefundsService {
         errors: [{ field: 'bankReference', code: 'VALIDATION_FAILED' }],
       });
     }
-    if (input.bankReference !== null && containsCardNumber(input.bankReference)) {
-      // SEC-BE-44: a 13–19 digit Luhn-valid reference is a card number – never stored.
-      throw problem('CARD_NUMBER_DETECTED', {
-        errors: [{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }],
-      });
-    }
+    // SEC-BE-44 as C0313-25 corrected it (SEC-responses 4.1 (a)): a reference that IS a card number as a whole
+    // (13–19 digits once `.` `/` `_` `-` are removed, Luhn) is never stored; a bank code with a long digit run is not
+    // a card. Free text (`note`) keeps the general V-09 rule.
+    assertNotCardNumberReference('bankReference', input.bankReference);
     // ARC-BE-S3-25 lock order (reservation → folio → payment → approval): folio first, then the request; every
     // state check below runs under both locks.
     const target = await this.targetOf(tx, approvalId);
@@ -710,7 +709,7 @@ export class RefundsService {
     const ownSelf =
       ownerTransfer &&
       [row.requested_by, row.approver_id, row.refund_destination_set_by].includes(actor.userId);
-    if (!lockedFolio || lockedFolio.status === 'closed') throw problem('FOLIO_LOCKED');
+    if (!lockedFolio || lockedFolio.status === 'closed') throw folioLocked('closed');
     const now = this.clock.now();
     if (
       paidAt.getTime() > now.getTime() ||

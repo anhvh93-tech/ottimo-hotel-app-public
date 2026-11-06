@@ -42,7 +42,8 @@ export interface AppConfig {
    */
   staffRequestsPerMinute: number;
   /**
-   * 0.3.8 (US-143, SEC 06.3): MFA_ENFORCED – owner/manager must have 2FA (restricted session until enrolled).
+   * 0.3.8 (US-143, SEC 06.3): MFA_ENFORCED – a mandatory role (MFA_REQUIRED_ROLES: owner, manager, front_desk_lead
+   * from v1.0.5 – V5-40) must have 2FA (restricted session until enrolled).
    * true|false, empty = false. production refuses false (ARC s1-contracts 1.1); staging must set true before
    * real data (cổng dữ liệu thật – checked by OPS/SEC, not here, so the staging stack keeps starting).
    */
