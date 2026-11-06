@@ -1136,7 +1136,25 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    /** Sửa thông tin không đổi tồn phòng (số khách, giờ đến dự kiến, ghi chú, người chốt). Đổi căn/ngày dùng action `move`. */
+    /**
+     * Sửa thông tin không đổi tồn phòng (số khách, giờ đến dự kiến, ghi chú, người chốt). Đổi căn/ngày dùng action `move`.
+     * @description **0.3.13 bổ sung 1h – đổi người chốt `closerUserId` (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02 – `ARC-on-be-h-prs-110-123-131.md` 4.2; BR-903 (3), EP02 5.4).**
+     *     Cài ở PR `r5-h1c` (BE-H), sau #131, trước PR-M. Tới đó máy chủ giữ luật cũ: sau `hold` chỉ MGR+, không đồng bộ hoa hồng, bỏ qua `closerChangeReason`.
+     *     "Đổi" = giá trị khác giá trị đang lưu, kể cả ghi lần đầu.
+     *     - **Quyền theo mốc** (kiểm sau khi tải đơn, dưới khóa đơn; 403 đi trước 422 của `closerChangeReason`):
+     *       - `hold`: FD+ như cũ;
+     *       - ngoài `hold`, **chưa** nhận phòng (chưa có giờ nhận phòng thật, ví dụ `confirmed`): MGR+ như cũ; FD/FDL → 403 `FORBIDDEN_ACTION`;
+     *       - **sau** nhận phòng (đơn có giờ nhận phòng thật: `in_house`, `checked_out`): **chỉ OWN**, `closerChangeReason` bắt buộc; MGR/FDL/FD → 403 `FORBIDDEN_ACTION` + audit
+     *         `security` `access.denied` ghi sau rollback (mẫu `auditReason` của #110).
+     *     - **Hoa hồng đồng bộ trong cùng giao dịch** (khóa đơn rồi các dòng `commission` `FOR UPDATE`, cùng thứ tự với B18): bản ghi chưa `void` của người cũ → `void`
+     *       (`voidReason` = `closer_changed` trước nhận phòng, `closer_corrected` khi OWN sửa sau nhận phòng); người mới nhận bản ghi theo **tỷ lệ đã ghim** của đơn (#131 – đổi người không
+     *       đổi tỷ lệ), ở trạng thái đơn đang đạt (`projected` trước B18, `earned` sau B18). Audit `money` `commission.voided`, `commission.projected`/`commission.earned` như các luồng
+     *       hoa hồng khác. Không migration (`void_reason` là cột `text`).
+     *     - Đơn đã có bản ghi hoa hồng `payable` hoặc `paid` → 409 `INVALID_TRANSITION` (`currentState` = trạng thái đó), không ghi gì: hoa hồng đã vào kỳ chi thì chủ đầu tư chỉnh lúc chi
+     *       (ARC chốt; DOM xác nhận khi review `r5-h1c`).
+     *     - Audit `money` `reservation.closer_changed`: `before.closerUserId`, `after.closerUserId`, thêm `after.reason` khi có lý do (allowlist `reservation` thêm `reason`). Không số tiền.
+     *     - Desk (FE-A): ô lý do chỉ hiện cho OWN khi đơn đã nhận phòng và người chốt đổi; MGR/FDL/FD không có nút đổi người chốt sau nhận phòng.
+     */
     patch: operations['updateReservation'];
     trace?: never;
   };
@@ -6854,6 +6872,14 @@ export interface components {
       roomReturnRecorded?: true;
       etaTime?: components['schemas']['LocalTime'];
       closerUserId?: components['schemas']['Uuid'];
+      /**
+       * @description **0.3.13 bổ sung 1h (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02; BR-903 (3))** – lý do đổi người chốt, xem `updateReservation`. **Bắt buộc** khi OWN đổi
+       *     `closerUserId` sau nhận phòng (`in_house`, `checked_out`); thiếu hoặc ngắn → 422 `VALIDATION_FAILED` (`field` = `closerChangeReason`, `code` = `REASON_REQUIRED`).
+       *     Trước nhận phòng: tùy chọn, có thì ghi vào audit. Gửi mà không đổi `closerUserId` → 422 `NOT_ALLOWED`. V-08 (bỏ khoảng trắng đầu/cuối, ký tự điều khiển), V-09
+       *     (số thẻ → `CARD_NUMBER_DETECTED`). Không ghi tên, SĐT, giấy tờ của khách hay số tiền hoa hồng. Ghi vào `after.reason` của audit `reservation.closer_changed`;
+       *     không trả lại ở `Reservation`.
+       */
+      closerChangeReason?: string;
       internalNote?: string;
       /** @description Như `extendStay` – khi sửa làm hạn thị thực của khách NN < ngày đi (US-050 AC2); thiếu → 422 cảnh báo `VISA_EXPIRES_BEFORE_DEPARTURE` (0.3.3) */
       visaWarningAckReason?: string;
@@ -11992,6 +12018,8 @@ export interface operations {
           'application/json': components['schemas']['Reservation'];
         };
       };
+      403: components['responses']['Forbidden'];
+      409: components['responses']['Conflict'];
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
     };
