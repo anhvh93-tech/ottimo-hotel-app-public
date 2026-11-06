@@ -93,7 +93,8 @@ export class IdentityModule {
         SessionService,
         CSRF_VERIFIER,
         PasswordReauth,
-        // SR-RL-10 (V5-58): "is this the caller's own login password?" with its own counter.
+        // SR-RL-15 (CALLER_PASSWORD_COMPARE_RULE, V5-58): "is this the caller's own login password?" with its own
+        // counter (rate_limit_counter `wifi_pw_cmp:<user_id>`).
         CallerPasswordMatch,
         IdentityParamsService,
         // 0.3.8 (US-143): S2 step-up for every `x-strong-reauth` operation (BE-B R3-Q51 uses it).

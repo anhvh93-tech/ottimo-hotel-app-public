@@ -269,7 +269,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
     expect(await count('own')).toBe(before);
   });
 
-  it(`T58-9 + SEC ARC-22 (${CALLER_PASSWORD_COMPARE_RULE}): staff login name (any case, disabled too), caller login password, both – 422, nothing written, only the counter and the security audit kept`, async () => {
+  it(`T58-9 + SEC ARC-22, V558-01 (${CALLER_PASSWORD_COMPARE_RULE}): staff login name (any case, disabled too), caller login password, both (one after the other) – 422, nothing written, only the counter and the security audit kept`, async () => {
     const configAudits = (await audits('property.wifi_changed')).length;
     expect(await count('own')).toBe(1);
 
@@ -298,12 +298,21 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
       },
     ]);
 
-    // Both at once: two field errors, one more comparison.
-    const both = await put('own', { ssid: t.users.fd!.username, password: TEST_PASSWORD });
-    expect422(both, [
-      { field: 'ssid', code: 'NOT_ALLOWED' },
-      { field: 'password', code: 'NOT_ALLOWED' },
-    ]);
+    // Both wrong (SEC FB-R5-SEC-BE-V558-01): compared only once every other check passed, so the two errors come
+    // one after the other – an `ssid` error never hides a silent guess of the login password.
+    for (const ssid of [t.users.fd!.username, 'OTTIMO 401', '   ']) {
+      for (const password of [TEST_PASSWORD, '<wifi-password-guess>']) {
+        const r = await put('own', { ssid, password });
+        expect(r.statusCode, r.body).toBe(422);
+        expect(r.json().errors).toEqual([
+          { field: 'ssid', code: expect.stringMatching(/^(NOT_ALLOWED|VALUE_OUT_OF_RANGE)$/) },
+        ]);
+      }
+    }
+    expect(await count('own')).toBe(2);
+    expect(await audits('property.wifi_password_matches_login', 'own')).toHaveLength(1);
+    const both = await put('own', { ssid: 'OTTIMO NEW', password: TEST_PASSWORD });
+    expect422(both, [{ field: 'password', code: 'NOT_ALLOWED' }]);
     expect(await count('own')).toBe(3);
     expect(await audits('property.wifi_password_matches_login', 'own')).toHaveLength(2);
 
@@ -469,6 +478,7 @@ describe.skipIf(!HAS_DB)('V5-58 property Wi-Fi on the Desk (BE-D)', () => {
       TEST_PASSWORD,
       ...Array.from({ length: 7 }, (_, i) => `<wifi-password-${i + 1}>`),
       ...Array.from({ length: 3 }, (_, i) => `<wifi-password-own2-${i + 1}>`),
+      '<wifi-password-guess>',
     ];
     const rows = await q<{ row: unknown }>(
       `SELECT row_to_json(a) AS row FROM audit_event a WHERE organization_id = $1`,

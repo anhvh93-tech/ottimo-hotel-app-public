@@ -3,8 +3,9 @@
  * read only), setPropertyWifi (A101: OWN, MGR). Roles come from x-roles through the guard (403 before the body).
  * - `Cache-Control: no-store` on every answer of both, 422 included. No SSE (no configuration event kind).
  * - setPropertyWifi order: body shape → property rules (room number, staff login name) → comparison with the
- *   caller's OWN login password, limited by `CALLER_PASSWORD_COMPARE_RULE` (only when the password passed its shape
- *   check, is not empty and differs from the stored one; own committed transaction – CallerPasswordMatch) → any
+ *   caller's OWN login password, limited by `CALLER_PASSWORD_COMPARE_RULE` (only when every other check passed –
+ *   SEC V558-01 –, the password is not empty and differs from the stored one; own committed transaction –
+ *   CallerPasswordMatch) → any
  *   error: 422, nothing written, no config audit → unit of work: flat `{ssid, password}` + audit `config`
  *   `property.wifi_changed`.
  * - The answer of setPropertyWifi never holds the password (`passwordSet` instead – BE C0313-21). Last writer wins
@@ -92,9 +93,16 @@ export class PropertyWifiController {
       { readOnly: true },
     );
     if (checked.ssidRefused) errors.unshift({ field: 'ssid', code: 'NOT_ALLOWED' });
-    // CALLER_PASSWORD_COMPARE_RULE: compare (and count) only a well-formed, non-empty password that differs from
-    // the stored one; an open network or a change of `ssid` alone never compares.
-    if (passwordOk && input.password !== '' && input.password !== checked.current?.password) {
+    // CALLER_PASSWORD_COMPARE_RULE: compare (and count) only when EVERY other check passed (SEC FB-R5-SEC-BE-V558-01:
+    // a wrong guess then always saves and leaves a `property.wifi_changed` audit – no silent probe behind an `ssid`
+    // error), and only a non-empty password that differs from the stored one; an open network or a change of `ssid`
+    // alone never compares.
+    if (
+      errors.length === 0 &&
+      passwordOk &&
+      input.password !== '' &&
+      input.password !== checked.current?.password
+    ) {
       const outcome = await this.callerPassword.check(ctx, input.password, {
         bucket: WIFI_PASSWORD_COMPARE_BUCKET,
         entityType: 'property',
