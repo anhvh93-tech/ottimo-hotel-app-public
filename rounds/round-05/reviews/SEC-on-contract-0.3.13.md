@@ -685,7 +685,7 @@ Nếu delta đổi gì khác thì gửi lại SEC đọc riêng phần đó: vai
 
 #### FB-R5-SEC-ARC-20
 - Mức độ: Minor
-- Người nhận: ARC (một dòng chữ hợp đồng), BE-B (PR-B1/V5-48), FE-A (câu Nhật ký tiền)
+- Người nhận: ARC (một dòng chữ hợp đồng, ở PR ARC-16), BE-D (PR-B3), FE-A (câu Nhật ký tiền). *(07/11: đổi từ BE-B/PR-B1 – `rounds/round-05/responses/SEC-responses.md` mục 5)*
 - Vị trí: mô tả `listAuditEvents.afterClosureOnly` (bổ sung 1e) ghi audit `money` `attention_event.resolved`; mô tả `AuditEvent.action` – tập đóng của `money`.
 - Vấn đề:
   - `attention_event.resolved` **không có** trong tập đóng `money` ở mô tả `AuditEvent.action`. Hợp đồng ghi rõ: thêm mã vào tập này là đổi hợp đồng.
@@ -696,7 +696,7 @@ Nếu delta đổi gì khác thì gửi lại SEC đọc riêng phần đó: vai
   - ARC thêm `attention_event.resolved` vào tập đóng `money`, kèm một câu: hiện chỉ ghi cho mục `deposit_after_cancel`; `after` = `{kind, afterClosure}`; không có ghi chú tự do.
   - Dòng hợp đồng, hằng `MONEY_AUDIT_ACTIONS` và câu `mlog.a_*` lên **cùng một PR**. Nếu chỉ thêm dòng hợp đồng vào #104, test `module-boundaries` sẽ đỏ. Hai cách: làm ở PR-B1 (BE thêm hằng, ARC duyệt dòng hợp đồng), hoặc ở PR hợp đồng của ARC-16 kèm hằng.
   - Giữ `category = money`, không đổi sang loại khác.
-- Hạn: trước khi gộp PR-B1 (V5-48).
+- Hạn: **trong PR-B3** (BE-D); chữ hợp đồng và hằng `MONEY_AUDIT_ACTIONS` cùng một PR (PR ARC-16), gộp trước PR-B3; câu `mlog.a_*` cùng bản phát hành với PR-B3. Hạn quay về "trước PR đó" nếu một PR trước PR-B3 sinh `deposit_after_cancel` hoặc đóng mục bằng "Không thấy tiền". *(07/11, SEC đồng ý đổi hạn theo đề nghị ORC/BE 7.8; hạn cũ: trước khi gộp PR-B1)*
 - Trạng thái: Open
 
 #### FB-R5-SEC-ARC-21
