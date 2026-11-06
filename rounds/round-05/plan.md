@@ -15,6 +15,7 @@
   - theo ARC hợp đồng 0.3.13 bổ sung 1c (PR #94, `2cb549cc`): V5-48 và 5B-1 là nhánh đơn đã đóng trong `recordPayment`, có `bankReference` tùy chọn, không migration; **PR-B3 (5B-1) xếp vào v1.0.5**, lịch theo thứ tự PR của hợp đồng mục 2, V5-48 nằm trong PR-B1, 5B-2 sang 0.3.14 / v1.0.6 (quyết định 23); **US-177** cho BR-438 (V5-16, quyết định 24); ghi chú QA về id ca rbac mới (mục 3);
   - theo SEC FB-R5-SEC-OPS-95-02 ý 4 (`rounds/round-05/reviews/SEC-on-ops-prs-92-93-95.md`): **V5-61 chưa đạt thì cả v1.0.5 chưa lên production**, kể cả phần không migration, vì V5-62 là đổi sao lưu (ĐK-2); hạn 01/12 của V5-30/31 phụ thuộc hoàn toàn vào V5-61; ORC xin INV hẹn diễn tập trong tuần 09–13/11 (quyết định 25);
   - theo DOM review PR #96 (`rules-v1.0.5.md` mục 13, `6b5b8f34`): V5-25 thêm điều kiện lên bản (câu SQL chỉ đọc đạt trên production, có hai dòng đếm của thẻ FB-R5-DOM-BE-PR96-02); phần còn lại của 13.2 vào R5-B-05; thêm R5-B-07 (`production-defaults.ts` `short_stay_max_nights` 27 → 29);
+  - 07/11 (PO, Review – theo DOM review #101/#108/#110, DOM review tài liệu BA v1.0.5, ARC review #103; ORC giao): V5-30 thêm FB-R5-DOM-BE-101-01 (BE-H, `r5-h1b`); **mục 4a bảng kiểm cắt tag v1.0.5**; quyết định 26 (backlog v1.0.6 R5-B-08…14, US-177 AC7 phần dời);
   - mục 6 thêm quyết định 6–10; phụ lục I (điều chỉnh sau cổng QC, gồm hai cảnh báo Dependabot). Bảng đếm mục 7 giữ số QC đã kiểm, tác động ghi ngay dưới bảng.
 - Chế độ: **vận hành thực tế**. Đây là round bảo trì đầu tiên. Chủ đầu tư (INV) chỉ review định kỳ để cải thiện hoặc sửa lỗi. Nguyên văn 06/11: "project này kéo dài quá rồi".
 - Đầu vào:
@@ -137,7 +138,7 @@ UXD duyệt mọi chữ. CPY duyệt chữ hướng khách (EN dẫn, VI hỗ tr
 
 | ID | Việc | Hạn | Vai |
 |---|---|---|---|
-| V5-30 | **H2 – hoa hồng theo bảng nội bộ** trên Desk, không có số mặc định trong mã:<ul><li>FB-R4-SEC-BE-01 (Major);</li><li>FB-R4-SEC-ORC-01 G3;</li><li>CI `confidential-paths`.</li></ul>DOM gửi chi tiết **ngoài kho mã**. Không ghi tỷ lệ hay số tiền hoa hồng vào repo, PR, test, chat. | Trước kỳ chốt hoa hồng **01/12/2026** | DOM → ARC → BE + FE-A → SEC, DOM, QA |
+| V5-30 | **H2 – hoa hồng theo bảng nội bộ** trên Desk, không có số mặc định trong mã:<ul><li>FB-R4-SEC-BE-01 (Major);</li><li>FB-R4-SEC-ORC-01 G3;</li><li>CI `confidential-paths`.</li></ul>DOM gửi chi tiết **ngoài kho mã**. Không ghi tỷ lệ hay số tiền hoa hồng vào repo, PR, test, chat.<br>**Thêm 07/11 – FB-R5-DOM-BE-101-01 (Major, BE-H, PR `r5-h1b`)**: đơn có người hưởng chốt lúc thiếu tỷ lệ phải có dòng hoa hồng chậm nhất ở mốc "đạt" (B18, đối soát, thu công nợ: máy chủ đồng bộ hoa hồng trước mỗi lần xét "đạt"), và lần đầu tạo dòng thì chụp tỷ lệ ngày đó vào đơn (BR-903 (5)); nên đồng bộ luôn các đơn đang chờ khi OWN lưu khóa tỷ lệ; PR-M áp cùng luật cho đợt 1 của HĐ. Test theo thẻ ý 5 (`test_rate_short`, không số thật). **Gộp trước PR-M, lên trong v1.0.5, trước 01/12** (DOM `rounds/round-05/reviews/DOM-on-be-prs-101-108-110.md` mục 1.3, 7; `rules-v1.0.5.md` 14.2; ORC `dce1c0fd` (2)). #101 đã gộp (`fa5a5b4d`); `r5-h1b` phải cùng tag với #101 (mục 4a). | Trước kỳ chốt hoa hồng **01/12/2026** | DOM → ARC → BE + FE-A → SEC, DOM, QA |
 | V5-31 | **H3 – phí dọn theo lượt cho khách thuê tháng theo hạng** (bảng 01/11). Khách ngắn ngày giữ BR-506. Tới khi lên: lễ tân thêm dòng phí phần chênh. | Trước lượt dọn đầu tiên của khách thuê tháng đầu tiên | DOM → BE + FE-A → DOM, QA |
 
 Quy tắc: nếu tới **25/11** v1.0.5 chưa lên production thì PO + ORC tách V5-30 thành bản sửa riêng. Việc này không cần hỏi INV; production vẫn chờ INV đồng ý. Bản tách có migration nên cũng phải chờ V5-61 đạt (ĐK-2): quy tắc này chỉ giúp khi v1.0.5 trễ vì lý do khác.
@@ -291,6 +292,27 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
 11. **Không đổi chính sách:** không mục nào đổi giá, cọc, hoàn, hủy so với quyết định của INV. Tham số giá trên production không bị đội đổi.
 12. **INV đồng ý** trước production. QC không duyệt deploy.
 
+### 4a. Kiểm trước khi cắt tag v1.0.5 (PO giữ, 07/11/2026)
+
+PO chạy bảng này cùng ORC và OPS ngay trước khi cắt tag, sau khi QC có kết luận. Mỗi dòng: PR nào phải nằm cùng tag, và câu nào trong tài liệu sai nếu thiếu. Thiếu một PR thì **không cắt tag** cho dòng có nhãn "chặn"; dòng còn lại thì sửa câu tài liệu trước khi cắt (BA sửa sổ tay, PO sửa release notes, PO + DOM sửa Tờ 2a).
+
+| # | Phải cùng tag | Nguồn | Thiếu thì |
+|---|---|---|---|
+| T1 | PR #100 (đã gộp) + **MOB #117** (câu riêng cho 3 tin giữ chỗ) | ORC `d2bcf8b1`; ARC FB-R5-ARC-MOB-V51B-01; DOM FB-R5-DOM-PO-08 giả định 1 | Sửa câu "Từ v1.0.5 … câu riêng": release notes v1.0.5 dòng **Tin giữ chỗ tự hủy** (bỏ câu "Hai tin … câu riêng", câu tin thành câu chung); Tờ 2a dòng **Ở đâu** ("từ khi app nhân viên có bản sửa"); sổ tay 2.4, 3.11; `02` 4.5 |
+| T2 | Máy chủ R8 (đã trên `main`) + **FE #102** (Desk) + **MOB #97** (app nhân viên): nút **Báo cần dọn** | ORC `d2bcf8b1`; BA report mục 7 | Sửa release notes v1.0.5 dòng **Trả phòng và tiền ở quầy** và bảng "Chưa có" v1.0.4; giữ lời dặn tạm "căn vẫn hiện có khách" ở v1.0.4 **Giới hạn đã biết**; sổ tay 2.10, 2.19, 3.5; `01` 14; `02` 7.4, 13.2; `03` 6 |
+| T3 | **#108 (đã gộp) + #110** | SEC FB-R5-SEC-BE-V516-02; ARC approve #108 có điều kiện (`e312bab7`) | **Chặn**: không cắt tag có #108 mà thiếu #110 |
+| T4 | #110 + FE V5-16 (**bộ lọc `mlog.filter_reductions`**, câu 403 `foc_request`, nút **Gửi miễn có duyệt**) | US-177 AC2, AC7 (i); UXD copy 9.5 | US-177 chưa đạt (Must); bỏ câu "Quản lý, chủ đầu tư có bộ lọc **Sửa giảm dòng – 7 ngày**" ở release notes |
+| T5 | #110 + phần chặn đếm lại minibar của BE-A2 (SEC V516-01, DOM 14.1; PR `r5-v516-minibar`) | SEC V516-01 (audit bắt buộc v1.0.5, chặn là đích v1.0.5) | Phần audit thiếu: **chặn**. Chỉ phần chặn thiếu: release notes thêm vào **Giới hạn đã biết** của v1.0.5 rằng lễ tân còn hạ được số minibar bằng đếm lại, quản lý xem ở bộ lọc 7 ngày; BA thêm câu lễ tân (DOM 14.7) |
+| T6 | #101 (đã gộp) + **`r5-h1b`** (FB-R5-DOM-BE-101-01) | DOM thẻ 101-01; ORC `dce1c0fd` (2) | **Chặn** PR-M; câu "đơn đã chốt vẫn có dòng hoa hồng … chậm nhất lúc trả phòng và thu đủ" ở release notes sai. Hạn 01/12 giữ nguyên |
+| T7 | **BE #119** (`r5-v09-reference`) + FE `r5-fe-bankref` (câu `pay.bank_reference_card_like`) | QA BUG-R5-006; SEC 4.2 | Thiếu #119: BUG-R5-006 chưa sửa, giữ cách làm tạm 8 chữ số. Thiếu FE: sửa cột "Từ v1.0.5" (Desk vẫn hiện câu "ô ghi chú") |
+| T8 | PR #107 (đã gộp) | QA BUG-R5-005 | Không có việc; QA chạy S-005-1, S-005-2 trên staging trước khi cắt |
+| T9 | Câu sổ tay ca đêm cho ARC A4 (BA, DOM 14.3) | DOM thẻ ARC-D1-01 | Release notes v1.0.5 thêm vào **Giới hạn đã biết**: lúc 00:00–05:59 lượt đi hôm qua (ngày nghiệp vụ) còn ở không có trong **Khách đi**, xem **Sơ đồ phòng**; sửa ở v1.0.6 (backlog R5-B-09) |
+
+Thêm khi cắt:
+- release notes v1.0.5 đổi "Dự kiến có" thành "Có trong bản này" theo đúng các PR trong tag; Gói 5 nào không kịp thì chuyển dòng sang "Chưa có", đích v1.0.6;
+- mục **Việc anh/chị làm trước ngày lên v1.0.5**: ORC xác nhận với INV từng bước 1–4 đã xong (bước 2 nhìn tận mắt từng lễ tân trưởng; bước 3 chỉ xác nhận đã nhập, không hỏi số). Bước 2 chưa xong thì chưa lên;
+- giả định: push điện thoại vẫn Mock ở v1.0.5 (DOM PO-08 giả định 2). OPS bật push thật thì bỏ vế "Tin không đổ chuông" ở release notes và Tờ 2a.
+
 ## 5. Rủi ro
 
 | Rủi ro | Cách giảm |
@@ -398,6 +420,12 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
     - Kéo sớm: ORC xin INV hẹn diễn tập V5-61 trong tuần 09–13/11, không chờ hạn 20/11. Việc này nằm trong việc đã chờ INV (30 phút mở khóa `age`), không cần ESC (SEC ý 5). ORC làm cùng buổi việc INV cất bản ngoại tuyến `id_hash_key` (FB-R5-SEC-OPS-95-07).
     - Giữ nguyên: bản sửa P0 không migration, không đổi sao lưu vẫn lên được, kèm sao lưu ngay trước deploy (câu cuối dòng ĐK-2). Bản tách sớm V5-25 của quyết định 19, nếu có, cũng phải cắt từ v1.0.4, không mang V5-62.
     - Release notes v1.0.5 sửa theo: bỏ ý "chỉ diễn tập nếu bản có thay đổi cấu trúc dữ liệu".
+26. **Bảng kiểm cắt tag v1.0.5 (mục 4a) và backlog v1.0.6 từ review 07/11** (07/11, PO, Review; theo DOM `DOM-on-be-prs-101-108-110.md`, `DOM-on-ba-v105-docs.md`, ARC `ARC-on-be-pr-103-s1.md`; ORC `d2bcf8b1`, `dce1c0fd` và giao việc 07/11).
+    - Mục 4a mới: 9 dòng PR phải cùng tag và câu tài liệu sai nếu thiếu. T3 (#108 + #110), T6 (#101 + `r5-h1b`, chặn PR-M) và phần audit của T5 là chặn; dòng khác sửa câu trước khi cắt.
+    - FB-R5-DOM-BE-101-01 (Major) vào V5-30, làn BE-H, PR `r5-h1b`, trước PR-M, trước 01/12.
+    - Backlog v1.0.6: R5-B-08 (FB-R5-DOM-BE-110-01), R5-B-09 (ARC A4, FB-R5-DOM-ARC-D1-01), R5-B-10 (`ShiftReport.lineReductions[]`), R5-B-11 (FB-R5-DOM-BE-108-01, phần còn lại sau bộ lọc của V5-16), R5-B-12 (ARC S1-02), R5-B-13 (ARC S1-03, v1.0.5 nếu BE-H kịp), R5-B-14 (FB-R5-DOM-UXD-02).
+    - US-177: AC7 (i) phần lọc theo loại dòng và AC7 (iii) sang v1.0.6, không chặn nghiệm thu v1.0.5. Bộ lọc **Sửa giảm dòng – 7 ngày** theo người vẫn ở v1.0.5 (T4). Lý do: máy chủ đã có lọc theo người; lọc loại dòng chỉ là tiện ích xem lại, chốt chặn BR-438 không phụ thuộc.
+    - Release notes v1.0.5 (PO): hoa hồng ngắn ngày nhập ngay trên Desk v1.0.4 (DOM 14.2, việc 4), thêm bước 1 (hẹn diễn tập V5-61) và bước 3 (tỷ lệ hoa hồng) ở **Việc anh/chị làm trước ngày lên**; Tờ 2a theo DOM PO-08 nguyên văn.
 
 ## 7. Tổng hợp xếp loại (đếm từ phụ lục)
 

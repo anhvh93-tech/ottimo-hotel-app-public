@@ -14,18 +14,17 @@
  * one more night" (`extraNight`, one transaction); the post-midnight window (business date = departure − 1,
  * calendar date = departure) is a valid B18 with no surcharge; only MONEY requests block; operational ones
  * are cancelled as superseded; the overpayment handled is the part not yet routed to a refund request.
+ *
+ * OpenAPI 0.3.13 (V5-10, BUG-R4-036/051; BE C0313-01, 07, 08): ONE departure instant (`resolveCheckoutAt`,
+ * checkout-at.ts) for the summary (`CheckoutSummary.checkoutAt`), the `check_out` VietQR (cap + `amountDueNow`,
+ * TIME_AFTER_ACTION like B18) and B18; the B18 day uses the shared clock rule of shared/business-day.ts.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
+import { dayClock, isCheckoutDay } from '../../../shared/business-day';
 import { problem } from '../../../shared/problem';
-import {
-  type LocalDate,
-  type LocalTime,
-  addDays,
-  businessDate,
-  localDate,
-} from '../../../shared/time';
+import { type LocalDate, type LocalTime, addDays } from '../../../shared/time';
 import { actorRoleOf } from '../../audit/public/actor-role';
 import { AuditService } from '../../audit/public/audit.service';
 import { folioLineDto } from '../../folio/public/folio-view';
@@ -86,6 +85,7 @@ const DEBT_ROW_COLUMNS = `id, code, status, parent_reservation_id, checkout_mode
   debt_due_date::text AS debt_due_date, debt_reason, debt_settled_at, debt_opened_at, debt_recorded_vnd,
   debt_base_vnd, actual_checkout_at`;
 import type { LateCheckoutResult } from '../public/stay-rules';
+import { type ResolvedCheckoutAt, resolveCheckoutAt } from './checkout-at';
 import { StayService } from './stay.service';
 import { StaySupport, TASK_RANK } from './stay-support';
 
@@ -128,11 +128,17 @@ interface ExtraNight {
 }
 
 interface Departure {
+  /** Local time of `checkout.at` (HH:mm). */
   time: LocalTime;
+  /** V5-10: the ONE departure instant of the summary, the QR cap and B18 (`resolveCheckoutAt`). */
+  checkout: ResolvedCheckoutAt;
   rm: RoomInfo;
   quote: Awaited<ReturnType<StayService['lateQuote']>>;
   stay: Awaited<ReturnType<StaySupport['effectiveStay']>>;
-  /** post-midnight window: business date = departure − 1 and calendar date = departure */
+  /**
+   * No BR-412 surcharge: the departure instant is in the post-midnight window (business date = departure − 1 and
+   * calendar date = departure), or the evening before while the clock is in that window (C0313-07).
+   */
   postMidnight: boolean;
   /** departure after the last BR-412 tier → one more night (E05-11) */
   extraNight: ExtraNight | null;
@@ -650,23 +656,63 @@ export class CheckoutService {
     return { settled: true, reservationIds: ids, balanceDueVnd: balance.balanceDueVnd, outcome };
   }
 
-  /** Post-midnight window at `at` for a stay leaving on `departure` (DOM S3-9 b). */
-  private postMidnight(
-    ctx: BookingContext,
-    rollover: LocalTime,
-    departure: LocalDate,
-    at: Date,
-  ): boolean {
-    return (
-      businessDate(at, ctx.tz, rollover) === addDays(departure, -1) &&
-      localDate(at, ctx.tz) === departure
-    );
+  /**
+   * B18's day at the server clock (0.3.6 bổ sung 2, BUG-R4-036): the business date is the stay's effective departure,
+   * or the clock is in its post-midnight window – the shared rule of `allowedActions` and the "Hôm nay" rows.
+   */
+  private checkoutDayOpen(ctx: BookingContext, rollover: LocalTime, departure: LocalDate): boolean {
+    return isCheckoutDay(dayClock(ctx.now, ctx.tz, rollover), departure);
   }
 
   /**
-   * Departure of the whole stay at the given time: the clock time on the business-day axis (E05-09:
-   * `checkoutAt` wins over `checkoutTime`), the room of the last night, the late quote (zero in the
-   * post-midnight window), and the extra night when the time is after the last tier.
+   * V5-10 (OpenAPI 0.3.13 `checkOut` "Quy đổi giờ trả"; BE C0313-01, 07, 08): the ONE departure instant of the stay for
+   * `getCheckoutSummary`, `createVietQr purpose=check_out` (cap and `amountDueNow`) and B18 – `checkoutAt` as sent
+   * (checked: 422 DATE_INVALID on another day), else `checkoutTime` ?? agreed late time ?? `checkout_time` resolved
+   * against the server clock (see checkout-at.ts).
+   */
+  private async resolveCheckoutAt(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    departureDate: LocalDate,
+    rollover: LocalTime,
+    q: { checkoutTime: LocalTime | undefined; checkoutAt: Date | undefined },
+  ): Promise<ResolvedCheckoutAt> {
+    const time: LocalTime =
+      q.checkoutTime ??
+      row.agreed_checkout_time ??
+      (await this.s.param<LocalTime>(tx, ctx, 'checkout_time'));
+    const resolved = resolveCheckoutAt({
+      departureDate,
+      now: ctx.now,
+      tz: ctx.tz,
+      rollover,
+      toleranceMinutes: await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes'),
+      sent: q.checkoutAt,
+      time,
+      checkedInAt: row.actual_checkin_at,
+    });
+    if (!resolved) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'checkoutAt', code: 'DATE_INVALID' }],
+      });
+    }
+    return resolved;
+  }
+
+  /** C0313-01: a QR `check_out` (cap or `amountDueNow`) after server time + tolerance → 422, nothing created. */
+  private assertNotAfterNow(d: Departure): void {
+    if (d.checkout.afterNow) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'checkoutAt', code: 'TIME_AFTER_ACTION' }],
+      });
+    }
+  }
+
+  /**
+   * Departure of the whole stay at the instant `resolveCheckoutAt` gives (E05-09: `checkoutAt` wins over
+   * `checkoutTime`): the room of the last night, the late quote (zero in the post-midnight window), and the extra
+   * night when the time is after the last tier.
    */
   private async departure(
     tx: Tx,
@@ -678,18 +724,12 @@ export class CheckoutService {
     const stay = await this.s.effectiveStay(tx, ctx, row);
     const dep = stay.departureDate;
     const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
-    const at = checkoutAt ?? ctx.now;
-    const postMidnight = this.postMidnight(ctx, rollover, dep, at);
-    if (checkoutAt && businessDate(checkoutAt, ctx.tz, rollover) !== dep && !postMidnight) {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'checkoutAt', code: 'DATE_INVALID' }],
-      });
-    }
-    const time: LocalTime = checkoutAt
-      ? this.s.localTime(ctx, checkoutAt)
-      : (checkoutTime ??
-        row.agreed_checkout_time ??
-        (await this.s.param<LocalTime>(tx, ctx, 'checkout_time')));
+    const checkout = await this.resolveCheckoutAt(tx, ctx, row, dep, rollover, {
+      checkoutTime,
+      checkoutAt,
+    });
+    const postMidnight = checkout.postMidnight;
+    const time: LocalTime = this.s.localTime(ctx, checkout.at);
     const seg = await this.s.segmentOn(tx, stay.last.id, addDays(dep, -1));
     const rm = seg.room_id ? await this.s.stay.room(tx, seg.room_id) : null;
     if (!rm) throw problem('RESERVATION_UNASSIGNED');
@@ -727,7 +767,7 @@ export class CheckoutService {
         complimentary: r.complimentary,
       };
     }
-    return { time, rm, quote, stay, postMidnight, extraNight, rollover };
+    return { time, checkout, rm, quote, stay, postMidnight, extraNight, rollover };
   }
 
   private async pendingApprovals(tx: Tx, ids: readonly string[]): Promise<number> {
@@ -785,8 +825,10 @@ export class CheckoutService {
 
   /**
    * 0.3.7 `createVietQr purpose = check_out` (S4-10 – BE-B's cap through ReservationSalesPort.amountDueFor): the
-   * amount of getCheckoutSummary at `checkoutAt` (absent = now) with the extra night at `extraNightRateVnd`.
+   * amount of getCheckoutSummary at `checkoutAt` with the extra night at `extraNightRateVnd`.
    * Same gates as B18: in house, the primary booking, the departure business day (or the post-midnight window).
+   * 0.3.13 (V5-10, BE C0313-01/08): `checkoutAt` absent → resolved like B18 (agreed late time ?? `checkout_time`, no
+   * longer "the server clock"); after server time + tolerance → 422 TIME_AFTER_ACTION, so no QR is created.
    */
   async amountDueForQr(
     tx: Tx,
@@ -804,15 +846,14 @@ export class CheckoutService {
     if (!row.folio_id) throw problem('NOT_FOUND');
     const stay = await this.s.effectiveStay(tx, ctx, row);
     const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
-    const nowWindow = this.postMidnight(ctx, rollover, stay.departureDate, ctx.now);
-    if (stay.departureDate !== ctx.today && !nowWindow) {
+    if (!this.checkoutDayOpen(ctx, rollover, stay.departureDate)) {
       throw problem('INVALID_TRANSITION', {
         extras: { currentState: row.status },
         detail: 'check-out QR on the departure business day',
       });
     }
-    // `checkoutAt` absent = the server clock (contract), not the standard time of the summary's form default.
-    const d = await this.departure(tx, ctx, row, undefined, q.checkoutAt ?? ctx.now);
+    const d = await this.departure(tx, ctx, row, undefined, q.checkoutAt);
+    this.assertNotAfterNow(d);
     const rate = q.extraNightRateVnd;
     if (rate !== undefined) {
       // BUG-R2-139: no extra night to sell (none due, or the room is taken that night) → the option is refused.
@@ -844,6 +885,8 @@ export class CheckoutService {
    * stored when it was created – the same calculation as `amountDueForQr`, but never refused: options that no
    * longer apply are dropped (a night that became unsellable / sellable, a rate out of bounds), and a stay
    * already checked out (or not in house) owes its folio balance.
+   * 0.3.13 (V5-10, BE C0313-01): the same `resolveCheckoutAt` and the same TIME_AFTER_ACTION check as the cap (the
+   * payments module answers the folio balance on any 4xx of this port).
    */
   async amountDueNow(
     tx: Tx,
@@ -863,7 +906,8 @@ export class CheckoutService {
     if (primary.status !== 'in_house') {
       return Math.max(0, (await this.s.folios.balance(tx, primary.folio_id)).balanceDueVnd);
     }
-    const d = await this.departure(tx, ctx, primary, undefined, q.checkoutAt ?? ctx.now);
+    const d = await this.departure(tx, ctx, primary, undefined, q.checkoutAt);
+    this.assertNotAfterNow(d);
     const x = d.extraNight;
     const rate =
       x &&
@@ -995,6 +1039,10 @@ export class CheckoutService {
     );
     return {
       serverTime: ctx.iso(ctx.now),
+      // 0.3.13 (V5-10): the instant every number below uses – the desk sends exactly this to the QR and to B18.
+      checkoutAt: ctx.iso(d.checkout.at),
+      checkoutTimeNoteRequired: d.checkout.noteRequired,
+      checkoutAtAfterNow: d.checkout.afterNow,
       amountDueAtCheckoutVnd,
       checkoutTime: d.time,
       standardCheckoutTime: d.quote.standard,
@@ -1598,8 +1646,7 @@ export class CheckoutService {
   }> {
     const { lateFee, extraNight, timeNote, applyLate, expected, checkoutAt } = inp;
     const d = await this.departure(tx, ctx, row, inp.checkoutTime, checkoutAt);
-    const nowWindow = this.postMidnight(ctx, d.rollover, d.stay.departureDate, ctx.now);
-    if (d.stay.departureDate !== ctx.today && !nowWindow) {
+    if (!this.checkoutDayOpen(ctx, d.rollover, d.stay.departureDate)) {
       throw problem('INVALID_TRANSITION', {
         extras: { currentState: row.status },
         detail: 'check-out on the departure business day (early departure first – B16)',
@@ -1632,23 +1679,10 @@ export class CheckoutService {
     }
 
     // ── field data (422) ──
-    // E03-07: the typed departure vs the server clock (checkoutAt = an instant, else the business-day axis).
-    let typed: { systemTime: LocalTime; noted: boolean };
-    if (checkoutAt) {
-      const tolerance = await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes');
-      const diff = checkoutAt.getTime() - ctx.now.getTime();
-      if (diff > tolerance * 60_000) f.add('checkoutAt', 'TIME_AFTER_ACTION');
-      typed = { systemTime: this.s.localTime(ctx), noted: -diff > tolerance * 60_000 };
-      if (typed.noted && !timeNote) f.add('checkoutTimeNote', 'TIME_NOTE_REQUIRED');
-    } else {
-      typed = await this.s.checkTypedTime(tx, ctx, f, {
-        field: 'checkoutTime',
-        time: d.time,
-        noteField: 'checkoutTimeNote',
-        note: timeNote,
-        rollover: d.rollover,
-      });
-    }
+    // E03-07: the departure instant (V5-10 – sent, or resolved from the typed time) vs the server clock ± tolerance.
+    const typed = { systemTime: this.s.localTime(ctx), noted: d.checkout.noteRequired };
+    if (d.checkout.afterNow) f.add(checkoutAt ? 'checkoutAt' : 'checkoutTime', 'TIME_AFTER_ACTION');
+    if (typed.noted && !timeNote) f.add('checkoutTimeNote', 'TIME_NOTE_REQUIRED');
     if (lateFee && (!unsellable || freeNight)) f.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
     if (lateFee && extraNight) f.add('extraNight', 'NOT_ALLOWED');
     if (d.extraNight && !extraNight && !lateFee && !freeNight) {

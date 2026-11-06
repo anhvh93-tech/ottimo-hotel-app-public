@@ -3,7 +3,7 @@
 - Dành cho: **chủ đầu tư (OWN)**, **quản lý (MGR)**, và người làm **kế toán/đối soát** cùng chủ đầu tư
 - Thiết bị: **máy tính hoặc laptop riêng** của anh/chị, địa chỉ `desk.ottimo.vn`. Máy quầy chỉ dùng khi duyệt tại quầy, xong đăng xuất ngay.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Tệp này bản 1.14 (thuộc bộ hướng dẫn bản 1.15) – 07/11/2026: lễ tân trưởng bật 2 bước trước ngày lên v1.0.5 (mục 1.9); nút **Báo cần dọn** từ v1.0.5 (mục 14). Các bản trước: mục **Lịch sử tệp** cuối tệp.
+- Lập: BA · 30/10/2026 · Tệp này bản 1.15 (thuộc bộ hướng dẫn bản 1.16) – 07/11/2026, áp dụng từ v1.0.5: mỗi tuần rà bộ lọc **Sửa giảm dòng – 7 ngày** (mục 2.1, 8.1). Bản 1.14 – 07/11/2026: lễ tân trưởng bật 2 bước trước ngày lên v1.0.5 (mục 1.9); nút **Báo cần dọn** từ v1.0.5 (mục 14). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -368,6 +368,7 @@ Máy quầy phải được cấp quyền thì lễ tân mới nhận phòng, xe
 | Trong 24 giờ sau mỗi lần trả muộn quá 18:00 | Xem lại phụ thu bằng giá 1 đêm | **Tổng quan → Cần chú ý** (mục 5) |
 | Khi người trực hỏi (từ v1.0.2) | Khách thuê tháng rời trước hạn HĐ: xác nhận nhánh ký quỹ trước khi người trực báo khách | Điện thoại, sổ giao ca (mục 7.3) |
 | Mỗi ngày | Đối chiếu chuyển khoản với sao kê | **Nhật ký tiền → Chờ đối soát** |
+| **Mỗi tuần** (từ v1.0.5) | Rà các lần sửa giảm dòng phát sinh 7 ngày qua: ai, đơn nào, trước → sau, lý do. Chú ý dòng minibar đếm lại thấp hơn và người sửa giảm nhiều lần. Đối chiếu với các dòng lễ tân ghi ở sổ giao ca | **Nhật ký tiền** → bộ lọc **Sửa giảm dòng – 7 ngày** (mục 8.1) |
 | Cuối ngày (3 ngày đầu: 22:00 cùng lễ tân, qua điện thoại được) | Đối chiếu tiền trong ngày với sổ giấy và két; nhận tiền vượt quỹ lẻ, ký sổ | **Nhật ký tiền** (mục 11) |
 | Trong 24 giờ sau mỗi lần xóa yêu cầu website theo yêu cầu người gửi (từ v1.0.1; quản lý, dự phòng chủ đầu tư) | Xóa luồng tin của mã đó trong Google Chat, ghi sổ xóa Chat | Google Chat (mục 12.2) |
 | Mỗi tháng (từ v1.0.1; chủ đầu tư) | Rà thành viên phòng "OTTIMO – Yêu cầu đặt phòng"; đối chiếu sổ xóa Chat | Google Chat, **Yêu cầu từ website** (mục 12.1, 12.2) |
@@ -559,6 +560,13 @@ Tháng lịch cuối của HĐ = tháng chứa ngày kết thúc HĐ (HĐ kết 
 | **Nhật ký thao tác tiền** | Xem mọi thao tác tiền: lúc nào, ai làm, thao tác gì, đơn nào, trước → sau, lý do. Lọc **Từ ngày** – **Đến ngày** (không lọc theo giờ, không lọc theo người). Lễ tân chỉ thấy khoản của mình |
 | **Chờ đối soát** | Khớp từng khoản chuyển khoản, VietQR với sao kê ngân hàng |
 | **Hoàn tiền** | Nhập nơi nhận hoàn, chi hoàn tiền mặt, ghi đã hoàn chuyển khoản |
+
+**Từ v1.0.5 – bộ lọc Sửa giảm dòng – 7 ngày** (chỉ quản lý, chủ đầu tư thấy):
+- Hiện mọi lần một dòng phát sinh bị làm nhỏ đi trong 7 ngày gần nhất: bỏ dòng, giảm số lượng, giảm giá, đếm lại minibar thấp hơn. Có cả lần sửa của quản lý, chủ đầu tư.
+- Không gồm tiền đêm (giá đêm, phụ thu người, chênh đổi căn).
+- 7 ngày tính theo ngày lịch: lần sửa lúc 00:00–05:59 nằm ở ngày lịch hôm sau.
+- Lễ tân không thấy bộ lọc này. Tới v1.0.6, lễ tân ghi các dòng mình đã sửa giảm vào sổ giao ca trước khi giao ca (`02` mục 12.4).
+<!-- Nguồn: BR-438 (4)(ii), US-177 AC7 (i), UXD copy-v1.0.5.md 9.5 (mlog.filter_reductions), PR #108 (reductionsOnly), DOM-on-be-prs-101-108-110.md mục 2, 3.2. FE chưa có nhánh dựng bộ lọc (07/11); chưa có ảnh. -->
 
 [ẢNH: C1-18-Nhật ký thao tác tiền]
 
@@ -1070,6 +1078,7 @@ Bài tập kế toán: cùng chủ đầu tư đọc **Nhật ký tiền** một
 
 Chuyển từ dòng **Lập:** đầu tệp (04/11/2026; phần bổ sung 05/11 chuyển vào ngày 05/11, giữ nguyên chữ). Mới nhất ở trên.
 
+- Bản 1.15 – 07/11/2026 (bộ hướng dẫn 1.16), **áp dụng từ v1.0.5** (BA, theo DOM review PR #101, #108, #110 mục 2, 3.2, 3.3; US-177 AC7 (i)): mục 2.1, 8.1 – mỗi tuần rà bộ lọc **Sửa giảm dòng – 7 ngày** ở **Nhật ký tiền**, chú ý dòng minibar đếm lại thấp hơn và người sửa giảm nhiều lần; lễ tân không thấy bộ lọc, tới v1.0.6 ghi các dòng tự sửa giảm vào sổ giao ca.
 - Bản 1.14 – 07/11/2026 (bộ hướng dẫn 1.15), **áp dụng từ v1.0.5** ở các dòng ghi "Từ v1.0.5", phần còn lại áp dụng ngay (BA, V5-71 phần V5-40, V5-15; SEC, ARC review PR #100; UXD `copy-v1.0.5.md` 9.7): mục 1.9 bảng vai và bước 8 – từ v1.0.5 Desk tự ép lễ tân trưởng bật 2 bước, người chưa bật bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên, kể cả đang đăng nhập; cho lễ tân trưởng bật trước ngày lên; lễ tân trưởng không tự tắt được nữa. Mục 14 dòng "căn vẫn hiện có khách": từ v1.0.5 lễ tân tự bấm **Báo cần dọn**, không cần nhắn đội.
 - Bản 1.13 – 06/11/2026 (bộ hướng dẫn 1.14), **áp dụng ngay, tới khi v1.0.5 lên**: lời dặn không bấm **Lưu thay đổi** ở `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**); buộc phải đổi thì **Hiệu lực từ** từ ngày mai; lỡ lưu thì báo đội, coi là P0 (mục 9.2, 15.6, 17; BUG-R5-001, BUG-R5-003). Gỡ khi v1.0.5 lên.
 - Bản 1.12 – 06/11/2026 (bộ hướng dẫn 1.13), áp dụng ngay: các mục ghi ở `00` mục 7, hai khối "Sửa 06/11/2026" (check-in online mở lại, gửi nhầm link, website theo thực tế 06/11).
