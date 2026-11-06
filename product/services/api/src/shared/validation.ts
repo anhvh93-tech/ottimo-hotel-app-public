@@ -5,6 +5,8 @@
  * - V-08 reason: trim, length per operation (default 3–500) → 422 VALIDATION_FAILED errors[{code REASON_REQUIRED}]
  * - V-09 free text: a payment card number → 422 CARD_NUMBER_DETECTED (R-PAY-07). One rule for every module: the card
  *   half of `shared/sensitive-number.ts` OR the original rule (13–19 digits, one space/dash allowed between, Luhn)
+ * - V-09 for a bank transfer REFERENCE field (C0313-25, SEC-responses 4.1 option (a)): only a value that IS a card
+ *   number as a whole → 422 CARD_NUMBER_DETECTED (`isCardNumberReference`); free text keeps the rule above
  * - dryRun flag (OpenAPI "dryRun"): computes consequences without writing – used by irreversible actions
  *   to show the confirmation dialog content (US-135 AC1).
  */
@@ -55,6 +57,42 @@ function containsCardNumberOriginalRule(text: string): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Separators a bank transfer reference may carry: `PaymentCreate.bankReference` and `executeRefund.bankReference` both
+ * take `^[A-Za-z0-9./_-]{1,64}$` (blanks trimmed by the controller), checked by the caller BEFORE this rule.
+ */
+const REFERENCE_SEPARATORS = /[./_-]/g;
+const CARD_DIGITS = /^\d{13,19}$/;
+
+/**
+ * C0313-25 (SEC-responses 4.1, option (a) as SEC adjusted it) – V-09 for a bank transfer reference field: true only
+ * when the WHOLE value, once `.` `/` `_` `-` are removed, is 13–19 digits AND passes Luhn, i.e. a whole card number
+ * pasted into the field (the PCI risk of a reference field). A code with letters, a run of digits shorter than 13 or
+ * longer than 19, or digits failing Luhn is a reference. Deliberately NOT `containsCardNumber` (every 13–19 digit
+ * window – false hits on numeric bank codes, BUG of C0313-25) and NOT `looksLikeCard` (it scans digit runs inside the
+ * value: the same false hits; what it adds – hidden characters, full-width digits, commas – the field pattern already
+ * refuses). Residual risk SEC accepted: a card behind letters (`REF4111…`); about 10 % of all-digit 13–19 codes refused.
+ */
+export function isCardNumberReference(reference: string): boolean {
+  const digits = reference.replace(REFERENCE_SEPARATORS, '');
+  return CARD_DIGITS.test(digits) && luhnValid(digits);
+}
+
+/**
+ * V-09 for a reference field: throws 422 CARD_NUMBER_DETECTED (errors[] points at the field, the value is never
+ * repeated, stored or logged). The caller has checked the field pattern first.
+ */
+export function assertNotCardNumberReference(
+  field: string,
+  reference: string | null | undefined,
+): void {
+  if (reference && isCardNumberReference(reference)) {
+    throw problem('CARD_NUMBER_DETECTED', {
+      errors: [{ field, code: 'CARD_NUMBER_DETECTED' }],
+    });
+  }
 }
 
 /** V-09: throws 422 CARD_NUMBER_DETECTED (errors[] points at the field). */
