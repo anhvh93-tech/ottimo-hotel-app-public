@@ -73,6 +73,26 @@ export function shiftDay(day: string, n: number): string {
 }
 
 /**
+ * V5-11 (OpenAPI 0.3.13 bổ sung 1 `earlyDeparture`; DOM rules-v1.0.5 2.1 (2); API `shared/business-day.ts`
+ * `minCalendarDate`): the earliest new departure date of Trả sớm (B16). From 00:00 to the rollover the night of
+ * business day D is a night the guest has already slept, so the floor is the CALENDAR day D + 1; from the rollover
+ * on it is the business day. `businessDay` is the server-anchored day (`useBusinessDay`); only the time of day comes
+ * from the device clock. A Desk estimate for the date it fills in – the server decides (409 `INVALID_TRANSITION` +
+ * `minNewDepartureDate`, which the dialog then follows).
+ * - 03:00 on 21/10, business day 20/10 → 21/10. 05:59 → 21/10. 06:00 (business day 21/10) → 21/10. 23:00 → 21/10.
+ */
+export function minCalendarDay(
+  businessDay: string,
+  timeZone = 'Asia/Ho_Chi_Minh',
+  now = new Date(),
+  rollover = DEFAULT_ROLLOVER,
+): string {
+  // Some ICU builds write midnight as 24:00 even with hour12 false.
+  const hhmm = timeHHmm(now, timeZone).replace(/^24:/, '00:');
+  return hhmm < rollover.slice(0, 5) ? shiftDay(businessDay, 1) : businessDay;
+}
+
+/**
  * BUG-R4-050 (ARC-on-v104-bug050-rule.md mục 1, FB-R4-ARC-FE-PR86-01): the instant of a check-out time `hhmm` typed
  * on H16, for the reads that take an instant (`createVietQr.checkoutAt`: the typed extra-night rate probe and the
  * check-out VietQR). B18 keeps sending `checkoutTime` only (BR-416) – never this instant.

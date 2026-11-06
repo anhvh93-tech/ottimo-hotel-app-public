@@ -13,7 +13,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
 import { useCatalog } from '../../app/catalog';
-import { daysBetween, timeHHmm, todayLocal } from '../../app/dates';
+import {
+  DEFAULT_ROLLOVER,
+  daysBetween,
+  minCalendarDay,
+  timeHHmm,
+  todayLocal,
+} from '../../app/dates';
 import { isVndStep, parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import { addDays, channelName, currentSegment, dayMonth } from '../../app/reservations';
@@ -40,6 +46,18 @@ const fieldOf = (f: string) => {
   const k = f.replace(/^body\./, '');
   return BOUND.find((b) => k === b || k.startsWith(`${b}.`));
 };
+
+/**
+ * V5-11 (OpenAPI 0.3.13 bổ sung 1 `earlyDeparture`, `Problem.minNewDepartureDate` / `useCheckout`; DOM rules-v1.0.5
+ * 2.1 (2)–(3)): what a 409 `INVALID_TRANSITION` of B16 between 00:00 and the rollover tells the desk to do instead –
+ * pick a date from `minNewDepartureDate`, or use Trả phòng (`useCheckout`). Any other 409 → `null` (as before).
+ */
+export function nightHint(e: unknown): { useCheckout: true } | { minDate: string } | null {
+  if (!isApiError(e) || e.code !== 'INVALID_TRANSITION') return null;
+  if (e.problem.useCheckout === true) return { useCheckout: true };
+  const min = e.problem.minNewDepartureDate;
+  return typeof min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(min) ? { minDate: min } : null;
+}
 
 /**
  * The lease end of a manual long stay: OpenAPI 0.3.12 `Reservation.manualLongStay.leaseEndDate` (LocalDate, read
@@ -69,16 +87,35 @@ export function EarlyDepartureDialog({
   const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const catalog = useCatalog(propertyId);
-  const { roles, screens, deviceTrusted } = useSession();
+  const { roles, screens, deviceTrusted, property } = useSession();
   const navigate = useNavigate();
   const ids = useId();
   const R = { propertyId, reservationId: r.id };
   const guest = r.booker?.displayName ?? '';
-  // BR-010 / UXD G1–G2: min = max(business day, arrival + 1), max = departure − 1.
+  // BR-010 / UXD G1–G2: min = max(floor, arrival + 1), max = departure − 1.
   const today = useBusinessDay();
   const roomNo = currentSegment(r.segments, today)?.roomNo ?? '';
   const channel = channelName(catalog.channels, r.channelCode, r.channelId);
-  const minDate = today > r.arrivalDate ? today : addDays(r.arrivalDate, 1);
+  // V5-11 (0.3.13 bổ sung 1; DOM rules-v1.0.5 2.1 (2)–(3); UXD copy-v1.0.5 9.13): the floor is the business day, but
+  // from 00:00 to the rollover ("W") the CALENDAR day – the night of the business day is already slept and B16 never
+  // drops it. The Desk fills in its estimate (`minCalendarDay`); a 409 `minNewDepartureDate` of the server replaces
+  // it (`serverMin`) for the help line and the client check. 409 `useCheckout`: B16 does not apply, Trả phòng does.
+  const rollover = property?.businessDayRollover ?? DEFAULT_ROLLOVER;
+  const [serverMin, setServerMin] = useState<string | null>(null);
+  const [serverCheckout, setServerCheckout] = useState(false);
+  const estimate = minCalendarDay(today, TZ, new Date(), rollover);
+  /** W: the business day is still yesterday (UXD 9.13: business day < calendar day, same rollover as `checkoutInstant`). */
+  const night = estimate > today;
+  const floor = serverMin ?? estimate;
+  const minDate = floor > r.arrivalDate ? floor : addDays(r.arrivalDate, 1);
+  /** Order of UXD 9.13 for a 409 `INVALID_TRANSITION` (preview and write): useCheckout → minNewDepartureDate → generic. */
+  const applyHint = (e: unknown) => {
+    const h = nightHint(e);
+    if (!h) return false;
+    if ('useCheckout' in h) setServerCheckout(true);
+    else setServerMin(h.minDate);
+    return true;
+  };
   // 0.3.9 bổ sung 1 (FB-R3-UXD-FE-A-06): the whole stay, child extensions included (BR-422); absent = old server.
   const stayEnd = r.stayDepartureDate ?? r.departureDate;
   // BUG-R4-014 (ORC phương án b): a monthly lease keeps B16 to end the stay on the Desk, but BR-428 (refund / fee /
@@ -91,8 +128,19 @@ export function EarlyDepartureDialog({
   const leaseEnd = leaseEndOf(r);
   const breaksLease = (leaving: string) => r.stayType === 'long' && leaving < leaseEnd;
   const maxDate = addDays(stayEnd, -1);
+  // UXD 9.13: in W a stay leaving on (or before) the calendar day has no date to choose – Trả phòng, said without a
+  // B16 call (instead of `none_possible`); the server says the same with 409 `useCheckout`.
+  const useCheckout = serverCheckout || (night && stayEnd <= estimate);
+  const checkoutShown = useRef(false);
+  useEffect(() => {
+    if (!useCheckout || checkoutShown.current) return;
+    checkoutShown.current = true;
+    // The booking is re-read (not B16): the drawer behind and the "Trả phòng ngay" button follow `allowedActions`.
+    onReload?.();
+  }, [useCheckout, onReload]);
   const [opened] = useState(nowLocal);
   const [newDate, setNewDate] = useState(minDate);
+  const dateRef = useRef<HTMLInputElement>(null);
   const lease = breaksLease(newDate);
   const [noticeDate, setNoticeDate] = useState(opened.date);
   const [noticeTime, setNoticeTime] = useState(opened.time);
@@ -119,7 +167,12 @@ export function EarlyDepartureDialog({
   const otaValue = parseVnd(otaText);
   const range = { min: date(minDate), max: date(maxDate) };
   const clientErrors: Record<string, string> = {};
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate) || newDate < minDate || newDate > maxDate)
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(newDate);
+  // UXD 9.13: before the server's floor → its sentence, with "Dùng {date}" under it (the date comes from the server).
+  const beforeServerMin = validDate && !!serverMin && newDate < serverMin;
+  if (beforeServerMin)
+    clientErrors.newDepartureDate = t('early_departure.err.min_date', { date: date(serverMin) });
+  else if (!validDate || newDate < minDate || newDate > maxDate)
     clientErrors.newDepartureDate = t('early_departure.err.date_range', range);
   if (!noticeLocal) clientErrors.noticeGivenAt = t('common.required');
   else {
@@ -146,7 +199,8 @@ export function EarlyDepartureDialog({
     ...(evidence ? { noticeEvidence: evidence } : {}),
   };
   const photoBusy = !!photo && !photo.id && !photo.error;
-  const sig = Object.keys(clientErrors).length || photoBusy ? '' : JSON.stringify(draft);
+  const sig =
+    useCheckout || Object.keys(clientErrors).length || photoBusy ? '' : JSON.stringify(draft);
   const debounced = useDebounced(sig, PREVIEW_DEBOUNCE_MS);
 
   // ---- the preview (dryRun) ----
@@ -181,7 +235,12 @@ export function EarlyDepartureDialog({
             otaMax: x.data.otaRetainedMaxVnd,
           }));
         },
-        (error: unknown) => !stale && setPreview({ sig: debounced, tick: at, error }),
+        (error: unknown) => {
+          if (stale) return;
+          setPreview({ sig: debounced, tick: at, error });
+          // V5-11: 409 with `minNewDepartureDate` / `useCheckout` – nothing was computed, follow the server.
+          applyHint(error);
+        },
       );
     return () => {
       stale = true;
@@ -216,6 +275,7 @@ export function EarlyDepartureDialog({
     previewError !== undefined &&
     !failed &&
     !unavailable &&
+    !nightHint(previewError) &&
     !(isApi && previewError.fieldErrors.some((fe) => fieldOf(fe.field)));
   const writeFieldErrors = isApiError(act.error)
     ? fieldText(t, act.error, money, asked.otaMax, range)
@@ -235,6 +295,16 @@ export function EarlyDepartureDialog({
   useEffect(() => {
     if (phase === 'preview') (was ? changedRef.current : questionRef.current)?.focus();
   }, [phase, was]);
+  // V5-11 (UXD 9.13): the "use Trả phòng" alert takes the focus (it comes after a click); a 409 on the write puts the
+  // focus on the date box, where its sentence is.
+  const checkoutRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (useCheckout) checkoutRef.current?.focus();
+  }, [useCheckout]);
+  const [focusDate, setFocusDate] = useState(0);
+  useEffect(() => {
+    if (focusDate && phase === 'input') dateRef.current?.focus();
+  }, [focusDate, phase]);
   // The new preview after a 409 asks for missing data again → back to step 1.
   useEffect(() => {
     if (phase === 'preview' && p && (needsOta || needsEvidence)) setPhase('input');
@@ -311,6 +381,15 @@ export function EarlyDepartureDialog({
     } else if (e.code === 'VALIDATION_FAILED') {
       setTold(false);
       setPhase('input');
+    } else if (nightHint(e)) {
+      // V5-11 (UXD 9.13): 00:00 passed between the preview and the click – nothing written. Like 412: back to step 1,
+      // the server's floor said under the date (focus on it), or the pointer to Trả phòng.
+      act.reset();
+      setWas(null);
+      setTold(false);
+      setPhase('input');
+      applyHint(e);
+      setFocusDate((n) => n + 1);
     } else setFatal(true);
   };
   const commitFailed =
@@ -338,9 +417,12 @@ export function EarlyDepartureDialog({
     const refunds = navItemByPath('/audit');
     const registration = navItemByPath('/registration');
     const leaving = result.reservation.departureDate;
-    const canCheckOut =
-      leaving === today &&
-      (result.reservation.allowedActions ?? []).some((a) => a.event === 'check_out');
+    // V5-11 (UXD 9.13): the server alone says whether Trả phòng is open now. Comparing `leaving` with the business
+    // day hid "Trả phòng ngay" (and said `later_hint`) from 00:00 to the rollover, when B16 leaves on the calendar
+    // day and B18 is already open (V5-10). B18 opens on the departure day only, so a later date has no `check_out`.
+    const canCheckOut = (result.reservation.allowedActions ?? []).some(
+      (a) => a.event === 'check_out',
+    );
     const nights = result.droppedNights ?? [];
     const leaseDone = breaksLease(leaving);
     const leaseOnly = leaseDone && !hasMoney(result);
@@ -383,6 +465,8 @@ export function EarlyDepartureDialog({
             {result.earlyDepartureFeeVnd > 0 ? (
               <li>
                 {t('early_departure.done_fee', { amount: money(result.earlyDepartureFeeVnd) })}
+                {/* UXD 9.13: the fee line carries the business day (BR-010) – read again now (05:59 → 06:00). */}
+                {night ? ` ${t('early_departure.fee_business_date', { date: date(today) })}` : null}
               </li>
             ) : null}
             {result.refundRequestId ? (
@@ -433,6 +517,40 @@ export function EarlyDepartureDialog({
             ? t('early_departure.checkout_now_hint')
             : t('early_departure.later_hint', { date: date(leaving) })}
         </p>
+      </Modal>
+    );
+  }
+
+  // ---- V5-11 (UXD 9.13): `useCheckout` – the stay leaves on the calendar day, Trả phòng applies, nothing written ----
+  if (useCheckout) {
+    const checkOutOpen = (r.allowedActions ?? []).some((a) => a.event === 'check_out');
+    return (
+      <Modal
+        open
+        size="lg"
+        title={t('early_departure.title', { room: roomNo, guest })}
+        onClose={onClose}
+        closeLabel={t('common.close')}
+        footer={
+          checkOutOpen ? (
+            <>
+              <Button onClick={onClose}>{t('common.close')}</Button>
+              <Button variant="pri" onClick={() => navigate(`/reservations/${r.id}/check-out`)}>
+                {t('early_departure.checkout_now')}
+              </Button>
+            </>
+          ) : (
+            <Button variant="pri" onClick={onClose}>
+              {t('common.close')}
+            </Button>
+          )
+        }
+      >
+        <div tabIndex={-1} ref={checkoutRef}>
+          <Alert tone="info" role="alert">
+            {t('early_departure.use_checkout')}
+          </Alert>
+        </div>
       </Modal>
     );
   }
@@ -541,7 +659,12 @@ export function EarlyDepartureDialog({
               {/* BUG-R4-014: a lease shows BR-313 instead of the BR-428 rows. Should the server ever put money on a
                   lease (not in v1.0 – manual lease nights carry 0), its figures stay visible: never confirm unseen money. */}
               {lease && !hasMoney(p) ? null : (
-                <Figures p={p} otaRetained={draft.otaRetainedVnd} was={was} />
+                <Figures
+                  p={p}
+                  otaRetained={draft.otaRetainedVnd}
+                  was={was}
+                  feeDate={night ? today : undefined}
+                />
               )}
               {lease ? <LeaseRule reservation={r} step="preview" /> : null}
               <Consequences p={p} newDate={newDate} />
@@ -582,6 +705,7 @@ export function EarlyDepartureDialog({
             {(fp) => (
               <input
                 {...fp}
+                ref={dateRef}
                 type="date"
                 className="input"
                 min={minDate}
@@ -591,6 +715,20 @@ export function EarlyDepartureDialog({
               />
             )}
           </Field>
+          {beforeServerMin && serverMin ? (
+            // UXD 9.13: only fills the box (the preview then runs by itself, as for any date); focus stays on it.
+            <div className="row">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setNewDate(serverMin);
+                  dateRef.current?.focus();
+                }}
+              >
+                {t('early_departure.use_min_date', { date: date(serverMin) })}
+              </Button>
+            </div>
+          ) : null}
           <fieldset className="fieldset-plain">
             <legend className="label-h">{t('early_departure.notice_at')}</legend>
             <div className="g-2 top">
@@ -802,12 +940,15 @@ function Figures({
   p,
   otaRetained,
   was,
+  feeDate,
 }: {
   p: EarlyDepartureResult;
   otaRetained?: number;
   was?: { refund: number; fee: number } | null;
+  /** V5-11 (UXD 9.13): 00:00 to the rollover – the business day the fee line is posted on (BR-010). */
+  feeDate?: string;
 }) {
-  const { t, vnd, money } = useI18n();
+  const { t, vnd, money, date } = useI18n();
   const nights = p.droppedNights ?? [];
   const policy = nights.some((n) => !n.ota);
   const ota = nights.some((n) => n.ota);
@@ -945,6 +1086,11 @@ function Figures({
             <td>
               {t('early_departure.row_fee')}
               {changed(p.earlyDepartureFeeVnd, was?.fee)}
+              {feeDate && p.earlyDepartureFeeVnd > 0 ? (
+                <div className="li-s">
+                  {t('early_departure.fee_business_date', { date: date(feeDate) })}
+                </div>
+              ) : null}
             </td>
             <td className="r num">{money(p.earlyDepartureFeeVnd)}</td>
           </tr>

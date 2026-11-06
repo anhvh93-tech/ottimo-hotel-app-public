@@ -852,6 +852,9 @@ export function createReservationMock(ctx: Ctx) {
       // 0.3.9 B16 (A17, FD+; bổ sung 1 mục 10.1): the primary booking, while max(today, arrival + 1) <
       // stayDepartureDate (the whole stay, child extensions included – BR-422). Like the real server (QA PR #22,
       // BUG-R4-014) a long stay gets it too: the Desk shows BR-313 instead of BR-428 for it.
+      // V5-11 (#114 `allowed-actions.ts earlyDepartureOpen`): "today" here is the CALENDAR day – the server's
+      // `minCalendarDate` (the business day, the calendar day from 00:00 to the rollover). A stay ending on the
+      // calendar day at 03:00 offers Trả phòng only.
       const from = addDays(r.arrivalDate, 1) > today() ? addDays(r.arrivalDate, 1) : today();
       if (!r.parentReservationId && from < stayDeparture(r))
         add('early_departure', 'B16', 'early-departure');
