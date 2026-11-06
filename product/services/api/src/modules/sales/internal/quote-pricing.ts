@@ -9,7 +9,8 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { type FieldError, problem } from '../../../shared/problem';
 import { type LocalDate, addDays } from '../../../shared/time';
-import { commissionPctFor, payeeTypeOf, type PayeeType } from '../../folio/public/folio.service';
+import { shortStayCommissionRate, type CommissionStatus } from '../../folio/public/commission-rate';
+import { payeeTypeOf, type PayeeType } from '../../folio/public/folio.service';
 import { ChannelsService } from '../../platform/public/channels';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
@@ -17,7 +18,6 @@ import {
   type CalendarRules,
   type ChannelScope,
   type LosTier,
-  type MinStayRule,
   type SpecialDate,
   type Weekday,
   applyNightDiscount,
@@ -31,6 +31,7 @@ import {
   nightDates,
   shortDeposit,
 } from '../../reservations/public/pricing';
+import { readMinStay } from '../../reservations/public/min-stay-read';
 import {
   type AvailabilityAnswer,
   RESERVATION_SALES_PORT,
@@ -74,7 +75,17 @@ export interface QuoteCalculation {
   losDiscountPct: number;
   totalVnd: number;
   depositVnd: number;
-  commission?: { ratePct: number; baseVnd: number; amountVnd: number; ruleRef: string };
+  /**
+   * 0.3.13 (V5-30): always present with `status`; `ratePct` / `baseVnd` / `amountVnd` only when `computed` (the
+   * code holds no rate – `rate_missing` until OWN types the table on the Desk).
+   */
+  commission: {
+    status: CommissionStatus;
+    ratePct?: number;
+    baseVnd?: number;
+    amountVnd?: number;
+    ruleRef: string;
+  };
   ottimoRemainingVnd: number;
   longStayAlternative?: { termMonths: number; totalVnd: number; mandatory: boolean };
   availability?: { available: boolean; alternatives: string[] };
@@ -198,8 +209,12 @@ export class QuotePricingService {
 
     // ── minimum stay of the arrival (BR-113) – needed to pick the room of a group quote (A-05) ──
     const specials = await p<SpecialDate[]>('special_dates');
-    const minStayRules = await p<MinStayRule[]>('min_stay');
-    const needNights = minStayNights(input.arrivalDate, group, minStayRules ?? [], specials ?? []);
+    // V5-25 (DOM 12.3, BUG-R5-003): a broken stored value never makes the quote fail – not a list → no rule, a
+    // broken rule is left out (logged once per value).
+    const minStayRules = readMinStay(await p<unknown>('min_stay'), shortMax, {
+      propertyId: tx.ctx.propertyId,
+    });
+    const needNights = minStayNights(input.arrivalDate, group, minStayRules, specials ?? []);
     const orphanAllowed = await p<boolean>('min_stay_orphan_night_exception');
     const short = nights < needNights;
 
@@ -356,19 +371,20 @@ export class QuotePricingService {
     const depositVnd = shortDeposit(roomTotalVnd, depositPct, depositUnit);
 
     // ── commission of the closer (BR-903: % × room total) ──
-    let commission: QuoteCalculation['commission'];
-    let commissionRatePct: number | null = null;
-    if (payeeType) {
-      commissionRatePct = commissionPctFor(await p('short_stay_commission_pct'), payeeType);
-      if (commissionRatePct !== null && commissionRatePct > 0) {
-        commission = {
-          ratePct: commissionRatePct,
-          baseVnd: roomTotalVnd,
-          amountVnd: applyPct(roomTotalVnd, commissionRatePct, 1),
-          ruleRef: 'BR-903',
-        };
-      }
-    }
+    // V5-30 (contract 0.3.13 1.10): the rate is the owner's parameter row only. No row / no rate for the payee →
+    // `rate_missing` without rate or amount (never 0, never a number from code); no payee → `not_applicable`.
+    const rate = await shortStayCommissionRate(this.params, tx, payeeType, today);
+    const commissionRatePct = rate.status === 'computed' ? rate.ratePct : null;
+    const commission: QuoteCalculation['commission'] =
+      rate.status === 'computed'
+        ? {
+            status: 'computed',
+            ratePct: rate.ratePct,
+            baseVnd: roomTotalVnd,
+            amountVnd: applyPct(roomTotalVnd, rate.ratePct, 1),
+            ruleRef: 'BR-903',
+          }
+        : { status: rate.status, ruleRef: 'BR-903' };
 
     // ── one-month alternative (BR-108) ──
     let longStayAlternative: QuoteCalculation['longStayAlternative'];
@@ -407,8 +423,8 @@ export class QuotePricingService {
       losDiscountPct: appliedPct,
       totalVnd,
       depositVnd,
-      ...(commission ? { commission } : {}),
-      ottimoRemainingVnd: totalVnd - (commission?.amountVnd ?? 0),
+      commission,
+      ottimoRemainingVnd: totalVnd - (commission.amountVnd ?? 0),
       ...(longStayAlternative ? { longStayAlternative } : {}),
       ...(availability
         ? {
@@ -430,7 +446,8 @@ export class QuotePricingService {
       extraGuestCount: extra.extraCount,
       departureDate,
       payeeType,
-      commissionRatePct: commission ? commissionRatePct : null,
+      // V5-30 (DOM 7.3): null when `rate_missing` – the booking then takes the rate effective on its sync day.
+      commissionRatePct,
       snapshot: {
         calculatedOn: today,
         roomNo: room.room_no,
@@ -452,7 +469,7 @@ export class QuotePricingService {
         depositPct,
         depositRounding: depositUnit,
         nightRounding: nightUnit,
-        commission: commission ? { payeeType, ...commission } : null,
+        commission: commission.status === 'not_applicable' ? null : { payeeType, ...commission },
         calc,
       },
     };

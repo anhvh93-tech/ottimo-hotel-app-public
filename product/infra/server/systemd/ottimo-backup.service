@@ -1,4 +1,4 @@
-# Daily encrypted backup (infra/server/bin/backup.sh) – installed by bootstrap-vps.sh.
+# Encrypted backup (infra/server/bin/backup.sh), twice a day (ottimo-backup.timer) – installed by bootstrap-vps.sh.
 [Unit]
 Description=OTTIMO encrypted backup (database, blobs, purge_journal)
 Wants=docker.service

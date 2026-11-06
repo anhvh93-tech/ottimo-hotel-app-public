@@ -13,6 +13,11 @@
  *   `category = state` and `action = reservation.checked_out` (index audit_event_property_category_idx); a
  *   `category` sent with it still applies (another category → nothing). The role scope does not change: OWN and MGR
  *   see every row (MGR the rows of another MGR too), FDL/FD their own (they cannot do this check-out).
+ * - 0.3.13 (V5-16, FB-R4-SEC-BE-A31-01) + bổ sung 1 (1.20, BE C0313-20): `action` – exact codes, several values,
+ *   at most 10, an unknown code gives an empty page (never 422); `removalsOnly` – a line voided or brought to 0;
+ *   `reductionsOnly` – every reduction (`after.amountVnd < before.amountVnd`), removals included. Both pin
+ *   `category = money` + `action = folio_line.adjusted` (index audit_event_property_category_idx) and leave out the
+ *   room money (room, extra_person, room_change_difference). The scope stays: FD/FDL see their own rows only.
  */
 import { Controller, Get, Inject, Query, Req } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -31,6 +36,51 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** V5-15 `overdueOnly`: the B18 audit action whose `after.overdue` marks the overdue path (checkout.service). */
 const CHECKED_OUT_ACTION = 'reservation.checked_out';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** 0.3.13 (V5-16) `action`: OpenAPI items pattern / maxLength, maxItems. */
+const ACTION_CODE = /^[a-z][a-z0-9_.]*$/;
+const ACTION_MAX_LENGTH = 60;
+export const AUDIT_MAX_ACTIONS = 10;
+/** 0.3.13 V5-16 + bổ sung 1 (BR-438): the one audit action of a line correction (adjustFolioLine). */
+export const LINE_REDUCTION_ACTION = 'folio_line.adjusted';
+/** Room money – a night, its extra person, a room-change difference – is no "phát sinh" (contract 1.5, 1.20). */
+export const ROOM_MONEY_CATEGORIES: readonly string[] = [
+  'room',
+  'extra_person',
+  'room_change_difference',
+];
+
+/** A boolean query parameter: absent / `false` → false, `true` → true, anything else → 422 (wrong type). */
+function boolQuery(field: string, raw: unknown): boolean {
+  if (raw === undefined || raw === '' || raw === 'false') return false;
+  if (raw === 'true') return true;
+  throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'VALIDATION_FAILED' }] });
+}
+
+/** `action` (style form, explode): one value or several → distinct codes; > 10, too long, bad pattern → 422. */
+function actionQuery(raw: unknown): string[] {
+  if (raw === undefined) return [];
+  const list: unknown[] = Array.isArray(raw) ? raw : [raw];
+  if (list.length > AUDIT_MAX_ACTIONS) {
+    throw problem('VALIDATION_FAILED', {
+      errors: [{ field: 'action', code: 'VALUE_OUT_OF_RANGE' }],
+    });
+  }
+  for (const a of list) {
+    if (typeof a === 'string' && a.length > ACTION_MAX_LENGTH) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'action', code: 'TOO_LONG' }] });
+    }
+    if (typeof a !== 'string' || !ACTION_CODE.test(a)) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'action', code: 'VALIDATION_FAILED' }],
+      });
+    }
+  }
+  return [...new Set(list as string[])];
+}
+
+/** `(before|after).amountVnd` as a number – a row without a numeric amount never matches (no cast error). */
+const amountOf = (side: 'before' | 'after') =>
+  `(CASE WHEN jsonb_typeof(e.${side}->'amountVnd') = 'number' THEN (e.${side}->>'amountVnd')::numeric END)`;
 
 interface Row {
   id: number;
@@ -79,6 +129,9 @@ export class AuditLogController {
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
     @Query('overdueOnly') overdueOnly?: string,
+    @Query('action') actionRaw?: string | string[],
+    @Query('removalsOnly') removalsOnlyRaw?: string,
+    @Query('reductionsOnly') reductionsOnlyRaw?: string,
   ) {
     const p = req.ottimoAuth?.principal;
     if (!p?.propertyId) throw problem('UNAUTHENTICATED');
@@ -96,6 +149,9 @@ export class AuditLogController {
         errors: [{ field: 'actorUserId', code: 'VALIDATION_FAILED' }],
       });
     }
+    const actions = actionQuery(actionRaw);
+    const removalsOnly = boolQuery('removalsOnly', removalsOnlyRaw);
+    const reductionsOnly = boolQuery('reductionsOnly', reductionsOnlyRaw);
     const n = parseLimit(limit, 50);
     const c = decodeCursor(cursor, 2);
     const full = p.roles.includes('owner') || p.roles.includes('manager');
@@ -150,6 +206,16 @@ export class AuditLogController {
             `e.action = ${ph(CHECKED_OUT_ACTION)}`,
             `e.after ? 'overdue'`,
           );
+        }
+        if (actions.length) where.push(`e.action = ANY(${ph(actions)}::text[])`);
+        if (removalsOnly || reductionsOnly) {
+          // BE C0313-20: pinned whatever the client sent (a `category` / `action` that differs → empty page).
+          where.push(`e.category = ${ph('money')}`, `e.action = ${ph(LINE_REDUCTION_ACTION)}`);
+          where.push(
+            `COALESCE(e.after->>'category', '') <> ALL(${ph([...ROOM_MONEY_CATEGORIES])}::text[])`,
+          );
+          if (removalsOnly) where.push(`${amountOf('after')} = 0`);
+          if (reductionsOnly) where.push(`${amountOf('after')} < ${amountOf('before')}`);
         }
         if (c) {
           where.push(
