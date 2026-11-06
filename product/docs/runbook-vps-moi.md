@@ -33,7 +33,7 @@ r1 (06/11): sửa theo ARC `rounds/round-05/reviews/ARC-on-ops-prs-92-93-95.md` 
 |---|---|---|---|---|
 | 1 | Hạ TTL DNS xuống 300 giây (nếu còn vào được nhà đăng ký) | Nhà đăng ký tên miền | INV | – |
 | 2 | **Host key mới, so ngoài băng** trước lần SSH đầu (mọi bước sau, kể cả KEK ở bước 9, đi qua kết nối này) | Mục 1.1 | INV (console web) + ORC (Mac) | 8 ký tự trùng |
-| 3 | Gói `infra/` từ **tag đang chạy**, không lấy từ `main` | `git archive` như runbook v1.0.5 P2b bước 1, chép bằng `scp` | ORC | Băm trên Mac trùng băm trên VPS |
+| 3 | Gói `infra/` từ **tag đang chạy**, không lấy từ `main` | `git archive` như README `infra/server` 13.1 bước 1 (ref = tag đang chạy), chép bằng `scp` | ORC | Băm trên Mac trùng băm trên VPS |
 | 4 | Bootstrap **production trước**, rồi staging (staging để sau cũng được) | README 12 dòng 1: `bootstrap-vps.sh --env production --deploy-key <ottimo_ops.pub> --ci-key <khóa CI mới> --backup-pull-key <khóa kéo mới> --admin-user ottimo-admin`. Bootstrap cài cả drop-in journald và `state/journald_since` | ORC | `sshd -T` không cho mật khẩu; firewall chỉ mở 22/80/443 |
 | 5 | **Ngay sau đó, gỡ dòng `--deploy-key`** khỏi `authorized_keys` của `ottimo`, và dọn user mặc định của ảnh | README `infra/server` **mục 3.1** (bước 1–4; số `CI`/`PULL` tính theo số stack đã bootstrap). Rồi đếm người đọc log như runbook v1.0.5 P2 mục 5: ảnh của hãng hay có sẵn user (ví dụ `ubuntu`) trong `sudo`/`adm`. Gỡ user đó (`sudo -n gpasswd -d <user> sudo`, `… adm`) hoặc thêm vào `LOG_READER_USERS`/`SUDO_USERS` khi SEC đồng ý | ORC | `NGUOI: 1` trước, `TONG SAU` = `CI + PULL`; mọi nhóm `NGOAI DANH SACH: 0` |
 | 6 | Khóa CI và khóa kéo **mới**, không dùng lại khóa cũ | INV sửa secret GitHub `PRODUCTION_SSH_KEY`, `PRODUCTION_SSH_KNOWN_HOSTS` (dòng khóa **đã so ở bước 2**), `PRODUCTION_SSH_HOST` (staging: `STAGING_SSH_*`) | INV | Lượt kéo đầu `pull-backups.sh` thoát 0 (bước 18) |
@@ -47,7 +47,7 @@ r1 (06/11): sửa theo ARC `rounds/round-05/reviews/ARC-on-ops-prs-92-93-95.md` 
 | 14 | **DNS: bản ghi A trỏ về `<IP-mới>`, rồi chờ hết TTL** (300 giây từ bước 1). Máy cũ đã mất, nên trỏ sớm không làm khách mất gì thêm. Chưa deploy thì edge chỉ trả lỗi, không lộ dữ liệu (ARC FB-R5-ARC-OPS-03) | INV, `hosting-plan.md` mục 10. ORC kiểm từ Mac bằng lệnh mục 1.5 | INV, ORC kiểm | Mỗi tên `1` |
 | 15 | Deploy đúng tag đang chạy, kèm digest. **Chỉ sau bước 14**: smoke của `deploy.sh` kiểm chứng chỉ TLS thật (`SMOKE_INSECURE` mặc định 0), mà Caddy chỉ xin được chứng chỉ khi DNS đã trỏ về máy mới | `deploy.sh <tag> --api-digest … --web-digest …` (migrate không làm gì vì DB đã đủ). Landing: `deploy-landing.sh <tag landing> --digest …` | ORC | `deploy <tag>: ok` |
 | 16 | Kiểm: số đếm, trigger, `ops-check` | `backup-counts.sql` qua `SQLRO`; INV giải mã `counts-<stamp>` trên Mac (chỉ có số) và so. `ops-check` đủ mục bằng lệnh mục 1.6 (có nhóm `systemd-journal`), gồm `db_triggers`, `sshkeys`, `pricegap`, `journal`, `tls` | ORC; INV phần `counts` | Mọi số trùng, `EXIT: 0` |
-| 17 | Bật timer sao lưu và ops-check | README 12 dòng "Timer production"; runbook v1.0.5 W1 (`TIMER SAO LUU TREN MAY` = số stack) | ORC | `list-timers` thấy NEXT đúng |
+| 17 | Bật timer sao lưu và ops-check | README 12 dòng "Timer production"; `systemctl list-timers 'ottimo-backup*' --all` có đúng một timer sao lưu cho mỗi stack đã dựng | ORC | `list-timers` thấy NEXT đúng |
 | 18 | Chạy một lượt sao lưu tay, kéo về Mac | `backup.sh`; `pull-backups.sh` | ORC | `OK: <n> encrypted files`, lượt kéo thoát 0 |
 | 19 | Cài lại bí mật tích hợp: `--set-booking-chat`, Healthchecks, cổng thanh toán | README 13.2; `integrations.md`. Lời nhắc ẩn có sẵn, không gõ vào tham số | INV | Tin thử tới đúng phòng |
 
@@ -105,8 +105,8 @@ Cùng lệnh với runbook v1.0.5 W7 (unit ops-check đọc journal qua `Supplem
 ssh -i ~/.ssh/ottimo_ops -o BatchMode=yes ottimo-admin@<IP-mới> 'cd / && sudo -n systemd-run --quiet --wait --pipe --uid=ottimo --gid=ottimo -p SupplementaryGroups=systemd-journal -E OTTIMO_HOME=/opt/ottimo-prod /opt/ottimo-prod/infra/server/bin/ops-check.sh; echo "EXIT: $?"'
 ```
 - `tls` chỉ được coi là đạt sau khi DNS đã đổi (bước 14) và Caddy đã có chứng chỉ thật.
-- `journal` FAIL vì một nhóm có người ngoài danh sách (thường là user mặc định của ảnh): xử lý như bước 5 (runbook v1.0.5 P2 mục 5): gỡ user, hoặc thêm vào danh sách khi SEC đồng ý.
-- `journal` WARN `state/journald_since missing`: bootstrap chưa ghi tệp (gói cũ); ghi ngày hôm nay như runbook v1.0.5 W6 bước 2.
+- `journal` FAIL vì một nhóm có người ngoài danh sách (thường là user mặc định của ảnh): xử lý như bước 5 (README `infra/server` 3.1): gỡ user, hoặc thêm vào `LOG_READER_USERS` / `SUDO_USERS` khi SEC đồng ý.
+- `journal` WARN `state/journald_since missing`: bootstrap chưa ghi tệp (gói cũ); ghi ngày hôm nay: `ssh … 'cd / && sudo -n -u ottimo sh -c '\''[ -s /opt/ottimo-prod/state/journald_since ] || date +%F > /opt/ottimo-prod/state/journald_since; cat /opt/ottimo-prod/state/journald_since'\'''`.
 - `backup` FAIL là đúng cho tới bước 18.
 
 ## 2. Mất gì dù làm đúng
