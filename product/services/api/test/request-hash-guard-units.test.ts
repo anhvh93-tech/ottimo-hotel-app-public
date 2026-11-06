@@ -10,6 +10,8 @@
  *   from requestHash, and never a replay at the guard (false, no lookup, no throw) – never a RangeError / 500.
  */
 import 'reflect-metadata';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AuthGuard } from '../src/shared/http/auth.guard';
 import {
@@ -159,6 +161,36 @@ describe('SEC FB-R5-SEC-BE-123-01 – body depth', () => {
     for (const v of [null, undefined, 'x', 0, {}, []]) expect(bodyTooDeep(v)).toBe(false);
     // Wide is fine, only depth counts.
     expect(bodyTooDeep({ list: Array.from({ length: 5000 }, (_, i) => ({ i })) })).toBe(false);
+  });
+
+  it('SEC 154-01: canonicalJson itself refuses deeper than the limit (422, also 20.000 levels – a direct caller is covered); at the limit → the JSON', () => {
+    for (const body of [nested(33), nested(20_000)]) {
+      expect(() => canonicalJson(body)).toThrow(
+        expect.objectContaining({ code: 'VALIDATION_FAILED', status: 422 }),
+      );
+    }
+    expect(canonicalJson(nested(32))).toBe(`${'{"a":'.repeat(32)}1${'}'.repeat(32)}`);
+    expect(canonicalJson({ b: 1, a: [2, { d: null, c: undefined }] })).toBe(
+      '{"a":[2,{"d":null}],"b":1}',
+    );
+  });
+
+  it('SEC 154-01 (3): canonicalJson is called directly only by the reviewed callers in src', () => {
+    const SRC = join(__dirname, '..', 'src');
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const p = join(dir, name);
+        return statSync(p).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
+      });
+    const callers = walk(SRC)
+      .filter((f) => /\bcanonicalJson\(/.test(readFileSync(f, 'utf8')))
+      .map((f) => relative(SRC, f).split(sep).join('/'))
+      .sort();
+    // A new direct caller is fine (the depth check is inside) – but it is added here on purpose, after a review.
+    expect(callers).toEqual([
+      'modules/registration/internal/registration.controller.ts',
+      'shared/http/request-hash.ts',
+    ]);
   });
 
   it('requestHash: deeper than the limit → 422 VALIDATION_FAILED, also 20.000 levels (no RangeError); at the limit → a hash', () => {
