@@ -336,6 +336,8 @@ describe('V5-10 allowedActions.check_out (BUG-R4-036; BE C0313-09)', () => {
 });
 
 describe('SEC A1B-01 Fields.text – control and invisible formatting characters removed (D12c)', () => {
+  const escape = (s: string) =>
+    [...s].map((ch) => `U+${ch.codePointAt(0)!.toString(16).toUpperCase()}`).join(' ');
   const read = (v: unknown, opts: { required?: boolean; min?: number } = {}) => {
     const f = new Fields({ x: v });
     return { value: f.text('x', 500, opts), errors: f.errors };
@@ -360,6 +362,46 @@ describe('SEC A1B-01 Fields.text – control and invisible formatting characters
     expect(read(hidden)).toEqual({ value: undefined, errors: [] });
     // The minimum length counts the visible text only.
     expect(read('a\u200Bb', { min: 3 }).errors).toEqual([{ field: 'x', code: 'REASON_REQUIRED' }]);
+  });
+
+  it('SEC 127-01: every Cf / default-ignorable character and lone surrogates too; scripts and tone marks kept', () => {
+    // A required reason of invisible characters only = absent.
+    for (const hidden of [
+      '\u2060\u2060\u2060',
+      '\u{E0001}\u{E0054}\u{E0045}\u{E0058}\u{E0054}',
+      '\u00AD\u00AD\u00AD',
+      '\u061C\u061C\u061C',
+      '\uFE0F\uFE0F\uFE0F',
+      '\u3164\u115F\uFFA0',
+      '\u2062\u206A\u180E',
+      '\uFFF9\u034F\u{1D173}',
+      '\uDC00\uDC00\uD800',
+    ]) {
+      expect(read(hidden, { required: true, min: 3 }), escape(hidden)).toEqual({
+        value: undefined,
+        errors: [{ field: 'x', code: 'REASON_REQUIRED' }],
+      });
+    }
+    // "ok" + a sentence in tag characters no longer passes min 3.
+    expect(read('ok\u{E0068}\u{E0069}\u{E0064}\u{E0065}', { min: 3 }).errors).toEqual([
+      { field: 'x', code: 'REASON_REQUIRED' },
+    ]);
+    // A lone surrogate inside text is dropped (PostgreSQL refuses it in jsonb – 22P02).
+    expect(read('Khách đi\uD800 sớm\uDC00').value).toBe('Khách đi sớm');
+    // Kept: Vietnamese in NFC and NFD (combining tone marks), Korean, Chinese, Russian, Arabic, a plain emoji.
+    for (const text of [
+      'Nguy\u1EC5n',
+      'Nguye\u0302\u0303n',
+      '\uC548\uB155\uD558\uC138\uC694',
+      '\u4F60\u597D',
+      '\u041F\u0440\u0438\u0432\u0435\u0442',
+      '\u0645\u0631\u062D\u0628\u0627',
+      '\u{1F600}',
+    ]) {
+      expect(read(text).value, escape(text)).toBe(text);
+    }
+    // VS16 after a symbol is a variation selector – dropped, the symbol stays.
+    expect(read('\u2764\uFE0F').value).toBe('\u2764');
   });
 
   it('unchanged otherwise: non-string → VALIDATION_FAILED, a card number → CARD_NUMBER_DETECTED (also behind a zero-width join)', () => {
