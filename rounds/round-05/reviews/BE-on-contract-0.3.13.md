@@ -28,6 +28,8 @@ Thẻ SEC đã nêu thì BE không lặp lại, chỉ dẫn số (SEC-on-contrac
 
 ## 0. Kết luận: **DUYỆT CÓ ĐIỀU KIỆN**
 
+> Đọc lại 06/11 khuya trên `2cb549cc`: xem **mục 7**. 21/21 thẻ đóng; kết luận gộp vẫn là DUYỆT CÓ ĐIỀU KIỆN, điều kiện mới ở 7.0.
+
 0 Blocker · 6 Major · 12 Minor · 3 Suggestion.
 
 Nhận định chung:
@@ -530,3 +532,179 @@ Tổng:
 - Phần danh sách Hôm nay (thẻ 02) sửa ở module `reporting`, không đổi kiểu `allowedActions`.
 - Không cần ESC: mọi điểm thuộc quyền ARC (chữ hợp đồng) hoặc DOM (luật nghiệp vụ), đã có trong mục chờ DOM.
 - Hôm nay là thứ Sáu 06/11/2026. Agent làm cả cuối tuần, nên 09–14/11 tính là 6 ngày làm việc.
+
+---
+
+## 7. Đọc lại 06/11 khuya (PR #94 @ `2cb549cc`)
+
+Round 5 · bước **Review** (đọc lại) · BE.
+
+BE đọc:
+- `gh pr diff 94`, `gh pr checks 94`;
+- trên nhánh: `rounds/round-05/responses/ARC-on-contract-0.3.13-reviews.md`; `rounds/round-05/outputs/ARC/contract-0.3.13.md` mục 0, 1.14–1.24, mục 2, mục 6 (G9–G15); diff `openapi.yaml` từ `f4c40d9b` (lượt đầu) tới `2cb549cc`.
+
+BE đối chiếu với mã `main`:
+- `shared/http/auth.guard.ts`;
+- `reservations/internal/allowed-actions.ts` 115, `reporting/internal/stay-actions.ts` `checkOutAction`, `reporting/internal/dashboard.service.ts` 86–125, `tonight-kpi.ts` 91;
+- `reservations/public/pricing.service.ts` 255–300;
+- `payments/audit-entities.ts`, `payments/internal/refunds.service.ts` 740;
+- `admin/production-defaults.ts` 238–248, 486–520;
+- migration 0011 (`payment`), 0040 (`payment_approval_request_check`), 0030 (`attention_event`), 0085.
+
+Không sửa mã, không gọi staging hay production. Tệp này không có mật khẩu Wi-Fi, tỷ lệ hoa hồng, bí mật hay dữ liệu khách.
+
+### 7.0 Kết luận: **DUYỆT CÓ ĐIỀU KIỆN** để gộp PR #94
+
+- **21/21 thẻ C0313 đóng** (7.2). Ý `If-Match` của thẻ 21 (ARC gọi là ý 3): **BE chấp nhận lý do ARC từ chối**.
+- Mã sinh khớp `openapi.yaml`, typecheck đạt (7.1).
+- 2 thẻ mới, **không chặn gộp**:
+  - C0313-22 (Minor): nguồn dữ liệu của `Payment.afterClosure`, `refundRequestId`; allowlist audit `payment`, `deposit_notice`;
+  - C0313-23 (Suggestion, gửi ARC và SEC): nhánh so mật khẩu người gọi ở `setPropertyWifi`.
+- **Điều kiện gộp duy nhất – delta ARC sắp đẩy** (G9 = giá tháng ÷ 5 theo DOM `1568e523`, bỏ các dòng "chờ DOM"). BE chấp nhận delta này **mà không đọc lại**, khi cả bốn ý sau đúng:
+  1. chỉ đổi tệp `.md` và chữ `description`/changelog trong `openapi.yaml`;
+  2. tệp sinh (`openapi-meta.ts`, `openapi-schemas.ts`, `api-client/src/generated/openapi.ts`, `rbac-cases.*`, `traceability.md`) không đổi, hoặc chỉ đổi ở chú thích sinh từ `description`;
+  3. không đổi schema, `enum`, `required`, `x-roles`, `x-write-roles`, `x-rbac`, `x-scope`, bảng mã lỗi;
+  4. CI trên HEAD mới xanh như trên `2cb549cc`.
+  Delta đổi gì ngoài bốn ý trên thì ORC hỏi lại BE.
+- Lịch làn phải chỉnh để kịp 14/11 (7.4). Đây là việc ORC giao làn sau khi gộp, không phải điều kiện gộp.
+
+### 7.1 Kiểm cục bộ – worktree `git worktree add --detach … 2cb549cc` trong scratchpad, đã gỡ sau khi chạy
+
+| Lệnh (trong `product/`) | Kết quả |
+|---|---|
+| `pnpm install --frozen-lockfile --offline` | Đạt |
+| `services/api`: `node scripts/gen-openapi-meta.mjs --check` | `openapi-meta.ts and openapi-schemas.ts are up to date`, exit 0 |
+| `python3 tests/tools/gen_rbac_cases.py --check` | `OK – rbac-cases up to date`. Có 210 operation, 2310 ca, 21 `fieldCases` (6 × 403, 15 × pass), `rbac mismatch []` |
+| `python3 tests/tools/gen_traceability.py --strict --out <scratchpad>` | exit 0; 0 operation lệch; 1 thuộc tính lệch (`email` D27, đã có trên `main`). Bản sinh **trùng byte** với `docs/qa/traceability.md` đã commit |
+| `pnpm --filter @ottimo/api-client gen` | `openapi.ts up to date`, không tệp nào đổi |
+| `npx turbo run typecheck --force --no-cache` | 13/13 đạt (0 cache) |
+| `services/api`: `npx vitest run test/contract.test.ts` | 5/5 đạt |
+| `gh pr checks 94` | 9 job đạt (contract, Redocly, unit/build, E2E smoke, gitleaks, shellcheck, landing, confidential paths, no test endpoints); 3 job deploy bỏ qua |
+
+Gộp PR-0 **không đổi hành vi máy chủ đang chạy**:
+- meta có thêm 3 operation chưa có route (`getPropertyWifi`, `setPropertyWifi`, `getManagerPerformanceBonus`), nên gọi vào trả 404 tới khi BE làm;
+- `writeRoles` chưa có mã nào đọc (guard ở PR-S1);
+- schema serializer của `createRoom` 201 chuyển từ `$ref Room` sang đối tượng gộp. Đã xem bản sinh: đủ thuộc tính và `x-visible-to` của `Room`, thêm `warnings`.
+
+Lưu ý cho FE: thân `checkOut` bỏ `required: [checkoutTime]` nên kiểu sinh cho phép vắng. Máy chủ vẫn bắt buộc trường này tới khi PR-A1b gộp, nên Desk chưa được bỏ `checkoutTime`.
+
+### 7.2 Trạng thái thẻ C0313-01…21
+
+| Thẻ | Mức | Trạng thái | Bằng chứng trên nhánh / ghi chú |
+|---|---|---|---|
+| 01 | Major | **Đóng** | `checkOut` "Quy đổi giờ trả": QR `check_out` và `amountDueNow` dùng `resolveCheckoutAt`, sau giờ server + dung sai → 422 `TIME_AFTER_ACTION`; `CheckoutSummary.checkoutAtAfterNow`; T10-9 |
+| 02 | Major | **Đóng** | `getArrivalsDepartures.date`, `departuresDate`; T10-10. `reporting/internal/stay-actions.ts` `checkOutAction` đã có `calendarDate` và cửa sổ sau nửa đêm, nên PR-D1 chỉ đổi tập dòng. Lưu ý: `departureRows` còn dùng ở `getTonightKpi` (`tonight-kpi.ts` 91), giữ theo ngày nghiệp vụ ở đó |
+| 03 | Major | **Đóng** | `checkOut` "thời điểm ghi"; contract 1.18. Bảng test chưa có ca cho giá trị ghi: BE tự thêm trong PR-A1b (`actual_checkout_at` đơn + đăng ký, `stay_ended_at` = `checkoutAt`; `post_checkout_window_until` = giờ ghi + cửa sổ) |
+| 04 | Major | **Đóng** | `listAuditEvents.removalsOnly` bổ sung 1: dòng gốc, `rootLineId`, `rootLineManual`, allowlist 4 khóa; BR-438 xét dòng gốc (T16-9) |
+| 05 | Major | **Đóng** | `QuoteInput.nightlyRates`: phủ mọi đêm, giá lịch trước BR-107/BR-111, sàn–trần, `PricingService.price`, snapshot `nights[].source`; T14-7. Ghi chú cho test: B1 (`pricing.service.ts` 258–290) dùng `amountVnd` client cả với đêm `edited = false`, còn `edited` vắng thì coi là sửa. Báo giá thì lấy giá máy chủ cho mọi đêm `edited` ≠ `true`. Vì vậy T14-7 phải gửi `edited` tường minh cho mọi đêm, và đêm không sửa mang đúng giá lịch, thì oracle mới bằng nhau |
+| 06 | Major | **Đóng** | `setParameter` bổ sung 1: `min_stay` theo DOM 12.1, kiểm ngược `short_stay_max_nights`, bộ đọc phòng thủ. Giá trị `production-defaults.ts` 241–247 qua được luật mới (có `channels: 'all'`, mỗi luật áp ít nhất một ngày), nên bộ đọc phòng thủ không bỏ luật nào đang chạy. PR #96 đang làm |
+| 07 | Minor | **Đóng** | Bỏ câu "chỉ đổi kết quả…"; ứng viên thứ ba (ngày đi − 1, `t`) giữ hành vi hiện có; `checkoutAt` gửi thẳng ngày đi − 1 cùng điều kiện; T10-8; G10. BE chấp nhận thay cho 422 `DATE_INVALID` tạm, vì DOM V5-11 cùng hướng. Giờ gõ rất sớm vẫn bị chặn bởi `TIME_NOTE_REQUIRED` |
+| 08 | Minor | **Đóng** | `createVietQr.checkoutAt` vắng → quy đổi như `checkOut`; Desk chỉ chuyển tiếp tóm tắt có gửi giờ |
+| 09 | Minor | **Đóng** | Ngày đi hiệu lực cho `check_out`, cửa sổ sau nửa đêm, `overdue`; `ActionContext` thêm ngày lịch; T15-15. Cài ở PR-A1a (xem 7.5) |
+| 10 | Minor | **Đóng** | Đủ 5 ý: thứ tự Idempotency → tải đơn không khóa → vai/trần → thân; `checkoutTime` tùy chọn khi có `checkoutAt`; dung sai; QR FD/FDL 403 trước 409; cổng minibar ở PR-A1b; allowlist `reservation` có `overdue` |
+| 11 | Minor | **Đóng** | `lockReason` + `invoice_issued`; thu nợ trên folio mở → 409 `INVALID_TRANSITION`; `folioLocked(reason)` |
+| 12 | Minor | **Đóng** | Bảng trường mở rộng: `min`, `max` ở mọi nơi (gồm `_WARNING`, B13, báo giá); B13 thêm `dates[]`, giữ `date`; T22-3 |
+| 13 | Minor | **Đóng** | `depositUnverifiedVnd` = min(`depositPaidVnd`, Σ chờ đối soát); T18-4 |
+| 14 | Minor | **Đóng** | `OpenRefund.reasonCode` liệt kê đủ (thêm `overbooking_relocated`, `payment_after_cancel`); T13-5 sửa ở 1.24. Bảng 1.2 dòng T13-5 còn chữ cũ, nhưng luật "1.16–1.24 thắng" đã che |
+| 15 | Minor | **Đóng** | Changelog sửa; `createRoom` bổ sung 1 bootstrap `isSellable = false`; T1A-5; checklist ở 1.24. Còn một việc cho ORC: plan ĐK-6 (dòng 228) ghi `night_from_month_divisor` "còn dùng ở đường API". Sau PR-C1 câu này sai; DOM/BA sửa thành "ngừng dùng từ v1.0.5" |
+| 16 | Minor | **Đóng** | `getPropertyWifi` đọc như `wifiOf`; `setPropertyWifi`: ASCII 0x20–0x7E, `WHERE id`, thực thể audit `property`; T58-7, T58-8 |
+| 17 | Minor | **Đóng** | `listParameters.missing` lọc vai; bắt `ParameterMissingError`; `long_stay_commission` ở PR-M. Lưu ý cho PR-H1: bỏ `lease_terms[].commission*` thì nhánh đọc hoa hồng thuê dài phải ra `rate_missing` (không 0, không NaN). Nếu PR-M trượt khỏi v1.0.5, `missing[]` không báo hoa hồng thuê dài. Production đã có giá trị nên không đổi; chỉ seed và bootstrap mới bị ảnh hưởng. QA ghi vào ca T30-5 |
+| 18 | Minor | **Đóng** | `weekend_nights` = `Weekday[]`; `erd.md` 9.1, 9.1a đã sửa |
+| 19 | Suggestion | **Đóng** | `cancelScheduledRoomListPrice`: SQLSTATE `23514` + tiền tố câu, trong `SAVEPOINT`. Ca "mã cho qua, trigger chặn" là T44-3 (staging); BE thêm bản integration với đồng hồ giả |
+| 20 | Suggestion | **Đóng** | Ghim `category`, `action`; loại `room`, `extra_person`, `room_change_difference`. `late_fee_as_night` không bị loại – chấp nhận, DOM chưa đòi |
+| 21 | Suggestion | **Đóng** | PUT trả `passwordSet`, không `password`; `no-store` cả PUT. **Ý `If-Match`: chấp nhận từ chối.** Lý do: một mạng chung, chỉ OWN/MGR sửa, rất hiếm; PUT ghi đè trọn nên lặp lại vô hại; audit giữ `before.ssid`. Vế "buộc Desk đọc lại trước mỗi lần lưu" là lý do yếu, vì Desk vốn GET trước khi mở form. Hai lý do đầu đã đủ, và thẻ gốc chỉ là Suggestion |
+
+### 7.3 Thẻ mới
+
+#### FB-R5-BE-ARC-C0313-22
+- Mức độ: Minor
+- Vị trí:
+  - `recordPayment` bổ sung 1 (A) V5-48, (B) 5B-1; `Payment.afterClosure`, `Payment.refundRequestId`;
+  - `createDepositNotice` (audit `afterClosure`), `listAuditEvents.afterClosureOnly`;
+  - mã `payments/audit-entities.ts`; migration 0011 (`payment`), 0040 (`payment_approval_request_check`).
+- Vấn đề:
+  1. Hợp đồng ghi "không migration", nhưng hai trường đọc mới không có chỗ lưu và cũng chưa nói cách tính:
+     - bảng `payment` không có cột cờ hay jsonb dùng được: `qr_context` chỉ dành cho VietQR;
+     - CHECK 0040 buộc `payment.approval_request_id IS NULL` khi `type <> 'refund'`, nên không dùng cột này để nối khoản thu với yêu cầu hoàn `payment_after_cancel` được;
+     - yêu cầu hoàn trỏ `target_type = 'reservation'` (`refunds.service.ts` 397), không trỏ khoản thu.
+     Vì hợp đồng không nói, hai BE sẽ làm khác nhau, hoặc thêm migration.
+  2. Allowlist audit thiếu khóa mới:
+     - `payment` hiện không có `afterClosure`, `reservationStatus`;
+     - `deposit_notice` chỉ có `amountVnd`, `status`.
+     Các khóa này bị bỏ âm thầm (SR-AUD-03). Khi đó `afterClosureOnly` (SEC S6) trả rỗng mà test chỉ kiểm phản hồi API vẫn xanh. Đây cùng kiểu lỗi thẻ 04 và 10. Hợp đồng đã ghi allowlist cho `folio_line` và `reservation`, nhưng chưa ghi cho `payment` và `deposit_notice`.
+- Vì sao quan trọng: tới v1.0.6, bộ lọc tuần "Tiền về sau khi đơn đã đóng" là kiểm soát phát hiện duy nhất của OWN cho đường này.
+- Đề xuất sửa (đều là chữ, không đổi kiểu sinh):
+  1. `afterClosure` tính lúc đọc: đơn chính của folio đang `cancelled`/`no_show`, và `payment.created_at` ≥ `cancelled_at`/`no_show_marked_at`. Ghi rõ: nếu đơn được khôi phục sau đó (B12 no-show, 5B-2) thì cờ đọc thành `false`; audit giữ giá trị lúc ghi. Nếu cần giữ cờ cố định, thêm cột ở migration của 5B-2 (0.3.14).
+  2. `refundRequestId`: giữ trường trong schema nhưng ghi "chưa trả tới 0.3.14". Tới đó Desk tìm yêu cầu qua `openRefunds` (`reasonCode = payment_after_cancel`) và màn duyệt. Cột thêm ở migration 5B-2. Nếu ARC muốn trả ngay ở v1.0.5 thì đọc từ audit `payment.recorded` (`after.refundRequestId`, index `audit_event_entity_idx`), và thêm khóa này vào allowlist.
+  3. Ghi vào mô tả `recordPayment`, `createDepositNotice`:
+     - allowlist `payment` thêm `afterClosure`, `reservationStatus`;
+     - allowlist `deposit_notice` thêm `afterClosure`;
+     - test đọc lại `audit_event`;
+     - test `afterClosureOnly` có đúng một dòng cho ca h1 của QA.
+  4. BE làm ý 1 và ý 3 trong PR V5-48, ghi decision-log; ARC chỉ cần xác nhận cách tính ở ý 1 (gộp vào delta tài liệu được).
+- Hạn: ý 1 và ý 3 trước khi PR V5-48 viết đường đọc (khoảng 08/11); ý 2 trước khi PR-B3 bắt đầu.
+- Trạng thái: Open
+
+#### FB-R5-BE-ARC-C0313-23
+- Mức độ: Suggestion – gửi ARC và SEC (SEC ARC-04 (b) đề xuất luật này)
+- Vị trí: `setPropertyWifi` bổ sung 1, mục "Kiểm `password`" (so với mật khẩu đăng nhập của người gọi, argon2, không đếm khóa); contract 1.23, T58-9.
+- Vấn đề:
+  - Luật chỉ so với chính người gọi, nên không dò được mật khẩu người khác. Nhưng người cầm một **phiên** OWN/MGR bị lộ, không biết mật khẩu, lại dò được mật khẩu của chủ phiên: gửi mật khẩu đoán, nhận 422 `NOT_ALLOWED` là đoán đúng.
+  - Nhánh này không đếm khóa, không có 429, không step-up.
+  - Đoán sai thì Wi-Fi bị ghi đè và có audit, tức là có tiếng động. Nhưng GET trả mật khẩu cũ, nên kẻ dò ghi trả lại được sau mỗi lần đoán.
+- Vì sao quan trọng: phiên lộ thành mật khẩu lộ. Luật này qua mặt bộ khóa đăng nhập.
+- Đề xuất sửa: SEC chọn một trong hai:
+  - đếm lần so này vào bộ đếm sai của người dùng, chỉ chặn phép so, không khóa tài khoản;
+  - giới hạn N lần mỗi giờ mỗi người; vượt thì bỏ qua phép so và ghi audit `security`.
+  Không đổi kiểu sinh.
+- Hạn: trước khi PR V5-58 viết nhánh so mật khẩu.
+- Trạng thái: Open
+
+### 7.4 Bổ sung 1/1b/1c so với ước công và các làn (cập nhật mục 4)
+
+Mốc: PR-0 gộp sáng 07/11. Làn chỉ chờ PR-0 có cửa sổ 07–14/11, tức 8 ngày (agent làm cả cuối tuần). PR-C1 chờ V5-73 (khoảng 10/11), còn 5 ngày.
+
+| Làn | PR | Việc thêm do bổ sung 1/1b/1c | Ước cũ → mới (ngày BE) | Dự kiến | Vừa 14/11? |
+|---|---|---|---|---|---|
+| BE-A1 | PR-A1a (V5-10) rồi PR-A2 (V5-11) | Ứng viên thứ ba và `checkoutAt` ngày đi − 1 (07) 0,5; nhận cả phần `allowed-actions.ts` của thẻ 09 0,5; bỏ thẻ 02 (sang D1) | A1a 3 → **3,5**; A2 **1** | A1a 07–10/11; A2 11–12/11 | Vừa |
+| BE-A2 | PR-A1b (V5-15) | Trần MGR, `nightsNotBilled`, `requiredRole` 0,5; `overdueOnly` 0,25; D12c cho `overdueReason` 0,1; `CheckoutSummary.nightsNotBilled`, `AllowedAction.overdue` 0,25; cổng minibar quay về A1b 0,5; H-01…H-04 0,25; test thẻ 03 0,25 | 3 → **5** | 08/11 (sau commit đầu của A1a) → 13–14/11 | Vừa sát, **chỉ khi là người thứ hai**. Một người làm cả A1a, A1b, A2 thì mất 9,5 ngày, không vừa |
+| BE-D | PR-D1 rồi PR-B3 (5B-1, ORC giao `d2a710e9`) | D1: V5-40 0,5, V5-43 1, `departuresDate` 0,5. B3 theo SEC S1–S8, ARC-15: hoàn tự tạo, `origin_actor_ids`, nơi nhận cố định 1; `setRefundDestination`/`executeCashRefund` 409 0,25; `possibleDuplicateCodes` 0,5; `bankReference` + khóa tư vấn + 5 điều kiện ARC-15 0,5; trần S5 0,25; `createDepositNotice` 202 + `deposit_after_cancel` + đóng mục + S8 0,75; `afterClosureOnly` 0,25; test 1 | D1 **2**; B3 **4–4,5** (plan ghi 2,5–3) | D1 07–08/11; B3 10/11 (sau V5-48) → 14–15/11 | D1 vừa. B3 trượt khoảng 0,5 ngày; áp dòng cắt của plan (bỏ `deposit_after_cancel`, 0,75) thì vừa |
+| BE-B | V5-48 (PR riêng) → PR-B1 → PR-B2 | V5-48 1,5 + hết hạn QR `pending` trong giao dịch hủy (J1, B5, B10, B11) 0,5 + thẻ 22. B1 thêm `reductionsOnly` 0,25. B2: 403 trên dòng gốc dưới khóa L3 0,75; `lineReductions` 0,5; `line_reduction_count` 0,25; `entered_in_error` 0,1; T16-6…12 0,5 | V5-48 **2**; B1 4,5 → **4,75**; B2 1 → **2** | V5-48 07–08/11, gộp 09–10/11; B1 09–13/11; B2 14–15/11 | **Không vừa** (8,75 ngày trong 8). Xem đề xuất (a) |
+| BE-C | PR-C2 (#96) rồi PR-C1 | C2: luật lưu DOM 12.1 đủ, kiểm ngược `short_stay_max_nights` cả giá trị đã lên lịch, bộ đọc phòng thủ 3 chỗ. C1: cảnh báo `NIGHTLY_PRICE_UNUSUAL` 0,25; V5-58 bổ sung (byte `ssid`, trùng tên đăng nhập, so mật khẩu người gọi, `no-store` PUT, `passwordSet`) 0,5 | C2 1 → **2–2,5**; C1 4 → **4,75** | C2 07–09/11, gộp 10/11; C1 10–15/11 | C2 vừa; C1 trượt khoảng 1 ngày. Xem đề xuất (b) |
+| BE-S | PR-S1 (V5-14, V5-22, guard) | Guard chung `x-write-roles` (khớp `a`, `a.b`, `a[].b`; `null`/mảng rỗng tính là có gửi; nối với tra replay của `auth.guard.ts`) 1; test chạy `fieldCases` 0,25; chỉ kênh `direct`/`agent`, đêm `edited` ≠ `true`, T14-8…12 0,5; H-05…H-07 0,25 | 4–4,5 → **6–6,5** | 07/11 → 13/11 | **"≤ 08/11" không làm được** – xem đề xuất (c) |
+| BE-H | PR-H1, rồi PR-M | H1 không đổi (thêm nhánh `rate_missing` cho `lease_terms`). PR-M: migration 0,5; `long_stay_commission` 2 đợt + `voidReason` 1,5; `getManagerPerformanceBonus` 1; `commission_rate_missing` 0,5; `long_stay_cleaning_fee_by_room` + `feeFallback` 0,75; test 0,75 | H1 **1,5–2**; PR-M **5** | H1 07–08/11; còn trống 09–14/11; PR-M sau 14/11, trước 01/12, chờ V5-61 | H1 vừa, **còn 6 ngày trống** |
+
+Tổng việc trong v1.0.5 (không tính PR-M, 5B-2): khoảng **40 ngày BE**. Lượt đầu ước 22–23 ngày; phần tăng đến từ V5-48, 5B-1, guard `x-write-roles`, trần MGR, luật lưu `min_stay` và BR-438. Bảy người (A1, A2, B, C, D, S, H) × 8 ngày = 56 ngày, nên **đủ người nếu chia lại**. Vướng là phân bổ, không phải tổng sức.
+
+Đề xuất cho ORC (đều không đổi hợp đồng):
+- (a) BE-B làm theo thứ tự V5-48 → **phần lọc của B1** (V5-16 lọc, `reductionsOnly`, khóa audit dòng gốc, allowlist; khoảng 2 ngày, gộp khoảng 11/11) → phần còn lại của B1. **PR-B2 giao BE-H** sau PR-H1, bắt đầu khi phần lọc gộp. Nếu vẫn giữ PR-B2 ở BE-B thì dời `lineReductions` sang v1.0.6 (hợp đồng mục `ShiftReport.lineReductions` cho phép), B2 còn 1,25 ngày, nhưng vẫn sát.
+- (b) Tách **V5-58** khỏi PR-C1 thành PR riêng, giao BE-H. V5-58 không chờ V5-73, làm được từ 09/11. PR-C1 còn khoảng 2,75 ngày, kịp 10–13/11. (Plan dòng 240 có câu "V5-57, 58, 68 phần máy chủ" ngay sau câu giao việc BE-B, còn contract mục 2 để V5-58 ở PR-C1. ORC chốt một chỗ.)
+- (c) PR-S1 "≤ 08/11" (plan dòng 207, contract mục 2): hạn ≤ 08/11 của thẻ 05 là hạn để **ARC sửa chữ trước khi BE-S viết**, và đã đạt. Đó không phải hạn gộp. Đề xuất mục tiêu gộp **13/11**, guard là commit đầu. Đồng ý với ARC mục 7: không cho V5-14 lên mà thiếu chặn SAL/CTV.
+- (d) BE-A cần **hai người** như contract mục 2 (BE-A1, BE-A2). Plan dòng 208 ghi "PR-A1a rồi PR-A1b (BE-A)", nếu một người thì không vừa.
+- (e) **V5-1B** (tin `hold_expired`, bắt buộc, hạn 14/11) chưa có làn ở contract mục 2 lẫn plan dòng 208. Đề xuất giao BE-D trong PR-D1 (0,5 ngày).
+
+### 7.5 Mỗi làn bắt đầu được ngay sau khi gộp chưa
+
+| Làn / PR | Bắt đầu ngay? | Cần trước khi bắt đầu, hoặc trong lúc làm |
+|---|---|---|
+| PR-A1a | **Có** | ORC chốt chủ tệp: A1a giữ `readInput`, `resolveCheckoutAt` và toàn bộ `reservations/internal/allowed-actions.ts` (ngày lịch, cửa sổ W, `stayDepartureDate`). Quy tắc W tách thành một hàm dùng chung với `reporting/internal/stay-actions.ts` `checkOutAction` (đã có `calendarDate`), và hàm "ngày lịch tối thiểu" cho B16 |
+| PR-A1b | **Có**, với người thứ hai | Cắt nhánh từ nhánh PR-A1a sau commit đầu (hàm quy đổi + `readInput`); cập nhật bằng merge, không rebase; gộp sau A1a. A1b chỉ thêm nhánh `overdue` trên phần của A1a. ORC nêu tên người giữ module inventory để review cổng minibar. BE tự thêm test thời điểm ghi (thẻ 03) |
+| PR-A2 (V5-11) | Sau PR-A1a | Hợp đồng đủ (1.21) |
+| PR-D1 | **Có** | Giữ `getTonightKpi` theo ngày nghiệp vụ (`departureRows` dùng chung). Nhận V5-1B nếu ORC giao |
+| V5-48 (PR riêng) | **Có** | Thẻ 22 ý 1, 3 (BE tự làm, ARC xác nhận cách tính `afterClosure`); thứ tự 404 trước 409 theo SEC ARC-17 |
+| PR-B1 | **Có** | – |
+| PR-B2 | Sau phần lọc của PR-B1 | Hợp đồng đủ (1.20). Người làm theo đề xuất (a) |
+| PR-B3 (5B-1) | Sau khi V5-48 gộp | Thẻ 22 ý 2 (`refundRequestId`); 5 điều kiện `bankReference` của SEC ARC-15; `ApprovalRequest.possibleDuplicateCodes` thêm `x-visible-to` (SEC ARC-16) |
+| PR-S1 | **Có** | Dời hạn gộp (đề xuất (c)). Viết T14-7 theo ghi chú thẻ 05 |
+| PR-C2 | **Đang làm** (#96), không chờ PR-0 | – |
+| PR-C1 | Chờ V5-73 | G9 theo DOM `1568e523` (÷ 5, so số nguyên) sau delta của ARC; nếu tách V5-58 thì theo đề xuất (b); ĐK-6 của plan sửa chữ (thẻ 15) |
+| V5-58 | **Có** (nếu tách) | Thẻ 23 do SEC chốt trước nhánh so mật khẩu; dòng rbac đọc Wi-Fi cho FD vẫn chờ BA, tới đó FD → 403 (T58-4) |
+| PR-H1 | **Có** | Nhánh `lease_terms[].commission*` vắng → `rate_missing` (thẻ 17) |
+| PR-M | Viết được; **chưa gộp được** | Chờ V5-61. BA cần thêm dòng rbac cho `getManagerPerformanceBonus` (operation chưa có `x-rbac`). QA: nếu v1.0.5 lên không có PR-M, bỏ ca rbac R5 của operation này |
+
+### 7.6 Giả định đã dùng
+
+- PR-0 gộp sáng 07/11 sau delta tài liệu của ARC; agent làm cả cuối tuần.
+- Phần lọc của PR-B1 gộp trước được mà không cần V5-13, V5-18 (khác tệp: `folio-lines.service.ts`, module audit).
+- `afterClosure` tính lúc đọc là đủ cho v1.0.5, vì 5B-2 (khôi phục) ở v1.0.6.
+- Không cần ESC: các điểm mới thuộc quyền ARC (chữ hợp đồng), SEC (thẻ 23) hoặc ORC (giao làn).
