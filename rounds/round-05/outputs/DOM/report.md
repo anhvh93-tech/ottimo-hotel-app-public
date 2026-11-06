@@ -118,3 +118,22 @@ ORC lưu tệp này từ báo cáo bàn giao của DOM (subagent không ghi tệ
   - BE: V5-25 theo 12.1–12.3.
 - **Quan sát cho BA (V5-71):** `user-manual-v1.0.md` dòng 820–822 và 2017 còn ghi hành vi v1.0 ("sau hạn Desk từ chối Xác nhận đã nhận cọc"). Ở v1.0.4, FD+ đã xác nhận được giữ chỗ quá hạn có cọc.
 - **Giả định:** trần 7 đêm theo chuẩn ngành; tên mã lỗi và `extras` do ARC chốt. ESC mới: không có.
+
+## 7. Cập nhật 06/11 khuya – Review PR #96 (V5-25), `damage_catalog`, V5-16 (commit `6b5b8f34`)
+ORC lưu từ báo cáo bàn giao của DOM. Chi tiết: `rounds/round-05/reviews/DOM-on-pr-96-v5-25.md`, `rules-v1.0.5.md` mục 13.
+- **Biên khi lưu:** đồng ý biên BE đề xuất, sửa ba chỗ (thẻ FB-R5-DOM-BE-PR96-01, Minor):
+  - phần trăm tối đa 2 chữ số thập phân, vì `pctToBp` làm tròn;
+  - `max_open_holds_per_user` đủ hai vai, nếu không thì mất chốt SEC-BE-28;
+  - `cancel_policy_direct` không rỗng, vì `[]` nghĩa là không hoàn mọi trường hợp.
+  - Không biên nào chặn giá trị đang dùng. `special_dates` tối đa 31 đêm mỗi khoảng.
+- **Giá trị hỏng đã nằm trong DB (13.2):**
+  - bỏ qua phần hỏng và ghi log: `weekend_nights`, `special_dates`, `*_uplift_channels`, `los_discount`, `lease_terms`, `checkout_reminders`, `damage_catalog`;
+  - chặn kèm lỗi rõ, không trả 500: `cancel_policy_direct`, `early_departure_refund`, `max_open_holds_per_user`; hai bảng tier chỉ chặn khi cần dùng.
+  - Bắt buộc ở v1.0.5: bộ kiểm khi lưu, và câu SQL chạy đạt trên production trước khi lên bản. Thẻ 02 thêm hai dòng đếm: đơn còn mở có `pricing_snapshot.cancelPolicy` sai dạng; dòng `damage_catalog` sai dạng.
+  - Nên có: đọc phòng thủ nhóm khóa bán hàng (thẻ 03, Suggestion). Phần còn lại vào R5-B-05.
+- **Từ điển tham số 1.4:** sửa dòng Giới hạn của 28 khóa (12 khóa V5-25, 10 khóa danh sách, 6 khóa chữ).
+- **`short_stay_max_nights` = 29** (BR-108, BR-112). Số 27 trong `production-defaults.ts` là số khởi tạo cũ: BE sửa ở B-KYTHUAT. Production còn thấp hơn 29 vì chủ đầu tư chưa làm bước B5.
+- **`damage_catalog` (13.4):** tối đa 100 món; `priceVnd` nguyên 1.000–20.000.000; `name` ≤ 100 ký tự, không trùng; `code` như BE đề xuất; `[]` được.
+- **V5-16, cách UXD 9.5:** đủ cho v1.0.5. Máy chủ chặn bằng 403, folio không đổi. Muốn Desk biết trước thì để hợp đồng 0.3.14 (nên có).
+- **Việc chuyển (ORC đã giao 06/11):** BE-C thẻ 01, 02 (03 nếu kịp) và `damage_catalog` theo 13.4; ARC mã lỗi chung "tham số sai dạng"; UXD câu cho mã đó và 422 `REQUIRED`; PO phần còn lại 13.2 vào R5-B-05, 27 → 29; ORC chạy câu SQL trên production trước khi lên v1.0.5.
+- Giả định: bảng đền bù không có món trên 20.000.000. ESC mới: không có.
