@@ -408,15 +408,16 @@ export class PaymentsService {
     if (!attachmentId) errors.push({ field: 'attachmentId', code: 'REQUIRED' });
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
     // SEC S7 + FB-R5-SEC-BE-105-01: an image a sale/CTV uploaded is the guest's word passed on, not the bank's –
-    // never the proof, whether it sits on a "khách đã chuyển" notice, was replaced there or was never sent.
+    // never the proof, whether it sits on a "khách đã chuyển" notice, was replaced there or was never sent. The
+    // uploader role is read through the files port (ARC FB-R5-ARC-BE-139-01); the notice is this module's table and
+    // stays a rule of its own (SEC 6: a desk + sale person's upload is labelled desk – only the notice catches the
+    // image that person sent with "khách đã chuyển").
     if (UUID.test(attachmentId)) {
-      const { rows } = await tx.query<{ forwarded: boolean }>(
-        `SELECT EXISTS (SELECT 1 FROM deposit_notice WHERE attachment_id = $1)
-             OR EXISTS (SELECT 1 FROM attachment WHERE id = $1 AND uploaded_by_role = ANY($2::text[]))
-             AS forwarded`,
-        [attachmentId, SALES_ROLES],
+      const { rows } = await tx.query(
+        'SELECT 1 FROM deposit_notice WHERE attachment_id = $1 LIMIT 1',
+        [attachmentId],
       );
-      if (rows[0]?.forwarded) {
+      if (rows[0] || (await this.attachments.uploadedBySales(tx, attachmentId))) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'attachmentId', code: 'NOT_IN_LIST' }],
         });

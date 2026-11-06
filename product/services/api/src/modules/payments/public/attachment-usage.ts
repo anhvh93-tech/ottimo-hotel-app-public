@@ -7,6 +7,10 @@
  * - setRetentionAnchor(tx, {id, purpose}, at)  start of the retention period (SEC I5): a receipt image is
  *   kept `deposit_receipt_retention_days` after its payment is `reconciled` (or settled without reconciliation);
  *   J16 purges it afterwards.
+ * - uploadedBySales(tx, id)  true when a sale or a CTV uploaded the file (its `uploaded_by_role`, the primary role
+ *   at upload time in the shared order – desk first): a forwarded image, never the proof of money on a closed
+ *   booking (FB-R5-SEC-BE-105-01; ARC FB-R5-ARC-BE-139-01 – `payments` never reads the `attachment` table).
+ *   An id not visible (RLS) or unknown → false, so `assertUsable` answers NOT_IN_LIST as before.
  *
  * Bound by BE-C's FilesModule (`{ provide: ATTACHMENT_USAGE, useExisting: AttachmentService }`).
  */
@@ -30,6 +34,7 @@ export interface AttachmentUsage {
     where: { id?: string; reservationId?: string; purpose: MoneyAttachmentPurpose },
     at: Date,
   ): Promise<number>;
+  uploadedBySales(tx: Tx, id: string): Promise<boolean>;
 }
 
 /**
