@@ -193,13 +193,17 @@ export const focThreshold: AttentionSource = async (tx: Tx, ctx: AttentionSource
     }
     // (d) BR-438 (4)(iii) (contract 0.3.13 1.20): per FD/FDL, the direct reductions of a non-night line in the
     // business month – read from the `folio_line.adjusted` audit (after < before, role at the time), same threshold.
+    // Same reading as listAuditEvents `reductionsOnly`: a row without a numeric amount never matches (no cast error).
     const { rows: cut } = await tx.query<{ actor_user_id: string; n: number }>(
       `SELECT e.actor_user_id, count(*)::int AS n FROM audit_event e
         WHERE e.property_id = $1 AND e.category = 'money' AND e.action = 'folio_line.adjusted'
           AND e.occurred_at >= $2 AND e.occurred_at <= $3 AND e.actor_user_id IS NOT NULL
           AND e.before->>'actorRole' = ANY($4::text[])
           AND NOT (COALESCE(e.before->>'category', '') = ANY($5::text[]))
-          AND (e.after->>'amountVnd')::bigint < (e.before->>'amountVnd')::bigint
+          AND (CASE WHEN jsonb_typeof(e.after->'amountVnd') = 'number'
+                    THEN (e.after->>'amountVnd')::numeric END)
+            < (CASE WHEN jsonb_typeof(e.before->'amountVnd') = 'number'
+                    THEN (e.before->>'amountVnd')::numeric END)
         GROUP BY e.actor_user_id HAVING count(*) > $6
         ORDER BY count(*) DESC, e.actor_user_id`,
       [
