@@ -284,6 +284,8 @@ export interface PaymentRowLite {
   reservation_id: string | null;
   approval_request_id: string | null;
   shift_id: string | null;
+  /** 0.3.13 bổ sung 1 (V5-48): computed at read by PAYMENT_COLUMNS (`AFTER_CLOSURE_SQL`) – display only. */
+  after_closure?: boolean;
   received_amount_vnd: number | null;
   provider: string | null;
   version: number;
@@ -513,12 +515,28 @@ export function refundedOf(payments: ReadonlyArray<TotalsPayment>): number {
 }
 
 /** Columns of PaymentRowLite (alias p + user joins ur/uc/uq) – shared with the payments module. */
+/**
+ * 0.3.13 bổ sung 1 (V5-48, BE C0313-22 ý 1, SEC-responses 1.1): `Payment.afterClosure` computed AT READ – a receipt
+ * (`deposit`/`charge`, not a reversal row) the SERVER wrote (`created_at`, never the typed `received_at`) once the
+ * folio's primary booking was `cancelled` (`cancelled_at`) or `no_show` (`no_show_marked_at`), while it still is.
+ * Display only (refund approval screen, money log): a booking restored later (B12, 5B-2) reads `false`. No write-time
+ * decision reads it (V5-48 422/409, 5B-1 – they read the booking under its lock), and the weekly filter
+ * `listAuditEvents.afterClosureOnly` reads the audit value written at write time instead.
+ */
+const AFTER_CLOSURE_SQL = `(p.type IN ('deposit', 'charge') AND p.reversal_of_id IS NULL AND EXISTS (
+    SELECT 1 FROM folio fac JOIN reservation rac ON rac.id = fac.primary_reservation_id
+     WHERE fac.id = p.folio_id
+       AND ((rac.status = 'cancelled' AND rac.cancelled_at IS NOT NULL AND p.created_at >= rac.cancelled_at)
+         OR (rac.status = 'no_show' AND rac.no_show_marked_at IS NOT NULL
+             AND p.created_at >= rac.no_show_marked_at))))`;
+
 export const PAYMENT_COLUMNS = `p.id, p.code, p.type, p.method, p.amount_vnd, p.status, p.received_at, p.recorded_by,
   ur.display_name AS recorded_by_name, p.recorded_by_role, p.reconciliation, p.reconciled_at, p.reconciled_by,
   uq.display_name AS reconciled_by_name, p.reconciliation_note, p.self_reconciled, p.payer_name, p.card_brand,
   p.card_last4, p.reversal_of_id, p.expires_at, p.method_detail, p.note, p.attachment_id, p.confirmed_at,
   p.confirmed_by, uc.display_name AS confirmed_by_name, p.reservation_id, p.approval_request_id, p.shift_id,
-  p.received_amount_vnd, p.provider, p.version, p.qr_purpose, p.qr_context`;
+  p.received_amount_vnd, p.provider, p.version, p.qr_purpose, p.qr_context,
+  ${AFTER_CLOSURE_SQL} AS after_closure`;
 export const PAYMENT_JOINS = `LEFT JOIN app_user ur ON ur.id = p.recorded_by
   LEFT JOIN app_user uc ON uc.id = p.confirmed_by LEFT JOIN app_user uq ON uq.id = p.reconciled_by`;
 
