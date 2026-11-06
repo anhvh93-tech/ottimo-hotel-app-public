@@ -267,6 +267,21 @@ export async function currentRoomOfStay(
 }
 
 /**
+ * K11-09 + V5-15 (FB-R5-ARC-BE-A2-01): does the live count of the fridge of the room the stay is in, made on business
+ * day `liveBusinessDate`, count for this check-out? Without a window: only a count of today's business day (K11-09).
+ * With `countFrom` (an overdue stay: its effective departure date – contract 1.4): a count of any business day from
+ * it on. The ONE rule of the B18 blocker / CheckoutSummary.minibarUncheckedRooms (MinibarCheckoutPort.fridgeState)
+ * and of MinibarStandard.latestCheck – the contract says the two agree. Business dates compare as `YYYY-MM-DD`.
+ */
+export function countInWindow(
+  liveBusinessDate: string,
+  today: LocalDate,
+  window: { countFrom?: LocalDate } = {},
+): boolean {
+  return window.countFrom ? liveBusinessDate >= window.countFrom : liveBusinessDate === today;
+}
+
+/**
  * BR-703-02 note 2 (ARC 16.16), K11-09: the stay of `primaryId` is in house and is in `roomId` on `today`
  * (currentRoomOfStay – one definition for onRefillDone, the B18 blocker / `not_today` and `latestCheck`).
  */

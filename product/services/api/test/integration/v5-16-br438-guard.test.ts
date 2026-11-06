@@ -12,8 +12,8 @@
  * - T16-8 / BR-438-03 (+ ARC FB-R5-ARC-BE-B1F-01, rollover 06:00): posted 23:50 → void at 00:20 and at 05:59 the
  *   next calendar day 201 (same business day), at 06:00 → 403.
  * - T16-10 / BR-438-07 / H-08: the B15 late check-out line (source manual, posted by Hạnh herself) is a system line –
- *   FD, FDL 403; T16-11: MGR 201. (BR-438-04 – the B18 `checkout` line on a settled folio, A32 – waits for DOM's
- *   choice of set-up, FB-R5-QA-DOM-BR438-01.)
+ *   FD, FDL 403; T16-11: MGR 201. (BR-438-04 – the B18 `checkout` line on a settled folio, A32 – and the
+ *   carryToCheckout runs of BR-438-07 are in v5-16-br438-checkout.test.ts, DOM choice A.)
  * - T16-12 / BR-438-06: three direct reductions by Hạnh with the test threshold 2 → "Cần chú ý" foc_threshold
  *   `check = line_reduction_count`, count 3, max 2, no name – OWN only. ARC FB-R5-ARC-BE-B2-01: the count per person
  *   (audit/public/line-reductions) = the rows of `listAuditEvents?reductionsOnly=true&actorUserId=…` whose role at
