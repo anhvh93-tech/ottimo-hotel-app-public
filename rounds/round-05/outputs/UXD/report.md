@@ -159,3 +159,25 @@ ORC lưu từ báo cáo bàn giao của UXD.
   - (d) Đề xuất cho PO, CPY: bill khách không in lý do "Ghi nhầm", chỉ in "Miễn phí".
   - (e) Cảnh báo giá: đổi chữ nút Lưu thành "Vẫn lưu giá này", không thêm hộp xác nhận.
 - ESC mới: không có. Chưa sửa mã. FE áp theo bảng sau review.
+
+## 9. Cập nhật 07/11 – copy v1.0.5 bản 1.8 (C0313-25)
+- Mục 9.8 mới, một khóa: `pay.bank_reference_card_like`. Đây là câu lỗi dưới ô mã giao dịch khi máy chủ trả 422 `CARD_NUMBER_DETECTED` có `field` = `bankReference`, cho cả hộp ghi khoản thu và hộp chi hoàn (SEC chọn (a), `SEC-responses.md` mục 4).
+  - VI: "Mã này trông giống số thẻ thanh toán nên Desk không lưu. Nhập 8 chữ số cuối của mã giao dịch."
+  - EN: "This looks like a card number, so Desk can't save it. Enter the last 8 digits of the transaction reference."
+- Hiện bằng `Field error` có sẵn (`--bad`, icon ✕). Không thêm màu. Khung lỗi của hộp đi nhánh `VALIDATION_FAILED`, không hiện câu ô ghi chú.
+- Số khóa mục 0: 74/132/7 = **213** (bản 1.7: 212).
+- Giả định:
+  - (a) "8 chữ số cuối" thay cho "8 ký tự cuối" để chặn trùng S4 khớp, dù người gõ có dấu gạch, chấm hay không. Đề nghị SEC xem lại khi review PR-B3.
+  - (b) "mã giao dịch" theo nhãn ô, thay cho "mã chuyển khoản".
+- Lưu ý cho ORC khi báo INV cách làm tạm (SEC 4.4): trên production, ô mã ở hộp chi hoàn đang hiện câu "Ô ghi chú có dãy số giống số thẻ thanh toán…". Lời dặn nên ghi "nhập 8 chữ số cuối của mã giao dịch", cho khớp câu mới.
+- ESC mới: không có. Chưa sửa mã.
+
+## 10. Cập nhật 07/11 – copy v1.0.5 bản 1.9 (V5-15, điều kiện SEC cho BE PR #99)
+- Mục 9.9 mới, một khóa: `checkout.overdue_reason_help`. Đây là chữ gợi ý D12c dưới ô lý do (`overdueReason`) của hộp Trả phòng quá ngày đi (SEC `SEC-on-be-prs-106-99-checkout.md` mục 2.5).
+  - VI: "Lý do lưu vào nhật ký thay đổi. Không ghi họ tên, số giấy tờ hay thông tin sức khỏe của khách."
+  - EN: "The reason is kept in the change log. Don't write the guest's name, ID numbers or health information."
+- Không dùng lại được câu có sẵn: `crm.note_hint` thiếu họ tên; `webreq.note_hint`, `rsv.after_cancel.note_hint` thiếu giấy tờ hoặc sức khỏe.
+- Hiện bằng `Field help` có sẵn (Stone Grey, 12 px). Không Alert, không thêm màu.
+- Số khóa mục 0: 74/133/7 = **214**.
+- Phát hiện: nhãn ô, 3 lý do gợi ý (DOM 7.1) và tiêu đề hộp chưa có trong `design/copy`. Đề xuất FE-A viết theo chữ DOM rồi UXD duyệt.
+- ESC mới: không có. Chưa sửa mã.

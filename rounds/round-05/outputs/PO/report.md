@@ -105,3 +105,23 @@
 - **ORC ghi thêm:**
   - `weekend_nights` trên production đã được ORC đọc chỉ đọc ngày 06/11: `["FRI","SAT"]` từ 28/10, đúng dạng bộ tính giá cần.
   - V5-5B là quyết định 16.
+
+## Cập nhật 07/11 – Review tài liệu BA v1.0.5 (`1217858a`) và backlog v1.0.6
+
+- **Đã làm:**
+  - review release notes v1.0.5 và Tờ 2a (`rounds/round-05/reviews/PO-on-ba-v105-docs.md`): ĐẠT CÓ ĐIỀU KIỆN;
+  - sửa thẳng release notes: câu `line_reduction_count`, câu hoa hồng (nhập ngay trên Desk v1.0.4, 101-01, đơn từ 01/11 mang tỷ lệ cũ), "Việc anh/chị làm trước ngày lên" (thêm hẹn diễn tập, tỷ lệ hoa hồng; "không được bật lần đầu trên máy quầy"), dòng v1.0.4 **Giới hạn đã biết** mới về hoa hồng, câu "tin không đổ chuông";
+  - Tờ 2a theo DOM FB-R5-DOM-PO-08 nguyên văn; bảng Cách in;
+  - plan R5: V5-30 thêm FB-R5-DOM-BE-101-01 (`r5-h1b`); **mục 4a bảng kiểm cắt tag** (T1–T9); quyết định 26;
+  - backlog: R5-B-08…R5-B-14 (đích v1.0.6); US-177 AC1 chữ "nhập tay", ghi chú AC7 phần dời.
+- **File sửa:** `product/docs/release-notes.md`, `product/docs/staff-one-pager.md`, `rounds/round-05/plan.md`, `03-backlog/backlog.md`, `rounds/round-05/reviews/PO-on-ba-v105-docs.md` (mới), `rounds/round-05/responses/PO-responses.md`, tệp này.
+- **Giả định:**
+  - thẻ DOM 108-01 vào v1.0.6 chỉ là phần thêm (lọc loại dòng phía Desk, cột vai, số trước → sau). Bộ lọc **Sửa giảm dòng – 7 ngày** theo người (`mlog.filter_reductions`, US-177 AC7 (i)) vẫn ở v1.0.5. ORC muốn dời cả lối tắt thì US-177 AC7 (i) chưa đạt, và câu release notes phải bỏ (mục 4a T4);
+  - S1-03: v1.0.5 nếu BE-H kịp, không thì v1.0.6 (theo ORC).
+- **Rủi ro:** câu hoa hồng "chậm nhất lúc trả phòng và thu đủ" chỉ đúng khi `r5-h1b` cùng tag với #101 (4a T6).
+- **Chuyển vai khác:**
+  - ORC: dòng decision-log cho quyết định 26;
+  - ORC: nhắc chủ đầu tư bước 1 và bước 3 của "Việc anh/chị làm trước ngày lên" (đã có ở trang bàn giao bản 19);
+  - DOM: đọc lại câu Tờ 2a;
+  - UXD: dựng PDF Tờ 2a sau DOM;
+  - UXD: dựng HTML sổ tay và bộ hướng dẫn sau khi BA sửa 2.4 và `02` theo thẻ 08.

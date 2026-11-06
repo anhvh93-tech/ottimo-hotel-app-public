@@ -344,8 +344,10 @@ describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table 
       const s = await summary(b, d);
       expect(s.extraNightRequired).toBe(true);
       const due = s.amountDueAtCheckoutVnd as number;
+      // 0.3.13 (V5-10): the desk forwards `CheckoutSummary.checkoutAt` to the QR (absent ≠ the server clock).
       const cap = await c.fd!.send('POST', url(`/folios/${b.folioId}/vietqr`), {
         purpose: 'check_out',
+        checkoutAt: s.checkoutAt,
         amountVnd: due + 1,
       });
       expect(cap.statusCode, cap.body).toBe(422);

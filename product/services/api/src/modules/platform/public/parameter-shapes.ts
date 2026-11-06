@@ -2,11 +2,14 @@
  * V5-25 (BUG-R5-001, BUG-R5-003; DOM rules-v1.0.5 8.4 and 12.1–12.3; ARC contract 0.3.13 bổ sung 1, 1.24) – the
  * shapes of the structured parameters that the price engine reads, as pure functions with no I/O. One source for:
  * - the save rules of `setParameter` (platform/internal/parameter-rules.ts → 422 PARAM_OUT_OF_RANGE);
- * - the defensive read of `min_stay` in the three places that apply it (quote, createReservation, web estimate).
+ * - the defensive read of `min_stay` in the three places that apply it (quote, createReservation, web estimate);
+ * - the defensive read of `damage_catalog` (BR-512) in the charge catalogue / addFolioLine and the line labels of
+ *   getFolio / getBill (folio/internal/damage-catalog-read.ts).
  *
  * Every check returns the FIRST problem it finds (`ShapeIssue`), or null. `field` follows ARC 1.24: `value` (the
  * whole value), `value[<i>]` (one element) or `value[<i>].<key>`; `code` comes from the existing field-code table
- * (REQUIRED, VALIDATION_FAILED, VALUE_OUT_OF_RANGE, NOT_IN_LIST, DUPLICATE, NOT_ALLOWED, DATE_INVALID, DATE_ORDER);
+ * (REQUIRED, VALIDATION_FAILED, VALUE_OUT_OF_RANGE, NOT_IN_LIST, DUPLICATE, NOT_ALLOWED, DATE_INVALID, DATE_ORDER,
+ * TOO_LONG);
  * `extras` only uses the existing names `min`, `max`, `allowed`.
  */
 
@@ -408,4 +411,121 @@ export function leaseTermsIssue(value: unknown): ShapeIssue | null {
     }
   }
   return null;
+}
+
+// ── damage_catalog (BR-512): the charge catalogue / addFolioLine and the damage line labels of getFolio / getBill ──
+
+/**
+ * A damage item code (DOM rules-v1.0.5 13.4): its folio charge code is `damage.<code>` (charge-catalog,
+ * `folio_line.charge_code`). Lower case letters, digits and `_`, 1–40 characters – every value the team ships fits
+ * (production-defaults.ts and the DS-E BR-512 rows: `bath_towel`, `glass`, `remote`).
+ */
+export const DAMAGE_CODE = /^[a-z0-9_]{1,40}$/;
+/** DOM 13.4: at most 100 items (a 10-unit property needs about 20–50; catches a pasted block). */
+export const DAMAGE_CATALOG_MAX = 100;
+/** DOM 13.4: a name of at most 100 characters (code points – `char_length` in the read-only SQL check). */
+export const DAMAGE_NAME_MAX = 100;
+/**
+ * DOM 13.4: whole VND 1.000–20.000.000. 0 is an empty cell, not a price; a larger item (TV, air conditioner, mattress)
+ * goes "outside the table" (MGR+ prices it, with a photo – BR-512). An INV table with dearer items → the team raises
+ * the cap, no ESC.
+ */
+export const DAMAGE_PRICE_MIN_VND = 1_000;
+export const DAMAGE_PRICE_MAX_VND = 20_000_000;
+const DAMAGE_KEYS = ['code', 'name', 'priceVnd'] as const;
+/** The spaces trimmed at both ends of a name – the same set as `btrim(…, E' \t\n\r\f\x0B')` in the SQL check. */
+const NAME_EDGE_SPACES = /^[ \t\n\r\f\v]+|[ \t\n\r\f\v]+$/g;
+
+/** One usable item of the damage table. */
+export interface DamageItem {
+  code: string;
+  name: string;
+  priceVnd: number;
+}
+
+/** How two names are compared (DOM 13.4: not repeated, ignoring case and the spaces at both ends). */
+export const damageNameKey = (name: string): string =>
+  name.replace(NAME_EDGE_SPACES, '').toLowerCase();
+
+/**
+ * One `damage_catalog` item on its own (DOM 13.4): an object with exactly `code`, `name`, `priceVnd`. Order of the
+ * checks (the first one wins, like `listOf`): element shape, unknown key, missing key, `code`, `name`, `priceVnd`.
+ */
+export function damageItemIssue(item: unknown, i: number): ShapeIssue | null {
+  const at = `value[${i}]`;
+  if (!isPlainObject(item)) return issue(at, missingOrType(item));
+  const extra = unknownKey(item, DAMAGE_KEYS);
+  if (extra !== null) return issue(`${at}.${extra}`, 'NOT_ALLOWED');
+  const missing = DAMAGE_KEYS.find((k) => item[k] === undefined || item[k] === null);
+  if (missing) return issue(`${at}.${missing}`, 'REQUIRED');
+  if (item.code === '') return issue(`${at}.code`, 'REQUIRED');
+  if (typeof item.code !== 'string' || !DAMAGE_CODE.test(item.code)) {
+    return issue(`${at}.code`, 'VALIDATION_FAILED');
+  }
+  if (typeof item.name !== 'string') return issue(`${at}.name`, 'VALIDATION_FAILED');
+  if (damageNameKey(item.name) === '') return issue(`${at}.name`, 'REQUIRED');
+  if ([...item.name].length > DAMAGE_NAME_MAX) return issue(`${at}.name`, 'TOO_LONG');
+  return intIssue(item.priceVnd, `${at}.priceVnd`, DAMAGE_PRICE_MIN_VND, DAMAGE_PRICE_MAX_VND);
+}
+
+/** A good item whose `code` or name (DOM 13.4) was already seen; otherwise remembers both. */
+function damageRepeatIssue(
+  item: DamageItem,
+  i: number,
+  codes: Set<string>,
+  names: Set<string>,
+): ShapeIssue | null {
+  if (codes.has(item.code)) return issue(`value[${i}].code`, 'DUPLICATE');
+  const name = damageNameKey(item.name);
+  if (names.has(name)) return issue(`value[${i}].name`, 'DUPLICATE');
+  codes.add(item.code);
+  names.add(name);
+  return null;
+}
+
+/** `damage_catalog` (BR-512, DOM 13.4): 0–100 items, `code` and name not repeated; `[]` = no table (all "outside"). */
+export function damageCatalogIssue(value: unknown): ShapeIssue | null {
+  if (!Array.isArray(value)) return issue('value', missingOrType(value));
+  if (value.length > DAMAGE_CATALOG_MAX) {
+    return issue('value', 'VALUE_OUT_OF_RANGE', { max: DAMAGE_CATALOG_MAX });
+  }
+  const codes = new Set<string>();
+  const names = new Set<string>();
+  for (const [i, item] of value.entries()) {
+    const bad = damageItemIssue(item, i) ?? damageRepeatIssue(item as DamageItem, i, codes, names);
+    if (bad) return bad;
+  }
+  return null;
+}
+
+/** The usable items of a stored `damage_catalog` value and what was left out. */
+export interface DamageCatalogRead {
+  items: DamageItem[];
+  /** The value is not a list: read as an empty table. */
+  notAList: boolean;
+  /** Index + first problem of each item left out. */
+  dropped: Array<{ index: number; field: string; code: string }>;
+}
+
+/**
+ * Defensive read (DOM 13.2, as 12.3 for `min_stay`): a value that is not a list → no table (the desk uses "outside the
+ * table"); a broken item, or a later item repeating a code or a name already read → that item is left out, the good
+ * ones still apply. Never throws. The 100-item cap is a save rule only (a long list read in full is harmless).
+ */
+export function readDamageCatalogItems(value: unknown): DamageCatalogRead {
+  if (!Array.isArray(value)) return { items: [], notAList: true, dropped: [] };
+  const items: DamageItem[] = [];
+  const dropped: DamageCatalogRead['dropped'] = [];
+  const codes = new Set<string>();
+  const names = new Set<string>();
+  for (const [i, item] of value.entries()) {
+    const bad = damageItemIssue(item, i) ?? damageRepeatIssue(item as DamageItem, i, codes, names);
+    if (bad) {
+      dropped.push({ index: i, field: bad.field, code: bad.code });
+      continue;
+    }
+    const { code, name, priceVnd } = item as DamageItem;
+    items.push({ code, name, priceVnd });
+  }
+  return { items, notAList: false, dropped };
 }

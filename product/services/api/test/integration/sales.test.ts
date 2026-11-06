@@ -154,6 +154,7 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
   it('BR-903-01 / US-080 AC2: CTV closer 8 % = 416.400, no "OTTIMO còn lại"; SAL sees 3 % and the remainder', async () => {
     const ctv = (await calc('ctv', short({ channelId: ids.channels.collaborator }))).json();
     expect(ctv.commission).toEqual({
+      status: 'computed', // 0.3.13 (V5-30): the DS-E fixture carries a rate row
       ratePct: 8,
       baseVnd: 5_205_000,
       amountVnd: ex('BR-903-01').commissionVnd,
