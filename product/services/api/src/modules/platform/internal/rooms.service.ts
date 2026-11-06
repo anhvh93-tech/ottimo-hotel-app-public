@@ -1,7 +1,9 @@
 /**
  * US-004 – room catalogue: room groups (read), rooms (list/create/update), effective-dated list price.
- * - Nightly list price = monthly ÷ night_from_month_divisor, rounded to rounding.night_rate (BR-101,
- *   BR-005), stored rounded (erd 4.1 BE-ARC-15); an explicit nightly price may be given instead.
+ * - List price (BR-101 (1), (5); OpenAPI 0.3.13 V5-1A): monthly AND nightly price are both required on every write
+ *   (`createRoom`, `updateRoom.listPrice`) – the server never derives one from the other (`night_from_month_divisor`
+ *   is no longer read). A nightly price outside [monthly ÷ 30, monthly ÷ 5] of the same row is still saved, with
+ *   warning `NIGHTLY_PRICE_UNUSUAL` (BR-101 (4), integer comparison – `nightlyPriceUnusual`).
  * - Occupancy (BR-110 v0.3.1, ESC-014): baseOccupancy 1–10 per room (default from the group),
  *   maxOccupancy ∈ {base, base + 1} (default base + 1) → else 422 MAX_OCCUPANCY_RANGE.
  * - Lowering maxOccupancy below bookings → 409 CAPACITY_BELOW_BOOKINGS (ROOM_CAPACITY_CHECK port).
@@ -16,15 +18,14 @@
  *   `cancelScheduledListPrice` removes one of them (room version + 1, audit `room.list_price_cancelled`).
  */
 import { randomBytes } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { type Tx, pgCode } from '../../../db/database';
 import { type FieldError, problem } from '../../../shared/problem';
 import { type LocalDate, localDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
-import { divideRoundVnd } from '../public/money';
-import { ParameterService } from '../public/parameter.service';
 import { type PropertyNow, PropertyContextService } from '../public/property-context';
+import { nightlyPriceUnusual } from '../public/list-price-check';
 import {
   ROOM_CAPACITY_CHECK,
   type RoomCapacityCheck,
@@ -129,6 +130,8 @@ export interface RoomCreateInput {
   bedCount?: number | undefined;
   areaM2?: number | undefined;
   monthlyListPriceVnd: number;
+  /** OpenAPI 0.3.13 (V5-1A): required, never derived from the monthly price (BR-101 (1)). */
+  nightlyListPriceVnd: number;
   activeFrom?: LocalDate | undefined;
 }
 
@@ -147,7 +150,8 @@ export interface RoomPatchInput {
     | {
         effectiveFrom: LocalDate;
         monthlyListPriceVnd: number;
-        nightlyListPriceVnd?: number | undefined;
+        /** OpenAPI 0.3.13 (V5-1A): required (was "absent = monthly ÷ divisor" until v1.0.4). */
+        nightlyListPriceVnd: number;
         reason: string;
       }
     | undefined;
@@ -196,11 +200,36 @@ export function occupancyErrors(base: number, max: number): FieldError[] {
     : [{ field: 'maxOccupancy', code: 'MAX_OCCUPANCY_RANGE' }];
 }
 
+/** BR-101 (4) on the two prices of ONE list price row (same room, same `effectiveFrom`) – never blocks. */
+function listPriceWarnings(monthlyVnd: number, nightlyVnd: number): RoomWarning[] {
+  return nightlyPriceUnusual(nightlyVnd, monthlyVnd) ? [{ code: 'NIGHTLY_PRICE_UNUSUAL' }] : [];
+}
+
+/**
+ * V5-44 (b), OpenAPI 0.3.13 1.11 + 1.24 (BE 19): the refusal of trigger `room_list_price_append_only` (migration
+ * 0094) – SQLSTATE 23514 AND its own message. Any other check_violation is not this case (stays a 500).
+ */
+const APPEND_ONLY_REFUSAL = 'room_list_price: applied price row is append-only';
+/**
+ * SEC FB-R5-SEC-BE-C1-01: the 0094 refusal is the LAST defence of the list price history – before V5-44 it showed as a
+ * 500 with an error line; the 409 must not make it silent. One `warn` line with the request id only: no room id,
+ * price or date (SR-LOG-04).
+ */
+export const APPEND_ONLY_REFUSED_LOG = 'list_price_append_only_refused';
+const log = new Logger('RoomsService');
+export function isAppliedPriceRefusal(err: unknown): boolean {
+  if (pgCode(err) !== '23514') return false;
+  const message =
+    typeof err === 'object' && err !== null && 'message' in err
+      ? String((err as { message: unknown }).message)
+      : '';
+  return message.startsWith(APPEND_ONLY_REFUSAL);
+}
+
 @Injectable()
 export class RoomsService {
   constructor(
     @Inject(AuditService) private readonly audit: AuditService,
-    @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
     @Inject(ROOM_CAPACITY_CHECK) private readonly capacity: RoomCapacityCheck,
   ) {}
@@ -336,7 +365,22 @@ export class RoomsService {
     if (input.effectiveFrom === row.earliest) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: 'first_price' } });
     }
-    await tx.query('DELETE FROM room_list_price WHERE id = $1', [row.id]);
+    // V5-44 (b): the trigger of 0094 reads the DB's real clock. The check above uses the app clock, so the trigger
+    // can still refuse – the calendar date turned between the check and the DELETE, or a staging clock
+    // (CLOCK_MODE=mutable) set back (P411-02). That refusal is the same 409 `effective`, nothing written, no audit,
+    // and one `warn` line (SEC FB-R5-SEC-BE-C1-01) so a trigger that had to step in is still seen.
+    try {
+      await tx.query('SAVEPOINT cancel_list_price');
+      await tx.query('DELETE FROM room_list_price WHERE id = $1', [row.id]);
+      await tx.query('RELEASE SAVEPOINT cancel_list_price');
+    } catch (err) {
+      if (isAppliedPriceRefusal(err)) {
+        await tx.query('ROLLBACK TO SAVEPOINT cancel_list_price');
+        log.warn(`${APPEND_ONLY_REFUSED_LOG} requestId=${requestId}`);
+        throw problem('INVALID_TRANSITION', { extras: { currentState: 'effective' } });
+      }
+      throw err;
+    }
     await tx.query('UPDATE room SET updated_at = $2, version = version + 1 WHERE id = $1', [
       roomId,
       pc.now,
@@ -379,13 +423,6 @@ export class RoomsService {
     return rows[0];
   }
 
-  /** BR-101: monthly ÷ divisor, rounded to rounding.night_rate (parameters at the effective date). */
-  async nightlyFromMonthly(tx: Tx, monthly: number, asOf: LocalDate): Promise<number> {
-    const divisor = await this.params.get<number>(tx, 'night_from_month_divisor', asOf);
-    const unit = await this.params.get<number>(tx, 'rounding.night_rate', asOf);
-    return divideRoundVnd(monthly, divisor, unit);
-  }
-
   private async writePrice(
     tx: Tx,
     pc: PropertyNow,
@@ -423,7 +460,11 @@ export class RoomsService {
     }
   }
 
-  async create(tx: Tx, input: RoomCreateInput, requestId: string): Promise<RoomDto> {
+  async create(
+    tx: Tx,
+    input: RoomCreateInput,
+    requestId: string,
+  ): Promise<RoomDto & { warnings: RoomWarning[] }> {
     const pc = await this.property.now(tx);
     const g = await this.group(tx, input.roomGroupId);
     const base = input.baseOccupancy ?? g.base_occupancy;
@@ -431,7 +472,7 @@ export class RoomsService {
     const errors = occupancyErrors(base, max);
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
     const activeFrom = input.activeFrom ?? pc.today;
-    const nightly = await this.nightlyFromMonthly(tx, input.monthlyListPriceVnd, activeFrom);
+    const nightly = input.nightlyListPriceVnd;
     const id = uuidv7();
     try {
       await tx.query('SAVEPOINT create_room');
@@ -497,11 +538,13 @@ export class RoomsService {
       },
       requestId,
     });
-    return this.dtoOf(
+    const dto = await this.dtoOf(
       tx,
       pc,
       await this.loadRoom(tx, id, activeFrom > pc.today ? activeFrom : pc.today),
     );
+    // OpenAPI 0.3.13 addendum 1 (SEC ARC-12, BR-101 (4)): saved anyway, the answer warns.
+    return { ...dto, warnings: listPriceWarnings(input.monthlyListPriceVnd, nightly) };
   }
 
   async update(
@@ -589,11 +632,10 @@ export class RoomsService {
       ],
     );
     let reason: string | undefined;
+    const warnings: RoomWarning[] = [];
     if (patch.listPrice) {
       const lp = patch.listPrice;
-      const nightly =
-        lp.nightlyListPriceVnd ??
-        (await this.nightlyFromMonthly(tx, lp.monthlyListPriceVnd, lp.effectiveFrom));
+      const nightly = lp.nightlyListPriceVnd;
       await this.writePrice(
         tx,
         pc,
@@ -619,6 +661,8 @@ export class RoomsService {
         nightlyListPriceVnd: nightly,
       };
       reason = lp.reason;
+      // OpenAPI 0.3.13 addendum 1 (SEC ARC-12, BR-101 (4)): the two prices of the row just written.
+      warnings.push(...listPriceWarnings(lp.monthlyListPriceVnd, nightly));
     }
     await this.audit.record(tx, {
       category: 'config',
@@ -632,7 +676,6 @@ export class RoomsService {
     });
     const dto = await this.dtoOf(tx, pc, await this.loadRoom(tx, roomId, pc.today));
     // A-39 (BE-A, ĐK-S2-2): stopping sales never blocks – it warns about the bookings that keep the room.
-    const warnings: RoomWarning[] = [];
     if (!dto.isSellable) {
       const count = await this.capacity.futureReservationCount(tx, roomId, pc.today);
       if (count > 0) warnings.push({ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count });

@@ -590,6 +590,24 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
       );
     });
 
+    it('SEC A1B-01 / 127-01: overdueReason is read without control / invisible characters – none left, or under 3 once removed → 422 REASON_REQUIRED', async () => {
+      for (const overdueReason of [
+        '\u0000\u200B\u202E\u202C\u0007',
+        'ab\u200B\u200B\u200B',
+        // 127-01: word joiner, soft hyphen, Arabic letter mark, Hangul filler, VS16, tag characters, lone surrogate.
+        '\u2060\u2060\u2060',
+        '\u00AD\u061C\u3164\uFE0F',
+        'ok\u{E0001}\u{E0041}\u{E0042}\u{E0043}',
+        '\uDC00\uD800\u2060',
+      ]) {
+        fieldError(
+          await checkOut(s1, { checkoutAt: S1_LEFT, overdueReason }, 'mgr'),
+          'overdueReason',
+          'REASON_REQUIRED',
+        );
+      }
+    });
+
     it('minibar gate on the overdue path: no count → 409 MINIBAR_NOT_CHECKED; a count made after the guest left (overdue day) clears it', async () => {
       const r = await checkOut(s1, { checkoutAt: S1_LEFT, overdueReason: REASON }, 'mgr');
       expect(r.statusCode, r.body).toBe(409);
@@ -718,7 +736,9 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
         s3,
         {
           checkoutAt: left,
-          overdueReason: 'Khách ở thêm một đêm, lễ tân quên gia hạn',
+          // SEC 127-01: a lone surrogate (was 500 – 22P02 writing the jsonb audit), a word joiner and a tag
+          // character are dropped before the reason is stored.
+          overdueReason: 'Khách ở thêm một đêm,\uD800 lễ tân\u2060 quên gia hạn\u{E0041}',
           ...(due > 0 ? { finalPayment: { type: 'charge', method: 'cash', amountVnd: due } } : {}),
         },
         'mgr',
@@ -732,7 +752,11 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
       expect(nights.map((n) => n.service_date)).toContain('2029-01-10');
       expect(nights.map((n) => n.service_date)).not.toContain('2029-01-11');
       const [overdue] = await overdueAudit(s3);
-      expect(overdue).toMatchObject({ departureDate: '2029-01-11', nightsNotBilled: 1 });
+      expect(overdue).toMatchObject({
+        departureDate: '2029-01-11',
+        nightsNotBilled: 1,
+        reason: 'Khách ở thêm một đêm, lễ tân quên gia hạn',
+      });
     });
 
     // S4 – T15-6 + BE C0313-03 on the ordinary path (departure day).
