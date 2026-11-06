@@ -5,12 +5,16 @@
  *
  * - `checkoutAt` sent → used as is. Its business date must be the departure, or it lies in the departure's
  *   post-midnight window; or – only while the server clock is in that window – it is the evening before (business
- *   date = departure − 1), never before the actual check-in (C0313-07). Anything else → `null` (422 DATE_INVALID).
+ *   date = departure − 1) (C0313-07). Never before the actual check-in, on every path (SEC FB-R5-SEC-BE-A1A-01:
+ *   the guest cannot leave before arriving; after PR-A1b this instant is the actual departure). Anything else →
+ *   `null` (422 DATE_INVALID).
  * - Nothing sent → the time `t` (typed `checkoutTime` ?? agreed late time ?? `checkout_time`) on these candidates:
- *   (departure, t); (departure + 1, t) when t < rollover; (departure − 1, t) when t ≥ rollover and the server clock is
- *   in the departure's post-midnight window (C0313-07, not before the actual check-in). The LATEST candidate not after
- *   server time + `manual_time_tolerance_minutes` wins; none fits → the earliest (B18 / QR then answer
- *   TIME_AFTER_ACTION).
+ *   (departure, t); (departure + 1, t) when t < rollover; (departure − 1, t) only when t was TYPED, t ≥ rollover and
+ *   the server clock is in the departure's post-midnight window (C0313-07; DOM FB-R5-DOM-BE-PR106-01: the agreed and
+ *   the standard time are times of the departure day – "left the evening before" exists only when the desk types it).
+ *   A candidate before the actual check-in is dropped (A1A-01); none left → `null` (422 DATE_INVALID). The LATEST
+ *   candidate not after server time + `manual_time_tolerance_minutes` wins; none fits → the earliest (B18 / QR then
+ *   answer TIME_AFTER_ACTION).
  * Example (departure 23/11, rollover 06:00): 07:00 on 23/11 typing 05:30 → 23/11 05:30 (was read as 24/11 05:30 and
  * refused – BUG-R4-051); 01:05 on 24/11 typing 01:00 → 24/11 01:00 (after the last tier → extra night).
  */
@@ -32,7 +36,9 @@ export interface CheckoutAtInput {
   sent?: Date | undefined;
   /** Used when nothing was sent: typed `checkoutTime` ?? agreed late check-out time ?? `checkout_time`. */
   time: LocalTime;
-  /** Actual check-in of the stay: the evening-before instant is never earlier (C0313-07). Null = no bound. */
+  /** `time` is a typed `checkoutTime` (not the agreed / standard time): only then the evening before (PR106-01). */
+  typed: boolean;
+  /** Actual check-in of the stay: the departure instant is never earlier (C0313-07, A1A-01). Null = no bound. */
   checkedInAt: Date | null;
 }
 
@@ -53,13 +59,19 @@ export interface ResolvedCheckoutAt {
 }
 
 /** The evening before the departure is accepted only while the server clock is in the departure's post-midnight window. */
-function eveningBeforeAllowed(i: CheckoutAtInput, at: Date): boolean {
-  const now = dayClock(i.now, i.tz, i.rollover);
-  if (!inPostMidnightWindow(now, i.departureDate)) return false;
+function eveningBeforeAllowed(i: CheckoutAtInput): boolean {
+  return inPostMidnightWindow(dayClock(i.now, i.tz, i.rollover), i.departureDate);
+}
+
+/** A1A-01: no departure instant before the actual check-in (no check-in recorded = no bound). */
+function notBeforeCheckIn(i: CheckoutAtInput, at: Date): boolean {
   return !i.checkedInAt || at.getTime() >= i.checkedInAt.getTime();
 }
 
-/** Departure instant of a stay (see the file header); `null` = a sent `checkoutAt` on a day B18 does not accept. */
+/**
+ * Departure instant of a stay (see the file header); `null` = a sent `checkoutAt` on a day B18 does not accept, or
+ * before the actual check-in; or no candidate of the time is at or after the actual check-in.
+ */
 export function resolveCheckoutAt(i: CheckoutAtInput): ResolvedCheckoutAt | null {
   const dep = i.departureDate;
   const eve = addDays(dep, -1);
@@ -70,18 +82,17 @@ export function resolveCheckoutAt(i: CheckoutAtInput): ResolvedCheckoutAt | null
     const ok =
       c.today === dep ||
       inPostMidnightWindow(c, dep) ||
-      (c.today === eve && eveningBeforeAllowed(i, at));
-    if (!ok) return null;
+      (c.today === eve && eveningBeforeAllowed(i));
+    if (!ok || !notBeforeCheckIn(i, at)) return null;
   } else {
     const t = i.time;
     const early = minutesOf(t) < minutesOf(i.rollover);
-    const candidates: Date[] = [];
-    if (!early) {
-      const before = atLocal(eve, t, i.tz);
-      if (eveningBeforeAllowed(i, before)) candidates.push(before);
-    }
-    candidates.push(atLocal(dep, t, i.tz));
-    if (early) candidates.push(atLocal(addDays(dep, 1), t, i.tz));
+    const all: Date[] = [];
+    if (!early && i.typed && eveningBeforeAllowed(i)) all.push(atLocal(eve, t, i.tz));
+    all.push(atLocal(dep, t, i.tz));
+    if (early) all.push(atLocal(addDays(dep, 1), t, i.tz));
+    const candidates = all.filter((c) => notBeforeCheckIn(i, c));
+    if (candidates.length === 0) return null;
     const limit = i.now.getTime() + i.toleranceMinutes * 60_000;
     const fit = candidates.filter((c) => c.getTime() <= limit);
     at = (fit.length > 0 ? fit[fit.length - 1] : candidates[0]) as Date;

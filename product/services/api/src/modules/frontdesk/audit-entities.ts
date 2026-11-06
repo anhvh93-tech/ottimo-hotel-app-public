@@ -51,4 +51,15 @@ defineAuditEntity('reservation', [
   // end it was decided on (dates only).
   'earlyDepartureRule',
   'leaseEndDate',
+  // 0.3.13 (V5-10): B18 `reservation.checked_out` – the clock time the departure was recorded at (E03-07), the extra
+  // night and the post-midnight window; written since 0.3.6 but dropped by the allowlist until v1.0.5 (SR-AUD-03).
+  // `lateSurchargeVnd` and `checkoutMode` (above) were always kept. No guest data. (ARC FB-R5-ARC-BE-A1-01: the B18
+  // keys live in this module, which writes B18, next to `overdue`.)
+  'systemTime',
+  'extraNight',
+  'postMidnightWindow',
+  // OpenAPI 0.3.13 bổ sung 1 (V5-15, BE C0313-10): `reservation.checked_out` of an overdue check-out –
+  // `{ departureDate, checkoutAt, recordedAt, reason, nightsNotBilled }` (dates, times, a count and the reason that
+  // passed the D12c reader – no money, no guest data); `listAuditEvents.overdueOnly` reads it.
+  'overdue',
 ]);

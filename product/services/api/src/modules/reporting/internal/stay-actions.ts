@@ -7,15 +7,23 @@
  * parity test keeps them aligned), including the post-midnight check-out window of B18 (0.3.7: "gồm cửa sổ sau
  * nửa đêm" – business date = departure − 1 while the calendar date is the departure day, DOM S3-9). 0.3.13 (V5-10):
  * both read that window from shared/business-day.ts; `departureDate` is the stay's effective departure.
+ * 0.3.13 bổ sung 1 (V5-15): a stay past that departure (a row of an earlier `date`) offers `check_out` + `overdue` only
+ * to who may do it – OWN; MGR while `nightsNotBilled` ≤ 1 (reservations/public/overdue-checkout.ts, the rule of B18).
  */
 import { isCheckoutDay } from '../../../shared/business-day';
 import type { LocalDate } from '../../../shared/time';
+import {
+  canCheckOutOverdue,
+  isOverdue,
+  nightsNotBilled,
+} from '../../reservations/public/overdue-checkout';
 
 export interface RowAction {
   event: string;
   transition: string;
   action: string;
   requiresTrustedDevice?: boolean;
+  overdue?: boolean;
 }
 
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
@@ -42,6 +50,14 @@ export function checkOutAction(
 ): RowAction[] {
   if (!fdPlus(roles) || b.status !== 'in_house') return [];
   // 0.3.13 (V5-10): the one clock rule of B18 (shared/business-day.ts – also `Reservation.allowedActions` and B18).
-  if (!isCheckoutDay({ today: b.today, calendarDate: b.calendarDate }, b.departureDate)) return [];
-  return [{ event: 'check_out', transition: 'B18', action: 'check-out' }];
+  if (isCheckoutDay({ today: b.today, calendarDate: b.calendarDate }, b.departureDate)) {
+    return [{ event: 'check_out', transition: 'B18', action: 'check-out' }];
+  }
+  if (
+    isOverdue(b.today, b.departureDate) &&
+    canCheckOutOverdue(roles, nightsNotBilled(b.today, b.departureDate))
+  ) {
+    return [{ event: 'check_out', transition: 'B18', action: 'check-out', overdue: true }];
+  }
+  return [];
 }

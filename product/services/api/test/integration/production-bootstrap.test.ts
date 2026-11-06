@@ -2,7 +2,8 @@
  * R3-OPS-02 – one-time production bootstrap (`src/admin/production-bootstrap.ts`).
  * (A) Shared test DB (always with properties): the command refuses and writes nothing.
  * (B) A FRESH empty database (`BOOTSTRAP_DATABASE_URL` + `BOOTSTRAP_MIGRATION_DATABASE_URL`, created by CI next to
- *     ottimo_test): migrate → run → 1 property, 3 groups, 10 units with the BR-110 occupancy, channels, every
+ *     ottimo_test): migrate → run → 1 property, 3 groups, 10 units with the BR-110 occupancy (not for sale – no
+ *     price yet, V5-1A), channels, every
  *     catalogue key without a default except the INV ones, no price / guest / booking; the owner signs in with
  *     the temporary password into a session that must change the password and enrol 2FA; a second run is refused.
  */
@@ -29,6 +30,7 @@ import { earlyCheckinSurcharge } from '../../src/modules/frontdesk/public/stay-r
 import { checkSecurityBounds } from '../../src/modules/platform/public/parameter.service';
 import { slugOf } from '../../src/modules/public-site/internal/website-request-rules';
 import { type FeatureApp, startFeatureApp } from '../helpers/feature-app';
+import { pricegapStatic } from '../helpers/pricegap-static';
 import { HAS_DB, T0, appDatabase, createTenant } from '../helpers/tenant';
 
 const clock = new FixedClock(T0);
@@ -205,7 +207,7 @@ describe.skipIf(!BOOT_URL || !BOOT_MIGRATION_URL)(
       actorType: 'system',
     });
 
-    it('creates the property, 3 groups and the 10 units with the BR-110 occupancy – no price', async () => {
+    it('creates the property, 3 groups and the 10 units with the BR-110 occupancy – no price, so none for sale (V5-1A)', async () => {
       await db.withContext(
         ctx(),
         async (tx) => {
@@ -244,7 +246,10 @@ describe.skipIf(!BOOT_URL || !BOOT_MIGRATION_URL)(
           expect(by['201']?.public_room_type).toBe('Standard Studio · City View');
           expect(by['103']?.public_room_type).toBe('Standard Studio · Garden View');
           expect(rooms.rows.every((r) => r.public_room_type !== null)).toBe(true);
-          expect(rooms.rows.every((r) => r.is_sellable)).toBe(true);
+          // V5-1A (contract 0.3.13 addendum 1, BE C0313-15): no list price yet → not for sale, so the static part of
+          // ops-check pricegap (V5-73) reads 0 right after the bootstrap (T1A-5).
+          expect(rooms.rows.every((r) => !r.is_sellable)).toBe(true);
+          expect(await pricegapStatic(tx)).toBe(0);
           const groups = await tx.query('SELECT 1 FROM room_group');
           expect(groups.rows).toHaveLength(3);
           const counts = await tx.query<Record<string, number>>(
