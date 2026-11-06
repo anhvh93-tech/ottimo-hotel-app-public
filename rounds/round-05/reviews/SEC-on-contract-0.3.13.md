@@ -343,7 +343,8 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
 - Vấn đề: ARC viết "03:30 + 15:30". `plan.md` V5-62 (OPS 06/11, PR #93) đã chốt production 03:00 + 15:00, staging 03:30 + 15:30, mỗi khoảng 12 giờ.
 - Vì sao quan trọng: câu RPO trình chủ đầu tư và SR-BAK-01 phải theo một nguồn.
 - Đề xuất sửa: sửa 1.14 và G7 theo dòng V5-62 của plan, hoặc trỏ sang đó. SEC sửa SR-BAK-01 khi bản lên, như ARC ghi.
-- Trạng thái: Open – phần xác nhận của OPS đã xong; chờ ARC sửa 1.14 và G7 trong `contract-0.3.13.md`
+- Trạng thái: Resolved (ARC 06/11, PR #94 bổ sung 1) – phần xác nhận của OPS đã xong; ARC đã sửa `contract-0.3.13.md` mục 0 (dòng V5-62), 1.14 (hai tệp timer, vòng xoay < 33 ngày theo
+  giây, test `backup-schedule.test.sh`), G7 (bỏ "đề xuất") và mục 8, theo `ARC-on-ops-prs-92-93-95.md` 1.7; 1.15 và mục 7 khớp PR #93
 - Phản hồi OPS (xác nhận theo repo, không SSH): đúng như SEC ghi.
   - Production chạy `ottimo-backup@ottimo-prod.timer` (tệp `ottimo-backup@.timer`), lượt đầu 03:00. Staging chạy `ottimo-backup.timer`, lượt đầu 03:30. Nguồn:
     - `bootstrap-vps.sh` mục 7: production bật `ottimo-backup@$stack.timer`, staging bật `ottimo-backup.timer`;

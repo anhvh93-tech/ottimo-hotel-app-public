@@ -42,14 +42,14 @@
 | V5-31 | **Bổ sung 1**: khóa `long_stay_cleaning_fee_by_room` (DOM 5, 7.4) | `GuestRequest.feeFallback` | **Có** – cùng PR-M | Đã chốt |
 | V5-11 | **Bổ sung 1**: review DOM 2 – B16 trong 00:00–05:59 | 409 `INVALID_TRANSITION` + `minNewDepartureDate`, `useCheckout` | Không | Đã chốt (1.21) |
 | V5-25 | **Bổ sung 1**: dạng lưu `weekend_nights`, `min_stay` (BUG-R5-001, BUG-R5-003) | Chỉ mô tả `setParameter`; **không đổi schema, không trường mở rộng mới** | Không | DOM viết luật lưu; ARC chốt điểm còn mở (1.24) |
-| BUG-R5-002 | **Bổ sung 1**: đóng đường ghi vượt có `note` trên đơn đã hủy; đường riêng DOM 11.4 ở 0.3.14 | Chỉ mô tả `recordPayment`, `createVietQr` | Không (dự kiến cả 0.3.14) | Đã chốt (1.21) |
+| V5-5B (BUG-R5-002) | **Bổ sung 1**: 5B-1 = nhánh đơn đã đóng trong `recordPayment` (DOM 11.4 bản khuya); 5B-2 khôi phục ở 0.3.14 | Mô tả `recordPayment`, `createDepositNotice` (202); `Payment.refundRequestId`; mã hoàn `payment_after_cancel` | Không (cả 5B-2) | Đã chốt (1.21) |
 | Chung | **Bổ sung 1**: `x-write-roles` (SEC ARC-02), id `rbac-cases` ổn định (SEC ARC-13), `x-round: R5` | Phần mở rộng mới; bộ sinh | Không | – |
 | V5-44 | `Problem.lockReason`. Lỗi trigger 0094 → 409 | Thêm trường mở rộng, đổi 500 → 409 | Không | Không |
 | V5-46 | Đã có từ 0.3.12 (i) | Không đổi | Không | Không |
 | V5-50 | Desk lọc theo `listRoomStatuses` | Không đổi | Không | Không |
 | V5-57 | Đã có từ 0.3.7 (`q` tìm theo tên) | Không đổi | Không | Không |
 | V5-58 | Hai operation riêng cho Wi-Fi, ghi vào cột trang khách đang đọc. **Bổ sung 1**: chống tự điền, chặn trùng tên đăng nhập/mật khẩu, byte, PUT không trả mật khẩu | Thêm `getPropertyWifi`, `setPropertyWifi`; bổ sung 1: `passwordSet` | Không | FD đọc: chờ dòng rbac BA (1.23) |
-| V5-62 | Giữ (a). Giờ theo `plan.md` V5-62 (OPS, PR #93): production 03:00 + 15:00, staging 03:30 + 15:30 (bổ sung 1, SEC ARC-09) | Không (hạ tầng) | Không | Không |
+| V5-62 | Giữ (a). Lượt hai: production 15:00, staging 15:30, mỗi khoảng 12 giờ (plan V5-62, PR #93) | Không (hạ tầng) | Không | Không |
 | V5-63 | Driver `journald` + `MaxRetentionSec=90day` | Không (hạ tầng) | Không | Không |
 
 Đã chạy trên nhánh:
@@ -446,14 +446,16 @@ Hai ý khác của V5-22 là việc FE/UXD, không đổi hợp đồng:
 **Quyết định:**
 - Giữ hướng (a): thêm một lượt `backup.sh` mỗi ngày, cùng mã hóa `age`, cùng chủ và quyền.
 - Tên tệp đã có giờ (`date -u +%Y%m%dT%H%M%SZ`), nên hai bản một ngày không đè nhau.
-- Vòng xoay theo tuổi (≤ 7 ngày giữ hết; bộ Chủ nhật UTC < 35 ngày) vẫn đúng trần 35 ngày.
+- Vòng xoay theo tuổi (giây) đọc từ tên tệp: < 7 ngày giữ hết; bộ Chủ nhật UTC < 33 ngày; `purge-journal` < 40 ngày (ARC duyệt 33 ngày ở `ARC-on-ops-prs-92-93-95.md` 1.2) – lỡ hai lượt liền vẫn < 35 ngày (T18).
 
-**Giờ chạy – theo `plan.md` V5-62 (OPS 06/11, PR #93), bổ sung 1 sửa theo SEC ARC-09:**
-- production 03:00 + 15:00; staging 03:30 + 15:30 – mỗi khoảng đúng 12 giờ, nên câu "mất tối đa 12 giờ từ v1.0.5" (sổ vận hành 1.2) đúng.
-- Nguồn giờ duy nhất là dòng V5-62 của plan và `ottimo-backup.timer` trong repo; tệp này không nhắc lại số khác. SEC sửa SR-BAK-01 khi bản lên.
+**Giờ chạy – theo `plan.md` V5-62 (OPS 06/11, PR #93); bổ sung 1 sửa theo SEC ARC-09 và `ARC-on-ops-prs-92-93-95.md` 1.7:**
+- production chạy `ottimo-backup@ottimo-prod.timer` (tệp `ottimo-backup@.timer`) lúc **03:00 + 15:00**;
+- staging chạy `ottimo-backup.timer` lúc **03:30 + 15:30**;
+- mỗi khoảng đúng 12 giờ, nên câu "mất tối đa 12 giờ từ v1.0.5" (sổ vận hành 1.2) đúng. Nếu chọn 14:00 thì khoảng lớn nhất của production là 13 giờ (14:00 → 03:00).
+- Nguồn giờ duy nhất là dòng V5-62 của plan và hai tệp timer trong repo. SEC sửa SR-BAK-01 khi bản lên.
 
-**Việc của OPS:**
-- `ottimo-backup.timer` thêm dòng `OnCalendar` thứ hai.
+**Việc của OPS (đã làm ở PR #93):**
+- `ottimo-backup@.timer` (production) và `ottimo-backup.timer` (staging): mỗi tệp có một dòng `OnCalendar` thứ hai.
 - `ops-check.sh` hạ `BACKUP_MAX_HOURS` từ 26 xuống 14 (khoảng cách 12 giờ + 2 giờ dư).
 - `pull-backups.sh` đã `--ignore-existing`, kéo hai bản một ngày không đổi gì.
 - `hosting-plan.md` mục 7 sửa RPO.
@@ -461,7 +463,7 @@ Hai ý khác của V5-22 là việc FE/UXD, không đổi hợp đồng:
 
 **Migration:** không.
 
-**Test:** `backup.test.sh` có 2 lượt trong cùng ngày với tên khác nhau; tuổi bản > 14 giờ thì ops-check báo FAIL.
+**Test:** `infra/server/test/backup-schedule.test.sh` – 2 lượt trong cùng ngày với tên khác nhau, vòng xoay theo tuổi (giây); tuổi bản > 14 giờ thì ops-check báo FAIL.
 
 ### 1.15 V5-63 – giữ log qua lần dựng lại container, trần cứng 90 ngày (OR-M3, FB-R4-SEC-OPS-OR-04)
 
@@ -482,10 +484,13 @@ Hai ý khác của V5-22 là việc FE/UXD, không đổi hợp đồng:
   - `SystemMaxUse=` và `SystemKeepFree=` (trần dung lượng);
   - `RateLimitBurst` đủ cao cho `docker.service`, vì mọi container chung một nguồn.
 - Rsyslog của Ubuntu chép journal ra `/var/log/syslog`: OPS kiểm logrotate của tệp đó giữ ít hơn 90 ngày (mặc định 4 tuần), hoặc đặt `ForwardToSyslog=no` nếu không có gì khác cần syslog.
+  **PR #93 đã chọn `ForwardToSyslog=no`** (không script, runbook hay tài liệu nào đọc `/var/log/syslog`, `/var/log/auth.log` – ghi ở README).
+- **PR #93 (bổ sung 1 ghi lại):** `daemon.json` trên VPS đang chạy giữ nguyên ở W6 (container ghi rõ `journald` không bị ghép `max-size`), chỉ `bootstrap-vps.sh` đổi; Postgres chạy
+  `log_error_verbosity=terse` (SEC ARC-08).
 
 **Quyền đọc:**
 - `/var/log/journal` thuộc `root:systemd-journal`, tệp 0640.
-- OPS kiểm nhóm `adm` và `systemd-journal` chỉ có tài khoản vận hành. Không user thường nào đọc được.
+- OPS kiểm nhóm `adm`, `systemd-journal` **và `docker`** chỉ có tài khoản vận hành (SEC ARC-07). Không user thường nào đọc được.
 
 **Giữ nguyên:**
 - Cách che hiện có: ứng dụng che khóa nhạy cảm; Caddy che `/g/*` và mọi query string.
@@ -495,12 +500,13 @@ Hai ý khác của V5-22 là việc FE/UXD, không đổi hợp đồng:
 - `docker logs` vẫn chạy với journald, nhưng chỉ đọc container hiện tại.
 - `pricegap` và các kiểm khác cần đọc qua nhiều lần deploy thì dùng `journalctl -t <tag> --since …`.
 - `ops-check.sh` thêm một kiểm: bản ghi cũ nhất của journal ≤ 91 ngày. Quá thì báo, vì đó là dấu hiệu trần không chạy.
+- PR #93 thêm (SEC ARC-07): ngưỡng dưới – journal xoay sớm vì dung lượng → WARN; đếm dòng `Suppressed` của journald trong 24 giờ → WARN.
 
 **Migration:** không (hạ tầng).
 
 **Test:**
 - `ops-check` có ca "journal cũ hơn 91 ngày → FAIL".
-- Smoke sau deploy: `journalctl -t <tên container api>` có dòng của container trước lần deploy.
+- Smoke sau deploy: `journalctl CONTAINER_TAG=<tên container api>` có dòng của container trước lần deploy (như PR #93).
 - `stat` quyền thư mục.
 
 ---
@@ -632,18 +638,25 @@ Thay T14-4 cũ ("kênh Nội bộ theo BR-421") bằng T14-8.
 
 **Tin `hold_expired` (DOM 9):** người tạo + người chốt + mọi FD, FDL đang hoạt động; một lần mỗi đơn, mỗi người một dòng. Không đổi schema; mô tả `StaffNotification` đã sửa.
 
-**Tiền về sau khi giữ chỗ tự hủy (DOM 11.4, BUG-R5-002) – ARC chốt:**
-1. **Đóng đường hiện có, không dùng lại.** QA thấy FD+ có `note` ghi được khoản thu vượt lên đơn đã hủy (201, không ảnh, ghi `succeeded`, không chờ đối soát) rồi tạo yêu cầu hoàn. Đường này thiếu mọi luật của 11.4 và là lối ghi tiền không chứng từ. Từ 0.3.13 bổ sung 1: đơn `cancelled`/`no_show` → `recordPayment` và `createVietQr` chỉ trong còn phải thu (trần cứng, `note`/`overBalanceReason` không vượt được). Thu phí hủy/phí không đến còn nợ vẫn được. Đổi nhỏ, không migration; BE-B làm trong PR-B1. SEC xác nhận ở `SEC-on-bug-r5-002.md`.
-2. **Đường riêng ở 0.3.14** (khi PO xếp bản; DOM đề xuất v1.0.6): một operation mới, phác:
-   - `POST /v1/properties/{propertyId}/reservations/{reservationId}/actions/record-late-deposit` (`recordLateDepositAfterAutoCancel`); vai FD+ (SEC chốt ai được khôi phục); `Idempotency-Key`.
-   - Điều kiện: đơn `cancelled`, `cancel_reason_code = hold_expired`; khác → 409 `INVALID_TRANSITION`.
-   - Thân lệnh: `payment` như `confirmDeposit.payment` + `attachmentId` **bắt buộc** (thiếu → 422 `REQUIRED`); `receivedAt` ≥ lúc tạo giữ chỗ cũ, ≤ bây giờ; khoản thu ghi **chờ đối soát** (BR-527); `resolution`: `restore` | `refund`.
-   - `restore` (DOM nghiêng về cách này – ARC đồng ý): **khôi phục cùng đơn** về `hold` (không đơn mới liên kết: mã đơn khớp nội dung chuyển khoản, giờ tiền đúng, không sinh hoàn), kiểm tồn phòng dưới khóa như B1; căn đã bán → 409 `ROOM_UNAVAILABLE` + `conflicts`/gợi ý như B1, **tiền vẫn ghi** và phản hồi gợi ý `refund`; đã qua ngày đến → 409 `INVALID_TRANSITION`. Sau đó B4 xác nhận cọc như thường.
-   - `refund`: tự tạo yêu cầu hoàn 100 %, không phí (BR-308); MGR/OWN duyệt, người xin không tự duyệt (BR-522).
-   - "Cần chú ý" `deposit_after_cancel` cho FD+ (đã khai báo, chưa ai tạo): mở khi có khoản thu này, tự đóng khi đã khôi phục hoặc đã chi hoàn.
-   - `createDepositNotice` trên đơn `cancelled/hold_expired`: tạo thông báo + mở `deposit_after_cancel` thay vì 409 (để báo của sale không mất).
-   - **Migration:** ARC không thấy cần – `reservation_cancelled_check` chỉ ràng khi `status = cancelled`; không có trigger chặn `cancelled → hold`; `reason_code` là text. BE xác nhận ràng buộc của `payment` (trạng thái chờ đối soát) khi làm; nếu cần thì PR riêng theo QC R4 ĐK-2.
-   - Máy trạng thái SM-01 cần thêm chuyển `cancelled → hold` (lý do `hold_expired`): BA cập nhật cùng 0.3.14.
+**Tiền về cho đơn đã đóng – V5-5B (DOM 11.4 bản 06/11 khuya `e9e0e2e4`, BUG-R5-002) – ARC chốt cách làm:**
+
+DOM quyết dùng lại `recordPayment`, áp cho mọi đơn `cancelled`/`no_show`. Bản trước của mục này (đóng đường, làm thao tác riêng) **bỏ**.
+
+1. **5B-1 = một nhánh trong `recordPayment`**, không thao tác bọc. Lý do: một khoản tiền một đường (số PT-, audit, đối soát, đóng ca, báo cáo đọc một nguồn); thao tác bọc vẫn phải gọi cùng hàm nhưng thêm một route, một dòng rbac, một bộ ca quyền. Nhánh vào khi folio có đơn `cancelled`/`no_show`:
+   - FD+ (SAL vẫn bị chặn, mã như hiện nay);
+   - `method` chỉ `bank_transfer`, `vietqr`; **tiền mặt bị từ chối ở API** (hiện nay nhận) cùng POS, ví, `ota_collect` → 422 `VALIDATION_FAILED` (`method`, `NOT_ALLOWED`);
+   - `attachmentId` bắt buộc (422 `REQUIRED`); `note` bắt buộc (422 `REASON_REQUIRED`);
+   - `type` = `deposit` khi `status_before_cancel = hold`, `charge` với đơn khác (sai → 422 `NOT_ALLOWED` ở `type`) – trả lời DOM 2 (f);
+   - `receivedAt` từ lúc tạo đơn tới bây giờ;
+   - kết quả cùng giao dịch: `reconciliation = pending`; yêu cầu hoàn `refund` mã lý do **mới** `payment_after_cancel` (không dùng lại `overpayment`: báo cáo và nhãn Desk cần tách "Tiền về sau khi hủy"; `reason_code` là text, không migration), số = phần vượt còn phải thu (thường 100 %), không phí; `Payment.refundRequestId`; chi chỉ khi khoản thu `reconciled`; người ghi không tự duyệt; mục `deposit_after_cancel` đóng; audit `afterCancel: true`; đơn, folio không đổi trạng thái.
+   - BE kiểm khi làm: (i) chặn "chi trước đối soát" đã có ở đường hoàn chưa – chưa có thì thêm 409 `INVALID_TRANSITION` ở bước thực hiện hoàn; (ii) giao dịch VietQR `pending` tạo trước khi đơn bị hủy rồi khách trả sau: hướng ARC – `confirmPaymentReceived` trên đơn đã đóng đi cùng nhánh 5B-1 (ảnh, hoàn 100 %), không có đường thứ hai.
+2. **`createDepositNotice` trên đơn đã đóng (QA ca (f)):** **202** như đơn `hold`, lưu báo `open`, mở `deposit_after_cancel` cho FD, FDL, MGR, OWN; sale không cần biết thêm (thấy trạng thái đơn ở danh sách). Mục đóng khi có khoản thu ghi sau lúc báo, hoặc FD+ `resolveAttentionEvent` "Không thấy tiền" kèm ghi chú. Kind đã có trong CHECK DB – không migration.
+3. **Migration 5B-1:** không. **PR:** PR-B1 (BE-B) nếu PO xếp v1.0.5; tới đó QA ca (a'')…(e') chờ.
+4. **5B-2 – khôi phục giữ chỗ (v1.0.6, hợp đồng 0.3.14), phác:**
+   - Thân `recordPayment` thêm `restoreHold: true` (FD+, chỉ đơn `cancelled` có `status_before_cancel = hold`; đơn khác → 422 `NOT_ALLOWED`). Cùng giao dịch: ghi khoản thu `deposit`, đơn `cancelled → hold` (cùng mã, căn, giá đã giữ), xác nhận cọc bằng chính khoản này (như `confirmDeposit.existingPaymentId`), **không** tạo yêu cầu hoàn. Đủ cọc → `confirmed`; thiếu → giữ chỗ có cọc một phần quá hạn (BR-303).
+   - **Căn đã bán** (một đêm bất kỳ trùng): 409 `ROOM_UNAVAILABLE` + `conflicts[]`, `suggestions[]` – **cùng mã với khôi phục B12** (`restoreNoShow`), như DOM gợi ý. **Đã qua ngày đến:** 409 `INVALID_TRANSITION`. Lỗi nào cũng rollback cả giao dịch – khoản thu không ghi nửa chừng; lễ tân chọn lại lối hoàn (5B-1) hoặc mời căn khác.
+   - **Tồn phòng song song (QA ca (b)):** đặt lại `room_occupancy.active = true` trong cùng giao dịch; ràng buộc `room_occupancy_no_overlap` (EXCLUDE, ADR-009) quyết người thắng – bên thua nhận 23P01 → 409 `ROOM_UNAVAILABLE`. Không cần khóa thêm ngoài khóa đơn như B12.
+   - **Migration: không** – không có trigger chặn chuyển `cancelled → hold`; `reservation_cancelled_check` chỉ ràng khi `status = cancelled`; `cancel_reason_code`, `cancelled_at` giữ lại để tra (hoặc xóa – BE chọn, ghi audit). Máy trạng thái SM-01 thêm chuyển `cancelled → hold` (BA). SEC xem ai được khôi phục (DOM đề xuất FD+).
 
 ### 1.22 V5-30, V5-31 – cấu trúc và migration (DOM 4, 5, 7.3, 7.4)
 
@@ -688,11 +701,14 @@ Thay T14-4 cũ ("kênh Nội bộ theo BR-421") bằng T14-8.
 - **V5-1A (BE 15, SEC ARC-12):** sửa câu changelog (Desk không có màn tạo căn); bootstrap tạo căn `isSellable = false` khi chưa có giá. Danh sách việc kèm của BE (viết lại TC-NT-018, ví dụ BR-101 (5) ở `br-examples`, `validate-fixtures` bỏ ÷12, DS-E `expectedNightlyListPriceVnd`, các test gọi `createRoom`) là việc của PR-C1. Cảnh báo `NIGHTLY_PRICE_UNUSUAL` (không chặn) khi giá đêm < giá tháng ÷ 30 (BR-101 (4), đúng kiểm mềm Desk đang có) hoặc > giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt biên trên]. DOM ghi `night_from_month_divisor` "ngừng dùng từ v1.0.5".
 - **`listParameters.missing[]` (BE 17):** lọc vai như `data`; mọi chỗ đọc khóa hoa hồng bắt `ParameterMissingError` → `rate_missing`. T30-5.
 - **Trigger 0094 (BE 19):** bắt theo SQLSTATE `23514` + tiền tố câu, trong `SAVEPOINT`. T44-4.
-- **V5-25 (BE 06, 18; BUG-R5-001, BUG-R5-003) – trả lời ORC: không cần đổi schema, không cần trường mở rộng mới.** `setParameter` đã có `PARAM_OUT_OF_RANGE` với `min`, `max`, `allowed[]`, `errors[{field}]`; bổ sung 1 chỉ ghi dạng giá trị:
-  - `weekend_nights` = `Weekday[]` (`MON`…`SUN`), số → 422; sửa bộ kiểm, không sửa bộ tính giá; `erd.md` 9.1, 9.1a đã sửa;
-  - `min_stay` = `MinStayRule[]`, mỗi phần tử có `arrivalWeekdays` không rỗng **hoặc** `arrivalOnSpecialDates = true` (ARC chốt điểm QA đề xuất); khóa lạ → lỗi; `errors[].field` = `value[<i>].<thuộc tính>`;
-  - bộ đọc phòng thủ: không phải mảng → coi như rỗng; phần tử hỏng → bỏ phần tử; log cảnh báo; **không 500**. Vì bộ đọc không còn 500, không mở ngoại lệ "sửa dòng đang hiệu lực trong ngày" ở v1.0.5.
-  - DOM viết luật lưu ở `rules-v1.0.5.md`; khác với các điểm trên thì DOM thắng về nghiệp vụ, ARC sửa chữ.
+- **V5-25 (BE 06, 18; BUG-R5-001, BUG-R5-003; DOM 8.4, 12) – trả lời ORC: chỉ thêm dòng mô tả ở `setParameter`; không đổi schema, không trường mở rộng mới.** `PARAM_OUT_OF_RANGE` đã có `min`, `max`, `allowed[]`, `errors[{field, code}]`. ARC chốt tên DOM để mở:
+  - `weekend_nights` = `Weekday[]` (`MON`…`SUN`), không rỗng, không trùng; số → 422; sửa bộ kiểm, không sửa bộ tính giá; `erd.md` 9.1, 9.1a đã sửa;
+  - `min_stay` theo DOM 12.1: 0–20 luật; khóa chỉ `nights`, `channels`, `arrivalWeekdays`, `arrivalOnSpecialDates`; `nights` 1–min(7, `short_stay_max_nights`); `channels` bắt buộc (`"all"` hoặc con của `direct`/`agent`/`ota`); mỗi luật áp ít nhất một ngày; `[]` = không tối thiểu;
+  - lỗi báo điểm sai đầu tiên: `errors[0].field` = `value[<i>].<khóa>`, `code` thuộc bảng mã trường có sẵn (`REQUIRED`, `VALUE_OUT_OF_RANGE`, `NOT_IN_LIST`, `DUPLICATE`, `NOT_ALLOWED`); `min`/`max`/`allowed` như bảng DOM;
+  - kiểm ngược `short_stay_max_nights` < `nights` lớn nhất của `min_stay` (hiệu lực ở `effectiveFrom` hoặc đã lên lịch sau) → 422, `min` = số đó;
+  - bộ đọc phòng thủ ở 3 chỗ gọi `minStayNights`: không mảng → không luật; phần tử hỏng → bỏ; log một lần; không 500;
+  - không mở đường sửa dòng hiệu lực hôm nay (R5-B-06).
+
 - **BA (a) – `rbac-matrix.json` A07b, A33 trỏ `channelWebhook`, `paymentCallback`:** ARC đề nghị BA **bỏ** hai operationId này (không đổi tên): đường hệ thống thật là `webhookPost`/`webhookGet` (`x-roles: [system]`, R3); gắn vào A07b/A33 (vai FD+) sẽ làm `rbac_check` báo lệch. BA ghi chú "đường cổng thanh toán/OTA: `webhookPost` (system)".
 - **BA (b) – ghi chú 46b:** chốt hợp quyền, xem 1.16.
 - **SEC ARC-13:** id `rbac-cases` ổn định `RB-<operationId>-<subject>`, ca trường `RBF-<operationId>-<field>-<subject>`; id cũ trong tài liệu trước 0.3.13 (`RB-0387`…) theo đánh số của commit đó – tra git. Thêm `x-round: R5` cho `getPropertyWifi`, `setPropertyWifi`, `getManagerPerformanceBonus`.
@@ -712,7 +728,8 @@ Chia BE theo module là đề xuất của ARC; ORC đổi người làm đượ
 | 1b | BE-A2 | **PR-A1b**: V5-15 (+ trần MGR, BE 03, 09, 10, cổng minibar) | 1.4, 1.18, 1.16 H-01…H-04 | PR-0; rebase theo PR-A1a nếu cùng chạm `checkout.service.ts` (gộp sau PR-A1a) | Người giữ inventory review cổng minibar |
 | 1c | BE-D | **PR-D1**: V5-40, V5-43 + `departuresDate` (BE 02) | 1.19 | PR-0 | |
 | 2 | BE-A | **PR-A2**: V5-11 | 1.21 | PR-A1a | Hàm "ngày lịch tối thiểu" dùng chung |
-| 1d | BE-B | **PR-B1**: V5-13 + V5-18 + V5-44 (a) + V5-16 (lọc, `reductionsOnly`) + BE 11, 13, 14 + đóng đường ghi vượt trên đơn hủy (BUG-R5-002) | 1.2, 1.6, 1.11 (a), 1.5, 1.20, 1.21 ý 1, 1.24 | PR-0 | |
+| 1d | BE-B | **PR-B1**: V5-13 + V5-18 + V5-44 (a) + V5-16 (lọc, `reductionsOnly`) + BE 11, 13, 14 | 1.2, 1.6, 1.11 (a), 1.5, 1.20, 1.24 | PR-0 | |
+| 2 | BE-B | **PR-B3**: V5-5B 5B-1 (nhánh đơn đã đóng, `createDepositNotice` 202, `deposit_after_cancel`) | 1.21 | PR-B1 | Nếu PO xếp v1.0.5; FE nút trên khung đơn đã đóng |
 | 2 | BE-B | **PR-B2**: V5-16 phần chặn BR-438 + `lineReductions` + `foc_threshold` `line_reduction_count` | 1.20 | PR-B1 | |
 | 1e | BE-S | **PR-S1**: V5-14 + V5-22 + guard `x-write-roles` | 1.3, 1.9, 1.16, 1.17 | PR-0 | **≤ 08/11** (BE 05) |
 | 1f | BE-C | **PR-C1**: V5-1A (+ cảnh báo tỷ lệ, bootstrap) + V5-44 (b) + V5-58 (+ bổ sung) | 1.8, 1.11 (b), 1.13, 1.23, 1.24 | PR-0; **V5-73 gộp trước** | |
@@ -724,7 +741,7 @@ Chia BE theo module là đề xuất của ARC; ORC đổi người làm đượ
 | – | FE-B | V5-18, V5-13 (khung đơn), V5-46 | 1.6, 1.2, 1.12 | PR-B1 (V5-18, 13); V5-46 không chờ | V5-46 bật cùng tag máy chủ |
 | – | MOB | Nút Cần dọn trên app nhân viên (V5-15); V5-46 nếu thuộc app khách | 1.4, 1.12 | Không | Hàng đợi offline như R8 |
 | – | OPS | V5-62, V5-63 (+ SEC ARC-07, 08) | 1.14, 1.15 | Không | SEC review; ARC review cấu hình |
-| sau | BE | 0.3.14: đường riêng DOM 11.4 (`recordLateDepositAfterAutoCancel`) | 1.21 | PO xếp bản | DOM đề xuất v1.0.6 |
+| sau | BE | 0.3.14: 5B-2 khôi phục (`recordPayment.restoreHold`) | 1.21 | PR-B3 | v1.0.6 |
 
 "Thứ tự" cùng số = chạy song song. Gộp PR-A1a trước PR-A1b vì cùng tệp.
 
@@ -746,8 +763,8 @@ Luật chung:
 | V5-11 | Luật W (2, 7.6) | 1.21 | DOM thêm câu BR-428 nếu đồng ý nhận xét 1.21 |
 | V5-31 | Khóa theo căn (5, 7.4) | 1.22 (PR-M) | – |
 | V5-58 (phụ) | FD đọc (7.5) | 1.23 | **BA** thêm dòng rbac; ARC thêm vai |
-| 11.4 | Khôi phục cùng đơn hoặc hoàn 100 % | 1.21 (đóng đường cũ; phác 0.3.14) | SEC chốt ai được khôi phục; PO xếp bản |
-| V5-25 | DOM đang viết luật lưu `min_stay`, `weekend_nights` | 1.24 | Luật DOM khác 1.24 thì ARC sửa chữ |
+| 11.4 / V5-5B | Dùng lại `recordPayment`, mọi đơn đã đóng; 5B-2 khôi phục cùng đơn | 1.21 (5B-1 vào 0.3.13; 5B-2 phác 0.3.14) | SEC chốt ai được khôi phục; PO xếp bản |
+| V5-25 | Luật lưu `min_stay` (mục 12), `weekend_nights` (8.4) | 1.24, mô tả `setParameter` | – |
 | BR-101 (4) | – | Biên dưới giá tháng ÷ 30 | **DOM chốt biên trên** (ARC giả định ÷ 3) |
 
 **Điểm còn mở ở DOM 7.1 (ORC hỏi):** ARC thấy 7.1 đủ cho hợp đồng. Hai điểm nhỏ đề nghị DOM ghi rõ: (1) ngày nghiệp vụ lúc ghi là của **lúc bấm** (không phải `checkoutAt`) – hợp đồng đã viết theo cách này; (2) lượt có đơn con gia hạn: "ngày đi" là ngày đi hiệu lực của cả lượt (BR-422).
@@ -756,13 +773,13 @@ Luật chung:
 
 ## 4. Mục có migration (QC R4 ĐK-2: không phát hành production có migration trước khi diễn tập khôi phục xong)
 
-- **Không migration:** V5-10, 11, 13, 14, 15 (cả trần MGR), 16 (cả BR-438), 18, 1A, 22, 25, 44, 58, đóng đường BUG-R5-002, tin `hold_expired`, `x-write-roles`; V5-62/63 (hạ tầng).
+- **Không migration:** V5-10, 11, 13, 14, 15 (cả trần MGR), 16 (cả BR-438), 18, 1A, 22, 25, 44, 58, V5-5B (5B-1 và 5B-2), tin `hold_expired`, `x-write-roles`; V5-62/63 (hạ tầng).
 - **Có migration – gom vào một PR riêng PR-M** (trả lời ORC: V5-30, V5-31 **có** migration):
   - `config_parameter_def`: `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` (không giá trị mặc định – SEC G3);
   - `commission.instalment_no` + unique mới (1.22).
   - Không có kind thông báo/"Cần chú ý" mới cần nới CHECK: `commission_rate_missing` là mục `computed` (không lưu).
 - **Đề xuất tách bản:** PR-M chỉ gộp vào `main` khi PO xếp nó vào v1.0.5 **và** V5-61 xong; nếu V5-61 chưa xong thì v1.0.5 lên không có PR-M, H2 lên ở bản kế (hạn 01/12). Các PR khác không phụ thuộc PR-M.
-- **Có thể có migration, chờ BE xác nhận:** 0.3.14 đường DOM 11.4 (ARC thấy không cần – 1.21).
+- **Có thể có migration, chờ BE xác nhận:** 5B-2 (ARC thấy không cần – 1.21 ý 4).
 - **Ngoài hợp đồng, có thể có migration dữ liệu:** V5-17 (tính lại `is_complimentary`). ARC review khi DATA và BE đưa cách làm.
 
 ---
@@ -789,14 +806,14 @@ Luật chung:
 - G4. Wi-Fi dùng operation riêng, không dùng tham số. FD không đọc được (S24) **tới khi BA có dòng rbac đọc Wi-Fi** (bổ sung 1, DOM 7.5).
 - G5. Lọc `removalsOnly` chạy trên jsonb mà không cần chỉ mục mới, vì số bản ghi một tuần của 10 căn nhỏ. BE đo trên staging.
 - G6. `QuoteInput.nightlyRates` chỉ FD+ (`x-write-roles`); báo giá chỉ kênh `direct`/`agent` (bổ sung 1, SEC ARC-01).
-- G7. Giờ sao lưu theo `plan.md` V5-62 (production 03:00 + 15:00, staging 03:30 + 15:30) – bổ sung 1, SEC ARC-09.
+- G7. Lượt hai: production 15:00, staging 15:30 (plan V5-62, PR #93). Chỉ câu "RPO 12 giờ" còn chờ INV xác nhận ngày 20/11.
 - G8. Chia làn BE theo module như mục 2.
 - G9. Biên trên cảnh báo giá đêm = giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt]; biên dưới ÷ 30 theo BR-101 (4).
 - G10. Ứng viên thứ ba của "Quy đổi giờ trả" (BE 07) giữ hành vi hiện có, không phải luật nghiệp vụ mới; DOM V5-11 luật 3 cùng hướng.
 - G11. Bộ đọc `min_stay` phòng thủ coi giá trị hỏng như không có luật trong ngày đó (thà mất luật tối thiểu đêm một ngày hơn là dừng bán cả ngày).
-- G12. Đường DOM 11.4 khôi phục **cùng đơn**, không đơn mới liên kết; không migration (BE xác nhận).
+- G12. V5-5B: 5B-1 là nhánh trong `recordPayment`; 5B-2 khôi phục **cùng đơn**; không migration (BE xác nhận ràng buộc `payment`, chặn chi trước đối soát).
 - G13. `x-write-roles` chỉ gắn cho luật mới của 0.3.13; luật trường cũ chuyển sang ở 0.3.14.
-- G14. Đóng đường ghi vượt có `note` trên đơn `cancelled`/`no_show` không làm mất việc nào đang làm trên Desk (Desk không có nút ghi thu cho đơn đã hủy – QA BUG-R5-002).
+- G14. Từ chối tiền mặt trên đơn đã đóng không làm mất việc nào đang làm trên Desk (Desk không có nút ghi thu cho đơn đã hủy – QA BUG-R5-002); khách ở quầy thu trên đơn mới (DOM 2 (b)).
 
 ---
 
@@ -804,7 +821,7 @@ Luật chung:
 
 - Phần chặn V5-16 và cấu trúc V5-30 chưa có trong hợp đồng; ARC thêm bổ sung trong ngày DOM chốt. Hạn H2 là 01/12.
 - V5-1A là đổi phá vỡ. Script hay công cụ nào gọi `createRoom`/`updateRoom` mà chưa gửi giá đêm sẽ nhận 422. ORC/OPS đã gửi đủ hai giá từ Gói 0; BE-C rà bootstrap và công cụ nhập.
-- V5-63: đổi driver phải đi cùng một lần dựng lại container. Bỏ quên `max-size` trong `daemon.json` thì Docker không khởi động. OPS diễn tập trên staging trước.
+- V5-63: đổi driver phải đi cùng một lần dựng lại container. Rủi ro bỏ quên `max-size`: **đã xử lý ở PR #93**, test 18, 19, 21 của `ops-check-journal.test.sh` giữ. Desk gián đoạn 20–60 giây ở W6 bước 4 (ARC-on-ops-prs 1.1).
 - `openapi-spec-validator` chưa chạy local; CI chạy.
 - **Bổ sung 1:** đổi id `rbac-cases` làm mọi id cũ đổi một lần (QA biết; tài liệu cũ tra git). Bổ sung 1 thêm nhiều luật vào PR-A1b, PR-B2, PR-S1 – hạn PR-S1 ≤ 08/11 sát; nếu trễ, ORC dời phần `x-write-roles` guard chung sang PR riêng nhưng **không** cho PR-S1 lên mà thiếu chặn SAL/CTV.
 - PR-M phụ thuộc V5-61; H2 có thể trượt sang bản sau 01/12 nếu diễn tập trễ.
@@ -814,6 +831,6 @@ Luật chung:
 
 ## 8. Dòng decision-log đề nghị (ORC ghi khi gộp)
 
-`| 2026-11-06 | 5 | **ARC – hợp đồng OpenAPI 0.3.13-draft cho v1.0.5** (rounds/round-05/outputs/ARC/contract-0.3.13.md; PR r5-contract-0313): V5-10 máy chủ quy đổi giờ trả theo một luật, CheckoutSummary.checkoutAt dùng chung cho tóm tắt, QR, B18; V5-13 openRefunds[] theo lý do (FD+); V5-14 QuoteInput.nightlyRates, createHoldFromQuote nhận trường giá → 422; V5-15 B18 đơn quá ngày đi chỉ OWN/MGR, checkoutAt + overdueReason; V5-16 lọc action/removalsOnly (phần chặn chờ DOM); V5-18 depositUnverifiedVnd; V5-1A giá đêm bắt buộc (đổi phá vỡ có chủ đích, BUG-R4-057); V5-22 min/max; V5-30 commission.status + listParameters.missing (cấu trúc H2 chờ DOM, không số); V5-44 Problem.lockReason, trigger 0094 → 409; V5-58 getPropertyWifi/setPropertyWifi; V5-62 đề xuất 15:30 cho RPO 12 giờ; V5-63 journald + MaxRetentionSec=90day. Không migration ở các mục đã chốt | ARC | Quyền ARC (hợp đồng API, kiến trúc) |`
+`| 2026-11-06 | 5 | **ARC – hợp đồng OpenAPI 0.3.13-draft cho v1.0.5** (rounds/round-05/outputs/ARC/contract-0.3.13.md; PR r5-contract-0313): V5-10 máy chủ quy đổi giờ trả theo một luật, CheckoutSummary.checkoutAt dùng chung cho tóm tắt, QR, B18; V5-13 openRefunds[] theo lý do (FD+); V5-14 QuoteInput.nightlyRates, createHoldFromQuote nhận trường giá → 422; V5-15 B18 đơn quá ngày đi chỉ OWN/MGR, checkoutAt + overdueReason; V5-16 lọc action/removalsOnly (phần chặn chờ DOM); V5-18 depositUnverifiedVnd; V5-1A giá đêm bắt buộc (đổi phá vỡ có chủ đích, BUG-R4-057); V5-22 min/max; V5-30 commission.status + listParameters.missing (cấu trúc H2 chờ DOM, không số); V5-44 Problem.lockReason, trigger 0094 → 409; V5-58 getPropertyWifi/setPropertyWifi; V5-62 lượt hai production 15:00, staging 15:30 (RPO 12 giờ); V5-63 journald + MaxRetentionSec=90day. Không migration ở các mục đã chốt | ARC | Quyền ARC (hợp đồng API, kiến trúc) |`
 
-`| 2026-11-06 | 5 | **ARC – 0.3.13-draft bổ sung 1** (contract-0.3.13.md mục 1.16–1.24; responses/ARC-on-contract-0.3.13-reviews.md): x-write-roles (403 trước mọi kiểm thân lệnh, hợp quyền nhiều vai); báo giá chỉ kênh direct/agent, nightlyRates như B1; V5-15 MGR ≤ 1 đêm, từ 2 đêm chỉ OWN, overdueOnly; V5-16 BR-438 (dòng gốc nhập tay của chính mình, trong ngày nghiệp vụ; khác → FOC); V5-11 minNewDepartureDate/useCheckout; hold_expired gửi cả FD, FDL; BUG-R5-002 đóng đường ghi vượt trên đơn hủy, đường DOM 11.4 khôi phục cùng đơn ở 0.3.14; V5-25 không đổi schema; V5-30/31 có migration – PR-M riêng, tách bản được nếu V5-61 chưa xong; id rbac-cases ổn định | ARC | Quyền ARC (hợp đồng API, kiến trúc) |`
+`| 2026-11-06 | 5 | **ARC – 0.3.13-draft bổ sung 1** (contract-0.3.13.md mục 1.16–1.24; responses/ARC-on-contract-0.3.13-reviews.md): x-write-roles (403 trước mọi kiểm thân lệnh, hợp quyền nhiều vai); báo giá chỉ kênh direct/agent, nightlyRates như B1; V5-15 MGR ≤ 1 đêm, từ 2 đêm chỉ OWN, overdueOnly; V5-16 BR-438 (dòng gốc nhập tay của chính mình, trong ngày nghiệp vụ; khác → FOC); V5-11 minNewDepartureDate/useCheckout; hold_expired gửi cả FD, FDL; V5-5B 5B-1 nhánh đơn đã đóng trong recordPayment (FD+, chỉ chuyển khoản/VietQR, ảnh bắt buộc, chờ đối soát, hoàn 100 % payment_after_cancel), createDepositNotice đơn đã đóng → 202 + deposit_after_cancel, 5B-2 khôi phục cùng đơn ở 0.3.14 (409 ROOM_UNAVAILABLE như B12, không migration); V5-25 luật lưu min_stay theo DOM 12, không đổi schema; V5-30/31 có migration – PR-M riêng, tách bản được nếu V5-61 chưa xong; id rbac-cases ổn định | ARC | Quyền ARC (hợp đồng API, kiến trúc) |`

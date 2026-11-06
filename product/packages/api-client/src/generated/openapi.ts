@@ -757,10 +757,18 @@ export interface paths {
      *     - `weekend_nights` = `Weekday[]` (`MON`…`SUN`, ít nhất 1, không trùng; OTTIMO `["FRI","SAT"]`); khác (kể cả số 1–7) → 422 `PARAM_OUT_OF_RANGE`, `allowed` = 7 mã chữ.
      *     - `min_stay` = `MinStayRule[]` (kiểu ở `reservations/public/pricing.ts`: `nights` nguyên 1–7, `arrivalWeekdays` `Weekday[]` không trùng, `arrivalOnSpecialDates` boolean, `channels` = `all` hoặc nhóm kênh); dạng số hoặc
      *       đối tượng → 422 `PARAM_OUT_OF_RANGE`. Bộ tính giá đọc phòng thủ: không phải mảng → coi như rỗng, log cảnh báo một lần, không 500.
-     *       **BUG-R5-003 (ARC chốt)**: mảng có thể rỗng (= không luật); mỗi phần tử phải có `arrivalWeekdays` không rỗng **hoặc** `arrivalOnSpecialDates = true` (luật không áp vào ngày nào → lỗi);
-     *       khóa lạ trong phần tử → lỗi. Lỗi trả `errors[]` với `field` = `value[<i>].<thuộc tính>` (ví dụ `value[0].nights`) và `allowed`/`min`/`max` như các khóa khác – **không thêm trường
-     *       mở rộng, không đổi schema** (`ParameterValue` vẫn tự do). Bộ đọc phòng thủ bỏ qua phần tử hỏng (không bỏ cả mảng). Giá trị đang hiệu lực hôm nay không sửa được trong ngày
-     *       (luật `effectiveFrom` cũ) – vì bộ đọc không còn 500 nên không mở ngoại lệ sửa trong ngày ở bản này.
+     *       **Luật lưu đầy đủ (BUG-R5-003; DOM `rules-v1.0.5.md` mục 12; oracle BR-113-06…30)** – mọi lỗi → 422 `PARAM_OUT_OF_RANGE`, giá trị đang hiệu lực không đổi, `errors[]` báo **điểm sai
+     *       đầu tiên** với `field` = `value[<i>].<khóa>` (hoặc `value` khi sai cả mảng) và `code` của bảng mã trường (`REQUIRED`, `VALUE_OUT_OF_RANGE`, `NOT_IN_LIST`, `DUPLICATE`,
+     *       `NOT_ALLOWED`); trường mở rộng chỉ dùng tên có sẵn `min`, `max`, `allowed[]`:
+     *       - mảng 0–20 phần tử (`[]` = không có ở tối thiểu); khác mảng → `field` = `value`; > 20 → `max: 20`;
+     *       - mỗi phần tử chỉ có `nights`, `channels`, `arrivalWeekdays`, `arrivalOnSpecialDates`; khóa lạ → `NOT_ALLOWED`;
+     *       - `nights` bắt buộc, số nguyên 1 ≤ `nights` ≤ min(7, `short_stay_max_nights` hiệu lực ở `effectiveFrom`) → `min: 1`, `max`;
+     *       - `channels` bắt buộc: `"all"` hoặc mảng không rỗng, không trùng, con của `direct`, `agent`, `ota` (không `internal`; chuỗi lẻ như `"direct"` → lỗi) → `allowed: [all, direct, agent, ota]`;
+     *       - `arrivalWeekdays` (tùy chọn): `Weekday[]` không trùng, không nhận số → `allowed` = 7 mã; `arrivalOnSpecialDates` (tùy chọn): boolean thật;
+     *       - mỗi luật áp vào ít nhất một ngày: `arrivalWeekdays` không rỗng **hoặc** `arrivalOnSpecialDates = true`; không → `field` = `value[<i>]`, `code` = `REQUIRED`.
+     *       - **Kiểm ngược** khi lưu `short_stay_max_nights`: nhỏ hơn `nights` lớn nhất của `min_stay` hiệu lực ở `effectiveFrom` hoặc đã lên lịch sau đó → 422 `PARAM_OUT_OF_RANGE`, `min` = số đó.
+     *       - Bộ đọc phòng thủ (cả báo giá, tạo đơn, giá ước tính web): không phải mảng → không luật; phần tử hỏng → bỏ phần tử, phần tử đúng vẫn áp; log cảnh báo một lần mỗi giá trị; không
+     *         500, không số mặc định trong mã. Không mở đường sửa dòng hiệu lực hôm nay (PO để backlog R5-B-06).
      *     **0.3.7 bổ sung 2 (SEC ARC-17, C-3 (e))**: `public_booking_requests_enabled` là tham số bảo mật (chỉ OWN, audit `security`). Đặt `true` → server kiểm có dòng `privacy_notice_version`
      *     đang hiệu lực cho mỗi ngôn ngữ landing đang phát hành (`vi`, `en`; `ru` khi có trang RU) và khóa ký form đã nạp – thiếu → 422 `PUBLIC_FORM_NOT_READY` (`missing[]`), giá trị không đổi;
      *     đổi thành công → thông báo `public_booking_toggled` cho OWN + MGR. Đây là **công tắc duy nhất** việc nhận dữ liệu lúc chạy: trang luôn có sẵn mã form, form token 404 → khối Zalo;
@@ -1198,6 +1206,9 @@ export interface paths {
      *     (SEC-BE-28 (3)): báo lại khi còn bản `open` → **cập nhật** bản đó (`amountVnd`, `note`, `attachmentId` nếu gửi), không tạo bản mới; FD/FDL và sale của đơn được
      *     nhắc lại sau một khoảng chống dồn. `attachmentId` phải là ảnh `uploadAttachment purpose=deposit_receipt` của chính đơn này (sai → 422 `VALIDATION_FAILED`, `errors[{field: attachmentId, code: NOT_IN_LIST}]`).
      *     B4 thành công (`confirmDeposit`) → báo chuyển `handled`. Đọc lại: `Reservation.depositNotices[]` (`getReservation`) – ảnh xem bằng `getAttachment`.
+     *     **0.3.13 bổ sung 1 (V5-5B 5B-1, DOM 11.4 mục 5; QA BUG-R5-002 ca (f))**: đơn `cancelled`/`no_show` (mọi lý do) → **202** như đơn `hold` (thay 409): lưu báo `open` và mở "Cần chú ý"
+     *     `deposit_after_cancel` cho FD, FDL, MGR, OWN ("Tiền về cho đơn đã hủy {code}"); không đổi đơn, không ghi tiền. Mục tự đóng khi đơn có khoản thu ghi sau lúc báo (5B-1, 5B-2), hoặc
+     *     FD+ đóng bằng `resolveAttentionEvent` ("Không thấy tiền", ghi chú bắt buộc). Kind đã có trong CHECK DB – không migration. Sale đọc trạng thái đơn ở danh sách của mình.
      */
     post: operations['createDepositNotice'];
     delete?: never;
@@ -2759,10 +2770,23 @@ export interface paths {
      *     mà J15 (mỗi giờ) chưa chạy và chưa có công nợ → 409 `FOLIO_LOCKED` tới lần chạy J15 kế tiếp (N-15 – chấp nhận ở R2, khoảng hở ≤ 1 giờ).
      *     **0.3.12 (FB-R4-SEC-BE-HOLDS-01, SEC-on-v104-holds mục 3)**: folio của giữ chỗ đã quá `holdExpiresAt`: người gọi không có vai FD+ (SAL) nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì.
      *     FD+ ghi được như cũ. Không có trường mới.
-     *     **0.3.13 bổ sung 1 (BUG-R5-002, DOM 11.4 – ARC chốt **đóng** đường này; SEC xác nhận ở `SEC-on-bug-r5-002.md`)**: folio có đơn `cancelled` (mọi lý do) hoặc `no_show`: số tiền
-     *     ≤ còn phải thu (thu phí hủy/phí không đến còn nợ) – **trần cứng**, không vai nào vượt bằng `note`: vượt → 422 `AMOUNT_EXCEEDS_BALANCE` (`max`), không ghi gì. Trước đây FD+ có `note`
-     *     ghi được khoản thu vượt lên đơn đã hủy mà không ảnh chứng từ (201). Tiền khách chuyển sau khi giữ chỗ tự hủy đi **đường riêng** của DOM 11.4 (ảnh bắt buộc, chờ đối soát, chỉ
-     *     `hold_expired`, khôi phục hoặc hoàn 100 %) – operation ở 0.3.14 (`contract-0.3.13.md` mục 1.21). Cùng luật cho `createVietQr.overBalanceReason` trên đơn `cancelled`/`no_show`.
+     *     **0.3.13 bổ sung 1 – V5-5B 5B-1: tiền về cho đơn đã đóng (BUG-R5-002; DOM 11.4 bản 06/11 khuya; BR-522, BR-527, BR-308)** – **nhánh trong thao tác này**, không đường riêng
+     *     (một khoản tiền một đường: cùng số PT-, audit, đối soát, hoàn). Áp cho **mọi** khoản thu trên folio có đơn `cancelled` hoặc `no_show`, **mọi lý do hủy**; đơn đang mở giữ luật cũ.
+     *     Kiểm theo thứ tự, lỗi nào cũng không ghi gì:
+     *     - Vai: FD+ (SAL bị chặn như hiện nay, mã không đổi; CTV không có trong `x-roles`).
+     *     - `method` chỉ `bank_transfer` hoặc `vietqr` (tiền đã vào tài khoản) – khác (tiền mặt, POS, ví, `ota_collect`) → 422 `VALIDATION_FAILED` (`errors[{field: method, code: NOT_ALLOWED}]`).
+     *       Khách đứng ở quầy: tạo đơn mới và thu trên đơn mới.
+     *     - `attachmentId` bắt buộc (ảnh `deposit_receipt`; vắng → 422 `REQUIRED`, `field` = `attachmentId`); `note` bắt buộc (→ 422 `REASON_REQUIRED` như ghi vượt).
+     *     - `type`: `deposit` khi đơn bị hủy lúc còn là giữ chỗ (`status_before_cancel = hold` – để 5B-2 dùng lại khoản này), `charge` với đơn khác; gửi khác → 422 `VALIDATION_FAILED`
+     *       (`errors[{field: type, code: NOT_ALLOWED}]`). Desk chọn theo đơn.
+     *     - `receivedAt` từ lúc tạo đơn tới giờ server (+ dung sai) – khác → 422 `DATE_INVALID`.
+     *     Kết quả, cùng một giao dịch: khoản thu `succeeded`, `reconciliation = pending` (luôn); đơn, folio không đổi trạng thái, không sinh dòng phí (BR-522 ghi chú 18/10). Yêu cầu hoàn
+     *     (`ApprovalRequest` loại `refund`, `reasonCode = payment_after_cancel` – "Tiền về sau khi hủy") số = `amountVnd` − phần trả cho còn phải thu trước khi ghi (thường = 100 %), không phí
+     *     (BR-308); người xin = người ghi, không tự duyệt; MGR/OWN duyệt; **chi chỉ khi khoản thu đã `reconciled`** (BR-522). `Payment.refundRequestId` trả id yêu cầu. Yêu cầu hoàn BR-309 có sẵn
+     *     của đơn giữ nguyên. Mục "Cần chú ý" `deposit_after_cancel` đang mở của đơn đóng lại. Audit `money` `payment.recorded` thêm `afterCancel: true`. Một ảnh chỉ gắn một giao dịch
+     *     và `Idempotency-Key` – một khoản tiền chỉ ghi một lần; khách muốn đặt lại khi 5B-2 chưa có: **không** ghi ở đơn cũ (Desk nói rõ trong hộp ghi).
+     *     `createVietQr` trên đơn đã đóng: không nhận `overBalanceReason` (không tạo QR mới vượt còn phải thu).
+     *     **5B-2 (khôi phục giữ chỗ, v1.0.6 – 0.3.14)**: phác ở `contract-0.3.13.md` mục 1.21.
      */
     post: operations['recordPayment'];
     delete?: never;
@@ -7159,7 +7183,7 @@ export interface components {
     };
     /** @description **0.3.13 (V5-13)** – một dòng tổng chờ hoàn theo lý do (`CheckoutSummary.openRefunds`, `Folio.totals.openRefunds`) */
     OpenRefund: {
-      /** @description `ApprovalRequest.reasonCode` của **mọi** yêu cầu loại `refund` (bổ sung 1, BE C0313-14) – mã hệ thống hiện có: `early_departure` (B16), `overpayment` (B18, A32, `requestRefund`), `overbooking_relocated` (BR-312); mã nhập tay của A32 giữ nguyên. Mã lạ → Desk hiện nhãn chung "Hoàn tiền" */
+      /** @description `ApprovalRequest.reasonCode` của **mọi** yêu cầu loại `refund` (bổ sung 1, BE C0313-14) – mã hệ thống hiện có: `early_departure` (B16), `overpayment` (B18, A32, `requestRefund`), `overbooking_relocated` (BR-312), `payment_after_cancel` (5B-1 – "Tiền về sau khi hủy"); mã nhập tay của A32 giữ nguyên. Mã lạ → Desk hiện nhãn chung "Hoàn tiền" */
       reasonCode: string;
       openVnd: components['schemas']['MoneyVnd'];
     };
@@ -7651,6 +7675,8 @@ export interface components {
       amountDueNowVnd?: components['schemas']['MoneyVnd'];
       /** @description Giao dịch hoàn (`type=refund`): yêu cầu duyệt `refund` đã thực hiện (0.3.6, A-33) */
       approvalRequestId?: components['schemas']['Uuid'];
+      /** @description **0.3.13 bổ sung 1 (V5-5B 5B-1)** – khoản thu trên đơn `cancelled`/`no_show`: yêu cầu hoàn `payment_after_cancel` tạo cùng giao dịch; vắng = khoản thu thường */
+      refundRequestId?: components['schemas']['Uuid'];
       /** @description Ghi chú đối soát (bắt buộc khi `disputed`) – 0.3.3 */
       reconciliationNote?: string;
       /** @description Khóa lạc quan cho `reconcilePayment` (`If-Match`) – 0.3.3 */
@@ -12011,7 +12037,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Đã gửi; FD/SAL nhận thông báo */
+      /** @description Đã gửi; FD/SAL nhận thông báo. 0.3.13 bổ sung 1: đơn đã đóng → mở mục `deposit_after_cancel` */
       202: {
         headers: {
           [name: string]: unknown;
@@ -15578,7 +15604,7 @@ export interface operations {
           extraNightRateVnd?: components['schemas']['MoneyVnd'];
           /** @description 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06): chỉ `purpose=check_out`, khi tóm tắt (theo `checkoutAt`) có `extraNightRequired = true` và `extraNightAvailable = false` – trần = `CheckoutSummary.amountDueAtCheckoutVnd` gồm `lateFeeAsNightVnd` (= lệnh `checkOut.lateFeeInsteadOfNight`). Ngoài trường hợp đó → 422 `NOT_ALLOWED` (`field` = `lateFeeAsNight`). Vắng/false → trần không gồm khoản này */
           lateFeeAsNight?: boolean;
-          /** @description 0.3.6 (DOM G-4, BA E15-03): **FD+** cho QR vượt còn phải thu khi "thu trước dịch vụ/ký quỹ"; SAL/CTV gửi → 403. Không có lý do mà vượt → 422 `AMOUNT_EXCEEDS_BALANCE`. **0.3.13 bổ sung 1 (BUG-R5-002)**: đơn `cancelled`/`no_show` không nhận trường này – vượt → 422 `AMOUNT_EXCEEDS_BALANCE` (như `recordPayment`) */
+          /** @description 0.3.6 (DOM G-4, BA E15-03): **FD+** cho QR vượt còn phải thu khi "thu trước dịch vụ/ký quỹ"; SAL/CTV gửi → 403. Không có lý do mà vượt → 422 `AMOUNT_EXCEEDS_BALANCE`. **0.3.13 bổ sung 1 (BUG-R5-002)**: đơn `cancelled`/`no_show` không nhận trường này – vượt → 422 `AMOUNT_EXCEEDS_BALANCE` (tiền về cho đơn đã đóng ghi bằng nhánh 5B-1 của `recordPayment`) */
           overBalanceReason?: string;
         };
       };

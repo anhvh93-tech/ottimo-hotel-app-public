@@ -2035,6 +2035,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         qrPurpose: { s: { k: 'scalar' } },
         amountDueNowVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         approvalRequestId: { s: { k: 'ref', name: 'Uuid' } },
+        refundRequestId: { s: { k: 'ref', name: 'Uuid' } },
         reconciliationNote: {
           s: { k: 'scalar' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],
@@ -2087,6 +2088,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         qrPurpose: { s: { k: 'scalar' } },
         amountDueNowVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         approvalRequestId: { s: { k: 'ref', name: 'Uuid' } },
+        refundRequestId: { s: { k: 'ref', name: 'Uuid' } },
         reconciliationNote: {
           s: { k: 'scalar' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],
