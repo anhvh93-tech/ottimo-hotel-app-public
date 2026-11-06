@@ -72,3 +72,36 @@
 
 ## 5. Việc chưa xong
 - Ghi số bản sổ tay vào release notes sau khi gộp #69.
+
+## Cập nhật 06/11 tối – Phản hồi & sửa (commit `a907edc7`)
+- **V5-25 lên P1**, gồm cả `min_stay` (BUG-R5-003) và `weekend_nights` (BUG-R5-001).
+  - Là việc đầu của làn BE-C: bắt đầu 07/11, không chờ PR-0 vì không đổi schema, mục tiêu gộp 10/11.
+  - Luật kiểm theo DOM rules-v1.0.5.
+- **Đường gỡ** (quyết định 19): ở v1.0.5 chỉ làm bộ kiểm khi lưu cộng đọc phòng thủ. Giá trị hỏng đã nằm trong DB cũng không còn gây lỗi 500.
+  - Sửa trong ngày đưa vào backlog R5-B-06.
+  - Trước khi deploy, chạy giá trị đang hiệu lực trên production qua bộ kiểm mới.
+  - Các khóa có cấu trúc khác trên luồng quầy được rà trong cùng PR; khóa ngoài luồng quầy để R5-B-05.
+- **BUG-R5-002 nối vào V5-5B:**
+  - 5B-1: ghi tiền kèm ảnh, yêu cầu hoàn 100 %, "Cần chú ý" `deposit_after_cancel` (US-085 AC4). Mức nên có; làn BE-B sau PR-B1; không cần migration.
+  - 5B-2: khôi phục đơn, để v1.0.6.
+  - Kết luận SEC đi theo 3 nhánh; nếu cần thì thêm V5-48 (bắt buộc).
+- **Release notes:**
+  - v1.0.5: một dòng cho hai ô;
+  - v1.0.4: "Lời dặn tạm cho bản v1.0.4 đang chạy", dùng câu BA; cách làm tạm cho BUG-R5-002;
+  - lời dặn chọn **Hiệu lực từ** ngày mai cho các ô dạng danh sách khác.
+- **Tờ in:** đã sửa bảng "Cách in và dán", ghi chú khổ giấy, Tờ 1 ở 8,25 pt (quyết định 21). "OTM-…" trên Tờ 2a đã bọc backtick.
+- **Tờ 2a dòng 86: CHƯA sửa**, vì lúc PO làm DOM chưa commit chữ thay. Tờ 2a vẫn chưa in.
+- **Việc chuyển:**
+  - BE-C: PR V5-25, kèm lệnh kiểm chỉ đọc cho ORC chạy trước deploy.
+  - ARC:
+    - mô tả `setParameter` cho hai khóa;
+    - chốt hướng 5B-1 trước 10/11;
+    - migration 5B-2.
+  - QA: test V5-25 và 5B-1 theo các ca trong bug-list.
+  - BA: EP02 10.5 ghi "FD/SAL", hợp đồng ghi FD+; cần sửa cho khớp.
+  - UXD:
+    - dựng lại Tờ 2a sau khi sửa dòng 86;
+    - câu `PARAM_OUT_OF_RANGE` cho hai khóa.
+- **ORC ghi thêm:**
+  - `weekend_nights` trên production đã được ORC đọc chỉ đọc ngày 06/11: `["FRI","SAT"]` từ 28/10, đúng dạng bộ tính giá cần.
+  - V5-5B là quyết định 16.
