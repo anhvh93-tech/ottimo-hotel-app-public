@@ -159,12 +159,11 @@ describe('H04 Danh mục căn (US-004, ESC-014)', () => {
     // BR-101 v0.4.7 example: 260.000 < 8.000.000 ÷ 30 = 266.667 (shown rounded: 267.000)
     await user.type(nightly, '260000');
     expect(
-      within(dlg).getByText('Giá đêm đang thấp hơn giá tháng chia 30 ngày (267.000 đ).', {
-        exact: false,
-      }),
+      within(dlg).getByText(tv('rooms.night_low', { perDay: '267.000' }), { exact: false }),
     ).toBeInTheDocument();
     await user.type(within(dlg).getByLabelText(/Lý do đổi giá/), 'Giá thử');
-    await user.click(within(dlg).getByRole('button', { name: 'Lưu' }));
+    // v1.0.5 V5-5C (UXD 9.3): with the warning showing and a price edited, Save reads "Vẫn lưu giá này".
+    await user.click(within(dlg).getByRole('button', { name: tv('rooms.save_unusual_price') }));
     expect(await screen.findByText('Đã lưu căn 101.')).toBeInTheDocument();
     await waitFor(() => expect(cap.sent).toHaveLength(1));
     cap.stop();

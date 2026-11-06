@@ -199,11 +199,17 @@ export function RoomDrawer({
           })
         : t('rooms.price_for_date', { date: date(effectiveFrom) })
       : undefined;
-  // Soft check only (DOM fb-inv-005 §4): a nightly price under the monthly price per day is unusual.
-  const nightlyLow =
-    monthly !== null && monthly > 0 && nightly !== null && nightly > 0
-      ? nightly * 30 < monthly
-      : false;
+  // Soft checks only, never blocking (BR-101 (4); v1.0.5 V5-5C, UXD copy-v1.0.5 9.3, DOM 1.2 ý 6): integers, a price
+  // exactly on a bound is not unusual. Same two conditions as the server's `NIGHTLY_PRICE_UNUSUAL` (0.3.13 bổ sung 1).
+  const bothPrices = monthly !== null && monthly > 0 && nightly !== null && nightly > 0;
+  // Low: under the monthly price per day (nightly × 30 < monthly).
+  const nightlyLow = bothPrices ? nightly * 30 < monthly : false;
+  // High: 5 nights cost more than the whole month (nightly × 5 > monthly) – an extra zero, a monthly figure typed in
+  // the nightly box. The two cannot be true together.
+  const nightlyHigh = bothPrices ? nightly * 5 > monthly : false;
+  // UXD 9.3: with a warning showing AND a price edited, Save reads "Save this price anyway" – one click confirms,
+  // no extra dialog. Editing the name or beds of a room whose old prices are unusual keeps plain "Save".
+  const unusualPrice = (nightlyLow || nightlyHigh) && priceChanged;
   // Save needs something to send; a reason alone (price unchanged) sends nothing.
   const canSave =
     name !== (room.name ?? '') ||
@@ -278,6 +284,9 @@ export function RoomDrawer({
     setBanner(null);
     try {
       const { data } = await api.updateRoom({ propertyId, roomId: room.id }, patch, cur.version);
+      // UXD 9.3 point 2: the server's own check (`warnings[]` NIGHTLY_PRICE_UNUSUAL) adds a warn line to the saved
+      // toast; that toast stays until closed. Shown whenever the server says so, also after "Save this price anyway".
+      const unusualSaved = data.warnings?.some((w) => w.code === 'NIGHTLY_PRICE_UNUSUAL');
       // BUG-R3-018: a future price does not show in the catalog until its day – say when it applies.
       toast(
         patch.listPrice && patch.listPrice.effectiveFrom > today
@@ -286,6 +295,7 @@ export function RoomDrawer({
               date: date(patch.listPrice.effectiveFrom),
             })
           : t('rooms.saved', { room: room.roomNo }),
+        unusualSaved ? { warn: t('rooms.warn.nightly_price_unusual') } : undefined,
       );
       onSaved(data);
     } catch (err) {
@@ -432,9 +442,11 @@ export function RoomDrawer({
             busy={busy}
             busyLabel={t('common.saving')}
             disabled={!online || !canSave}
-            aria-describedby={saveWhy ? `${ids}-save-why` : undefined}
+            aria-describedby={
+              saveWhy ? `${ids}-save-why` : unusualPrice ? `${ids}-price-warn` : undefined
+            }
           >
-            {t('common.save')}
+            {unusualPrice ? t('rooms.save_unusual_price') : t('common.save')}
           </Button>
         </>
       }
@@ -650,8 +662,12 @@ export function RoomDrawer({
             </Field>
           </div>
           {nightlyLow && monthly !== null ? (
-            <Alert tone="warn">
+            <Alert tone="warn" id={`${ids}-price-warn`}>
               {t('rooms.night_low', { perDay: vnd(perDayOfMonthly(monthly)) })}
+            </Alert>
+          ) : nightlyHigh && monthly !== null ? (
+            <Alert tone="warn" id={`${ids}-price-warn`}>
+              {t('rooms.night_high', { month: vnd(monthly) })}
             </Alert>
           ) : null}
           {known ? (

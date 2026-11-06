@@ -14,13 +14,24 @@ import { Icon } from '@ottimo/ui';
 interface Toast {
   id: number;
   text: string;
+  /** A second line in the warn tone; such a toast never hides by itself (UXD copy-v1.0.5 9.3). */
+  warn?: string;
+}
+
+export interface ToastOptions {
+  /** v1.0.5 V5-5C: "saved, but check this" – e.g. `rooms.warn.nightly_price_unusual` after a room price save. */
+  warn?: string;
 }
 
 /** Long confirmations (e.g. params.saved with an effective date) stay longer (FB-R2-UXD-FE-16). */
 const toastMs = (text: string) => (text.length > 60 ? 8000 : 6000);
-const Ctx = createContext<(text: string) => void>(() => undefined);
+type Push = (text: string, opts?: ToastOptions) => void;
+const Ctx = createContext<Push>(() => undefined);
 
-/** C18 toast for "Đã lưu" confirmations only – things that need action stay on the page (HR-09). */
+/**
+ * C18 toast for "Đã lưu" confirmations only – things that need action stay on the page (HR-09). v1.0.5 V5-5C: a
+ * "saved" toast may carry one warning line (`opts.warn`, UXD copy-v1.0.5 9.3) – then it does not hide by itself.
+ */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { t: tr } = useI18n();
   const closeLabel = tr('common.close');
@@ -44,11 +55,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     },
     [remove],
   );
-  const push = useCallback(
-    (text: string) => {
+  const push = useCallback<Push>(
+    (text, opts) => {
       const id = next.current++;
-      setItems((xs) => [...xs, { id, text }]);
-      schedule(id, text);
+      const warn = opts?.warn;
+      setItems((xs) => [...xs, warn ? { id, text, warn } : { id, text }]);
+      // A warning stays until the user closes it (it asks for a check, not just "saved").
+      if (!warn) schedule(id, text);
     },
     [schedule],
   );
@@ -68,7 +81,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   };
   const resume = () => {
     paused.current = false;
-    itemsRef.current.forEach((x) => schedule(x.id, x.text));
+    itemsRef.current.forEach((x) => (x.warn ? undefined : schedule(x.id, x.text)));
   };
   const value = useMemo(() => push, [push]);
   return (
@@ -84,9 +97,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         onBlur={resume}
       >
         {items.map((t) => (
-          <div className="toast" key={t.id}>
-            <Icon name="check" />
-            <span>{t.text}</span>
+          <div className={t.warn ? 'toast toast-warn' : 'toast'} key={t.id}>
+            <Icon name={t.warn ? 'alert' : 'check'} />
+            {t.warn ? (
+              <span className="grow">
+                {t.text}
+                <span className="toast-warn-line">{t.warn}</span>
+              </span>
+            ) : (
+              <span>{t.text}</span>
+            )}
             <button
               type="button"
               className="btn ghost sm"
