@@ -246,7 +246,7 @@ info:
     | DATE_INVALID · DATE_ORDER · DATE_IN_PAST | Ngày sai lịch / ngày đi ≤ ngày đến / trước ngày nghiệp vụ. **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10)**: `DATE_INVALID` là mã **chính thức** cho `changeRoom.effectiveDate` ≠ ngày nghiệp vụ hôm nay (không dùng `VALUE_OUT_OF_RANGE`) | V-05; `changeRoom.effectiveDate` |
     | DOB_FUTURE · DOB_MINOR · DOB_INVALID | Ngày sinh | V-06 |
     | AMOUNT_INVALID · AMOUNT_NOT_POSITIVE · AMOUNT_EXCEEDS_LINE | Tiền âm/không nguyên · ô giá ≤ 0 · vượt giá trị dòng folio | V-07, US-007 |
-    | REASON_REQUIRED | Lý do thiếu/ngắn | V-08; `markNoShow.contactAttemptNote`, `extendQuote.reason` (0.3.5); `confirmPaymentReceived.note` khi QR vượt số còn phải thu (0.3.7 bổ sung 4); `recordPayment.note` khi FD+ ghi thu **vượt** còn phải thu mà thiếu ghi chú cách xử lý phần dư (DOM G-15 – ARC 16.31, N-12: trần mềm thiếu lý do = mã này tại trường lý do, không phải `AMOUNT_EXCEEDS_BALANCE`) |
+    | REASON_REQUIRED | Lý do thiếu/ngắn | V-08; `markNoShow.contactAttemptNote`, `extendQuote.reason` (0.3.5); `confirmPaymentReceived.note` khi QR vượt số còn phải thu (0.3.7 bổ sung 4); `recordPayment.note` khi FD+ ghi thu **vượt** còn phải thu mà thiếu ghi chú cách xử lý phần dư (DOM G-15 – ARC 16.31, N-12: trần mềm thiếu lý do = mã này tại trường lý do, không phải `AMOUNT_EXCEEDS_BALANCE`); `updateReservation.closerChangeReason` khi OWN đổi người chốt sau nhận phòng (0.3.13 bổ sung 1h) |
     | PASSWORD_TOO_SHORT · PASSWORD_SAME_AS_USERNAME · PASSWORD_REUSED · PASSWORD_TOO_COMMON | Mật khẩu mới (`PASSWORD_TOO_COMMON`: có trong danh sách mật khẩu phổ biến SR-AUTH-02 – 0.3.4) | V-10 |
     | NOT_IN_LIST | Giá trị không có trong danh mục đang hoạt động | V-11 |
     | VALUE_OUT_OF_RANGE | Số ngoài biên của trường (ví dụ `baseOccupancy` 1–10). **0.3.7**: `getArrivalsDepartures.date` ngoài ngày nghiệp vụ ±7 (B-20) | US-004, `getArrivalsDepartures` |
@@ -377,6 +377,9 @@ info:
       **Bổ sung 1g – chỉ mô tả (UXD ARC-111-01; SEC ARC-23, ARC-24; BE C0313-26…30)**: câu báo ô mã "8 chữ số cuối"; `recordPayment` (B) thêm test bắt buộc ở PR-B3 và thứ tự lỗi
       `CARD_NUMBER_DETECTED` sau lỗi dạng (hàm ở #119); `setPropertyWifi` cửa sổ = ngày UTC, hàm `shared/rate-limit-counter.ts`; `resolveAttentionEvent` `deposit_after_cancel`: `note`
       bắt buộc + audit `attention_event.resolved`. Không đổi schema, không mã lỗi mới, không migration.
+      **Bổ sung 1h (DOM 131-01, ARC 131-02 – viết trước khi BE-H mở `r5-h1c`)**: thêm trường tùy chọn `ReservationPatch.closerChangeReason` (3–500; bắt buộc khi OWN đổi
+      người chốt sau nhận phòng); `updateReservation` có mô tả luật đổi người chốt theo mốc (sau nhận phòng chỉ OWN), đồng bộ hoa hồng cùng giao dịch, 409 khi hoa hồng đã
+      `payable`/`paid`; khai thêm phản hồi 403, 409 đã có ở máy chủ. Không mã lỗi mới, không migration.
     - **(i) Tin `hold_expired` (DOM mục 9)**: gửi người tạo, người chốt **và** mọi FD, FDL đang hoạt động (bỏ nhánh "chỉ khi không có người tạo"). Không đổi schema.
     - **(k) V5-30, V5-31 (DOM 4, 5, 7.3, 7.4) – cần migration, PR riêng (PR-M)**: `Commission.instalmentNo`, `voidReason`; `getManagerPerformanceBonus` (tính lúc đọc); `AttentionItem.kind`
       `commission_rate_missing`; `GuestRequest.feeFallback`. Khóa mới `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` cần dòng danh mục
@@ -2823,6 +2826,23 @@ paths:
       tags: [reservations]
       operationId: updateReservation
       summary: Sửa thông tin không đổi tồn phòng (số khách, giờ đến dự kiến, ghi chú, người chốt). Đổi căn/ngày dùng action `move`.
+      description: |
+        **0.3.13 bổ sung 1h – đổi người chốt `closerUserId` (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02 – `ARC-on-be-h-prs-110-123-131.md` 4.2; BR-903 (3), EP02 5.4).**
+        Cài ở PR `r5-h1c` (BE-H), sau #131, trước PR-M. Tới đó máy chủ giữ luật cũ: sau `hold` chỉ MGR+, không đồng bộ hoa hồng, bỏ qua `closerChangeReason`.
+        "Đổi" = giá trị khác giá trị đang lưu, kể cả ghi lần đầu.
+        - **Quyền theo mốc** (kiểm sau khi tải đơn, dưới khóa đơn; 403 đi trước 422 của `closerChangeReason`):
+          - `hold`: FD+ như cũ;
+          - ngoài `hold`, **chưa** nhận phòng (chưa có giờ nhận phòng thật, ví dụ `confirmed`): MGR+ như cũ; FD/FDL → 403 `FORBIDDEN_ACTION`;
+          - **sau** nhận phòng (đơn có giờ nhận phòng thật: `in_house`, `checked_out`): **chỉ OWN**, `closerChangeReason` bắt buộc; MGR/FDL/FD → 403 `FORBIDDEN_ACTION` + audit
+            `security` `access.denied` ghi sau rollback (mẫu `auditReason` của #110).
+        - **Hoa hồng đồng bộ trong cùng giao dịch** (khóa đơn rồi các dòng `commission` `FOR UPDATE`, cùng thứ tự với B18): bản ghi chưa `void` của người cũ → `void`
+          (`voidReason` = `closer_changed` trước nhận phòng, `closer_corrected` khi OWN sửa sau nhận phòng); người mới nhận bản ghi theo **tỷ lệ đã ghim** của đơn (#131 – đổi người không
+          đổi tỷ lệ), ở trạng thái đơn đang đạt (`projected` trước B18, `earned` sau B18). Audit `money` `commission.voided`, `commission.projected`/`commission.earned` như các luồng
+          hoa hồng khác. Không migration (`void_reason` là cột `text`).
+        - Đơn đã có bản ghi hoa hồng `payable` hoặc `paid` → 409 `INVALID_TRANSITION` (`currentState` = trạng thái đó), không ghi gì: hoa hồng đã vào kỳ chi thì chủ đầu tư chỉnh lúc chi
+          (ARC chốt; DOM xác nhận khi review `r5-h1c`).
+        - Audit `money` `reservation.closer_changed`: `before.closerUserId`, `after.closerUserId`, thêm `after.reason` khi có lý do (allowlist `reservation` thêm `reason`). Không số tiền.
+        - Desk (FE-A): ô lý do chỉ hiện cho OWN khi đơn đã nhận phòng và người chốt đổi; MGR/FDL/FD không có nút đổi người chốt sau nhận phòng.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [S04]
       x-stories: [US-020, US-047]
@@ -2841,6 +2861,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Reservation' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/VersionConflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/reservations/{reservationId}/history:
@@ -12000,6 +12022,17 @@ components:
             `checkout_clean`; căn cũ → `OC`; audit `state` `reservation.room_returned`; SSE `room.status_changed`.
         etaTime: { $ref: '#/components/schemas/LocalTime' }
         closerUserId: { $ref: '#/components/schemas/Uuid' }
+        closerChangeReason:
+          type: string
+          minLength: 3
+          maxLength: 500
+          x-rbac-field: D12c
+          description: |
+            **0.3.13 bổ sung 1h (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02; BR-903 (3))** – lý do đổi người chốt, xem `updateReservation`. **Bắt buộc** khi OWN đổi
+            `closerUserId` sau nhận phòng (`in_house`, `checked_out`); thiếu hoặc ngắn → 422 `VALIDATION_FAILED` (`field` = `closerChangeReason`, `code` = `REASON_REQUIRED`).
+            Trước nhận phòng: tùy chọn, có thì ghi vào audit. Gửi mà không đổi `closerUserId` → 422 `NOT_ALLOWED`. V-08 (bỏ khoảng trắng đầu/cuối, ký tự điều khiển), V-09
+            (số thẻ → `CARD_NUMBER_DETECTED`). Không ghi tên, SĐT, giấy tờ của khách hay số tiền hoa hồng. Ghi vào `after.reason` của audit `reservation.closer_changed`;
+            không trả lại ở `Reservation`.
         internalNote: { type: string, maxLength: 1000, x-rbac-field: D12c }
         visaWarningAckReason:
           type: string

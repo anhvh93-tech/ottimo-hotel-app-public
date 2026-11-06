@@ -139,3 +139,17 @@ Chi tiết ở contract 1.28. Chỉ mô tả và tệp `.md`; không đổi sche
 | FB-R5-BE-ARC-C0313-28 | Minor | Done (chữ) – BE-D ở PR-B3 | `resolveAttentionEvent`: `deposit_after_cancel` bắt `note` 3–500 (`REASON_REQUIRED`), audit `money` `attention_event.resolved` không có `note`; mô tả 422 và trường `note` cập nhật |
 | FB-R5-BE-ARC-C0313-29 | Suggestion | Done (chữ) – BE-D ở PR-B3 | (a) hàm ở #119, PR-B3 dùng lại, `executeRefund` sửa cùng #119; (b) ARC chọn lỗi dạng trước, `CARD_NUMBER_DETECTED` chỉ khi không còn lỗi dạng (như `note`; `executeRefund` đã đúng). `PaymentCreate` làm ở PR-B3 cùng việc khai `bankReference` ở các bộ đọc (ARC 119-01), không mở lại #119. Chữ luật C0313-25 cập nhật theo SR-PAY-10 bản 07/11 (SEC 119-01, ARC 119-03) |
 | FB-R5-BE-ARC-C0313-30 | Suggestion | Done (chữ) | T14-4: "OTA không có `nightlyRates`, hoặc `nightlyRates` đúng dạng" |
+
+## 10. Bổ sung 1h – ARC review BE-H #110/#123/#131 (mục 4, 6) và ARC review #140 mục 7
+
+Chi tiết ở contract 1.29 (đổi người chốt) và danh sách 0.3.14 ở 1.26. Có đổi schema, chỉ thêm (`ReservationPatch.closerChangeReason`, phản hồi 403/409 của `updateReservation`). Không mã lỗi mới, không migration.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-ARC-BE-131-02 (DOM 131-01) | Major | Done (hợp đồng 1h) – BE-H làm ở `r5-h1c`; FE-A ô lý do | Sau nhận phòng chỉ OWN, lý do bắt buộc; hoa hồng đồng bộ cùng giao dịch; 409 khi đã `payable`/`paid` |
+| FB-R5-ARC-BE-131-01 (SEC 131-01) | Major | Done (`architecture.md` 5.1 + câu 0.3.14 (b)) – BE-H làm PR che hoa hồng trước tag | Cổng `audit/public/audit-visibility.ts`, dùng ở `listAuditEvents` và `getReservationHistory` |
+| FB-R5-ARC-BE-110-01 | Minor | Done (câu 0.3.14 (a)) | Khung tháng kinh doanh của số đếm khác ngày lịch của danh sách |
+| #123 – hai thay đổi hành vi, B13 `dates[]` | – | Deferred – 0.3.14 (c), (d) | 403 khi thân phát lại khác; multipart sau khi mất vai → 403; `dates[]` mọi đêm |
+| SEC 123-01 | – | Deferred – 0.3.14 (e) | Quá 32 tầng → 422; lỗi băm ở guard → 403, không 5xx |
+| T58-9, DOM FE-125-01, ARC FE-128-02 | – | Deferred – 0.3.14 (f), (g), (h) | "lần lượt"; câu `checkoutTimeNoteRequired`; `action` giữ tham số lặp |
+
