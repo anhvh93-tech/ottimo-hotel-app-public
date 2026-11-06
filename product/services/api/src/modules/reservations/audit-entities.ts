@@ -46,5 +46,9 @@ defineAuditEntity('reservation', [
   'checkoutMode',
   'extraNight',
   'postMidnightWindow',
+  // SEC-BE-26 / contract 0.3.13 bổ sung 1h: `reservation.closer_changed` – who closes the sale (a staff user id, never
+  // a guest) and the owner's reason for a correction after check-in. closerUserId was written but dropped until now.
+  'closerUserId',
+  'reason',
 ]);
 defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);

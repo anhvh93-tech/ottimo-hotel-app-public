@@ -3,7 +3,7 @@
  * together as 422 VALIDATION_FAILED errors[] (EP00 0.3 "422 gom mọi lỗi trường").
  */
 import { type FieldError, problem } from '../../../shared/problem';
-import { containsCardNumber } from '../../../shared/validation';
+import { containsCardNumber, stripControlChars } from '../../../shared/validation';
 import type { LocalDate, LocalTime } from '../../../shared/time';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -146,7 +146,24 @@ export class Fields {
 
   /** Free text (V-09, max length); returns trimmed text or undefined. */
   text(field: string, max: number, opts: { required?: boolean; min?: number } = {}) {
+    return this.textOf(field, this.b[field], max, opts);
+  }
+
+  /**
+   * A reason (V-08 + V-09): control and hidden characters removed first, then as text() – missing or shorter than
+   * `min` → REASON_REQUIRED when required.
+   */
+  reason(field: string, max: number, opts: { required?: boolean; min: number }) {
     const v = this.b[field];
+    return this.textOf(field, typeof v === 'string' ? stripControlChars(v) : v, max, opts);
+  }
+
+  private textOf(
+    field: string,
+    v: unknown,
+    max: number,
+    opts: { required?: boolean; min?: number },
+  ): string | undefined {
     if (v === undefined || v === null || (typeof v === 'string' && v.trim() === '')) {
       if (opts.required) this.add(field, opts.min ? 'REASON_REQUIRED' : 'REQUIRED');
       return undefined;

@@ -14,13 +14,15 @@ import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { isDryRun } from '../../../shared/validation';
 import { ApprovalService } from '../../approvals/public/approval.service';
+import { AuditService } from '../../audit/public/audit.service';
+import { recordUseCaseDenial } from '../../audit/public/use-case-denial';
 import { ParameterService } from '../../platform/public/parameter.service';
 import type { BookingContext } from './booking-context';
 import { nightsOf } from '../public/pricing';
 import { Fields, asBody, pathId } from './inputs';
 import { RackService } from './rack.service';
 import { loadReservation } from './reservation-store';
-import { ReservationsService } from './reservations.service';
+import { CLOSER_CHANGE_AFTER_CHECKIN, ReservationsService } from './reservations.service';
 import { RoomBlocksService, toRoomBlockDto } from './room-blocks.service';
 
 /** Longest availability search (SEC-BE-28) – technical bound, not a business rule. */
@@ -47,6 +49,7 @@ export class ReservationsController {
     @Inject(RoomBlocksService) private readonly blocks: RoomBlocksService,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(ParameterService) private readonly params: ParameterService,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   private read<T>(
@@ -250,9 +253,16 @@ export class ReservationsController {
     @Body() raw: unknown,
   ) {
     const id = pathId(reservationId);
+    // Contract 0.3.13 bổ sung 1h: the 403 of a closer change after check-in by someone other than the owner is written
+    // as ONE `access.denied`, in its own transaction after the rollback.
     return this.write(req, reply, (tx, ctx) =>
       this.reservations.update(tx, ctx, id, expectedVersion(req), asBody(raw)),
-    );
+    ).catch(async (err: unknown) => {
+      await recordUseCaseDenial(this.audit, req, err, 'updateReservation', [
+        CLOSER_CHANGE_AFTER_CHECKIN,
+      ]);
+      throw err;
+    });
   }
 
   @Get('reservations/:reservationId/history')

@@ -19,11 +19,23 @@
  *                Still no rate → still no row. Run again → no change. Folio's `tryEarnCommissions` runs it before
  *                deciding "earned" (B18, reconciliation, a debt paid or written off); a later job or PR-M may call it
  *                for confirmed bookings once OWN typed the table (DOM 101-01 (3) – never from `setParameter`).
+ *                ARC FB-R5-ARC-BE-131-02 (3): skipped only when the booking has an `earned`/`payable`/`paid` row or a
+ *                `projected` row of the CURRENT closer; a `projected` row of an earlier closer is voided and replaced.
+ * - syncCommissionOnly() contract 0.3.13 bổ sung 1h (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02 (1)–(2)): PATCH
+ *                changed the closer → the commission alone follows in the same transaction: the earlier closer's
+ *                live row → `void` (`voidReason`), the new closer's row at the booking's pinned rate (`earned` on a
+ *                checked-out booking by the B18 rule). A row `payable` / `paid` → 409 INVALID_TRANSITION.
  */
 import type { Tx } from '../../../db/database';
 import type { ConfirmedStay } from './sales-port';
 
 export const FOLIO_STAY_SYNC = Symbol('FOLIO_STAY_SYNC');
+
+/**
+ * `commission.void_reason` written by a sync (SM-11): `resync` – nights / price / people changed; `closer_changed` – the
+ * closer changed before check-in (MGR+); `closer_corrected` – OWN corrected the closer after check-in (BR-903 (3)).
+ */
+export type CommissionVoidReason = 'resync' | 'closer_changed' | 'closer_corrected';
 
 export interface VoidStayInput {
   reservationId: string;
@@ -62,5 +74,12 @@ export interface FolioStaySync {
     tx: Tx,
     stay: ConfirmedStay,
     actor: { userId: string | null; requestId?: string },
+  ): Promise<number>;
+  /** Returns the amount of the live row after the sync (0 = none). The caller holds the booking and the folio. */
+  syncCommissionOnly(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+    opts: { voidReason: CommissionVoidReason; reservationStatus: string },
   ): Promise<number>;
 }
