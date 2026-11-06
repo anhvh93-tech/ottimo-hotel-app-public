@@ -32,6 +32,6 @@
 | K3/K5 | `/`, `/vi/`, `/ko/`, `/zh/`, `/ru/` đều 200; `form_token=200 application/json`; desk 200 |
 | K7 | `ops-check.sh` production: tất cả `ok` (gồm `pricelimit`, `pricegap`, `priceswitch`), `EXIT: 0` |
 | K8 | 15 phút: `API_5XX=0 API_ERR=0 WORKER_ERR=0`; worker `detailLevel A` = 1, `C` = 0 |
-| K6 | ORC gửi một yêu cầu "TEST OTTIMO" ở `/ko/` (kênh Email, hộp thư chung, lời nhắn "TEST"). Trang báo đã nhận, mã `ZW003PG9`. Đang chờ OWN xóa theo WR8 và xóa tin Chat, rồi đếm `us155-smoke-counts` |
-| F2 | Chờ: QA chưa chạy được 13 ca giá trên staging. Cần gán nhãn hạng staging trước |
+| K6 | ORC gửi một yêu cầu "TEST OTTIMO" ở `/ko/` (kênh Email, hộp thư chung, lời nhắn "TEST"). Trang báo đã nhận, mã `ZW003PG9`. OWN đóng yêu cầu rồi bấm "Xóa theo yêu cầu người gửi" (WR8), và xóa tin Chat. Lượt đếm đầu ra FAIL 5/14, vì yêu cầu mới bị đóng, chưa xóa dữ liệu. Sau WR8: `us155-smoke-counts --ref REQ-ZW003PG9 --since 2026-11-06T09:34:14Z` → **`RESULT: OK – 14/14`** |
+| F2 | Chờ. ORC gán `publicRoomType` cho 10 căn trên staging giống production (qa.owner, 200 × 10). So bảng giá: tham số giá giống nhau, giá niêm yết từng căn khác. Production **The Ember** có giá đêm `11000000` (cùng hạng The Ivory là `1100000`), nghi gõ dư một số 0. INV cần sửa trên Desk trước khi bật giá. Sau đó chép giá production sang staging, QA chạy 13 ca giá |
 
