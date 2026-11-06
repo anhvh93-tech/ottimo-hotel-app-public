@@ -170,13 +170,13 @@ test.describe(
       await page.route(/\/v1\/guest\/requests(\?.*)?$/, refuseNote('note', refused));
       await page.goto(link.url);
       await page
-        .getByRole('button', { name: VI['guest.tab.requests']! })
+        .getByRole('button', { name: VI['guest.tab.requests']!, exact: true })
         .first()
         .click({ timeout: 15_000 });
-      await page.getByRole('button', { name: VI['gw.req.new']! }).click();
+      await page.getByRole('button', { name: VI['gw.req.new']!, exact: true }).click();
       await page.getByRole('button', { name: new RegExp(`^${VI['guest.req.other']!}`) }).click();
       await page.getByLabel(VI['gw.req.note_label']!).fill(`Số CCCD của tôi ${fakeCccd()}`);
-      await page.getByRole('button', { name: VI['guest.req.send']! }).click();
+      await page.getByRole('button', { name: VI['guest.req.send']!, exact: true }).click();
 
       await expect(page.getByText(VI['error.ID_NUMBER_DETECTED']!)).toBeVisible({
         timeout: 15_000,
