@@ -56,6 +56,7 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
   - "**Có cọc:** không tự hủy, căn vẫn giữ (khung đơn ghi 'Quá hạn giữ chỗ lúc … nên đơn chưa hủy, căn vẫn giữ'). Không tạo đơn mới chồng lên."
   - Lượt rà mốc 11:00 và trước khi rời quầy: thêm "mở **Đơn đặt phòng** → lọc **Đã hủy** hôm nay, lý do **Hết hạn giữ chỗ**: khách nào chưa được báo thì báo". PO kiểm Desk có lọc **Đã hủy**; nếu không có, dùng hộp **Thông báo** của app nhân viên.
 - Trạng thái: **Fixed** – PO 06/11 tối (commit "round-5: Phản hồi & sửa – PO Tờ 2a DOM cards…"). Thay bằng hai gạch "Hết hạn, chưa cọc" (tự hủy, nhả căn, báo khách ngay) và "Hết hạn, có cọc" theo chữ DOM. Mốc 11:00 và cuối ca thêm rà đơn **Đã hủy** lý do **Hết hạn giữ chỗ**. PO kiểm Desk: trang **Đơn đặt phòng** không có lọc "Đã hủy", chỉ có **Đang hiệu lực**, **Tất cả** và chip đơn dài hạn nhập tay (`ReservationsPage.tsx`). Vì vậy tờ ghi "bấm **Tất cả**", kèm tin trong hộp **Thông báo** của app nhân viên. Lệch một chỗ với đề xuất: "báo quản lý" đổi thành "ghi sổ giao ca, báo chủ đầu tư", vì người trực đang giữ vai quản lý. Chờ DOM đọc lại
+  - **DOM lượt 2 (06/11 tối): Closed một phần.** Hai gạch "Hết hạn, chưa cọc" / "Hết hạn, có cọc" đúng v1.0.4, đóng. Chỗ PO lệch đề xuất ("ghi sổ giao ca, báo chủ đầu tư"): DOM đồng ý, đóng (lý do ở mục 4). Phần rà bằng **Tất cả** và hộp **Thông báo** chưa đủ: mở lại thành thẻ **FB-R5-DOM-PO-07** (Major).
 
 ### FB-R5-DOM-PO-02
 - Mức độ: Minor
@@ -103,3 +104,45 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
 
 - Thẻ 01 chỉ sửa chữ. Không cần ESC, không đổi quy tắc: BR-303 vốn ghi "đến hạn chưa cọc → hệ thống tự hủy".
 - Sau khi PO sửa, DOM đọc lại riêng Tờ 2a, khoảng 10 phút, rồi chủ đầu tư in.
+
+## 4. Lượt 2 – đọc lại commit `451d3230` (06/11/2026 tối)
+
+- Đối tượng: Tờ 2a và dòng "Cọc" của Tờ 1 sau khi PO sửa 6 thẻ; trả lời của PO ở `rounds/round-05/responses/PO-responses.md`.
+- Đối chiếu thêm: `product/apps/admin-web/src/pages/reservations/ReservationsPage.tsx` (lọc, số dòng); `product/services/api/src/modules/reservations/internal/rack.service.ts` (thứ tự danh sách); `product/services/api/src/modules/reservations/internal/hold-notices.ts` (ai nhận tin tự hủy); `product/apps/mobile/src/app/session.ts` (vai nào dùng app nhân viên); `product/services/api/src/modules/frontdesk/internal/attention-sources.ts` (dòng "Giữ chỗ sắp hết hạn").
+
+### 4.1 Kết luận lượt 2
+
+**Chưa in bản hiện tại.** Thẻ 02–06: đóng. Thẻ 01: đóng phần tách hai trường hợp và phần "báo chủ đầu tư"; phần rà mở lại thành thẻ 07 (Major).
+
+**In được ngay khi PO thay đúng câu ở thẻ 07** (chữ nguyên văn bên dưới), không cần DOM đọc lại lần 3. PO đổi ý chữ thì DOM đọc lại phần đó.
+
+### 4.2 Ba điểm ORC hỏi
+
+| Điểm | DOM | Lý do |
+|---|---|---|
+| Tách "chưa cọc: tự hủy, báo khách ngay" / "có cọc: không tự hủy" | **Đúng**, đóng | Khớp J1 `hold.expire` và BR-303. Câu khung đơn, nhánh "Không đi", "Vẫn đi", "Khách đến mà đơn vẫn Giữ chỗ · chờ cọc" đều đúng v1.0.4 |
+| "Báo quản lý" đổi thành "ghi sổ giao ca, báo chủ đầu tư" | **Đồng ý**, đóng | (1) Người trực giữ vai quản lý: "báo quản lý" là báo chính mình. (2) Giữ chỗ chưa cọc quá hạn mà chưa tự hủy nghĩa là job J1 không chạy. Đó là lỗi hệ thống: chủ đầu tư báo đội (OPS), vì các tin nhắc khác có thể cũng đứng |
+| Rà bằng **Tất cả** và hộp **Thông báo** | **Chưa đủ**, thẻ 07 | Xem dưới |
+
+### FB-R5-DOM-PO-07
+- Mức độ: **Major** (chặn in)
+- Vị trí: Tờ 2a, gạch "Ở đâu", câu "Mốc 11:00 và trước khi rời quầy: bấm thêm **Tất cả**, xem đơn **Đã hủy** mới có lý do **Hết hạn giữ chỗ** (cùng tin trong hộp **Thông báo** của app nhân viên). Khách nào chưa được báo thì báo."
+- Vấn đề:
+  1. **Tất cả** chỉ lấy 100 đơn đầu, xếp theo **ngày đến từ cũ tới mới**, không có nút xem thêm (`ReservationsPage.tsx`: `limit: 100`; `rack.service.ts`: `ORDER BY r.arrival_date`). Đơn đã trả phòng, đã hủy từ ngày chạy đều nằm trong danh sách này. Khi tổng số đơn quá 100, giữ chỗ vừa tự hủy (ngày đến sắp tới) rơi ra ngoài trang. Người rà không thấy gì và tưởng không có. Với 10 căn, mốc 100 đơn tới trong vài tuần. Danh sách cũng không có cột lý do hủy, phải mở từng đơn.
+  2. Tin "Giữ chỗ chưa cọc đã hết hạn và tự hủy" chỉ gửi người tạo và người chốt (`hold-notices.ts`, luật DOM A.5). Chỉ khi không có ai thì mới gửi lễ tân, lễ tân trưởng. Nhưng:
+     - sale, CTV không dùng được app nhân viên (`session.ts`: vai sale, CTV không có màn nào), và Desk không có hộp thông báo. Giữ chỗ do sale, CTV tạo tự hủy thì **không ai được báo**;
+     - giữ chỗ do lễ tân ca trước tạo: tin vào máy người đó, không vào máy người đang trực.
+  3. Ghi chú của PO đúng. Câu "cùng tin trong hộp Thông báo" làm người trực tin rằng mọi giữ chỗ tự hủy đều có tin. Thật ra chỉ có tin cho giữ chỗ chính họ tạo.
+- Vì sao quan trọng: đúng rủi ro của thẻ 01. Khách không được báo thì vẫn chuyển cọc vào đơn đã hủy, hoặc đến quầy khi căn đã bán (BR-312).
+- Đề xuất sửa: thay câu trên bằng đúng chữ sau. Câu dùng được với v1.0.4, không phụ thuộc số đơn, chỉ ghi mã đơn (không tên khách):
+  - "Mỗi mốc và mỗi lần thấy **Giữ chỗ sắp hết hạn**: ghi vào sổ giao ca mã đơn và giờ hạn của mọi giữ chỗ chờ cọc, cả đơn sale, CTV tạo. Mốc sau: mã nào không còn trong **Đang hiệu lực** → gõ mã vào ô tìm, bấm **Tất cả**. Đơn **Đã hủy**, lý do **Hết hạn giữ chỗ**: báo khách (đơn sale, CTV: báo người đó trước). Hộp **Thông báo** của app chỉ có giữ chỗ do bạn tạo."
+  - Cách này bắt được mọi giữ chỗ:
+    - hạn giữ chỗ là 12, 24 hoặc 48 giờ (`hold_hours_options`); mốc rà cách nhau tối đa 12 giờ (21:00 → 09:00), nên mỗi giữ chỗ nằm trong **Đang hiệu lực** ở ít nhất một mốc;
+    - giữ chỗ bị trần 12:00 ngày đến cắt ngắn thì lễ tân thấy dòng **Giữ chỗ sắp hết hạn** ở **Cần chú ý** trên **Hôm nay**. Dòng này tính cho mọi giữ chỗ, kể cả đơn sale, CTV tạo.
+  - Dài thêm khoảng một dòng so với câu cũ. Không vừa A5 10 pt thì dùng 9 pt như Tờ 1, hoặc rút dòng "chờ chủ đầu tư hoàn" về sổ tay 2.4 như thẻ 06 cho phép.
+- Việc kèm, không chặn in (ORC chuyển PO xếp việc, BE làm): DOM sửa luật A.5 của chính mình. Tin `hold_expired` gửi **thêm** lễ tân và lễ tân trưởng, như tin `hold_overdue_with_deposit`, chứ không chỉ khi không có người tạo, người chốt. Lý do: ở v1.0.x sale, CTV không có chỗ nào nhận tin. Chỗ sửa: `HOLD_NOTICE_ROLES.hold_expired` = `front_desk`, `front_desk_lead`, kèm test. Bản đó lên production thì sổ tay 2.4 (V5-71) mới dựa được vào hộp Thông báo. Luật ghi ở `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 9.
+- Trạng thái: Open
+
+### 4.3 Dòng "Cọc" Tờ 1
+
+"(có cọc: xem Tờ 2a)" đúng ý thẻ 02. SEC đọc lại theo ORC; DOM không có ý kiến thêm.
