@@ -237,6 +237,18 @@ describe.skipIf(!HAS_DB)(
         });
       });
 
+      it(`${name}: FB-R5-QA-BE-S1-03 (2) – nights sent 13, 11, 12 → dates[] in date order, min/max of 12/01`, async () => {
+        const [n11, n12, n13] = nights3(700_000, 500_000, 600_000);
+        const res = await call([n13, n11, n12]);
+        expect(res.statusCode, res.body).toBe(422);
+        expect(res.json()).toMatchObject({
+          code: 'RATE_OUT_OF_RANGE',
+          dates: ['2027-01-12', '2027-01-13'],
+          min: 554_000,
+          max: 1_980_000,
+        });
+      });
+
       it(`${name}: only the night on the new list price out of range → its own bounds; per-night bounds inside`, async () => {
         const res = await call(nights3(700_000, 700_000, 2_600_000));
         expect(res.statusCode, res.body).toBe(422);

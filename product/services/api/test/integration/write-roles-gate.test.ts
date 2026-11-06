@@ -214,10 +214,10 @@ describe.skipIf(!HAS_DB)('x-write-roles gate (contract 0.3.13 1.16)', () => {
         if (c.expected === '403') {
           await expectFieldDenied(res, c.operationId, user!, before, c.field);
         } else {
-          // Passed the gate: the (empty) body is then refused by validation – never 401/403/500.
-          expect([401, 403, 500], `${c.id}: ${res.statusCode} ${res.body}`).not.toContain(
-            res.statusCode,
-          );
+          // Passed the gate: the (empty) body is then refused by validation (FB-R5-QA-BE-S1-04 (a): a wrong
+          // fixture path or a moved route – 404 – must not pass here).
+          expect(res.statusCode, `${c.id}: ${res.body}`).toBe(422);
+          expect(res.json().code, c.id).toBe('VALIDATION_FAILED');
           expect((await denied(c.operationId, user!)).length, c.id).toBe(before);
         }
       }
