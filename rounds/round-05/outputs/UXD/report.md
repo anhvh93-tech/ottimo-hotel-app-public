@@ -214,3 +214,128 @@ ORC lưu từ báo cáo bàn giao của UXD.
   `| 2026-11-07 | 5 | **UXD – dựng lại bản in Tờ 2a bản 07/11** (staff-one-pager.md @ 5bbed1fb, DOM PO-08 Closed): A4 dọc, 2 cột, 11 pt, một trang (product/docs/print/pdf/to-2a-giu-cho-qua-han-a4.pdf). Giữ cỡ 11 pt; riêng Tờ 2a dòng 1,28 và bớt khoảng trắng phụ, còn 6,5 mm mỗi cột (trước đó 0 mm). Không cắt câu nào. Chân tờ ghi bản 07/11. Tờ 1 bản 06/11 không đổi thân, không dựng lại | UXD | Quyền UXD (dàn trang bản in); chữ nguyên văn PO + DOM |`
 - **Việc cho ORC:** báo chủ đầu tư PDF Tờ 2a bản 07/11 đã dựng lại, theo dòng "Cách in" của `staff-one-pager.md`. Gỡ bản cũ cùng lúc.
 - ESC mới: không có. Không sửa nguồn chữ, không dựng HTML sổ tay 1.18 / bộ hướng dẫn 1.16 (chờ DOM đọc câu BA mới).
+
+## 12. Cập nhật 07/11 – Review: 3 việc chữ thêm của ORC (copy v1.0.5 bản 2.1)
+
+Làm sau review PR #97, #116, #117, #118, #122 (`a33cbb8f`). Chữ chốt ở `rounds/round-05/outputs/UXD/copy-v1.0.5.md` bản 2.1, mục 9.8 (ghi chú), 9.11 và 9.12. Không có dữ liệu khách, không có số hoa hồng.
+
+### 12.1 `mlog.a_money_not_found` (PR #111, đã gộp `ce404dd6`)
+
+- Chữ chốt:
+  - VI: "Không thấy tiền về cho đơn đã hủy";
+  - EN: "Money not received for cancelled booking".
+- Câu tạm của ARC kể thao tác màn hình ("Đóng mục…"). EN tạm không khớp tiêu đề `today.money_after_cancel`, và đọc thành "tiền đã về… không thấy tiền". Câu mới ghép tên nút "Không thấy tiền" với tiêu đề dòng Cần chú ý.
+- **Đã áp trên `main`** cùng commit này:
+  - `gen_strings.py`, sinh lại (`strings-vi.json`, `strings-en.json`, `strings-tables.md`, `strings.js`), mỗi tệp đổi đúng 1 dòng;
+  - dòng `content-guide.md`.
+
+  Test `v104-money-labels-fea.test.tsx` so bằng `tv(key)`, không phải sửa.
+- EN nút `today.money_after_cancel_not_found` (9.1) đổi "Money not found" → "Money not received", cho khớp `co.recon_missing` (cùng chữ VI "Không thấy tiền"). Khóa chưa có trong mã nhánh nào.
+
+### 12.2 Câu 422 `CARD_NUMBER_DETECTED` ở ô mã giao dịch
+
+- Câu chuẩn giữ như 9.8: "Nhập 8 chữ số cuối của mã giao dịch." / "Enter the last 8 digits of the transaction reference."
+- Lý do "chữ số" (đã ghi ở 9.8):
+  - giá trị bị chặn chỉ gồm chữ số và `.` `/` `_` `-`;
+  - đếm ký tự thì hai người gõ khác dấu ra hai mã khác nhau, chặn trùng S4 không bắt được;
+  - 8 chữ số dưới 13 nên không bao giờ bị chặn lại.
+- Hợp đồng trên `main` còn ghi "8 ký tự cuối" ở 2 chỗ (cộng tệp sinh). Thẻ dưới.
+
+### 12.3 Nhãn lý do hoàn (V5-13) và câu `lockReason` (V5-44) – DOM FB-R5-DOM-UXD-112-01
+
+Nhãn lý do hoàn (một mã, một nhãn ở cột Lý do, Trả phòng, folio, khung đơn):
+
+| Nhóm | Nhãn VI / EN | Khóa |
+|---|---|---|
+| `early_departure` | Hoàn khi trả sớm / Early departure refund | có sẵn |
+| `overpayment` | Hoàn tiền khách trả thừa / Overpayment refund | có sẵn |
+| `overbooking_relocated` | Hoàn khi chuyển khách sang nơi khác / Refund for moving the guest elsewhere | mới |
+| `payment_after_cancel` | Tiền về sau khi hủy / Money received after cancellation | có sẵn (1.5) |
+| mọi `CancelReasonCode` khác, `no_show` | Hoàn khi hủy hoặc không đến / Cancellation or no-show refund | mới |
+| mã nhập tay, mã lạ | Hoàn tiền / Refund | mới |
+
+Thêm:
+- 2 khóa tổng chờ hoàn: `folio.open_refunds_total`, `drawer.folio.open_refunds` (U4).
+- Sửa `checkout.pending_refund_unavailable`; xóa `checkout.pending_refund_line` khi V5-13 lên.
+- `lockReason`:
+  - 5 câu mới: `error.FOLIO_LOCKED_closed`, `_settled`, `_settled_mgr`, `_window_over`, `_invoice_issued`;
+  - `debt_reduction_requires_write_off` dùng lại 2 câu công nợ, có sửa cho đúng BR-525;
+  - câu chung sửa VI "Phiếu thanh toán" → "Folio".
+- Phát hiện khi rà: câu chung `error.FOLIO_LOCKED` ("kể cả quản lý") đang hiện cho cả ca `settled`, nơi quản lý vẫn Điều chỉnh được. Nên 2 câu `settled` đi cùng V5-44 như bắt buộc.
+
+Số khóa bản 2.1: sửa 4, mới 11, xóa 1. Cộng **236** (bản 2.0: 220).
+
+### 12.4 Thẻ
+
+#### FB-R5-UXD-ARC-111-01
+- Mức độ: Minor
+- Vị trí:
+  - `product/docs/api/openapi.yaml`, mô tả `recordPayment` (B): "Câu báo chỉ cách nhập 8 ký tự cuối của mã (UXD)";
+  - tệp sinh `product/packages/api-client/src/generated/openapi.ts`;
+  - `rounds/round-05/outputs/ARC/contract-0.3.13.md`, bảng "Ai làm tiếp", dòng BE C0313-25: "UXD: câu báo "nhập 8 ký tự cuối"".
+- Vấn đề: câu Desk đã chốt "8 chữ số cuối" (bảng chữ 9.8, decision-log 07/11). Hợp đồng còn ghi "8 ký tự cuối".
+- Vì sao quan trọng: BE, QA và BA đọc hợp đồng để viết test, sổ tay và lời dặn tạm cho chủ đầu tư. Lệch chữ thì một bên dặn "ký tự", một bên "chữ số". Theo SEC (thẻ SEC-ARC-24), hai cách đều không bao giờ ra số thẻ, nên đây chỉ là lệch chữ, không phải lỗ.
+- Đề xuất sửa: đổi thành "8 chữ số cuối (UXD `pay.bank_reference_card_like`)" ở cả 3 chỗ, trong lượt tài liệu tới. Không cần PR riêng, không đổi luật máy chủ.
+- Trạng thái: Open (ARC)
+
+#### FB-R5-UXD-FE-111-02
+- Mức độ: Suggestion
+- Vị trí: `product/apps/admin-web/src/pages/money/MoneyPage.tsx`, `ACTION_KEY`, dòng `'attention_event.resolved': 'mlog.a_money_not_found'`.
+- Vấn đề: câu được chọn chỉ theo `action`, không xét `after.kind`.
+- Vì sao quan trọng: hôm nay đúng, vì SEC ARC-20 chỉ đưa `deposit_after_cancel` vào tập `money`. Nếu sau này loại mục Cần chú ý khác cũng vào tập này, Nhật ký tiền sẽ ghi "Không thấy tiền về cho đơn đã hủy" cho một việc khác.
+- Đề xuất sửa: `after.kind === 'deposit_after_cancel'` thì dùng `mlog.a_money_not_found`; khác thì dùng `mlog.a_other` kèm mã chữ nhỏ. Thêm một ca vào `v104-money-labels-fea.test.tsx`. Làm khi FE chạm `MoneyPage.tsx` lần tới, hoặc v1.0.6.
+- Trạng thái: Open (FE-A)
+
+#### FB-R5-UXD-FE-112-01
+- Mức độ: Major (cho V5-13, V5-44 khi FE code)
+- Vị trí:
+  - `app/auditReason.ts` (`REFUND_REASON`);
+  - `pages/stay/CheckOutPage.tsx` (`pendingRefundRow`);
+  - `pages/stay/FolioDialog.tsx` (`debtRule`, `windowOver`, khung đã khóa);
+  - thẻ Folio của khung đơn;
+  - `app/problem.ts`.
+- Vấn đề:
+  - `openRefunds` trả theo từng mã thô, kể cả mã lý do hủy. Desk chưa có nhãn cho 3 nhóm.
+  - 409 `FOLIO_LOCKED` hiện một câu chung cho mọi `lockReason`, và câu đó sai ở ca `settled`.
+- Vì sao quan trọng:
+  - Thiếu nhãn thì dòng chờ hoàn không nói vì sao, hoặc rơi về mã. Không cộng theo nhóm thì một lý do hủy ra nhiều dòng.
+  - Ở ca `settled`, lễ tân đọc "kể cả quản lý" rồi không nhờ quản lý sửa, dù quản lý làm được.
+- Đề xuất sửa: theo bảng chữ 9.12:
+  - hàm nhãn 3 bước, xét `overbooking_relocated` trước nhóm hủy, lấy `CancelReasonCode` từ `@ottimo/contracts`;
+  - cộng theo nhóm, xếp cố định;
+  - chọn câu theo `lockReason`, `settled` theo vai.
+
+  Mục 6 có danh sách tệp. Mục 8 có ca kiểm.
+- Trạng thái: Open (FE nhận V5-13, FE-A cho V5-44)
+
+#### FB-R5-UXD-ARC-112-02
+- Mức độ: Suggestion (0.3.14)
+- Vị trí: `openapi.yaml`, `OpenRefund.reasonCode`; `CancelReasonCode` (enum có `other`).
+- Vấn đề: hợp đồng ghi "mã nhập tay của A32 giữ nguyên" nhưng không nói mã đó có thể trùng giá trị `CancelReasonCode` hay không. `other` là mã hủy hợp lệ.
+- Vì sao quan trọng: Desk gắn nhãn hủy cho mọi giá trị `CancelReasonCode`. Một yêu cầu hoàn nhập tay mang mã `other` sẽ hiện "Hoàn khi hủy hoặc không đến".
+- Đề xuất sửa: 0.3.14 thêm vào mô tả `OpenRefund.reasonCode`:
+  - nhóm mã lý do hủy (DOM 112-01);
+  - câu "Desk gom theo nhãn, không hiện mã";
+  - mã nhập tay không dùng lại giá trị của `CancelReasonCode` (hoặc nói cách máy chủ phân biệt).
+- Trạng thái: Open (ARC)
+
+#### FB-R5-UXD-DOM-112-03
+- Mức độ: Suggestion
+- Vị trí: bảng chữ 9.12, `folio.adjust_debt_locked`, `folio.debt_fd`.
+- Vấn đề: câu cũ "chỉ ghi được điều chỉnh tăng, không giảm hay bỏ dòng" là luật N-7 của R2. Từ BR-525 (chu kỳ nợ), máy chủ cho giảm trong phạm vi các phát sinh còn trong hạn sửa, chỉ từ chối phần vượt (`folio-lines.service.ts`, lỗi `debt_reduction_requires_write_off`). UXD viết lại thành "chỉ giảm được phát sinh còn trong hạn sửa, không giảm vào phần nợ".
+- Vì sao quan trọng: quản lý đọc câu cũ sẽ nghĩ không sửa giảm được dòng nào, kể cả dòng ghi nhầm vừa xong.
+- Đề xuất sửa: DOM xác nhận cụm "phát sinh còn trong hạn sửa" đúng nghĩa BR-525 (d), hoặc đưa cụm khác. Không chặn V5-44, vì câu cũ vẫn chỉ đúng nút Xóa công nợ.
+- Trạng thái: Open (DOM)
+
+### 12.5 Giả định
+
+- `today.money_after_cancel_not_found` chưa có trong mã nhánh nào: đã tìm trên mọi nhánh `origin` lúc 07/11. Chỉ thấy tên khóa trong ghi chú của `content-guide.md`.
+- Nhãn lý do hoàn hiện cả ở cột Lý do. Trước đây mã lạ ở cột này chỉ hiện ghi chú. Từ nay hiện "Hoàn tiền" rồi tới ghi chú. Không đổi chỗ nào khác.
+- Dòng tổng chờ hoàn trên khung đơn (U4) đọc từ `Folio.totals.openRefunds`. Nếu khung đơn không tải folio, FE báo lại để UXD đổi chỗ đặt.
+- Không sửa hợp đồng của ARC, không sửa `decision-log.md`.
+
+### 12.6 Dòng decision-log đề xuất (ORC ghi)
+
+`| 2026-11-07 | 5 | **UXD – 3 việc chữ thêm (copy-v1.0.5 bản 2.1)** (rounds/round-05/outputs/UXD/report.md mục 12). (1) mlog.a_money_not_found chốt "Không thấy tiền về cho đơn đã hủy" / "Money not received for cancelled booking", đã áp trên main (gen_strings, sinh lại, content-guide); EN nút today.money_after_cancel_not_found đổi "Money not received" theo co.recon_missing; chọn câu theo after.kind là Suggestion (FB-R5-UXD-FE-111-02). (2) Câu 422 CARD_NUMBER_DETECTED ở ô mã giao dịch giữ "8 chữ số cuối"; ARC sửa "8 ký tự cuối" ở openapi.yaml recordPayment (B) và contract-0.3.13.md dòng C0313-25 (FB-R5-UXD-ARC-111-01, Minor). (3) DOM 112-01: 6 nhóm nhãn lý do hoàn (3 có sẵn, 3 mới: "Hoàn khi chuyển khách sang nơi khác", "Hoàn khi hủy hoặc không đến", "Hoàn tiền"), FE xét overbooking_relocated trước nhóm hủy và cộng openRefunds theo nhãn; 5 câu lockReason, settled theo vai bắt buộc cùng V5-44 vì câu chung "kể cả quản lý" sai ở ca này (FB-R5-UXD-FE-112-01, Major khi code); ARC 0.3.14 ghi mã nhập tay không trùng CancelReasonCode (ARC-112-02); DOM xác nhận câu công nợ theo BR-525 (DOM-112-03). Không ESC | UXD | report.md mục 12 |`
+
+- ESC mới: không có.
