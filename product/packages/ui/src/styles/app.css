@@ -317,6 +317,14 @@ body:has(.app-mnav) .toasts {
   }
 }
 
+/* v1.0.5 FB-R5-UXD-FE-PR102-03 – Desk room board (S10 Trạng thái buồng) on a phone: the row's buttons
+   ("Báo cần dọn") reach the 44 px touch target of DS 4; from 521 px they stay `.btn.sm` (32 px). */
+@media (max-width: 520px) {
+  .room-acts .btn {
+    min-height: 44px;
+  }
+}
+
 /* UXR S4 P-03 – H17 Cần duyệt card: text, status, then the two buttons. On a phone everything stacks (no
    ~60 px text column, the amount never under the chip); from 861 px one row as before. */
 .appr-card {
