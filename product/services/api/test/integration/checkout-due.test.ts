@@ -394,14 +394,22 @@ describe.skipIf(!HAS_DB)('check-out amount due – S4-47 (BE-A Sprint 4)', () =>
     await at('2026-11-28T15:00:00+07:00');
     const s = await summary(b.id, '15:00');
     expect(s.amountDueAtCheckoutVnd).toBeGreaterThan(0);
-    expect(await due({ reservationId: b.id, purpose: 'check_out' })).toBe(s.amountDueAtCheckoutVnd);
+    expect(s.checkoutAt).toBe('2026-11-28T15:00:00.000+07:00');
     expect(
       await due({
         reservationId: b.id,
         purpose: 'check_out',
-        checkoutAt: new Date('2026-11-28T15:00:00+07:00'),
+        checkoutAt: new Date(s.checkoutAt),
       }),
     ).toBe(s.amountDueAtCheckoutVnd);
+    // 0.3.13 (V5-10, BE C0313-08): `checkoutAt` absent is resolved like B18 (the standard 12:00 here), no longer the
+    // server clock – the same number as the summary read without a time.
+    const plain = (await c.fd!.get(url(`/reservations/${b.id}/checkout-summary`))).json();
+    expect(plain.checkoutAt).toBe('2026-11-28T12:00:00.000+07:00');
+    expect(plain.amountDueAtCheckoutVnd).toBeLessThan(s.amountDueAtCheckoutVnd);
+    expect(await due({ reservationId: b.id, purpose: 'check_out' })).toBe(
+      plain.amountDueAtCheckoutVnd,
+    );
     expect(
       await code(due({ reservationId: b.id, purpose: 'check_out', extraNightRateVnd: 900_000 })),
     ).toBe('422 VALIDATION_FAILED'); // no extra night at 15:00
@@ -409,11 +417,19 @@ describe.skipIf(!HAS_DB)('check-out amount due – S4-47 (BE-A Sprint 4)', () =>
     await at('2026-11-28T19:00:00+07:00');
     const late = await summary(b.id, '19:00');
     expect(late.extraNightRequired).toBe(true);
-    expect(await due({ reservationId: b.id, purpose: 'check_out' })).toBe(
+    const lateAt = new Date(late.checkoutAt);
+    expect(await due({ reservationId: b.id, purpose: 'check_out', checkoutAt: lateAt })).toBe(
       late.amountDueAtCheckoutVnd,
     );
     expect(
-      await code(due({ reservationId: b.id, purpose: 'check_out', extraNightRateVnd: 1_000 })),
+      await code(
+        due({
+          reservationId: b.id,
+          purpose: 'check_out',
+          checkoutAt: lateAt,
+          extraNightRateVnd: 1_000,
+        }),
+      ),
     ).toBe('422 RATE_OUT_OF_RANGE');
   });
 });
