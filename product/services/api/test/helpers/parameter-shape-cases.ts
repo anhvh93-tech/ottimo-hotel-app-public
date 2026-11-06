@@ -139,6 +139,9 @@ export const BAD_SHAPES: Array<[string, unknown, string]> = [
   // damage_catalog (BR-512; DOM rules-v1.0.5 13.4, QA T-13-5) – pulled from R5-B-05 into V5-25.
   ['damage_catalog', GLASS, 'value'],
   ['damage_catalog', 150000, 'value'],
+  ['damage_catalog', null, 'value'],
+  ['damage_catalog', [5], 'value[0]'],
+  ['damage_catalog', ['x'], 'value[0]'],
   ['damage_catalog', [null], 'value[0]'],
   ['damage_catalog', [GLASS, null], 'value[1]'],
   ['damage_catalog', [[GLASS]], 'value[0]'],
@@ -148,6 +151,7 @@ export const BAD_SHAPES: Array<[string, unknown, string]> = [
   ['damage_catalog', [{ ...GLASS, code: 7 }], 'value[0].code'],
   ['damage_catalog', [{ ...GLASS, code: 'Glass' }], 'value[0].code'],
   ['damage_catalog', [{ ...GLASS, code: 'damage.glass' }], 'value[0].code'],
+  ['damage_catalog', [{ ...GLASS, code: 'ly_đá' }], 'value[0].code'],
   ['damage_catalog', [{ ...GLASS, code: 'g'.repeat(41) }], 'value[0].code'],
   ['damage_catalog', [{ ...GLASS, name: '   ' }], 'value[0].name'],
   ['damage_catalog', [{ ...GLASS, name: 12 }], 'value[0].name'],

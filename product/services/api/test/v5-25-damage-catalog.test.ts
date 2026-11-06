@@ -214,4 +214,17 @@ describe('damage_catalog – defensive read (DOM 13.2)', () => {
       priceVnd: 50_000,
     });
   });
+
+  it('SEC FB-R5-SEC-BE-V525-01: an unknown key with a line break and a marker → "<unknown key>", no text of the value', () => {
+    const forged = 'x\nERROR fake log line ZZMARK-DMG';
+    expect(
+      readDamageCatalog([DAMAGE_DEFAULT[0], { ...GLASS, [forged]: 1 }], { propertyId: 'p-1' }),
+    ).toEqual([DAMAGE_DEFAULT[0]]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = String(warn.mock.calls[0]?.[0]);
+    expect(line).toContain('1 of 2 items left out, first value[1].<unknown key> NOT_ALLOWED');
+    expect(line).not.toContain('ZZMARK');
+    expect(line).not.toContain('\n');
+    expect(line).not.toMatch(/[{}"]|glass|Ly/);
+  });
 });

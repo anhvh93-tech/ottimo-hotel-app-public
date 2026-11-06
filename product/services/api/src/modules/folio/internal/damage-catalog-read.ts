@@ -12,10 +12,15 @@
  *
  * One warning per value and property (so OPS sees it), without the value itself and without any guest data – only
  * the key, the property, how many items were left out, the first problem (field path + code) and a short fingerprint.
+ * The field path never carries the name of an unknown key (SEC FB-R5-SEC-BE-V525-01, `logSafeField`).
  */
 import { createHash } from 'node:crypto';
 import { Logger } from '@nestjs/common';
-import { type DamageItem, readDamageCatalogItems } from '../../platform/public/parameter-shapes';
+import {
+  type DamageItem,
+  logSafeField,
+  readDamageCatalogItems,
+} from '../../platform/public/parameter-shapes';
 
 const log = new Logger('ParameterRead');
 /** Fingerprints already logged (bounded: a long-running process never grows it without end). */
@@ -50,10 +55,11 @@ export function readDamageCatalog(
     if (logged.size >= LOGGED_MAX) logged.clear();
     logged.add(fingerprint);
     const first = read.dropped[0];
+    const firstField = first ? logSafeField(first.field, first.code, first.index) : '-';
     log.warn(
       read.notAList
         ? `parameter damage_catalog is not a list – read as an empty damage table (V5-25) property=${property} fingerprint=${fingerprint}`
-        : `parameter damage_catalog: ${read.dropped.length} of ${read.dropped.length + read.items.length} items left out, first ${first?.field} ${first?.code} – the other items apply (V5-25) property=${property} fingerprint=${fingerprint}`,
+        : `parameter damage_catalog: ${read.dropped.length} of ${read.dropped.length + read.items.length} items left out, first ${firstField} ${first?.code} – the other items apply (V5-25) property=${property} fingerprint=${fingerprint}`,
     );
   }
   return read.items;
