@@ -2,8 +2,11 @@
 
 - Tác giả: DOM | Round 5 – v1.0.5 | Bước: Sản xuất (Gói 0) | Ngày: 06/11/2026
 - Sửa: DOM | Bước: Phản hồi & sửa | 06/11/2026 khuya – theo QA `rounds/round-05/qa/bug-list.md` (BUG-R5-002, BUG-R5-003, commit `233b9b5d`): mục 11.2 bỏ câu "J1 đứng thì Xác nhận đã nhận cọc", thêm chữ thay cho Tờ 2a dòng 86; mục 11.3 tách "dòng tay" với "khoản thu"; mục 11.4 viết lại theo V5-5B (dùng lại `recordPayment`); **mục 12 mới**: luật kiểm khi lưu `min_stay` cho V5-25. Bổ sung 06/11 (thẻ SEC `FB-R5-SEC-DOM-B002-04`): mục 11.4 – 2(c) ảnh thông báo tiền vào tài khoản OTTIMO, 3 hoàn về đúng tài khoản đã chuyển, 3a mã giao dịch và S4, 3b lỡ ghi hai lần. Bổ sung 06/11 (ARC hợp đồng 0.3.13, PR #94): mục 1.2 ý 6 biên trên cảnh báo giá đêm ÷ 5 (G9); mục 2.1 ý 3 không có nút Trả sớm trong W cho lượt đi hôm nay; mục 7.1 ngày nghiệp vụ lúc bấm và ngày đi hiệu lực của lượt gia hạn. Review PR #96 (06/11): **mục 13 mới** – biên khi lưu 11 khóa có cấu trúc khác và `damage_catalog`, giá trị hỏng trong DB bỏ qua hay chặn, `short_stay_max_nights` 27 hay 29; mục 3.4, 3.6 xác nhận cách Desk của UXD 9.5 cho V5-16.
+- Sửa: DOM | Bước: Review | 07/11/2026 – review PR #101, #108, #110 (`rounds/round-05/reviews/DOM-on-be-prs-101-108-110.md`): **mục 14 mới** – "nhập tay" của BR-438 là dòng A30 hoặc dòng đếm minibar, không xét mã `source`; đếm lại minibar là sửa giảm (thẻ SEC V516-01); hoa hồng của đơn chốt lúc thiếu tỷ lệ phải có bản ghi chậm nhất ở mốc "đạt"; lượt đi hôm qua còn ở trong cửa sổ sau nửa đêm (ARC A4, v1.0.6); `lease_terms` là khóa dừng lên bản thứ 7; BR-111 áp trên giá gõ. Sửa kèm mục 0 việc (4), 3.1, 3.5 (T-16-12…15), 7.2 ý 3, 12.3 (bỏ số dòng), 13.2.
+- Sửa: DOM | Bước: Review | 07/11/2026 – review PR #106 (V5-10) và PR #99 (V5-15) (`rounds/round-05/reviews/DOM-on-be-prs-106-99-checkout.md`): **mục 15 mới** – phụ thu trả muộn, khai báo và mốc giữ chứng cứ theo giờ khách rời thật, lúc bấm chỉ để kiểm dung sai; Desk điền giờ máy quầy, máy chủ vắng giờ lấy giờ hẹn hoặc giờ chuẩn, "tối hôm trước" chỉ khi lễ tân gõ; không rõ giờ thì 12:00, không phụ thu nếu không có bằng chứng; xác nhận giả định BE-A2 cho đơn quá ngày đi; mốc "tiền về sau trả phòng" của hoa hồng là lúc ghi Trả phòng, không phải giờ rời thật.
+- Sửa: DOM | Bước: Phản hồi & sửa | 07/11/2026 – trả lời QA FB-R5-QA-DOM-BR438-01 (`rounds/round-05/reviews/QA-on-DOM-br438-oracles.md`): chọn phương án A. Dòng trả muộn B18 nằm trên folio đã chốt, nên theo A32, không theo BR-438 (mục 7.2 ý 3, ca T-16-4, mục 14.6); BR v0.5.15 sửa ví dụ, không đổi luật.
 - Người đọc: ARC (hợp đồng 0.3.13), BE, FE-A, BA, QA, SEC, DATA.
-- Nguồn sự thật: `product/docs/business-rules.md` **v0.5.13** (BR-010, BR-101, BR-204, BR-212, BR-303, BR-309, BR-311, BR-428, BR-438 mới, BR-506, BR-903, mục 13); `product/docs/tham-so-quy-tac.md` bản 1.3; oracle `product/tests/fixtures/br-examples.json`. Tệp này giải thích và gom ca kiểm, không thay BR.
+- Nguồn sự thật: `product/docs/business-rules.md` **v0.5.15** (BR-010, BR-101, BR-111, BR-204, BR-212, BR-303, BR-309, BR-311, BR-428, BR-438 mới, BR-506, BR-903, mục 13); `product/docs/tham-so-quy-tac.md` bản 1.3; oracle `product/tests/fixtures/br-examples.json`. Tệp này giải thích và gom ca kiểm, không thay BR.
 - **Không có tỷ lệ, số tiền hoa hồng hay thưởng, hay ranh giới khoảng kỳ hạn của bảng nội bộ** trong tệp này. Ca kiểm hoa hồng dùng tham số thử `test_rate_*` (SEC G3).
 - Tên khóa, mã lỗi, tên trường dưới đây là **đề xuất**; ARC chốt ở hợp đồng 0.3.13. ARC đổi tên thì DOM đồng bộ BR và từ điển.
 
@@ -23,13 +26,15 @@
 | Tiền về mà giữ chỗ đã tự hủy | Kiểm tiền theo mã đơn trước khi hủy hoặc báo khách; đặt lại nếu còn căn, không thì chủ đầu tư hoàn đủ; lỗi phần mềm cho QA, việc BE (mục 11). **Sửa 06/11 khuya:** giữ chỗ quá hạn mà Desk chưa tự hủy thì chỉ còn Hủy giữ chỗ, không mở nút xác nhận cọc; V5-5B dùng lại `recordPayment` cho mọi đơn đã đóng, chỉ chuyển khoản/VietQR, ảnh bắt buộc | Không (NGÀNH) |
 | V5-25 `min_stay` (BUG-R5-003) | Chỉ nhận danh sách luật; mỗi luật: `nights` nguyên 1–7 và ≤ `short_stay_max_nights`, `channels` = `"all"` hoặc tập con của `direct`, `agent`, `ota`, áp vào ít nhất một ngày; `[]` = không có ở tối thiểu, cho lưu; giá trị production hiện tại hợp lệ (mục 12) | Không (NGÀNH; mức 2 đêm vẫn là INV-004) |
 | V5-25 khóa khác, `damage_catalog` (PR #96) | Chốt biên của BE, sửa 3 chỗ: phần trăm tối đa 2 chữ số thập phân; `max_open_holds_per_user` đủ hai vai; `cancel_policy_direct` không rỗng. `damage_catalog`: ≤ 100 món, giá 1.000–20.000.000. Hỏng trong DB: bỏ qua ở bán, Hôm nay, bảng đền bù; chặn rõ ở tính hoàn, phụ thu, giới hạn giữ chỗ. `short_stay_max_nights` đúng là 29 (mục 13) | Không (NGÀNH) |
+| Review #101, #108, #110 (07/11, mục 14) | BR-438 "nhập tay" = dòng A30 hoặc dòng đếm minibar; FD/FDL đếm lại minibar thấp hơn số người khác đếm → chặn, đi FOC; đơn chốt lúc thiếu tỷ lệ có bản ghi hoa hồng chậm nhất ở mốc "đạt", tỷ lệ chụp lần đầu; lượt đi hôm qua còn ở lên đầu "Khách đi" lúc 00:00–05:59 từ v1.0.6; `lease_terms` dừng lên bản nếu hỏng; BR-111 áp cả trên giá gõ | Không (NGÀNH; thi hành bảng nội bộ 01/11) |
+| Review #106, #99 (07/11, mục 15) | Phụ thu trả muộn và khai báo theo giờ khách rời thật, không theo lúc bấm; Desk điền giờ máy quầy, máy chủ vắng giờ lấy giờ hẹn hoặc 12:00; "tối hôm trước" chỉ khi gõ; không rõ giờ → 12:00, không phụ thu; đơn quá ngày đi nhận cả cửa sổ sau nửa đêm của ngày đi; hoa hồng: tiền về sau trả phòng tính từ lúc ghi Trả phòng (thẻ PR99-01, Major) | Không (NGÀNH) |
 
 ### Việc chủ đầu tư nhập trên Desk sau khi v1.0.5 lên (đội không đổi tham số trên production)
 
 1. `long_stay_cleaning_fee_by_room` (H3): dán `{"101":100000,"201":100000,"102":120000,"103":120000,"202":120000,"203":120000,"302":130000,"402":130000,"301":150000,"401":150000}` (giá công khai, bảng 01/11 mục 4).
 2. `long_stay_commission` (H2): các khoảng kỳ hạn, tỷ lệ khách VN, khách NN, tỷ lệ đợt 1 – theo bảng nội bộ. Không gửi số cho đội.
 3. `manager_performance_bonus_pct` (H2): tỷ lệ thưởng quản lý – theo bảng nội bộ.
-4. Kiểm `short_stay_commission_pct`: hai khóa con `staff`, `collaborator` cùng một số (bảng có một mức).
+4. Kiểm `short_stay_commission_pct`: hai khóa con `staff`, `collaborator` cùng một số (bảng có một mức). **Việc này làm được ngay trên Desk v1.0.4, không chờ v1.0.5** (khóa đã có; sửa 07/11, mục 14.2). Production còn hàng tỷ lệ cũ (hết hiệu lực từ 01/11), nên tới khi chủ đầu tư lưu hàng mới, Desk vẫn tính theo tỷ lệ cũ và **không** báo "Chưa có tỷ lệ hoa hồng". Mỗi ngày chậm là thêm đơn có người chốt chụp tỷ lệ cũ.
 5. Kiểm `commission_payable_day`, `commission_pay_by_day` khớp ngày trả lương (bảng ghi "trả cùng kỳ lương").
 6. **Không sửa** `night_from_month_divisor`. Căn nào tạo bằng API hoặc công cụ nhập danh mục trước khi v1.0.5 lên: mở Danh mục căn, kiểm giá đêm.
 
@@ -142,14 +147,14 @@ Gọi **W** là khoảng 00:00–05:59 ngày lịch D+1, khi ngày nghiệp vụ
 **Sửa giảm** = bỏ dòng (`voidLine`), giảm số lượng (`newQuantity`, kể cả về 0) hoặc giảm đơn giá (`newUnitPriceVnd`): mọi thay đổi làm số tiền của một dòng nhỏ đi. Áp cho dòng không phải dòng đêm (khác `room`, `extra_person`, `room_change_difference`) trên folio chưa `settled`. Tăng không thuộc luật này.
 
 1. Lễ tân (FD) và lễ tân trưởng (FDL) sửa giảm **trực tiếp**, lý do bắt buộc, khi đủ:
-   - (a) dòng do chính người đó **nhập tay** (A30, nguồn `manual`);
+   - (a) dòng do chính người đó **nhập tay**: dòng A30 (Thêm dòng phát sinh) hoặc dòng đếm minibar do người đó đếm (sửa 07/11, mục 14.1; không xét theo mã `source`);
    - (b) dòng ghi trong **ngày nghiệp vụ hiện tại**;
    - (c) folio chưa `settled`.
    Xét theo **dòng gốc** của chuỗi sửa (`relatedLineId` lần ngược tới dòng đầu): dòng thay thế mang người ghi và ngày ghi của dòng gốc.
 2. Ngoài (1): FD/FDL **không** sửa giảm được. Máy chủ từ chối (đề xuất 403 `FORBIDDEN_ACTION` kèm gợi ý `focRequest`), folio không đổi. Desk chỉ sang **Gửi miễn có duyệt** (A35, BR-431…434, định tuyến BR-432, hạn mức BR-433). FOC minibar tự áp vẫn theo BR-436. Ghi nhầm dòng của người khác: lý do "Khác" + ghi chú "ghi nhầm". NÊN: ARC thêm mã lý do riêng "Ghi nhầm" để báo cáo FOC tách.
 3. Quản lý, chủ đầu tư: như hiện nay. Folio `settled`: A32, BR-433 (e).
 4. Báo cáo:
-   - danh sách đóng ca BR-526 (d): mọi lần FD/FDL sửa giảm trong ca (người, đơn, dòng, số trước → sau, lý do);
+   - danh sách đóng ca BR-526 (d): mọi lần FD/FDL sửa giảm trong ca (người, đơn, dòng, số trước → sau, lý do). **Từ v1.0.6** (`ShiftReport.lineReductions[]`, US-177 AC7 (iii); mục 14.1); tới đó dùng bộ lọc 7 ngày và câu sổ tay đóng ca;
    - bộ lọc "Sửa giảm dòng – 7 ngày" cho quản lý (theo người, theo loại dòng) – plan V5-16 "bộ lọc tuần";
    - cảnh báo chủ đầu tư khi một người sửa giảm quá `foc_alert_count_per_approver` lần trong tháng (theo ngày nghiệp vụ). Dùng chung ngưỡng, không thêm khóa.
    Số tiền sửa giảm theo (1) không cộng FOC tháng, không tính hạn mức BR-433. Mọi lần có audit.
@@ -187,7 +192,7 @@ Gọi **W** là khoảng 00:00–05:59 ngày lịch D+1, khi ngày nghiệp vụ
 | T-16-1 | FD sửa giảm dòng mình nhập tay cùng ngày | Được; audit; có trong đóng ca; FOC tháng không đổi | BR-438-01 |
 | T-16-2 | FD sửa giảm dòng FD khác ghi | 403 + gợi ý FOC; folio không đổi | BR-438-02 |
 | T-16-3 | FD bỏ dòng mình ghi 23:50, lúc 00:20 và 06:10 | Được; bị chặn | BR-438-03 |
-| T-16-4 | FD, FDL, MGR bỏ dòng hệ thống (trả muộn) | Chặn, chặn, được | BR-438-04 |
+| T-16-4 | FD, FDL, MGR bỏ dòng trả muộn B18 (folio đã chốt lúc Trả phòng) | Chặn, chặn (403 `FORBIDDEN_ACTION`, không `requiredFlow` – A32), được (BR-433 (e)) | BR-438-04 |
 | T-16-5 | Chuỗi sửa tăng rồi bỏ | Theo dòng gốc | BR-438-05 |
 | T-16-6 | Lần sửa giảm thứ 11 trong tháng | Cảnh báo chủ đầu tư | BR-438-06 |
 | T-16-7 | FD giảm đơn giá F&B dòng của người khác | Chặn (giảm giá cũng là sửa giảm) | – |
@@ -195,6 +200,10 @@ Gọi **W** là khoảng 00:00–05:59 ngày lịch D+1, khi ngày nghiệp vụ
 | T-16-9 | Folio `settled`, FD sửa dòng mình vừa ghi | Chặn như hiện nay (A32) | – |
 | T-16-10 | Bộ lọc "Sửa giảm dòng – 7 ngày": quản lý thấy, FD không thấy | Đúng vai | – |
 | T-16-11 | FD bấm Điều chỉnh giảm dòng FD khác ghi → 403 → bấm Gửi miễn có duyệt | Form miễn phí mở cho đúng dòng, Số tiền = số cũ − số mới; folio không đổi tới khi FOC được áp | – |
+| T-16-12 (07/11) | FD đặt giờ trả muộn (B15, dòng lưu `manual`) rồi bỏ dòng đó; FDL; MGR | Chặn, chặn, được | BR-438-07 |
+| T-16-13 (07/11) | Buồng phòng đếm 3 bia; FD khác đếm lại còn 2 | 403 `foc_request`, không ghi gì (kể cả lần đếm); Gửi miễn có duyệt mở | BR-438-08 |
+| T-16-14 (07/11) | FD đếm 3 bia, 20 phút sau chính FD đếm lại còn 2 | Được; một `folio_line.adjusted` `minibar_recount`; có trong `reductionsOnly`, `line_reduction_count` | BR-438-08 |
+| T-16-15 (07/11) | Buồng phòng đếm lại thấp hơn lần đếm của FD | Được; có trong `reductionsOnly`; không vào `line_reduction_count` | BR-438-08 |
 
 ### 3.6 Cách Desk báo luật – xác nhận UXD copy 1.5 mục 9.5 (06/11)
 
@@ -388,7 +397,7 @@ Cách đếm và mã:
 
 1. **Phạm vi là mọi lần sửa giảm**, không chỉ bỏ hoặc giảm về 0: giảm số lượng một phần và giảm đơn giá cũng tính. Lý do: thu tiền mặt 3 lon rồi sửa còn 1 thất thoát giống hệt bỏ dòng. Bộ lọc tuần của quản lý cần thêm tham số lọc mọi lần giảm (`after.amountVnd < before.amountVnd`, ví dụ `reductionsOnly`), bên cạnh `removalsOnly`. Không migration (lọc jsonb).
 2. **"Của mình" và "cùng ngày" xét trên dòng gốc**, tức dòng đầu của chuỗi `relatedLineId`. `before.postedByActor` và `before.sameBusinessDay` tính theo người ghi và ngày nghiệp vụ ghi của dòng gốc, không theo dòng thay thế. Không làm vậy thì lách được bằng cách sửa tăng dòng người khác rồi bỏ dòng thay thế (BR-438-05).
-3. **Chỉ dòng nhập tay** (`source = manual`) mới là "của mình". Dòng hệ thống tự ghi luôn đi FOC, dù người bấm thao tác sinh dòng là chính lễ tân đó: phụ thu nhận sớm/trả muộn, phí giữ lại, phí dọn từ yêu cầu khách (BR-438-04).
+3. **Chỉ dòng nhập tay** mới là "của mình". "Nhập tay" (sửa 07/11, mục 14.1) = dòng thêm bằng **Thêm dòng phát sinh** (A30) hoặc **dòng đếm minibar**, tức dòng có người gõ số lượng hay giá; **không** xét theo mã `source`. Dòng hệ thống tự ghi luôn đi FOC, dù người bấm thao tác sinh dòng là chính lễ tân đó, và dù mã lưu `source` gì: phụ thu nhận sớm/trả muộn (trả muộn B13/B15/B16 lưu `manual`, B18 lưu `checkout`), phí giữ lại, phí dọn từ yêu cầu khách (BR-438-07). Riêng dòng trả muộn B18: Trả phòng chốt folio ngay, nên dòng này theo A32, không theo BR-438 – lễ tân, lễ tân trưởng bị chặn (403, không gợi ý FOC), quản lý sửa được (BR-433 (e)); muốn miễn thì FOC trước khi bấm Trả phòng (sửa 07/11, trả lời QA FB-R5-QA-DOM-BR438-01; BR-438-04).
 4. **Cảnh báo theo người làm** (BR-438 (4)(iii)): thêm một `check` vào nguồn "Cần chú ý" `foc_threshold`, vốn tính lúc đọc, không lưu kind (ví dụ `check: line_reduction_count`, `count`, `max` = `foc_alert_count_per_approver`). Không migration.
    - Danh sách đóng ca (4)(i): làm ở v1.0.5 nếu dữ liệu bàn giao ca được tính lúc đọc từ audit. Nếu phải lưu kind mới thì dời sang v1.0.6; tới đó bộ lọc tuần là đủ.
 
@@ -757,7 +766,7 @@ Thứ tự khóa trong đối tượng, thứ tự luật trong mảng không qu
 ### 12.3 Đọc phòng thủ ở bộ tính giá (giá trị hỏng đã nằm trong DB)
 
 - **Không bao giờ 500 vì `min_stay`.** Giá trị không phải mảng → coi như không có luật. Phần tử hỏng theo 12.1 → bỏ phần tử đó, các phần tử đúng vẫn áp. Ghi log cảnh báo (một lần cho mỗi giá trị) để OPS thấy.
-- Áp ở cả ba chỗ đang gọi `minStayNights`: báo giá (`quote-pricing.ts` 201–202), tạo đơn (`reservations.service.ts` 688), giá ước tính web (`public-rate.ts` 212).
+- Áp ở cả ba chỗ đang gọi `minStayNights`: báo giá (`quote-pricing.ts`), tạo đơn (`reservations.service.ts`), giá ước tính web (`public-rate.ts`). Từ PR #96, báo giá và bộ tính giá (`pricing.service.ts` `load`) đọc qua hàm `readMinStay` (`min-stay-read.ts`). (Sửa 07/11 theo ARC review #103: bỏ số dòng, vì số dòng đổi theo từng PR.)
 - Vì sao chọn "vẫn bán, bỏ luật hỏng" chứ không chặn: mất ở tối thiểu trong vài giờ chỉ là vài đơn 1 đêm thứ Sáu, lễ tân vẫn thấy. Báo giá và tạo đơn lỗi thì quầy và web dừng bán cả ngày (BUG-R5-003).
 - Không thay bằng số mặc định trong mã (như nguyên tắc mục 0: mã không có số mặc định cho tham số giá).
 
@@ -865,6 +874,7 @@ Nguyên tắc (mở rộng 12.3): (1) không bao giờ 500; (2) không tính sai
   - **bắt buộc ở v1.0.5:** bộ kiểm khi lưu (PR #96 và PR `damage_catalog`), và câu SQL đạt trên production trước khi lên. Hai việc này làm ca "giá trị hỏng nằm sẵn trong DB" gần như không còn;
   - **nên có ở v1.0.5**, nếu BE kịp với cùng hàm `parameter-shapes.ts`: đọc phòng thủ nhóm bán (`weekend_nights`, `special_dates`, hai khóa `*_uplift_channels`, `los_discount`). Nay các khóa này hỏng thì báo giá 500, cùng mức với BUG-R5-003;
     - (07/11, Lượt 2 review #96) BE chuyển việc này sang R5-B-05, DOM đồng ý. Điều kiện: câu SQL ra `ok = false` ở `special_dates`, `los_discount` hay hai khóa `*_uplift_channels` thì dừng lên bản và sửa trên Desk trước, như `min_stay` và `weekend_nights`;
+    - (07/11, review #101/#108/#110 – ARC 12.6 ý 1) thêm **`lease_terms`** vào nhóm dừng lên bản, tức ô `V525_STOP_KEYS` có **7 khóa**. Lý do: đọc phòng thủ `lease_terms` ("bỏ khối So sánh") chưa có ở v1.0.5. Giá trị hỏng làm cả báo giá từ `long_stay_compare_from_nights` đêm trở lên trả 500, tức dừng bán các đơn ngắn ngày dài nhất. Sửa trên Desk mất vài phút. Mục 14.4;
   - còn lại: R5-B-05 (PO).
 - **Hai dòng đếm thêm vào câu SQL** (chỉ in số, ORC chạy cùng lúc): (a) số đơn còn mở có `pricing_snapshot.cancelPolicy` sai dạng, vì câu SQL hiện chỉ xem bảng tham số; (b) số dòng `damage_catalog` sai dạng. Kỳ vọng cả hai là 0, vì chủ đầu tư chưa sửa hai khóa này. Khác 0 thì DOM viết cách xử lý.
 
@@ -918,3 +928,284 @@ Nguyên tắc (mở rộng 12.3): (1) không bao giờ 500; (2) không tính sai
 - **PO:** đưa phần "còn lại" của 13.2 vào R5-B-05.
 - **QA:** ca 13.5 khi PR lên staging.
 - **ORC:** chạy câu SQL (có hai dòng đếm) trên production trước khi lên v1.0.5.
+
+---
+
+## 14. Review PR #101, #108, #110 và ba câu của ARC (07/11)
+
+Nguồn:
+- review DOM `rounds/round-05/reviews/DOM-on-be-prs-101-108-110.md`;
+- SEC `rounds/round-05/reviews/SEC-on-be-prs-101-108.md` (thẻ V530-01, V516-01);
+- ARC `ARC-on-be-pr-100-d1.md` 6.3 (A4), `ARC-on-pr-96-v5-25.md` 12.6 ý 1, `ARC-on-be-pr-103-s1.md` mục 3.
+
+BR v0.5.14 (BR-438, BR-111). Không đổi con số nào của INV. Không ghi tỷ lệ hay số tiền hoa hồng.
+
+### 14.1 BR-438 – "nhập tay" và đếm lại minibar
+
+**"Nhập tay" xét theo người gõ số, không theo mã `source`.**
+
+| "Nhập tay" (FD/FDL tự sửa giảm được nếu là của mình, trong ngày) | Dòng hệ thống (luôn đi FOC với FD/FDL) |
+|---|---|
+| Dòng thêm bằng **Thêm dòng phát sinh** (A30): dọn lẻ, giặt ủi, phạt, hư hỏng, F&B, dịch vụ (đúng danh mục `addFolioLine`) | Phụ thu trả muộn: B13/B15/B16 (mã lưu `manual`), B18 (`checkout`) |
+| **Dòng đếm minibar** (`minibar_check`): người đếm gõ số còn lại | Phụ thu nhận sớm (`checkin`); phí hủy, không đến, trả sớm, tiền thừa giữ lại; phí từ yêu cầu khách (`guest_app`) |
+
+Chênh đổi căn là tiền đêm, ngoài BR-438.
+
+**Đếm lại minibar là một cách sửa giảm** (BR-438 (2a); thẻ SEC V516-01 ý 1 và 2, DOM chốt là luật, đích v1.0.5; ORC giao BE-A2, PR `r5-v516-minibar`). Nếu điểm 2 (chặn) không kịp tag v1.0.5 thì DOM chấp nhận chỉ có điểm 4 (audit) tới v1.0.6, kèm câu sổ tay lễ tân "Không đếm lại minibar thấp hơn số người khác đã đếm; khách không nhận thì Gửi miễn có duyệt" và quản lý xem các dòng `minibar_recount` của FD/FDL ở bộ lọc 7 ngày mỗi tuần.
+
+1. Xét từng món. Món có số tiền mới nhỏ hơn dòng đang sống của món là một lần sửa giảm. Người ghi và ngày ghi lấy theo dòng gốc (`rootLineOf`).
+2. FD/FDL đếm thấp hơn được khi dòng gốc do chính mình đếm hoặc ghi trong ngày nghiệp vụ hiện tại.
+   - Ngoài đó: máy chủ từ chối **cả lần đếm** (403 `FORBIDDEN_ACTION` + `requiredFlow: foc_request`, `access.denied` lý do `BR-438`), không ghi gì, kể cả `minibar_check`.
+   - Desk nêu món nào và cho hai lối:
+     - Gửi miễn có duyệt: FOC minibar tự áp trong hạn mức BR-436; lý do "Ghi nhầm" khi lần đếm trước sai, "Bù sự cố" khi chấp nhận khiếu nại;
+     - nhờ buồng phòng đếm lại.
+3. Như cũ: lần đếm giữ dòng (R6), lần đếm tăng, lần đếm đầu.
+4. Buồng phòng, quản lý, chủ đầu tư đếm lại như cũ.
+   - Mọi lần đếm làm dòng nhỏ đi (mọi vai) ghi **một** `folio_line.adjusted` (`reason: minibar_recount`, `before` có vai lúc sửa và 4 khóa dòng gốc) → có trong `reductionsOnly`/`removalsOnly`.
+   - Chỉ lần của FD/FDL đếm vào `line_reduction_count`.
+
+Ví dụ: buồng phòng Minh đếm căn 202 lúc 10:00 ngày 12/11: 3 bia × 35.000 = 105.000.
+- 11:00 lễ tân Lan đếm lại còn 2 → **bị chặn**. Lan gửi FOC 35.000, tự áp → bill minibar **105.000**, FOC **−35.000**.
+- Minh đếm lại → **70.000**.
+- Lan tự đếm lúc 10:00, 10:20 đếm lại còn 2 → **được**.
+
+**Bổ sung tủ.** Đếm thấp hơn thực tế mà người bổ sung chỉ nạp theo số trên việc thì tủ thiếu so với chuẩn. Khi đó khách sau bị tính món khách trước dùng (BR-703). Sổ tay buồng phòng (BA): "Bổ sung tủ: luôn nạp đủ định mức theo bảng trong căn, không theo số món trên việc. Thiếu nhiều hơn số trên việc thì báo lễ tân trước khi bấm Xong."
+
+**Danh sách đóng ca (BR-438 (4)(i)) dời v1.0.6** (`ShiftReport.lineReductions[]`, US-177 AC7 (iii)). Tới đó:
+- quản lý dùng bộ lọc "Sửa giảm dòng – 7 ngày";
+- sổ tay đóng ca (BA): "Trước khi giao ca, mở Nhật ký, lọc Sửa giảm dòng của mình hôm nay, báo người nhận ca."
+
+**Dòng hư hỏng ngoài bảng đã được quản lý duyệt giá** (BR-512): nên coi là không "nhập tay" với FD/FDL, tức hạ giá phải qua FOC. Làm ở v1.0.6 (thẻ FB-R5-DOM-BE-110-01). Tới đó lần giảm vẫn có trong bộ lọc 7 ngày.
+
+### 14.2 V5-30 – đơn chốt lúc thiếu tỷ lệ; tỷ lệ 0; hàng cũ trên production
+
+- **Bản ghi chậm nhất ở mốc "đạt"** (bổ sung 7.3; thẻ FB-R5-DOM-BE-101-01, Major, trước khi gộp PR-M và trước 01/12).
+  - Đơn có người hưởng, chốt lúc thiếu tỷ lệ: máy chủ đồng bộ hoa hồng trước mỗi lần xét "đạt" (B18, đối soát, thu công nợ). Nhận phòng, trả phòng thường không tự đồng bộ lại.
+  - Lần đầu tạo bản ghi theo tỷ lệ ngày đồng bộ thì **chụp tỷ lệ đó vào đơn** (BR-903 (5): mỗi đơn một tỷ lệ). Lần đồng bộ sau chỉ đổi cơ sở.
+  - Nên: khi chủ đầu tư lưu khóa tỷ lệ, đồng bộ luôn các đơn đang chờ.
+  - HĐ thuê tháng (PR-M): bản ghi đợt 1 chậm nhất lúc đợt 1 "đạt".
+- **Tỷ lệ 0 chủ đầu tư đã lưu** = `computed`, 0 đ, đơn chụp 0, không có bản ghi. Desk ghi "0 đ", không ghi "Chưa có tỷ lệ hoa hồng". "Cần chú ý" `commission_rate_missing` (PR-M) chỉ đếm đơn/HĐ có người hưởng mà chưa chụp tỷ lệ.
+- **Production còn hàng tỷ lệ cũ** (thẻ SEC V530-01). Việc (4) ở mục 0 làm ngay trên Desk v1.0.4.
+  - Bước đếm của SEC thêm **số đơn** có người chốt tạo từ 01/11 tới trước ngày hiệu lực của hàng mới. Chỉ số đơn, không mã đơn, không số tiền.
+  - Khác 0 thì chủ đầu tư chỉnh khi chi kỳ 01/12 theo bảng nội bộ, ngoài Desk, có ghi chú.
+  - Đội không sửa tay `commission` hay tỷ lệ đã chụp.
+- `ottimoRemainingVnd` khi `rate_missing` (thẻ 101-02, Suggestion, 0.3.14): nên vắng. Tới đó Desk giữ ẩn, DATA không dùng số lưu ở báo giá `rate_missing`.
+
+### 14.3 Lượt đi hôm qua còn ở, trong cửa sổ sau nửa đêm (ARC A4) – sửa ở v1.0.6
+
+Trong cửa sổ (00:00 tới trước `business_day_rollover`), khi vắng `date`, danh sách "Khách đi" gồm:
+1. lượt đi theo ngày lịch (`departuresDate`, PR #100);
+2. **thêm** lượt `in_house` có ngày đi hiệu lực (`stayDepartureDate`, gồm gia hạn) = ngày nghiệp vụ. Nhóm này **trên cùng**, trạng thái `overdue`, nút Trả phòng như thường.
+
+- Lượt có ngày đi trước ngày nghiệp vụ thuộc V5-15, không đưa vào đây.
+- Ô "Khách đi" đếm theo cùng quy tắc (A3, 0.3.14).
+- Lý do: ca đêm là lần cuối lễ tân tự trả phòng được. Từ rollover, lượt đó đi đường V5-15 (OWN/MGR), audit ghi một đêm không thu dù khách đã đi.
+
+**v1.0.5 chấp nhận** (không ai mất tiền: căn vẫn "Đang ở", quản lý trả phòng được). Sổ tay ca đêm (BA): "Trước 06:00, mở Sơ đồ phòng. Căn nào Đang ở mà ngày đi là hôm qua theo lịch: kiểm căn hoặc hỏi buồng phòng, rồi bấm Trả phòng (giờ khách rời thật) hoặc Gia hạn."
+
+Ví dụ: lượt căn 301 đi 16/10, khách rời 15:00 nhưng chưa ai bấm Trả phòng.
+- 01:30 ngày 17/10 (ngày nghiệp vụ 16/10): v1.0.6 có trên cùng, `overdue`, lễ tân trả phòng với giờ 15:00 ngày 16/10.
+- 06:10 ngày 17/10: không còn trong danh sách. Quản lý trả phòng theo V5-15, `nightsNotBilled = 1`.
+
+### 14.4 `lease_terms` – khóa dừng lên bản thứ 7 (ARC 12.6 ý 1)
+
+Ô `V525_STOP_KEYS` của runbook v1.0.5 có **7 khóa**: `min_stay`, `weekend_nights`, `special_dates`, `los_discount`, `weekend_uplift_channels`, `special_uplift_channels`, `lease_terms`.
+
+- Lý do và cách đọc ở 13.2.
+- Câu SQL đã kiểm `lease_terms`, không phải sửa hay ghim lại.
+- Hàng production còn hai cột hoa hồng cũ trong từng kỳ. Vô hại: bộ kiểm khi lưu bỏ qua trường khác, và không mã nào đọc hai cột này. H7 bỏ hẳn.
+
+### 14.5 BR-111 – mã khách quay lại trên giá gõ
+
+- Mã áp trên **giá lịch của từng đêm**, kể cả đêm lễ tân gõ giá. Giá gõ là giá lịch, tính trước bậc (BR-107 v0.3.8).
+- Mã là mức thay cho bậc (không cộng dồn, lấy mức có lợi hơn cho khách), nên áp trên cùng cơ sở với bậc.
+- Đêm không gõ dùng giá lịch của máy chủ. Làm tròn theo `rounding.night_rate`.
+- Ví dụ: đêm gõ 700.000, mã −5 % → **665.000**.
+- Lễ tân muốn khách trả đúng một số thì gõ giá trước mã.
+- Mức −5 % và tên mã vẫn là [GIẢ ĐỊNH – chờ INV xác nhận], không đổi.
+
+### 14.6 Ca kiểm QA
+
+| Mã | Ca | Mong đợi |
+|---|---|---|
+| T-14-1 | Đơn sale chốt lúc chưa có `short_stay_commission_pct`, không sửa gì; OWN lưu `test_rate_short`; trả phòng, thu đủ | Có bản ghi `earned`, tỷ lệ `test_rate_short`; đơn chụp `test_rate_short` |
+| T-14-2 | Cùng đơn T-14-1 trước khi trả phòng: OWN đổi sang `test_rate_short_2`, rồi gia hạn 1 đêm | Bản ghi mới vẫn dùng `test_rate_short`, cơ sở theo số đêm mới |
+| T-14-3 | OWN lưu tỷ lệ 0 cho `collaborator`; CTV báo giá và chốt | `computed`, 0 đ; không bản ghi; không ở "Cần chú ý" `commission_rate_missing` |
+| T-14-4 | v1.0.6: 01:30 ngày 17/10, lượt đi 16/10 còn `in_house`; 06:10 | Trên cùng "Khách đi", `overdue`, Trả phòng được; 06:10 không còn, đi V5-15 |
+| T-14-5 | Báo giá có giá gõ 700.000 một đêm, mã quay lại −5 %, không có bậc | Đêm gõ 665.000; đêm không gõ = giá lịch máy chủ × 95 %, làm tròn `rounding.night_rate` |
+| T-14-6 | Câu SQL V5-25 với `lease_terms` hỏng (bản thử trên staging) | `ok = false` ở `lease_terms` → theo runbook, dừng lên bản |
+
+Ca BR-438 mới: T-16-12…15 ở 3.5. Oracle QA sửa: BR-438-01, -02, -05 (`source` → `minibar_check`), BR-438-04 (`source` → `checkout`; sửa 07/11: ca A32 trên folio `settled`, bỏ `hint` – DOM chọn phương án A của QA, `rounds/round-05/responses/DOM-responses.md`); thêm BR-438-07 (trả muộn B15 `manual`), BR-438-08 (đếm lại minibar). Chi tiết ở review DOM mục 3.5.
+
+### 14.7 Việc theo vai
+
+- **BE-H:** thẻ 101-01, trước khi gộp PR-M; thẻ 110-01, v1.0.6.
+- **BE-A2:** đếm lại minibar 14.1 (SEC V516-01 ý 1, 2; PR `r5-v516-minibar` trên #110): audit bắt buộc ở v1.0.5, chặn FD/FDL là đích v1.0.5.
+- **ARC:**
+  - sửa chữ hợp đồng 1.20 "`source = manual`" thành "nhập tay (A30 hoặc đếm minibar)";
+  - 403 cho `recordMinibarCheck`;
+  - A4 và 101-02 vào danh sách 0.3.14.
+- **FE-A, UXD:**
+  - câu và hộp cho 403 đếm lại minibar (mở Gửi miễn có duyệt);
+  - lối tắt "Sửa giảm dòng – 7 ngày", lọc loại dòng phía Desk (thẻ 108-01).
+- **BA:** ba câu sổ tay: ca đêm (14.3), đóng ca (14.1), bổ sung tủ (14.1); thêm câu lễ tân về đếm lại minibar nếu chặn chưa kịp v1.0.5 (14.1).
+- **QA:** sửa oracle; ca 14.6 và T-16-12…15.
+- **ORC, OPS:**
+  - ô `V525_STOP_KEYS` 7 khóa;
+  - bước đếm SEC V530-01, thêm số đơn có người chốt từ 01/11 (14.2);
+  - nhắc chủ đầu tư việc (4) ngay.
+- **PO:** đưa thẻ 110-01 và A4 vào backlog v1.0.6. "Đọc phòng thủ `lease_terms`" giữ trong R5-B-05.
+
+---
+
+## 15. V5-10, V5-15 – giờ khách rời thật ở quầy (review PR #106, #99, 07/11)
+
+Nguồn:
+- review DOM `rounds/round-05/reviews/DOM-on-be-prs-106-99-checkout.md`;
+- BR-010, BR-412, BR-414, BR-416, BR-421, BR-525, BR-602, BR-903;
+- hợp đồng 0.3.13 mục 1.1, 1.4, 1.18, 1.19;
+- decision-log 17/10 (FE KB7) và 18/10 (DOM, hoa hồng khi thu nợ).
+
+Không đổi con số nào của INV. Không ghi tỷ lệ hay số tiền hoa hồng. Giá 700.000 là số ví dụ của BR-412.
+
+### 15.1 Giờ rời thật
+
+1. Phụ thu trả muộn, khai báo lưu trú và mốc giữ chứng cứ dùng **giờ khách rời thật**. Đó là một trong ba lúc:
+   - khách trả thẻ hoặc chìa ở quầy;
+   - khách báo đã rời căn (gọi, Zalo);
+   - nhân viên thấy khách mang hành lý rời đi.
+
+   **Không** dùng lúc lễ tân bấm Trả phòng.
+2. Lúc bấm chỉ dùng để kiểm (BR-414, ngưỡng `manual_time_tolerance_minutes` = 30):
+   - giờ khai muộn hơn lúc bấm quá 30 phút → chặn;
+   - sớm hơn quá 30 phút → bắt buộc ghi chú;
+   - nhật ký giữ cả hai giờ.
+3. Một giờ cho cả ba việc: số trên bill, số trên VietQR, số Trả phòng ghi (V5-10). Lễ tân đổi giờ thì Desk đọc lại tóm tắt, rồi mới tạo QR.
+
+Ví dụ (giá đêm cuối 700.000; ân hạn tới 12:30 khi căn không có khách đến cùng ngày):
+
+| Ca | Giờ ghi | Phụ thu | Ghi chú? |
+|---|---|---|---|
+| Khách trả chìa 11:40, bấm 12:10, căn không có khách đến, để nguyên 12:10 | 12:10 | 0 | Không |
+| Như trên, sửa 11:40 | 11:40 | 0 | Không (lệch đúng 30 phút, chưa quá) |
+| Khách trả chìa 11:40, bấm 12:10, căn **có** khách đến 14:00, để nguyên | 12:10 | 210.000 – **sai**, khách bị tính oan | – |
+| Như trên, sửa 11:40 | 11:40 | **0** | Không |
+| Khách trả chìa 11:40, bấm 12:15, sửa 11:40 | 11:40 | 0 | **Có** (lệch 35 phút) |
+| Khách trả chìa 12:25, bấm 12:40, căn không có khách đến, để nguyên | 12:40 | 210.000 – **sai**; sửa 12:25 → 0 | Không |
+
+Chiều ngược lại (khai sớm để bỏ phụ thu): ngưỡng 30 phút giới hạn phần lệch. Quá ngưỡng thì có ghi chú, nhật ký và danh sách đóng ca. Giữ như BR-414, không thêm bước. Nhãn: NGÀNH.
+
+### 15.2 Giờ điền sẵn
+
+- **Desk:** ô giờ trả điền **giờ hiện tại của máy quầy** khi mở Trả phòng (quyết định 17/10, KB7, BUG-R2-084).
+  - DOM giữ cách này: thường khách đứng ở quầy lúc bấm.
+  - Điền 12:00 thì mất phụ thu sau 12:30, như BUG-R2-084.
+- **Máy chủ, khi không nhận giờ nào** (tóm tắt lần đầu, QR không kèm giờ): **giờ hẹn, không có thì giờ chuẩn** (hợp đồng 1.19, C0313-08).
+  - Đúng BR-414 "phụ thu không tự áp": số khách trả không có phụ thu mà không ai gõ giờ.
+  - QR không kèm giờ lúc 09:00 thì 422 (giờ chuẩn còn ở tương lai). Chấp nhận, vì chỉ Desk tạo QR trả phòng và Desk luôn gửi giờ.
+- **FE-A (V5-10):** giờ điền sẵn vẫn là giờ máy quầy.
+  - **Không** lấy `checkoutAt` của tóm tắt lần đầu (chưa gửi giờ) làm giờ điền sẵn: đó là giờ hẹn hoặc 12:00.
+  - QR và Trả phòng mang `checkoutAt` của lần tóm tắt cuối **có gửi giờ**.
+- **"Tối hôm trước" chỉ có khi lễ tân gõ giờ.** Giờ hẹn và giờ chuẩn là giờ của ngày đi, không bao giờ thành giờ tối hôm trước (thẻ FB-R5-DOM-BE-PR106-01).
+- **BR-414:** câu "ô giờ nhận/trả trong form mặc định = giờ chuẩn" chỉ còn đúng cho phần nhận phòng. Phần trả phòng sửa theo mục này ở BR bản kế tiếp (DOM).
+
+### 15.3 Không rõ giờ khách rời
+
+Ca: khách đi không báo (khách tự ra vào bằng mã cửa, không trả chìa), rồi buồng phòng hay lễ tân thấy căn trống.
+
+1. Có bằng chứng giờ (tin nhắn, cuộc gọi, nhân viên thấy khách đi): ghi giờ đó.
+2. Không có bằng chứng:
+   - ghi **giờ trả chuẩn 12:00** của ngày đi, hoặc giờ thấy căn trống nếu sớm hơn 12:00;
+   - không phụ thu;
+   - ghi chú "Khách đi không báo, buồng phòng thấy trống lúc …".
+3. Chỉ ghi giờ sau ân hạn (có phụ thu) khi có bằng chứng khách còn ở sau giờ đó, ví dụ nhân viên gặp khách trong căn. Khi đó ghi **giờ của bằng chứng muộn nhất**.
+   - Lý do: không đòi được phụ thu không có bằng chứng, nhất là khách OTA khiếu nại qua kênh.
+   - BR-414: phụ thu không tự áp.
+4. Có bằng chứng khách ở qua đêm sau ngày đi: gia hạn B13 trước (BR-421 (a)), rồi Trả phòng.
+5. Khách đi tối hôm trước ngày đi mà quầy biết sau 06:00: tới v1.0.6, ghi giờ sớm nhất Desk nhận của ngày đi, ghi chú giờ thật ("khách đi 22:30 tối 23/11"). Xem thẻ FB-R5-DOM-BE-PR106-02.
+
+Ví dụ: đơn đi 23/11, căn 202, giá 700.000, căn không có khách đến.
+- 14:00 ngày 23/11 buồng phòng thấy căn trống, không ai thấy khách đi, không có tin nhắn → ghi **12:00**, phụ thu **0**, có ghi chú.
+- Nếu 13:10 buồng phòng gặp khách trong căn (ghi sổ) → ghi **13:10** → phụ thu 30 % = **210.000**.
+
+Nhãn: NGÀNH (DOM).
+
+### 15.4 Đơn quá ngày đi (PR #99) – DOM xác nhận
+
+1. **Giờ rời thật:** `checkoutAt` ghi vào `actual_checkout_at` của đơn, vào đăng ký lưu trú (`stay_ended_at`) và hồ sơ khách (`touchLastStay`). Khai báo ghi ngày lịch của giờ này (BR-010, BR-602).
+2. **Ngày nhận được:** `checkoutAt` có ngày nghiệp vụ = ngày đi, **hoặc** thuộc cửa sổ sau nửa đêm của ngày đi.
+   - Ví dụ khách đi 03:00 sáng ngày đi: không phụ thu, không đêm thêm.
+   - ARC thêm ý này vào hợp đồng 1.4 ý 2.
+3. **Phụ thu trả muộn** theo giờ `checkoutAt`.
+   - "Căn có khách đến cùng ngày" xét theo ngày đi.
+   - Phụ thu tăng vẫn phải chọn ghi, không có "bỏ qua" (BR-414).
+   - Còn nợ thì quản lý ghi công nợ (BR-525).
+   - Rời sau mốc cuối → gia hạn B13 trước.
+4. **`post_checkout_window_until` tính từ lúc ghi.** Thời gian kiểm căn và ghi phát sinh sau trả phòng bắt đầu khi Desk đóng folio. Trong lúc chờ, căn vẫn "Đang ở", không ai vào, nên chứng cứ vẫn thuộc lượt này.
+5. **`nightsNotBilled` có trong tóm tắt** (FD đọc được), để lễ tân biết gọi ai:
+   - 1 đêm → quản lý;
+   - từ 2 đêm → chủ đầu tư.
+
+   Máy chủ đếm lại lúc ghi.
+6. **Không ghi nhật ký đổi `checkout_time`.**
+   - Audit `after.overdue` đã có `checkoutAt`, `recordedAt` và lý do. Lịch sử đơn đọc audit.
+   - Điều kiện: danh sách đóng ca (BR-526), khi làm, phải đọc cả ca quá ngày đi từ audit.
+7. **Minibar:** lần đếm có ngày nghiệp vụ ≥ ngày đi được tính. Sổ tay ghi "đếm tủ khi vào căn phát hiện khách đã đi". v1.0.6: Desk nhắc khi lần đếm cuối trước giờ khách rời (thẻ FB-R5-DOM-BE-PR99-03).
+8. **Hoa hồng:** mục 15.5.
+
+### 15.5 Hoa hồng: "tiền về sau trả phòng" tính từ lúc ghi Trả phòng
+
+- **Luật** (DOM 18/10, BR-903, BR-525):
+  - khoản chuyển khoản ghi **sau lúc ghi Trả phòng** (thu nợ, phát sinh sau trả phòng) phải đối soát xong thì hoa hồng mới "đạt";
+  - khoản lễ tân thu **trước hoặc trong** lệnh Trả phòng không giữ hoa hồng. Ví dụ ở BR-903: "đơn do lễ tân thu toàn bộ → đạt lúc trả phòng";
+  - khoản do chính người hưởng ghi vẫn phải đối soát, bất kể lúc nào (BR-527).
+- **Mốc là lúc ghi Trả phòng, không phải giờ rời thật.**
+  - Luật này nói về tiền vào sau khi folio đã đóng.
+  - Giờ rời thật là giờ khai, luôn sớm hơn lúc bấm. Dùng nó thì mọi VietQR thu lúc trả phòng thành "tiền sau trả phòng" (thẻ FB-R5-DOM-BE-PR99-01).
+  - ARC chọn cột: `folio.settled_at` hoặc thời điểm chuyển trạng thái B18. Không migration.
+
+Ví dụ:
+- **Thu lúc trả phòng:** đơn CTV căn 202. Lễ tân mở Trả phòng 11:58 (giờ rời 11:58). Khách quét VietQR, tiền ghi 12:01, chờ đối soát. Trả phòng ghi 12:03.
+  - Hoa hồng "đạt" **12:03**.
+  - Không chờ đối soát khoản 12:01.
+- **Thu nợ sau trả phòng:** cùng đơn ghi công nợ lúc trả phòng, khách chuyển nợ 15:00 → hoa hồng "đạt" khi khoản 15:00 đối soát xong.
+- **Đơn quá ngày đi:**
+  - khách đi 23/11 11:00;
+  - khách chuyển phần còn lại 23/11 15:00, lễ tân ghi;
+  - quản lý ghi Trả phòng 24/11 09:00.
+
+  Hoa hồng "đạt" 24/11 09:00, không chờ đối soát khoản 15:00.
+
+Nhãn: NGÀNH (DOM, giữ đúng luật 18/10).
+
+### 15.6 Ca kiểm QA
+
+| Mã | Ca | Mong đợi |
+|---|---|---|
+| T-10-11 | Giá đêm cuối 700.000, căn có khách đến 14:00. Mở Trả phòng 12:10, Desk điền 12:10; sửa 11:40 | Tóm tắt 12:10: phụ thu 210.000; 11:40: 0, không đòi ghi chú. QR và B18 cùng số 0. Audit `systemTime` 12:10 |
+| T-10-12 | Bấm 12:15, sửa 11:40 | B18 đòi `checkoutTimeNote` |
+| T-10-13 | QR `check_out` không kèm giờ: 12:40, căn có khách đến, không hẹn; 09:00 | 12:40: không có phụ thu (giờ chuẩn 12:00). 09:00: 422 `TIME_AFTER_ACTION`, không tạo QR |
+| T-10-14 | Đi 24/11, hẹn 17:00, lúc 01:00 ngày 24/11: không gõ; gõ 01:00; gõ 23:50 (thẻ PR106-01) | Không gõ: `checkoutAtAfterNow = true`, không ra 23/11 17:00. Gõ 01:00: 24/11 01:00, phụ thu 0. Gõ 23:50: 23/11 23:50, phụ thu 0, đòi ghi chú |
+| T-15-21 | Hoa hồng (thẻ PR99-01, `test_rate_short`): (a) ca 11:58 / 12:01 / 12:03 ở 15.5; (b) thu nợ chuyển khoản sau B18; (c) đơn quá ngày đi, lễ tân ghi khoản thu giữa giờ rời và lúc ghi; (d) khoản do CTV ghi, chưa đối soát | (a) `earned` lúc B18; (b) giữ tới đối soát; (c) `earned` lúc B18; (d) giữ |
+| T-15-22 | B18 chỉ gửi `checkoutTime` 12:10 lúc 12:45, có ghi chú (thẻ PR99-02) | `actual_checkout_at`, `stay_ended_at` = 12:10 (nếu ARC chọn "mọi B18"); hoặc FE-A V5-10 luôn gửi `checkoutAt` |
+| T-15-23 | Đơn quá ngày đi, MGR, `checkoutAt` 03:00 ngày đi | 200, phụ thu 0, không đêm thêm, `stay_ended_at` = ngày đi 03:00 |
+| T-15-24 | Đơn quá ngày đi, `checkoutAt` 14:00 ngày đi, căn không có khách đến, giá 700.000, folio đã thu đủ tiền phòng | Phụ thu 210.000 đòi `applyLateSurcharge`; còn phải thu 210.000 → quản lý ghi công nợ |
+| T-15-25 | Đơn quá ngày đi, ghi lúc 09:00 ngày đi + 1 | `post_checkout_window_until` = 09:00 + `post_checkout_charge_hours`. Lịch sử đơn hiện `after.overdue` với hai giờ và lý do. Không có dòng `reservation_change` `checkout_time` |
+
+### 15.7 Việc theo vai
+
+- **BE-A2 (PR #99):**
+  - thẻ PR99-01 trước khi gộp;
+  - thẻ PR99-02 theo ARC quyết;
+  - thẻ PR99-03 ở v1.0.6.
+- **BE-A1 (PR #106):** thẻ PR106-01, cùng PR nếu kịp.
+- **ARC:**
+  - hợp đồng 1.4 ý 2 thêm cửa sổ sau nửa đêm của ngày đi;
+  - chọn cột mốc cho PR99-01;
+  - câu 1.18 "mọi B18" (PR99-02);
+  - PR106-02 vào danh sách 0.3.14.
+- **FE-A (V5-10):** 15.2 (giờ điền sẵn, gửi `checkoutAt` của lần tóm tắt có giờ); chỉ dẫn quá ngày đi cho FD/FDL theo `nightsNotBilled`.
+- **UXD:** dòng nhắc "Giờ trả là lúc khách trả chìa…" cạnh ô giờ trả; chữ chỉ dẫn quá ngày đi; chữ PR99-03 ở v1.0.6.
+- **BA:** sổ tay 15.1, 15.3 (gồm khách đi tối hôm trước); câu đếm tủ trên đơn quá ngày đi (15.4 ý 7).
+- **QA:** ca 15.6.
+- **DOM:** BR bản kế tiếp – BR-414 (giờ điền sẵn khi trả phòng), BR-412 (giờ rời thật, không rõ giờ), BR-903 (mốc lúc ghi Trả phòng).

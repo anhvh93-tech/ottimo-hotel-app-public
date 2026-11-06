@@ -8,8 +8,11 @@ import { PgPinger } from './db/pinger';
 import { createHttpAdapter } from './http';
 import { featureModules } from './modules/feature-modules';
 import { CSRF_VERIFIER } from './shared/http/csrf';
+import { writeLogLine } from './shared/log-line';
 
-const log = (msg: string): void => console.log(JSON.stringify({ level: 'info', msg }));
+// SEC FB-R4-SEC-BE-V104-07 (V5-43): every line of the api process goes through log-line.ts (same JSON as before:
+// {"level":…,"msg":…}); ESLint `no-console` covers this file too.
+const log = (msg: string): void => writeLogLine('info', msg);
 
 async function bootstrap(): Promise<void> {
   const rt = await createRuntime(log);
@@ -22,11 +25,9 @@ async function bootstrap(): Promise<void> {
     rt.env.EMAIL_FROM &&
     !rt.env.EMAIL_SHARED_MAILBOXES?.trim()
   ) {
-    console.log(
-      JSON.stringify({
-        level: 'warn',
-        msg: 'EMAIL_SHARED_MAILBOXES unset – shared-mailbox rule uses the defaults at the EMAIL_FROM domain only',
-      }),
+    writeLogLine(
+      'warn',
+      'EMAIL_SHARED_MAILBOXES unset – shared-mailbox rule uses the defaults at the EMAIL_FROM domain only',
     );
   }
 
@@ -96,7 +97,9 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((err: unknown) => {
-  // Print only the message: ConfigError/StartupCheckError never contain secret values.
+  // Print only the message: ConfigError/StartupCheckError never contain secret values. Kept as plain text on stderr
+  // (operators read it as is when the container refuses to start) – the one console call of this file.
+  // eslint-disable-next-line no-console
   console.error(err instanceof Error ? `${err.name}: ${err.message}` : err);
   process.exit(1);
 });

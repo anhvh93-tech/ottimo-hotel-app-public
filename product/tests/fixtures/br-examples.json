@@ -6,8 +6,8 @@
     "version": "0.5.3",
     "date": "2026-11-04"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C; v0.5.2 DOM 04/11 (Round 4 v1.0.4 gói P4-20, DOM kiêm QA – `rounds/round-04/outputs/DOM/v1.0.4-p4-20-br-fixtures.md`): hoa hồng cũ BR-212-01/02, 326-01, 903-01…04 thêm supersededBy + validUntil, BR-309-26, 525-04/10/14, 527-05/06 thêm oldCommissionFigures (không đổi, không thêm số); BR-313-01, 403-01, 501-01 thêm supersededBy; INV-043 cho dòng lấy số từ bảng giá 01/11; GIẢ ĐỊNH BR-114-01, 207-02, 208-01/02, 210-04; BR-114-02 thêm INV-045, PHÁP LÝ; BR-103-04 thêm NGÀNH; BR-115-05/06/08 bỏ INV-045; calc cho dòng bảng giá 01/11 (calcPending cho hàm test BE còn đọc DS-E); thêm BR-110-21/22, BR-202-06…12, BR-206-04, BR-428-10…13; retiredIds; v0.5.3 BE 04/11 (Round 4 v1.0.4, BUG-R4-039 – ORC giao; BR-402 v0.5.3 DOM): thêm BR-402-03 (ví dụ căn 202, ngày là giả định QA), BR-402-04 (mốc biên theo trạng thái buồng); v0.5.6 BE 05/11 (#74 C1, DOM lượt 7 mục 2 – rounds/round-04/reviews/DOM-on-v104-pr68-docs.md): ghi chú BR-402-04 thay bằng câu DOM; thêm BR-402-05 (ví dụ căn 301 – lượt quá ngày đi + CL, ngày giờ là giả định QA, QA rà); QA2 05/11: rà BR-402-04 (ghi chú mới) và BR-402-05 trên #74 @ 0950313e – đúng; bỏ nhãn GIẢ ĐỊNH QA của BR-402-05; v0.5.13 DOM 06/11 (Round 5 Phản hồi & sửa, BUG-R5-003 – ORC giao; rules-v1.0.5 mục 12): thêm BR-113-06…BR-113-30 (luật lưu min_stay cho V5-25 và đọc phòng thủ; calc null, pendingFix BUG-R5-003); thêm channels \"all\" vào params min_stay của BR-113-01/02/03/05 cho đúng dạng bắt buộc",
-  "updated": "2026-11-06",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C; v0.5.2 DOM 04/11 (Round 4 v1.0.4 gói P4-20, DOM kiêm QA – `rounds/round-04/outputs/DOM/v1.0.4-p4-20-br-fixtures.md`): hoa hồng cũ BR-212-01/02, 326-01, 903-01…04 thêm supersededBy + validUntil, BR-309-26, 525-04/10/14, 527-05/06 thêm oldCommissionFigures (không đổi, không thêm số); BR-313-01, 403-01, 501-01 thêm supersededBy; INV-043 cho dòng lấy số từ bảng giá 01/11; GIẢ ĐỊNH BR-114-01, 207-02, 208-01/02, 210-04; BR-114-02 thêm INV-045, PHÁP LÝ; BR-103-04 thêm NGÀNH; BR-115-05/06/08 bỏ INV-045; calc cho dòng bảng giá 01/11 (calcPending cho hàm test BE còn đọc DS-E); thêm BR-110-21/22, BR-202-06…12, BR-206-04, BR-428-10…13; retiredIds; v0.5.3 BE 04/11 (Round 4 v1.0.4, BUG-R4-039 – ORC giao; BR-402 v0.5.3 DOM): thêm BR-402-03 (ví dụ căn 202, ngày là giả định QA), BR-402-04 (mốc biên theo trạng thái buồng); v0.5.6 BE 05/11 (#74 C1, DOM lượt 7 mục 2 – rounds/round-04/reviews/DOM-on-v104-pr68-docs.md): ghi chú BR-402-04 thay bằng câu DOM; thêm BR-402-05 (ví dụ căn 301 – lượt quá ngày đi + CL, ngày giờ là giả định QA, QA rà); QA2 05/11: rà BR-402-04 (ghi chú mới) và BR-402-05 trên #74 @ 0950313e – đúng; bỏ nhãn GIẢ ĐỊNH QA của BR-402-05; v0.5.13 DOM 06/11 (Round 5 Phản hồi & sửa, BUG-R5-003 – ORC giao; rules-v1.0.5 mục 12): thêm BR-113-06…BR-113-30 (luật lưu min_stay cho V5-25 và đọc phòng thủ; calc null, pendingFix BUG-R5-003); thêm channels \"all\" vào params min_stay của BR-113-01/02/03/05 cho đúng dạng bắt buộc; v0.5.14 BE 06/11 (Round 5 Sản xuất, V5-25 – BUG-R5-003 đóng ở PR V5-25): bỏ pendingFix BUG-R5-003 ở BR-113-06…BR-113-30 (test BE `test/v5-25-parameter-shapes.test.ts` đọc theo id, integration `test/integration/v5-25-parameter-save.test.ts`); v0.5.14 QA 07/11 (Round 5 Phản hồi & sửa, FB-R5-DOM-QA-BR438-01 – DOM `rounds/round-05/reviews/DOM-on-be-prs-101-108-110.md` mục 3.5; BR-438 v0.5.14): BR-438-01, -02, -05 `source` minibar → `minibar_check`, BR-438-04 `source` → `checkout` (+ `postedByFlow` B18; ghi chú: dòng này luôn trên folio `settled`, chờ DOM – FB-R5-QA-DOM-BR438-01); khóa `typedByHand` ở BR-438-01…05; không đổi `expected` dòng cũ; thêm BR-438-07 (trả muộn B15 lưu `manual` là dòng hệ thống, pendingFix FB-R4-SEC-BE-A31-01) và BR-438-08 (đếm lại minibar là sửa giảm, ca a–g, pendingFix FB-R5-SEC-BE-V516-01 – PR BE-A2 `r5-v516-minibar`)",
+  "updated": "2026-11-07",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
     "percent": "Basis point số nguyên (khóa kết thúc 'Bp'): 10% = 1000. Tham số giữ đơn vị như BR mục 13; số lẻ (15,5) ghi dạng chuỗi",
@@ -2888,7 +2888,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -2920,7 +2919,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -2943,7 +2941,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -2967,7 +2964,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -2989,7 +2985,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3010,7 +3005,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3043,7 +3037,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3075,7 +3068,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3101,7 +3093,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3127,7 +3118,6 @@
         "short_stay_max_nights": 4
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3160,7 +3150,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3188,7 +3177,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3219,7 +3207,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3250,7 +3237,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3281,7 +3267,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3309,7 +3294,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3336,7 +3320,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3364,7 +3347,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3395,7 +3377,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3426,7 +3407,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3457,7 +3437,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3483,7 +3462,6 @@
         "short_stay_max_nights": 29
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "min_stay",
@@ -3523,7 +3501,6 @@
         ]
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "setParameter",
         "key": "short_stay_max_nights",
@@ -3549,7 +3526,6 @@
         "min_stay": 2
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "calculateQuote",
         "channel": "direct",
@@ -3583,7 +3559,6 @@
         ]
       },
       "calc": null,
-      "pendingFix": "BUG-R5-003",
       "input": {
         "operation": "calculateQuote",
         "channel": "direct",
@@ -14119,7 +14094,8 @@
         "actorRole": "front_desk",
         "line": {
           "category": "minibar",
-          "source": "manual",
+          "source": "minibar_check",
+          "typedByHand": true,
           "rootPostedBy": "actor",
           "rootPostedAt": "2026-11-12T10:15:00+07:00",
           "quantity": 3,
@@ -14139,7 +14115,8 @@
         "shiftCloseListed": true,
         "focMonthDeltaVnd": 0,
         "audited": true
-      }
+      },
+      "note": "v0.5.14 (QA 07/11, FB-R5-DOM-QA-BR438-01): dòng minibar là dòng đếm (`recordMinibarCheck`, mã lưu `minibar_check`), không phải `manual`. \"Nhập tay\" xét theo người gõ số (BR-438 (1)(a) v0.5.14), xem `typedByHand`. Dòng `manual` + `minibar` không phải nhập tay (PR #110 `reductionScope`). Lần sửa ở đây là Điều chỉnh (`adjustFolioLine`) trên dòng đếm; đếm lại thấp hơn là BR-438-08. `shiftCloseListed`: danh sách đóng ca có từ v1.0.6 (`ShiftReport.lineReductions[]`, BR-438 (4)(i)). Ở v1.0.5, đọc là: có trong Nhật ký `reductionsOnly=true` (BR-438 (4)(ii)). Không đổi `expected`."
     },
     {
       "id": "BR-438-02",
@@ -14157,7 +14134,8 @@
         "actorRole": "front_desk",
         "line": {
           "category": "minibar",
-          "source": "manual",
+          "source": "minibar_check",
+          "typedByHand": true,
           "rootPostedBy": "other",
           "rootPostedAt": "2026-11-12T10:15:00+07:00",
           "quantity": 3,
@@ -14183,7 +14161,7 @@
           "focVnd": -35000
         }
       },
-      "note": "Mã lỗi, tên trường và chỉ dẫn: ARC chốt ở hợp đồng 0.3.13 (số HTTP ở đây theo luật DOM 06/11). "
+      "note": "Mã lỗi, tên trường và chỉ dẫn: ARC chốt ở hợp đồng 0.3.13 (số HTTP ở đây theo luật DOM 06/11). `hint` = trường `requiredFlow` của thân 403 `FORBIDDEN_ACTION` (hợp đồng 0.3.13 mục 1.20). v0.5.14 (QA 07/11, FB-R5-DOM-QA-BR438-01): dòng là dòng đếm minibar của lễ tân khác (`minibar_check`, nhập tay của người đó), không phải `manual`. Không đổi `expected`."
     },
     {
       "id": "BR-438-03",
@@ -14198,6 +14176,7 @@
         "line": {
           "category": "laundry",
           "source": "manual",
+          "typedByHand": true,
           "rootPostedBy": "actor",
           "rootPostedAt": "2026-11-12T23:50:00+07:00"
         },
@@ -14206,7 +14185,8 @@
       "expected": {
         "allowed": [true, false],
         "businessDateAtVoid": ["2026-11-12", "2026-11-13"]
-      }
+      },
+      "note": "v0.5.14 (QA 07/11): thêm `typedByHand` (dòng giặt ủi thêm bằng Thêm dòng phát sinh A30, mã lưu `manual`). Không đổi `expected`."
     },
     {
       "id": "BR-438-04",
@@ -14219,7 +14199,9 @@
       "input": {
         "line": {
           "category": "late_checkout",
-          "source": "system",
+          "source": "checkout",
+          "typedByHand": false,
+          "postedByFlow": "B18",
           "postedBy": "actor"
         },
         "actorRoles": ["front_desk", "front_desk_lead", "manager"]
@@ -14227,7 +14209,8 @@
       "expected": {
         "allowed": [false, false, true],
         "hint": "foc_request"
-      }
+      },
+      "note": "v0.5.14 (QA 07/11, FB-R5-DOM-QA-BR438-01): phụ thu trả muộn ghi lúc bấm Trả phòng (B18, `checkout.service.ts`, `replaceLateCharge` với `source: 'checkout'`) lưu `source = checkout`, không phải `system`. Dòng trả muộn ghi khi đặt giờ trả muộn, gia hạn, trả sớm (B15, B13, B16) lưu `manual`: ca đó là BR-438-07. Không đổi `expected`. QA đọc mã main @ dce1c0fd và PR #110 @ c71ae350: B18 ghi dòng này rồi `folios.settle` trong cùng giao dịch, nên dòng `checkout` luôn nằm trên folio `settled`. BR-438 chỉ áp folio chưa `settled`. Trên folio `settled`, FD/FDL bị chặn bởi A32 (`folio-lines.service.ts` `adjust`: 403 `FORBIDDEN_ACTION` **không có** `requiredFlow`, trước kiểm BR-438); MGR theo A32 + BR-433 (e). Vậy `allowed` đúng, còn `hint` chưa dựng được ca trên mã hiện tại. Chờ DOM chốt (thẻ FB-R5-QA-DOM-BR438-01). Ca dòng hệ thống trên folio mở: BR-438-07. `hint` = trường `requiredFlow` của thân 403 (hợp đồng 0.3.13 mục 1.20)."
     },
     {
       "id": "BR-438-05",
@@ -14240,7 +14223,8 @@
       "input": {
         "root": {
           "category": "minibar",
-          "source": "manual",
+          "source": "minibar_check",
+          "typedByHand": true,
           "postedBy": "A",
           "postedAt": "2026-11-12T09:00:00+07:00",
           "quantity": 1,
@@ -14267,7 +14251,8 @@
       "expected": {
         "allowed": [true, false, true],
         "amountsVnd": [70000, 70000, 35000]
-      }
+      },
+      "note": "v0.5.14 (QA 07/11, FB-R5-DOM-QA-BR438-01): dòng gốc là dòng đếm minibar của A (`minibar_check`), không phải `manual`. Bước 1 (B sửa tăng bằng Điều chỉnh) tạo dòng thay thế lưu `manual`, `relatedLineId` = dòng gốc; bước 2, 3 xét theo dòng gốc (người đếm A, ngày 12/11), không theo dòng thay thế. Không đổi `expected`."
     },
     {
       "id": "BR-438-06",
@@ -14287,6 +14272,292 @@
       "expected": {
         "ownerAlert": [false, true]
       }
+    },
+    {
+      "id": "BR-438-07",
+      "br": "BR-438",
+      "case": "(v0.5.14, V5-16) Phụ thu trả muộn Desk tự ghi khi lễ tân đặt giờ trả muộn trước giờ trả phòng (B15, mã lưu `manual`, người ghi = chính lễ tân đó, cùng ngày nghiệp vụ, folio mở) là dòng hệ thống → lễ tân bỏ dòng bị chặn, lễ tân trưởng bị chặn, quản lý được",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R4-SEC-BE-A31-01",
+      "calc": null,
+      "input": {
+        "line": {
+          "category": "late_checkout",
+          "source": "manual",
+          "typedByHand": false,
+          "postedByFlow": "B15",
+          "postedBy": "actor",
+          "postedAt": "2026-11-12T09:00:00+07:00"
+        },
+        "departureDate": "2026-11-12",
+        "lateCheckoutTime": "14:00",
+        "folioStatus": "open",
+        "action": {
+          "voidLine": true,
+          "at": "2026-11-12T09:10:00+07:00"
+        },
+        "actorRoles": ["front_desk", "front_desk_lead", "manager"]
+      },
+      "expected": {
+        "allowed": [false, false, true],
+        "httpStatus": [403, 403, 201],
+        "hint": "foc_request",
+        "folioUnchangedWhenRefused": true,
+        "accessDeniedPerRefusal": 1,
+        "managerAuditBefore": {
+          "actorRole": "manager",
+          "rootLineManual": false,
+          "postedByActor": false
+        }
+      },
+      "note": "Nguồn: BR-438 (2) v0.5.14 (\"kể cả phụ thu trả muộn ghi khi đặt giờ trả muộn, gia hạn hay trả sớm, dù mã lưu là `manual`\") và ví dụ \"Hạnh đặt giờ trả muộn 14:00 trước ngày đi → Hạnh bỏ dòng → bị chặn\"; DOM review PR #110 mục 3.1, 3.5; `rules-v1.0.5.md` 3.5 T-16-12. QA 07/11 (FB-R5-DOM-QA-BR438-01). Ca này tách lý do \"dòng hệ thống\" khỏi hai lý do khác: cùng người ghi, cùng ngày nghiệp vụ, folio mở. Chỉ còn `typedByHand = false` làm FD/FDL bị chặn. B13 (gia hạn) và B16 (trả sớm) ghi dòng trả muộn qua cùng `replaceLateCharge`, lưu `manual`, cùng kết quả. `hint` = trường `requiredFlow` của thân 403 `FORBIDDEN_ACTION` (hợp đồng 0.3.13 mục 1.20). `managerAuditBefore` = các khóa của `before` trong `folio_line.adjusted` (khớp test PR #110 T16-10/T16-11). Lần bị chặn: không ghi gì, đúng một `access.denied` lý do `BR-438` (H-09).",
+      "qaAssumption": "Ngày đi 12/11, đặt giờ trả muộn lúc 09:00 sáng ngày đi (trước giờ trả phòng, như test PR #110 T16-10) và bỏ dòng lúc 09:10 do QA chọn; mã HTTP 201 của lần quản lý bỏ dòng theo endpoint Điều chỉnh hiện có"
+    },
+    {
+      "id": "BR-438-08",
+      "br": "BR-438",
+      "case": "(v0.5.14, BR-438 (2a), SEC V516-01) Đếm lại minibar làm món nhỏ đi là một lần sửa giảm, xét trên dòng gốc của món: lễ tân, lễ tân trưởng đếm thấp hơn số người khác đã đếm → 403 `requiredFlow` foc_request, không ghi gì (cả lần đếm), sang FOC minibar tự áp; buồng phòng, quản lý đếm lại và lễ tân đếm lại lần chính mình đếm trong ngày → được, một `folio_line.adjusted` lý do `minibar_recount`",
+      "origin": "example",
+      "labels": ["NGÀNH", "INV-007"],
+      "pendingFix": "FB-R5-SEC-BE-V516-01",
+      "calc": null,
+      "params": {
+        "foc_self_apply.front_desk.per_time": 100000,
+        "foc_self_apply.front_desk.per_month": 500000
+      },
+      "input": {
+        "room": "202",
+        "item": {
+          "category": "minibar",
+          "name": "bia",
+          "unitPriceVnd": 35000
+        },
+        "scenarios": {
+          "a": {
+            "testCase": "T-16-13",
+            "root": {
+              "by": "Minh",
+              "role": "housekeeping",
+              "source": "minibar_check",
+              "typedByHand": true,
+              "at": "2026-11-12T10:00:00+07:00",
+              "consumedQty": 3
+            },
+            "recount": {
+              "by": "Lan",
+              "role": "front_desk",
+              "at": "2026-11-12T11:00:00+07:00",
+              "consumedQty": 2,
+              "secondItemFirstCount": {
+                "consumedQty": 1
+              }
+            },
+            "thenFocRequest": {
+              "by": "Lan",
+              "category": "minibar",
+              "amountVnd": 35000,
+              "monthToDateVnd": 0,
+              "reasonCode": "service_recovery"
+            }
+          },
+          "b": {
+            "testCase": "DOM 3.3 ví dụ (Minh đếm lại)",
+            "root": {
+              "by": "Minh",
+              "role": "housekeeping",
+              "source": "minibar_check",
+              "typedByHand": true,
+              "at": "2026-11-12T10:00:00+07:00",
+              "consumedQty": 3
+            },
+            "recount": {
+              "by": "Minh",
+              "role": "housekeeping",
+              "at": "2026-11-12T11:00:00+07:00",
+              "consumedQty": 2
+            }
+          },
+          "c": {
+            "testCase": "T-16-14",
+            "root": {
+              "by": "Lan",
+              "role": "front_desk",
+              "source": "minibar_check",
+              "typedByHand": true,
+              "at": "2026-11-12T10:00:00+07:00",
+              "consumedQty": 3
+            },
+            "recount": {
+              "by": "Lan",
+              "role": "front_desk",
+              "at": "2026-11-12T10:20:00+07:00",
+              "consumedQty": 2
+            }
+          },
+          "d": {
+            "testCase": "T-16-15",
+            "root": {
+              "by": "Lan",
+              "role": "front_desk",
+              "source": "minibar_check",
+              "typedByHand": true,
+              "at": "2026-11-12T10:00:00+07:00",
+              "consumedQty": 3
+            },
+            "recount": {
+              "by": "Minh",
+              "role": "housekeeping",
+              "at": "2026-11-12T11:00:00+07:00",
+              "consumedQty": 2
+            }
+          },
+          "e": {
+            "testCase": "QA biên: lễ tân trưởng và quản lý trên lần đếm của buồng phòng",
+            "root": {
+              "by": "Minh",
+              "role": "housekeeping",
+              "source": "minibar_check",
+              "typedByHand": true,
+              "at": "2026-11-12T10:00:00+07:00",
+              "consumedQty": 3
+            },
+            "recounts": [
+              {
+                "role": "front_desk_lead",
+                "at": "2026-11-12T11:00:00+07:00",
+                "consumedQty": 2
+              },
+              {
+                "role": "manager",
+                "at": "2026-11-12T11:05:00+07:00",
+                "consumedQty": 2
+              }
+            ]
+          },
+          "f": {
+            "testCase": "QA biên: lần đếm giữ dòng, lần đếm tăng (DOM 3.3 ý 3)",
+            "root": {
+              "by": "Minh",
+              "role": "housekeeping",
+              "source": "minibar_check",
+              "typedByHand": true,
+              "at": "2026-11-12T10:00:00+07:00",
+              "consumedQty": 3
+            },
+            "recounts": [
+              {
+                "by": "Lan",
+                "role": "front_desk",
+                "at": "2026-11-12T11:00:00+07:00",
+                "consumedQty": 3
+              },
+              {
+                "by": "Lan",
+                "role": "front_desk",
+                "at": "2026-11-12T11:10:00+07:00",
+                "consumedQty": 4
+              }
+            ]
+          },
+          "g": {
+            "testCase": "QA biên: lần đếm của chính lễ tân, qua mốc ngày nghiệp vụ (BR-438 (1)(b), như BR-438-03)",
+            "root": {
+              "by": "Lan",
+              "role": "front_desk",
+              "source": "minibar_check",
+              "typedByHand": true,
+              "at": "2026-11-12T23:50:00+07:00",
+              "consumedQty": 3
+            },
+            "recountAt": ["2026-11-13T00:20:00+07:00", "2026-11-13T06:10:00+07:00"],
+            "recountConsumedQty": 2
+          }
+        }
+      },
+      "expected": {
+        "a": {
+          "allowed": false,
+          "httpStatus": 403,
+          "code": "FORBIDDEN_ACTION",
+          "requiredFlow": "foc_request",
+          "nothingWritten": true,
+          "accessDenied": 1,
+          "focSelfApplied": true,
+          "billLines": {
+            "minibarVnd": 105000,
+            "focVnd": -35000
+          }
+        },
+        "b": {
+          "allowed": true,
+          "beforeVnd": 105000,
+          "afterVnd": 70000,
+          "adjustedAudits": 1,
+          "auditReason": "minibar_recount",
+          "auditBefore": {
+            "actorRole": "housekeeping",
+            "rootLineManual": true,
+            "postedByActor": true,
+            "sameBusinessDay": true
+          },
+          "reductionsOnlyListed": true,
+          "lineReductionCountDelta": 0
+        },
+        "c": {
+          "allowed": true,
+          "beforeVnd": 105000,
+          "afterVnd": 70000,
+          "adjustedAudits": 1,
+          "auditReason": "minibar_recount",
+          "auditBefore": {
+            "actorRole": "front_desk",
+            "rootLineManual": true,
+            "postedByActor": true,
+            "sameBusinessDay": true
+          },
+          "reductionsOnlyListed": true,
+          "lineReductionCountDelta": 1,
+          "focMonthDeltaVnd": 0
+        },
+        "d": {
+          "allowed": true,
+          "beforeVnd": 105000,
+          "afterVnd": 70000,
+          "adjustedAudits": 1,
+          "auditReason": "minibar_recount",
+          "auditBefore": {
+            "actorRole": "housekeeping",
+            "rootLineManual": true,
+            "postedByActor": false,
+            "sameBusinessDay": true
+          },
+          "reductionsOnlyListed": true,
+          "lineReductionCountDelta": 0
+        },
+        "e": {
+          "allowed": [false, true],
+          "httpStatus": [403, null],
+          "requiredFlow": ["foc_request", null],
+          "afterVnd": [105000, 70000],
+          "adjustedAudits": [0, 1],
+          "lineReductionCountDelta": [0, 0]
+        },
+        "f": {
+          "allowed": [true, true],
+          "afterVnd": [105000, 140000],
+          "lineKept": [true, false],
+          "reductionsOnlyListed": [false, false],
+          "lineReductionCountDelta": [0, 0]
+        },
+        "g": {
+          "allowed": [true, false],
+          "businessDateAtRecount": ["2026-11-12", "2026-11-13"],
+          "requiredFlow": [null, "foc_request"]
+        }
+      },
+      "note": "Nguồn: BR-438 (2a) v0.5.14 và ví dụ căn 202 (Minh 10:00, Lan 11:00 bị chặn, FOC 35.000 tự áp; Minh đếm lại 70.000; Lan tự đếm 10:00, 10:20 đếm lại được); DOM review PR #110 mục 3.3, 3.5; `rules-v1.0.5.md` 14.1 và 3.5 T-16-13…15; thẻ SEC FB-R5-SEC-BE-V516-01. QA 07/11 (FB-R5-DOM-QA-BR438-01). `pendingFix`: chờ PR BE-A2 `r5-v516-minibar` (xếp trên #110); ARC thêm 403 cho `recordMinibarCheck` vào hợp đồng (DOM 14.7). Cách đọc: `consumedQty` = số món tính tiền của lần đếm (lệnh gửi `remainingQty` = mức chuẩn của món trong tủ − `consumedQty`). Mỗi ca chạy trên một tủ mới, dòng gốc như `root`. (a) bị chặn cả lần đếm: không có `minibar_check` mới, không dòng mới cho cả món thứ hai (`secondItemFirstCount`), folio không đổi; đúng một `access.denied` lý do `BR-438`; sau đó Lan Gửi miễn có duyệt, FOC minibar tự áp trong hạn mức BR-436. Thân 403 nêu món nào: ARC chốt tên trường, oracle chỉ đòi `code` + `requiredFlow`. (b)–(d): đúng một `folio_line.adjusted`, lý do `minibar_recount`, `before` có vai lúc đếm và 4 khóa dòng gốc; có trong `reductionsOnly=true` (bộ lọc 7 ngày); chỉ lần của FD/FDL vào `line_reduction_count`. (c) là sửa ghi nhầm theo (1): không FOC, không vào FOC tháng. (e) FDL như FD; MGR như cũ. (f) DOM 3.3 ý 3: đếm cùng số giữ dòng (R6, không `folio_line.adjusted`); đếm tăng không thuộc BR-438. (g) như BR-438-03 nhưng là lần đếm; hai giờ trong `recountAt` là hai lần chạy riêng, mỗi lần trên một tủ có dòng gốc như `root` (BR-438-03 cũng dùng hai dòng). (e), (f) chạy nối tiếp trên cùng tủ. `null` = không áp. Nếu tag v1.0.5 chỉ có ý 2 của SEC (audit), DOM 3.3 chấp nhận: trên v1.0.5, (a), phần FDL của (e) và lần 06:10 của (g) sẽ là \"được + một `folio_line.adjusted` `minibar_recount`\". QA ghi đó là giới hạn đã biết, kèm hai việc tạm của DOM 3.3. Không đổi oracle: oracle là luật đích.",
+      "qaAssumption": "Ca e, f, g và món thứ hai ở ca a là mốc biên QA suy từ BR-438 (2a) và DOM 14.1; giờ 11:05, 11:10, 23:50, 00:20, 06:10 do QA chọn"
     },
     {
       "id": "BR-501-01",

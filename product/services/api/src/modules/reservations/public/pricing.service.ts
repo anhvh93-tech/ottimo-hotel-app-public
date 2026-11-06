@@ -12,6 +12,7 @@ import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import type { LocalDate, LocalTime } from '../../../shared/time';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
+import { readMinStay } from './min-stay-read';
 import {
   type CalendarRules,
   type CancelTier,
@@ -173,7 +174,7 @@ export class PricingService {
       () => g<number>('short_stay_deposit_pct'),
       () => g<number>('rate_floor_pct'),
       () => g<number>('rate_ceiling_pct'),
-      () => g<MinStayRule[]>('min_stay'),
+      () => g<unknown>('min_stay'),
       () => g<boolean>('min_stay_orphan_night_exception'),
       () => g<number>('booking_window_days'),
       () => g<number>('short_stay_max_nights'),
@@ -211,7 +212,8 @@ export class PricingService {
       depositPct,
       rateFloorPct,
       rateCeilingPct,
-      minStay,
+      // V5-25 (DOM 12.3): createReservation and the web estimate never fail on a broken `min_stay`.
+      minStay: readMinStay(minStay, shortStayMaxNights, { propertyId: tx.ctx.propertyId }),
       minStayOrphanException,
       bookingWindowDays,
       shortStayMaxNights,

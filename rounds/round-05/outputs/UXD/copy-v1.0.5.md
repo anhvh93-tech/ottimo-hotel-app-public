@@ -18,6 +18,8 @@
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.5**: mục 9.1 theo ARC 0.3.13 bổ sung 1c (PR #94, mục 1.21, nhánh `r5-contract-0313` @ `2cb549cc`) và DOM 11.4 (`5ad26fc1`): mã hoàn `payment_after_cancel`, "Có thể trùng", nơi nhận hoàn cố định, ảnh chứng từ do chủ đầu tư hoặc quản lý gửi, nhắc tìm đơn mới, mã giao dịch tùy chọn và 409 `DUPLICATE_BANK_REFERENCE`; mục 9.1a mới cho V5-48 (409 `INVALID_TRANSITION` trên đơn đã đóng). Mục 9.3 mới cho V5-1A: cảnh báo giá đêm khác thường `NIGHTLY_PRICE_UNUSUAL` (DOM 1.2 ý 6, `1568e523`). Theo BE PR #96 (V5-25): 9.2 sửa ca thiếu `channels` (máy chủ trả `allowed`) và ca quá 20 luật; mục 9.4 mới, câu lỗi chung cho 11 khóa có cấu trúc. Mục 9.5 mới cho V5-16 (US-177, BR-438; PO `6cfa6085`, ARC 0.3.13 mục 1.20). Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 06/11/2026 · **Bản 1.6**: theo DOM review PR #96 (`rules-v1.0.5.md` 13.1, 13.2, 13.6): 9.4 thêm câu cho 422 `REQUIRED` (chung, `cancel_policy_direct` rỗng, `max_open_holds_per_user` thiếu vai); mục 9.6 mới, câu "tham số sai dạng" khi giá trị đã lưu bị hỏng (mã chờ ARC). Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Review · 06/11/2026 · **Bản 1.7**: theo review FE PR #98, #102, #107 (`rounds/round-05/reviews/UXD-on-fe-prs-98-102-107.md`): mục 9.7 mới cho chữ Desk của V5-50 (hộp Đổi phòng) và V5-15 (nút Báo cần dọn, câu nhận phòng căn kẹt trạng thái). Cùng mục 0, 6, 8.
+- Sửa: UXD · Round 5 – Sản xuất · 07/11/2026 · **Bản 1.8**: mục 9.8 mới, một câu lỗi dưới ô mã giao dịch khi máy chủ trả 422 `CARD_NUMBER_DETECTED` có `field` = `bankReference`. Theo SEC chọn (a) cho thẻ C0313-25 (`rounds/round-05/responses/SEC-responses.md` mục 4). Cùng mục 0, 6, 8.
+- Sửa: UXD · Round 5 – Sản xuất · 07/11/2026 · **Bản 1.9**: mục 9.9 mới, câu nhắc D12c dưới ô lý do (`overdueReason`) của hộp Trả phòng quá ngày đi (V5-15, BE PR #99). Đây là điều kiện SEC ở `rounds/round-05/reviews/SEC-on-be-prs-106-99-checkout.md` mục 2.5. Cùng mục 0, 6, 8.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -56,7 +58,9 @@
 | V5-16 Lễ tân sửa giảm dòng (bản 1.5, mục 9.5) | 0 | 7 | 0 | **7** | Ngoài Gói 2. Đi cùng US-177 (PR-B2). 2 khóa đóng ca để sẵn, chưa đếm |
 | V5-1A Cảnh báo giá đêm khác thường (bản 1.5, mục 9.3) | 1 | 3 | 0 | **4** | Ngoài Gói 2. Đi cùng PR-C1 của BE (V5-1A) |
 | V5-50, V5-15 Desk (bản 1.7, mục 9.7) | 2 | 5 | 0 | **7** | Ngoài Gói 2. Đi cùng #98 (V5-50), #102 và MOB #97 (V5-15). Gồm 3 khóa FE đã viết theo chữ UXD (UXD duyệt), 1 khóa đổi chữ (`hk.action.needs_cleaning`), 3 khóa mới. `error.INVALID_TRANSITION_generic_reloaded` đã đếm ở 4.12 |
-| **Tổng** | **74** | **131** | **7** | **212** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212 |
+| C0313-25 Mã giao dịch giống số thẻ (bản 1.8, mục 9.8) | 0 | 1 | 0 | **1** | Ngoài Gói 2. Đi cùng hàm của SEC 4.1 (BE-B, PR-B3; `executeRefund` lên sớm hơn theo SEC 4.4) |
+| V5-15 Trả phòng quá ngày đi (bản 1.9, mục 9.9) | 0 | 1 | 0 | **1** | Ngoài Gói 2. Đi cùng hộp Trả phòng quá ngày đi của FE-A (BE PR #99, PR-A1b). Điều kiện SEC mục 2.5 |
+| **Tổng** | **74** | **133** | **7** | **214** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214 |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
@@ -66,6 +70,8 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - **v1.0.6:** 4.20 (c) và C6.
 - **Mục 9 (bản 1.4, 1.5):** theo lịch của việc đi kèm, không theo Gói 2. 9.1 lên cùng V5-5B (5B-1; PO xếp v1.0.5 nếu kịp, không thì v1.0.6). 9.1a lên cùng V5-48 (bắt buộc v1.0.5). 9.2 và 9.4 lên cùng V5-25 (PR #96). 9.6 lên cùng chỗ chặn ở DOM 13.2 (mã ARC chốt; phần nào không kịp 0.3.13 thì theo 0.3.14). 9.3 lên cùng V5-1A (PR-C1). 9.5 lên cùng V5-16 (US-177, Must v1.0.5; 403 ở PR-B2, bộ lọc ở PR-B1).
 - **Mục 9.7 (bản 1.7):** `hk.action.needs_cleaning` bắt buộc trước khi gộp #102 (điều kiện UXD), MOB #97 dùng cùng chữ. `checkin.room_status_stuck`, `_od` nên lên cùng #102 (cùng tag với nút). `room_change.no_rooms_not_ready` nên có, cùng #98 hoặc v1.0.6.
+- **Mục 9.8 (bản 1.8):** bắt buộc, lên cùng bản sửa BE của C0313-25 (SEC 4.4: v1.0.5; `executeRefund` sớm nhất, không chờ hết PR-B3). Thiếu câu này thì ô mã hiện câu của ô ghi chú ("Ô ghi chú có dãy số…", "Xóa dãy số đó").
+- **Mục 9.9 (bản 1.9):** bắt buộc, lên cùng hộp Trả phòng quá ngày đi (V5-15). SEC chấp nhận rủi ro Low của `overdueReason` cho v1.0.5 với điều kiện có câu này, và sẽ xem ở PR FE.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -686,7 +692,7 @@ Yêu cầu cho FE-B, xếp **sau** khi đã áp 4.20 (a) và (b) (PO quyết đ�
 
 Ghi chú: trong bảng, `\|` là dấu "hoặc" của regex, viết thoát để không vỡ bảng Markdown. Trong mã, viết `|`.
 
-## 9. Chữ thêm ở bản 1.4–1.7 (ngoài Gói 2)
+## 9. Chữ thêm ở bản 1.4–1.9 (ngoài Gói 2)
 
 Chữ Desk nội bộ (VI, EN). Không có chữ cho khách, không cần CPY. Mã lỗi, tên `extras` và tên mã lý do do ARC chốt; bảng dưới gọi theo nghĩa, FE nối với mã ARC chốt.
 
@@ -961,6 +967,79 @@ Ghi chú:
 - `checkin.room_occupied` (máy chủ không trả `cause`) giữ nguyên ở v1.0.5: máy chủ đã trả `cause`, câu chỉ còn cho ca lạ, vẫn đúng.
 - Độ dài: `room_status_stuck` VI 262, EN 300 ký tự, ngang `room_occupied` (VI 248, EN 296). Câu nằm trong Alert ở dòng điều kiện, không có chỗ khác chật hơn.
 
+### 9.8 Mã giao dịch trông giống số thẻ – 422 ở ô `bankReference` (C0313-25) – bản 1.8
+
+Nguồn: `rounds/round-05/responses/SEC-responses.md` mục 4 (07/11), SEC chọn (a). Chữ Desk nội bộ, không cần CPY.
+
+Luật mới (SEC 4.1, BE-B làm ở PR-B3) áp cho ô mã giao dịch ở mọi đường `PaymentCreate` (qua `recordInTx`) và ở `executeRefund`:
+- máy chủ bỏ `.` `/` `_` `-` khỏi giá trị;
+- phần còn lại **toàn bộ** là 13–19 chữ số **và** qua Luhn thì trả 422 `CARD_NUMBER_DETECTED`, `errors[0].field` = `bankReference`. Không lưu gì, không lặp lại giá trị;
+- mã có chữ, dãy số ngắn hơn 13 hay dài hơn 19, dãy không qua Luhn thì nhận.
+
+Khoảng 10 % mã ngân hàng toàn số vẫn bị chặn nhầm (SEC chấp nhận). Câu dưới đây là lối ra cho ca đó (SEC 4.2).
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `pay.bank_reference_card_like` | Mới (1.8) | Mã này trông giống số thẻ thanh toán nên Desk không lưu. Nhập 8 chữ số cuối của mã giao dịch. | This looks like a card number, so Desk can't save it. Enter the last 8 digits of the transaction reference. | Lỗi dưới ô mã giao dịch, khi 422 `CARD_NUMBER_DETECTED` có `field` = `bankReference`. Hai chỗ: ô `pay.bank_reference_optional` ở mọi hộp ghi khoản thu (lên cùng PR-B3, mục 9.1), và ô `refund.bank_reference` ở hộp Ghi đã hoàn chuyển khoản / qua máy POS (`MoneyPage.tsx`, đang chạy trên production) |
+
+Cách chọn chữ:
+- **"trông giống"**: không khẳng định đó là số thẻ, vì có thể là mã thật bị chặn nhầm. Câu nói việc Desk làm và bước tiếp theo, không nói người dùng sai.
+- **"số thẻ thanh toán"**: cùng chữ với `error.CARD_NUMBER_DETECTED` hiện có, để một luật chỉ có một tên trên Desk. EN "card number" cũng vậy.
+- **"mã giao dịch"** thay cho "mã chuyển khoản": khớp nhãn ô người dùng đang nhìn ("Mã giao dịch ngân hàng (nếu ảnh có)", "Mã giao dịch ngân hàng / mã hoàn POS"). Hộp chi hoàn còn nhận cả mã hoàn POS.
+- **"8 chữ số cuối"** thay cho "8 ký tự cuối" (gợi ý SEC 4.2):
+  - giá trị bị chặn luôn chỉ gồm chữ số và các dấu `.` `/` `_` `-`;
+  - đếm ký tự thì người gõ "4111-1111-…" và người gõ liền ra hai mã khác nhau, nên chặn trùng S4 (`DUPLICATE_BANK_REFERENCE`) không bắt được. Đếm chữ số thì ai cũng nhập cùng 8 số;
+  - 8 chữ số vẫn dưới 13 nên không bao giờ bị chặn lại, và đủ để tìm trên sao kê;
+  - không đổi luật máy chủ. Đề nghị SEC xem lại ý này khi review PR-B3.
+- **Không gợi ý để trống ô** (SEC 4.2): để trống thì khoản thu mất chặn trùng S4, và `executeRefund` bắt buộc ô này.
+- **Câu không có biến.** Không chèn giá trị đã gõ vào câu, toast hay log (SEC 4.1).
+- Độ dài: VI 93, EN 107 ký tự, dài hơn `error.CARD_NUMBER_DETECTED` (VI 85, EN 95) chút ít. Chưa đo trên màn: UXD kiểm xuống dòng ở hộp chi hoàn (cỡ `sm`, 390 và 1440 px) khi review PR.
+
+Hiển thị theo Design System, không thêm màu:
+- **Dưới ô:** dùng `Field error` hiện có (`.err`: icon ✕ cùng chữ màu `--bad` trên `--surface`, 5,76:1 ở chế độ sáng, 6,27:1 ở chế độ tối; có icon theo HR-11). Ô có `aria-invalid`, câu nối qua `aria-describedby` như mọi lỗi ô.
+- **Khung lỗi của hộp:** đi theo đúng cách hộp đó xử lý 422 `VALIDATION_FAILED`.
+  - Hộp có danh sách ô (`map`): khung hiện `error.VALIDATION_FAILED` ("Còn {n} ô cần sửa…").
+  - Hộp không có `map` (hộp chi hoàn hiện nay, `useSubmit()`): khung lặp lại câu trên, như các lỗi ô khác của hộp này.
+  - Không hiện `error.CARD_NUMBER_DETECTED` ở ca này. Câu đó nói về ô ghi chú và bảo xóa dãy số, trái SEC 4.2.
+- **Không tự xóa ô.** Người dùng xóa phần đầu, giữ 8 chữ số cuối.
+- Ô ghi chú, lý do và mọi ô chữ tự do giữ `error.CARD_NUMBER_DETECTED` như cũ (luật chung V-09 không đổi).
+
+FE:
+- `app/problem.ts`, `fieldErrorText`: hàm đang tra theo mã, không theo ô, nên `bankReference` + `CARD_NUMBER_DETECTED` hiện rơi về `error.CARD_NUMBER_DETECTED`. Thêm nhánh theo cặp (ô, mã), xét trước danh sách hiện có.
+- `pages/stay/common.tsx`, `useSubmit().text`: `CARD_NUMBER_DETECTED` mà mọi `errors[]` đều là `bankReference` thì đi nhánh `VALIDATION_FAILED`.
+
+### 9.9 Nhắc D12c ở ô lý do của hộp Trả phòng quá ngày đi (V5-15) – bản 1.9
+
+Nguồn: `rounds/round-05/reviews/SEC-on-be-prs-106-99-checkout.md` mục 2.5 (BE PR #99, PR-A1b). Chữ Desk nội bộ, không cần CPY.
+
+Ca: chỉ chủ đầu tư và quản lý trả phòng được đơn đã quá ngày đi (MGR khi `nightsNotBilled` ≤ 1). Hộp bắt buộc ô lý do `overdueReason`, 3–500 ký tự. Desk gợi ý 3 lý do (DOM 7.1): "Khách đi không báo", "Lễ tân quên bấm Trả phòng", "Khác (ghi rõ)". Lý do ghi vào `audit_event.after.overdue.reason`. Bảng này chỉ thêm dòng, không sửa; chỉ xóa cả tháng khi hết hạn lưu, và nằm ngoài luồng xóa dữ liệu khách. Máy chủ chỉ chặn số thẻ (V-09), không chặn số giấy tờ (đúng phạm vi V5-46). Vì vậy SEC chấp nhận rủi ro Low cho v1.0.5, với điều kiện Desk nhắc cạnh ô lý do (D12c): không ghi họ tên, số giấy tờ, thông tin sức khỏe của khách.
+
+Đã rà chữ có sẵn để dùng lại. Không câu nào đủ ba ý SEC yêu cầu:
+- `crm.note_hint` "Không ghi số giấy tờ, số thẻ, thông tin sức khỏe.": thiếu họ tên;
+- `webreq.note_hint`: chỉ có số thẻ, số giấy tờ;
+- `rsv.after_cancel.note_hint`: nói tên khách, tên người chuyển, số tài khoản, không có giấy tờ, sức khỏe.
+
+Vì vậy thêm một khóa. Câu theo cùng dạng "Không ghi …" của `crm.note_hint`, mở đầu bằng ý của `stay.time_note_help` ("Ghi chú lưu vào nhật ký thay đổi.").
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `checkout.overdue_reason_help` | Mới (1.9) | Lý do lưu vào nhật ký thay đổi. Không ghi họ tên, số giấy tờ hay thông tin sức khỏe của khách. | The reason is kept in the change log. Don't write the guest's name, ID numbers or health information. | Chữ gợi ý dưới ô lý do (`overdueReason`) ở hộp Trả phòng quá ngày đi. Luôn hiện, cả khi đã chọn một trong 3 lý do gợi ý. Chỉ OWN, MGR thấy hộp này |
+
+Cách chọn chữ:
+- Câu đầu nói vì sao: lý do nằm lại trong nhật ký thay đổi. Người ghi hiểu vì sao không nên ghi, không cần nói tới "append-only" hay "audit".
+- Ba ý đúng như điều kiện SEC. Không thêm "số thẻ": máy chủ đã chặn và có câu lỗi riêng. Thêm vào thì câu dài mà không thêm việc cho người ghi.
+- "của khách" ở cuối áp cho cả ba ý. EN theo `crm.note_hint` ("ID numbers", "health information"), dùng "Don't" như các câu Desk mới.
+- Độ dài: VI 94, EN 101 ký tự. Chưa đo trên màn: UXD kiểm xuống dòng ở 390 và 1440 px khi review PR FE.
+
+Hiển thị theo Design System, không thêm màu:
+- Dùng chữ gợi ý `Field help` có sẵn (`.help`: 12 px, `--muted` = Stone Grey trên `--surface`). Không dùng Alert, không dùng màu cảnh báo: đây là lời nhắc thường trực, không phải lỗi.
+- `Field` đã nối `help` vào `aria-describedby`, nên trình đọc màn hình đọc câu cùng ô.
+- Không thêm biến. Không chặn nút: máy chủ nhận chữ tự do (DOM 7.1).
+
+Ghi chú cho FE (không thêm khóa ở lượt này):
+- `overdueReason` có số thẻ thì 422 `CARD_NUMBER_DETECTED`, `field` = `overdueReason`. Câu hiện có `error.CARD_NUMBER_DETECTED` bắt đầu bằng "Ô ghi chú…", nên ở ô lý do đọc hơi lệch tên ô nhưng vẫn đúng việc cần làm (xóa dãy số). Giữ như các ô lý do khác.
+- Nhãn ô, 3 lý do gợi ý và tiêu đề hộp chưa có trong `design/copy`. FE-A viết theo chữ DOM 7.1 rồi gửi UXD duyệt, như cách làm ở #98, #102. Cần UXD viết trước thì ORC giao thêm.
+
 ---
 
 ## 6. Yêu cầu cho FE, BE (gom theo tệp)
@@ -994,6 +1073,8 @@ Ghi chú:
 | FE-A | `pages/stay/CheckInPage.tsx` (`roomBlockedMessage`), test BUG-R4-039 | Bản 1.7: `cause = room_status`, `detail = OD` → `checkin.room_status_stuck_od`; chữ mới của `room_status_stuck`. Nên lên cùng #102 | 9.7 |
 | FE-A | `pages/stay/StayDialogs.tsx` (`ChangeRoomForm`) | Bản 1.7: `room_change.no_rooms_not_ready` khi danh sách lọc rỗng mà có căn trống VD/CL. Nên có (#98 hoặc v1.0.6) | 9.7 |
 | MOB | `apps/mobile` (#97), `gen_strings.py` | Bản 1.7: cùng khóa `hk.action.needs_cleaning`, chữ mới. PR gộp sau giữa #97 và #102 bỏ dòng trùng | 9.7 |
+| FE-A | `app/problem.ts` (`fieldErrorText`), `pages/stay/common.tsx` (`useSubmit().text`), `pages/money/MoneyPage.tsx` (hộp chi hoàn), các hộp ghi khoản thu có ô `bankReference` | Bản 1.8: cặp `bankReference` + `CARD_NUMBER_DETECTED` → `pay.bank_reference_card_like` dưới ô; khung lỗi theo nhánh `VALIDATION_FAILED`, không hiện `error.CARD_NUMBER_DETECTED`. Lên cùng bản sửa BE C0313-25, hộp chi hoàn trước | 9.8 |
+| FE-A | hộp Trả phòng quá ngày đi (`pages/stay/CheckOutPage.tsx` hoặc tệp FE chọn), `gen_strings.py` | Bản 1.9: `checkout.overdue_reason_help` ở `help` của `Field` ô `overdueReason`, luôn hiện. Điều kiện SEC mục 2.5, SEC xem ở PR FE | 9.9 |
 | UXD | `design/content-guide.md` | Sau khi FE áp: đồng bộ mục 8 theo `strings-tables.md`, ghi phiên bản v0.4.7, xóa dòng `fo.tabs.holds`, sửa ô `bk.src_weekend` trong `hifi/09-booking.html` | 1.3, 4.18 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
@@ -1049,3 +1130,9 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - Bản 1.7, mục 9.7 (khi #98 lên staging): mở Đổi phòng khi mọi căn trống còn VD → câu `room_change.no_rooms_not_ready` có số căn VD/CL, không có ô chọn; có một căn VC → câu đó không hiện, căn VC có trong danh sách. Không còn câu R2 có "Trống, sạch".
 - Bản 1.7, mục 9.7 (khi #102 và #97 lên staging): Desk Trạng thái buồng và app nhân viên, căn OC có nút **Báo cần dọn** / **Mark for cleaning**; bộ lọc vẫn là "Cần dọn ({n})". Bấm → toast "Căn … chuyển cần dọn và có việc dọn.", chip "OD · Có khách, cần dọn", có việc "Dọn phòng khách đang ở".
 - Bản 1.7, mục 9.7 (căn kẹt, dữ liệu QA): căn OC không có đơn Đang ở, nhận phòng đơn khác vào căn đó → câu `checkin.room_status_stuck` có "Báo cần dọn"; căn OD → câu `_od`. Làm theo câu: Báo cần dọn → Bắt đầu dọn → Dọn xong → căn VC → nhận phòng được.
+- Bản 1.8, mục 9.8 (khi hàm SEC 4.1 lên staging; ca SEC 4.3, chỉ dùng số thẻ thử công khai, không dùng mã giao dịch thật): ở hộp Ghi đã hoàn chuyển khoản và hộp ghi khoản thu chuyển khoản, VietQR:
+  - gõ `4111111111111111` hoặc `4111-1111-1111-1111` → dưới ô hiện câu `pay.bank_reference_card_like` có icon ✕; khung lỗi không có "Ô ghi chú"; không có khoản thu hay lệnh chi mới; giá trị vẫn còn trong ô;
+  - gõ `11111111` → lưu được;
+  - ô ghi chú có `4111 1111 1111 1111` → vẫn câu `error.CARD_NUMBER_DETECTED`;
+  - Desk EN: "Enter the last 8 digits of the transaction reference."
+- Bản 1.9, mục 9.9 (khi hộp Trả phòng quá ngày đi lên staging): đăng nhập vai quản lý, mở trả phòng một đơn quá ngày đi 1 đêm → dưới ô lý do có câu `checkout.overdue_reason_help`, chữ Stone, không khung màu, cả khi đã chọn lý do gợi ý. Trình đọc màn hình đọc câu khi vào ô. Desk EN: "Don't write the guest's name, ID numbers or health information."
