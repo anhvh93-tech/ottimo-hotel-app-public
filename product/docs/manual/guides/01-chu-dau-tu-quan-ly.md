@@ -3,7 +3,7 @@
 - Dành cho: **chủ đầu tư (OWN)**, **quản lý (MGR)**, và người làm **kế toán/đối soát** cùng chủ đầu tư
 - Thiết bị: **máy tính hoặc laptop riêng** của anh/chị, địa chỉ `desk.ottimo.vn`. Máy quầy chỉ dùng khi duyệt tại quầy, xong đăng xuất ngay.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Tệp này bản 1.12 (thuộc bộ hướng dẫn bản 1.13) – 06/11/2026, áp dụng ngay: các mục ghi ở `00` mục 7, hai khối "Sửa 06/11/2026" (check-in online mở lại, gửi nhầm link, website theo thực tế 06/11). Bản 1.11 – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12); sửa theo SEC: bảng thiết bị mục 1.1 (app nhân viên đăng nhập bằng mã 6 số), mục 14.2 ("Trên máy quầy: …"). Các bản trước: mục **Lịch sử tệp** cuối tệp.
+- Lập: BA · 30/10/2026 · Tệp này bản 1.13 (thuộc bộ hướng dẫn bản 1.14) – 06/11/2026, áp dụng ngay tới khi v1.0.5 lên: không bấm **Lưu thay đổi** ở `weekend_nights` và `min_stay` (mục 9.2, 15.6, 17). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -654,6 +654,8 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 
 ### 9.2 Tham số quy tắc
 
+> **Lỗi đang sửa – hai tham số (sửa ở v1.0.5):** **Tới khi v1.0.5 lên**, không bấm **Lưu thay đổi** ở hai dòng `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**), nhóm **Khác**: Desk v1.0.4 nhận cả giá trị sai dạng, lưu sai thì Desk không nhận ra đêm cuối tuần, hoặc mọi báo giá và đơn trực tiếp mới báo lỗi, không gỡ được trong ngày (BUG-R5-001, BUG-R5-003). Buộc phải đổi: nhắn đội trước, chọn **Hiệu lực từ** từ ngày mai để còn **Hủy lịch** được. Lỡ lưu: báo đội ngay, coi là **P0** (chủ đầu tư gõ `/feedback P0`, quản lý gọi chủ đầu tư).
+
 1. **Quản trị → Tham số quy tắc**. Tham số chia nhóm: **Giữ chỗ, cọc, hủy** · **Số người & phụ thu** · **Giờ nhận/trả** · **FOC, hoa hồng, phí kênh** · **Bảo mật** · **Khác**.
 2. Bấm **Sửa** ở tham số cần đổi.
 3. Nhập **Giá trị mới**, chọn **Hiệu lực từ**, ghi **Lý do**. Bấm **Lưu thay đổi**.
@@ -934,6 +936,7 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 
 | Lỗi | Cách tạm |
 |---|---|
+| Desk v1.0.4 nhận giá trị sai dạng ở `weekend_nights` và `min_stay` (BUG-R5-001, BUG-R5-003; sửa ở v1.0.5; mục 9.2) | **Tới khi v1.0.5 lên**, không bấm **Lưu thay đổi** ở hai dòng `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**), nhóm **Khác**: Desk v1.0.4 nhận cả giá trị sai dạng, lưu sai thì Desk không nhận ra đêm cuối tuần, hoặc mọi báo giá và đơn trực tiếp mới báo lỗi, không gỡ được trong ngày (BUG-R5-001, BUG-R5-003). Buộc phải đổi: nhắn đội trước, chọn **Hiệu lực từ** từ ngày mai để còn **Hủy lịch** được. Lỡ lưu: báo đội ngay, coi là **P0** (chủ đầu tư gõ `/feedback P0`, quản lý gọi chủ đầu tư). |
 | Thư báo bảo mật chưa gửi tới chủ đầu tư (sửa ở v1.0.3: nhập email ở mục 1.6a) | Kiểm bảo mật mỗi sáng (mục 2.2) tới khi đội bảo mật báo bỏ |
 | Danh sách và nút hủy giá đã lên lịch: có từ v1.0.2 | Tới khi v1.0.2 lên: ghi sổ mỗi lần lên lịch giá (mục 9.1) |
 | Chưa nhập được Wi-Fi trên Desk | Thẻ Wi-Fi trong căn |
@@ -973,6 +976,7 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 | Sự cố | Ai báo | Anh/chị làm gì |
 |---|---|---|
 | Desk báo lỗi, không đặt / nhận / trả phòng / thu tiền được, hoặc **sai tiền** | Lễ tân trưởng → quản lý → chủ đầu tư | Chủ đầu tư gõ `/feedback` với chữ **"P0"** ở đầu, **chỉ ghi mã đơn**, không ghi tên khách – đội sửa trong ngày. Lễ tân ghi sổ giấy, nhập bù |
+| Lỡ bấm **Lưu thay đổi** ở `weekend_nights` hoặc `min_stay` (tới khi v1.0.5 lên), hoặc mọi báo giá trên Desk báo lỗi | Người lưu → chủ đầu tư ngay | Chủ đầu tư gõ `/feedback` với chữ **"P0"** ở đầu: tên dòng tham số, giờ lưu, **Hiệu lực từ**. Không lưu lại khi đội chưa hướng dẫn. Người trực ghi sổ giấy đơn, báo giá chưa làm được, nhập bù khi Desk chạy lại (mục 9.2) |
 | Lỗi nhỏ, chữ sai, góp ý | Ai cũng được, qua chủ đầu tư | Chủ đầu tư gõ `/feedback <mô tả>`. Bản vá hằng tuần thứ Tư 09:30–10:30 |
 | Mất điện quá 4 giờ | Quản lý → chủ đầu tư | Quyết đổi phòng hoặc bù (**Bù sự cố**) |
 | Quên mật khẩu, mất điện thoại, tài khoản bị khóa (nhân viên) | Nhân viên → chủ đầu tư | **Đặt lại mật khẩu** / **Mở khóa** / **Khóa tài khoản** (mục 1.9). Người có 2 bước mất cả điện thoại lẫn mã khôi phục: gặp tận mặt rồi **Đặt lại xác thực 2 bước** (mục 1.9) |
@@ -1063,6 +1067,10 @@ Bài tập kế toán: cùng chủ đầu tư đọc **Nhật ký tiền** một
 ## Lịch sử tệp
 
 Chuyển từ dòng **Lập:** đầu tệp (04/11/2026; phần bổ sung 05/11 chuyển vào ngày 05/11, giữ nguyên chữ). Mới nhất ở trên.
+
+- Bản 1.13 – 06/11/2026 (bộ hướng dẫn 1.14), **áp dụng ngay, tới khi v1.0.5 lên**: lời dặn không bấm **Lưu thay đổi** ở `weekend_nights` (**Đêm tính là cuối tuần**) và `min_stay` (**Ở tối thiểu**); buộc phải đổi thì **Hiệu lực từ** từ ngày mai; lỡ lưu thì báo đội, coi là P0 (mục 9.2, 15.6, 17; BUG-R5-001, BUG-R5-003). Gỡ khi v1.0.5 lên.
+- Bản 1.12 – 06/11/2026 (bộ hướng dẫn 1.13), áp dụng ngay: các mục ghi ở `00` mục 7, hai khối "Sửa 06/11/2026" (check-in online mở lại, gửi nhầm link, website theo thực tế 06/11).
+- Bản 1.11 – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12); sửa theo SEC: bảng thiết bị mục 1.1 (app nhân viên đăng nhập bằng mã 6 số), mục 14.2 ("Trên máy quầy: …").
 
 - Bản 1.10 – 04/11/2026 (gộp sau bản 1.9), **áp dụng từ v1.0.4**: Desk chặn cả `booking@` (mục 1.6a, 1.9); Desk giữ ngày kết thúc HĐ khi gia hạn, **Trả sớm** chọn đúng nhánh (mục 7.3); lễ tân có thể hỏi anh/chị số chờ hoàn của **Trả sớm** do người khác tạo (mục 7.3); sửa theo review DOM: câu in đậm "Tới v1.0.3, Desk chỉ chặn được `info@`" (mục 1.6a), v1.0.5 hiện tổng số đang chờ hoàn (mục 7.3); sửa theo DOM lượt 3: bảng duyệt – **Nhận phòng khi buồng chưa sẵn sàng** chỉ cho căn `VD`, `CL`, căn có khách thì từ chối (mục 4); bổ sung 05/11 (DOM lượt 5): căn còn đơn khác đang ở cũng từ chối, từ v1.0.4 Desk chặn (mục 4); bổ sung 05/11 sau khi gộp main: mục 14.1 thêm 3 tình huống – đơn Nội bộ có đêm miễn phí chờ sửa 0 đ (từ v1.0.4), yêu cầu giảm 100 % "Quên bấm Trả phòng", căn vẫn hiện có khách sau khi đơn trước đã trả phòng; sửa theo review #72: sửa đêm miễn phí về 0 trước khi người ở nhận phòng và kiểm người cho (BR-105 v0.5.9), duyệt giảm 100 % "Quên bấm" khi có ít nhất hai dấu hiệu, từ 2 đêm quản lý không bấm **Duyệt**, duyệt nhận phòng buồng chưa sẵn sàng chỉ khi **Lý do** ghi đã kiểm căn (mục 4, 14.1)
 - Bản 1.9 – 04/11/2026, **áp dụng từ v1.0.4**: khối **Đặt lại xác thực 2 bước** cho người đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục, thay cách khóa tài khoản rồi tạo tài khoản mới; nút **Khác…** ở **Người dùng & vai** (mục 1.6a, 1.7, 1.8, 1.9, 14.1, 17, 18.2; BUG-R4-032; sửa cùng ngày theo review SEC, PO: chỉ quản lý và lễ tân trưởng phải bật lại ngay, sale/CTV nên bật, buồng phòng/bảo trì tùy chọn, đặt lại mật khẩu luôn khi điện thoại bị lấy cắp hoặc có lưu mật khẩu, khóa cũng đăng xuất mọi máy, một tài khoản chủ đầu tư, câu báo khi 2 bước đã đổi ở chỗ khác; sửa theo SEC lượt 2: không phải chủ đầu tư đổi thì đặt lại mật khẩu ngay, tài khoản chủ đầu tư thứ hai chỉ cho người khác)
