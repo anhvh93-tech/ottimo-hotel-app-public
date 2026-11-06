@@ -86,6 +86,23 @@ export interface PayoutInput {
 
 const OPEN_STATES = ['pending', 'escalated', 'approved'];
 
+/** 0.3.13 bổ sung 1 (5B-1): reason code of the refund made with a receipt on a closed booking ("Tiền về sau khi hủy"). */
+export const PAYMENT_AFTER_CANCEL = 'payment_after_cancel';
+
+/**
+ * 5B-1 (SEC S3, DOM 11.4 mục 3): a destination the SERVER fixed – `original_method` with nobody as its setter (every
+ * person-set destination carries `refund_destination_set_by`; a `superseded` replacement copies the setter, so it stays
+ * fixed too). Never changed (`setRefundDestination` → 409), never paid in cash, paid back to a transfer receipt only.
+ */
+export function serverFixedDestination(
+  row: Pick<RefundRow, 'reason_code' | 'refund_method' | 'refund_destination_set_by'>,
+): boolean {
+  return (
+    row.reason_code === PAYMENT_AFTER_CANCEL ||
+    (row.refund_method === 'original_method' && !row.refund_destination_set_by)
+  );
+}
+
 /** P4-12: the holder as compared (never stored or logged): trim, spaces collapsed, NFC, any case. */
 function holderKey(holder: string): string {
   return holder.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -350,6 +367,68 @@ export class RefundsService {
     });
   }
 
+  // ───────────── 5B-1: refund made with a receipt on a closed booking ─────────────
+
+  /**
+   * 0.3.13 bổ sung 1 (5B-1 – `recordPayment` (B); SEC S2, S3; DOM 11.4 mục 3; FB-R5-ARC-BE-105-03 step 6), in the
+   * receipt's transaction (L1 booking → L3 folio held by recordInTx): ONE `refund` request of `amountVnd` (what the
+   * receipt brought above N), reason `payment_after_cancel`, no fee (BR-308); the BR-309 request of the booking is
+   * left as it is.
+   * - S2: requested by the RECORDER, who is also put in `origin_actor_ids` – they never approve (CHECK
+   *   approval_request_origin_check) and never pay it out, even when it is rejected and someone else asks again
+   *   (FolioService.refundRouting adds every after-closure recorder of the folio to each new refund of it).
+   * - S3: destination fixed now to `original_method` with no setter (`serverFixedDestination`): back to the account the
+   *   money came from – `setRefundDestination` → 409, `executeCashRefund` → 409, `executeRefund` pays a transfer
+   *   receipt's method only, and only once that receipt is reconciled (REFUND_SOURCE_NOT_RECONCILED as for any refund).
+   * The "Cần chú ý" closed_reservation_credit item of the booking opens (S4-06 – it closes when the credit is paid back).
+   */
+  async createAfterClosureRefund(
+    tx: Tx,
+    actor: PaymentActor,
+    input: {
+      reservationId: string;
+      reservationCode: string;
+      amountVnd: number;
+      receipt: { code: string; method: string };
+    },
+  ): Promise<RefundRow> {
+    const row = await this.approvals.submit(
+      tx,
+      { userId: actor.userId, roles: actor.roles },
+      {
+        type: 'refund',
+        amountVnd: input.amountVnd,
+        reasonCode: PAYMENT_AFTER_CANCEL,
+        reasonNote: `Tự sinh từ khoản thu ${input.receipt.code} ${input.receipt.method}`,
+        targetType: 'reservation',
+        targetId: input.reservationId,
+        targetCode: input.reservationCode,
+        refundSource: 'other',
+        originActorIds: [actor.userId],
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      },
+    );
+    const now = this.clock.now();
+    // Created in this transaction: its version stays the one it was made with (as applyCarriedDestination).
+    await tx.query(
+      `UPDATE approval_request SET refund_method = 'original_method', refund_destination_set_at = $2,
+          refund_destination_set_by = NULL, updated_at = $2
+        WHERE id = $1 AND refund_method IS NULL`,
+      [row.id, now],
+    );
+    await this.audit.recordMoney(tx, {
+      action: 'refund.destination_set',
+      entityType: 'approval_request',
+      entityId: row.id,
+      entityCode: input.reservationCode,
+      before: { status: row.status, refundMethod: null },
+      after: { status: row.status, refundMethod: 'original_method' },
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
+    await this.folios.openCreditAttention(tx, input.reservationId, input.reservationCode);
+    return this.lock(tx, row.id);
+  }
+
   // ───────────── createRefundRequest (E15-01) ─────────────
 
   async create(
@@ -468,6 +547,13 @@ export class RefundsService {
     const row = await this.lock(tx, approvalId);
     if (!OPEN_STATES.includes(row.status) || row.refunded_vnd >= row.amount_vnd) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: row.status } });
+    }
+    // 0.3.13 bổ sung 1 (5B-1, SEC S3): the server fixed where this money goes back – not to cash, not to another account.
+    if (serverFixedDestination(row)) {
+      throw problem('INVALID_TRANSITION', {
+        detail: 'refund destination fixed by the server (original_method)',
+        extras: { currentState: row.status },
+      });
     }
     await this.assertNotA32Maker(tx, row, actor);
     const now = this.clock.now();
@@ -699,6 +785,11 @@ export class RefundsService {
     // Cash refunds (A47a): the requester never pays, no exception (CHECK in 0040/0042 as well).
     const ownerTransfer = channel === 'transfer' && primaryRole(actor.roles) === 'owner';
     if (row.requested_by === actor.userId && !ownerTransfer) throw problem('SELF_REFUND_FORBIDDEN');
+    // 5B-1 (SEC S2) / ADD3-01: whoever may never approve it (the recorder of a receipt after closure, an A32 maker)
+    // never pays it out either – the OWN transfer exception of PO 17/10 kept (the one-owner property, step-up).
+    if (!ownerTransfer && (row.origin_actor_ids ?? []).includes(actor.userId)) {
+      throw problem('SELF_REFUND_FORBIDDEN');
+    }
     await this.assertNotA32Maker(tx, row, actor);
     if (
       channel === 'transfer' &&
@@ -740,11 +831,15 @@ export class RefundsService {
     // Method actually used (original_method → the method of the latest receipt of the folio).
     let method: string = row.refund_method === 'cash' ? 'cash' : 'bank_transfer';
     if (row.refund_method === 'original_method') {
+      // 5B-1 (SEC S3): a destination fixed by the server goes back to a transfer / VietQR receipt of the folio – the
+      // account the money came from – never to an earlier cash or OTA receipt (no transfer at all → 409 below).
+      const fixed = serverFixedDestination(row);
       const { rows: orig } = await tx.query<{ method: string }>(
         `SELECT method FROM payment WHERE folio_id = $1 AND status = 'succeeded' AND reversal_of_id IS NULL
             AND type <> 'refund' AND type <> 'security_deposit'
+            AND (NOT $2::boolean OR method IN ('bank_transfer', 'vietqr'))
           ORDER BY received_at DESC NULLS LAST, id DESC LIMIT 1`,
-        [folio.id],
+        [folio.id, fixed],
       );
       method = orig[0]?.method ?? 'cash';
       // ARC-BE-S3-26 / SEC-BE-45: cash (or money the OTA holds) is never paid out by this operation – cash goes

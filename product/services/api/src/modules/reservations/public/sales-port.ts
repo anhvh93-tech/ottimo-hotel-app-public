@@ -62,6 +62,11 @@ export interface DepositTarget {
   holdCreatedAt: Date | null;
   holdExpiresAt: Date | null;
   depositRequiredVnd: number;
+  /**
+   * 0.3.13 bổ sung 1 (5B-1, DOM 11.4 2 (f)): `reservation.status_before_cancel` – `hold` for a booking cancelled while
+   * a hold (its late receipt is a `deposit`), `confirmed` for a confirmed one cancelled or a no-show.
+   */
+  statusBeforeCancel?: string | null;
 }
 
 export interface HoldFromQuoteInput {

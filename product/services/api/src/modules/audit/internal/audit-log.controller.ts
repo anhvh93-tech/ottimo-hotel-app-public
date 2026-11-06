@@ -94,6 +94,8 @@ export const AFTER_CLOSURE_ACTIONS: readonly string[] = [
   'payment.recorded',
   'deposit_notice.created',
   'deposit_notice.updated',
+  // 0.3.13 bổ sung 1f (5B-1 S8, SEC ARC-20): "Không thấy tiền" on a `deposit_after_cancel` item.
+  'attention_event.resolved',
 ];
 
 interface Row {

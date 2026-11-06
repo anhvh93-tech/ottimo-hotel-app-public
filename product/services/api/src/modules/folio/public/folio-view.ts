@@ -89,6 +89,13 @@ export function paymentDto(
       p.method === 'vietqr' && p.status === 'pending' ? extra.amountDueNowVnd : undefined,
     // 0.3.13 bổ sung 1 (V5-48, SEC S6 display): absent = a usual receipt (or a booking restored since).
     afterClosure: p.after_closure === true ? true : undefined,
+    // 0.3.13 bổ sung 1 (5B-1, SEC S4; FD+ only – x-visible-to): the bank's transaction code, and "Có thể trùng"
+    // (absent = nothing suspected).
+    bankReference: p.bank_reference ?? undefined,
+    possibleDuplicateCodes:
+      p.possible_duplicate_codes && p.possible_duplicate_codes.length > 0
+        ? p.possible_duplicate_codes
+        : undefined,
     version: p.version,
   });
 }

@@ -60,7 +60,19 @@ export interface ManualPaymentInput {
    * audit carries `afterClosure: true` + `reservationStatus` (the value at write time, read by afterClosureOnly).
    */
   afterClosure?: { reservationStatus: ClosedReservationStatus };
+  /**
+   * 0.3.13 bổ sung 1 (5B-1, SEC S4 + ARC-15): the bank's transaction code of a transfer / VietQR receipt, already
+   * shape-checked by the caller (`checkPaymentShape`). Stored upper-case; a code already on a receipt of the property
+   * that is not reversed → 409 DUPLICATE_BANK_REFERENCE (checked here, under an advisory lock, for every path).
+   */
+  bankReference?: string | null;
   requestId?: string;
+}
+
+/** 0.3.13 bổ sung 1 (5B-1, SEC ARC-15): `bankReference` as stored and compared – trimmed, upper-case. */
+export function normalizeBankReference(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  return raw.trim().toUpperCase() || null;
 }
 
 /** 0.3.13 bổ sung 1 (V5-48): a booking that no longer takes money the usual way (BUG-R5-002). */
@@ -71,6 +83,16 @@ export function closedStatusOf(status: string): ClosedReservationStatus | null {
   return (CLOSED_RESERVATION_STATUSES as readonly string[]).includes(status)
     ? (status as ClosedReservationStatus)
     : null;
+}
+
+/** `recordInTx` on a closed booking (V5-48; FB-R5-ARC-BE-105-03). */
+export interface AfterClosureContext {
+  reservationStatus: ClosedReservationStatus;
+  /**
+   * `card_pos` (ARC 105-03 steps 2–3): N = the folio's `balanceDueVnd` under L3; N = 0 → 422 `method` NOT_IN_LIST,
+   * `amountVnd` > N → 422 AMOUNT_EXCEEDS_BALANCE (`max` = N).
+   */
+  capToDue?: boolean;
 }
 
 /** OpenAPI PaymentCreate after JSON parsing (strings not yet checked). */
@@ -243,6 +265,8 @@ export class PaymentService {
     // (B2 initialPayment of reservations) get it from the property roles; a sale/CTV receipt always waits
     // for the desk/bank check whatever the method (SEC-BE-22, BR-527, ESC-017 A – A46a cash handover).
     const role = p.recordedByRole ?? (await this.roleOf(tx, p.recordedBy));
+    const bankReference = normalizeBankReference(p.bankReference);
+    if (bankReference) await this.assertBankReferenceFree(tx, bankReference, role);
     const fromSales = role === 'sales_staff' || role === 'collaborator';
     const reconciliation = fromSales
       ? 'pending'
@@ -250,8 +274,9 @@ export class PaymentService {
     await tx.query(
       `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
          reconciliation, amount_vnd, status, auth_code, received_at, recorded_by, note, created_at,
-         created_by, updated_at, recorded_by_role, attachment_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'succeeded', $11, $12, $13, $14, $15, $13, $15, $16, $17)`,
+         created_by, updated_at, recorded_by_role, attachment_id, bank_reference)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'succeeded', $11, $12, $13, $14, $15, $13, $15, $16, $17,
+         $18)`,
       [
         id,
         tx.ctx.organizationId,
@@ -270,6 +295,7 @@ export class PaymentService {
         now,
         role,
         p.attachmentId ?? null,
+        bankReference,
       ],
     );
     // ARC 16.29 (N-6): every receipt moves the folio's version (B2/B4/B9/B18 callers and recordPayment).
@@ -295,6 +321,39 @@ export class PaymentService {
       ...(p.requestId ? { requestId: p.requestId } : {}),
     });
     return { id, code };
+  }
+
+  /**
+   * 0.3.13 bổ sung 1 (5B-1, SEC S4; SEC ARC-15 – `recordPayment` (B)): one bank transaction code, one receipt of the
+   * property. The transaction-scoped advisory lock on (property, code) is taken BEFORE the look-up, so two requests
+   * with the same code (any case) are serialised and the second one sees the first one's row (READ COMMITTED: its
+   * statement starts after the lock is granted, i.e. after the first transaction committed). Only receipts count
+   * (`deposit`/`charge`, not a reversal row, still `succeeded` – a reversed receipt frees its code); the code of a
+   * refund pay-out never blocks a receipt. 409 carries the other booking's code only for an FD+ caller (SEC ARC-21 –
+   * the booking may be outside a sale's scope, SR-AZ-02). Nothing is written before it.
+   */
+  private async assertBankReferenceFree(
+    tx: Tx,
+    bankReference: string,
+    recorderRole: string | null,
+  ): Promise<void> {
+    await tx.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended('bank-ref:' || $1::text || ':' || $2::text, 0))`,
+      [tx.ctx.propertyId, bankReference],
+    );
+    const { rows } = await tx.query<{ code: string | null }>(
+      `SELECT r.code FROM payment d LEFT JOIN reservation r ON r.id = d.reservation_id
+        WHERE d.property_id = $1 AND upper(d.bank_reference) = $2 AND d.type IN ('deposit', 'charge')
+          AND d.reversal_of_id IS NULL AND d.status = 'succeeded'
+        ORDER BY d.created_at, d.id LIMIT 1`,
+      [tx.ctx.propertyId, bankReference],
+    );
+    if (rows.length === 0) return;
+    const code = rows[0]?.code ?? null;
+    const desk = recorderRole !== null && DESK_ROLES.includes(recorderRole);
+    throw problem('DUPLICATE_BANK_REFERENCE', {
+      ...(desk && code ? { extras: { duplicateReservationCode: code } } : {}),
+    });
   }
 
   /** Highest active role of a user in the property in context (A-40 snapshot). */
@@ -336,9 +395,24 @@ export class PaymentService {
        * holds its lock and checked method + image; the receipt always waits for the bank statement (`pending`, any
        * role, OWN included) and its audit carries `afterClosure` + `reservationStatus`.
        */
-      afterClosure?: { reservationStatus: ClosedReservationStatus };
+      afterClosure?: AfterClosureContext;
     },
   ): Promise<PaymentRowLite> {
+    return (await this.recordInTxWithDue(tx, actor, folioId, raw, ctx)).row;
+  }
+
+  /**
+   * recordInTx + N (FB-R5-ARC-BE-105-03 step 1): `dueBeforeVnd` = what the folio still owed when the receipt was
+   * written – `balanceDueVnd` read right after the folio lock (L3), before the receipt. The closed-booking branch
+   * (PaymentsService.recordAfterClosure) derives the 5B-1 refund from it: max(0, amountVnd − N).
+   */
+  async recordInTxWithDue(
+    tx: Tx,
+    actor: PaymentActor,
+    folioId: string,
+    raw: PaymentCreateInput,
+    ctx: Parameters<PaymentService['recordInTx']>[4],
+  ): Promise<{ row: PaymentRowLite; dueBeforeVnd: number }> {
     const folios = this.need(this.folios, 'FolioService');
     const params = this.need(this.params, 'ParameterService');
     const f = (name: string) => `${ctx.fieldPrefix ?? ''}${name}`;
@@ -362,6 +436,23 @@ export class PaymentService {
     if (!folio) throw problem('NOT_FOUND');
     if (ctx.debtCollection ? folio.status === 'open' : folio.status === 'closed') {
       throw problem('FOLIO_LOCKED');
+    }
+    // FB-R5-ARC-BE-105-03 step 1: N is read under L3, right after the lock – two receipts racing on one folio queue
+    // on it and the second one sees the first (`balanceDueVnd` already deducts every receipt `succeeded`, pending
+    // reconciliation included).
+    const owed = ctx.outstandingCapVnd ?? (await folios.balance(tx, folio.id)).balanceDueVnd;
+    if (ctx.afterClosure?.capToDue) {
+      // Steps 2–3 (`card_pos` on a closed booking – DOM FB-R5-DOM-ARC-105-01): only while the folio still owes
+      // something (a cancellation / no-show fee), never more than that – no "thu dư kèm ghi chú" here.
+      if (owed <= 0) {
+        throw problem('VALIDATION_FAILED', { errors: [{ field: f('method'), code: 'NOT_IN_LIST' }] });
+      }
+      if (raw.amountVnd > owed) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: f('amountVnd'), code: 'AMOUNT_EXCEEDS_BALANCE' }],
+          extras: { max: owed },
+        });
+      }
     }
     const now = this.clock.now();
     const tz = await folios.timezone(tx);
@@ -391,7 +482,6 @@ export class PaymentService {
         });
       }
     }
-    const owed = ctx.outstandingCapVnd ?? (await folios.balance(tx, folio.id)).balanceDueVnd;
     if (raw.amountVnd > owed) {
       if (!desk || ctx.debtCollection) {
         // BR-527: a sale never records more than the booking still owes; ARC 16.26: a debt collection neither.
@@ -430,7 +520,9 @@ export class PaymentService {
       recordedByRole: role,
       attachmentId: raw.attachmentId ?? null,
       ...(ctx.debtCollection ? { debtCollection: true } : {}),
-      ...(ctx.afterClosure ? { afterClosure: ctx.afterClosure } : {}),
+      ...(ctx.afterClosure
+        ? { afterClosure: { reservationStatus: ctx.afterClosure.reservationStatus } }
+        : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
     if (raw.attachmentId) {
@@ -444,7 +536,7 @@ export class PaymentService {
     if (row.reconciliation === 'not_required') {
       await anchorPaymentAttachment(this.attachments, tx, row, now);
     }
-    return row;
+    return { row, dueBeforeVnd: owed };
   }
 
   /**
