@@ -42,7 +42,11 @@ import { DocNumberService } from '../../platform/public/doc-number.service';
 import { divideRoundVnd } from '../../platform/public/money';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { applyPct } from '../../reservations/public/pricing';
-import type { FolioStaySync, VoidStayInput } from '../../reservations/public/folio-sync-port';
+import type {
+  CommissionVoidReason,
+  FolioStaySync,
+  VoidStayInput,
+} from '../../reservations/public/folio-sync-port';
 import type { ConfirmedStay } from '../../reservations/public/sales-port';
 import { StayNightAllocationService } from '../../reservations/public/stay-night-allocation';
 import { allocate } from './allocate';
@@ -1535,7 +1539,9 @@ export class FolioService implements FolioStaySync {
   /**
    * SM-11 `projected → earned` (BR-903 + BR-527, DOM S3-3 / BE-15): a short-stay commission is earned when
    * ALL hold – the booking is `checked_out`, its folio owes nothing, and no receipt recorded by the payee on
-   * the folio is still `pending`/`disputed`. Called at the LAST of those events: B18 (reservation hook),
+   * the folio is still `pending`/`disputed`. "The payee" = any payee of a commission row of the booking, also an
+   * earlier closer whose row was voided (DOM FB-R5-DOM-ARC-1H-04, contract 0.3.13 bổ sung 1h): a transfer the old
+   * closer recorded and nobody reconciled yet holds the new closer's row too. Called at the LAST of those events: B18 (reservation hook),
    * reconciliation / cash handover, a receipt after checkout (debt). The caller passes the booking status.
    * "After the check-out" (a receipt still unconfirmed holds the commission) = after the folio was `settled` by B18
    * (`folio.settled_at`, ARC 3.1 / DOM PR99-01) – not the guest's departure time (`actual_checkout_at`).
@@ -1586,8 +1592,10 @@ export class FolioService implements FolioStaySync {
         WHERE c.reservation_id = $1 AND c.status = 'projected'
           AND NOT EXISTS (
             SELECT 1 FROM payment p
-             WHERE p.folio_id = $2 AND p.recorded_by = c.payee_user_id AND p.status = 'succeeded'
-               AND p.reversal_of_id IS NULL AND p.reconciliation IN ('pending', 'disputed'))
+             WHERE p.folio_id = $2 AND p.status = 'succeeded'
+               AND p.reversal_of_id IS NULL AND p.reconciliation IN ('pending', 'disputed')
+               AND p.recorded_by IN (
+                 SELECT v.payee_user_id FROM commission v WHERE v.reservation_id = c.reservation_id))
         FOR UPDATE OF c`,
       [stay.reservationId, folio.id],
     );
@@ -1695,11 +1703,13 @@ export class FolioService implements FolioStaySync {
 
   /**
    * FOLIO_STAY_SYNC.ensureCommission – FB-R5-DOM-BE-101-01 (ARC FB-R5-ARC-BE-H1-03 (1)): the commission sync alone
-   * (see the port). Acts only for a short stay with a closer and sold nights that has NO commission row other than
-   * `void` – a row `projected` / `earned` / `payable` / `paid` means the booking already has its commission (the next
-   * resync follows it), so a run after "earned" never adds a second row. Folio lines and the folio itself are not
-   * read for writing: it runs on a settled folio at B18 and after (the caller holds the folio – L3 – when it runs
-   * inside tryEarnCommissions). Returns the amount of the row created (0 = none, e.g. still `rate_missing`).
+   * (see the port), for a short stay with a closer and sold nights. Skipped (ARC FB-R5-ARC-BE-131-02 (3), DOM
+   * FB-R5-DOM-BE-131-01) only when the booking already has its commission: a row `earned` / `payable` / `paid`, or a
+   * `projected` row of THE CURRENT closer – so a run after "earned" never adds a second row. Otherwise (no row, or a
+   * `projected` row of an earlier closer – a closer changed before the PATCH synced it) the sync runs: the old row is
+   * voided (`closer_changed`) and the current closer's row created at the pinned rate. Folio lines and the folio itself are not read
+   * for writing: it runs on a settled folio at B18 and after (the caller holds the folio – L3 – when it runs inside
+   * tryEarnCommissions). Returns the amount of the row created (0 = none, e.g. still `rate_missing`).
    */
   async ensureCommission(
     tx: Tx,
@@ -1708,13 +1718,107 @@ export class FolioService implements FolioStaySync {
   ): Promise<number> {
     if (!stay.closerUserId || stay.stayType !== 'short' || stay.nights.length === 0) return 0;
     const { rows } = await tx.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM commission WHERE reservation_id = $1 AND status <> 'void'`,
-      [stay.reservationId],
+      `SELECT count(*)::int AS n FROM commission
+        WHERE reservation_id = $1
+          AND (status IN ('earned', 'payable', 'paid') OR (status = 'projected' AND payee_user_id = $2))`,
+      [stay.reservationId, stay.closerUserId],
     );
     if ((rows[0]?.n ?? 0) > 0) return 0;
     const now = this.clock.now();
     const today = localDate(now, await this.timezone(tx));
-    return this.syncCommission(tx, await this.netNights(tx, stay), today, now, actor.requestId);
+    // A `projected` row still live here belongs to an earlier closer → voided as `closer_changed`.
+    return this.syncCommission(
+      tx,
+      await this.netNights(tx, stay),
+      today,
+      now,
+      actor.requestId,
+      'closer_changed',
+    );
+  }
+
+  /**
+   * FOLIO_STAY_SYNC.syncCommissionOnly – contract 0.3.13 bổ sung 1h (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02
+   * (1)–(2)): the closer of a booking changed (PATCH `closerUserId`) → the commission follows in the SAME transaction.
+   * - A row `payable` / `paid` (already in a pay-out) → 409 `INVALID_TRANSITION` (`currentState`), nothing written:
+   *   the owner adjusts it at pay-out.
+   * - The earlier closer's live rows go `void` with `voidReason` (`closer_changed` before check-in, `closer_corrected`
+   *   when OWN corrects it after check-in): `projected` rows through syncCommission, an `earned` row here.
+   * - The new closer's row is created at the booking's pinned rate (the snapshot, else the first row of the payee type
+   *   – #131: a change of person never changes the rate), `projected`; on a `checked_out` booking it is then earned
+   *   by the same rule as B18 (tryEarnCommissions: folio owes nothing, no receipt of the payee – nor of an earlier
+   *   closer, DOM FB-R5-DOM-ARC-1H-04 – pending).
+   * Lock order: the caller holds the booking (L1) and the folio (L3); the commission rows are locked FOR UPDATE here,
+   * as at B18. Returns the amount of the live row (0 = none, e.g. `rate_missing` or a long stay).
+   */
+  async syncCommissionOnly(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+    opts: { voidReason: CommissionVoidReason; reservationStatus: string },
+  ): Promise<number> {
+    const { rows: settled } = await tx.query<{
+      id: string;
+      status: 'earned' | 'payable' | 'paid';
+      payee_user_id: string;
+      amount_vnd: number;
+    }>(
+      `SELECT id, status, payee_user_id, amount_vnd FROM commission
+        WHERE reservation_id = $1 AND status IN ('earned', 'payable', 'paid')
+        ORDER BY created_at, id FOR UPDATE`,
+      [stay.reservationId],
+    );
+    const inPayout = settled.find((c) => c.status !== 'earned');
+    if (inPayout) {
+      throw problem('INVALID_TRANSITION', {
+        detail: 'the commission of this booking is already in a pay-out',
+        extras: { currentState: inPayout.status },
+      });
+    }
+    const now = this.clock.now();
+    // The new closer already holds the earned commission (a booking whose closer changed before this fix, set back):
+    // it stays; nothing else of theirs is created.
+    const kept = settled.find((c) => c.payee_user_id === stay.closerUserId);
+    for (const c of settled) {
+      if (c === kept) continue;
+      await tx.query(
+        `UPDATE commission SET status = 'void', void_reason = $3, recognized_at = NULL, updated_at = $2,
+                version = version + 1
+          WHERE id = $1`,
+        [c.id, now, opts.voidReason],
+      );
+      await this.audit.recordMoney(tx, {
+        action: 'commission.voided',
+        entityType: 'commission',
+        entityId: c.id,
+        entityCode: stay.reservationCode,
+        before: { status: 'earned', amountVnd: c.amount_vnd },
+        after: { status: 'void', voidReason: opts.voidReason },
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
+    if (kept) return kept.amount_vnd;
+    const today = localDate(now, await this.timezone(tx));
+    const amount = await this.syncCommission(
+      tx,
+      await this.netNights(tx, stay),
+      today,
+      now,
+      actor.requestId,
+      opts.voidReason,
+    );
+    if (opts.reservationStatus === 'checked_out') {
+      await this.tryEarnCommissions(
+        tx,
+        {
+          reservationId: stay.reservationId,
+          reservationCode: stay.reservationCode,
+          status: 'checked_out',
+        },
+        actor.requestId,
+      );
+    }
+    return amount;
   }
 
   /**
@@ -4092,6 +4196,7 @@ export class FolioService implements FolioStaySync {
     today: LocalDate,
     now: Date,
     requestId?: string,
+    voidReason: CommissionVoidReason = 'resync',
   ): Promise<number> {
     let desired: { payee: PayeeType; ratePct: number; base: number; amount: number } | null = null;
     if (stay.closerUserId && stay.stayType === 'short' && stay.nights.length > 0) {
@@ -4142,9 +4247,9 @@ export class FolioService implements FolioStaySync {
     for (const c of liveRows) {
       if (c === current) continue;
       await tx.query(
-        `UPDATE commission SET status = 'void', void_reason = 'resync', updated_at = $2, version = version + 1
+        `UPDATE commission SET status = 'void', void_reason = $3, updated_at = $2, version = version + 1
           WHERE id = $1`,
-        [c.id, now],
+        [c.id, now, voidReason],
       );
       await this.audit.recordMoney(tx, {
         action: 'commission.voided',
@@ -4152,7 +4257,7 @@ export class FolioService implements FolioStaySync {
         entityId: c.id,
         entityCode: stay.reservationCode,
         before: { status: 'projected', amountVnd: c.amount_vnd },
-        after: { status: 'void', voidReason: 'resync' },
+        after: { status: 'void', voidReason },
         ...(requestId ? { requestId } : {}),
       });
     }

@@ -12,7 +12,9 @@
  *   follows to the B18 line, at most the new line, without a second approval:
  *   (1) B15 15:00 + FOC 210.000 (FDL) → B18 17:00 → line 350.000 `checkout`, FOC 210.000, the guest pays 140.000;
  *   (2) B15 17:00 + FOC 350.000 (MGR) → B18 15:00 → line 210.000 `checkout`, FOC 210.000, the guest pays 0;
- *   (3) B15 15:00 + FOC 210.000 (FDL) → B18 15:00 → the B15 line stays (`manual`), FOC 210.000, the guest pays 0.
+ *   (3) B15 15:00 + FOC 210.000 (FDL) → B18 15:00 → the B15 line stays (`manual`), FOC 210.000, the guest pays 0;
+ *       DOM FB-R5-DOM-BE-110-03: Hạnh then removing that B15 line (the only `manual` late line on a settled folio)
+ *       → 403 FORBIDDEN_ACTION by A32, no `requiredFlow`, no access.denied BR-438, folio unchanged.
  * Fake clock and FAKE data only (no real guest).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -373,6 +375,36 @@ describe.skipIf(!HAS_DB)(
         expect(await effectiveOf(request.id)).toBe(run.expected.foc);
         expect(await folioStatus(s)).toBe('settled');
         expect((await folio(s)).totals.balanceDueVnd).toBe(0);
+        if (run.expected.source === 'manual') {
+          // DOM FB-R5-DOM-BE-110-03: the B15 line is `manual` on a SETTLED folio – A32 refuses before BR-438 is read,
+          // so the desk never gets a "send a FOC" hint it could not send on a settled folio.
+          const before = await folio(s);
+          const n = (
+            await q(
+              `SELECT count(*)::int AS n FROM audit_event WHERE action = 'access.denied' AND reason = 'BR-438'`,
+            )
+          )[0].n as number;
+          const etag = (await c.mgr!.get(url(`/folios/${s.folioId}`))).headers.etag as string;
+          const r = (await c.hanh!.send(
+            'POST',
+            url(`/folios/${s.folioId}/lines/${b15.id}/adjustments`),
+            { reason: 'Khách phàn nàn', voidLine: true },
+            { 'if-match': etag },
+          )) as Res;
+          expect(r.statusCode, r.body).toBe(403);
+          expect(r.json().code).toBe('FORBIDDEN_ACTION');
+          expect(r.json()).not.toHaveProperty('requiredFlow');
+          expect(
+            (
+              await q(
+                `SELECT count(*)::int AS n FROM audit_event WHERE action = 'access.denied' AND reason = 'BR-438'`,
+              )
+            )[0].n,
+          ).toBe(n);
+          const after = await folio(s);
+          expect(after.version).toBe(before.version);
+          expect(after.lines).toEqual(before.lines);
+        }
       });
     }
 
