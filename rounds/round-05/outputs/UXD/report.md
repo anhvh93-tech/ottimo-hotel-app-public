@@ -339,3 +339,44 @@ Số khóa bản 2.1: sửa 4, mới 11, xóa 1. Cộng **236** (bản 2.0: 220)
 `| 2026-11-07 | 5 | **UXD – 3 việc chữ thêm (copy-v1.0.5 bản 2.1)** (rounds/round-05/outputs/UXD/report.md mục 12). (1) mlog.a_money_not_found chốt "Không thấy tiền về cho đơn đã hủy" / "Money not received for cancelled booking", đã áp trên main (gen_strings, sinh lại, content-guide); EN nút today.money_after_cancel_not_found đổi "Money not received" theo co.recon_missing; chọn câu theo after.kind là Suggestion (FB-R5-UXD-FE-111-02). (2) Câu 422 CARD_NUMBER_DETECTED ở ô mã giao dịch giữ "8 chữ số cuối"; ARC sửa "8 ký tự cuối" ở openapi.yaml recordPayment (B) và contract-0.3.13.md dòng C0313-25 (FB-R5-UXD-ARC-111-01, Minor). (3) DOM 112-01: 6 nhóm nhãn lý do hoàn (3 có sẵn, 3 mới: "Hoàn khi chuyển khách sang nơi khác", "Hoàn khi hủy hoặc không đến", "Hoàn tiền"), FE xét overbooking_relocated trước nhóm hủy và cộng openRefunds theo nhãn; 5 câu lockReason, settled theo vai bắt buộc cùng V5-44 vì câu chung "kể cả quản lý" sai ở ca này (FB-R5-UXD-FE-112-01, Major khi code); ARC 0.3.14 ghi mã nhập tay không trùng CancelReasonCode (ARC-112-02); DOM xác nhận câu công nợ theo BR-525 (DOM-112-03). Không ESC | UXD | report.md mục 12 |`
 
 - ESC mới: không có.
+
+## 13. Cập nhật 07/11 – Phản hồi & sửa: HTML sổ tay 1.19, bộ hướng dẫn 1.17, sổ vận hành 1.7
+
+- **Nguồn:** main @ `83e3e29b` (có BA lượt 4 `da596507`). Sổ tay bản nội dung 1.19. Bộ hướng dẫn 1.17: `00` bản 1.17, `01` bản 1.16, `02` bản 1.16, `03` bản 1.8; `04`, `05` dựng lại cùng lượt, nguồn không đổi. Sổ vận hành bản 1.7. UXD không sửa Markdown.
+- **Lệnh:** `python3 -I product/design/tools/rebuild_manual_html.py --out-dir <scratchpad> --tag manual-1.19`. Kết quả **ĐẠT**.
+- **Tệp đã dựng** (không commit, theo `.gitignore` và FB-R4-SEC-UXD-HTML-01):
+  - `product/docs/manual/ottimo-manual-v1.0.html` (8,0 MB);
+  - `product/docs/manual/guides/html/` – `00-index`, `01-chu-dau-tu-quan-ly`, `02-le-tan`, `03-buong-phong`, `04-bao-tri`, `05-sale-ctv`, `your-id-details-tablet`;
+  - `product/docs/so-van-hanh.html` (0,4 MB, **mới**). `.gitignore` thêm dòng này, trong cùng khối HTML dựng tự động.
+- **Khối [Chờ xác nhận]:**
+  - `build_manual.py` nay **bỏ** mọi khối trích mở bằng `**[Chờ xác nhận …]**`. Bộ hướng dẫn và sổ vận hành dùng chung lõi này.
+  - Lượt này bỏ 2 khối "Wi-Fi của cơ sở trên Desk": sổ tay mục 1.4 và tệp `01` mục 9.2. Khung "Lỗi đang sửa – Wi-Fi" vẫn hiện, đúng với Desk hôm nay.
+  - Bộ kiểm báo lỗi nếu khung nào chứa "[Chờ xác nhận". Tên khối vẫn còn trong bảng Lịch sử: sổ tay dòng 1.18, 1.19; `00` dòng 1.17; lịch sử tệp `01`, `02`. Đó là ghi lịch sử, không phải bước làm, nên giữ.
+  - Khi ORC báo bản, BA bỏ ngoặc vuông thì khối tự lên. Không phải sửa bộ dựng.
+- **Sổ vận hành – bộ dựng mới `product/design/tools/build_so_van_hanh.py`:** dùng lõi `build_manual.py` (cùng CSS, font nhúng, in A4). Phần riêng:
+  - nhãn "Mục 1–7"; bìa ghi Bản 1.7 · 07/11/2026 · Dành cho Chủ đầu tư;
+  - 104 dòng `[ ]` thành ô vuông. In đen trắng vẫn rõ (đã xem ảnh xám trang 1);
+  - "In riêng mục này" in đúng mục đó, không kèm bìa. Mục 1 ra 5 trang A4, chân trang "Sổ vận hành OTTIMO · bản 1.7 · trang n". Cả sổ ra 22 trang;
+  - chỉ nối "mục x.y" của chính sổ: 61 link, không link hỏng. "sổ tay mục …" và "hướng dẫn `01` mục …" để chữ (22 chỗ), như bộ hướng dẫn đang làm.
+- **Kiểm:**
+  - 390 px và 1440 px: không tràn ngang ở sổ tay, `00`–`05` và sổ vận hành. Tờ tablet đo riêng: VỪA ở cả 3 khổ.
+  - Mất mạng: đủ 5 mặt font nhúng (Lora 500, Lora 400 nghiêng, Be Vietnam Pro 400/600, JetBrains Mono). Không trỏ Google Fonts.
+  - Ảnh nhúng chỉ từ `product/docs/manual/img/`, khớp từng byte. Đủ 6 mã ảnh bắt buộc.
+  - Màu: 7 màu brand, cộng các token tint đã có trong `design-system.md` (`--line`, `--line-strong`, `--deco`) và trắng giấy in.
+  - Không emoji. `00` có "★4, ★7" ở dòng lịch sử 1.2: ký hiệu chữ trích từ mục SEC, không phải emoji, giữ nguyên văn.
+- **Chưa hiện được ảnh** (hiện ô "Chưa có ảnh" / "Ảnh mới · chờ chụp", không phải lỗi dựng):
+  - sổ tay: C1-15, C1-23, C2-34;
+  - `01`: C1-15, C1-23;
+  - `02`: G2-03, G2-05, G2-06, C2-34;
+  - `03`: G3-02.
+  Ảnh mới phải qua QA soát che trước khi commit vào `img/`.
+- **Ảnh kiểm để ngoài repo**, thư mục scratchpad `…/scratchpad/r5-manual-1.19/`:
+  - `manual-1.19-check-1440.png`, `manual-1.19-check-390.png`;
+  - `manual-1.19-sovh-check-1440.png`, `manual-1.19-sovh-check-390.png`;
+  - `manual-wifi-1440.png`, `manual-wifi-390.png`, `g01-wifi-1440.png`, `g01-wifi-390.png` (chỗ khối Wi-Fi đã bỏ);
+  - `sovh-cover-1440.png`, `sovh-cover-390.png`, `sovh-print-muc-1.pdf`, `sovh-print-all.pdf`.
+  Ảnh không có dữ liệu khách (ảnh sổ tay lấy từ `img/` đã commit, tài khoản QA). Theo luật, chỉ commit sau khi QA soát che, nên lượt này không commit ảnh.
+- **4 ảnh kiểm cũ chưa track** (`rounds/round-03/outputs/UXD/manual-check-*.png`, `rounds/round-04/outputs/UXD/manual-1.8-check-*.png`): là ảnh UXD từ các lần dựng trước. UXD để nguyên, không xóa, không commit. Dựng lại được bất cứ lúc nào; ORC quyết có xóa hay không.
+- **Dòng decision-log đề xuất** (ORC ghi):
+  `| 2026-11-07 | 5 | **UXD – dựng HTML sổ tay 1.19, bộ hướng dẫn 1.17, sổ vận hành 1.7** từ main 83e3e29b (BA da596507), không commit HTML (.gitignore thêm product/docs/so-van-hanh.html). Bộ dựng bỏ mọi khối trích mở bằng **[Chờ xác nhận …]**: lượt này bỏ khối Wi-Fi trên Desk ở sổ tay 1.4 và 01 mục 9.2, BA bỏ ngoặc vuông thì khối tự lên. Sổ vận hành có bộ dựng mới build_so_van_hanh.py (lõi build_manual: nhãn Mục 1–7, 104 ô đánh dấu, in riêng từng mục). Kiểm 390/1440 không tràn, font nhúng khi mất mạng, ảnh chỉ từ img/; 7 mã ảnh chưa chụp vẫn là ô chờ | UXD | report.md mục 13 |`
+- ESC mới: không có.

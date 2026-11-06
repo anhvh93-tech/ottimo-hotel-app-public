@@ -1,6 +1,6 @@
 # Định nghĩa chỉ số – OTTIMO Desk
 
-- Tác giả: DATA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý PO-on-DATA và lỗi tự nhận D-1…D-10 trong DATA-on-ARC; xem mục 10)
+- Tác giả: DATA | Round 5 – Phản hồi & sửa | Ngày: 07/11/2026 | Phiên bản: **0.3** (ngày của dòng phí giữ lại theo PR #114 V5-11 / BR-010 v0.5.12; K-22e bỏ `deposit_forfeit`; thêm K-22f, K-22g, R-10 – review `rounds/round-05/reviews/DATA-on-pr-114-k22e.md`; xem mục 10). Bản 0.2: Round 1 – Bước 4, 15/10/2026 (đã xử lý PO-on-DATA và lỗi tự nhận D-1…D-10 trong DATA-on-ARC)
 - Đầu vào: `product/docs/round-0-baseline.md` (gọi tắt **BL**) mục 3.2, 3.20, 5.11, 8.2; `product/docs/business-rules.md` (gọi tắt **BR**), nhất là BR-002, 003, 215, 301, 804, 901–904; `product/docs/PRD.md` mục 3; `product/docs/baseline-issues-triage.md`; `product/docs/security/data-risk-assessment.md` mục 3; `01-decisions/decision-log.md`.
 - Phạm vi Round 1 (quyết định P1): **chỉ định nghĩa công thức và dữ liệu cần lưu**. Tracking sự kiện, truy vấn mẫu, dashboard, đặc tả báo cáo để Round 2–3.
 - Tài liệu này là **nguồn sự thật cho công thức chỉ số**. Con số quy tắc (giá, %, giờ, phí) vẫn lấy từ `business-rules.md`; ở đây chỉ tham chiếu mã BR.
@@ -29,7 +29,7 @@ Mỗi chỉ số có: định nghĩa · công thức · nguồn dữ liệu · q
 - Mọi mốc thời gian lưu dạng thời điểm có múi giờ (UTC trong DB), **quy đổi về Asia/Ho_Chi_Minh khi tính chỉ số** (BR-001).
 - **Ngày lưu trú (stay date)** của một đêm = ngày lịch khách bắt đầu ngủ đêm đó (BR-002, BR-003). Đơn đến 19/10, đi 22/10 có 3 ngày lưu trú: 19, 20, 21/10.
 - Kỳ báo cáo (ngày/tuần/tháng/quý/năm) **lọc theo ngày lưu trú** cho chỉ số đêm và doanh thu; **lọc theo thời điểm sự kiện** cho chỉ số dòng tiền và chỉ số quy trình (S2–S8).
-- **Ngày nghiệp vụ (business date) đổi lúc 06:00** (decision-log DOM 15/10/2026): một thời điểm `t` thuộc ngày nghiệp vụ = ngày lịch của (`t` giờ VN − 6 giờ). Khách đến 01:30 ngày 21/10 thuộc ngày nghiệp vụ 20/10, khớp BR-003 (đêm 20/10). Áp dụng cho: "đêm nay" trên Tổng quan (K-03 biến thể đêm nay, chuyển ngày lúc 06:00), ngày ghi nhận phí hủy/no-show/phí trả sớm (Q-09), ngày phát hiện sự cố (S1), kỳ của chỉ số quy trình S2–S8 và K-22. **Ngoại lệ**: dòng tiền K-20 lọc theo **ngày lịch** của `received_at` để khớp sao kê ngân hàng/cổng thanh toán (báo cáo ghi rõ "theo ngày thu"). **[DATA chốt]**
+- **Ngày nghiệp vụ (business date) đổi lúc 06:00** (decision-log DOM 15/10/2026): một thời điểm `t` thuộc ngày nghiệp vụ = ngày lịch của (`t` giờ VN − 6 giờ). Khách đến 01:30 ngày 21/10 thuộc ngày nghiệp vụ 20/10, khớp BR-003 (đêm 20/10). Áp dụng cho: "đêm nay" trên Tổng quan (K-03 biến thể đêm nay, chuyển ngày lúc 06:00), ngày dịch vụ của **dòng phí giữ lại** – phí hủy, phí không đến, phí trả sớm, tiền khách để lại khi trả phòng (Q-09, BR-010 v0.5.12), ngày phát hiện sự cố (S1), kỳ của chỉ số quy trình S2–S8 và K-22. **Ngoại lệ**: dòng tiền K-20 lọc theo **ngày lịch** của `received_at` để khớp sao kê ngân hàng/cổng thanh toán (báo cáo ghi rõ "theo ngày thu"). **[DATA chốt]**
 - Tuần bắt đầu Thứ Hai. Tháng = tháng lịch (của ngày lưu trú hoặc ngày nghiệp vụ tương ứng).
 
 ### Q-02. Đêm-phòng là đơn vị gốc
@@ -79,7 +79,11 @@ Mọi chỉ số đêm và doanh thu phòng tính trên **bảng đêm-phòng** 
 ### Q-07. Thay đổi đơn: gia hạn, đổi phòng, trả sớm
 - **Gia hạn**: các đêm thêm là đêm-phòng mới. Đơn OTA gia hạn tạo **đơn con kênh Trực tiếp** liên kết đơn gốc (BR-422) → doanh thu đêm gia hạn tính vào kênh Trực tiếp; cùng một **lượt lưu trú** (stay) cho ALOS (K-14).
 - **Đổi phòng giữa kỳ** (BR-424): đêm-phòng từ ngày đổi chuyển sang căn mới; đơn vẫn là một lượt lưu trú.
-- **Trả sớm** (BR-428): các đêm không ở chuyển `void` với `void_reason = early_departure` (không còn đêm bán, vẫn giữ dòng để truy vết); phần tiền không hoàn của các đêm đó → **doanh thu khác** (dòng "phí trả phòng sớm").
+- **Trả sớm** (BR-428): các đêm không ở chuyển `void` với `void_reason = early_departure` (không còn đêm bán, vẫn giữ dòng để truy vết); phần tiền không hoàn của các đêm đó → **doanh thu khác** (dòng "phí trả phòng sớm", K-22g).
+  - *(v0.3)* Dòng phí trả sớm mang **ngày nghiệp vụ lúc thao tác trả sớm**, không mang Ngày rời mới. Các đêm bỏ giữ ngày lưu trú của chúng (K-22f). Áp từ v1.0.5 (PR #114). Trước đó, phí trả sớm ban ngày ghi theo Ngày rời mới.
+  - Ví dụ (số ví dụ của DOM): đơn 25/11–05/12 × 700.000; 10:00 ngày 29/11 khách báo rời 02/12 → phí 1.050.000.
+    - Phí nằm ở K-07 **tháng 11** (ngày 29/11). Trước v1.0.5 nó nằm ở tháng 12 (ngày 02/12).
+    - Ba đêm bỏ (02, 03, 04/12) là đêm `void` của **tháng 12**.
 - **Đổi ngày** (B7/B8): đêm cũ `void` với `void_reason = date_change`, đêm mới sinh với `sold_at` mới. Đêm `date_change` **không** phải đêm mất (K-22).
 - **No-show một phần** (đến trễ 1 đêm, đã báo): đêm vẫn tính (BR-311).
 
@@ -93,11 +97,24 @@ Mọi chỉ số đêm và doanh thu phòng tính trên **bảng đêm-phòng** 
 | Nhóm | Gồm | Ghi nhận vào kỳ nào |
 |---|---|---|
 | **Doanh thu phòng** | Tiền phòng ngắn ngày theo đêm; tiền thuê dài hạn (phân bổ theo đêm, Q-10); đêm gia hạn; đêm thêm do nhận trước 06:00 / trả sau 18:00; tiền ngày lẻ dài hạn (BR-210) | Ngày lưu trú của đêm |
-| **Doanh thu khác** | Phụ thu nhận sớm/trả muộn (không sinh đêm); phụ thu người thêm (BR-110); minibar, F&B, giặt ủi, dọn lẻ; **phí dịch vụ & dọn theo gói của dài hạn** (BR-204); **điện nước thu lại** (BR-501); phí phạt, bồi thường (BR-511, 512); phí hủy, cọc/ký quỹ bị giữ lại, phí no-show, phí trả sớm, phạt chấm dứt HĐ | Phát sinh theo ngày dịch vụ (`FolioLine.service_date`); phí dịch vụ dài hạn phân bổ theo đêm như tiền thuê; điện nước theo kỳ công tơ; phí hủy/no-show theo ngày hủy/ngày đánh dấu no-show |
+| **Doanh thu khác** | Phụ thu nhận sớm/trả muộn (không sinh đêm); phụ thu người thêm (BR-110); minibar, F&B, giặt ủi, dọn lẻ; **phí dịch vụ & dọn theo gói của dài hạn** (BR-204); **điện nước thu lại** (BR-501); phí phạt, bồi thường (BR-511, 512); phí hủy, cọc/ký quỹ bị giữ lại, phí no-show, phí trả sớm, phạt chấm dứt HĐ; tiền thừa khách để lại khi trả phòng (`deposit_forfeit`, `charge_code = overpayment_retained`) | Phát sinh theo ngày dịch vụ (`FolioLine.service_date`, đọc như đã lưu); phí dịch vụ dài hạn phân bổ theo đêm như tiền thuê; điện nước theo kỳ công tơ; **dòng phí giữ lại** (phí hủy, phí không đến, phí trả sớm, tiền khách để lại) theo **ngày nghiệp vụ lúc thao tác** (BR-010 v0.5.12) – phí trả sớm không theo Ngày rời mới (Q-07) |
 | **Không phải doanh thu** | Cọc, ký quỹ khi đang giữ (BR-206, BR-523); tiền thu trước cho kỳ chưa tới; tiền hoàn | Theo dõi ở dòng tiền (K-20) và sổ ký quỹ |
 | **Giảm trừ** | Dòng FOC âm (BR-434) triệt tiêu đúng nhóm của dòng gốc | Cùng kỳ, cùng nhóm với dòng được miễn |
 
 Phụ thu người thêm xếp vào doanh thu khác **[DATA chốt]** vì BR-904 nêu "doanh thu phòng không gồm phụ thu"; nếu INV muốn tính vào giá phòng (ADR) thì chỉ đổi phân loại, không đổi dữ liệu.
+
+**Ngày của dòng phí giữ lại (v0.3, PR #114 V5-11)** **[DATA chốt]**
+- Từ v1.0.5, máy chủ ghi `service_date` = ngày nghiệp vụ lúc thao tác cho `cancellation_fee`, `no_show_fee`, `early_departure_fee` (gồm phần OTA `charge_code = ota_retained`) và `deposit_forfeit`.
+- Trước v1.0.5, mã lệch quy ước này ở ba chỗ:
+  - phí hủy, phí không đến trong 00:00–05:59 ghi ngày lịch (BUG-R3-036);
+  - phí trả sớm ban ngày ghi Ngày rời mới;
+  - tiền khách để lại ghi ngày đi của lượt.
+- Báo cáo đọc `service_date` **như đã lưu**. Không tự tính lại ngày từ Ngày rời mới, `departure_date`, `cancelled_at`, `no_show_marked_at` hay ngày lịch của `posted_at`.
+- Dòng đảo chép `service_date` của dòng gốc, nên tự triệt tiêu đúng ngày gốc (ví dụ khôi phục không đến B12). Khi có "Chốt tháng" (Q-14): điều chỉnh của tháng đã chốt ghi vào tháng hiện hành.
+- **Dòng ghi trước v1.0.5 giữ ngày cũ, không có migration sửa ngày**: mã tiền đóng băng, dòng đã ghi không sửa – chỉ đảo bút toán.
+  - Trước khi dựng báo cáo v1.2, OWN hoặc OPS đếm các dòng này bằng truy vấn chỉ đọc ở R-10 (mục 6).
+  - Còn dòng thì báo cáo ghi chú "dòng phí ghi trước ngày lên v1.0.5 theo ngày cũ".
+  - Kết quả đếm **không** ghi vào repo.
 
 ### Q-10. Doanh thu dài hạn: phân bổ **theo đêm**, không theo kỳ thu **[DATA chốt]** (BR-215, sửa BL 8.2 #22)
 
@@ -200,7 +217,8 @@ Phụ thu người thêm xếp vào doanh thu khác **[DATA chốt]** vì BR-904
 
 ### K-07. Doanh thu khác (theo nhóm)
 - **Công thức**: Σ `FolioLine.amount` có `category` thuộc nhóm "khác" (Q-09), theo `service_date`, trừ dòng FOC âm cùng nhóm; **riêng phí dịch vụ & dọn dài hạn** lấy Σ `stay_night.service_fee_alloc_vnd` theo ngày lưu trú (không lấy dòng folio theo kỳ thu, tránh đếm hai lần).
-- Nhóm hiển thị: Phụ thu giờ & người thêm · Minibar/F&B · Dọn lẻ & giặt ủi · Phí dịch vụ & dọn dài hạn · Điện nước · Phạt & bồi thường · Phí hủy/no-show/chấm dứt.
+- Nhóm hiển thị: Phụ thu giờ & người thêm · Minibar/F&B · Dọn lẻ & giặt ủi · Phí dịch vụ & dọn dài hạn · Điện nước · Phạt & bồi thường · Phí hủy/không đến/chấm dứt · Phí trả sớm · Tiền khách để lại khi trả phòng *(v0.3: tách hai nhóm cuối)*.
+- *(v0.3)* `service_date` đọc như đã lưu. Dòng phí giữ lại mang ngày nghiệp vụ lúc thao tác (Q-09), dòng đảo tính ở ngày của dòng gốc. Phí trả sớm ban ngày từ v1.0.5 rơi vào kỳ của ngày báo trả sớm (ví dụ Q-07: tháng 11, không phải tháng 12).
 - **Ví dụ**: tháng 9 (BL): phí dịch vụ & dọn 6.200.000 + điện nước 3.100.000 = **9.300.000**.
 
 ### K-08. Tổng doanh thu
@@ -287,11 +305,21 @@ Kỳ lọc theo **ngày đến dự kiến** (`arrival_date`) của đơn, trừ
 | **K-22a Tỉ lệ hủy đơn đã xác nhận (theo đơn)** | `Số đơn cancelled có status_before_cancel = confirmed và cancel_reason_code ∉ {hold_expired, overbooking_relocated, ota_cancelled} ÷ Số đơn có confirmed_at ≠ null và arrival_date trong kỳ` | Mã lý do theo **BR-308 v0.2** / ERD `reservation.cancel_reason_code`. **Loại trừ**: `hold_expired` (giữ chỗ hết hạn, đo ở S7), `overbooking_relocated` (dời khách do overbooking, BR-312, đo ở S1b/S1c), `ota_cancelled` (OTA/kênh báo hủy, BR-310). **Được tính**: `guest_cancelled` (khách tự hủy qua app/web/kênh, gồm hủy chủ động trên OTA), `guest_changed_mind`, `found_other`, `price`, `date_change`, `unreachable`, `group_partial`, `other` |
 | **K-22b Tỉ lệ hủy theo đêm** | `Số đêm void có void_reason = cancelled và prev_state = sold ÷ Số đêm từng sold (sold_at ≠ null) có stay_date trong kỳ` | Kỳ theo **ngày lưu trú**; đo đêm mất thật |
 | **K-22c Tỉ lệ no-show** | `Số đơn no_show ÷ Số đơn có arrival_date trong kỳ và trạng thái ∈ {in_house, checked_out, no_show}` | Mẫu số là đơn "đến hạn đến" thật; loại đơn đã hủy trước ngày đến |
-| **K-22d Đêm mất do hủy / no-show** | Σ đêm `void` có `void_reason ∈ {cancelled, no_show}` và `prev_state = sold`, theo ngày lưu trú, theo kênh (`stay_night.channel_id`) | **Không** gồm `date_change` (không mất), `hold_expired` (chưa bán), `early_departure` (báo dòng riêng "đêm bỏ do trả sớm") |
-| **K-22e Doanh thu bù từ hủy/no-show** | Σ `folio_line` nhóm `cancellation_fee`, `no_show_fee`, `deposit_forfeit` theo ngày nghiệp vụ hủy/đánh dấu no-show | Doanh thu khác (Q-09); so sánh với doanh thu phòng của đêm mất |
+| **K-22d Đêm mất do hủy / no-show** | Σ đêm `void` có `void_reason ∈ {cancelled, no_show}` và `prev_state = sold`, theo ngày lưu trú, theo kênh (`stay_night.channel_id`) | **Không** gồm `date_change` (không mất), `hold_expired` (chưa bán), `early_departure` (báo riêng ở **K-22f**) |
+| **K-22e Doanh thu bù từ hủy/không đến** *(sửa v0.3)* | Σ `folio_line.amount_vnd` có `category ∈ {cancellation_fee, no_show_fee}`, gồm dòng đảo, của đơn `stay_type = short`, **theo `service_date`** (từ v1.0.5 = ngày nghiệp vụ lúc hủy hoặc đánh dấu không đến, Q-09). Tách theo kênh (`reservation.channel_id`) và mã lý do hủy | Doanh thu khác (Q-09). Gồm cọc bị giữ khi hủy/không đến (máy chủ ghi thành hai loại dòng này) và phạt OTA (BR-310). **Không** gồm `deposit_forfeit`: trong mã đó là tiền thừa khách để lại khi Trả phòng, không liên quan hủy hay không đến (nằm ở K-07). Bỏ cách lấy ngày từ `cancelled_at`/`no_show_marked_at`: hai cách nay cùng một ngày, và đọc `service_date` thì dòng đảo khi khôi phục không đến (B12) tự triệt tiêu |
+| **K-22f Đêm bỏ do trả sớm** *(mới v0.3)* | Σ đêm `void` có `void_reason = early_departure` và `prev_state = sold`, theo **ngày lưu trú**, theo kênh (`stay_night.channel_id`) | Đêm khách đã đặt nhưng không ở. Không phải đêm mất do hủy (K-22d) |
+| **K-22g Phí giữ lại do trả sớm** *(mới v0.3)* | Σ `folio_line.amount_vnd` có `category = early_departure_fee`, gồm dòng đảo, của đơn `stay_type = short`, **theo `service_date`** (từ v1.0.5 = ngày nghiệp vụ lúc trả sớm – không phải Ngày rời mới, Q-07). Tách phần OTA (`charge_code = ota_retained`) và phần Trực tiếp/CTV | Doanh thu khác (Q-09, K-07 nhóm "Phí trả sớm"). Phí kênh trên phần OTA giữ lại (nếu có) ghi cùng ngày với dòng phí (`channel_fee.recognized_on`, K-15) – ARC chốt ở hợp đồng báo cáo v1.2 |
 
 - **Nguồn**: `reservation.status`, `status_before_cancel`, `confirmed_at`, `cancel_reason_code`, `cancelled_at`, `no_show_marked_at`, `channel_id`; `stay_night.night_state/sold_at/voided_at/void_reason/prev_state`; lịch sử đầy đủ ở `reservation_change` (Q-14).
 - **Ví dụ** (giả lập): tháng 11 có 60 đơn ngắn ngày đã xác nhận có ngày đến trong tháng; 6 đơn khách hủy (`guest_cancelled`/`guest_changed_mind`…), 1 đơn `overbooking_relocated` → K-22a = 6 ÷ 60 = **10,0%**. Trong 53 đơn còn lại đến hạn: 51 nhận phòng, 2 no-show → K-22c = 2 ÷ 53 = **3,8%**. 6 đơn hủy × 2 đêm + 2 no-show × 3 đêm = **18 đêm mất**.
+- **So sánh phí bù với đêm mất** (K-22e với K-22d, K-22g với K-22f) *(sửa v0.3)*: **gom theo đơn**, không chia hai tổng tháng cho nhau.
+  - Mỗi đơn hủy, không đến hoặc trả sớm góp hai số: phí của đơn, và doanh thu phòng đã chốt của các đêm đơn đó bỏ (`stay_night.room_revenue_vnd` của đêm `void`, giữ lại để truy vết).
+  - Kỳ = tháng của `service_date` của dòng phí.
+  - Lý do: phí nằm ở tháng thao tác, đêm bỏ nằm ở tháng lưu trú. Chia hai tổng tháng sẽ đặt phí tháng 11 lên đêm tháng 12 (ví dụ Q-07).
+- **Ví dụ ngày** (số của oracle BR-428-14, BR-309-27, BR-311-04 – không phải số thật):
+  - Trả sớm lúc 03:00 ngày 21/10 trên đơn 20–24/10 × 700.000 → K-22g có 1.050.000 ở **20/10**; K-22f có 3 đêm (21, 22, 23/10).
+  - Hủy lúc 01:30 ngày 22/10 → K-22e có 350.000 ở **21/10**.
+  - Đánh dấu không đến 00:40 ngày 21/10 → K-22e có 500.000 ở **20/10**.
 - Kênh OTA: phân tích theo kênh (Agoda, Booking…) để INV thấy kênh nào hủy nhiều. Không tính "lý do hủy" chi tiết ngoài mã lý do (không ghi văn bản tự do của khách vào chỉ số).
 
 ### Lộ trình hiển thị (sửa FB-R1-PO-DATA-06)
@@ -372,6 +400,25 @@ Chạy tự động khi chốt tháng (Round 3 dựng), lệch là lỗi chặn 
 | R-07 | Tiền đã thu − hoàn (K-20) theo đơn đã đóng folio | Tổng phải thu của bill + cọc/ký quỹ còn giữ |
 | R-08 | Σ `overbooking_incident.cost_vnd` của sự cố `resolved` trong kỳ | Dòng "chi phí dời khách" trong P&L cùng kỳ (K-15) |
 | R-09 | Σ `stay_night.channel_fee_vnd` (và `agent_commission_vnd`, `staff_commission_vnd`) theo đơn, mọi tháng | `channel_fee.amount_actual` (hoặc `amount_estimated`) và `commission.amount_vnd` của đơn – lệch 0 đồng (nhờ quy tắc dư dồn đêm cuối, Q-12) |
+| R-10 *(mới v0.3)* | Số dòng phí giữ lại gốc (`cancellation_fee`, `no_show_fee`, `early_departure_fee`, `deposit_forfeit`; `reversal_of_id IS NULL`, `line_state = 'posted'`) có `service_date` ≠ ngày nghiệp vụ của `posted_at` (Q-01), với `posted_at` ≥ giờ v1.0.5 lên | **0** – khác 0 là lỗi dữ liệu. Chạy được ngay bằng truy vấn chỉ đọc bên dưới, không cần màn báo cáo |
+
+**Truy vấn R-10 (chỉ đọc).**
+- Không có điều kiện `posted_at` → đếm cả dòng ghi trước v1.0.5. Đó là số dòng còn giữ ngày cũ (Q-09), dùng để quyết ghi chú trên báo cáo v1.2.
+- Có điều kiện `posted_at` ≥ giờ v1.0.5 lên → đúng phép kiểm R-10.
+- Trên production, OWN hoặc OPS chạy. Truy vấn chỉ trả **số dòng, không số tiền**. Kết quả **không** ghi vào repo, không dán vào tài liệu hay chat của đội.
+- `6 hours` = `business_day_rollover` 06:00 hiện hành; đổi tham số thì đổi theo.
+
+```sql
+-- Read-only. Production: run by OWN/OPS only; never commit or paste the result.
+SELECT l.category, count(*) AS lines
+FROM folio_line l
+WHERE l.category IN ('cancellation_fee', 'no_show_fee', 'early_departure_fee', 'deposit_forfeit')
+  AND l.reversal_of_id IS NULL
+  AND l.line_state = 'posted'
+  AND l.service_date <> ((l.posted_at AT TIME ZONE 'Asia/Ho_Chi_Minh') - interval '6 hours')::date
+  -- R-10 proper: AND l.posted_at >= '<v1.0.5 production deploy time>'
+GROUP BY l.category;
+```
 
 ---
 
@@ -426,7 +473,7 @@ Mục đích: Round 2 lưu đủ để Round 3 tính mọi chỉ số ở mục 
 | **StayNight** (`stay_night`, bảng đêm-phòng, sinh/cập nhật bởi server **trong cùng giao dịch** khi đơn, phí, hoa hồng, FOC/giảm giá đổi) | **Cột lõi**: `reservation_id`, `room_id` (**null = đêm xung đột chưa gán căn**), `stay_date`, `night_state` (`hold`/`sold`/`void`), `room_revenue_vnd` (sau giảm trừ, gồm VAT), `vat_rate_snapshot`, `is_complimentary`, `rate_source` (giá đêm ngắn ngày / phân bổ HĐ / đêm thêm sớm–muộn / gia hạn / chia đều tổng OTA), `channel_id` (snapshot), `stay_type`. **(mới v0.2) Cột phân bổ theo đêm** (sửa D-2, D-7; Q-05, Q-10, Q-12): `room_revenue_gross_vnd` (giá đêm đã chốt trước giảm trừ), `discount_vnd` (giảm giá + FOC tiền phòng của đêm; `room_revenue_vnd = gross − discount`), `channel_fee_vnd`, `channel_fee_is_estimate` (bool), `agent_commission_vnd`, `staff_commission_vnd`, `service_fee_alloc_vnd` (phí dịch vụ & dọn dài hạn, BR-204 – doanh thu khác). Quy tắc chia: phần nguyên đồng, **dư dồn đêm cuối** (của đơn với phí/hoa hồng/giảm cả đơn/tổng OTA; của tháng hợp đồng với tiền thuê và phí dịch vụ dài hạn). **(mới v0.2) Cột mốc thời gian** (sửa D-3): `sold_at` (lần đầu thành `sold`), `voided_at`, `void_reason` ∈ `hold_expired \| cancelled \| no_show \| early_departure \| lease_terminated \| date_change \| relocated_external \| channel_cancelled`, `prev_state` (`hold`/`sold` ngay trước khi void). Mỗi lần void phải điền đủ 3 cột | Q-02, Q-05, Q-06, Q-07, Q-08, Q-10, Q-12, Q-14 (pickup); K-02…K-07, K-09, K-10, K-11, K-12, K-14, K-15, K-22; S1c; R-02…R-06b, R-09. **Lý do quan trọng nhất**: một nguồn cho đếm đêm, doanh thu và chi phí theo đêm, tránh lặp lại lỗi #8, #11, #22 ở tầng báo cáo; báo cáo **không tự chia lại** để tổng các tháng khớp đúng từng đồng. Chỉ mục gợi ý: (`property_id`,`stay_date`) WHERE `night_state='sold'` và WHERE `night_state='void'` |
 | **Contract** (phần dài hạn của Booking) | `booking_id`, `start_date`, `term_months`, `end_date` (BR-209), `actual_end_date`, `monthly_rent` (snapshot), `service_fee_monthly`, `cleaning_package`, `billing_cycle_months`, `deposit_amount`, `foreigner_surcharge_applied`, `term_discount_rate`, `termination_type` (đúng hạn / sớm có báo trước / sớm không báo), `terminated_at` | Q-10, K-12, K-13, K-14 (thời hạn HĐ bình quân), R-03, BL #22 |
 | **BillingSchedule** (kỳ thu dài hạn) | `contract_id`, `period_from`, `period_to`, `due_date`, `amount_rent`, `amount_service`, `status`, `paid_amount`, `paid_at` | K-20 (phải thu, thu trước), "Cần chú ý" BR-207 |
-| **FolioLine** | `id`, `booking_id`, `category` (room / early_checkin / late_checkout / extra_person / minibar / fnb / laundry / cleaning / service_fee / utilities / penalty / damage / cancellation_fee / no_show_fee / early_departure_fee / deposit_forfeit / discount / foc / adjustment), `revenue_group` (room / other / non_revenue – suy từ category; **(mới v0.2)** `adjusts_group` bắt buộc khi `category = adjustment`, khi đó `revenue_group = adjusts_group`), `stay_night_id` (dòng phòng/FOC/giảm gắn đêm), `amount` (VND, gồm VAT, âm cho FOC/giảm), `vat_rate_snapshot`, `service_date` hoặc `period_from/period_to`, `quantity`, `unit_price`, `related_line_id` (dòng FOC trỏ dòng gốc), `reversal_of_id`, `posted_at`, `posted_by` | Q-09, K-06, K-07, K-18, R-02; không xóa – đảo bút toán |
+| **FolioLine** | `id`, `booking_id`, `category` (room / early_checkin / late_checkout / extra_person / minibar / fnb / laundry / cleaning / service_fee / utilities / penalty / damage / cancellation_fee / no_show_fee / early_departure_fee / deposit_forfeit / discount / foc / adjustment), `revenue_group` (room / other / non_revenue – suy từ category; **(mới v0.2)** `adjusts_group` bắt buộc khi `category = adjustment`, khi đó `revenue_group = adjusts_group`), `stay_night_id` (dòng phòng/FOC/giảm gắn đêm), `amount` (VND, gồm VAT, âm cho FOC/giảm), `vat_rate_snapshot`, `service_date` hoặc `period_from/period_to`, `quantity`, `unit_price`, `related_line_id` (dòng FOC trỏ dòng gốc), `reversal_of_id`, `posted_at`, `posted_by`; **(mới v0.3)** `charge_code` (`ota_retained` – phần OTA của phí trả sớm, K-22g; `overpayment_retained` – tiền khách để lại, K-07), `line_state`; `service_date` của dòng phí giữ lại = ngày nghiệp vụ lúc thao tác (Q-09) | Q-09, K-06, K-07, K-18, K-22e, K-22g, R-02, R-10; không xóa – đảo bút toán (dòng đảo chép `service_date` của dòng gốc) |
 | **Payment** | `id`, `folio_id/booking_id`, `type` (charge / deposit / security_deposit / refund / deposit_deduction), `method` (VietQR / VNPay / MoMo / thẻ / tiền mặt / OTA thu hộ), `amount`, `received_at`, `recorded_by`, `gateway_ref` | K-20, R-07 |
 | **ChannelFee** | `booking_id`, `channel_id`, `base_amount` (tiền phòng chịu phí), `rate_snapshot`, `amount_estimated`, `amount_actual`, `source` (channel manager / đối soát tay / ước tính), `reconciled_at`; **(mới v0.2)** `recognized_on` (date – ngày nghiệp vụ hủy/no-show với đơn có phí trên phí hủy; null với đơn bình thường vì đã phân bổ theo đêm), `amount_on_cancellation` | Q-12, K-09, K-10, K-15; sửa BL #11; R-01, R-09 |
 | **Commission** | `id`, `reservation_id` hoặc `lease_contract_id` (đúng một), `payee_type` (agent / staff), `payee_user_id`, `rate_snapshot` (gồm +1% NN nếu có), `base_amount`, `amount`, `status` (SM-11: `projected` = dự kiến; `earned`/`payable`/`paid` = ghi nhận; `void` = hủy), `recognized_at`, `void_reason` | K-09 (chỉ `agent`), K-15 (cả hai), R-09, Q-D2 7%/8% |
@@ -460,3 +507,4 @@ Mục đích: Round 2 lưu đủ để Round 3 tính mọi chỉ số ở mục 
 | 15/10/2026 | 1 (bước 4) | v0.2: Q-01 ngày nghiệp vụ 06:00; Q-04 OOO nửa mở theo `status`; Q-05 tách đêm đã gán/chưa gán + FOC/giảm giá sau đặt; Q-06 đóng O-5; Q-07 `void_reason`; Q-10 thay BR-215 tháng lịch; Q-11 kênh + nguồn; Q-12 chia tổng OTA, phân bổ phí/hoa hồng theo đêm; Q-14 nhãn R3, nguồn lịch sử `reservation_change`, công thức pickup; K-15 thêm chi phí dời khách; K-22 hủy/no-show mới; lộ trình hiển thị; S1c, S2-trực theo `front_desk_hours`, S5-pre/S5-link, S11 nguồn `user_activity_day`; R-06a/R-06b/R-08/R-09; mục 9 bổ sung cột. Xử lý FB-R1-PO-DATA-01…06 và D-1…D-10 | DATA |
 | 16/10/2026 | 1 (bước 5) | Sửa BUG-R1-003: K-22a và mục 9 dùng mã lý do hủy theo BR-308 v0.2 (`relocated_external` → `overbooking_relocated`, `channel_cancelled` → `ota_cancelled`; ghi rõ `guest_cancelled` được tính) | DATA |
 | 18/10/2026 | 2 (tuần Ổn định – A7) | Q-10: sửa ví dụ HĐ 15/10 thuê 9.500.000 theo đúng quy tắc làm tròn từng đêm (5.209.667 / 4.290.333). Thêm câu "số theo tháng báo cáo = Σ đêm" và ví dụ BR-215 (6.103.544 / 5.026.456). Không đổi quy tắc | DATA |
+| 07/11/2026 | 5 (Phản hồi & sửa) | v0.3, theo PR #114 (V5-11) và BR-010 v0.5.12 (review `rounds/round-05/reviews/DATA-on-pr-114-k22e.md`):<br>• Q-01, Q-09: dòng phí giữ lại (phí hủy, phí không đến, phí trả sớm gồm phần OTA, tiền khách để lại) mang ngày nghiệp vụ lúc thao tác; báo cáo đọc `service_date` như đã lưu; dòng trước v1.0.5 giữ ngày cũ, không migration.<br>• Q-07, K-07: phí trả sớm ban ngày theo ngày báo trả sớm, không theo Ngày rời mới (ví dụ tháng 12 → tháng 11); K-07 tách nhóm "Phí trả sớm", "Tiền khách để lại".<br>• K-22e: chỉ `cancellation_fee` + `no_show_fee` theo `service_date`, bỏ `deposit_forfeit` (lỗi định nghĩa từ v0.2 – trong mã đó là tiền thừa khi Trả phòng).<br>• Mới: K-22f (đêm bỏ do trả sớm), K-22g (phí trả sớm); so sánh phí với đêm mất gom theo đơn.<br>• Mới: R-10 (0 dòng phí lệch ngày nghiệp vụ sau v1.0.5) kèm truy vấn đếm chỉ đọc – kết quả không ghi vào repo; mục 9 FolioLine thêm `charge_code`, `line_state`.<br>Không đổi con số nào của INV | DATA |

@@ -210,3 +210,52 @@ Các khóa mới ở mục 1.3, 2.2 và 3 vào `copy-v1.0.5.md` **bản 1.10** �
 Dòng decision-log đề xuất (ORC ghi):
 
 `| 2026-11-07 | 5 | **UXD – review FE PR #125 (V5-10) @ 797ff439 và #128 (Nhật ký tiền, US-177 AC7 (i)) @ dcb14f11** (rounds/round-05/reviews/UXD-on-fe-prs-125-128.md): #125 **DUYỆT CÓ ĐIỀU KIỆN** – PR125-01 (Major): viền Earth Brown giờ tự điền phải đi cùng dòng nhắc checkout.time_prefilled_help (VI "Giờ này Desk tự điền theo đồng hồ máy quầy và đang tính thêm tiền. Ghi giờ khách rời thật – lúc trả chìa hoặc báo đã rời căn – không phải lúc bấm."), trong PR hoặc muộn nhất trước tag v1.0.5; dùng lại field.TIME_AFTER_ACTION cho checkoutAtAfterNow; PR125-02 Minor (khóa Tiếp tục khi checkoutTimeNoteRequired mà ghi chú trống, lý do field.TIME_NOTE_REQUIRED). #128 **DUYỆT** – chữ khớp 9.5, chỗ đặt đạt 390/1440; PR128-01…03 Minor (mlog.who_unlisted, mlog.who_error, mlog.empty_reductions_title, mlog.empty_body_dates) nên làm trong PR; PR128-04 đổi nhãn "Chỉ sửa giảm dòng" ở v1.0.6 cùng BA. Chữ chỉ dẫn quá ngày đi cho FD/FDL: checkout.overdue_need_manager, checkout.overdue_need_owner. Hộp quá ngày đi và D12c không có trong #125, xem ở PR V5-15 | UXD | Quyền UXD (giao diện, chữ Desk); DOM 15.2, 15.7; WCAG 1.4.1 |`
+
+---
+
+## Lượt 2 – #125 @ `3022addc` (FE-A sửa theo PR125-01…03)
+
+- Ngày: 07/11/2026 | Round 5 – Review
+- Đã đọc: `git diff 8551ecc7 3022addc`. `8551ecc7` chỉ là commit gộp `main` sau lần review `797ff439`. Các tệp đổi:
+  - `CheckOutPage.tsx`;
+  - `gen_strings.py` và các tệp sinh;
+  - `mocks/stay.ts` (thêm `checkoutClockSkewMinutes` cho test);
+  - 2 tệp test;
+  - báo cáo FE.
+- Đã chạy: worktree trong scratchpad, Desk mock, Playwright khóa đồng hồ 13:00 ngày 07/11. Đơn Phạm Huy (201) trả hôm nay, đã thu tiền phòng. Chụp ở 1440 × 900 và 390 × 844. Ảnh để ngoài repo; ảnh không có dữ liệu khách thật, chỉ có dữ liệu mock.
+
+| Thẻ | Kết quả | Bằng chứng |
+|---|---|---|
+| PR125-01 (Major) | **Done** | Khóa `checkout.time_prefilled_help` khớp nguyên văn bảng 1.3, cả VI và EN (so bằng script trên `strings-*.json` của `3022addc`). Câu hiện ở `help` của ô giờ và nối qua `aria-describedby` (đo: `descText` đúng câu, ở cả 1440 và 390). Ở 390 câu xuống 3 dòng dưới ô, không tràn. Gõ giờ khác thì câu và viền mất. 12:05, trong ân hạn, không có câu (test) |
+| PR125-02 (Minor) | **Done** | Có `checkoutTimeNoteRequired` mà ô ghi chú còn trống thì "Tiếp tục: Bill & thu tiền" có `aria-disabled="true"`, mô tả là `field.TIME_NOTE_REQUIRED`. Đo khi gõ 12:10 lúc 13:00. Gõ ghi chú thì nút mở (test). Test B18 cũ giữ lại làm đường dự phòng cho máy chủ chưa có cờ |
+| PR125-03 (Suggestion) | **Done** | Lệch đồng hồ −20 phút, giờ tự điền thành "sau hiện tại". Ô có `aria-invalid`, viền đỏ (`rgb(168, 64, 60)`), `box-shadow: none`, không có lớp `is-prefilled`, không có câu nhắc. Chỉ còn câu lỗi `field.TIME_AFTER_ACTION` |
+
+Thương hiệu:
+- không màu mới; viền Earth Brown vẫn qua token `--oak-ink`;
+- font không đổi;
+- không emoji;
+- câu nhắc dùng chữ `help` Stone Grey của `Field`, như các câu phụ khác.
+
+**Kết luận: #125 @ `3022addc` DUYỆT.** Hết điều kiện từ phía UXD. Gộp khi CI xanh.
+
+Hai thẻ mới, không chặn gộp:
+
+### FB-R5-UXD-FE-PR125-04
+- Mức độ: Minor (có từ trước, không do PR này)
+- Vị trí: chân bước của H16 (`.wiz-foot`, `CheckOutPage.tsx` khoảng dòng 2065), câu lý do `li-s` đứng giữa "Quay lại" và nút chính; kiểu `.wiz-foot` trong `design/hifi/assets/hifi.css` (`display:flex`, không `flex-wrap`).
+- Vấn đề: ở 390 px câu lý do bị ép thành một cột hẹp khoảng 40 px, mỗi dòng một hai chữ, cao gần 400 px (ảnh `125-note-390`, `125-390`). `main` cũng vậy với câu `co.go_bill_needs_told`. PR này thêm một lý do dài nữa (`field.TIME_NOTE_REQUIRED`) cho một ca hay gặp.
+- Vì sao quan trọng: lễ tân trực bằng điện thoại phải cuộn mới đọc hết lý do nút bị khóa. Câu khó đọc nhất lại là câu duy nhất nói phải làm gì.
+- Đề xuất sửa: dưới 600 px, câu lý do lên một hàng riêng phía trên hai nút. Ví dụ `.wiz-foot{flex-wrap:wrap}` và `@media (max-width:599px){.wiz-foot>.li-s{flex:1 0 100%;order:-1}}`. Áp cho cả Trả phòng và Nhận phòng (cùng lớp). UXD làm ở lượt DS tới, hoặc FE thêm vào `app.css`, ai chạm trước. v1.0.5 nếu kịp, muộn nhất v1.0.6.
+- Trạng thái: Open (UXD/FE-A)
+
+### FB-R5-UXD-FE-PR125-05
+- Mức độ: Suggestion
+- Vị trí: `CheckOutPage.tsx`, `lateWhy`: `s.checkoutTimeNoteRequired && !timeNote.trim()`.
+- Vấn đề: máy chủ nhận ghi chú 3–300 ký tự (`checkout.service.ts`, `f.text('checkoutTimeNote', 300, { min: 3 })`). Ghi chú 1–2 ký tự mở được "Tiếp tục". Lễ tân thu tiền xong, tới "Hoàn tất" mới gặp lỗi. Đây là đúng ca PR125-02 muốn chặn, chỉ hẹp hơn.
+- Vì sao quan trọng: hiếm gặp, nhưng khi gặp thì khách đang đứng ở quầy.
+- Đề xuất sửa: chặn khi `timeNote.trim().length < 3`, giữ nguyên câu lý do. Thêm một ca test gõ "ok".
+- Trạng thái: Open (FE-A, tùy)
+
+Dòng decision-log đề xuất (ORC ghi):
+
+`| 2026-11-07 | 5 | **UXD – #125 (V5-10) lượt 2 @ 3022addc: DUYỆT** (rounds/round-05/reviews/UXD-on-fe-prs-125-128.md, Lượt 2): PR125-01 Done (checkout.time_prefilled_help khớp nguyên văn, ở help của ô giờ, aria-describedby, đo ở 390 và 1440), PR125-02 Done ("Tiếp tục" aria-disabled với field.TIME_NOTE_REQUIRED khi máy chủ đòi ghi chú), PR125-03 Done (có lỗi thì chỉ viền đỏ, không viền nâu, không câu nhắc). Gộp khi CI xanh. Thẻ mới không chặn: PR125-04 Minor, có từ trước (câu lý do ở chân bước H16 bị ép thành cột hẹp ở 390, .wiz-foot cần flex-wrap); PR125-05 Suggestion (chặn ghi chú dưới 3 ký tự như máy chủ) | UXD | Lượt 2 trong tệp review |`
