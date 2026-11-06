@@ -27,3 +27,6 @@ defineAuditEntity('room', [
   'cancelledEffectiveFrom',
 ]);
 defineAuditEntity('dataset', ['rooms', 'channels']);
+// V5-58 (OpenAPI 0.3.13 1.23): property Wi-Fi – the network name before/after and whether the password changed, never
+// the password; `rule` = the security rule id on the caller-password comparison audits (CALLER_PASSWORD_COMPARE_RULE).
+defineAuditEntity('property', ['ssid', 'passwordChanged', 'rule']);
