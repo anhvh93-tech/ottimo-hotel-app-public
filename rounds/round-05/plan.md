@@ -469,7 +469,7 @@ Thêm khi cắt:
 30. **Bảng kiểm 4a thêm T16 (#127 + FE-A V5-10 #125), T17 (#114 + FE-A V5-11); release notes v1.0.5 thêm dòng ngày ghi phí** (07/11, PO, Phản hồi & sửa; theo DOM `rounds/round-05/reviews/DOM-on-be-a1-prs-127-114.md` mục 1, 2.2, 3.4, 4; ORC giao).
     - T16, T17 không chặn: DOM kết luận thiếu phần FE không làm sai tiền. Release notes đổi theo hai dòng **Giới hạn đã biết** DOM viết. V5-10, V5-11 thuộc Gói 1, nên phần FE trễ vẫn cần dòng decision-log PO + ORC (QC điều 1).
     - FE V5-11: 07/11 chưa có PR, chưa có nhánh. Desk V5-11 không vào tag thiếu #114.
-    - Dòng **Ngày ghi phí trả sớm, hủy, không đến** (BR-010 v0.5.12, DOM 3.4) chỉ đổi ngày ghi, không đổi số tiền. Giữ khi #114 vào tag. DATA xác nhận K-22e đọc ngày này (ca T-11-9).
+    - Dòng **Ngày ghi phí trả sớm, hủy, không đến** (BR-010 v0.5.12, DOM 3.4) chỉ đổi ngày ghi, không đổi số tiền. Giữ khi #114 vào tag. DATA đã xác nhận K-07 (doanh thu khác theo ngày), K-22e (phí hủy, không đến) và K-22g (phí trả sớm) đọc ngày này (`DATA-on-pr-114-k22e.md`; DOM sửa tên chỉ số `3b907687`; ca T-11-9).
     - T15 có hiệu lực từ khi #99 gộp: tag cắt từ `main` phải có #127, không thì revert #99 trên nhánh cắt hoặc dời ngày cắt.
     - Không đổi phạm vi, không ESC.
 
