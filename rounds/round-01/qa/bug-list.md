@@ -13,9 +13,11 @@
 |---|---|---|---|---|---|
 | P0 | 1 | 0 | 0 | 1 | 0 |
 | P1 | 1 | 0 | 0 | 1 | 0 |
-| P2 | 11 | 0 | 0 | 10 | 1 (R2) |
-| P3 | 21 | 4 | 0 | 8 | 9 (7 R2 · 2 R3) |
-| **Tổng** | **34** | **4** | **0** | **20** | **10** |
+| P2 | 11 | 0 | 0 | 11 | 0 |
+| P3 | 21 | 1 (BUG-R1-023) | 0 | 20 | 0 |
+| **Tổng** | **34** | **1** | **0** | **33** | **0** |
+
+Cập nhật 06/11 (QA, Round 5 – bước Sản xuất, V5-02 = QC Round 4 ĐK-7; kiểm trên v1.0.4 `6414be25`): dọn 14 dòng mà phụ lục A5 của `rounds/round-05/plan.md` xếp (c). **13 dòng → Closed** (P2: SEC-10; P3: 010, 014, 015, 016, 017, 020, 021, 022, SEC-06, SEC-07, SEC-08, SEC-11), lý do và bằng chứng ở từng mục chi tiết. **BUG-R1-023 giữ Open**: kiểm lại thấy chưa sửa. Bảng trên là số sau lần dọn này; số lượt 2 xem lịch sử git. Tổng hợp: `rounds/round-05/qa/v5-02-closeout.md` mục 5.
 
 Cập nhật 16/10 (R2 tuần 1, QA): BUG-R1-016 Deferred → **Fixed (quy ước)** (P3 Deferred còn 8); SEC-06 và phần spec/bundle SEC-08 đã có bằng chứng chạy thật cục bộ – chờ SEC quyết đóng (test-report mục 9). Bảng trên giữ số lượt 2.
 
@@ -35,28 +37,28 @@ Lượt 1 (sáng 16/10): 22 lỗi QA (0 P0/P1). Lượt 2: gộp 9 lỗi SEC bư
 | BUG-R1-008 | P2 | TC-NT-022, TC-L4-053 dùng mẫu số bill cũ | QA | Closed (lượt 1) |
 | BUG-R1-009 | P2 | Ví dụ BR-107 làm tròn | DOM | Closed (lượt 1) |
 | BUG-R1-SEC-03 | P2 | Trang QR căn "gửi lại link" thu hồi link khách đang dùng (từ chối dịch vụ) | ARC | **Closed** |
-| BUG-R1-SEC-10 | P2 | `getDoorCredential`/`setDoorCredential` thiếu step-up, `x-c3-log`, response 401/403 – vòng qua kiểm soát của `renderDoorCodeMessage` | ARC + SEC + BE | **Deferred R2** (hạn: trước khi BE cài A21) |
-| BUG-R1-010 | P3 | Endpoint nhóm đơn (SM-16) và đóng ca (SM-17) chưa có trong OpenAPI | ARC | **Deferred R2** (plan R2 W1) |
+| BUG-R1-SEC-10 | P2 | `getDoorCredential`/`setDoorCredential` thiếu step-up, `x-c3-log`, response 401/403 – vòng qua kiểm soát của `renderDoorCodeMessage` | ARC + SEC + BE | **Closed** 06/11 (V5-02: `x-step-up`, `x-c3-log`, 401/403 có ở cả hai operation). Trước đó: **Deferred R2** (hạn: trước khi BE cài A21) |
+| BUG-R1-010 | P3 | Endpoint nhóm đơn (SM-16) và đóng ca (SM-17) chưa có trong OpenAPI | ARC | **Closed** 06/11 (V5-02: OpenAPI có SM-16, SM-17 (`x-round: R3`)). Trước đó: **Deferred R2** (plan R2 W1) |
 | BUG-R1-011 | P3 | 4 operation OpenAPI hẹp vai hơn rbac | BA + ARC | **Closed** |
 | BUG-R1-012 | P3 | Thiếu `x-scope: own` cho SAL/CTV ở 4 operation | ARC | **Closed** |
 | BUG-R1-013 | P3 | Script kiểm quyền của QA báo 6 lệch giả | QA | Closed (lượt 1) |
-| BUG-R1-014 | P3 | Ví dụ `billNo` trong OpenAPI theo mẫu cũ `F-yymmdd-nnnn` | ARC | **Open** (plan R2 W11) |
-| BUG-R1-015 | P3 | Wireframe dùng `WO-031`, `WO-034` (3 số) | UXD | **Open** (plan R2 W11) |
-| BUG-R1-016 | P3 | Mã đơn DS-0 4 số `OTM-0151` | QA (+ UXD) | **Fixed (quy ước, 16/10 R2 W6)** – đóng khi loader BE nạp DS-0 khớp `expectedCode` |
-| BUG-R1-017 | P3 | Số đếm cũ "74 story Must R2" | ARC (PO đã sửa phần mình) | **Open** – còn phần ARC (plan R2 W11) |
+| BUG-R1-014 | P3 | Ví dụ `billNo` trong OpenAPI theo mẫu cũ `F-yymmdd-nnnn` | ARC | **Closed** 06/11 (V5-02: `BillNo` `F26-000123` (BR-007)). Trước đó: **Open** (plan R2 W11) |
+| BUG-R1-015 | P3 | Wireframe dùng `WO-031`, `WO-034` (3 số) | UXD | **Closed** 06/11 (V5-02: đóng theo quy ước nhãn seed (test-strategy 4.5); hifi và API dùng `WO-00034`). Trước đó: **Open** (plan R2 W11) |
+| BUG-R1-016 | P3 | Mã đơn DS-0 4 số `OTM-0151` | QA (+ UXD) | **Closed** 06/11 (V5-02: quy ước nhãn seed test-strategy 4.5; `validate-fixtures` OK). Trước đó: **Fixed (quy ước, 16/10 R2 W6)** – đóng khi loader BE nạp DS-0 khớp `expectedCode` |
+| BUG-R1-017 | P3 | Số đếm cũ "74 story Must R2" | ARC (PO đã sửa phần mình) | **Closed** 06/11 (V5-02: OpenAPI ghi 77 story Must R2). Trước đó: **Open** – còn phần ARC (plan R2 W11) |
 | BUG-R1-018 | P3 | ERD mục 5 ghi SM-05 "K1–K11" | ARC | **Closed** |
 | BUG-R1-019 | P3 | Tài liệu BA ghi cứng "06:00" không dẫn BR-010 | BA | **Closed** |
-| BUG-R1-020 | P3 | 20/122 chuyển trạng thái, 31 BR, 4 lỗi BL chưa có test case (R3) | QA | **Deferred R3** |
-| BUG-R1-021 | P3 | CI chưa có bước kiểm hợp đồng `x-roles` (`--strict`) và openapi-spec-validator | OPS | **Deferred R2** (plan R2 W5) |
-| BUG-R1-022 | P3 | US-041, US-064 chưa có endpoint; US-064, US-137 chưa có wireframe (R3) | ARC/UXD | **Deferred R3** |
-| BUG-R1-023 | P3 | `rbac-matrix.json` còn ghi chú/mục `openapi_check.differences` cũ sau khi sửa | BA | **Open** (mới lượt 2) |
+| BUG-R1-020 | P3 | 20/122 chuyển trạng thái, 31 BR, 4 lỗi BL chưa có test case (R3) | QA | **Closed** 06/11 (V5-02: thay thế: chuyển còn trống thuộc tính năng chưa làm, ca viết theo từng bản). Trước đó: **Deferred R3** |
+| BUG-R1-021 | P3 | CI chưa có bước kiểm hợp đồng `x-roles` (`--strict`) và openapi-spec-validator | OPS | **Closed** 06/11 (V5-02: CI "API contract (spec validator · RBAC --strict)" xanh). Trước đó: **Deferred R2** (plan R2 W5) |
+| BUG-R1-022 | P3 | US-041, US-064 chưa có endpoint; US-064, US-137 chưa có wireframe (R3) | ARC/UXD | **Closed** 06/11 (V5-02: thay thế: US-041, US-064 dời v1.3; US-137 ra ở v1.0.2). Trước đó: **Deferred R3** |
+| BUG-R1-023 | P3 | `rbac-matrix.json` còn ghi chú/mục `openapi_check.differences` cũ sau khi sửa | BA | **Open** (V5-02 06/11: chưa sửa, xem mục chi tiết) – trước đó: **Open** (mới lượt 2) |
 | BUG-R1-SEC-04 | P3 | Operation app khách thiếu 403 `GUEST_STAY_ENDED`; `getGuestStay` không đánh dấu C3 | ARC | **Closed** |
 | BUG-R1-SEC-05 | P3 | `providerSignature` mô tả như API key ở header | ARC (+INT) | **Closed** |
-| BUG-R1-SEC-06 | P3 | Vai PostgreSQL lệch erd 2.1 (thiếu `ottimo_migrator`, owner có LOGIN) | OPS | **Deferred R2** – đã sửa, chờ chạy thật (plan R2 W4) |
-| BUG-R1-SEC-07 | P3 | Mã xác minh khách băm bằng `ID_HASH_KEY`; `GUEST_CODE_SIGNING_KEY` chưa vào kiểm khởi động | ARC + OPS (+BE) | **Deferred R2** – phần R1 đạt, còn phần BE |
-| BUG-R1-SEC-08 | P3 | Chưa có bước CI chặn `__test__` trong build production; `openapi.test.yaml` thiếu phiên | OPS + ARC | **Deferred R2** – đã sửa, chờ CI chạy thật (plan R2 W4) |
+| BUG-R1-SEC-06 | P3 | Vai PostgreSQL lệch erd 2.1 (thiếu `ottimo_migrator`, owner có LOGIN) | OPS | **Closed** 06/11 (V5-02: `02-roles.sh` owner NOLOGIN + `ottimo_migrator`). Trước đó: **Deferred R2** – đã sửa, chờ chạy thật (plan R2 W4) |
+| BUG-R1-SEC-07 | P3 | Mã xác minh khách băm bằng `ID_HASH_KEY`; `GUEST_CODE_SIGNING_KEY` chưa vào kiểm khởi động | ARC + OPS (+BE) | **Closed** 06/11 (V5-02: `config.ts` bắt buộc `GUEST_CODE_SIGNING_KEY`). Trước đó: **Deferred R2** – phần R1 đạt, còn phần BE |
+| BUG-R1-SEC-08 | P3 | Chưa có bước CI chặn `__test__` trong build production; `openapi.test.yaml` thiếu phiên | OPS + ARC | **Closed** 06/11 (V5-02: CI chặn `/__test__` (hợp đồng + image) xanh). Trước đó: **Deferred R2** – đã sửa, chờ CI chạy thật (plan R2 W4) |
 | BUG-R1-SEC-09 | P3 | INT README `APP_ENV=development` (trùng BUG-R1-004) | INT | **Closed** (trùng 004) |
-| BUG-R1-SEC-11 | P3 | `x-c3-log` mới có ở 2 operation; operation C3 chưa khai 401/403; `setParameter` thiếu A119 | ARC | **Deferred R2** |
+| BUG-R1-SEC-11 | P3 | `x-c3-log` mới có ở 2 operation; operation C3 chưa khai 401/403; `setParameter` thiếu A119 | ARC | **Closed** 06/11 (V5-02: `x-c3-log` 22 operation, `setParameter` có A119). Trước đó: **Deferred R2** |
 
 Ghi chú về Deferred: QA chỉ dời lỗi khi có nơi theo dõi. Nơi theo dõi là `rounds/round-02/plan.md` mục 3.2 (W1, W4, W5, W6, W11) hoặc quyết định SEC (sec-findings Phần D2, ORC ghi decision-log). Ba lỗi **chưa có dòng trong plan R2**: BUG-R1-SEC-10, SEC-11 và SEC-07 (phần BE). QA đề nghị PO/ORC thêm vào plan R2 mục 3.2 (xem test-report mục 7).
 
@@ -132,6 +134,7 @@ Lượt 1: không có lỗi P0/P1 của QA. Hai lỗi P1 sơ bộ ở bước 2 
 
 ### BUG-R1-010 – Endpoint nhóm đơn và đóng ca chưa có
 - Mức: P3 · Vai sửa: **ARC** (đầu R2, khi PO chốt phạm vi) · Trạng thái: **Deferred R2**
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** OpenAPI 0.3.12 có nhóm đơn SM-16 (`listReservationGroups`, `createReservationGroup`, `addReservationGroupMember`, `allocateGroupDeposit`…) và ca SM-17 (`listShifts`, `openShift`, `startShiftClosing`, `reopenShift`…), đều `x-round: R3`. Plan R2 W1.
 - Thực tế: SM-16 (G1–G5) và SM-17 (C1–C5) có trong state-machines và ERD (`reservation_group`, `shift`, `group_bill`, `payment_allocation`) nhưng OpenAPI chưa có operation và enum trạng thái (`ReservationGroupStatus`, `ShiftStatus`); 10 chuyển này không có endpoint, không có TC. ARC đã ghi Deferred (`ARC-responses.md` mục 5).
 - Vì sao P3: US-140 (đơn nhóm) và US-124 (đóng ca) là Must **R3**; phần R2 (cờ chờ đối soát US-119 AC6) đã có `reconcilePayment`. Không chặn R2.
 - Kiểm lại lượt 2 (16/10): chưa sửa (đúng kế hoạch). Theo dõi: `rounds/round-02/plan.md` mục 3.2 **W1** (ARC, tuần 1 R2). Lý do dời: US-140, US-124 là Must R3, không chặn R2.
@@ -155,16 +158,19 @@ Lượt 1: không có lỗi P0/P1 của QA. Hai lỗi P1 sơ bộ ở bước 2 
 
 ### BUG-R1-014 – Ví dụ `billNo` trong OpenAPI theo mẫu cũ
 - Mức: P3 · Vai sửa: **ARC** · Trạng thái: **Open**
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** `BillNo` trong OpenAPI là `^F\d{2}-\d{6,}$`, ví dụ `F26-000123` (BR-007, erd mục 10); không còn mẫu `F-yymmdd-nnnn`. Plan R2 W11.
 - Thực tế: `product/docs/api/openapi.yaml` dòng 2044 và 6017 `example: F-261022-0003` – trái BR-007 v0.2 / erd mục 10 (`F26-000123`). Đề xuất: đổi ví dụ, thêm `pattern: '^F\d{2}-\d{6,}$'`.
 - Kiểm lại lượt 2 (16/10): **chưa sửa** – `openapi.yaml` dòng 2095 và 6186 vẫn `example: F-261022-0003`; chưa có `pattern`. ARC không nêu lỗi này trong fix-notes. Theo dõi: plan R2 mục 3.2 **W11**.
 
 ### BUG-R1-015 – Mã phiếu sửa 3 số trên wireframe
 - Mức: P3 · Vai sửa: **UXD** · Trạng thái: **Open**
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** Đóng theo quy ước, không sửa wireframe. `product/docs/qa/test-strategy.md` 4.5 (16/10) chốt: mã kiểu `WO-031` trong tài liệu, test case, wireframe là nhãn seed, không phải mã thật. Màn hifi (`hifi/08`, `15`, `21`, `22`), `design-system.md`, `content-guide.md`, OpenAPI và schema đều dùng `WO-00034`. Wireframe L1–L10 còn 7 chỗ `WO-031`/`WO-034`; UXD đổi nếu có dịp chạm tệp.
 - Thực tế: `WO-031` (L1, L6, L8, L9), `WO-034` (L9) – trái mẫu `WO-{n:05}` (`WO-00034`, BR-007, erd mục 10). Đề xuất: đổi thành `WO-00031`, `WO-00034`.
 - Kiểm lại lượt 2 (16/10): **chưa sửa** – `grep -rnoE "WO-[0-9]{3}\b" product/design/wireframes` còn ở 01, 02, 06, 08, 09 và index (UXD không có fix-notes). Theo dõi: plan R2 **W11**.
 
 ### BUG-R1-016 – Mã đơn DS-0 4 số
 - Mức: P3 · Vai sửa: **QA** (test-strategy + seed R2), **UXD** đổi theo nếu QA đổi bộ mã · Trạng thái: ~~Deferred R2~~ → **Fixed (quy ước)** 16/10
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** Quy ước nhãn seed ở `test-strategy.md` 4.5 (ghi "đóng BUG-R1-016"); `@ottimo/tests validate-fixtures` OK trên mã cắt v1.0.4 (QA plan v1.0.4 mục 13.1).
 - Thực tế: test-strategy (DS-0), test case và wireframe dùng `OTM-0091`…`OTM-0163` (mã prototype BL 4.4), trong khi mẫu chuẩn là `OTM-{n:05}` và quyết định QA 15/10: đơn còn hiệu lực của DS-0 nạp **qua API** → server cấp mã mới, không giữ mã DS-0 → TC tra theo `OTM-0151` sẽ không tìm thấy đơn.
 - Đề xuất (R2 tuần 1, cùng seed): coi mã DS-0 là **nhãn seed** lưu ở `reservation.external_ref`/ghi chú, TC tra đơn theo nhãn; hoặc nạp DS-0 với `doc_sequence` khởi đầu để mã sinh ra trùng nhãn. Ghi quyết định vào test-strategy.
 - Kiểm lại lượt 2 (16/10): chưa sửa (việc của QA, gắn với seed). Còn 102 chỗ mã đơn 4 số trong design/docs/tests (gồm ví dụ mới `OTM-0152` ở response 409 `updateRoom`). Theo dõi: plan R2 **W6** (seed DS-E/DS-0 + quy ước mã).
@@ -173,6 +179,7 @@ Lượt 1: không có lỗi P0/P1 của QA. Hai lỗi P1 sơ bộ ở bước 2 
 
 ### BUG-R1-017 – Số đếm cũ "74 story Must R2"
 - Mức: P3 · Vai sửa: **ARC** (OpenAPI `info.description` "Phủ 74 story Must R2") + **PO** (backlog tiêu đề mục 4 "74 story Must Round 2") · Trạng thái: **Open** (phần ARC)
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** `product/docs` không còn "74 story"; OpenAPI ghi "77 story Must R2 … (BUG-R1-017)". Plan R2 W11.
 - Thực tế: backlog dòng 5 và decision-log PO 15/10 chốt **77** Must R2 (thêm US-139, US-141, US-142). Ma trận truy vết xác nhận cả 77 story có operation `x-stories` – chỉ là chữ cũ.
 - Kiểm lại lượt 2 (16/10): phần PO **đạt** – backlog dòng 273 "77 story Must Round 2". QA sửa phần của mình: `test-strategy.md` dòng 21 và đầu file test case "74" → "77". Phần ARC **chưa sửa**: `openapi.yaml` dòng 134 vẫn "Phủ 74 story Must R2". Theo dõi: plan R2 **W11**.
 
@@ -188,23 +195,27 @@ Lượt 1: không có lỗi P0/P1 của QA. Hai lỗi P1 sơ bộ ở bước 2 
 
 ### BUG-R1-020 – Phần còn thiếu test case (thuộc R3 hoặc chưa có AC)
 - Mức: P3 · Vai sửa: **QA** · Trạng thái: **Deferred R3**
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** Thay thế. Các chuyển còn "TRỐNG" ở `product/docs/qa/traceability.md` thuộc tính năng chưa làm (SM-16 nhóm đơn, SM-17 ca: hợp đồng `x-round: R3`, chưa có mã API/Desk) hoặc đã có ca trong test case theo từng bản (R2–R4). QA viết ca khi story vào bản; không cần giữ lỗi chung. Việc làm mới bảng SM của `traceability.md` để QA làm khi chạm tệp.
 - Thực tế: 20/121 chuyển trạng thái chưa có TC (SM-06 H3–H9, SM-07 T3, SM-11 `earned→payable`, `payable→paid`, SM-16 G1–G5, SM-17 C1–C5); 31 BR được story tham chiếu nhưng chưa có TC (traceability mục 5.6, đa số R3: BR-313/314, 316–326, 501–527, 705/706, 961–964…); 4 lỗi BL 8.2 chưa có TC chống tái phát: #11, #14, #22, #25 (P&L, độ đầy đủ hồ sơ, doanh thu dài hạn, VAT – đều R3).
 - Kế hoạch: viết TC khi story có AC (đầu R3; SM-06 H3–H9 nếu PO đưa chấm dứt HĐ vào R2).
 - Kiểm lại lượt 2 (16/10): không đổi – 20/122 chuyển trạng thái trống (SM-06 H3–H9, SM-07 T3, SM-11 ×2, SM-16 ×5, SM-17 ×5), 31 BR story-no-TC, BL #11, #14, #22, #25. Lý do dời: đều thuộc story R3 hoặc chưa có AC. Theo dõi: test case mục 11, traceability mục 5.6 và 7 (ô TRỐNG).
 
 ### BUG-R1-021 – CI chưa kiểm hợp đồng quyền và spec
 - Mức: P3 · Vai sửa: **OPS** · Trạng thái: **Deferred R2**
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** CI có job "API contract (spec validator · RBAC --strict)": `openapi-spec-validator` 0.7.2 cho `openapi.yaml` + `openapi.test.yaml` và `gen_traceability.py --strict`. Job xanh ở CI `41999716963` trên `6414be25`. Plan R2 W5.
 - Thực tế: `.github/workflows/ci.yml` có Redocly lint, gitleaks, build ảnh và smoke `/health`, nhưng chưa có job `api-contract` ARC yêu cầu (openapi-spec-validator + kiểm `x-roles`; ARC-responses mục 6, yêu cầu OPS (3)). QA đã có lệnh sẵn: `python3 product/tests/tools/gen_traceability.py --strict --out /dev/null` (exit 1 khi OpenAPI cho thêm vai). Ghi chú: thêm bước này **sau** khi đóng BUG-R1-005, nếu không CI sẽ đỏ ngay.
 - Kiểm lại lượt 2 (16/10): chưa có job `api-contract` (OPS ghi "ngoài phạm vi vòng này"). Điều kiện tiên quyết đã đủ: `--strict` exit 0. Theo dõi: plan R2 **W5**. Khi làm, nên thêm luôn kiểm `x-c3-log`/401/403 theo BUG-R1-SEC-11.
 
 ### BUG-R1-022 – Story ngoài Must R2 có TC nhưng thiếu endpoint/wireframe
 - Mức: P3 · Vai sửa: **ARC/UXD ở R3** · Trạng thái: **Deferred R3**
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** Thay thế. US-041, US-064 dời **v1.3** trong backlog (cột đích), nên endpoint và wireframe làm khi story vào bản. US-137 (Trả sớm) đã ra ở v1.0.2 và có hợp đồng B16.
 - Thực tế: traceability mục 3: US-041, US-064 chưa có endpoint (R3); US-064, US-137 chưa có wireframe. Không thuộc Must R2, ghi để không quên khi lập R3.
 - Kiểm lại lượt 2 (16/10): không đổi; story R3. Theo dõi: traceability mục 3, lập plan R3.
 
 
 ### BUG-R1-023 – `rbac-matrix.json` còn ghi chú và danh sách lệch cũ sau vòng sửa
 - Mức: P3 · Môi trường: `rbac-matrix.json` 0.2.1 (16/10 chiều) · Vai sửa: **BA** · Trạng thái: **Open** (mới, lượt 2)
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): giữ Open.** Giữ **Open**. Kiểm lại 06/11 trên `6414be25`: chưa sửa. `openapi_check.differences` còn 3 mục cũ (`cancelRequest`, `listApprovalRequests` ghi thiếu `collaborator` trong khi OpenAPI đã có; `setMyApprovalPin` ghi thiếu `front_desk`). `A22.note` vẫn ghi "OpenAPI x-rbac A22 = issueGuestLink, issueGuestVerificationCode" trong khi `issueGuestLink` dùng `A22a` và `A22.operationIds = []`. Phụ lục A5 plan R5 xếp (c) "đã xử lý" là sai. Vai: BA, sửa tệp JSON (đề xuất giữ như cũ).
 - Tái hiện: (1) Đọc `A22.note`: "OpenAPI x-rbac A22 = issueGuestLink, issueGuestVerificationCode". (2) Đọc `openapi_check.differences`: còn 3 mục `cancelRequest`, `listApprovalRequests`, `setMyApprovalPin`. (3) Chạy `gen_traceability.py --strict`.
 - Thực tế: sau sửa, OpenAPI dùng `x-rbac [A22a]` và `[A113]`; `A22.operationIds = []`. Script báo 0 operation lệch, nhưng `openapi_check.differences` vẫn ghi 3 chỗ "missing_in_openapi" như còn lệch.
 - Mong đợi: ghi chú và danh sách lệch trong rbac.json khớp trạng thái hiện tại. Người đọc (BE viết guard, QA sinh test quyền) không bị dẫn sai.
@@ -235,16 +246,19 @@ Lượt 1: không có lỗi P0/P1 của QA. Hai lỗi P1 sơ bộ ở bước 2 
 
 ### BUG-R1-SEC-06 – Vai PostgreSQL lệch erd 2.1
 - Mức: P3 · Vai sửa: **OPS** · Trạng thái: **Deferred R2** (đã sửa, chờ chạy thật)
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** `product/infra/postgres/init/02-roles.sh`: `ottimo_owner` NOLOGIN, không mật khẩu; có `ottimo_migrator` (LOGIN, NOINHERIT, phải `SET ROLE ottimo_owner`). CI dùng đúng các vai này (QA plan v1.0.4 mục 13.1). Plan R2 W4.
 - Kiểm lại lượt 2 (16/10, kiểm tĩnh): `bash -n 02-roles.sh` OK. Đọc script: `ottimo_owner NOLOGIN PASSWORD NULL`; `ottimo_migrator LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT` + `GRANT ottimo_owner … WITH INHERIT FALSE, SET TRUE` (cần PG ≥ 16; mọi chỗ ghim `postgres:17-alpine`, cùng digest ở CI service, smoke và compose); `REVOKE ottimo_owner FROM ottimo_app/readonly`; tạo vai bằng `\gexec` rồi `ALTER ROLE` nên chạy lại được. `.env.example` dòng 23/57, `ci.yml` dòng 45/59/197, compose dòng 31 đều dùng `ottimo_migrator`/`OTTIMO_MIGRATOR_DB_PASSWORD`. Không còn `OTTIMO_OWNER_DB_PASSWORD` (chỉ còn trong hướng dẫn chuyển volume cũ ở `dev-setup.md`). `db-role.test.ts` kiểm 4 vai. **Chưa chạy** trên PostgreSQL thật (không có Docker).
 - Lý do dời: phần sửa đúng theo kiểm tĩnh; chỉ còn bằng chứng chạy. SEC cũng chấm "Đạt có điều kiện". Đóng khi CI `build-test` + smoke xanh lần đầu. Theo dõi: plan R2 **W4**, TC-X-065.
 
 ### BUG-R1-SEC-07 – Mã xác minh khách dùng chung khóa `ID_HASH_KEY`
 - Mức: P3 · Vai sửa: **ARC** + **OPS** (R1), **BE** (R2) · Trạng thái: **Deferred R2** (phần R1 Đạt)
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** `services/api/src/config.ts` đưa `GUEST_CODE_SIGNING_KEY` vào danh sách khóa bắt buộc khi khởi động (HMAC của `guest_verification_code.code_hash`), tách khỏi `ID_HASH_KEY`.
 - Kiểm lại lượt 2 (16/10): erd dòng 702 `code_hash` = HMAC-SHA256 với `GUEST_CODE_SIGNING_KEY`; ADR-013 điểm 5 "mỗi mục đích một khóa"; architecture dòng 315; `.env.example` dòng 43–44. Phần R1 **đạt**.
 - Lý do dời: phần còn lại (BE thêm khóa vào `REQUIRED_SECRETS` của `config.ts`, ≥ 32 ký tự) chỉ làm được khi cài SR-GST ở R2. Theo dõi: ADR-013 điểm 5; SEC kiểm ở review code R2. **Chưa có dòng trong plan R2** – QA đề nghị thêm vào W9 hoặc phần việc BE.
 
 ### BUG-R1-SEC-08 – Chưa có bước CI chặn `__test__`; `openapi.test.yaml` thiếu phiên
 - Mức: P3 · Vai sửa: **OPS** + **ARC** · Trạng thái: **Deferred R2** (đã sửa, chờ CI chạy thật)
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** CI có job "no test endpoints in production contract" (`openapi.yaml` không có đường `/__test__`) và bước chặn image production chứa `TestSupportModule` hoặc đường `/__test__` (`ci.yml` ghi BUG-R1-SEC-08). Cả hai xanh ở CI `41999716963`; smoke production PS-02 (`/__test__` đóng từ Internet) đạt 06/11. Plan R2 W4.
 - Kiểm lại lượt 2 (16/10): `openapi.test.yaml` `security: [{testToken: [], staffSession: []}]` (AND). openapi-spec-validator: OK. `ci.yml` parse OK, có job `test-surface-guard` (không `continue-on-error`) và bước kiểm bundle trong `docker-build`. QA tự chạy: `check-no-test-surface.sh spec docs/api/openapi.yaml` → exit 0; với `openapi.test.yaml` → exit 1, chỉ ra 2 path (đối chứng đúng); `bundle services/api/src` → exit 0. `Dockerfile.api` `ARG INCLUDE_TEST_SUPPORT=0` xóa `dist/test-support` trước `pnpm deploy`.
 - Lý do dời: bước bundle trên image thật chưa chạy (không có Docker). Đóng khi CI xanh lần đầu. Theo dõi: plan R2 **W4**, TC-X-066.
 
@@ -254,12 +268,14 @@ Lượt 1: không có lỗi P0/P1 của QA. Hai lỗi P1 sơ bộ ở bước 2 
 
 ### BUG-R1-SEC-10 – `getDoorCredential`/`setDoorCredential` thiếu step-up, `x-c3-log` và response 401/403
 - Mức: **P2** · Môi trường: `openapi.yaml` 0.2.1-draft d.2253–2310 · Vai sửa: **ARC** (contract), **SEC** (SR-C3-09, SR-DEV-03), **BE** (cài) · Trạng thái: **Deferred R2**
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** `getDoorCredential` và `setDoorCredential` có `x-step-up: true`, `x-c3-log` (`door_credential` view/update) và response 401/403 (`REAUTH_REQUIRED`, `DEVICE_NOT_TRUSTED`).
 - Nguồn: sec-findings Phần D3. QA xác nhận bằng script: `getDoorCredential` có `x-classification C3`, `x-requires-trusted-device`, nhưng **không** `x-step-up`, **không** `x-c3-log`, responses chỉ `200, 404`. `setDoorCredential` không `x-step-up`, responses `200, 403, 412`. Cùng giá trị mã cửa với `renderDoorCodeMessage` (đã có step-up) → step-up của đường kia mất tác dụng.
 - Mong đợi: cả hai thêm `x-step-up: true`, response 401/403/429; `getDoorCredential` thêm `x-c3-log {door_credential, view}`; `setDoorCredential` ghi `c3_access_log action=write`.
 - Lý do dời: R1 chưa có mã nên chưa gây hại. Quyết định của SEC (Phần D2, ORC ghi decision-log): làm ở R2, **hạn trước khi BE cài A21 (khóa cửa)**. **Chưa có dòng trong plan R2** – QA đề nghị thêm vào W11 hoặc W2. TC: mở rộng TC-SEC-010 và TC-SEC-026 khi ARC sửa contract (FD máy quầy hết cửa sổ step-up gọi `getDoorCredential` → `401 REAUTH_REQUIRED`; trong cửa sổ → 200 + 1 dòng log).
 
 ### BUG-R1-SEC-11 – Chú thích máy đọc chưa đồng bộ cho bộ sinh test
 - Mức: P3 · Vai sửa: **ARC** · Trạng thái: **Deferred R2**
+- **Cập nhật 06/11 (QA, Round 5 V5-02; kiểm trên `6414be25` = v1.0.4): Closed.** OpenAPI có `x-c3-log` ở 22 operation; `setParameter` `x-rbac [A101, A102, A118, A119]`; `gen_traceability.py --strict` xanh ở CI `41999716963`.
 - Nguồn: sec-findings Phần D3. QA xác nhận: trong 11 operation C3, chỉ `renderDoorCodeMessage` và `getGuestStay` có `x-c3-log`. Một số operation có `x-requires-trusted-device`/`x-step-up` không khai 401/403: `getDoorCredential` (200, 404), `addGuestDocument` (201, 422), `updateGuestDocument` (200), `getPortalData` (200), `purgeRegistrationImages` (204, 409). `setParameter` `x-rbac [A101, A102, A118]` thiếu A119.
 - Lý do dời: chỉ ảnh hưởng bộ sinh test tầng R ở R2; quyền thực tế đã đúng ở rbac và mô tả. Hạn: trước khi QA sinh test tầng R từ contract. **Chưa có dòng trong plan R2** – QA đề nghị gộp vào W2. QA sẽ thêm luật kiểm vào `gen_traceability.py --strict` (mọi `x-classification: C3` đọc phải có `x-c3-log`; có `x-requires-trusted-device` phải khai 403; có `x-step-up` phải khai 401) cùng lúc OPS làm W5.
 

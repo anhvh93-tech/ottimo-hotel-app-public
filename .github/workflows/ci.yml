@@ -273,7 +273,8 @@ jobs:
         run: bash product/infra/ci/check-caddy-prod.sh --stub
       # US-155 (SEC s1-SEC-on-us155 condition 2) + LP-v2 (SEC SR-PE-10, SR-LC-06): only the two public form operations
       # and GET price-estimate (query ≤ 256 bytes) reach the api, form ≤ 16 KB; /ru open, 404 page by language.
-      - name: Caddyfile.landing proxy (form + price-estimate only, 413 over 16 KB incl. chunked, 404 by language, rest 404)
+      # V5-67 (SEC FB-R4-SEC-OPS-054-01): Authorization never reaches the api, production and staging access snippets.
+      - name: Caddyfile.landing proxy (form + price-estimate only, no Authorization to the api, 413 over 16 KB, 404 by language, rest 404)
         run: bash product/infra/ci/check-caddy-landing.sh
       # SEC E.8 / R5-01: the CI deploy key gets one summary line back (public Actions log); other commands → exit 2.
       - name: deploy-from-ci.sh (one summary line, full log on the server, refused commands)
