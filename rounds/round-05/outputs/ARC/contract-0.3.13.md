@@ -170,7 +170,7 @@ Lần chạy lại sau bổ sung 1b/1c (V5-48, 5B-1, V5-25, ARC-09; gộp `main`
 | T14-1 | Gõ 2 đêm giá thỏa thuận trong sàn–trần → lưu báo giá → giữ chỗ | Đêm của đơn = giá gõ, nguồn `manual`, cọc tính theo giá gõ |
 | T14-2 | Giá ngoài sàn–trần | 422 kèm `min`/`max` |
 | T14-3 | SAL gửi `nightlyRates` | 403 |
-| T14-4 | Kênh OTA, hoặc `type = long` | 422 `NOT_ALLOWED` |
+| T14-4 | Kênh OTA (có hoặc không `nightlyRates`); `type = long` kèm `nightlyRates` | OTA: 422 `VALIDATION_FAILED`, `NOT_IN_LIST` (`field` = `channelId`) như mục 1.17 và `QuoteInput.channelId`; `long`: 422 `NOT_ALLOWED` (`field` = `nightlyRates`). Sửa ở bổ sung 1f (QA review PR #103) – chữ cũ ghi chung `NOT_ALLOWED` |
 | T14-5 | `createHoldFromQuote` kèm `nightlyRates` | 422 `NOT_ALLOWED`, không có đơn nào được tạo |
 | T14-6 | E2E Desk: gõ giá → Giữ chỗ | Số cọc trên hộp = số máy chủ |
 
@@ -779,6 +779,7 @@ Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi 
 | BE C0313-25 (SEC 4) | Ô `bankReference` (`PaymentCreate` mọi đường, `executeRefund`): sau mẫu `^[A-Za-z0-9./_-]{1,64}$`, bỏ `.` `/` `_` `-`; chỉ chặn (422 `CARD_NUMBER_DETECTED`) khi **toàn bộ** là 13–19 chữ số qua Luhn. Ô chữ tự do giữ `containsCardNumber`. Không mã lỗi mới | BE-B/BE-D: hàm `isCardNumberReference` + test SEC 4.3; UXD: câu báo "nhập 8 ký tự cuối"; QA: bug P2 `executeRefund` (SEC 4.4, ORC giao) |
 | ARC review #100, A1 | `front_desk_lead` ở 6 chỗ 2FA (`MFA_ENROLLMENT_REQUIRED`, `login`, summary `getMy2fa`, `getMy2fa.required`, `disableMy2fa`, `Me.mfaRequiredButMissing`) + `erd.md` `mfa_enabled` | BA (`rbac-matrix.md` A111), SEC (SR-AUTH-06), FE-A (mock `MFA_ROLES`) – ngoài PR này |
 | ARC review #100, A2 | 0.3.12 (f): `serializeSchema` (SSE, outbox) không bao giờ trả `x-self-data`, với mọi vai (V5-43) | – |
+| QA review PR #103 | Bảng test mục 1.3: T14-4 sửa theo mục 1.17 – kênh OTA trả `NOT_IN_LIST` (`channelId`), `type = long` kèm `nightlyRates` trả `NOT_ALLOWED`. `openapi.yaml` đã đúng, PR #103 làm đúng; chỉ sửa tài liệu này | QA dẫn T14-4 mới vào ca |
 | ARC review #100, A3 (chữ) | `getArrivalsDepartures` và `TonightKpi.departures`: trong cửa sổ sau nửa đêm khi vắng `date`, danh sách theo `departuresDate`, số KPI vẫn theo ngày nghiệp vụ – lệch tới 0.3.14 | Phần máy chủ: 0.3.14 dưới |
 
 **Quyết định ARC cho V5-58 (SEC 3.1, "không chép câu SQL sang module thứ hai"):** `module-boundaries.test.ts` không cấm module khác ghi `rate_limit_counter`, nhưng câu UPSERT hiện chỉ nằm trong `public-site` (`PublicBookingService.bumpAt`). BE V5-58 chuyển câu này ra một hàm dùng chung ở `shared/` (ví dụ `bumpRateLimitCounter(q, bucketKey, windowStart, windowMs)`, nhận `q` là client của giao dịch do người gọi chọn), `public-site` gọi lại hàm đó (không đổi hành vi, test SR-RL-11 giữ), `setPropertyWifi` gọi bằng client của giao dịch riêng. Không import `public-site/internal`.

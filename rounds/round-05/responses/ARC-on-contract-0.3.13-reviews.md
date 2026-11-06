@@ -117,4 +117,5 @@ Chi tiết ở contract 1.26. Một chỗ đổi phần mở rộng (ARC-16), m�
 | FB-R5-SEC-ARC-22 | Suggestion | Done (chữ) | `setPropertyWifi` (login_lockout, ngoại lệ bộ đếm và audit `security`), `Payment.afterClosure` (tính lúc đọc) |
 | FB-R5-BE-ARC-C0313-24 | Minor | Done (chữ) – BE làm ở PR V5-58 | SR-RL-15; `rate_limit_counter` khóa `wifi_pw_cmp:<user_id>`; không `x-rate-limit`; T58-14…16. ARC chốt: câu UPSERT ra hàm dùng chung ở `shared/`, `public-site` gọi lại (contract 1.26) |
 | FB-R5-BE-ARC-C0313-25 | Minor | Done (chữ) – BE làm ở PR-B3 và bản sửa `executeRefund` | Luật số thẻ riêng cho ô mã: chỉ toàn bộ giá trị 13–19 chữ số qua Luhn; bảng mã, `recordPayment` (B), `PaymentCreate.bankReference`, `executeRefund.bankReference`. `pattern` cho `executeRefund` vào 0.3.14 |
+| QA review PR #103 (T14-4) | – | Done (chữ tài liệu) | Contract 1.3: T14-4 theo 1.17 – OTA → `NOT_IN_LIST` (`channelId`); `type = long` kèm `nightlyRates` → `NOT_ALLOWED`. `openapi.yaml` không đổi |
 | ARC review PR #100 mục 6.3 A1–A3 | – | Done (chữ); A3 máy chủ và A4 – 0.3.14 | 6 chỗ 2FA + `erd.md`; `serializeSchema` không trả `x-self-data`; ngoại lệ cửa sổ sau nửa đêm của KPI "Khách đi" |
