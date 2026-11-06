@@ -748,3 +748,100 @@ Làn BE: BE ghi nhận các quyết định ORC chốt sau 7.4–7.5:
 - PR-M chỉ gộp khi V5-61 đạt.
 
 Các quyết định này không đổi ước công ở 7.4.
+
+### 7.8 Bổ sung 1e @ `f9a1b062` (PR #104, nhánh `r5-contract-0313e`)
+
+Round 5 · bước **Review** (đọc nhanh, chỉ chữ) · BE · 07/11/2026.
+
+BE đọc:
+- `gh pr view 104`, `gh pr checks 104`;
+- diff `ab1fc4ae..f9a1b062` (2 commit ARC `30566c02`, `f9a1b062`; gốc là `main` @ `ab1fc4ae`), 5 tệp: `openapi.yaml`, `erd.md` 9.1a, `api-client/src/generated/openapi.ts`, `contract-0.3.13.md` (1.24, 1.25, mục 5), `ARC-on-contract-0.3.13-reviews.md` mục 7.
+
+BE đối chiếu với mã `main`:
+- `audit/public/audit-fields.ts`, `payments/audit-entities.ts`, `src/audit-entities.ts`;
+- `events/internal/attention.service.ts` 100–141, `events/public/events.service.ts` 110, 219;
+- `payments/internal/payments.service.ts` 521–536 (`confirmReceived`), 972–1014 (`createVietQr`);
+- `payments/internal/refunds.service.ts` 668–676, 761, `refunds.controller.ts` 232, `shared/validation.ts` 42–60 (`containsCardNumber`);
+- `identity/public/password-reauth.ts` 40–80, `identity/public/rate-limiter.ts`, migration 0013, 0055, 0086;
+- `public-site/internal/website-request-rules.ts` 250, `public-booking.service.ts` 417;
+- nhánh PR #96 `r5-v5-25` @ `897ff46e`: `parameter-rules.ts` 72–86, 303–321, `parameters.service.ts` 237, `parameter-shapes.ts`.
+
+Không sửa mã, không gọi staging hay production. Tệp này không có mật khẩu, bí mật hay dữ liệu khách.
+
+#### 7.8.0 Kết luận: **DUYỆT** để gộp PR #104
+
+- Đủ cả bốn điều kiện của 7.0 (7.8.1).
+- Không mở lại thẻ C0313 nào:
+  - C0313-22 **đóng phần chữ**, BE làm theo 7.8.2;
+  - C0313-23 **đóng phần chữ**, phần nơi lưu bộ đếm chuyển sang thẻ 24.
+- 2 thẻ mới, **không chặn gộp**:
+  - C0313-24 (Minor, SEC + ARC): nơi lưu bộ đếm SR-RL-10 và mã SR-RL-10 bị dùng trùng. Hạn: trước khi PR V5-58 viết bộ đếm;
+  - C0313-25 (Minor, SEC + ARC): luật số thẻ V-09 bắt nhầm `bankReference`. Hạn: trước khi PR-B3 viết kiểm `bankReference`.
+
+#### 7.8.1 Bốn điều kiện delta chữ – kiểm trên worktree tách ở `f9a1b062` trong scratchpad (đã gỡ)
+
+| Điều kiện | Kết quả |
+|---|---|
+| (1) Chỉ `.md` và chữ `description`/changelog | **Đạt.** Ngoài `openapi.yaml` và `openapi.ts`, chỉ đổi 3 tệp `.md`. So `openapi.yaml` sau khi bỏ mọi khóa `description`: **0 chỗ khác**. `description` đổi ở 12 chỗ: `info` (changelog (n)); `Payment.afterClosure`, `Payment.refundRequestId`, `PaymentCreate.bankReference`; `createDepositNotice`, `setPropertyWifi`, `createVietQr`, `cancelScheduledParameter`, `confirmPaymentReceived`, `setParameter`, `recordPayment`; tham số `afterClosureOnly` của `listAuditEvents` |
+| (2) Tệp sinh không đổi, hoặc chỉ đổi chú thích | **Đạt.** `openapi-meta.ts`, `openapi-schemas.ts`, `rbac-cases.*`, `traceability.md` không có trong diff. `openapi.ts`: +46/−7, mọi dòng đổi đều là JSDoc (`*`, `/**`, `*/`). `gen-openapi-meta.mjs --check`: "up to date", exit 0. `gen_rbac_cases.py --check`: OK, 210 operation, 2310 ca (2xx 1110, 401 345, 403 855), 21 `fieldCases`, `rbac mismatch []`. `pnpm --filter @ottimo/api-client gen`: `openapi.ts up to date`, worktree sạch. Ngoài yêu cầu: `gen_traceability.py --strict` exit 0, bản sinh **trùng byte** với `docs/qa/traceability.md` |
+| (3) Không đổi schema, `enum`, `required`, `x-roles`, `x-write-roles`, `x-rbac`, `x-scope`, bảng mã lỗi | **Đạt.** Đã có ở (1): ngoài `description` không khác gì. Mã nhắc tới đều đã có: `CARD_NUMBER_DETECTED` (bảng mã dòng 154), `NOT_ALLOWED`, `DUPLICATE_BANK_REFERENCE`, `PARAM_OUT_OF_RANGE` và các mã trường |
+| (4) CI xanh | **Đạt.** `gh pr checks 104`: 9 job đạt (contract, Redocly, format · lint · audit · test · build, E2E smoke, gitleaks, shellcheck, landing, confidential paths, no test endpoints); 3 job deploy bỏ qua. `MERGEABLE` |
+
+#### 7.8.2 Chữ chạm làn BE – đối chiếu mã
+
+| Mục | BE đánh giá | Việc cho làn (không đổi hợp đồng) |
+|---|---|---|
+| **C0313-22: allowlist bắt buộc, lọc theo audit lúc ghi** | Đúng đề xuất của thẻ. Không cần migration: `reservation.cancelled_at`, `no_show_marked_at` có từ 0013; `attention_event.kind` không có CHECK DB (0055 dòng 9). `afterClosureOnly` lọc `after.afterClosure = true` trên tập `action` ghim sẵn. Nhờ vậy chuỗi "hủy → ghi muộn → khôi phục" vẫn còn trong bộ lọc | BE-B: thêm `afterClosure`, `reservationStatus` vào allowlist `payment` ở `payments/audit-entities.ts`. Tệp này không import Nest và đã nạp ở cả api lẫn worker qua `src/audit-entities.ts`. `afterClosure` lúc đọc tính ngay trong câu đọc khoản thu (nối folio → đơn chính), không N+1. Test đọc lại `audit_event` |
+| **Audit `attention_event.resolved` khi đóng `deposit_after_cancel`** (ARC: BE làm ở PR V5-48) | Làm được, nhưng **lệch làn**: mục `deposit_after_cancel` chỉ sinh ở PR-B3 (5B-1, contract mục 2 dòng 746). Trên `main` chưa có mã nào sinh mục này (`deposit_after_cancel` chỉ có trong danh sách kind ở `events.service.ts` 110). Nếu làm ở V5-48 thì thành mã chưa có nguồn: ca "đóng bằng Không thấy tiền có trong bộ lọc" phải chèn dòng thẳng vào DB. Nếu PR-B3 áp dòng cắt của plan (bỏ `deposit_after_cancel`) thì phần audit này thành mã chết. Ngoài ra, `resolve()` (`attention.service.ts` 100–141) hiện không ghi audit và chỉ bắt ghi chú khi mục `critical`. Chữ hợp đồng thì đòi "Không thấy tiền" **có ghi chú bắt buộc** | **Đề xuất ORC:** chuyển audit `attention_event.resolved` và allowlist `attention_event` (`kind`, `afterClosure`) sang **PR-B3**, cùng nơi sinh mục. V5-48 giữ allowlist `payment` và audit `payment.recorded`. Thực thể mới đặt ở `events/audit-entities.ts` không import Nest, nạp ở `src/audit-entities.ts` (nếu không, `worker-audit-registry.test.ts` báo lệch). Ghi chú bắt buộc theo kind `deposit_after_cancel`. Audit không chứa `resolution_note` (chữ tự do) |
+| **ARC-17: 404 trước 409** | Khớp mã hiện có. `confirmReceived`: 404 ở `scopedReservation` (dòng 533) và ở nhánh SAL không phải cọc (534). `createVietQr`: 403 (998, 1000) → 404 (1008–1010). 409 đơn đã đóng chèn ngay sau 404: trước `assertHoldOpenForSales` (536), trước luật `check_in`/`check_out` (1014) | **Giả định BE:** kiểm dạng thân không cần DB (`note`, `receivedAt`, `amountVnd`, `purpose = billing_period`, `overBalanceReason`) giữ chỗ hiện nay, tức trước 404. "Mọi kiểm khác" hiểu là các kiểm cần đơn, folio hoặc khoản thu. QA không viết ca "đơn đã hủy + thân sai dạng → 409". Ca SAL → 404 không có `reservationStatus` viết ở PR-B1 |
+| **ARC-15: `bankReference`** | Chuẩn hóa không mâu thuẫn mẫu `^[A-Za-z0-9./_-]{1,64}$`: bỏ khoảng trắng ở controller trước khi so mẫu, như `refunds.controller.ts` 232. Khoản thu trước PR-B3 không có `bank_reference` (trường lạ bị từ chối), nên không phải chuẩn hóa dữ liệu cũ. Sáu đường `PaymentCreate` đều qua `recordInTx` (SEC 5.3), nên chỉ kiểm ở một chỗ. 409 không có `duplicateReservationCode` cho người không có vai FD+ là một nhánh trong bộ dựng lỗi | Kiểm số thẻ: xem **thẻ C0313-25** |
+| **1.24: kiểm hai chiều `min_stay` ↔ `short_stay_max_nights` theo khoảng hiệu lực** | **Khớp PR #96 @ `897ff46e`**. `valuesDuringOwnRow` lấy giá trị khóa kia đang hiệu lực ở `effectiveFrom`, cộng các dòng đã lên lịch sau đó và trước dòng kế tiếp của chính khóa đang lưu. `min_stay`: `max` = min(7, nhỏ nhất). `short_stay_max_nights`: `min` = `nights` lớn nhất. Bảng 9.1a khớp `parameter-shapes.ts`: phần trăm 2 chữ số thập phân, `cancel_policy_direct` không rỗng, `max_open_holds_per_user` đủ hai vai, `lease_terms` 1–12 kỳ | (a) Lưu ý cho QA: kiểm ngược trả `errors[0].code = VALUE_OUT_OF_RANGE` kèm `min` (`parameter-rules.ts` 320). Câu "luật số cũ giữ `PARAM_OUT_OF_RANGE`" không áp cho trường hợp này, vì đây là luật chéo mới. (b) Suggestion cho BE-C: chưa có khóa giữa hai khóa. Hai người lưu `min_stay` và `short_stay_max_nights` cùng lúc có thể cùng qua, vì giao dịch nào cũng chưa thấy dòng của bên kia. Thêm `pg_advisory_xact_lock(hashtextextended('param-cross:' \|\| property_id, 0))` khi lưu khóa có luật chéo, ghi decision-log. (c) `cancelScheduledParameter` chưa kiểm lại (0.3.14). Hủy dòng `short_stay_max_nights` đã lên lịch có thể để `min_stay` vượt trần trong một khoảng ngày. Đề xuất PO/DOM thêm một dòng release notes v1.0.5 cho OWN/MGR |
+| **SR-RL-10 cho V5-58** | Làm được, theo mẫu `password-reauth.ts`: bộ đếm và audit ghi ở giao dịch riêng, commit trước khi ném lỗi. Thứ tự: mọi kiểm dạng (`ssid`, `password`), rồi đọc mật khẩu Wi-Fi đang lưu, rồi mới so khi giá trị khác. Đếm cả lần bị bỏ qua, nên audit `wifi_password_check_skipped` chỉ ghi lúc đếm chạm 6, đúng một lần mỗi cửa sổ | Nơi lưu bộ đếm: xem **thẻ C0313-24**. Ước công V5-58 +0,25 ngày (bộ đếm và T58-11…13) |
+
+#### 7.8.3 Thẻ mới
+
+##### FB-R5-BE-ARC-C0313-24
+- Mức độ: Minor – gửi SEC (SR-RL-10), ARC (một câu ở mô tả `setPropertyWifi`, đưa vào 0.3.14)
+- Vị trí:
+  - `setPropertyWifi`, khối "Bổ sung 1e": "cùng nơi lưu với bộ đếm xác nhận lại (SR-RL-02) nhưng khóa đếm riêng";
+  - `security-requirements.md` dòng 230;
+  - `ADR-014-landing-site.md` dòng 629;
+  - mã `public-site/internal/website-request-rules.ts` 250, test `be-d-r3-s1-units.test.ts` dòng 4.
+- Vấn đề:
+  1. **Nơi lưu.** SR-RL-02 không phải bảng đếm theo khóa. Nó là hai cột trên `app_user` (`approval_pin_failed_count`, `approval_pin_locked_until`; `password-reauth.ts` 40–66, `db/schema/identity.ts` 49–50). Đọc đúng chữ "cùng nơi lưu, khóa đếm riêng" thì phải thêm cột vào `app_user`, tức là có migration. Như vậy trái câu "không migration" của 1e và phải chờ V5-61 (QC R4 ĐK-2). Trong khi đó, PostgreSQL đã có bảng đếm theo khóa, cửa sổ cố định: `rate_limit_counter` (0086). Bảng này UPSERT nguyên tử (`public-booking.service.ts` 417), có job dọn `public_site.cleanup`, đã cấp quyền `ottimo_app`, ngoại lệ RLS có ghi (khóa chỉ chứa mã luật + id).
+  2. **Mã luật trùng.** ADR-014 dòng 629 đã đặt SR-RL-10…13 cho endpoint công khai. Mã đang dẫn SR-RL-10 cho khóa IP của form công khai (`website-request-rules.ts` 250 "IP keys (SR-RL-10/11 …)", `be-d-r3-s1-units.test.ts` "IP buckets (SR-RL-10)"). `security-requirements.md` chưa từng có dòng SR-RL-10…13 cho trang công khai, và nay SR-RL-10 là luật Wi-Fi.
+- Vì sao quan trọng: người làm V5-58 theo chữ sẽ viết migration (bị chặn bởi V5-61), hoặc để bộ đếm trong RAM như `RateLimiter` (sai SR-RL-10). Mã luật trùng thì QA và traceability dẫn sai luật.
+- Đề xuất sửa:
+  - BE-H dùng `rate_limit_counter`:
+    - `bucket_key` = `wifi_pw_cmp:<user_id>`, chỉ có id, đúng điều kiện của 0086;
+    - `window_start` = đầu cửa sổ 24 giờ cố định, `expires_at` = cuối cửa sổ;
+    - `INSERT … ON CONFLICT DO UPDATE … RETURNING count` ở giao dịch riêng.
+    Không migration, ghi decision-log. ARC đổi chữ ở 0.3.14 thành "PostgreSQL (`rate_limit_counter`), khóa đếm riêng", thay cho "cùng nơi lưu với SR-RL-02". SEC xác nhận một dòng.
+  - SEC chọn một trong hai: đổi số luật Wi-Fi sang số chưa dùng (ví dụ SR-RL-14), hoặc ghi SR-RL-10…13 công khai vào bảng rồi đánh số lại. ARC theo ở 0.3.14 (chỉ chữ). BE sửa chú thích trong mã khi chạm tệp.
+- Hạn: trước khi PR V5-58 viết bộ đếm. Không chặn gộp #104.
+- Trạng thái: Open
+
+##### FB-R5-BE-ARC-C0313-25
+- Mức độ: Minor – gửi SEC (luật V-09 cho trường mã tham chiếu), ARC (chữ), BE-B (PR-B3)
+- Vị trí:
+  - `recordPayment` (B), khối "Bổ sung 1e (SEC ARC-15)": "chuỗi giống số thẻ → 422 `CARD_NUMBER_DETECTED` … như `executeRefund`";
+  - `PaymentCreate.bankReference`;
+  - mã `shared/validation.ts` 42–60, `payments/internal/refunds.service.ts` 668–676, 761–762.
+- Vấn đề:
+  - `containsCardNumber` (luật gốc V-09) thử **mọi cửa sổ 13–19 chữ số, ở mọi vị trí**, qua Luhn. Hợp với chữ tự do, nhưng bắt nhầm nhiều với mã giao dịch.
+  - BE mô phỏng đúng luật gốc trên dãy số ngẫu nhiên, 20.000 mẫu mỗi độ dài, chưa tính `looksLikeCard`. Tỉ lệ bị chặn: 12 chữ số trở xuống 0 %; 13 → 9,9 %; 14 → 27,5 %; 15 → 46,7 %; 16 → 65,0 %; 18 → 88,7 %. Mã giao dịch ngân hàng nào có phần số dài từ 13 chữ số trở lên sẽ bị 422 khá thường, dù không phải số thẻ.
+  - Ở `PaymentCreate`, trường này tùy chọn. Lễ tân gặp 422 sẽ bỏ trống, và khoản đó mất chặn trùng S4 mà không ai biết.
+  - Ở `executeRefund` (đang chạy), `bankReference` **bắt buộc** khi chi chuyển khoản (`refunds.service.ts` 761). Nếu mã bị bắt nhầm, MGR/OWN không ghi được lệnh chi, trừ khi sửa mã đi. BE chưa thấy báo lỗi production nào; xác suất như trên.
+- Vì sao quan trọng: thao tác tiền bị chặn nhầm, hoặc người dùng bị đẩy tới chỗ bỏ trống hay sửa mã, làm chặn trùng mất tác dụng.
+- Đề xuất sửa (SEC chọn):
+  - (a) Luật riêng cho trường mã tham chiếu (`bankReference` ở cả `PaymentCreate` và `executeRefund`): chỉ chặn khi **toàn bộ giá trị**, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số và qua Luhn (cộng `looksLikeCard` trên toàn giá trị). Mã có chữ, hoặc dãy số ngoài 13–19 chữ số, không bị chặn. Với mã toàn số 13–19 chữ số, tỉ lệ nhầm còn khoảng 10 %. Hàm đặt ở `shared/validation.ts`, cạnh `containsCardNumber`.
+  - (b) Giữ luật chung và chấp nhận tỉ lệ trên: release notes ghi cách làm; UXD có câu cho 422 ở ô mã ("Mã này giống số thẻ – để trống ô này"); QA chỉ dùng mã tối đa 12 chữ số.
+  - Test PR-B3 theo (a): mã có chữ kèm 14 chữ số qua Luhn ở một cửa sổ → 201; `4111111111111111` → 422.
+- Hạn: trước khi PR-B3 viết kiểm `bankReference`. Không chặn gộp #104: chữ 1e đúng ý SEC ARC-15 ý 2, chỗ cần chốt nằm ở luật V-09 áp cho trường mã.
+- Trạng thái: Open
+
+#### 7.8.4 Giả định đã dùng
+
+- ARC-17: kiểm dạng thân không cần DB vẫn đứng trước 404 phạm vi (7.8.2).
+- `rate_limit_counter` là nơi lưu PostgreSQL hợp SR-RL-10, chờ SEC xác nhận ở thẻ 24.
+- Không cần ESC: các điểm thuộc quyền SEC (V-09, SR-RL), ARC (chữ 0.3.14), ORC (đặt audit đóng mục vào PR-B3) hoặc BE (khóa luật chéo, cách cài bộ đếm).
