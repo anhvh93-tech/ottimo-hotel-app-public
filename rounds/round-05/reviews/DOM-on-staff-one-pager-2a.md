@@ -114,7 +114,7 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
 
 **Chưa in bản hiện tại.** Thẻ 02–06: đóng. Thẻ 01: đóng phần tách hai trường hợp và phần "báo chủ đầu tư"; phần rà mở lại thành thẻ 07 (Major).
 
-**In được ngay khi PO thay đúng câu ở thẻ 07** (chữ nguyên văn bên dưới), không cần DOM đọc lại lần 3. PO đổi ý chữ thì DOM đọc lại phần đó.
+**In được ngay khi PO áp đúng "bản gộp" ở thẻ 07** (chữ nguyên văn bên dưới, gồm cả câu tiền về mà đơn đã tự hủy ở mục 4.4), không cần DOM đọc lại lần 3. PO đổi ý chữ thì DOM đọc lại phần đó.
 
 ### 4.2 Ba điểm ORC hỏi
 
@@ -140,9 +140,24 @@ Không câu nào làm lễ tân thu hay hoàn sai số. Còn một câu tả sai
     - hạn giữ chỗ là 12, 24 hoặc 48 giờ (`hold_hours_options`); mốc rà cách nhau tối đa 12 giờ (21:00 → 09:00), nên mỗi giữ chỗ nằm trong **Đang hiệu lực** ở ít nhất một mốc;
     - giữ chỗ bị trần 12:00 ngày đến cắt ngắn thì lễ tân thấy dòng **Giữ chỗ sắp hết hạn** ở **Cần chú ý** trên **Hôm nay**. Dòng này tính cho mọi giữ chỗ, kể cả đơn sale, CTV tạo.
   - Dài thêm khoảng một dòng so với câu cũ. Không vừa A5 10 pt thì dùng 9 pt như Tờ 1, hoặc rút dòng "chờ chủ đầu tư hoàn" về sổ tay 2.4 như thẻ 06 cho phép.
+  - **Bản gộp (sửa 06/11 tối, thay câu trên; gồm cả mục 4.4 tiền về mà đơn đã tự hủy).** PO áp bản này để chủ đầu tư in Tờ 2a một lần:
+    - Gạch "Ở đâu", thay câu thứ hai: "Mỗi mốc và mỗi lần thấy **Giữ chỗ sắp hết hạn**: ghi vào sổ giao ca mã đơn và giờ hạn của mọi giữ chỗ chờ cọc, cả đơn sale, CTV tạo. Mốc sau: mã nào không còn trong **Đang hiệu lực** → gõ mã vào ô tìm, bấm **Tất cả**. Đơn **Đã hủy**, lý do **Hết hạn giữ chỗ**: kiểm tiền về theo mã đơn (không thấy thì hỏi chủ đầu tư), rồi báo khách (đơn sale, CTV: báo người đó trước). Hộp **Thông báo** của app chỉ có giữ chỗ do bạn tạo."
+    - Gạch "Hết hạn, chưa cọc", thay câu cuối: "Quá hạn vài phút mà đơn vẫn **Giữ chỗ · chờ cọc**: kiểm tiền về trước. Tiền về trước hạn → **Xác nhận đã nhận cọc**, Giờ nhận tiền = giờ tiền về. Chưa về → **Hủy giữ chỗ**, ghi sổ giao ca, báo chủ đầu tư."
+    - Gạch mới, ngay sau gạch "Hết hạn, chưa cọc": "**Tiền đã về mà đơn đã tự hủy** (cả khi khách chuyển theo mã QR cũ): căn còn trống → giữ chỗ mới cùng căn, cùng giá → **Xác nhận đã nhận cọc**, Giờ nhận tiền để bây giờ, Ghi chú 'Tiền về hh:mm dd/mm theo mã OTM-…'. Căn đã bán và khách không nhận căn khác cùng hạng → báo chủ đầu tư hoàn đủ; sổ giao ca ghi 'OTM-… tiền về sau tự hủy – chờ chủ đầu tư hoàn'. Không tự hứa ngày hoàn."
+    - Không vừa A5: giữ ba câu này trên tờ, chuyển dòng "Sổ giao ca" phần đơn để nguyên sang sổ tay 2.4.
 - Việc kèm, không chặn in (ORC chuyển PO xếp việc, BE làm): DOM sửa luật A.5 của chính mình. Tin `hold_expired` gửi **thêm** lễ tân và lễ tân trưởng, như tin `hold_overdue_with_deposit`, chứ không chỉ khi không có người tạo, người chốt. Lý do: ở v1.0.x sale, CTV không có chỗ nào nhận tin. Chỗ sửa: `HOLD_NOTICE_ROLES.hold_expired` = `front_desk`, `front_desk_lead`, kèm test. Bản đó lên production thì sổ tay 2.4 (V5-71) mới dựa được vào hộp Thông báo. Luật ghi ở `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 9.
 - Trạng thái: Open
 
 ### 4.3 Dòng "Cọc" Tờ 1
 
 "(có cọc: xem Tờ 2a)" đúng ý thẻ 02. SEC đọc lại theo ORC; DOM không có ý kiến thêm.
+
+### 4.4 Tiền về nhưng giữ chỗ đã tự hủy (SEC `SEC-on-ba-dk4-dk5.md` mục 3a lượt 3; PO ca 2)
+
+**Chốt:** chọn **(a)**: trước mỗi lần tự bấm hủy và khi thấy một giữ chỗ đã tự hủy, lễ tân kiểm tiền về theo mã đơn (không thấy thì hỏi chủ đầu tư) rồi mới báo khách; tiền đã về thì căn còn trống đặt lại cùng căn, cùng giá, căn đã bán thì chủ đầu tư hoàn đủ theo sao kê.
+
+- Chữ cho Tờ 2a: bản gộp ở thẻ 07.
+- Vì sao không chọn (b) "hủy rồi báo chủ đầu tư":
+  - (b) mặc định hoàn tiền. Khách đã chuyển đúng hạn mà mất căn, chỉ vì quầy chưa kịp bấm. Lỗi chậm ghi là của OTTIMO.
+  - Chủ đầu tư không biết mã nào đã tự hủy nếu quầy không báo, nên khó dò ra trên sao kê.
+- Lý do nghiệp vụ, phần mềm còn thiếu, việc cho QA và BE: `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 11.
