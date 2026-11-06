@@ -14,7 +14,7 @@ import {
 } from '@ottimo/api-client';
 import { formatInstant, hasKey, useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, ConfirmDialog, Field, Modal } from '@ottimo/ui';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
 import { timeHHmm, todayLocal } from '../../app/dates';
@@ -24,6 +24,9 @@ import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import {
   addDays,
+  asClosedStatus,
+  closedBookingSentence,
+  closedReservationStatus,
   currentSegment,
   currentStateOf,
   dayMonth,
@@ -71,8 +74,15 @@ export interface DialogBase {
  * - 409 INVALID_TRANSITION: reload → the drawer closes the dialog with `rsv.transition_changed`;
  *   reload failed → keep the dialog, lock the main button, `rsv.transition_changed_unknown` + "Tải lại".
  * Success → `notifyChanged()` so the rack refreshes immediately.
+ * - `onBookingClosed` (the deposit box only, UXD 9.14 (c)): a write refused because the booking closed meanwhile –
+ *   409 INVALID_TRANSITION whose state is `cancelled`/`no_show` (B4 is the booking's command, so `currentState` is
+ *   the booking's), or a 412 whose reload shows it closed – goes there instead: no "reload" sentence, no
+ *   `onTransitionChanged`, the box stays open.
  */
-function useAction(base: DialogBase) {
+function useAction(
+  base: DialogBase,
+  opts: { onBookingClosed?: (status: 'cancelled' | 'no_show') => void } = {},
+) {
   const { t, locale } = useI18n();
   const write = useWrite();
   const [error, setError] = useState<unknown>(null);
@@ -93,6 +103,17 @@ function useAction(base: DialogBase) {
       return out;
     } catch (e) {
       if (isRetryable(e)) return undefined; // the retry notice keeps the form and explains
+      if (opts.onBookingClosed && isApiError(e)) {
+        let closed =
+          closedReservationStatus(e) ??
+          (e.code === 'INVALID_TRANSITION' ? asClosedStatus(currentStateOf(e)) : undefined);
+        if (!closed && e.code === 'VERSION_CONFLICT')
+          closed = asClosedStatus((await base.reload())?.status);
+        if (closed) {
+          opts.onBookingClosed(closed);
+          return undefined;
+        }
+      }
       setError(e);
       setFields(fieldErrors(t, e));
       if (isApiError(e) && e.code === 'INVALID_TRANSITION') {
@@ -524,7 +545,8 @@ export function DepositDialog(props: DialogBase) {
   const { roles, property } = useSession();
   const tz = property?.timezone;
   const toast = useToast();
-  const act = useAction(props);
+  // UXD 9.14 (c): B4 typed by hand on a booking that closed under the box says 9.1a too (never "reload").
+  const act = useAction(props, { onBookingClosed: (s) => bookingClosed(s) });
   // v1.0.4 BUG-R3-042: FD+ may date a receipt back (money arrived before the hold deadline, pressed after it –
   // US-085 AC4). Untouched → not sent: the server takes "now". Never in the future (the server also refuses a time
   // before the hold was created – 422 `payment.receivedAt`).
@@ -558,6 +580,16 @@ export function DepositDialog(props: DialogBase) {
   /** The QR payment already marked received (`confirmPaymentReceived`) – a retry only confirms the deposit. */
   const [qrReceived, setQrReceived] = useState<string | null>(null);
   const [qrExpired, setQrExpired] = useState(false);
+  /**
+   * V5-48 (UXD 9.1a): the booking closed under the box (J1 at the deadline, a cancel in another tab) – the server
+   * answered 409 + `reservationStatus`. The 9.1a sentence stays, nothing more is confirmed from this box.
+   */
+  const [closedAs, setClosedAs] = useState<'cancelled' | 'no_show' | null>(null);
+  /** UXD-137-02: once locked, focus goes to the 9.1a sentence (the button pressed is gone or disabled). */
+  const closedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (closedAs) closedRef.current?.focus();
+  }, [closedAs]);
   const qrAct = useSubmit();
   /** FE-B – DOM (f): why a QR above the deposit still missing is confirmed (`confirmPaymentReceived.note`). */
   const [qrNote, setQrNote] = useState('');
@@ -601,6 +633,14 @@ export function DepositDialog(props: DialogBase) {
     deskRole && receivedTouched && !viaQr && (!receivedIso || Date.parse(receivedIso) > Date.now());
   const receivedError = receivedBad ? t('field.DATE_INVALID') : act.fields['payment.receivedAt'];
 
+  /** V5-48: lock the box on the 9.1a sentence and let the drawer behind read the closed booking. */
+  const bookingClosed = (status: 'cancelled' | 'no_show') => {
+    setClosedAs(status);
+    setQr(null);
+    setPending(null);
+    void props.reload();
+  };
+
   /**
    * US-120 / SM-12: money in on the QR the guest paid → `confirmPaymentReceived` (pending → succeeded,
    * "chờ đối soát"), then B4 with `existingPaymentId` – never a second payment beside a QR left to expire.
@@ -623,6 +663,13 @@ export function DepositDialog(props: DialogBase) {
           }),
       );
       if (!ok) {
+        // V5-48: `reservationStatus` comes before the payment's `currentState` – a QR "expired" here expired BECAUSE
+        // the booking closed, so the box must not offer to record it as a manual transfer (`dep.qr_expired`).
+        const closed = closedReservationStatus(failed);
+        if (closed) {
+          bookingClosed(closed);
+          return undefined;
+        }
         // FE-B – DOM (f): above what is due now → the note box opens with the server's figure.
         const max = qrOverDue(undefined, failed);
         if (max !== null) setQrOverMax({ paymentId, max });
@@ -656,6 +703,7 @@ export function DepositDialog(props: DialogBase) {
   };
 
   const submit = async () => {
+    if (closedAs) return;
     setTouched(true);
     if ((!(value > 0) && !acceptOnExisting) || qrNoteMissing || shortfallReasonMissing) return;
     if (receivedBad) return;
@@ -713,12 +761,13 @@ export function DepositDialog(props: DialogBase) {
       closeLabel={t('common.close')}
       footer={
         <>
-          <Button onClick={props.onClose}>{t('common.cancel')}</Button>
+          {/* UXD-137-03: nothing left to cancel once the box is locked on 9.1a */}
+          <Button onClick={props.onClose}>{t(closedAs ? 'common.close' : 'common.cancel')}</Button>
           <Button
             variant="pri"
             busy={act.busy}
             busyLabel={act.busyLabel}
-            disabled={act.locked}
+            disabled={act.locked || closedAs !== null}
             onClick={() => void submit()}
           >
             {value > 0 && value < missing && !accepting
@@ -739,160 +788,175 @@ export function DepositDialog(props: DialogBase) {
       </div>
       {/* FE-B – BUG-R2-081: what the CTV / sale reported (0.3.7 add. 1 `depositNotices`). */}
       <DepositNotices reservation={r} />
-      {method === 'vietqr' && missing > 0 && !qrReceived ? (
-        <div className="mb-12">
-          <DepositQr
-            reservation={r}
-            pending={qr ? null : pending}
-            onQr={(x) => {
-              setQr(x);
-              setAmount(vnd(x.payment.amountVnd));
-            }}
-          />
+      {closedAs ? (
+        // V5-48 (UXD 9.1a, 9.14 (c)): never "reload" – what to do with money that may already be in OTTIMO's account.
+        // The fields go (UXD-137-03): nothing more is recorded from this box.
+        <div ref={closedRef} tabIndex={-1}>
+          <Alert tone="bad">{closedBookingSentence(t, closedAs, !deskRole)}</Alert>
         </div>
-      ) : null}
-      {paidBefore > 0 && missing > 0 && !accepting ? (
-        // FB-R4-UXD-FE-P440-06: once the manager accepts the shortfall, "record the rest" no longer applies.
-        <Alert tone="warn" role="status">
-          {t('error.DEPOSIT_INSUFFICIENT', { required: vnd(need), paid: vnd(paidBefore) })}
-        </Alert>
-      ) : null}
-      {qrExpired ? (
-        <Alert tone="warn" role="status">
-          {t('dep.qr_expired')}
-        </Alert>
-      ) : null}
-      {qrOver !== null ? null : qrAct.view()}
-      {act.errorView({ required: need, paid: paidBefore + value })}
-      <div className="g-2">
-        <Field
-          label={t('rsv.amount_received')}
-          required
-          error={amountError ?? act.fields['payment.amountVnd']}
-        >
-          {(p) => (
-            <div className="input-affix">
-              <input
-                {...p}
-                className="input num"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+      ) : (
+        <>
+          {method === 'vietqr' && missing > 0 && !qrReceived ? (
+            <div className="mb-12">
+              <DepositQr
+                reservation={r}
+                pending={qr ? null : pending}
+                onQr={(x) => {
+                  setQr(x);
+                  setAmount(vnd(x.payment.amountVnd));
+                }}
+                onClosed={bookingClosed}
               />
-              <span className="affix">{t('common.vnd_unit')}</span>
             </div>
-          )}
-        </Field>
-        <Field label={t('pay.method')}>
-          {(p) => (
-            <select
-              {...p}
-              className="input"
-              value={method}
-              onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-            >
-              {METHODS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {t(m.key)}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
-      </div>
-      {deskRole && !viaQr ? (
-        <Field
-          label={t('deposit.received_at')}
-          help={t('deposit.received_at_help')}
-          error={receivedError}
-        >
-          {(p) => (
-            <input
-              {...p}
-              type="datetime-local"
-              className="input num"
-              max={toLocalInput(new Date(), tz)}
-              value={receivedAt}
-              onChange={(e) => {
-                setReceivedTouched(true);
-                setReceivedAt(e.target.value);
-              }}
-            />
-          )}
-        </Field>
-      ) : null}
-      {qrOver !== null && qrPayment ? (
-        <>
-          <Alert tone="warn" role="status">
-            {t('pay.qr_over_note', { amount: money(qrPayment.amountVnd), max: money(qrOver) })}
-          </Alert>
-          <Field
-            label={t('dep.qr_over_reason')}
-            required
-            error={touched && qrNoteMissing ? t('field_error.reason_required') : qrAct.fields.note}
-          >
-            {(p) => (
-              <input
-                {...p}
-                className="input"
-                maxLength={300}
-                value={qrNote}
-                onChange={(e) => setQrNote(e.target.value)}
-              />
-            )}
-          </Field>
-        </>
-      ) : null}
-      {method === 'card_pos' ? (
-        <Field label={t('co.txn_ref')} error={act.fields['payment.posAuthCode']}>
-          {(p) => (
-            <input
-              {...p}
-              className="input mono"
-              maxLength={12}
-              value={posCode}
-              onChange={(e) => setPosCode(e.target.value)}
-            />
-          )}
-        </Field>
-      ) : null}
-      {shortfallOffered ? (
-        <>
-          <Checkbox checked={acceptShortfall} onChange={setAcceptShortfall}>
-            {t('deposit.accept_shortfall')}
-          </Checkbox>
-          {acceptShortfall ? (
+          ) : null}
+          {paidBefore > 0 && missing > 0 && !accepting ? (
+            // FB-R4-UXD-FE-P440-06: once the manager accepts the shortfall, "record the rest" no longer applies.
+            <Alert tone="warn" role="status">
+              {t('error.DEPOSIT_INSUFFICIENT', { required: vnd(need), paid: vnd(paidBefore) })}
+            </Alert>
+          ) : null}
+          {qrExpired ? (
+            <Alert tone="warn" role="status">
+              {t('dep.qr_expired')}
+            </Alert>
+          ) : null}
+          {qrOver !== null ? null : qrAct.view()}
+          {act.errorView({ required: need, paid: paidBefore + value })}
+          <div className="g-2">
             <Field
-              label={t('deposit.accept_shortfall_reason')}
+              label={t('rsv.amount_received')}
               required
-              error={
-                touched && shortfallReasonMissing
-                  ? t('field_error.reason_required')
-                  : act.fields.acceptShortfallReason
-              }
+              error={amountError ?? act.fields['payment.amountVnd']}
+            >
+              {(p) => (
+                <div className="input-affix">
+                  <input
+                    {...p}
+                    className="input num"
+                    inputMode="numeric"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                  <span className="affix">{t('common.vnd_unit')}</span>
+                </div>
+              )}
+            </Field>
+            <Field label={t('pay.method')}>
+              {(p) => (
+                <select
+                  {...p}
+                  className="input"
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+                >
+                  {METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {t(m.key)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          </div>
+          {deskRole && !viaQr ? (
+            <Field
+              label={t('deposit.received_at')}
+              help={t('deposit.received_at_help')}
+              error={receivedError}
             >
               {(p) => (
                 <input
                   {...p}
-                  className="input"
-                  maxLength={500}
-                  value={shortfallReason}
-                  onChange={(e) => setShortfallReason(e.target.value)}
+                  type="datetime-local"
+                  className="input num"
+                  max={toLocalInput(new Date(), tz)}
+                  value={receivedAt}
+                  onChange={(e) => {
+                    setReceivedTouched(true);
+                    setReceivedAt(e.target.value);
+                  }}
                 />
               )}
             </Field>
           ) : null}
+          {qrOver !== null && qrPayment ? (
+            <>
+              <Alert tone="warn" role="status">
+                {t('pay.qr_over_note', { amount: money(qrPayment.amountVnd), max: money(qrOver) })}
+              </Alert>
+              <Field
+                label={t('dep.qr_over_reason')}
+                required
+                error={
+                  touched && qrNoteMissing ? t('field_error.reason_required') : qrAct.fields.note
+                }
+              >
+                {(p) => (
+                  <input
+                    {...p}
+                    className="input"
+                    maxLength={300}
+                    value={qrNote}
+                    onChange={(e) => setQrNote(e.target.value)}
+                  />
+                )}
+              </Field>
+            </>
+          ) : null}
+          {method === 'card_pos' ? (
+            <Field label={t('co.txn_ref')} error={act.fields['payment.posAuthCode']}>
+              {(p) => (
+                <input
+                  {...p}
+                  className="input mono"
+                  maxLength={12}
+                  value={posCode}
+                  onChange={(e) => setPosCode(e.target.value)}
+                />
+              )}
+            </Field>
+          ) : null}
+          {shortfallOffered ? (
+            <>
+              <Checkbox checked={acceptShortfall} onChange={setAcceptShortfall}>
+                {t('deposit.accept_shortfall')}
+              </Checkbox>
+              {acceptShortfall ? (
+                <Field
+                  label={t('deposit.accept_shortfall_reason')}
+                  required
+                  error={
+                    touched && shortfallReasonMissing
+                      ? t('field_error.reason_required')
+                      : act.fields.acceptShortfallReason
+                  }
+                >
+                  {(p) => (
+                    <input
+                      {...p}
+                      className="input"
+                      maxLength={500}
+                      value={shortfallReason}
+                      onChange={(e) => setShortfallReason(e.target.value)}
+                    />
+                  )}
+                </Field>
+              ) : null}
+            </>
+          ) : null}
+          {value > 0 && value < missing && !accepting ? (
+            <p className="li-s">{t('rsv.deposit_partial')}</p>
+          ) : null}
+          {method === 'vietqr' && qrPayment && value > 0 && !viaQr ? (
+            <p className="li-s">
+              {t('dep.qr_amount_differs', { amount: money(qrPayment.amountVnd) })}
+            </p>
+          ) : null}
+          {method === 'bank_transfer' || method === 'vietqr' ? (
+            <p className="li-s">{t('rsv.reconcile_note')}</p>
+          ) : null}
         </>
-      ) : null}
-      {value > 0 && value < missing && !accepting ? (
-        <p className="li-s">{t('rsv.deposit_partial')}</p>
-      ) : null}
-      {method === 'vietqr' && qrPayment && value > 0 && !viaQr ? (
-        <p className="li-s">{t('dep.qr_amount_differs', { amount: money(qrPayment.amountVnd) })}</p>
-      ) : null}
-      {method === 'bank_transfer' || method === 'vietqr' ? (
-        <p className="li-s">{t('rsv.reconcile_note')}</p>
-      ) : null}
+      )}
     </Modal>
   );
 }
