@@ -64,6 +64,8 @@ const MinibarPage = lazy(() =>
 const WebRequestsPage = lazy(() =>
   import('../pages/webreq/WebRequestsPage').then((m) => ({ default: m.WebRequestsPage })),
 );
+// v1.0.5 V5-58: S36 Wi-Fi cơ sở (BUG-R3-021 Desk part).
+const WifiPage = lazy(() => import('../pages/WifiPage').then((m) => ({ default: m.WifiPage })));
 
 function Splash() {
   const { t } = useI18n();
@@ -153,6 +155,7 @@ const PAGES: Record<string, () => ReactNode> = {
   reservations: () => <ReservationsPage />,
   quotes: () => <QuotesPage />,
   webreq: () => <WebRequestsPage />,
+  wifi: () => <WifiPage />,
   registration: () => <RegistrationPage />,
   approvals: () => <ApprovalsPage />,
   moneylog: () => <MoneyPage />,

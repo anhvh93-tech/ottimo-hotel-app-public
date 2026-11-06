@@ -17,6 +17,7 @@ import { createReservationMock } from './reservations';
 import { createStayMock } from './stay';
 import { matchStep, randomBase32 } from './totp';
 import { createWebRequestMock } from './webreq';
+import { createWifiMock } from './wifi';
 import {
   BOOKED_GUESTS,
   MOCK_PASSWORD,
@@ -170,6 +171,14 @@ const ops = createOpsMock({
   attachments: () => stay.state.attachments,
 });
 
+// R5 FE-2 (V5-58 Desk, S36): the property Wi-Fi (GET/PUT + its `property.wifi_changed` log rows).
+const wifi = createWifiMock({
+  guard: (request, allowed) => guard(request, allowed),
+  problem: (status, code, extra, headers) => problem(status, code, extra, headers),
+  users: () => db.users,
+  roomNos: () => db.rooms.map((r) => r.roomNo),
+});
+
 // Sprint 4 FE-B (EP01 – H03/H24): KPI, arrivals/departures, "Cần chú ý" computed from the mocks above.
 const dashboard = createDashboardMock({
   guard: (request, allowed) => guard(request, allowed),
@@ -193,6 +202,7 @@ export const mockControl = {
     ops.reset();
     dashboard.reset();
     webRequests.reset();
+    wifi.reset();
     persist();
   },
   failNext(
@@ -236,6 +246,10 @@ export const mockControl = {
   /** R3 S1 website booking requests (S35) and the `public_booking_requests_enabled` switch. */
   get webRequests() {
     return webRequests.state;
+  },
+  /** R5 V5-58 property Wi-Fi (value, `property.wifi_changed` rows, SR-RL-15 comparison counter) for tests. */
+  get wifi() {
+    return wifi.state;
   },
 };
 
@@ -644,6 +658,8 @@ export const handlers = [
   ...webRequests.handlers,
   ...dashboard.handlers,
   ...ops.handlers,
+  // V5-58 before stay.ts: its `GET …/audit-events` answers `action=property.wifi_changed` only, the rest falls through.
+  ...wifi.handlers,
   ...stay.handlers,
   ...reservations.handlers,
   // ---------- auth (S01) ----------

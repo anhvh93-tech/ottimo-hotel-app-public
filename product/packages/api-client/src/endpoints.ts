@@ -50,6 +50,7 @@ import type {
   Me,
   Parameter,
   PageInfo,
+  PropertyWifi,
   PropertyRole,
   Room,
   RoomGroup,
@@ -139,6 +140,7 @@ import type {
   SetMyEmailBody,
   SetMyEmailResult,
   SetParameterBody,
+  SetPropertyWifiBody,
   TrustDeviceBody,
   TrustedDevice,
   UpdateUserBody,
@@ -307,6 +309,22 @@ export function createEndpoints(api: ApiClient) {
         path: { propertyId, key },
         body,
         idempotencyKey,
+      }),
+
+    // property Wi-Fi (0.3.13 V5-58): read S36 (OWN, MGR, FDL, FD), write A101 (OWN, MGR). Both answer
+    // `Cache-Control: no-store`; the PUT answer never carries `password` (`passwordSet` instead – BE C0313-21).
+    getPropertyWifi: ({ propertyId }: P) =>
+      r<PropertyWifi>('GET', '/v1/properties/{propertyId}/wifi', { path: { propertyId } }),
+    setPropertyWifi: ({ propertyId }: P, body: SetPropertyWifiBody) =>
+      r<PropertyWifi>('PUT', '/v1/properties/{propertyId}/wifi', { path: { propertyId }, body }),
+    /**
+     * V5-58 (DOM FB-R5-DOM-UXD-120-03): the last saves of the Wi-Fi – `listAuditEvents` (S27) pinned to
+     * `category = config`, `action = property.wifi_changed`. `from`/`to` are calendar dates (≤ 92 days, server rule).
+     */
+    listPropertyWifiChanges: ({ propertyId }: P, from: string, to: string, limit = 5) =>
+      r<Paged<AuditEvent>>('GET', '/v1/properties/{propertyId}/audit-events', {
+        path: { propertyId },
+        query: { category: 'config', action: 'property.wifi_changed', from, to, limit },
       }),
 
     // guests (S14)

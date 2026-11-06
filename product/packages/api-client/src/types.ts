@@ -19,6 +19,8 @@ export type CancelScheduledRoomListPriceBody = BodyOf<'cancelScheduledRoomListPr
 export type CancelScheduledListPriceState = 'effective' | 'only_price' | 'first_price';
 export type RoomGroup = Schemas['RoomGroup'];
 export type Parameter = Schemas['Parameter'];
+/** 0.3.13 (V5-58): Wi-Fi of the property – `password` only in the GET answer (S36), never in the PUT answer. */
+export type PropertyWifi = Schemas['PropertyWifi'];
 export type Guest = Schemas['Guest'];
 export type GuestInput = Schemas['GuestInput'];
 export type GuestSummary = Schemas['GuestSummary'];
@@ -86,6 +88,7 @@ export type LoginBody = BodyOf<'login'>;
 export type ChangePasswordBody = BodyOf<'changeMyPassword'>;
 export type SetParameterBody = BodyOf<'setParameter'>;
 export type CancelScheduledParameterBody = BodyOf<'cancelScheduledParameter'>;
+export type SetPropertyWifiBody = BodyOf<'setPropertyWifi'>;
 /** `setParameter.reauth` / `cancelScheduledParameter.reauth` (password as `secret` + S2 factor – 0.3.8). */
 export type ParameterReauth = NonNullable<SetParameterBody['reauth']>;
 export type TrustDeviceBody = BodyOf<'trustCurrentDevice'>;
