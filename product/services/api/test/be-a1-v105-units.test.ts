@@ -239,6 +239,20 @@ describe('V5-10 resolveCheckoutAt – one departure instant (checkOut "Quy đổ
     ).toMatchObject({ sent: true });
   });
 
+  it('ARC 127-01: no candidate at or after the actual check-in → null, typed time or not (checkout-at.ts "none left")', () => {
+    // Departure 24/11, checked in at 13:00 on 24/11 (same-day stay), server clock 14:00 on 24/11 (outside W).
+    const sameDay = { ...base, departureDate: '2026-11-24', checkedInAt: at('2026-11-24T13:00') };
+    const now = at('2026-11-24T14:00');
+    // Typed 12:00: the only candidate (24/11 12:00) is before the check-in → null (B18 422 field checkoutTime).
+    expect(resolveCheckoutAt({ ...sameDay, now, time: '12:00', typed: true })).toBeNull();
+    // Nothing typed, standard 12:00: same single candidate → null (B18 / summary 422 field checkoutAt).
+    expect(resolveCheckoutAt({ ...sameDay, now, time: '12:00', typed: false })).toBeNull();
+    // Control: a time at or after the check-in still resolves.
+    expect(iso(resolveCheckoutAt({ ...sameDay, now, time: '13:30' })?.at)).toBe(
+      iso(at('2026-11-24T13:30')),
+    );
+  });
+
   it('a sent instant keeps the old day rule: departure business day or its post-midnight window', () => {
     const s = (local: string, now = '2026-11-23T12:00') =>
       resolveCheckoutAt({ ...base, now: at(now), time: '12:00', sent: at(local) });

@@ -33,6 +33,7 @@ import {
   setPassword,
   startFeatureApp,
 } from '../helpers/feature-app';
+import { setStayStatus } from '../helpers/registration-fixture';
 import {
   type BookingIds,
   seedBooking,
@@ -580,5 +581,59 @@ describe.skipIf(!HAS_DB)('V5-10 – one checkoutAt: summary, QR, B18 (BE-A1)', (
       [b.id],
     );
     expect(change!.reason).toBe('Khách đi sớm gnirts');
+  });
+
+  it('ARC 127-01: every candidate before the actual check-in → 422 DATE_INVALID on the field the desk sent; nothing written', async () => {
+    // One night 30/11 → 01/12 (a weekday, min stay 1); the actual check-in is set to 13:00 on 01/12 – after 12:00 (typed and standard) of the
+    // departure day, so the time 12:00 has no candidate left (checkout-at.ts "none left").
+    const b = await direct('102', '2026-11-30', '2026-12-01');
+    // Room 102 was checked out by T10-2: clean it (VC) as housekeeping would.
+    await q(`UPDATE room_status SET status = 'VC' WHERE room_id = $1`, [ids.rooms['102']]);
+    await stay(b, '2026-11-30');
+    await setStayStatus(db, t, b.id, 'in_house', {
+      actualCheckinAt: new Date('2026-12-01T13:00:00+07:00'),
+    });
+    await at('2026-12-01T14:00:00+07:00');
+    const footprint = async () => ({
+      audit: (await q<{ n: number }>('SELECT count(*)::int AS n FROM audit_event'))[0]!.n,
+      payment: (await q<{ n: number }>('SELECT count(*)::int AS n FROM payment'))[0]!.n,
+      status: (await get(b.id)).status as string,
+    });
+    const before = await footprint();
+    expect(before.status).toBe('in_house');
+    const onTime = [{ field: 'checkoutTime', code: 'DATE_INVALID' }];
+    const onAt = [{ field: 'checkoutAt', code: 'DATE_INVALID' }];
+    // B18 with a typed time only → the field is `checkoutTime`.
+    const typed = await act(b.id, 'check-out', {
+      checkoutTime: '12:00',
+      checkoutTimeNote: 'Khách trả phòng lúc 12:00',
+    });
+    expect(typed.statusCode, typed.body).toBe(422);
+    expect(typed.json().errors).toEqual(onTime);
+    // The summary with a typed time only → `checkoutTime` too.
+    const sumTyped = await c.fd!.get(
+      url(`/reservations/${b.id}/checkout-summary?checkoutTime=12:00`),
+    );
+    expect(sumTyped.statusCode, sumTyped.body).toBe(422);
+    expect(sumTyped.json().errors).toEqual(onTime);
+    // The summary with no time (standard 12:00 of the departure day) → `checkoutAt`.
+    const sumNone = await c.fd!.get(url(`/reservations/${b.id}/checkout-summary`));
+    expect(sumNone.statusCode, sumNone.body).toBe(422);
+    expect(sumNone.json().errors).toEqual(onAt);
+    // The QR with no time → `checkoutAt`.
+    const cap = await qr(b, { purpose: 'check_out', amountVnd: 1 });
+    expect(cap.statusCode, cap.body).toBe(422);
+    expect(cap.json().errors).toEqual(onAt);
+    // A sent `checkoutAt` before the check-in (with its typed time) → `checkoutAt`.
+    const sent = await act(b.id, 'check-out', {
+      checkoutTime: '12:30',
+      checkoutAt: '2026-12-01T12:30:00+07:00',
+      checkoutTimeNote: 'Khách trả phòng lúc 12:30',
+    });
+    expect(sent.statusCode, sent.body).toBe(422);
+    expect(sent.json().errors).toEqual(onAt);
+    expect(await footprint()).toEqual(before);
+    // Control: a time at or after the check-in resolves.
+    await summary(b.id, 'checkoutTime=13:45');
   });
 });
