@@ -137,11 +137,14 @@ test.describe(
         expect
           .soft(fee, 'oracle BR-416-06 (203)')
           .toBe(Number(oracle('BR-416-06').expected.lateCheckoutFeeVnd));
-      // QR check_out: cờ `lateFeeAsNight`, trần = số trên; đêm không bán được → 422
+      // QR check_out: cờ `lateFeeAsNight`, trần = số trên; đêm không bán được → 422. Hợp đồng 0.3.13 (V5-10, BE C0313-01/08):
+      // QR mang đúng `checkoutAt` của tóm tắt (vắng = quy đổi như B18 từ giờ trả chuẩn, không còn lấy giờ máy chủ)
+      const checkoutAt = String(b.checkoutAt);
       const withNight = await qr(request, k.fd, st.res.folioId!, {
         purpose: 'check_out',
         amountVnd: fee,
         extraNightRateVnd: fee,
+        checkoutAt,
       });
       expect.soft(withNight.status, 'QR kèm đêm không bán được').toBe(422);
       expect.soft(JSON.stringify(withNight.body)).toContain('NOT_ALLOWED');
@@ -149,6 +152,7 @@ test.describe(
         purpose: 'check_out',
         amountVnd: fee + 1000,
         lateFeeAsNight: true,
+        checkoutAt,
       });
       expect.soft(over.status, 'QR vượt trần').toBe(422);
       expect.soft(over.body.max, 'trần QR = phụ thu').toBe(fee);
