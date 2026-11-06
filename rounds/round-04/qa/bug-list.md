@@ -33,15 +33,22 @@
 
 - **Xác nhận G2 – QC gate gộp LP-v2** (04/11 10:05–10:15, `origin/lp-v2-main` @ `4fe85e19` = đầu PR #34; worktree tách riêng, PG 17 tạm `ottimo-qa-g2-pg`, đã xóa): **ĐẠT**. Đột biến "so chữ" ở `effectiveLevel` → 5 ca đỏ; đột biến SQL `version >= $2` → 1 ca đỏ; bản gốc 122/122 xanh (124/124 kèm `gchat-worker-only`). Khối `CHKV` runbook r1.1 + README 12.3/13.5 khớp hằng `2026-11-04`. 5 sha256 trang privacy dựng lại trùng 5 băm FE-B. `git diff --stat 917a39cf..4fe85e19` = 6 tệp đã biết. **BUG-R4-027, 028 → Closed.** BUG-R4-011, 012 ghi lại trạng thái theo QC G4 (b). Không lỗi mới. Chi tiết: `rounds/round-04/qa/lp-v2-main-qa.md` mục 8.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11 + `lp-v2-main` @ `917a39cf` + xác nhận G2 @ `4fe85e19`)
+- **LP-v2 staging S6** (06/11 15:57–16:24 giờ VN, staging `sha-6414be25f20d`, Caddy + edge thật; chỉ API công khai + SQL READ ONLY, không đăng nhập Desk): ca 6 đạt, 0 ca đỏ. Mới **BUG-R4-054** (P3, môi trường staging) và **BUG-R4-055** (P2, môi trường staging). BUG-R4-011, 012 chưa chạy P10 (chờ thao tác Desk). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md`.
+
+- **LP-v2 staging S6b – giá** (06/11 17:05–17:12 giờ VN, staging `sha-6414be25f20d`; API công khai + trình duyệt + SQL READ ONLY, không Desk): sau khi ORC gán nhãn hạng và chép giá production, 13/13 ca giá lệch 0 đ, 7/7 ca không số, khối giá 5 ngôn ngữ đúng số. **BUG-R4-055 Closed.** 0 lỗi mới. F2 còn chờ tham số P6/P7 trên production và ESC-050 (giá City View). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md` mục S6b.
+
+- **LP-v2 staging S6d – SEC 9.5 ca 3/4/8/10** (06/11 18:18–18:31 giờ VN; ORC chạy trên staging `sha-6414be25f20d` bằng Desk `qa.owner`/`qa.fd` và API công khai; QA kết luận từ tệp JSON thô, script và mã, không tự gọi staging): ca 3 và 8 **Đạt**; ca 4 **web Đạt**, phần Desk "từ – đến" theo FB-R4-SEC-BE-03 (v1.0.x); ca 10 **Đạt bằng bằng chứng thay thế**, chờ SEC ghi nhận. Mới **BUG-R4-056** (P3, tài liệu thử) và **BUG-R4-057** (P3, giá đêm tự tính khi API không gửi). Chi tiết: `rounds/round-04/qa/lp-v2-staging-s6.md` mục S6d. *Cập nhật cùng ngày:* SEC chấp nhận ca 10 (`0fc55457`) → **BUG-R4-056 Closed**. Kiểm tĩnh production theo SEC 6.4: 0 căn thiếu giá (theo ORC, S6d.6).
+- **V5-02 – QC Round 4 ĐK-7** (06/11, QA, Round 5 bước Sản xuất; chỉ đọc mã, test và biên bản, không gọi staging hay production; bảng bằng chứng `rounds/round-05/qa/v5-02-closeout.md`). Bản production v1.0.4 = `6414be25` (Release 06/11 14:10). **Closed:** BUG-R4-010, 015, 020, 024, 025, 026 (P3). **Giữ Open, ghi thiếu gì:** 011, 012 (chờ P10 trên Desk staging, V5-03), 023 (chờ ảnh C1-07/C1-22 và HTML, V5-04). Sửa ô P3 "Closed" của bảng tổng: bản trước ghi 10 nhưng liệt kê 11 mã (tổng 20 vẫn đúng). Lỗi của `bug-list-v1.0.4.md` ghi ở tệp đó.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11 + `lp-v2-main` @ `917a39cf` + xác nhận G2 @ `4fe85e19` + V5-02 06/11 trên v1.0.4 `6414be25`)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 9 | 1 (BUG-R4-011 – **đã vào `main` cùng lần gộp PR #34, chờ P10**; production còn lỗi gốc với hồ sơ tạo tay tới khi phát hành) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 19 | 8 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã vào `main` cùng lần gộp PR #34, chờ P10**, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 10 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021**, **027**, **028** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`; 027, 028 đóng 04/11 @ `4fe85e19` (G2)) |
-| **Tổng** | **28** | **9** | **1** | **18** |
+| P2 | 10 | 1 (BUG-R4-011 – **có trong v1.0.4 `6414be25` (production 06/11); chờ P10 trên Desk staging (V5-03)**) | 0 | 9 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022**, **055** – 055 đóng 06/11 S6b; 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
+| P3 | 22 | 5 (**BUG-R4-057** – giá đêm tự tính khi API không gửi, V5-1A; **BUG-R4-054** – basic auth staging, môi trường, B-OPS; BUG-R4-012 – **có trong `6414be25`, chờ P10 (V5-03)**; BUG-R4-017 – font CSP, V5-24; **023** – đã sửa ở v1.0.4, chờ ảnh C1-07/C1-22 và HTML sổ tay (V5-04)) | 0 | 17 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021**, **027**, **028**, **056**, **010**, **015**, **020**, **024**, **025**, **026** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`; 027, 028 đóng 04/11 @ `4fe85e19` (G2); 056 đóng 06/11 sau SEC `0fc55457`; 010, 015, 020, 024, 025, 026 đóng 06/11 ở V5-02 trên v1.0.4 `6414be25`) |
+| **Tổng** | **32** | **6** | **0** | **26** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -194,7 +201,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** 3–5 dòng theo AC6 (trả lời bằng tiếng Anh hoặc công cụ dịch; bỏ tên, SĐT, email khi dán; câu hứa thời gian BR-912), SEC duyệt câu về dữ liệu; cập nhật mục 2.18 khi form bật.
 - **Bằng chứng:** báo cáo 11.7 (AC6).
 - **Vai:** BA (viết) + SEC (duyệt).
-- **Trạng thái:** **Mở lại** (lượt 3, đối chiếu `main` `38ced860` với Desk `0a25716a`). Mức giữ **P3**.
+- **Trạng thái:** **Closed 06/11 (QA, V5-02).** QA đọc lại sổ tay trên `6414be25`: hai ý "Chưa đạt" đã sửa (bản hướng dẫn 1.4, commit `8ef3ce90` trên `main` 01/11). Không còn chữ "Đã đổi: {cũ} → {mới}". `02-le-tan.md` (13.1c dòng 1290, tra cứu dòng 1515), `05-sale-ctv.md` dòng 280–281, `user-manual-v1.0.md` dòng 1420 dùng đúng chữ Desk "Khác giá web khách đã thấy: {cũ} → {mới}" (`webreq.estimate_changed`). Bảng 13.1d có dòng Tiếng Nga với câu `sale.text_lang_note.ru` (dòng 1311). Số dòng tính tại `6414be25`. Trước đó: **Mở lại** (lượt 3, đối chiếu `main` `38ced860` với Desk `0a25716a`). Mức giữ **P3**.
   - Đã đạt: `02-le-tan.md` 13.1c, 13.1d, `05-sale-ctv.md` 6.3a, `user-manual-v1.0.md` 2.18 có đủ 6 ý AC6 (sửa 01/11); tên cột "Ngôn ngữ", 5 nhãn, lọc + tổng số, "Ngôn ngữ khách dùng", "Giá ước tính khách đã thấy … – tính lúc …", "Khách chưa thấy giá", "Khớp giá ước tính…", "…không so sánh.", câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh." đều đúng chữ Desk; 3 câu mẫu trùng từng chữ CPY `lp-v2-copy.md` (dòng 1106–1135); câu hứa 60 phút / trước 09:00 đúng BR-912 (4); 2.18 đã bỏ "form đang tắt".
   - **Chưa đạt 1 – tên cảnh báo chênh giá.** Sổ tay ghi **"Đã đổi: {cũ} → {mới}"** kèm "Giá Desk tính bây giờ khác số khách đã thấy trên web…" ở `02-le-tan.md` dòng 1015 (bảng 13.1c), 1221 (bảng tra cứu), 1490 (bài tập 11); `05-sale-ctv.md` dòng 273–274; `user-manual-v1.0.md` dòng 1142–1143 (và lịch sử bản 1.6, dòng 1725). Desk `0a25716a` hiện **"Khác giá web khách đã thấy: {cũ} → {mới}"** với câu "Giá theo lịch giá hôm nay khác số khách thấy trên web. Nói rõ lý do với khách khi gửi báo giá." (`webreq.estimate_changed*`, FE3 sửa theo UXD FE-13; ảnh `lp-v2/45`). Lễ tân tìm chữ "Đã đổi" sẽ không thấy.
   - **Chưa đạt 2 – khách tiếng Nga.** Bảng 13.1d dòng "Tiếng Nga" (dòng 1036) và câu dưới bảng chỉ nói ko/zh có câu ghi chú; Desk cũng hiện "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga." cho ru (`sale.text_lang_note.ru`; ảnh `52`). Thêm câu này vào bảng (và `05-sale-ctv.md`, `user-manual-v1.0.md` mục tương ứng).
@@ -223,6 +230,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Vai:** FE-B (hộp hồ sơ, điền sẵn, câu lỗi) + BE (luật `CONTACT_CHANNEL_EMPTY`) · ARC chọn (a) hay (b).
 - **Trạng thái:** Open trên `main`/production. **Đã sửa trên `lp-v2`** (QC LP-v2 xác nhận bằng test: admin-web vitest `r4-lp-v2-fe5` + đối chứng bản cũ + api integration trên Postgres thật – `rounds/round-04/qc/lp-v2-gate.md` mục 3). **Chờ gộp `lp-v2` vào `main` + staging smoke P10** (3 đường Báo giá / Tạo đơn / Ở dài ngày từ yêu cầu Zalo ko/zh/ru/vi; hồ sơ lưu `zalo`). **Production (v1.0.2, chưa có `lp-v2`) còn lỗi gốc với hồ sơ tạo tay** chọn Zalo chỉ có SĐT (có từ v1.0.0); cách vòng: "Liên hệ ưu tiên" = Gọi điện. QA chỉ đóng sau P10 đạt. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
   - **Cập nhật 04/11 (QC gate gộp LP-v2, G4 (b)): Open – đã vào `main`, chờ P10.** Bản sửa nằm trong `lp-v2-main` @ `4fe85e19` (đầu PR #34; có `admin-web` `r4-lp-v2-fe5.test.tsx`, `main` hiện chưa có) và vào `main` bằng merge commit của PR #34 (G6). Câu "đã vào `main`" đúng kể từ commit gộp đó; nếu PR #34 không gộp thì trạng thái giữ như dòng trên. Đóng chỉ sau P10 đạt trên production (3 đường từ yêu cầu Zalo ko/zh/ru/vi, hồ sơ lưu `zalo`). Không đổi mức.
+  - **Cập nhật 06/11 (QA, V5-02): giữ Open.** Bản sửa (gộp qua #34 `7224e8fd`) có trong v1.0.4 `6414be25`, chạy production từ 06/11 14:10. **Thiếu:** P10 trên Desk staging (Báo giá / Tạo đơn / Ở dài ngày từ yêu cầu Zalo ko/zh/ru/vi; hồ sơ lưu `zalo`). Việc V5-03; bước ở `rounds/round-04/qa/lp-v2-staging-s6.md` mục 4. Không đổi mức.
 
 ### BUG-R4-012 – Hồ sơ tạo nhanh từ yêu cầu hiện Quốc tịch "–" nhưng server lưu `VN`
 
@@ -238,6 +246,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Vai:** BE (giá trị mặc định khi tạo) + ARC/DOM (quy tắc quốc tịch trống) · FE-B nếu đổi cách hiện.
 - **Trạng thái:** Open trên `main`/production. **Đã sửa trên `lp-v2`** (QC LP-v2 xác nhận bằng test: api integration trên Postgres 17 thật, quốc tịch lưu NULL – `rounds/round-04/qc/lp-v2-gate.md` mục 3). **Chờ gộp `lp-v2` vào `main` + staging smoke P10** (hồ sơ tạo nhanh từ yêu cầu lưu quốc tịch NULL, Desk hiện "–" khi mở lại). **Production (v1.0.2, chưa có `lp-v2`) còn lỗi gốc với hồ sơ tạo tay**: server ghi `VN` khi không gửi quốc tịch. Đích cũ "v1.0.1 cùng BUG-R3-050" không còn hiệu lực. QA chỉ đóng sau P10 đạt. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
   - **Cập nhật 04/11 (QC gate gộp LP-v2, G4 (b)): Open – đã vào `main`, chờ P10.** Bản sửa nằm trong `lp-v2-main` @ `4fe85e19` (đầu PR #34; có `api` `test/integration/bug-r4-012-guest-nationality-null.test.ts`, `main` hiện chưa có) và vào `main` bằng merge commit của PR #34 (G6). Câu "đã vào `main`" đúng kể từ commit gộp đó; nếu PR #34 không gộp thì trạng thái giữ như dòng trên. Đóng chỉ sau P10 đạt (hồ sơ tạo nhanh từ yêu cầu lưu quốc tịch NULL, Desk hiện "–" khi mở lại). Không đổi mức.
+  - **Cập nhật 06/11 (QA, V5-02): giữ Open.** Như BUG-R4-011: bản sửa có trong `6414be25`, chạy production từ 06/11 14:10; **thiếu** P10 trên Desk staging (hồ sơ tạo nhanh lưu quốc tịch NULL, Desk hiện "–" khi mở lại), việc V5-03. Không đổi mức.
 
 ### BUG-R4-013 – `validate-fixtures` đỏ: oracle `br-examples.json` lệch BR v0.5.x; `main` vẫn xanh vì cache turbo không theo dõi BR/ESC
 
@@ -317,7 +326,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - Test chống tái phát: các bước 1–4 ở trên, bước 4 phải trả 409.
 - **Bằng chứng:** báo cáo `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục 3 (dòng "Căn tạo với `activeFrom` 30/12").
 - **Vai:** BE-A (luật hủy) + ARC (mã lỗi, hợp đồng 0.3.10) · FE-A (chữ lỗi nếu có mã mới).
-- **Trạng thái:** Open. Đề xuất đích v1.0.3 cùng FB-R4-ARC-BE-A-ED-02, không chặn PR #22.
+- **Trạng thái:** **Closed 06/11 (QA, V5-02).** #57 (`36d8113b`, gộp `39f496d0`) có trong `6414be25`: hủy dòng giá sớm nhất khi còn dòng hẹn → 409 `first_price`. Test `test/integration/rooms-scheduled-prices-v101.test.ts` chạy trong CI `41999716963` và trong lượt unit trên mã cắt `0d11db20` (api 4152 đạt). Staging: TC-V104-PR-02, PR-03 ĐẠT 05/11 (ORC chạy, `v1.0.4-stg-api-checklist.md` mục 5). Trước đó: Open. Đề xuất đích v1.0.3 cùng FB-R4-ARC-BE-A-ED-02, không chặn PR #22.
   - *PR #22 lượt 2 (03/11, `ff16c1dd`):* tái hiện y hệt, với căn 501 `activeFrom` 30/12.
     - Hủy dòng giá duy nhất → 409 `only_price`. Thêm dòng 10/01 rồi hủy dòng 30/12 → 200.
     - Báo giá 02/01 và 08/01 → 422 `roomId NOT_IN_LIST`. Báo giá 11/01 → 200.
@@ -453,7 +462,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** theo `design/content-guide.md` (`users.more_help`, màn `07-users-devices`): "Khác…" có Đặt lại mật khẩu, Khóa tài khoản, Đặt lại xác thực 2 bước. Hộp S2 dùng `StrongReauthDialog`.
 - **Bằng chứng:** báo cáo mục 6 (ca BA (b)).
 - **Vai:** PO xếp lịch, FE-A làm, UXD chốt chữ.
-- **Trạng thái:** Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
+- **Trạng thái:** **Closed 06/11 (QA, V5-02).** #53 (`78f85fa9`, gộp `c0eff08b`) có trong `6414be25`: menu **Khác…** có **Đặt lại xác thực 2 bước** qua hộp S2. Unit `v104-users-fea`, `users.test` chạy trong CI `41999716963` và admin-web 994/994 trên mã cắt `0d11db20`. TC-V104-MF-09…12 (STG) chưa có kết quả ghi; không cần cho việc đóng vì đường này có unit đỏ/xanh và đã lên production. Trước đó: Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
 
 ### BUG-R4-021 – Hộp Thông báo của PWA hiện mã thô `user.email_changed` / `mfa.reset_by_owner`
 
@@ -492,6 +501,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Bằng chứng:** `product/docs/manual/img/C1-07.png`, `C1-22.png`; `rounds/round-04/qa/v1.0.3-staging-smoke.md` mục 3.
 - **Vai:** FE-A (+ UXD chốt cách hiển thị). Sau khi sửa, QA chụp lại C1-07, C1-22.
 - **Trạng thái:** Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. **Sau khi sửa phải chụp lại ảnh sổ tay `product/docs/manual/img/C1-07.png` và `C1-22.png`** (Desk 1440×900, dữ liệu giả, che theo luật ảnh) – QA chỉ đóng lỗi khi 2 ảnh mới đã thay và sổ tay HTML dựng lại. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
+  - **Cập nhật 06/11 (QA, V5-02): giữ Open.** Mã đã sửa ở #53, có trong `6414be25` (unit `v104-users-fea`, `v103-email-fea`). **Thiếu** đúng điều kiện đóng đã ghi: 2 ảnh mới `C1-07.png`, `C1-22.png` và sổ tay HTML dựng lại. Việc V5-04 (UXD chụp, QA kiểm che).
 
 ### BUG-R4-024 – Hộp S2 chỉ có ô mật khẩu vẫn báo "Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới."
 
@@ -502,7 +512,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** khi hộp không có ô mã, câu chỉ nói về mật khẩu, ví dụ "Mật khẩu chưa đúng. Kiểm tra lại rồi thử lại." (chuỗi mới, ví dụ `reauth.s2_failed_password`, VI/EN).
 - **Bằng chứng:** `rounds/round-04/qa/v1.0.3-staging-smoke.md` mục 2.3 (2 lần thử, `PUT /v1/me/email` 401).
 - **Vai:** UXD (chữ) + FE-A (chọn chuỗi theo hộp có ô mã hay không).
-- **Trạng thái:** Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
+- **Trạng thái:** **Closed 06/11 (QA, V5-02).** #53 có trong `6414be25`: hộp S2 chỉ có ô mật khẩu báo `reauth.s2_failed_password`, không nhắc "mã". Unit `v104-users-fea`, `v103-email-fea`, `r3-s1-feb-us008` chạy trong CI `41999716963` và trên mã cắt `0d11db20`. TC-V104-MF-13 (STG) chưa có kết quả ghi. Trước đó: Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
 
 ### BUG-R4-025 – Release notes v1.0.2 hứa "trả phòng sau đó không tạo thêm" yêu cầu hoàn, nhưng B18 tạo thêm một yêu cầu khi folio còn phần trả thừa khác (ví dụ đêm FOC đã thu)
 
@@ -522,12 +532,13 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - DOM xác nhận giữ 2 yêu cầu (đúng hợp đồng hiện tại), hoặc đề xuất gộp thành 1 cho v1.0.4+. Nếu chọn gộp thì đó là việc mới, không phải bản sửa lỗi này.
 - **Bằng chứng:** `rounds/round-04/qa/v1.0.2-dk10-b18.md` mục 2.3, 2.5; ảnh `rounds/round-04/qa/dk10-img/dk10-S3-B18-tra-thua-800k.png`.
 - **Vai:** PO (release notes) + BA (sổ tay 2.14/2.14a) + DOM (câu BR-428, chọn giữ 2 hay gộp).
-- **Trạng thái:** **Fixed – chờ QA xác nhận** (PO, 04/11, phần release notes). Không chặn v1.0.3.
+- **Trạng thái:** **Closed 06/11 (QA, V5-02).** QA đọc lại trên `6414be25`: release notes có đính chính (dòng 244, 277; PO `abb7ee48`, `870f2480`), sổ tay 1.10 / hướng dẫn 1.8 bỏ câu "trả phòng sau đó không tạo thêm" (`2b7d60b8`, HTML `ae7ae095`, DOM ĐẠT `a642e170`). Chữ Desk `early_departure.row_refund_help` ở v1.0.4 nêu đúng ngoại lệ BR-428 (TC-V104-LE-06, đọc). Còn sót 2 hộp "Lỗi nhỏ đã biết" tả câu Desk cũ (xem dòng phụ cuối mục), giao BA, không giữ lỗi mở. Trước đó: **Fixed – chờ QA xác nhận** (PO, 04/11, phần release notes). Không chặn v1.0.3.
   - Sửa ở `product/docs/release-notes.md`:
     - (1) mục **v1.0.2 → Có trong bản này**, dòng "Nút Trả sớm – đơn ngắn ngày": câu "trả phòng sau đó không tạo thêm" thay bằng câu ghi rõ ngoại lệ (không tạo lại khoản Trả sớm; folio còn tiền trả thừa khác thì bước Bill hỏi cách xử lý, chọn hoàn thì có thêm một đề nghị hoàn cho đúng phần đó, không trùng), kèm ghi chú "Đính chính 04/11, BUG-R4-025";
     - (2) mục **v1.0.3 → Giới hạn đã biết**, dòng mới "Duyệt hoàn: một đơn có thể có hơn một yêu cầu hoàn": trước khi từ chối, cộng các yêu cầu đang chờ của đơn và đối chiếu với số khách trả thừa trên folio (Đã thu trừ Tổng cộng).
   - **Chưa sửa (ngoài phần PO):** sổ tay gốc 2.14a và hướng dẫn bộ phận (`02` 11.5.2 có đúng câu "trả phòng sau đó không tạo thêm"; sổ tay 2.14a và `01` 7.3 ghi "tạo **một** yêu cầu hoàn", không nêu ngoại lệ). ORC quyết dựng lại bản HTML 1.9 hay để v1.0.4; BA sửa khi được giao. Câu BR-428 và việc giữ 2 yêu cầu hay gộp: DOM.
   - QA xác nhận: đọc lại 2 vị trí trên, so với kết quả OTM-00380 (mục 2.3, 2.5 của `rounds/round-04/qa/v1.0.2-dk10-b18.md`).
+  - **Còn sót sau khi đóng (06/11, V5-02, giao BA ở V5-08):** hộp "Lỗi nhỏ đã biết (đang sửa)" ở `02-le-tan.md` dòng 1033 và dòng bảng ở `user-manual-v1.0.md` dòng 2020 (tại `b9f017f7`) còn tả câu Desk "Trả phòng sau đó không tạo thêm yêu cầu." Desk v1.0.4 đã đổi câu này. Bỏ hai chỗ đó khi sửa sổ tay.
 
 ### BUG-R4-026 – Yêu cầu hoàn thay thế (sau khi Desk tự đóng): Nhật ký thao tác tiền hiện mã thô `overpayment` ở cột Lý do; hàng Cần duyệt và Hoàn tiền không có lý do
 
@@ -548,7 +559,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Nguyên nhân (đọc mã):** `apps/admin-web/src/app/auditReason.ts` (`CODE_KEYS`) và `FOC_REASON` của `pages/approvals/ApprovalsPage.tsx` không có `overpayment`. Lý do không có trong bảng thì `auditReasonText` trả nguyên mã.
 - **Bằng chứng:** `rounds/round-04/qa/v1.0.2-dk10-b18.md` mục 9.3, 9.6. Chữ Desk thô ở scratchpad QA `qa-dk10/out2/desk-qa.mgr-moneylog.txt` (dòng 15–16, 25–26) và `desk-qa.mgr-approvals.txt`. Không có ảnh.
 - **Vai:** FE (map mã) + UXD (chữ VI/EN). BA chỉnh sổ tay theo.
-- **Trạng thái:** **Open**. Đích **v1.0.4**. Không chặn v1.0.3.
+- **Trạng thái:** **Closed 06/11 (QA, V5-02).** #52 (`5140afcc`, gộp `386672a6`) có trong `6414be25`: cột Lý do hiện chữ, không còn mã thô `overpayment`. Unit `v104-money-labels-fea` chạy trong CI `41999716963` và trên mã cắt `0d11db20`. TC-V104-ML-01, 02 (STG) chưa có kết quả ghi. Còn sót: hộp "Lỗi nhỏ đã biết (sửa ở v1.0.4)" về mã lý do thô ở `01-chu-dau-tu-quan-ly.md` dòng 563 và `user-manual-v1.0.md` dòng 639 (tại `b9f017f7`), giao BA ở V5-08. Trước đó: **Open**. Đích **v1.0.4**. Không chặn v1.0.3.
 
 ### BUG-R4-027 – Test cổng Chat (★2) không bắt được bản "so chữ version": đổi `effectiveLevel` sang so `consent_version` với hằng, 117/117 ca vẫn xanh
 
@@ -589,6 +600,74 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - QA chạy 2 lệnh trích của `CHKV` trên `4fe85e19`: hằng api = `2026-11-04`, `VERSION` landing = `2026-11-04` → với `⟨NOTICE_V⟩ = 2026-11-04` khối in `D2_CHAT_CONST=CO`. Ca âm (đọc logic khối với giá trị trích thật): `⟨NOTICE_V⟩ = 2026-11-04.1` → `KHONG`; tag `v1.0.3` (hằng `2026-10-31`) → `KHONG`; landing `5474b6e1` (`VERSION` `2026-10-31`) → `KHONG`; không trích được (`?`) → `KHONG` (fail-closed). Chú thích mới không đổi trang: 5 sha256 trang privacy dựng lại trùng 5 băm FE-B.
   - Bằng chứng: `rounds/round-04/qa/lp-v2-main-qa.md` mục 8.
 
+### BUG-R4-054 – Staging: basic auth chặn `fetch` của form (`credentials: 'omit'`) → `form-token` / `price-estimate` 401, form báo "We could not send your request"
+
+- **Mức:** P3 (chỉ môi trường staging; production không có basic auth). Ai thử form staging bằng trình duyệt thường (INV, ORC, UXR) đều gửi không được, nên dễ hiểu nhầm là lỗi sản phẩm. Lighthouse hay kiểm thủ công trên staging cũng không đi được luồng form.
+- **Môi trường:** `staging.ottimo.vn` (basic auth `ottimo`, noindex), landing/api `sha-6414be25f20d`, 06/11 16:16.
+- **Các bước:** mở `https://staging.ottimo.vn/` trong trình duyệt, nhập basic auth → chọn ngày + hạng → điền tên, SĐT, đồng ý → Gửi.
+- **Thực tế:** trang tải được (trình duyệt gửi basic auth cho điều hướng). Nhưng `booking-transport.ts` / `price-estimate.ts` gọi `fetch(..., { credentials: 'omit' })`, nên trình duyệt không gửi `Authorization` → Caddy staging trả 401 cho `GET form-token` và `GET price-estimate` → khối giá ẩn, form hiện "We could not send your request. Check your connection and try again, or chat with us on Zalo." Ở cả 5 ngôn ngữ (Playwright `httpCredentials`, 5/5).
+- **Mong đợi:** trên staging, form chạy được trong trình duyệt khi đã qua basic auth. Ví dụ: Caddy staging miễn basic auth cho đúng các route `/v1/public/properties/<slug>/(form-token|price-estimate|booking-requests)`, các route này vẫn giữ Origin/`Sec-Fetch-Site`/giới hạn tần suất, và trang vẫn bị basic auth + noindex. Hoặc ghi rõ trong runbook/README là form staging chỉ thử được bằng công cụ có chèn header. **Không** đổi `credentials: 'omit'` của landing (đúng SEC, production cần).
+- **Bằng chứng:** `rounds/round-04/qa/lp-v2-staging-s6.md` mục 2 (lượt đầu 401; khi chèn header `Authorization` thì 5/5 gửi được 202).
+- **Vai:** OPS (Caddy staging / runbook). SEC duyệt nếu miễn basic auth cho route public.
+- **Trạng thái:** Open.
+
+### BUG-R4-055 – Staging: cả 10 căn có `public_room_type = NULL` → giá ước tính luôn `on_request`, mọi yêu cầu website bị gắn `room_type_unmatched`
+
+- **Mức:** P2 (môi trường staging). Chặn phần giá của S6/P10: 13 ca giá, các ca SEC 9.5 số 1 (đủ trạng thái), 3, 4, 8, 10, 12 (`monthly_offer`). Desk staging cũng không nối được yêu cầu web với hạng. Không phải lỗi mã: production bootstrap đặt nhãn theo `production-defaults.ts`, và runbook P2 dòng 10 có kiểm nhãn trên production.
+- **Môi trường:** staging, SQL READ ONLY 06/11 15:58: `SELECT room_no, public_room_type FROM room` → 101…402 và `QAT1` đều NULL.
+- **Các bước:** `GET /v1/public/properties/dlt/price-estimate?roomType=standard-studio-garden-view&stayType=short&arrival=2026-11-10&departure=2026-11-11&adults=2` (qua Caddy staging).
+- **Thực tế:** 200 `priceAvailable: false`, `unavailableReason: on_request`. Hạng nào, ngày nào, số người nào cũng vậy (6/6 ca). 7 yêu cầu thử đều có `suspicious_flags` chứa `room_type_unmatched`, `price_estimate = NULL`.
+- **Mong đợi:** staging có cùng nhãn hạng với production (101, 201 = `Standard Studio · City View`; 102, 103, 202, 203 = `Standard Studio · Garden View`; 302, 402 = `Premium · One Bedroom + 1`; 301, 401 = `Signature · Two Bedrooms`). Garden 1 đêm có số. Runbook mục 3 S0 nên thêm câu kiểm `SELECT count(*), count(public_room_type), count(DISTINCT public_room_type) FROM room;` (đúng là `11|10|4`, hoặc `10|10|4` nếu không tính `QAT1`), để chặn trước S6.
+- **Bằng chứng:** `rounds/round-04/qa/lp-v2-staging-s6.md` mục 1, 3.
+- **Vai:** ORC + OWN thử (gán ô "Hạng phòng công khai" trên Desk staging). OPS (thêm câu kiểm S0 vào runbook).
+- **Trạng thái:** **Closed** 06/11 17:05 (S6b). SQL READ ONLY: 10 căn có nhãn, 4 hạng, giống `production-defaults.ts` (theo tên căn); `QAT1` không nhãn. Garden 1 đêm 10→11/11 = 800.000, 13/13 ca giá có số đúng. Câu kiểm S0 cho runbook (OPS) vẫn nên thêm.
+
+### BUG-R4-056 – Kịch bản thử SEC 9.5 ca 10 dựa trên giả định không làm được: căn thử `QAT1` không vào phép tính 10–13/11, còn "giá 0" hay đêm thiếu giá thì không tạo được qua Desk
+
+- **Mức:** P3. Đây là lỗi **tài liệu thử**, không phải lỗi sản phẩm. Hậu quả: ORC mất khoảng 5 phút và làm đầy bộ đếm 30/10 phút của một máy, mà vẫn không chạm được nhánh cần thử.
+- **Môi trường:** staging `sha-6414be25f20d`, 06/11 18:25–18:28, ORC chạy theo kế hoạch của QA.
+- **Các bước:** làm theo `rounds/round-04/qa/lp-v2-staging-s6.md` S6b.3 bước 2: gán nhãn City View cho `QAT1`, gọi City 10→13/11 nhiều lần, rồi chờ dòng log `public_price_missing`.
+- **Thực tế:**
+  - 0 dòng log. Web vẫn ra giá Amber/Mist như thường.
+  - `QAT1` có `activeFrom` 01/12, nên bị loại ở `public-rate.port.ts:92–93` (`active_from <= arrival`).
+  - ORC thử tạo khe giá trên `QAT1`: hủy dòng giá đầu thì bị 409 `first_price`; thêm dòng mới không có giá đêm thì server vẫn ghi giá đêm (BUG-R4-057).
+  - Câu "Một căn giá 0" của SEC 9.5 ca 10 cũng không làm được: API có `money` ≥ 1 (`platform.controller.ts:74`), DB có `CHECK nightly_list_price_vnd > 0` (migration 0004).
+- **Mong đợi:** kịch bản thử chỉ dùng tình huống tạo được bằng ứng dụng. Nhánh nào không tới được qua ứng dụng thì ghi rõ cách thay: test tích hợp và đọc mã, hoặc stack cục bộ dựng bằng bootstrap (căn có nhãn mà chưa có giá, `production-bootstrap.ts:215`).
+- **Nguyên nhân:** QA viết bước 2 mà không đọc điều kiện `active_from` của truy vấn căn và các đường ghi giá trong `rooms.service.ts`.
+- **Bằng chứng:** `lp-v2-staging-s6.md` mục S6d.1 (ca 10) và S6d.2; tệp `w/m1-*.json` của ORC (14 × 200, 11 × 429, 0 lượt chạm `QAT1`).
+- **Vai:** QA (S6b.3: đã sửa, trỏ sang S6d). SEC (sửa câu ca 10 ở `rounds/round-04/outputs/SEC/lp-v2-privacy-and-api.md` mục 9.5 thành "một căn đang bán thiếu giá đêm (chỉ có từ dữ liệu ngoài Desk)", và ghi nhận bằng chứng thay thế ở S6d.3).
+- **Trạng thái:** ~~Open~~ → **Closed** 06/11 (QA tự đọc lại).
+  - Phần QA: S6b.3 bảng và bước 2 trỏ sang S6d, ghi rõ giả định sai.
+  - Phần SEC (commit `0fc55457`): `rounds/round-04/outputs/SEC/lp-v2-privacy-and-api.md` mục 9.5 ca 10 nay ghi "một căn đang bán, có nhãn hạng, thiếu giá đêm cho ít nhất một đêm (chỉ có từ dữ liệu ngoài Desk/API)", kèm kỳ vọng log 1 dòng/căn/ngày và `ops-check pricegap` chỉ báo số căn, trỏ cách kiểm thay thế về `rounds/round-04/reviews/SEC-on-lp-v2-s6d.md` mục 6. SEC chấp nhận bằng chứng thay thế ở mục 6.3 và 7.2 của tệp đó.
+  - QA đối chiếu: các chỗ SEC dẫn mã đều đúng (`db/schema/rooms.ts:129, 143`, `public-rate.ts:139`, `public-rate.port.ts:92–93, 135–149`); từ `6414be25` tới nay không có commit nào đổi `services/api/src`, `ops-check.sh` hay test `:719`.
+  - Thêm: kiểm tĩnh SQL READ ONLY trên production theo SEC 6.4 cho ra 0 căn thiếu giá (theo ORC; `lp-v2-staging-s6.md` S6d.6).
+
+### BUG-R4-057 – API đổi giá căn không gửi `nightlyListPriceVnd` (và `createRoom`) vẫn tự tính giá đêm = giá tháng ÷ `night_from_month_divisor` (12), trong khi từ điển tham số ghi khóa này "Đã bỏ, không còn tác dụng"
+
+- **Mức:** P3. Theo test-strategy mục 8, lỗi chạm tiền mặc định là P0 cho tới khi chứng minh được là không ảnh hưởng tiền. Ở đây đã chứng minh như sau:
+  - Desk không đi đường này. `apps/admin-web/src/pages/RoomDrawer.tsx` bắt buộc nhập ô giá đêm (dòng 239–242) và luôn gửi cả hai giá (dòng 268–273). Desk cũng không có màn tạo căn.
+  - Hợp đồng đã ghi hành vi này: OpenAPI `updateRoom` 0.3.9 có câu "Thiếu `nightlyListPriceVnd` → server tính theo BR-101 (5) (đường tạm; Desk luôn gửi)".
+  - Phản hồi của API trả về giá đêm đã tính, nên người gọi thấy được nếu chịu đọc lại.
+  - Chỉ người gọi API thẳng (script của ORC/OPS) mới gặp. Nhưng nếu gặp trên production thì giá sai mà không có cảnh báo nào. Ví dụ City View: 8.500.000 ÷ 12 = 708.000 thay vì 800.000, và web lẫn Desk cùng hiện số đó.
+- **Môi trường:** mã `main` (staging api `sha-6414be25f20d`). ORC gặp ngày 06/11 khoảng 18:27 trên `QAT1` (S6d.1 ca 10 (b)).
+- **Các bước:** `PATCH /v1/properties/{p}/rooms/{id}` với `listPrice: {effectiveFrom, monthlyListPriceVnd, reason}`, không có `nightlyListPriceVnd`.
+- **Thực tế:**
+  - 200. Dòng giá mới có giá đêm = giá tháng ÷ `night_from_month_divisor`, làm tròn tới 1.000 (`services/api/src/modules/platform/internal/rooms.service.ts:593–596`, `nightlyFromMonthly` dòng 383–387). Không có cảnh báo nào.
+  - `QAT1` được tạo với giá tháng 9.000.000, nên ra 750.000, trùng giá đêm của dòng cũ. Vì vậy ORC tưởng server "chép giá đêm".
+  - `createRoom` không nhận giá đêm và luôn tính theo cách này (`rooms.service.ts:434`; `RoomInput` chỉ có `monthlyListPriceVnd`). `room-catalog-import.ts:78` cũng vậy.
+  - Ví dụ request của `updateRoom` trong OpenAPI chỉ có `monthlyListPriceVnd`, tức chính ví dụ trong hợp đồng dẫn người gọi vào đường tạm.
+- **Mong đợi (mâu thuẫn tài liệu):**
+  - BR-101 (1): hai giá độc lập, hệ thống không suy giá này từ giá kia.
+  - BR-101 (5) ghi đây là đường tạm "tới v1.0.1"; hiện đã là v1.0.4.
+  - Từ điển tham số (`product/docs/tham-so-quy-tac.md` và `.json`, khóa `night_from_month_divisor`) ghi "Đã bỏ… không còn tác dụng", `in_use: false`. Điều này sai: khóa vẫn quyết định giá đêm ở 3 đường kể trên.
+- **Đề xuất:**
+  1. ARC + BE: gỡ đường tạm theo BR-101 (5). `RoomPatch.listPrice.nightlyListPriceVnd` thành bắt buộc (thiếu → 422); `createRoom` nhận giá đêm; ví dụ trong OpenAPI ghi đủ hai giá. Việc này đổi hợp đồng, nên làm trong một bản v1.0.x.
+  2. DOM: sửa mục từ điển thành "Desk không dùng; API tạo căn, và API đổi giá mà không gửi giá đêm, vẫn dùng khóa này (đường tạm BR-101 (5)). Không sửa giá trị 12".
+  3. Từ giờ tới khi gỡ: script của ORC/OPS gọi `updateRoom` luôn gửi đủ hai giá, rồi đọc lại `currentListPrice`/`scheduledListPrices` sau khi ghi.
+- **Bằng chứng:** `lp-v2-staging-s6.md` S6d.1 ca 10 (b); đọc mã như trên. Script dựng dữ liệu D3 của ORC nằm ở scratchpad, không có trong repo: `QAT1` được tạo bằng `createRoom` với `monthlyListPriceVnd` 9.000.000 và không có giá đêm (`rounds/round-04/outputs/OPS/v1.0.4-staging-drill.md` D3).
+- **Vai:** BE + ARC (hợp đồng), DOM (từ điển). ORC/OPS (cách viết script).
+- **Trạng thái:** Open.
+
 ## 3. Ghi nhận (không phải lỗi)
 
 - *`lp-v2-main` 04/11:* `deploy.sh` chấp nhận DB đi trước image chỉ khi có `--rollback` (`rollback.sh` luôn truyền). `deploy.sh sha-da6d6f3dc22b` không `--rollback` sẽ FAIL 69 ≠ 68. Đúng thiết kế, runbook 5.4 dùng `rollback.sh`. Desk v1.0.3 trên DB 69 đọc được yêu cầu `ko`/`zh` có `price_estimate` (200, không lộ số).
@@ -607,3 +686,8 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - *v1.0.3 PR #31:* dòng outbox `email_changed` bị job dọn 7 ngày xóa `old_email` trước khi gửi thì chỉ gửi `self` + `owner`. Đúng thiết kế, chỉ xảy ra khi worker dừng quá 7 ngày.
 - *v1.0.3 PR #31:* trang Người dùng & vai ở 1024 px ngắt địa chỉ email giữa chữ. Gợi ý cho UXD/FE. *Smoke staging v1.0.3:* thấy cả ở 1440 px → nâng thành BUG-R4-023.
 - *Smoke staging v1.0.3:* staging không đặt `EMAIL_FROM`, nên luật `EMAIL_SHARED_MAILBOX` tắt (đúng ARC). Lỗi `info@` chỉ kiểm được ở production: nhập `info@ottimo.vn` với mật khẩu S2 sai cố ý (máy chủ kiểm hộp thư chung trước S2, nên không ghi gì dù luật bật hay tắt).
+- *S6d (06/11):*
+  - Qua Desk/API không tạo được "khe giá" (căn đang bán, có nhãn hạng mà thiếu giá đêm), nên `ops-check pricegap` chỉ bắt được dữ liệu không đi qua Desk: căn tạo bằng production bootstrap mà chưa có giá (`production-bootstrap.ts:215`), hoặc DB bị sửa thẳng.
+  - `pricegap` dựa vào log, nên chỉ báo khi có khách gọi đúng hạng và ngày chạm khe. Production `ok` chưa chứng minh là không có khe.
+  - Gợi ý cho OPS (Suggestion): thêm kiểm tĩnh SQL READ ONLY, đếm căn đang bán, có nhãn và `active_from <= hôm nay` mà không có dòng giá nào `effective_from <= hôm nay`; kết quả phải là 0. *SEC đã sửa cách kiểm này thành cửa sổ 365 ngày và giao OPS làm ở v1.0.5 (FB-R4-SEC-OPS-S6D-01). Theo ORC, production ra 0.* Đồng thời sửa câu README `infra/server` dòng 120 "nhất là sau khi nhập lại bảng giá 01/11": nhập lại bảng giá trên Desk không tạo khe.
+  - Một khe giá ra khoảng 4 tin FAIL (nhắc lại mỗi 6 giờ trong cửa sổ 24 giờ) và 1 tin hết lỗi, không phải "đúng 1". Số tin không phụ thuộc số lượt khách gọi, nên đúng mục đích SR-PE-12.

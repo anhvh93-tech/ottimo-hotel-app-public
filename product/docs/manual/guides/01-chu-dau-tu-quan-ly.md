@@ -258,7 +258,7 @@ Cột **Thao tác** có **Sửa vai** và **Khác…**. Tài khoản đã khóa 
    - yêu cầu hoàn **còn mở** do người đó tạo (mục 8.3): nơi nhận còn trống thì người khác nhập, không phải người nghỉ. Chỉ còn anh/chị thì nhập **Chuyển khoản** rồi duyệt và chi; anh/chị nhập **Tiền mặt** thì không tự duyệt được khoản đó.
 3. **Khóa tài khoản** (dòng **Khóa tài khoản** ở trên). Tài khoản người nghỉ hẳn **không Mở khóa lại**: mật khẩu, 2 bước và mã khôi phục cũ vẫn còn hiệu lực. Tuyển lại thì tạo tài khoản mới (tên đăng nhập mới, mật khẩu tạm mới, bật 2 bước lại nếu vai cần).
 4. **Xóa email** của người đó (phần **Đặt email cho nhân viên** ngay dưới: mở hộp, bấm **Xóa email**, xác nhận bằng mật khẩu và mã 6 số). Sau bước 3, tài khoản này không nhận thư bảo mật về chính mình nữa, **trừ một** thư **Security notice: notification email changed** gửi tới địa chỉ cũ ở bước này (thư không có dữ liệu khách). Người nghỉ êm: báo trước cho người đó về thư này. Anh/chị cũng nhận một bản; các chủ đầu tư vẫn nhận bản của mình.
-5. **Google Chat:** gỡ người đó khỏi phòng "OTTIMO – Yêu cầu đặt phòng" (mục 12.1). Khóa Desk **không** gỡ người đó khỏi phòng. Người đó có tài khoản `@ottimo.vn` riêng: tạm ngưng tài khoản đó trong Admin console.
+5. **Google Chat:** gỡ người đó khỏi phòng "OTTIMO – Yêu cầu đặt phòng" (mục 12.1), và phòng "OTTIMO – Báo động" nếu người đó là người thứ hai (mục 17.1). Khóa Desk **không** gỡ người đó khỏi phòng. Người đó có tài khoản `@ottimo.vn` riêng: tạm ngưng tài khoản đó trong Admin console.
 6. **Chìa, mã, mật khẩu dùng chung** (những thứ người đó biết hoặc được giao):
    - thu chìa cơ, thẻ tổng, thẻ nhân viên của khóa;
    - app khóa: gỡ tài khoản ủy quyền của người đó, vô hiệu mã/thẻ nhân viên trên khóa;
@@ -431,7 +431,7 @@ Yêu cầu đi tới **mọi người có quyền duyệt**. Người gửi khô
 3. Tổng ở bước 1 **bằng** số ở bước 2: **không có hoàn trùng**. Không từ chối chỉ vì đơn có hai yêu cầu: từ chối nhầm thì khách mất tiền. Vẫn đọc lý do từng yêu cầu như mọi yêu cầu hoàn (FOC đã duyệt, trả sớm, cọc lớn hơn bill). Lý do không khớp folio thì hỏi người tạo trước khi duyệt.
 4. Tổng **lớn hơn** số ở bước 2 (thường vì có phát sinh mới sau khi tạo yêu cầu, ví dụ minibar lúc trả phòng): không từ chối, bấm **Duyệt** từng yêu cầu. Desk không cho duyệt quá số còn nợ khách: yêu cầu vượt thì Desk báo "Yêu cầu không còn cần duyệt nên đã tự đóng." và tự tạo **yêu cầu thay thế** đúng số còn lại.
    - Desk có thể đóng **cả các yêu cầu khác đang chờ** của đơn và gộp thành **một** yêu cầu thay thế. Riêng phần **đã duyệt chưa chi** đã vượt số còn nợ khách thì Desk đóng cả yêu cầu **đã duyệt** (mới nhất trước) và **xóa nơi nhận đã nhập** của yêu cầu đó (từ v1.0.4: nơi nhận chuyển sang yêu cầu thay thế, xem gạch **Trước khi duyệt yêu cầu thay thế**). Duyệt theo thứ tự nào thì số tiền cuối vẫn đúng.
-   - **Nhận ra yêu cầu thay thế**: hàng **Cần duyệt** và **Hoàn tiền** không ghi lý do; người gửi thường là người tạo yêu cầu cũ, giờ gửi là lúc Desk tự đóng yêu cầu cũ. Mở **Nhật ký tiền → Nhật ký thao tác tiền**, tìm mã đơn: có cặp dòng **cùng phút**, **Đã tự đóng** (số cũ, "Yêu cầu không còn cần duyệt nên đã tự đóng.") rồi **Gửi yêu cầu duyệt** (số mới). Cột lý do của dòng sau có thể hiện mã `overpayment` (lỗi chữ đã biết, sửa ở v1.0.4, mục 15.6). Cột người làm thường ghi người bấm **Duyệt**, hoặc người vừa sửa folio, không phải người tạo. Đó là yêu cầu thay thế, không phải yêu cầu lạ. Desk cũng tự đóng khi có người sửa folio đã chốt: khi đó người gửi yêu cầu thay thế có thể là người vừa sửa. Người gửi là chính anh/chị (vừa sửa folio) thì người khác duyệt (hiện là chủ đầu tư).
+   - **Nhận ra yêu cầu thay thế**: hàng **Cần duyệt** và **Hoàn tiền** ghi lý do **Hoàn tiền khách trả thừa**, cùng chữ với mọi khoản hoàn tiền trả thừa, nên chưa đủ để nhận ra; người gửi thường là người tạo yêu cầu cũ, giờ gửi là lúc Desk tự đóng yêu cầu cũ. Mở **Nhật ký tiền → Nhật ký thao tác tiền**, tìm mã đơn: có cặp dòng **cùng phút**, **Đã tự đóng** (số cũ, "Yêu cầu không còn cần duyệt nên đã tự đóng.") rồi **Gửi yêu cầu duyệt** (số mới). Cột lý do của dòng sau ghi **Hoàn tiền khách trả thừa**. Cột người làm thường ghi người bấm **Duyệt**, hoặc người vừa sửa folio, không phải người tạo. Đó là yêu cầu thay thế, không phải yêu cầu lạ. Desk cũng tự đóng khi có người sửa folio đã chốt: khi đó người gửi yêu cầu thay thế có thể là người vừa sửa. Người gửi là chính anh/chị (vừa sửa folio) thì người khác duyệt (hiện là chủ đầu tư).
    - Yêu cầu **đã duyệt** đang chờ chi mà không còn ở **Hoàn tiền** (Nhật ký thao tác tiền có dòng **Đã tự đóng** cho số đó): không chi theo số cũ; tìm yêu cầu thay thế của cùng mã đơn, làm như gạch dưới.
    - **Trước khi duyệt yêu cầu thay thế**: **Nhật ký tiền → Hoàn tiền** → dòng của mã đơn → kiểm **Cách hoàn** của **yêu cầu mới**. Ở v1.0.3, yêu cầu thay thế **không mang nơi nhận** của yêu cầu cũ, nên thường hiện "—" và nút **Nhập nơi nhận hoàn**. **Áp dụng từ v1.0.4** (khi chủ đầu tư báo v1.0.4 đã lên; tới lúc đó làm như câu trước): yêu cầu thay thế **giữ nơi nhận** (**Cách hoàn**) của yêu cầu bị đóng, nếu các yêu cầu cũ chỉ có **một** nơi nhận, do **một** người nhập. Yêu cầu cũ **không có** nơi nhận thì không tính: một yêu cầu có nơi nhận, một yêu cầu trống thì yêu cầu mới vẫn giữ nơi nhận đó. Vẫn **kiểm Cách hoàn** của yêu cầu mới và đối chiếu với nơi nhận khách đã đưa trước khi duyệt. Người đã nhập nơi nhận ở yêu cầu cũ vẫn **không** duyệt được yêu cầu mới, **trừ chủ đầu tư với khoản chuyển khoản** (như cũ: chủ đầu tư tự nhập chuyển khoản rồi vẫn duyệt và chi được). Các yêu cầu cũ có **2 nơi nhận khác nhau**, hoặc nơi nhận do **2 người khác nhau** nhập: yêu cầu mới **không có** nơi nhận (—), phải **Nhập nơi nhận hoàn** lại. Dòng ghi "Cách hoàn: …" thì đối chiếu với nơi nhận khách đã đưa. Dòng không có cách hoàn (—) thì **Nhập nơi nhận hoàn** trước (mục 8.3), trên máy đã cấp quyền: chuyển khoản thì chủ đầu tư tự nhập rồi vẫn duyệt và chi được; tiền mặt thì người tạo yêu cầu cũ nhập (người nhập nơi nhận tiền mặt không duyệt được khoản đó). Từ v1.0.4 thêm:
      - **Duyệt không mang sang.** Yêu cầu cũ đã duyệt (chưa chi) bị đóng thì yêu cầu thay thế ở **Chờ duyệt**: duyệt lại như mọi yêu cầu. Đây không phải lỗi.
@@ -560,8 +560,6 @@ Tháng lịch cuối của HĐ = tháng chứa ngày kết thúc HĐ (HĐ kết 
 
 [ẢNH: C1-18-Nhật ký thao tác tiền]
 
-> **Lỗi nhỏ đã biết (sửa ở v1.0.4):** cột lý do có thể hiện **mã lý do thô** (chữ tiếng Anh nối bằng gạch dưới). Đọc phần lý do người làm tự ghi, bỏ qua mã.
-
 ### 8.2 Đối soát chuyển khoản (mỗi ngày)
 
 1. Mở tab **Chờ đối soát**. Mở sao kê ngân hàng cùng lúc.
@@ -641,17 +639,18 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 
 **Định mức và tối đa**: trong **Sửa**, mục **Số người**. **Tối đa** chỉ bằng định mức hoặc định mức + 1 (người thứ thêm ngủ sofa). Không tính trẻ dưới 6 tuổi.
 
-### 9.1a Giá ước tính trên website (khi gói LP-v2 phát hành)
+### 9.1a Giá ước tính trên website (đã bật từ 06/11)
 
-**Áp dụng khi gói website LP-v2 đã lên.** Form đặt phòng trên ottimo.vn hiện **giá ước tính** cho khách sau khi khách chọn hạng phòng, ngày, số khách.
+**Đã bật từ 06/11/2026** (website 5 ngôn ngữ, bản landing-v2.0.0). Form đặt phòng trên ottimo.vn hiện **giá ước tính** cho khách sau khi khách chọn hạng phòng, ngày, số khách. Theo quyết định của anh/chị ngày 06/11, web tính theo tham số đang chạy trên Desk. Các tham số giá còn lệch sổ tay nằm ở mục "Tham số trên production lệch sổ tay" của từ điển `product/docs/tham-so-quy-tac.md`; việc chỉnh mang vào buổi review 20/11 (`product/docs/so-van-hanh.md` mục 5.4).
 - **Một nguồn giá:** web dùng chính **Giá đêm niêm yết**, lịch ngày đặc biệt và phụ thu người trên Desk, kênh Trực tiếp. Anh/chị đổi giá ở mục 9.1 thì web dùng giá mới trong khoảng **10 phút**, không cần sửa website. Không ai gõ giá vào website.
 - **Theo hạng:** web tính theo **Hạng phòng công khai** của từng căn (trong **Sửa** căn; chỉ chủ đầu tư đổi). Căn chưa gán hạng: web ghi "giá theo yêu cầu" cho căn đó.
-- Chỉ ngắn ngày **1–29 đêm**. Theo tháng hoặc từ 30 đêm: web **không hiện số** (anh/chị chốt 01/11), chỉ mời khách nhận báo giá riêng.
+- Chỉ ngắn ngày **1–29 đêm** (mức sổ tay; tới khi chỉnh xong `short_stay_max_nights` và `long_stay_required_from_nights`, web theo số đang chạy). Theo tháng hoặc từ 30 đêm: web **không hiện số** (anh/chị chốt 01/11), chỉ mời khách nhận báo giá riêng.
 - Con số luôn đi kèm: ước tính, đã gồm thuế, cho số khách đã chọn, chưa giữ phòng; giá cuối và phòng trống nằm trong báo giá. Thân trang vẫn không ghi giá.
-- **Bật, tắt:** tham số `public_show_prices` ở **Tham số quy tắc** (mục 9.2), chỉ chủ đầu tư. Mặc định tắt; bật sau khi đội kiểm giá web khớp giá Desk. Cần tắt gấp (ví dụ giá vừa nhập nhầm): đặt `false`, khoảng 2 phút sau web hết hiện giá; form vẫn nhận yêu cầu.
+- **Bật, tắt:** tham số `public_show_prices` ở **Tham số quy tắc** (mục 9.2), chỉ chủ đầu tư. **Đang bật từ 06/11**, sau khi đội kiểm giá web khớp giá Desk (4/4 ca mẫu). Cần tắt gấp (ví dụ giá vừa nhập nhầm): đặt `false` ngay trên Desk, khoảng 2 phút sau web hết hiện giá; form vẫn nhận yêu cầu. Phòng **"OTTIMO – Báo động"** nhận một tin báo công tắc đổi – đúng thiết kế. Bật lại theo luật thường: đã lưu trong ngày thì bật từ ngày mai.
+- **Ngày cuối có giá:** `web_estimate.open_until`, mặc định 2027-01-01. Đêm từ ngày này trở đi web ghi "giá theo yêu cầu". Chốt giá 2027 rồi gia hạn trước 01/01/2027; Desk nhắc khi còn dưới 60 ngày (`product/docs/so-van-hanh.md` mục 1.4, 5.4).
 - **Trên Desk:** mỗi yêu cầu có dòng **Giá ước tính khách đã thấy**. Khi lễ tân lập báo giá mà giá Desk khác số khách đã thấy, hộp báo giá hiện cảnh báo **"Khác giá web khách đã thấy: {cũ} → {mới}"** (giá theo lịch giá hôm nay khác số khách thấy trên web) để lễ tân giải thích với khách (tệp 02 mục 13.1c). Lễ tân không hứa giữ số cũ; khách xin giữ thì người trực báo anh/chị hoặc quản lý quyết.
 
-**Đếm khách theo ngôn ngữ** (khi trang tiếng Hàn, Trung, Nga đã lên): **Yêu cầu từ website** → lọc theo **Ngôn ngữ**, kết hợp lọc trạng thái (gồm cả đã thành đơn, đã đóng) → Desk hiện tổng số yêu cầu khớp lọc. Số chỉ gồm yêu cầu còn trên Desk. Báo cáo, xuất dữ liệu theo ngôn ngữ: dự kiến v1.2. Cách lễ tân trả lời khách tiếng Hàn, Trung, Nga (tiếng Anh, được dùng Google Dịch trên mọi màn hình Desk theo quyết định của anh/chị ngày 01/11): tệp 02 mục 13.1d.
+**Đếm khách theo ngôn ngữ** (website có 5 ngôn ngữ từ 06/11): **Yêu cầu từ website** → lọc theo **Ngôn ngữ**, kết hợp lọc trạng thái (gồm cả đã thành đơn, đã đóng) → Desk hiện tổng số yêu cầu khớp lọc. Số chỉ gồm yêu cầu còn trên Desk. Báo cáo, xuất dữ liệu theo ngôn ngữ: dự kiến v1.2. Cách lễ tân trả lời khách tiếng Hàn, Trung, Nga (tiếng Anh, được dùng Google Dịch trên mọi màn hình Desk theo quyết định của anh/chị ngày 01/11): tệp 02 mục 13.1d.
 
 ### 9.2 Tham số quy tắc
 
@@ -667,8 +666,10 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 - Quản lý **không** sửa được hạn mức miễn phí (FOC), tỷ lệ hoa hồng, phí kênh và nhóm **Bảo mật**. Chỉ chủ đầu tư.
 - Dòng ghi **Chờ chủ đầu tư xác nhận** hoặc **Chờ luật sư/kế toán xác nhận** là giá trị tạm, vẫn đang áp.
 - **Form "Yêu cầu đặt phòng" trên website**: công tắc ở nhóm **Khác**, dòng `public_booking_requests_enabled` (chưa có tên tiếng Việt), giá trị `false` là tắt. Chỉ chủ đầu tư bật, tắt. Form **đã bật từ chiều 30/10**.
+- **Thông báo quyền riêng tư của form**: bản **2026-11-04**, đủ 5 ngôn ngữ, ở trang `/privacy/` của từng ngôn ngữ. Đổi chữ thông báo hoặc câu đồng ý là ra bản mới cho cả 5 ngôn ngữ cùng lúc: báo đội trước (`product/docs/so-van-hanh.md` mục 4.2).
 - **`privacy_notice_version`** (nhóm **Khác**, chưa có tên tiếng Việt, chỉ chủ đầu tư): **không** đổi lúc khác. Từ v1.0.4 chỉ đổi một lần, đúng ngày thay tờ **Your ID details** v2, sau tin "Đã thay tờ v2" của người trực. Trước mọi lần Lưu, gọi người trực xác nhận tờ v2 còn trên quầy, Lưu trong lúc còn gọi (`00-index.md` mục 4). Đã Lưu thì trong ngày không quay về v1 được.
 - Đổi tham số làm số trên Desk khác số lễ tân đã học: báo người trực.
+- Nghĩa, giới hạn, mức đội đề xuất của từng tham số: từ điển `product/docs/tham-so-quy-tac.md`. Việc định kỳ, khi có báo động, khi có sự cố, khi đổi giá: sổ vận hành `product/docs/so-van-hanh.md`.
 
 > **Lỗi đang sửa – Wi-Fi (sửa ở v1.0.3 hoặc v1.0.4):** Desk chưa có chỗ nhập Wi-Fi của cơ sở, nên trang khách chưa hiện Wi-Fi (trang ghi "hỏi lễ tân"). Tới khi sửa xong: khách xem **thẻ Wi-Fi trong căn**; lễ tân đọc khi khách hỏi.
 
@@ -870,7 +871,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 | Lễ tân hỏi cách ghi trễ ngày đi trên cổng khai báo lưu trú (đơn quá ngày đi, khách đã đi) | Ghi ngay trong ngày phát hiện, đúng ngày khách rời thật (ngày đi trên đơn cũ), không dán ô ngày đi Desk đang hiện. Ghi sổ giao ca. Hạn ghi trễ: đội đang hỏi luật sư (BR mục 15). Tới khi có câu trả lời, vẫn ghi ngay trong ngày phát hiện và báo chủ đầu tư (tệp 02 mục 11.1, **Đơn quá ngày đi**) |
 | Lễ tân báo căn vẫn hiện có khách mà đơn trước đã **Đã trả phòng** | Không có ngoại lệ nhận phòng. Lễ tân đổi khách sang căn trống sẵn sàng khác (cùng hạng, không có thì nâng hạng, OTTIMO chịu chênh). Nhắn đội kỹ thuật số căn và mã đơn trước để sửa trạng thái căn; không còn căn nào thì gọi đội trong ca. Không dùng **Khóa phòng** (`OOO`) để đặt lại trạng thái (tệp 02 mục 7.4) |
 | Khách yêu cầu xem/xóa dữ liệu | Xử lý tay, không hứa ngày (mục 12) |
-| Lễ tân lỡ gửi link check-in online | Ghi nhận mã đơn từ sổ giao ca; đội đối chiếu mỗi sáng (mục 15.3) |
+| Lễ tân gửi nhầm link check-in online cho người khác | Lễ tân **Thu hồi link** ngay, tạo link mới gửi đúng khách, ghi sổ giao ca, báo anh/chị trong ngày (tệp 02 mục 17.3). Anh/chị: đọc dòng sổ giao ca. Báo đội bằng `/feedback` (không cần P0): mã đơn, giờ gửi, giờ thu hồi, kênh, đơn có hiện **Đã làm thủ tục trước** trước giờ thu hồi không. Không ghi tên khách hay người nhận nhầm. Đội bảo mật trả lời trong ngày có cần làm gì thêm. Không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị |
 | Nhân viên quên mật khẩu | **Đặt lại mật khẩu** (mục 1.9) |
 | Nhân viên mất điện thoại | Không có 2 bước: **Đặt lại mật khẩu** hoặc **Khóa tài khoản**. Có 2 bước mà mất cả mã khôi phục: gặp tận mặt rồi **Đặt lại xác thực 2 bước** (mục 1.9) |
 | Nhân viên bị khóa do sai mật khẩu | **Mở khóa** (mục 1.9). Người đó nói không gõ sai: **Đặt lại mật khẩu**, xem **Cần chú ý** |
@@ -894,7 +895,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 
 ## 15. Tạm thời tới v1.0.3 và các bản sau
 
-Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/chị (chủ đầu tư) báo bản có sửa đã lên. Thư bảo mật, giữ chỗ quá hạn, check-in online sửa ở **v1.0.3** (dự kiến 07/11; thư bảo mật chậm nhất 09/11). Các lỗi ở mục 15.6 sửa ở v1.0.3 hoặc bản vá sau. Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
+Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/chị (chủ đầu tư) báo bản có sửa đã lên. Thư bảo mật, giữ chỗ quá hạn sửa ở **v1.0.3** (dự kiến 07/11; thư bảo mật chậm nhất 09/11). Check-in online đã mở lại từ 06/11/2026 (mục 15.4). Các lỗi ở mục 15.6 sửa ở v1.0.3 hoặc bản vá sau. Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
 
 ### 15.1 Kiểm bảo mật mỗi sáng trước 09:00
 
@@ -919,11 +920,11 @@ Ngày v1.0.3 lên (mục 1.6a):
 - Không dùng lý do hủy **Khác (ghi rõ)** (Desk khóa nút hủy). Chọn **Không liên lạc được** hoặc **Khách đổi ý**; lý do thật ghi sổ giao ca.
 - Anh/chị xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca cùng lượt kiểm sáng. Báo người trực khi v1.0.3 lên.
 
-### 15.4 Check-in online tạm dừng
+### 15.4 Check-in online – đã mở lại 06/11/2026
 
-- Không tạo, không gửi link check-in online cho khách thật. Mọi khách làm giấy tờ tại quầy, được xem tờ **Your ID details** trước khi đưa giấy tờ.
-- Đội kiểm mỗi sáng số link mới tạo trên Desk thật; khác 0 thì đội báo anh/chị mã đơn để đối chiếu với sổ giao ca.
-- Anh/chị báo "mở lại check-in online" chỉ khi đội báo bản v1.0.3 đã có thông báo xử lý dữ liệu mới và bảo mật đã kiểm xong.
+- Từ 06/11/2026 (v1.0.4), lễ tân gửi link check-in online cho khách thật, chỉ với đơn đã xác nhận (tệp 02 mục 17.3). Trang khách có thông báo xử lý dữ liệu bản 2, cùng nội dung tờ **Your ID details** v2 ở quầy. Cách tạm cũ (không gửi link, đội đếm link mỗi sáng) đã bỏ.
+- Sale, CTV vẫn không cấp, không gửi link.
+- Đội có thể báo dừng lại khi kiểm thấy lỗi, ví dụ ở lượt đồng ý thật đầu tiên. Khi đó anh/chị báo người trực "dừng check-in online": ngừng tạo, ngừng gửi link, mọi khách làm giấy tờ tại quầy tới khi đội báo mở lại. Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi.
 
 ### 15.5 Khách trả phòng sớm
 
@@ -939,8 +940,6 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 | Câu gợi ý "tạo mã VietQR nhỏ và quét thử" | Không tạo mã thử (mục 10.1) |
 | Folio đã khóa: câu báo ghi "Chỉ quản lý ghi được…" (sai) | Bỏ qua vế đó; không ai sửa được sau 24 giờ |
 | **Hoàn tác nhận phòng** bị từ chối khi folio có dòng mới | Bỏ dòng mới và đảo khoản thu trước (mục 7.1) |
-| Cột lý do trong Nhật ký tiền hiện mã thô | Đọc phần lý do người làm tự ghi |
-| Yêu cầu hoàn thay thế (Desk tạo sau khi tự đóng yêu cầu cũ): hàng **Cần duyệt** và **Hoàn tiền** không ghi lý do; **Nhật ký thao tác tiền** hiện mã `overpayment` ở cột lý do (sửa ở v1.0.4) | Nhận ra theo cặp dòng **Đã tự đóng** – **Gửi yêu cầu duyệt** cùng phút, cùng mã đơn. Kiểm **Cách hoàn** của yêu cầu mới; "—" thì **Nhập nơi nhận hoàn** rồi mới duyệt (mục 4 bước 4) |
 | Tài khoản chỉ có vai Bảo trì không chọn được căn trên Desk: không tạo phiếu, không khóa phòng được (BUG-R3-053) | Lễ tân hoặc người trực tạo phiếu, khóa phòng trên Desk; bảo trì báo trên app hoặc nhắn ngày, căn, lý do |
 
 ---
@@ -985,9 +984,11 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 
 Khi báo lỗi cho đội: theo mục 12 – mô tả bằng lời, mã đơn, mã tham chiếu; không tên khách, không ảnh có dữ liệu khách.
 
-### 17.1 Phòng Google Chat "OTTIMO – Báo động" (chỉ chủ đầu tư)
+### 17.1 Phòng Google Chat "OTTIMO – Báo động" (chủ đầu tư và tối đa một người thứ hai)
 
-- Phòng cảnh báo kỹ thuật, **chỉ chủ đầu tư** ở trong phòng; không thêm người trực hay nhân viên. Tin không có dữ liệu khách.
+- Phòng cảnh báo kỹ thuật. Trong phòng có chủ đầu tư, và tối đa **một** người thứ hai anh/chị chọn. Đội đề xuất quản lý hoặc lễ tân trưởng, tài khoản `@ottimo.vn`. Không thêm ai khác. Tin chỉ có tên mục kiểm và số đếm, không có dữ liệu khách.
+- Thêm người thứ hai: điện thoại người đó đã cài theo mục 12.1. Mở phòng trong Google Chat, thêm người đó bằng tài khoản `@ottimo.vn` là **thành viên** (không làm quản lý phòng). Không thêm ứng dụng hay webhook nào khác vào phòng. Cho người đó đọc sổ vận hành mục 2.3 bước 6 (lễ tân trưởng: tệp 02 mục 13.5). Rồi nhắn đội "đã thêm người thứ hai vào phòng Báo động – vai …" (không ghi tên, email). Người đó nghỉ việc: gỡ khỏi phòng cùng ngày. Cách làm đầy đủ: sổ vận hành `product/docs/so-van-hanh.md` mục 7.2.
+- Người thứ hai nhận **FAIL**: mở thử `desk.ottimo.vn` trên 4G. Không vào được: gọi anh/chị ngay, người trực ghi sổ giấy (tệp 02 mục 15). Vào được: nhắn anh/chị trong ngày. Anh/chị báo đội như dưới đây.
 - Nhận gì: tin **FAIL** khi máy chủ hoặc một dịch vụ có lỗi (ví dụ sao lưu, ổ đĩa, bộ nhớ, lỗi máy chủ), nhắc lại mỗi 6 giờ khi lỗi còn; tin **OK** khi đã hồi phục. Thêm **email** từ **Healthchecks.io** (máy chủ báo lỗi hoặc im lặng quá 1 giờ) và **UptimeRobot** (trang không mở được từ bên ngoài) về `info@ottimo.vn`.
 - Nhận **FAIL**: mở thử `desk.ottimo.vn` bằng dấu trang. **Không vào được**: báo đội ngay bằng `/feedback` có chữ **"P0"**, ghi **giờ nhận tin** và tên mục trong tin; người trực ghi sổ giấy (tệp 02 mục 15). Vào được: người trực làm việc bình thường; anh/chị vẫn báo đội trong ngày kèm giờ nhận tin.
 - **Không tự sửa máy chủ**, không đăng nhập máy chủ. Tin **OK** sau FAIL: không cần làm gì.

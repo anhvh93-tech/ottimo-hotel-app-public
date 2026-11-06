@@ -578,7 +578,7 @@ Ngang giá với OTA (OTA dùng bot so giá) là rủi ro **hợp đồng**, kh�
 7. Dội 50 lần/giây trong 30 giây → Desk vẫn mở được danh sách yêu cầu dưới 2 giây; không dòng mới trong `rate_limit_counter` cho route giá.
 8. OWN đổi giá một căn trên Desk staging → web ra số mới trong ≤ 60 giây.
 9. Công tắc tắt → 404; form vẫn gửi được.
-10. Một căn giá 0, gọi 100 lần → OWN nhận đúng 1 thông báo.
+10. Một căn đang bán, có nhãn hạng, thiếu giá đêm cho ít nhất một đêm (chỉ có từ dữ liệu ngoài Desk/API: bootstrap tạo căn chưa có giá, SQL tay), gọi nhiều lần → web vẫn ra số của các căn còn lại; log api đúng 1 dòng `public_price_missing` mỗi căn mỗi ngày, không phụ thuộc số lượt gọi; `ops-check pricegap` báo số căn, không lộ id. *(Sửa 06/11 theo BUG-R4-056: bản cũ "một căn giá 0 … OWN nhận 1 thông báo" không làm được – DB `CHECK > 0`, Desk không tạo được khe; cảnh báo là log + `ops-check` thay thông báo OWN, lệch đã chấp nhận ở SR-PE-12. Kiểm bằng test tích hợp + test `ops-check-price` + kiểm tĩnh SQL READ ONLY: `rounds/round-04/reviews/SEC-on-lp-v2-s6d.md` mục 6.)*
 11. Log api + Caddy sau ca 6: không có query string, không IP đầy đủ.
 
 ### 9.6 Rủi ro còn lại

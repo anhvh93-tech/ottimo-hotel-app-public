@@ -10,18 +10,18 @@
 | Tệp | Dành cho | Thiết bị, địa chỉ | Nội dung chính |
 |---|---|---|---|
 | `00-index.md` (tệp này) | Chủ đầu tư, người đào tạo | – | Ai đọc tệp nào, lịch đào tạo |
-| `01-chu-dau-tu-quan-ly.md` | Chủ đầu tư (OWN), quản lý (MGR), kế toán/đối soát | Máy riêng · `desk.ottimo.vn` | Đăng nhập 2 bước, cấp tài khoản và máy quầy, duyệt, đối soát, hoàn tiền, giá, tham số, tài khoản nhận VietQR, kế toán; phòng Google Chat (cài đặt, xóa tin theo yêu cầu người gửi), phòng Báo động; giá ước tính trên website, đếm yêu cầu theo ngôn ngữ (từ LP-v2) |
-| `02-le-tan.md` | Lễ tân (FD), lễ tân trưởng (FDL), người trực đêm | Máy quầy đã cấp quyền · `desk.ottimo.vn`; lễ tân trưởng thêm `staff.ottimo.vn`; điện thoại có Google Chat (từ v1.0.1) | Báo giá, giữ chỗ, đặt phòng, nhận phòng, giấy tờ và khai báo, thu tiền, trả phòng, kiểm phòng; yêu cầu từ website, tin Google Chat, xóa theo yêu cầu người gửi; giá ước tính khách đã thấy, trả lời khách tiếng Hàn, Trung, Nga (từ LP-v2) |
+| `01-chu-dau-tu-quan-ly.md` | Chủ đầu tư (OWN), quản lý (MGR), kế toán/đối soát | Máy riêng · `desk.ottimo.vn` | Đăng nhập 2 bước, cấp tài khoản và máy quầy, duyệt, đối soát, hoàn tiền, giá, tham số, tài khoản nhận VietQR, kế toán; phòng Google Chat (cài đặt, xóa tin theo yêu cầu người gửi), phòng Báo động; giá ước tính trên website, đếm yêu cầu theo ngôn ngữ (từ 06/11) |
+| `02-le-tan.md` | Lễ tân (FD), lễ tân trưởng (FDL), người trực đêm | Máy quầy đã cấp quyền · `desk.ottimo.vn`; lễ tân trưởng thêm `staff.ottimo.vn`; điện thoại có Google Chat (từ v1.0.1) | Báo giá, giữ chỗ, đặt phòng, nhận phòng, giấy tờ và khai báo, thu tiền, trả phòng, kiểm phòng; yêu cầu từ website, tin Google Chat, xóa theo yêu cầu người gửi; giá ước tính khách đã thấy, trả lời khách tiếng Hàn, Trung, Nga (từ 06/11) |
 | `03-buong-phong.md` | Buồng phòng (HK) | Điện thoại · `staff.ottimo.vn` | Việc dọn, minibar, bộ đồ dùng thêm, báo sự cố, mất mạng |
 | `04-bao-tri.md` | Bảo trì, kỹ thuật (MT) | Điện thoại · `staff.ottimo.vn`; Desk để xem phiếu | Phiếu sửa, báo khóa phòng, chốt công tơ |
-| `05-sale-ctv.md` | Sale nội bộ (SAL), CTV / môi giới | Điện thoại hoặc máy tính · `desk.ottimo.vn` | Báo giá, giữ chỗ, cọc, hoa hồng; giá ước tính web, khách tiếng Hàn, Trung, Nga (từ LP-v2) |
+| `05-sale-ctv.md` | Sale nội bộ (SAL), CTV / môi giới | Điện thoại hoặc máy tính · `desk.ottimo.vn` | Báo giá, giữ chỗ, cọc, hoa hồng; giá ước tính web, khách tiếng Hàn, Trung, Nga (từ 06/11) |
 | `screenshot-additions.md` | Đội (QA chụp ảnh) | – | Ảnh còn thiếu cho bộ hướng dẫn |
 
 Mỗi tệp **đọc độc lập được**: người đọc chỉ cần cầm tệp của mình. Mỗi tệp có cùng khung:
 1. **Đăng nhập** – viết riêng cho vai đó: địa chỉ đúng, lần đầu, hằng ngày, đăng xuất, quên mật khẩu, mất điện thoại.
 2. **Việc mỗi ngày** – danh sách theo giờ.
 3. Các thao tác của vai, theo thứ tự công việc thật, kèm tình huống thường gặp và **không được làm**.
-4. **Tạm thời tới v1.0.3 và các bản sau** – các cách làm tạm cho tới khi chủ đầu tư báo bản có sửa đã lên. Phần lớn sửa ở v1.0.3 (dự kiến 07/11). Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
+4. **Tạm thời tới v1.0.3 và các bản sau** – các cách làm tạm cho tới khi chủ đầu tư báo bản có sửa đã lên. Phần lớn đã sửa ở v1.0.3 (04/11) và v1.0.4 (lên production 06/11). Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
 5. **Bảng giờ** và **Khi có sự cố – gọi ai**.
 6. Bài tập đào tạo.
 
@@ -69,15 +69,15 @@ Mỗi người **một tài khoản, đúng vai của mình**, và đọc tệp 
 |---|---|---|---|
 | `desk.ottimo.vn` | **OTTIMO Desk** | Chủ đầu tư, quản lý, lễ tân, sale, CTV; buồng phòng, bảo trì lần đầu đổi mật khẩu tạm | Máy quầy, laptop; sale/CTV dùng được trên điện thoại |
 | `staff.ottimo.vn` | **App nhân viên** | Buồng phòng, bảo trì, lễ tân trưởng (kiểm phòng) | Điện thoại |
-| `g.ottimo.vn` | **Trang khách** | Khách của từng đơn | Điện thoại của khách. **Từ 02/11 tới v1.0.3 chưa gửi link cho khách thật** |
-| `ottimo.vn` | **Website** | Khách tìm hiểu | Form đặt phòng **đã bật từ chiều 30/10**. Desk mở trên máy quầy và điện thoại người trực 07:00–22:00 (`02` mục 13.1) |
+| `g.ottimo.vn` | **Trang khách** | Khách của từng đơn | Điện thoại của khách. **Check-in online mở lại từ 06/11/2026**: lễ tân gửi link cho đơn đã xác nhận (`02` mục 17.3) |
+| `ottimo.vn` | **Website** | Khách tìm hiểu | Form đặt phòng **đã bật từ chiều 30/10**; 5 ngôn ngữ và giá ước tính từ 06/11; thông báo quyền riêng tư bản 2026-11-04. Desk mở trên máy quầy và điện thoại người trực 07:00–22:00 (`02` mục 13.1) |
 
 **Phòng Google Chat** (tài khoản `@ottimo.vn`, trên điện thoại, không mở trên máy quầy):
 
 | Phòng | Ai ở trong phòng | Từ khi nào | Ở đâu trong bộ hướng dẫn |
 |---|---|---|---|
 | **"OTTIMO – Yêu cầu đặt phòng"** | Chủ đầu tư, quản lý (hai người này là quản lý phòng), lễ tân trưởng, lễ tân. Không sale, CTV, buồng phòng, bảo trì | Đã có từ **03/11 (v1.0.1)**, tin **mức A**: chỉ mã yêu cầu, giờ, hạn phản hồi, mức gấp, link Desk; không có tên, liên hệ, lời nhắn của khách. Mức có chi tiết khách chưa bật (chờ ESC-046), khi bật bộ hướng dẫn cập nhật. Desk vẫn mở 07:00–22:00 | `02` mục 13.1a, 13.1b; `01` mục 12.1, 12.2 |
-| **"OTTIMO – Báo động"** | Chỉ chủ đầu tư | Đang chạy | `01` mục 17.1 |
+| **"OTTIMO – Báo động"** | Chủ đầu tư. Có thể thêm **một** người thứ hai chủ đầu tư chọn (`01` mục 17.1) | Đang chạy | `01` mục 17.1 |
 
 Luật chung cho mọi người:
 - **Mỗi người một tài khoản.** Không dùng chung, không đọc mật khẩu qua điện thoại, không gõ mật khẩu cho người khác.
@@ -133,7 +133,7 @@ Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn qu
 7. Khách đã làm giấy tờ trước giờ thay **không** phải xem lại. Người đi cùng đến sau thì xem tờ v2.
 8. Tờ v1 gỡ ra: cất khỏi quầy, chỗ khách không thấy. Có tin "Đã đặt v2" thì hủy. Không để tờ v1 và v2 cùng ở quầy.
 9. **Từ hôm sau ngày sổ giao ca có dòng "Thay tờ v2 hh:mm – tham số v2 hh:mm"** (hoặc từ ngày ghi ở dòng "Tờ v2 từ 06:00 dd/mm"), lúc mở quầy người trực kiểm chân tờ có chữ v2, cả tờ trong ngăn quầy. Chưa có dòng đó: tờ v1 là đúng, người trực **không** tự thay tờ v2 (`02` mục 2).
-10. Sau bước 3, đội bảo mật kiểm trang khách và tham số. Check-in online vẫn dừng tới khi đội báo anh/chị mở lại (`02` mục 17.3).
+10. Sau bước 3, đội bảo mật kiểm trang khách và tham số. Đã làm ngày 06/11/2026: đội bảo mật kiểm đạt, check-in online mở lại cùng ngày (`02` mục 17.3).
 
 ## 5. Đào tạo
 
@@ -169,6 +169,10 @@ Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn qu
 - Con số theo tham số ngày 27/10/2026. Desk khác tệp: làm theo Desk; khác về **tiền** mà không rõ vì sao thì báo ngay (có thể là lỗi "P0").
 
 ## 7. Lịch sử
+
+**Sửa 06/11/2026 – Round 5, chưa đánh số bản** (BA; QC Round 4 ĐK-4, ĐK-5, V5-08). **Áp dụng ngay.** Check-in online đã mở lại từ 06/11/2026 cùng v1.0.4. Bỏ các câu "tạm dừng", "chưa gửi link": `00` mục 3 (dòng `g.ottimo.vn`), mục 4 bước 10; `01` 14.1 (dòng gửi nhầm link), 15 (đoạn mở đầu), 15.4 (viết lại); `02` 4.5 (nút link ở đơn giữ chỗ), 9.7, 16.2, 17 (đoạn mở đầu), 17.3 (viết lại thành các bước gửi link), 20.3 (bài tập 8); `05` 4.2, 7.2, 8 (đoạn mở đầu), 8.3 (viết lại); `screenshot-additions.md` (ảnh C0-10 dùng lại được). Phòng "OTTIMO – Báo động" có thể thêm một người thứ hai chủ đầu tư chọn: `00` mục 3, `01` 17.1 (theo sổ vận hành bản 1.2). Câu còn đúng, giữ nguyên: Wi-Fi trên trang khách ghi "hỏi lễ tân". Sửa lại cùng tối (Phản hồi & sửa): câu "đơn giữ chỗ hiện nút link, Desk luôn từ chối" sai từ v1.0.4. Từ v1.0.4 khung đơn giữ chỗ không còn mục **Link check-in online** (BUG-R3-047 đã sửa): `02` 4.5, 17.3; `05` 4.2 (Sale/CTV không thấy mục này). Cùng tối (QA V5-02): bỏ phần **Lỗi nhỏ đã biết** đã sửa ở v1.0.4: `01` 4 bước 4 (hàng yêu cầu thay thế ghi lý do **Hoàn tiền khách trả thừa**), 8.1 (hộp mã lý do thô), 15.6 (hai dòng) – BUG-R4-026; `02` 11.5.2 (hộp câu **Xem trước** – BUG-R4-025; lý do của yêu cầu thay thế – BUG-R4-026). Cùng tối (review bảo mật FB-R5-SEC-BA-01, 07, 08, 10): gửi nhầm link viết lại – thu hồi, tạo link mới, ghi sổ giao ca, báo chủ đầu tư trong ngày, giấy tờ lạ thì báo ngay trong ca: `02` 17.3 bước 5, `01` 14.1 (thêm việc của chủ đầu tư); chỉ gửi link tới liên hệ ghi trên đơn: `02` 16.2, 17.3 bước 3; khi dừng check-in online, link đã gửi chờ đội báo mới thu hồi: `01` 15.4, `02` 17.3; người thứ hai ở phòng Báo động: `01` 1.9 bước 5 (gỡ khi nghỉ), 17.1 (thành viên, điện thoại cài theo 12.1, không thêm webhook), `02` 13.5 mới (nhận FAIL thì làm gì).
+
+**Sửa 06/11/2026, chưa đánh số bản** (BA, Round 4 – Phản hồi & sửa; quyết định của chủ đầu tư 06/11: bật giá web với tham số đang chạy). **Áp dụng ngay.** Website theo thực tế 06/11: form đã bật từ 30/10, 5 ngôn ngữ, giá ước tính đã bật, thông báo quyền riêng tư bản 2026-11-04. `01` 9.1a (bỏ điều kiện "khi gói LP-v2 phát hành"; công tắc `public_show_prices` đang bật, tắt gấp, tin phòng Báo động; ngày cuối có giá `web_estimate.open_until`; tham số giá còn lệch sổ tay), 9.2 (thông báo quyền riêng tư; dòng trỏ tới sổ vận hành và từ điển tham số); `02` 13.1, 13.1c, 13.1d, bài tập 11 (bỏ điều kiện LP-v2, người bản xứ, luật sư); `05` 6.3a; bảng tệp và bảng địa chỉ ở tệp này. Ảnh C2-39 cần chụp lại (ảnh đang có là màn form tắt), QA kiểm che dữ liệu trước khi đưa vào. Bản HTML `guides/html/` cần dựng lại. Số bản ghi ở lần đánh số tới.
 
 **Sửa 05/11/2026, chưa đánh số bản** (sau bản 1.11, có trong bản 1.12; BA; ESC-045 câu 1 và 3, DOM #72 thẻ 06): một giá mọi đêm, không còn +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt – `01` 9.1, `02` 20.2, `05` 3; phụ thu người vượt định mức từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn – `01` 9.1, `02` 9.2, 20.2, `05` 3. Cùng lần chuyển giá (bảng giá 01/11; DOM #85 thẻ 01–03, UXD #85 thẻ 02–03): không giảm theo số đêm – `01` 9.1, `02` 4.2, 5.1 bước 4 và 8, 9.3, 20.2, `05` 3; dài hạn từ 30 đêm – `02` 5.1, 5.4, 20.2, `05` 2, 3, 7.1; nhận sớm không phụ thu từ 11:00, câu nói với khách giữ 12:00 – `02` 7.1, 20.2; câu kiểm "ngày đến thứ Sáu, 2 đêm = 1.600.000" thay câu 1 đêm bị chặn tối thiểu 2 đêm; ví dụ trả sớm 5.600.000 → hoàn 800.000 – `01` 7.3, `02` 11.5.2. Áp dụng từ ngày chủ đầu tư chuyển giá. Áp dụng ngay (ARC BUG-R4-050 mục 2): khách đi trước 06:00 thì từ 06:00 làm **Trả phòng** với giờ Desk điền sẵn, không gõ giờ trước 06:00, giờ rời thật ghi sổ giao ca – `02` 11.5.1. Sau khi gộp #72: khách đổi căn giữa kỳ thì kiểm trùng minibar căn cũ trước khi bấm **Trả phòng**, có **Ghi điều chỉnh**; **Bỏ cả dòng** chỉ cho dòng minibar căn cũ bị ghi trùng, ghi sổ giao ca – `02` 11.1 (UXD #72 thẻ 10, SEC #72 thẻ 05); `01` 14.1 thêm phụ thu nhận sớm của đêm đầu Nội bộ về 0 (DOM #72 thẻ 07), rà **Bỏ cả dòng** và ghi trễ ngày đi trên cổng (SEC #72 thẻ 05, 06); `03` 7: việc **Bổ sung minibar** căn cũ sinh lúc lưu số tủ ở **Trả phòng** (QA2). Sau #85 (SEC #85 thẻ 01, DOM #85 thẻ 04–05, UXD #85 thẻ 05–07): `05` 3 bỏ tỷ lệ trong ngoặc sau **Bạn nhận**, Desk tự điền theo tỷ lệ chủ đầu tư cài; khách đi trước 06:00 mà quá 12:00 mới **Trả phòng** thì gõ 12:00, ghi giờ rời thật ở ghi chú giờ trả – `02` 11.5.1; `01` 14.1 hạn ghi trễ ngày đi: đội đang hỏi luật sư; trích đủ "Đã giảm …% vì ở từ 7 đêm (BR-107)", chữ cũ nằm ở tiêu đề cột – `01` 9.1, `02` 5.1 bước 8; tiêu đề `02` 20.2 ngắn lại, phạm vi xuống dòng dưới, dòng **Kiểm sau khi chuyển giá** tách riêng; gạch **Kiểm trùng** `02` 11.1 chia 4 gạch con; khách Trực tiếp/CTV báo trong ngày rời: không hoàn tiền phòng, phụ thu người các đêm bỏ vẫn hoàn 100 % (có thì vẫn có **một** yêu cầu hoàn, không có thì "Không có khoản hoàn."), dòng phí "Phí trả phòng sớm (báo trước 0 ngày)"; đơn OTA: phụ thu người, chênh lệch đổi phòng thu tại quầy hoàn 100 % – `01` 7.3, `02` 11.5.2 (QA BR-428-02 giờ thật 05/11, DOM #89 thẻ 01); nhãn **Bạn nhận** (CTV) và **Sale nhận** (sale) trích đủ, không ghi tỷ lệ – `05` 3 (UXD #89 thẻ 01). Số bản ghi cùng lần gộp PR #69.
 
