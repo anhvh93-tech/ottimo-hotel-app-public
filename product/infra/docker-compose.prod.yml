@@ -29,11 +29,13 @@ x-hardening: &hardening
     - /tmp:size=64m,mode=1777
   restart: unless-stopped
   logging:
-    # Size-based rotation on the host (SR-LOG-05); long-term copies are not kept on staging.
-    driver: local
+    # v1.0.5 V5-63 (ARC 0.3.13 1.15): the host journal keeps the logs across re-created containers; the 90-day cap
+    # and the size cap live in /etc/systemd/journald.conf.d/50-ottimo.conf (server/journald). No max-size/max-file
+    # here: the journald driver refuses them and the container would not start. Read across deploys:
+    # journalctl CONTAINER_TAG=<container name> (docker logs shows the current container only).
+    driver: journald
     options:
-      max-size: 20m
-      max-file: '5'
+      tag: '{{.Name}}'
 
 x-api-env: &api-env
   APP_ENV: ${APP_ENV:?set APP_ENV (staging|production) in /opt/ottimo/.env}
@@ -124,6 +126,10 @@ services:
   postgres:
     <<: *hardening
     image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    # SEC FB-R5-SEC-ARC-08: the server's own error lines must not carry row values – the DETAIL of a CHECK / NOT NULL /
+    # unique error ("Failing row contains (…)", "Key (email)=(…)") never goes through the app's masking and is now kept
+    # 90 days (V5-63). terse = error code + message only. log_parameter_max_length_on_error stays 0 (default).
+    command: ['postgres', '-c', 'log_error_verbosity=terse']
     # The entrypoint starts as root, fixes ownership and drops to `postgres` (uid 70): it needs these 5 back.
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
     tmpfs:

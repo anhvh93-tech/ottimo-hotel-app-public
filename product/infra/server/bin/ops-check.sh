@@ -3,7 +3,7 @@
 #   ops-check.sh            run every check, alert on failures
 #   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead |
 #                           email_missing | email_changes | email_ascii | email_config | pricelimit | pricegap |
-#                           priceswitch | db_triggers | sshkeys)
+#                           priceswitch | db_triggers | sshkeys | journal)
 #
 # R4 v1.0.4 (P4-04; SEC FB-R4-SEC-OPS-PR32-S1, ARC FB-R4-ARC-OPS-PR30-09): EVERY database check (j16, email_*,
 # pricegap (static part), priceswitch, db_triggers) runs as the role ottimo_readonly (NOLOGIN, BYPASSRLS, SELECT only – taken at connect with
@@ -99,6 +99,18 @@
 #               without a sudo log line: people go through ottimo-admin + sudo. Counts only – no key, fingerprint or
 #               comment is printed. authorized_keys missing or unreadable is a FAIL. OPS_CHECK_SSH_DIR = another
 #               .ssh directory (tests)
+#   journal     v1.0.5 V5-63 (ARC contract 0.3.13 1.15; SEC FB-R5-SEC-ARC-07): container logs live in the host journal
+#               (Docker log driver journald, journald.conf.d/50-ottimo.conf: MaxRetentionSec=90day, MaxFileSec=1day).
+#               FAIL when: a running container of this stack does not log to journald; the journal cannot be read
+#               (the ops-check unit runs with SupplementaryGroups=systemd-journal); the oldest entry is > 91 days old
+#               (the 90-day cap is not applied); /var/log/journal is not root:systemd-journal or a journal file is
+#               readable by everyone; a group that can read the logs (adm, systemd-journal; docker through
+#               `docker logs`) has a member outside the allowed list (LOG_READER_USERS in .env, default
+#               "syslog ottimo-admin"; docker: the deploy user only). WARN (alert once, run still passes) when: the
+#               oldest entry is younger than min(90, days since state/journald_since) − 1 – rotated early, i.e.
+#               SystemMaxUse reached or a log flood (reset state/journald_since after looking); journald wrote
+#               "Suppressed N messages" in the last 24 h (RateLimitBurst reached – lines were dropped). Counts and ages
+#               only. OPS_CHECK_JOURNALCTL / _JOURNAL_DIR / _JOURNAL_OWNER / _GETENT = stand-ins (tests)
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
@@ -171,6 +183,10 @@ notify() { # check status message [force – send the webhook even if the status
   if [ "$status" = "FAIL" ]; then
     logger -t ottimo-alert -p user.err -- "[$app_env] $check FAIL: $msg" 2>/dev/null || true
     echo "FAIL $check: $msg"
+  elif [ "$status" = "WARN" ]; then
+    # v1.0.5 (journal): worth a look, not an outage – alerted when it starts, no 6-hourly reminder, run still passes.
+    logger -t ottimo-alert -p user.warning -- "[$app_env] $check WARN: $msg" 2>/dev/null || true
+    echo "WARN $check: $msg"
   else
     echo "ok   $check: $msg"
   fi
@@ -180,7 +196,7 @@ notify() { # check status message [force – send the webhook even if the status
   if [ "$status" = "FAIL" ] && [ $((now - ${last:-0})) -ge "$REMIND_SECONDS" ]; then send=1; fi
   local url
   url=$(envval ALERT_WEBHOOK_URL)
-  if [ "$send" -eq 1 ] && [ -n "$url" ] && { [ "$status" = "FAIL" ] || [ -n "$prev" ]; }; then
+  if [ "$send" -eq 1 ] && [ -n "$url" ] && { [ "$status" != "OK" ] || [ -n "$prev" ]; }; then
     local text="OTTIMO $app_env ($host_name): $check $status – $msg"
     curl --silent --show-error --max-time 10 -H 'Content-Type: application/json' \
       --data "$(jq -cn --arg t "$text" '{text: $t}')" "$url" >/dev/null || logger -t ottimo-alert -- "webhook failed" || true
@@ -790,9 +806,68 @@ check_sshkeys() {
   notify sshkeys OK "$n key line(s) of the deploy user, all with a forced command"
 }
 
+check_journal() {
+  local jc="${OPS_CHECK_JOURNALCTL:-journalctl}" jdir="${OPS_CHECK_JOURNAL_DIR:-/var/log/journal}"
+  local ge="${OPS_CHECK_GETENT:-getent}" now ids id t n_other=0 first age since_s since_d expect sup
+  local g gid members m extra allowed fails=() warns=() own
+  now=$(date -u +%s)
+  # 1. every running container of this stack logs to journald (the switch needs a re-created container)
+  if ! ids=$(dc ps --quiet 2>"$cmd_err"); then notify journal FAIL "$(compose_failed)"; return 1; fi
+  for id in $ids; do
+    t=$(docker inspect --format '{{.HostConfig.LogConfig.Type}}' "$id" 2>/dev/null || echo unknown)
+    [ "$t" = journald ] || n_other=$((n_other + 1))
+  done
+  [ "$n_other" -eq 0 ] || fails+=("$n_other running container(s) of the stack do not log to journald – re-create them (runbook v1.0.5 W6)")
+  # 2. age of the oldest entry: journalctl starts at the oldest one; head stops it after one line
+  # (--system: without the group journalctl would fall back to this user's own journal and look "young")
+  first=$( { "$jc" --system -q --no-pager -o short-unix 2>/dev/null || true; } | head -n 1 | cut -d' ' -f1 | cut -d. -f1)
+  if [[ ! "$first" =~ ^[0-9]{9,11}$ ]]; then
+    fails+=("journal unreadable (the ops-check unit needs SupplementaryGroups=systemd-journal)")
+  else
+    age=$(( (now - first) / 86400 ))
+    if [ "$age" -gt 91 ]; then fails+=("oldest journal entry is $age days old (cap 90 days: MaxRetentionSec not applied)"); fi
+    since_s=$(head -n 1 "$OTTIMO_HOME/state/journald_since" 2>/dev/null || true)
+    if [[ "$since_s" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && since_d=$(date -u -d "$since_s" +%s 2>/dev/null); then
+      expect=$(( (now - since_d) / 86400 )); [ "$expect" -le 90 ] || expect=90
+      if [ "$age" -lt $((expect - 1)) ]; then
+        warns+=("journal rotated early: oldest entry $age days old, expected at least $((expect - 1)) – SystemMaxUse reached or a log flood; look, then reset state/journald_since")
+      fi
+    else
+      warns+=("state/journald_since missing or not YYYY-MM-DD – early rotation not checked")
+    fi
+    sup=$( { "$jc" --system -q --no-pager --since -24h -t systemd-journald -o cat 2>/dev/null || true; } | grep -c '^Suppressed ' || true)
+    [ "${sup:-0}" -eq 0 ] || warns+=("journald dropped lines $sup time(s) in 24 h (Suppressed … messages: RateLimitBurst reached)")
+  fi
+  # 3. who can read the logs: the journal directory and files, and the members of adm, systemd-journal, docker
+  own=$(stat -c '%U:%G' "$jdir" 2>/dev/null || echo unknown)
+  [ "$own" = "${OPS_CHECK_JOURNAL_OWNER:-root:systemd-journal}" ] || fails+=("$jdir is $own (must be root:systemd-journal)")
+  if [ -n "$(find "$jdir" -type f -name '*.journal*' -perm -o=r 2>/dev/null | head -n 1)" ]; then
+    fails+=("journal file(s) readable by everyone under $jdir")
+  fi
+  for g in adm systemd-journal docker; do
+    if [ "$g" = docker ]; then allowed="ottimo"; else allowed="$(envval LOG_READER_USERS)"; allowed="${allowed:-syslog ottimo-admin}"; fi
+    gid=$("$ge" group "$g" 2>/dev/null | cut -d: -f3) || true
+    [ -n "$gid" ] || continue
+    members="$("$ge" group "$g" | cut -d: -f4 | tr ',' ' ') $("$ge" passwd | awk -F: -v g="$gid" '$4 == g { print $1 }' | tr '\n' ' ')"
+    extra=0
+    for m in $members; do
+      case " root $allowed " in *" $m "*) ;; *) extra=$((extra + 1)) ;; esac
+    done
+    [ "$extra" -eq 0 ] || fails+=("group $g has $extra member(s) outside the allowed list (they can read the logs)")
+  done
+  local msg
+  if [ "${#fails[@]}" -gt 0 ]; then
+    msg=$(printf '%s; ' "${fails[@]}" "${warns[@]}"); notify journal FAIL "${msg%; }"; return 1
+  fi
+  if [ "${#warns[@]}" -gt 0 ]; then
+    msg=$(printf '%s; ' "${warns[@]}"); notify journal WARN "${msg%; }"; return 0
+  fi
+  notify journal OK "oldest entry $age days (cap 90), no dropped lines in 24 h, containers on journald, log readers as allowed"
+}
+
 # Full run (timer): v1.0.3 checks first, then the LP-v2 price checks (merge lp-v2-main, ARC 04/11), then v1.0.4 (P4-04),
-# then v1.0.5 (sshkeys).
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch email_config db_triggers sshkeys); full=1; fi
+# then v1.0.5 (sshkeys, journal).
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch email_config db_triggers sshkeys journal); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -815,6 +890,7 @@ for c in "${checks[@]}"; do
     pricegap) check_pricegap || ok=0 ;;
     priceswitch) check_priceswitch || ok=0 ;;
     sshkeys) check_sshkeys || ok=0 ;;
+    journal) check_journal || ok=0 ;;
     *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
   if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi
