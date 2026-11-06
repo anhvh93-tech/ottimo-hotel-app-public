@@ -63,6 +63,7 @@ import {
   subSourceOf,
 } from './website-request-rules';
 import { WebsiteRequestsService } from './website-requests.service';
+import { bumpRateLimitCounter } from '../../../shared/rate-limit-counter';
 
 /** SR-RL-11 DB limits (security constants – SEC section 5). */
 export const PUBLIC_LIMITS = {
@@ -412,14 +413,8 @@ export class PublicBookingService {
     return 0;
   }
 
-  private async bumpAt(tx: Tx, bucket: string, start: Date, windowMs: number): Promise<number> {
-    const { rows } = await tx.query<{ count: number }>(
-      `INSERT INTO rate_limit_counter (bucket_key, window_start, count, expires_at) VALUES ($1, $2, 1, $3)
-       ON CONFLICT (bucket_key, window_start) DO UPDATE SET count = rate_limit_counter.count + 1
-       RETURNING count`,
-      [bucket, start, new Date(start.getTime() + windowMs)],
-    );
-    return Number(rows[0]?.count ?? 0);
+  private bumpAt(tx: Tx, bucket: string, start: Date, windowMs: number): Promise<number> {
+    return bumpRateLimitCounter(tx, bucket, start, windowMs);
   }
 
   /** Counter of a local day of the property (contact, daily cap). */

@@ -5,6 +5,7 @@
 - Sửa: DOM | Bước: Review | 07/11/2026 – review PR #101, #108, #110 (`rounds/round-05/reviews/DOM-on-be-prs-101-108-110.md`): **mục 14 mới** – "nhập tay" của BR-438 là dòng A30 hoặc dòng đếm minibar, không xét mã `source`; đếm lại minibar là sửa giảm (thẻ SEC V516-01); hoa hồng của đơn chốt lúc thiếu tỷ lệ phải có bản ghi chậm nhất ở mốc "đạt"; lượt đi hôm qua còn ở trong cửa sổ sau nửa đêm (ARC A4, v1.0.6); `lease_terms` là khóa dừng lên bản thứ 7; BR-111 áp trên giá gõ. Sửa kèm mục 0 việc (4), 3.1, 3.5 (T-16-12…15), 7.2 ý 3, 12.3 (bỏ số dòng), 13.2.
 - Sửa: DOM | Bước: Review | 07/11/2026 – review PR #106 (V5-10) và PR #99 (V5-15) (`rounds/round-05/reviews/DOM-on-be-prs-106-99-checkout.md`): **mục 15 mới** – phụ thu trả muộn, khai báo và mốc giữ chứng cứ theo giờ khách rời thật, lúc bấm chỉ để kiểm dung sai; Desk điền giờ máy quầy, máy chủ vắng giờ lấy giờ hẹn hoặc giờ chuẩn, "tối hôm trước" chỉ khi lễ tân gõ; không rõ giờ thì 12:00, không phụ thu nếu không có bằng chứng; xác nhận giả định BE-A2 cho đơn quá ngày đi; mốc "tiền về sau trả phòng" của hoa hồng là lúc ghi Trả phòng, không phải giờ rời thật.
 - Sửa: DOM | Bước: Phản hồi & sửa | 07/11/2026 – trả lời QA FB-R5-QA-DOM-BR438-01 (`rounds/round-05/reviews/QA-on-DOM-br438-oracles.md`): chọn phương án A. Dòng trả muộn B18 nằm trên folio đã chốt, nên theo A32, không theo BR-438 (mục 7.2 ý 3, ca T-16-4, mục 14.6); BR v0.5.15 sửa ví dụ, không đổi luật.
+- Sửa: DOM | Bước: Review | 07/11/2026 – review FE #145 (V5-15 Desk) và delta @ `b834ea56` (`rounds/round-05/reviews/DOM-on-fe-pr-145.md`): mục 15.3 **ý 2a mới** – đơn có giờ hẹn trả muộn mà không có bằng chứng giờ rời thì ghi giờ hẹn, phụ thu B15 giữ nguyên; có bằng chứng đi sớm hơn thì ghi giờ đó, tự giảm theo BR-412; thêm bảng ví dụ BR-412. **Ý 6 mới** – đơn quá ngày đi, khách đi rạng sáng ngày đi: tới v1.0.6 ghi 06:00, giờ thật vào lý do, không gia hạn (V515-01). Mục 15.6 thêm T-15-26 … T-15-30. Không đổi con số nào của INV.
 - Sửa: DOM | Bước: Review | 07/11/2026 – theo DATA FB-R5-DATA-DOM-01 (`rounds/round-05/reviews/DATA-on-pr-114-k22e.md`): mục 2.1 (5) và 2.3 gọi đúng tên chỉ số. Doanh thu khác theo ngày là K-07, không phải K-22e; K-22e chỉ có phí hủy và phí không đến; phí trả sớm vào K-22g. Không đổi luật ngày.
 - Người đọc: ARC (hợp đồng 0.3.13), BE, FE-A, BA, QA, SEC, DATA.
 - Nguồn sự thật: `product/docs/business-rules.md` **v0.5.15** (BR-010, BR-101, BR-111, BR-204, BR-212, BR-303, BR-309, BR-311, BR-428, BR-438 mới, BR-506, BR-903, mục 13); `product/docs/tham-so-quy-tac.md` bản 1.3; oracle `product/tests/fixtures/br-examples.json`. Tệp này giải thích và gom ca kiểm, không thay BR.
@@ -29,6 +30,7 @@
 | V5-25 khóa khác, `damage_catalog` (PR #96) | Chốt biên của BE, sửa 3 chỗ: phần trăm tối đa 2 chữ số thập phân; `max_open_holds_per_user` đủ hai vai; `cancel_policy_direct` không rỗng. `damage_catalog`: ≤ 100 món, giá 1.000–20.000.000. Hỏng trong DB: bỏ qua ở bán, Hôm nay, bảng đền bù; chặn rõ ở tính hoàn, phụ thu, giới hạn giữ chỗ. `short_stay_max_nights` đúng là 29 (mục 13) | Không (NGÀNH) |
 | Review #101, #108, #110 (07/11, mục 14) | BR-438 "nhập tay" = dòng A30 hoặc dòng đếm minibar; FD/FDL đếm lại minibar thấp hơn số người khác đếm → chặn, đi FOC; đơn chốt lúc thiếu tỷ lệ có bản ghi hoa hồng chậm nhất ở mốc "đạt", tỷ lệ chụp lần đầu; lượt đi hôm qua còn ở lên đầu "Khách đi" lúc 00:00–05:59 từ v1.0.6; `lease_terms` dừng lên bản nếu hỏng; BR-111 áp cả trên giá gõ | Không (NGÀNH; thi hành bảng nội bộ 01/11) |
 | Review #106, #99 (07/11, mục 15) | Phụ thu trả muộn và khai báo theo giờ khách rời thật, không theo lúc bấm; Desk điền giờ máy quầy, máy chủ vắng giờ lấy giờ hẹn hoặc 12:00; "tối hôm trước" chỉ khi gõ; không rõ giờ → 12:00, không phụ thu; đơn quá ngày đi nhận cả cửa sổ sau nửa đêm của ngày đi; hoa hồng: tiền về sau trả phòng tính từ lúc ghi Trả phòng (thẻ PR99-01, Major) | Không (NGÀNH) |
+| Review FE #145 (07/11, mục 15.3 ý 2a, 6) | Có giờ hẹn trả muộn mà không có bằng chứng giờ rời → ghi giờ hẹn, phụ thu đã hẹn giữ nguyên; có bằng chứng sớm hơn → giờ đó, tự giảm. Đơn quá ngày đi, khách đi rạng sáng ngày đi: tới v1.0.6 ghi 06:00, giờ thật vào lý do, không gia hạn | Không (NGÀNH) |
 
 ### Việc chủ đầu tư nhập trên Desk sau khi v1.0.5 lên (đội không đổi tham số trên production)
 
@@ -1119,17 +1121,42 @@ Ca: khách đi không báo (khách tự ra vào bằng mã cửa, không trả c
    - ghi **giờ trả chuẩn 12:00** của ngày đi, hoặc giờ thấy căn trống nếu sớm hơn 12:00;
    - không phụ thu;
    - ghi chú "Khách đi không báo, buồng phòng thấy trống lúc …".
+
+   **2a. Đơn có giờ hẹn trả muộn (B15), không có bằng chứng giờ rời** (thêm 07/11, review FE #145 thẻ 145-01):
+   - ghi **giờ hẹn**. Dòng phụ thu đã ghi lúc hẹn **giữ nguyên**, không đảo;
+   - lý do: khách đã xin và đồng ý mức phụ thu; căn được giữ tới giờ đó; buồng phòng chờ tới giờ đó mới vào. Cùng luật máy chủ dùng khi không nhận giờ nào (15.2, hợp đồng 1.19);
+   - có bằng chứng khách đi sớm hơn (trả chìa, tin nhắn, buồng phòng thấy căn trống trước giờ hẹn) → ghi giờ đó. Phụ thu tự giảm theo BR-412 ("giảm thì hệ thống tự làm"), Desk hiện `checkout.late_recalc`;
+   - gộp ý 2 và 2a: ghi **giờ sớm hơn** trong hai giờ (giờ hẹn, hoặc giờ chuẩn nếu không hẹn) và giờ thấy căn trống;
+   - ý 3 giữ nguyên: chỉ ghi giờ **sau** giờ hẹn khi có bằng chứng khách còn ở sau giờ đó;
+   - phụ thu chưa thu mà khách đã đi: quản lý ghi công nợ ở bước bill (BR-525). Khách OTA: phụ thu vẫn thu trực tiếp theo BR-415, nhắn bill qua tin nhắn của kênh.
 3. Chỉ ghi giờ sau ân hạn (có phụ thu) khi có bằng chứng khách còn ở sau giờ đó, ví dụ nhân viên gặp khách trong căn. Khi đó ghi **giờ của bằng chứng muộn nhất**.
    - Lý do: không đòi được phụ thu không có bằng chứng, nhất là khách OTA khiếu nại qua kênh.
    - BR-414: phụ thu không tự áp.
 4. Có bằng chứng khách ở qua đêm sau ngày đi: gia hạn B13 trước (BR-421 (a)), rồi Trả phòng.
 5. Khách đi tối hôm trước ngày đi mà quầy biết sau 06:00: tới v1.0.6, ghi giờ sớm nhất Desk nhận của ngày đi, ghi chú giờ thật ("khách đi 22:30 tối 23/11"). Xem thẻ FB-R5-DOM-BE-PR106-02.
+6. **Đơn quá ngày đi, khách đi rạng sáng ngày đi (00:00–05:59)** (thẻ FB-R5-FE-ARC-V515-01, review FE #145 mục 3): v1.0.5 đọc giờ gõ trước 06:00 là rạng sáng **hôm sau** ngày đi, nên không ghi được giờ thật. Tới v1.0.6:
+   - ghi **06:00** ngày đi (mốc đổi ngày; không gõ 05:59 hay 05:30);
+   - lý do ghi giờ thật, ví dụ "Khách đi 03:00 sáng 10/11, báo qua Zalo lúc 03:05";
+   - hộp xác nhận phải ghi "06:00 ngày 10/11";
+   - **không gia hạn** (đêm đó khách không ở). Desk hiện `checkout.overdue_time_early` nói đúng việc này.
+
+   Tiền như khi ghi 03:00: số đêm không thu, phụ thu (0), đêm thêm (không), ngày khai báo, mốc kiểm căn sau trả phòng, hoa hồng. Chỉ giờ trên đăng ký lưu trú lệch, cùng ngày lịch. Luật cho bản sửa v1.0.6: trên đơn quá ngày đi, giờ gõ trước mốc đổi ngày là rạng sáng của chính ngày đi.
 
 Ví dụ: đơn đi 23/11, căn 202, giá 700.000, căn không có khách đến.
 - 14:00 ngày 23/11 buồng phòng thấy căn trống, không ai thấy khách đi, không có tin nhắn → ghi **12:00**, phụ thu **0**, có ghi chú.
 - Nếu 13:10 buồng phòng gặp khách trong căn (ghi sổ) → ghi **13:10** → phụ thu 30 % = **210.000**.
 
-Nhãn: NGÀNH (DOM).
+Ví dụ ý 2a (BR-412, giá đêm cuối 700.000, căn không có khách đến cùng ngày, hẹn trả 17:00, đã ghi 350.000 = 50 %, lượt quá ngày đi 1 đêm):
+
+| Ca | Giờ ghi | Phụ thu | So với dòng đã ghi |
+|---|---|---|---|
+| Không có bằng chứng | 17:00 | 350.000 | Giữ nguyên |
+| Buồng phòng thấy căn trống 14:00 | 14:00 | 210.000 (30 %) | −140.000, tự giảm |
+| Khách nhắn đã đi 12:20 | 12:20 | 0 (trong ân hạn 12:30) | −350.000, tự giảm |
+| Nhân viên gặp khách trong căn 17:40 | 17:40 | 350.000 (bậc 15:00–18:00 vẫn 50 %) | Giữ nguyên |
+| Không hẹn, không có bằng chứng | 12:00 | 0 | – |
+
+Nhãn: NGÀNH (DOM). Không đổi con số nào của INV (bậc và ân hạn theo INV-007, ESC-007).
 
 ### 15.4 Đơn quá ngày đi (PR #99) – DOM xác nhận
 
@@ -1192,6 +1219,16 @@ Nhãn: NGÀNH (DOM, giữ đúng luật 18/10).
 | T-15-23 | Đơn quá ngày đi, MGR, `checkoutAt` 03:00 ngày đi | 200, phụ thu 0, không đêm thêm, `stay_ended_at` = ngày đi 03:00 |
 | T-15-24 | Đơn quá ngày đi, `checkoutAt` 14:00 ngày đi, căn không có khách đến, giá 700.000, folio đã thu đủ tiền phòng | Phụ thu 210.000 đòi `applyLateSurcharge`; còn phải thu 210.000 → quản lý ghi công nợ |
 | T-15-25 | Đơn quá ngày đi, ghi lúc 09:00 ngày đi + 1 | `post_checkout_window_until` = 09:00 + `post_checkout_charge_hours`. Lịch sử đơn hiện `after.overdue` với hai giờ và lý do. Không có dòng `reservation_change` `checkout_time` |
+
+Ca thêm từ review FE #145 (`rounds/round-05/reviews/DOM-on-fe-pr-145.md` mục 6). Giá đêm cuối 700.000, không có khách đến cùng ngày, đơn đi 10/11, bấm 09:00 ngày 11/11, MGR (1 đêm):
+
+| Mã | Ca | Mong đợi |
+|---|---|---|
+| T-15-26 | Hẹn 17:00 (đã ghi 350.000) – ý 2a | Ô giờ 17:00, dòng nhắc `overdue_time_help_agreed` (giữ giờ hẹn và phụ thu đã hẹn). Phụ thu 350.000, không đòi tick. Đổi 14:00 → `late_recalc` 350.000 → 210.000, không tick. Ghi 17:00 → dòng 350.000 giữ nguyên |
+| T-15-27 | Không hẹn, gõ 14:00 (nhân viên gặp khách trong căn) | Phụ thu 210.000, "Tiếp tục" khóa tới khi tick hoặc FOC; B15 ghi trước bước bill; khách đã đi, chưa trả → quản lý ghi công nợ |
+| T-15-28 | Khách đi 03:00 sáng 10/11 (ý 6, v1.0.5) | Gõ 03:00 → `checkout.overdue_time_early`, nút khóa, không ô giá đêm, không `checkout.post_midnight`. Gõ 06:00 → hộp xác nhận "06:00 ngày 10/11"; B18 200, phụ thu 0, không đêm thêm, không đơn con gia hạn. Audit `nightsNotBilled = 1`, lý do có "03:00". Khai báo ngày 10/11 |
+| T-15-29 | Như T-15-28, sau bản sửa v1.0.6 | Gõ 03:00 → 10/11 03:00, phụ thu 0, không có `checkout.post_midnight`, hộp xác nhận "03:00 ngày 10/11" (= T-15-23 trên Desk) |
+| T-15-30 | FD mở đơn quá 1 đêm, khách còn ở và muốn ở tiếp | Nút Trả phòng khóa, cạnh nút có câu gọi ai và `checkout.overdue_extend_hint`. FD gia hạn tới ngày khách định đi → lượt hết quá ngày đi, đêm qua được tính; tới ngày đi mới FD trả phòng như thường |
 
 ### 15.7 Việc theo vai
 

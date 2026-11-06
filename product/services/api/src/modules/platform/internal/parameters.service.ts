@@ -2,13 +2,15 @@
  * US-005 – rule parameters (S24): list (value effective at a date), history of one key, add a new
  * effective-dated value (ParameterService.set: edit_roles, SEC bounds, erd 9.1a bounds, audit).
  * Visibility (BA spec 5.1): FDL reads operational keys only – security/identity keys (SR-…) are listed to
- * owner/manager only; for FDL such a key is "not found".
+ * owner/manager only; for FDL such a key is "not found". Same for the commission rate keys (FB-R5-ARC-BE-H1-01,
+ * platform/public/commission-keys.ts).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
+import { COMMISSION_RATE_KEYS } from '../public/commission-keys';
 import { ParameterService } from '../public/parameter.service';
 import { PropertyContextService } from '../public/property-context';
 import {
@@ -83,6 +85,9 @@ function hidden(
   row: { key: string; is_security: boolean; br_ref: string | null },
   roles: readonly string[],
 ) {
+  // FB-R5-ARC-BE-H1-01 (SEC V530-02): the commission rate tables – OWN/MGR only (DOM 4.4, rbac S17 / A60), never an
+  // FDL-readable exception; for any other role the key is "not found" (list: no name in `data` / `missing`).
+  if (COMMISSION_RATE_KEYS.has(row.key)) return !canSeeRestricted(roles);
   if (canSeeRestricted(roles) || !restricted(row)) return false;
   return !(roles.includes('front_desk_lead') && FDL_READABLE_KEYS.has(row.key));
 }

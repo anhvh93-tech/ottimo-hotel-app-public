@@ -1,4 +1,4 @@
-import type { HkTask, RoomStatusEntry } from '@ottimo/api-client';
+import { isApiError, type HkTask, type RoomStatusEntry } from '@ottimo/api-client';
 import { roomLabel, useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
@@ -34,7 +34,8 @@ type RoomFilter = keyof typeof ROOM_FILTERS;
  * S10 Buồng phòng – Desk (US-054 AC3, US-052): the front desk sees the same tasks and counter as housekeeping
  * (`listHkTasks.summary` "{done}/{total}"), live over SSE (`hk_task.changed`, `room.status_changed`), and the
  * 10 rooms with their status. FD+ may tick a task done, cancel it with a reason (SM-14) or add a task by hand
- * (A83-create); status changes of the rooms themselves stay on the housekeeping PWA.
+ * (A83-create). Room status changes stay on the housekeeping PWA, except R8 "Báo cần dọn" (OC → OD, V5-15): the desk
+ * gets the button when the server lists `needs_cleaning` in `allowedEvents` (ARC 0.3.13 1.4).
  */
 export function HousekeepingPage() {
   const { t, date } = useI18n();
@@ -119,7 +120,7 @@ export function HousekeepingPage() {
             ) : !rooms.state.data ? (
               <LoadingBlock />
             ) : (
-              <RoomBoard rooms={rooms.state.data.data} />
+              <RoomBoard rooms={rooms.state.data.data} onChanged={reloadAll} />
             )}
           </section>
         </div>
@@ -472,12 +473,8 @@ function CreateTaskDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 }
 
 /** US-052: the 10 rooms with a status filter (counts per group – EP07-08 1.3). */
-function RoomBoard({ rooms }: { rooms: RoomStatusEntry[] }) {
+function RoomBoard({ rooms, onChanged }: { rooms: RoomStatusEntry[]; onChanged: () => void }) {
   const { t } = useI18n();
-  const { property } = useSession();
-  const tz = property?.timezone;
-  // "Arriving today" = the business day (BUG-R2-211, display only).
-  const today = useBusinessDay();
   const [filter, setFilter] = useState<RoomFilter>('all');
   const ids = useId();
   const inGroup = (f: RoomFilter, r: RoomStatusEntry) =>
@@ -503,46 +500,109 @@ function RoomBoard({ rooms }: { rooms: RoomStatusEntry[] }) {
         <ul className="list card">
           {shown.map((r) => (
             <li key={r.roomId}>
-              <div className="li">
-                <div>
-                  <div className="roomno">{r.roomNo}</div>
-                  {r.roomName ? <div className="li-s">{r.roomName}</div> : null}
-                </div>
-                <div className="grow">
-                  <div className="row wrap">
-                    <Chip tone={ROOM_TONE[r.status] ?? 'neutral'} icon="door">
-                      {t(STATUS_ROOM_KEY(r.status))}
-                    </Chip>
-                    {r.inspectionFailed ? (
-                      <Chip tone="bad" icon="alert">
-                        {t('hk.desk.insp_failed')}
-                      </Chip>
-                    ) : null}
-                    {r.openTaskIds?.length ? (
-                      <Chip icon="broom">
-                        {t('hk.desk.open_tasks', { n: r.openTaskIds.length })}
-                      </Chip>
-                    ) : null}
-                  </div>
-                  <div className="li-s mt-4">
-                    {t('hk.desk.since', { time: timeHHmm(new Date(r.since), tz) })}
-                    {r.currentGuest ? ` · ${r.currentGuest}` : ''}
-                  </div>
-                  {r.nextArrival?.date === today ? (
-                    <div className="li-s">
-                      {t('hk.arriving_today', { time: r.nextArrival.etaTime?.slice(0, 5) ?? '' })}
-                    </div>
-                  ) : r.nextArrival?.date ? (
-                    <div className="li-s">
-                      {t('hk.next_arrival', { when: dayMonth(r.nextArrival.date) })}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+              <RoomRow room={r} onChanged={onChanged} />
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * One room of the board. V5-15: "Báo cần dọn" = R8 `needs_cleaning` (OC → OD, plus a stay-over cleaning task – server
+ * side) when the server lists it in `allowedEvents` – never decided here. No If-Match: `expectedFrom` = the status
+ * on screen; 409 INVALID_TRANSITION (the room changed meanwhile) reloads the board and says so. Online only – the
+ * desk has no offline queue (the PWA has).
+ */
+function RoomRow({ room: r, onChanged }: { room: RoomStatusEntry; onChanged: () => void }) {
+  const { t } = useI18n();
+  const { property } = useSession();
+  const propertyId = usePropertyId();
+  const toast = useToast();
+  const { online } = useOnline();
+  const act = useSubmit();
+  const ids = useId();
+  const tz = property?.timezone;
+  // "Arriving today" = the business day (BUG-R2-211, display only).
+  const today = useBusinessDay();
+  const canMarkDirty = r.allowedEvents.includes('needs_cleaning');
+
+  const needsCleaning = async () => {
+    let changed = false;
+    const out = await act.submit(async (idem) => {
+      try {
+        return await api.transitionRoomStatus(
+          { propertyId, roomId: r.roomId },
+          {
+            event: 'needs_cleaning',
+            expectedFrom: r.status,
+            performedAt: new Date().toISOString(),
+          },
+          idem,
+        );
+      } catch (e) {
+        changed = isApiError(e) && e.code === 'INVALID_TRANSITION';
+        throw e;
+      }
+    });
+    if (out) toast(t('hk.desk.needs_cleaning_toast', { room: r.roomNo }));
+    if (out || changed) onChanged();
+  };
+
+  return (
+    <div className="li">
+      <div>
+        <div className="roomno" id={`${ids}-no`}>
+          {r.roomNo}
+        </div>
+        {r.roomName ? <div className="li-s">{r.roomName}</div> : null}
+      </div>
+      <div className="grow">
+        <div className="row wrap">
+          <Chip tone={ROOM_TONE[r.status] ?? 'neutral'} icon="door">
+            {t(STATUS_ROOM_KEY(r.status))}
+          </Chip>
+          {r.inspectionFailed ? (
+            <Chip tone="bad" icon="alert">
+              {t('hk.desk.insp_failed')}
+            </Chip>
+          ) : null}
+          {r.openTaskIds?.length ? (
+            <Chip icon="broom">{t('hk.desk.open_tasks', { n: r.openTaskIds.length })}</Chip>
+          ) : null}
+        </div>
+        <div className="li-s mt-4">
+          {t('hk.desk.since', { time: timeHHmm(new Date(r.since), tz) })}
+          {r.currentGuest ? ` · ${r.currentGuest}` : ''}
+        </div>
+        {r.nextArrival?.date === today ? (
+          <div className="li-s">
+            {t('hk.arriving_today', { time: r.nextArrival.etaTime?.slice(0, 5) ?? '' })}
+          </div>
+        ) : r.nextArrival?.date ? (
+          <div className="li-s">{t('hk.next_arrival', { when: dayMonth(r.nextArrival.date) })}</div>
+        ) : null}
+        {act.code === 'INVALID_TRANSITION' ? (
+          <Alert tone="bad">{t('error.INVALID_TRANSITION_generic_reloaded')}</Alert>
+        ) : (
+          act.view()
+        )}
+      </div>
+      {canMarkDirty ? (
+        <div className="row wrap room-acts">
+          <Button
+            size="sm"
+            disabled={!online}
+            busy={act.busy}
+            busyLabel={act.busyLabel}
+            aria-describedby={`${ids}-no`}
+            onClick={() => void needsCleaning()}
+          >
+            {act.label(t('hk.action.needs_cleaning'))}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

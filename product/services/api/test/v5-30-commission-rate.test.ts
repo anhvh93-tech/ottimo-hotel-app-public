@@ -4,7 +4,9 @@
  * - the pure rule of `QuoteCalculation.commission.status` (computed / rate_missing / not_applicable);
  * - T30-4: the production defaults carry no commission rate – checked on KEY NAMES, never on numbers;
  * - every read of a commission rate key goes through `folio/public/commission-rate.ts` (so it catches
- *   ParameterMissingError → rate_missing), and no code reads a commission from `lease_terms`.
+ *   ParameterMissingError → rate_missing), and no code reads a commission from `lease_terms`; the key NAMES live in
+ *   `platform/public/commission-keys.ts` (save rule FB-R5-ARC-BE-H1-02, OWN/MGR-only filter FB-R5-ARC-BE-H1-01);
+ * - FB-R5-ARC-BE-H1-02: the save rule of `short_stay_commission_pct` (DOM 4.1).
  * SEC G3: the only rates in this file are test values named `test_rate_*` (not any real or old rate).
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -18,10 +20,13 @@ import {
   shortStayCommissionRate,
   shortStayCommissionTable,
 } from '../src/modules/folio/public/commission-rate';
+import { checkStructuredParameter } from '../src/modules/platform/internal/parameter-rules';
+import { COMMISSION_RATE_KEYS } from '../src/modules/platform/public/commission-keys';
 import {
   ParameterMissingError,
   type ParameterService,
 } from '../src/modules/platform/public/parameter.service';
+import { ProblemError } from '../src/shared/problem';
 import type { Tx } from '../src/db/database';
 
 /** Test-only rates (SEC G3) – deliberately odd values, unrelated to any real table. */
@@ -124,6 +129,69 @@ describe('V5-30 – commission status rule (contract 0.3.13 1.10)', () => {
   });
 });
 
+describe('FB-R5-ARC-BE-H1-02 – save rule of short_stay_commission_pct (DOM rules-v1.0.5 4.1 "Kiểm khi lưu")', () => {
+  const save = async (value: unknown) => {
+    try {
+      await checkStructuredParameter(SHORT_STAY_COMMISSION_KEY, value, async () => null);
+      return null;
+    } catch (e) {
+      if (!(e instanceof ProblemError)) throw e;
+      return { code: e.code, errors: e.options.errors, extras: e.options.extras };
+    }
+  };
+
+  it.each([
+    ['not an object', [test_rate_short], 'value', 'VALIDATION_FAILED'],
+    ['absent', null, 'value', 'REQUIRED'],
+    [
+      'a rate typed as text',
+      { staff: String(test_rate_short), collaborator: test_rate_ctv },
+      'value.staff',
+      'VALIDATION_FAILED',
+    ],
+    ['the CTV rate missing', { staff: test_rate_short }, 'value.collaborator', 'REQUIRED'],
+    [
+      'an unknown payee',
+      { staff: test_rate_short, collaborator: test_rate_ctv, agent: test_rate_ctv },
+      'value.agent',
+      'NOT_ALLOWED',
+    ],
+    [
+      'above 100',
+      { staff: test_rate_short, collaborator: 100.01 },
+      'value.collaborator',
+      'VALUE_OUT_OF_RANGE',
+    ],
+    [
+      'below 0',
+      { staff: -test_rate_short, collaborator: test_rate_ctv },
+      'value.staff',
+      'VALUE_OUT_OF_RANGE',
+    ],
+    [
+      'a third decimal',
+      { staff: test_rate_short + 0.001, collaborator: test_rate_ctv },
+      'value.staff',
+      'VALIDATION_FAILED',
+    ],
+  ] as const)('%s → 422 PARAM_OUT_OF_RANGE on %s', async (_name, value, field, code) => {
+    const e = await save(value);
+    expect(e?.code).toBe('PARAM_OUT_OF_RANGE');
+    expect(e?.errors).toEqual([{ field, code }]);
+  });
+
+  it('accepted: both payees with a percent of at most 2 decimals, 0 and 100 included (0 = "no commission", DOM 7.3)', async () => {
+    for (const v of [
+      { staff: test_rate_short, collaborator: test_rate_ctv },
+      { collaborator: test_rate_ctv, staff: test_rate_short },
+      { staff: 0, collaborator: 0 },
+      { staff: 100, collaborator: test_rate_ctv },
+    ]) {
+      expect(await save(v), JSON.stringify(v)).toBeNull();
+    }
+  });
+});
+
 describe('V5-30 – T30-4: no commission rate in the production defaults (key names only, no numbers)', () => {
   it('short_stay_commission_pct is a key INV enters on the Desk, never written by the bootstrap', () => {
     const keys = PRODUCTION_PARAMETERS.map((p) => p.key);
@@ -165,11 +233,47 @@ describe('V5-30 – code scan: every commission rate read goes through commissio
     text: readFileSync(f, 'utf8'),
   }));
 
-  it("the key 'short_stay_commission_pct' is read in commission-rate.ts only", () => {
-    const readers = sources
-      .filter(({ text }) => /['"`]short_stay_commission_pct['"`]/.test(text))
+  /** The code of a file without its comments (a doc comment may name the key). */
+  const code = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+  it("the key 'short_stay_commission_pct' is named in platform/public/commission-keys.ts only", () => {
+    const named = sources
+      .filter(({ text }) => /['"`]short_stay_commission_pct['"`]/.test(code(text)))
       .map(({ r }) => r);
-    expect(readers).toEqual(['modules/folio/public/commission-rate.ts']);
+    expect(named).toEqual(['modules/platform/public/commission-keys.ts']);
+  });
+
+  it('SHORT_STAY_COMMISSION_KEY is read in commission-rate.ts only; the platform module names it for the save rule (FB-R5-ARC-BE-H1-02)', () => {
+    const users = sources
+      .filter(({ text }) => /\bSHORT_STAY_COMMISSION_KEY\b/.test(text))
+      .map(({ r }) => r)
+      .sort();
+    expect(users).toEqual([
+      'modules/folio/public/commission-rate.ts',
+      'modules/platform/internal/parameter-rules.ts',
+      'modules/platform/public/commission-keys.ts',
+    ]);
+    // A read of a parameter value (ParameterService.get / getOr) with the key: commission-rate.ts only.
+    const reads = sources
+      .filter(({ text }) => /\.get(Or)?(<[^>]*>)?\(\s*tx,\s*SHORT_STAY_COMMISSION_KEY/.test(text))
+      .map(({ r }) => r);
+    expect(reads).toEqual(['modules/folio/public/commission-rate.ts']);
+  });
+
+  it('COMMISSION_RATE_KEYS (OWN/MGR only – FB-R5-ARC-BE-H1-01) is used by the parameter visibility filter only', () => {
+    const users = sources
+      .filter(({ text }) => /\bCOMMISSION_RATE_KEYS\b/.test(text))
+      .map(({ r }) => r)
+      .sort();
+    expect(users).toEqual([
+      'modules/platform/internal/parameters.service.ts',
+      'modules/platform/public/commission-keys.ts',
+    ]);
+    expect([...COMMISSION_RATE_KEYS].sort()).toEqual([
+      'long_stay_commission',
+      'manager_performance_bonus_pct',
+      SHORT_STAY_COMMISSION_KEY,
+    ]);
   });
 
   it('no code reads a commission from lease_terms (old commissionStaffPct / commissionCollaboratorPct)', () => {

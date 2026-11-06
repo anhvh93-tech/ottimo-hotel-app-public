@@ -9,9 +9,10 @@ import { createHttpAdapter } from './http';
 import { featureModules } from './modules/feature-modules';
 import { CSRF_VERIFIER } from './shared/http/csrf';
 import { writeLogLine } from './shared/log-line';
+import { startupFailureText } from './startup-failure';
 
-// SEC FB-R4-SEC-BE-V104-07 (V5-43): every line of the api process goes through log-line.ts (same JSON as before:
-// {"level":…,"msg":…}); ESLint `no-console` covers this file too.
+// SEC FB-R4-SEC-BE-V104-07 (V5-43): every line of THIS file goes through log-line.ts (same JSON as before:
+// {"level":…,"msg":…}), except the start-up failure line below; ESLint `no-console` covers this file too.
 const log = (msg: string): void => writeLogLine('info', msg);
 
 async function bootstrap(): Promise<void> {
@@ -97,9 +98,10 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((err: unknown) => {
-  // Print only the message: ConfigError/StartupCheckError never contain secret values. Kept as plain text on stderr
-  // (operators read it as is when the container refuses to start) – the one console call of this file.
+  // SEC FB-R5-SEC-BE-D1-01: a message only for ConfigError, StartupCheckError, KeyringError (written without values);
+  // any other error prints its name and safe code (startup-failure.ts). Plain text on stderr (operators read it as is
+  // when the container refuses to start) – the one console call of this file.
   // eslint-disable-next-line no-console
-  console.error(err instanceof Error ? `${err.name}: ${err.message}` : err);
+  console.error(startupFailureText(err));
   process.exit(1);
 });

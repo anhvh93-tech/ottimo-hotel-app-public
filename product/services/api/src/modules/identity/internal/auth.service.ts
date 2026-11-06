@@ -22,7 +22,8 @@ import { DATABASE, Database, type TenantContext, type Tx } from '../../../db/dat
 import { sha256Hex } from '../../../shared/http/auth.guard';
 import { ProblemError, problem } from '../../../shared/problem';
 import { IDENTITY_OPTIONS, type IdentityOptions } from '../public/identity-options';
-import { MFA_REQUIRED_ROLES, MfaStore } from '../public/mfa-store';
+import { MfaStore } from '../public/mfa-store';
+import { holdsMfaRequiredRole } from '../public/mfa-required';
 import { AuditService } from '../../audit/public/audit.service';
 import { IdentityParamsService, type LockoutPolicy } from '../public/identity-params';
 import { hashPassword, passwordPolicyErrors, verifyPassword } from '../public/passwords';
@@ -263,14 +264,7 @@ export class AuthService {
   async requiresMfa(ctx: TenantContext, userId: string): Promise<boolean> {
     return this.db.withContext(
       { ...ctx, propertyId: null },
-      async (tx) => {
-        const { rows } = await tx.query(
-          `SELECT 1 FROM user_property_role
-            WHERE user_id = $1 AND revoked_at IS NULL AND role = ANY($2::text[]) LIMIT 1`,
-          [userId, [...MFA_REQUIRED_ROLES]],
-        );
-        return rows.length > 0;
-      },
+      (tx) => holdsMfaRequiredRole(tx, userId),
       { readOnly: true },
     );
   }
