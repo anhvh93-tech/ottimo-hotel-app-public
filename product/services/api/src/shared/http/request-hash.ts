@@ -9,6 +9,27 @@ import { createHash } from 'node:crypto';
 import { problem } from '../problem';
 import { withoutSecrets } from '../secret-fields';
 
+/**
+ * SEC FB-R5-SEC-BE-123-01 (ARC 4.3, contract 0.3.13 1h (e)): the deepest request body of openapi.yaml nests 5 levels
+ * (`createReservationGroup`); 32 leaves room for any schema without letting canonicalJson / withoutSecrets recurse
+ * until the stack overflows (a 500). Counted iteratively: an object or an array is one level.
+ */
+export const MAX_BODY_DEPTH = 32;
+
+/** True when `value` nests objects / arrays deeper than `max` levels – walked with an explicit stack, never recursion. */
+export function bodyTooDeep(value: unknown, max = MAX_BODY_DEPTH): boolean {
+  const stack: Array<[unknown, number]> = [[value, 1]];
+  while (stack.length > 0) {
+    const [v, depth] = stack.pop() as [unknown, number];
+    if (v === null || typeof v !== 'object' || isBinaryBody(v)) continue;
+    if (depth > max) return true;
+    for (const child of Array.isArray(v) ? v : Object.values(v as Record<string, unknown>)) {
+      if (child !== null && typeof child === 'object') stack.push([child, depth + 1]);
+    }
+  }
+  return false;
+}
+
 /** Stable JSON (sorted keys) so the same logical body always hashes the same. */
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value ?? null);
@@ -30,6 +51,11 @@ export function requestHash(method: string, path: string, body: unknown): string
   // anything else binary is refused.
   if (isBinaryBody(body)) {
     throw problem('VALIDATION_FAILED', { detail: 'Binary request body' });
+  }
+  // SEC 123-01: a body nested deeper than MAX_BODY_DEPTH → 422 for every caller (UnitOfWork, guest and public units of
+  // work), checked before the recursive walks below.
+  if (bodyTooDeep(body)) {
+    throw problem('VALIDATION_FAILED', { detail: 'Request body nested too deep' });
   }
   return createHash('sha256')
     .update(`${method.toUpperCase()} ${path}\n${canonicalJson(withoutSecrets(body))}`)

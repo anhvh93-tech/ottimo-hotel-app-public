@@ -3,9 +3,11 @@
  * mục 1.21 ý 2 (`recordPayment` (A), `confirmPaymentReceived`, `createVietQr`, `listAuditEvents.afterClosureOnly`);
  * SEC `SEC-on-bug-r5-002.md` 3.1, B002-01 and the cases (h1)–(h6) of FB-R5-SEC-QA-B002-06; SEC ARC-17 (404 before
  * the 409); BE C0313-22 ý 1 + 3 with SEC-responses 1.1–1.3:
- * - (h1) FD, FDL, MGR, OWN on `cancelled` (`hold_expired` and `found_other`) and `no_show`: cash, card_pos,
- *   ota_collect → 422 `method` NOT_IN_LIST; a transfer without image → 422 `attachmentId` REQUIRED; the image of a
- *   sale's "khách đã chuyển" notice → 422 NOT_IN_LIST; nothing written (no payment, no audit, folio version, image);
+ * - (h1) FD, FDL, MGR, OWN on `cancelled` (`hold_expired` and `found_other`) and `no_show`: cash, ota_collect → 422
+ *   `method` NOT_IN_LIST; card_pos on a folio that owes nothing (N = 0) → the same 422 (PR-B3, FB-R5-ARC-BE-105-03 –
+ *   card_pos while N > 0 is covered by v5-5b1-after-closure.test.ts); a transfer without image → 422 `attachmentId`
+ *   REQUIRED; the image of a sale's "khách đã chuyển" notice → 422 NOT_IN_LIST; nothing written (no payment, no
+ *   audit, folio version, image). 5B-1 `type`: `deposit` on a booking cancelled while a hold, `charge` otherwise;
  * - (h2) a transfer / VietQR with its image → 201 `pending` for every desk role, OWN included; the audit row READ
  *   BACK from `audit_event` carries `afterClosure: true` + `reservationStatus`; `Payment.afterClosure` on read;
  * - afterClosureOnly returns exactly the receipts written after closure – and still returns the one of a no-show
@@ -187,6 +189,8 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
   };
   const paymentOnFolio = async (b: B, paymentId: string) =>
     ((await x.folio(b.folioId)).payments as any[]).find((p) => p.id === paymentId);
+  /** 5B-1: the one `type` a receipt after closure takes (a hold cancelled → deposit, otherwise charge). */
+  const typeOf = (b: B) => (b === hFd || b === hSal ? 'deposit' : 'charge');
 
   // Timeline: holds 20/11 10:00 (deadline 21/11 10:00); J1 21/11 10:01; B10 21/11 11:00; B11 21/11 23:10.
   let hFd: B; // FD's hold → J1 (`hold_expired`)
@@ -257,8 +261,10 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
     }
   }, 180_000);
 
-  it('(h1) FD, FDL, MGR, OWN: cash / card_pos / ota_collect → 422 method NOT_IN_LIST, transfer without image → 422 attachmentId REQUIRED; nothing written', async () => {
+  it('(h1) FD, FDL, MGR, OWN: cash / ota_collect / card_pos with N = 0 → 422 method NOT_IN_LIST, transfer without image → 422 attachmentId REQUIRED; nothing written', async () => {
     for (const b of [hFd, cB, cN]) {
+      // PR-B3: these folios owe nothing after closure, so a card slip has nothing to pay (N = 0).
+      expect((await x.folio(b.folioId)).totals.balanceDueVnd, b.code).toBe(0);
       const img = await attach('fd', b.id);
       const before = await snapshot(b);
       for (const who of DESK) {
@@ -266,7 +272,7 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
           const res = await record(
             b,
             {
-              type: 'charge',
+              type: typeOf(b),
               method,
               amountVnd: 500_000,
               note: NOTE,
@@ -282,7 +288,7 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
         }
         const noImg = await record(
           b,
-          { type: 'charge', method: 'bank_transfer', amountVnd: 500_000, note: NOTE },
+          { type: typeOf(b), method: 'bank_transfer', amountVnd: 500_000, note: NOTE },
           who,
         );
         expect(noImg.statusCode, noImg.body).toBe(422);
@@ -290,7 +296,7 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
         // Both rules at once: one 422 with both fields.
         const both = await record(
           b,
-          { type: 'charge', method: 'cash', amountVnd: 500_000, note: NOTE, attachmentId: '' },
+          { type: typeOf(b), method: 'cash', amountVnd: 500_000, note: NOTE, attachmentId: '' },
           who,
         );
         expect(both.statusCode, both.body).toBe(422);
@@ -354,7 +360,7 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
       const v0 = (await snapshot(b)).folio_version as number;
       const res = await record(
         b,
-        { type: 'deposit', method, amountVnd: 300_000, note: NOTE, attachmentId: img },
+        { type: typeOf(b), method, amountVnd: 300_000, note: NOTE, attachmentId: img },
         who,
       );
       expect(res.statusCode, `${who} ${res.body}`).toBe(201);
@@ -641,7 +647,8 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
       const r = await record(
         b,
         {
-          type: 'deposit',
+          // 5B-1 (PR-B3): a booking cancelled while confirmed takes `charge` after closure.
+          type: 'charge',
           method: 'bank_transfer',
           amountVnd: 300_000,
           note: NOTE,
@@ -669,7 +676,8 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
       const r = await record(
         b,
         {
-          type: 'deposit',
+          // 5B-1 (PR-B3): a booking cancelled while confirmed takes `charge` after closure.
+          type: 'charge',
           method: 'bank_transfer',
           amountVnd: 100_000,
           note: NOTE,
