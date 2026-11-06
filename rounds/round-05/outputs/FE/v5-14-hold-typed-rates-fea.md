@@ -2,6 +2,7 @@
 
 - Round 5, bước Sản xuất · FE-A · 07/11/2026
 - Nguồn: ORC giao từ BE PR #103 (`r5-s1`, chưa gộp); hợp đồng 0.3.13 mục 1.3 và 1.17; ghi chú ARC review #103 mục 6 do ORC chuyển. Theo đó, `hold()` lấy cờ `edited` từ trạng thái ô giá. Ở báo giá, vắng `edited` nghĩa là "không sửa" (khác B1), và máy chủ tính đêm không sửa theo giá lịch.
+- Bổ sung theo QA (`rounds/round-05/reviews/QA-on-be-pr-103-s1.md` mục 2.2, ORC chuyển): oracle T14-6 chặt hơn; luôn gửi `edited`; không gửi 0; mock `create-hold` trả 422 khi có trường giá.
 - Nhánh `r5-fe-v5-14` cắt từ `origin/main` `ba2dc355`. Thân PR ghi "gộp sau #103".
 
 ## 1. Việc đã làm (`apps/admin-web/src/pages/booking/BookingDialog.tsx`)
@@ -13,7 +14,8 @@
 - **`hold()`**:
   - `saveQuote` mang `nightlyRates` như trên; `createHoldFromQuote` không mang trường giá nào;
   - bỏ khóa nút của v1.0.4: `aria-disabled`, dòng `booking.hold.typed_rate_locked` và `aria-describedby`;
-  - bỏ vòng xóa lỗi `rates` / `nightlyRates[i]` (PR75-02). Ô giá nay được kiểm như khi "Tạo đơn": ô đã gõ rồi xóa trống thì chặn với câu "Nhập giá mỗi đêm".
+  - bỏ vòng xóa lỗi `rates` / `nightlyRates[i]` (PR75-02). Ô giá nay được kiểm như khi "Tạo đơn": ô đã gõ rồi xóa trống thì chặn với câu "Nhập giá mỗi đêm";
+  - **không bao giờ gửi 0** (QA 2.2 (a)): đêm chưa có giá lịch trên hộp (bản xem chưa về) thì giữ chỗ dừng với câu "Nhập giá mỗi đêm". `hold()` có chốt riêng cho việc này, ngoài phần kiểm chung.
 - **Ô giá chỉ đọc khi lệnh giữ chỗ hoặc tạo đơn đang chạy** (plan V5-14).
 - **422 `RATE_OUT_OF_RANGE` cấp trên** (V5-22: `dates[]`, `min`, `max`):
   - ở bản xem có giá gõ, ở `saveQuote` và ở `createReservation`, câu hiện ngay dưới đúng ô của đêm ngoài sàn–trần;
@@ -36,17 +38,20 @@
     - không khóa nút;
     - bản xem và báo giá mang `[{edited:true}, {edited:false, số lịch}]`;
     - `createHoldFromQuote` không có giá;
-    - cọc của đơn giữ chỗ = cọc trên hộp (T14-6 trên mock).
+    - cọc trên hộp = cọc tính từ giá gõ (30 %, làm tròn 100.000), khác cọc theo lịch; cọc của đơn = số đó; hai đêm của đơn = giá gõ, giá lịch (T14-6 trên mock).
   - Không gõ: báo giá không có `nightlyRates`.
+  - Đêm hai chưa có giá lịch (bản xem treo), gõ đêm một: không lệnh nào mang `nightlyRates`, giữ chỗ dừng với "Nhập giá mỗi đêm".
   - Ô gõ rồi xóa: giữ chỗ bị chặn với câu "Nhập giá mỗi đêm", không gửi báo giá.
   - Giá ngoài sàn–trần: câu ở đúng ô khi xem giá và khi giữ chỗ; không tạo đơn; sửa lại thì câu mất.
   - Ô giá chỉ đọc khi giữ chỗ đang chạy.
-- E2E `tests/e2e/ui-clock/v5-14-hold-typed-rate.r5.spec.ts` (T14-6, desk-clock, ngày ảo riêng):
-  - H09 Trực tiếp 2 đêm từ ngày mai, gõ đêm đầu = giá lịch + 50.000;
-  - bản xem và `saveQuote` mang `nightlyRates` đúng cờ;
+- E2E `tests/e2e/ui-clock/v5-14-hold-typed-rate.r5.spec.ts` (T14-6, desk-clock, ngày ảo riêng), theo oracle QA 2.2 (TC-V105-S1-06):
+  - H09 Trực tiếp 2 đêm từ ngày mai. Giá lịch lấy từ bản xem theo lịch của máy chủ, và ô giá phải bằng số đó;
+  - % cọc lấy từ `getBookingRules` (`shortStayDepositPct`), đơn vị làm tròn 100.000 (seed, QA mục 3);
+  - giá gõ đêm đầu = giá lịch + bước 50.000 nhỏ nhất làm cọc đổi. Như vậy cọc theo giá gõ luôn khác cọc theo lịch, và ca bắt được lỗi Desk quên `edited: true`;
+  - (a) bản xem và `saveQuote` mang `[{giá gõ, edited: true}, {giá lịch máy chủ, edited: false}]`, không đêm nào 0;
   - `createHoldFromQuote` không mang giá;
-  - `depositRequiredVnd` của đơn giữ chỗ = "Cọc cần thu" trên hộp;
-  - đêm đầu của đơn = giá gõ.
+  - (b) tiền phòng của bản xem = tổng giá gõ; "Cọc cần thu" trên hộp = cọc tính từ giá gõ = `depositVnd` của bản xem = `depositRequiredVnd` của đơn;
+  - (c) hai đêm của đơn = giá gõ, giá lịch.
   - **Khi máy chủ chưa có #103**, bản xem bỏ qua giá gõ nên ca **bỏ qua** và ghi rõ lý do. Sau khi #103 gộp, cần merge main vào nhánh để CI chạy thật.
 - Kiểm: vitest admin-web 994/994; `tsc` (admin-web, tests); `eslint`; `prettier`. Không sửa `openapi.yaml` hay tệp sinh: `QuoteInput.nightlyRates` đã có trong hợp đồng trên `main`.
 

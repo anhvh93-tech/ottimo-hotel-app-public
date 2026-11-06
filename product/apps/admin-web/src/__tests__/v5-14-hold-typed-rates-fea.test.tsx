@@ -39,6 +39,8 @@ const rateBox = (dlg: HTMLElement, date: string) =>
   within(dlg).getByLabelText(`${tv('rate.pre_tier')} ${dayMonth(date)}`) as HTMLInputElement;
 const holdButton = (dlg: HTMLElement) => within(dlg).getByRole('button', { name: /^Giữ chỗ đến / });
 const digits = (s: string | null | undefined) => Number((s ?? '').replace(/\D/g, ''));
+/** BR-305 on the mock (30 % of the room total, to 100.000) – the oracle of QA-on-be-pr-103 2.2 (b). */
+const depositOf = (roomTotal: number) => Math.round((roomTotal * 0.3) / 100_000) * 100_000;
 /** "Cọc cần thu" of the price table (server `depositVnd` of the last preview). */
 function depositShown(dlg: HTMLElement): number {
   const label = tv('bk.deposit_line', { pct: 30 }).split(' (')[0]!;
@@ -52,7 +54,7 @@ function depositShown(dlg: HTMLElement): number {
  * Đặt phòng mới, arriving tomorrow (a hold is offered from tomorrow on) for 2 nights (BR-113: a Fri/Sat arrival needs
  * 2), room 203, the preview has filled both boxes.
  */
-async function openForTomorrow(user: User, channel?: string) {
+async function openForTomorrow(user: User, channel?: string, waitRates = true) {
   await screen.findByRole('grid');
   await user.click(screen.getByRole('button', { name: 'Đặt phòng mới' }));
   const dlg = await screen.findByRole('dialog', { name: /Đặt phòng mới/ });
@@ -68,6 +70,7 @@ async function openForTomorrow(user: User, channel?: string) {
   await user.selectOptions(room, within(room).getByRole('option', { name: /^203 / }));
   await user.type(within(dlg).getByRole('combobox', { name: 'Khách đứng tên' }), 'Trần Minh');
   await user.click(await screen.findByRole('option', { name: /Trần Minh Khoa/ }));
+  if (!waitRates) return dlg;
   await waitFor(
     () => {
       expect(rateBox(dlg, tomorrow()).value).not.toBe('');
@@ -121,6 +124,9 @@ describe('V5-14 – "Giữ chỗ" keeps the rates the desk typed', () => {
       const preview = sent.filter((s) => s.path.endsWith('/quotes/calculate')).at(-1)!;
       expect(preview.body.nightlyRates).toEqual(nights);
       const shown = depositShown(dlg);
+      // QA 2.2 (b): the deposit on the dialog is the one of the typed rates, not of the calendar
+      expect(shown).toBe(depositOf(2_500_000 + digits(second)));
+      expect(shown).not.toBe(before);
 
       await user.click(hold);
       expect(await screen.findByText(/^Đã giữ căn 203 – đơn OTM-0\d+$/)).toBeInTheDocument();
@@ -131,7 +137,10 @@ describe('V5-14 – "Giữ chỗ" keeps the rates the desk typed', () => {
         expect(holdBody).not.toHaveProperty(k);
       const created = mockControl.rsv.reservations.find((r) => r.status === 'hold' && r.quoteId)!;
       expect(created.depositRequiredVnd).toBe(shown);
-      expect(created.nightlyRates?.[0]).toMatchObject({ date: tomorrow(), amountVnd: 2_500_000 });
+      expect(created.nightlyRates?.map((n) => [n.date, n.amountVnd])).toEqual([
+        [tomorrow(), 2_500_000],
+        [addDays(tomorrow(), 1), digits(second)],
+      ]);
       expect(sent.some((s) => /\/reservations$/.test(s.path))).toBe(false);
     },
   );
@@ -162,6 +171,21 @@ describe('V5-14 – "Giữ chỗ" keeps the rates the desk typed', () => {
     expect(await within(dlg).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
     expect(sent.some((s) => /\/quotes$/.test(s.path))).toBe(false);
     expect(sent.some((s) => s.path.endsWith('/actions/create-hold'))).toBe(false);
+  });
+
+  it('no 0 for a night whose calendar rate is not back yet: one night typed, the other box empty → neither the preview nor the hold sends the nights, "Nhập giá mỗi đêm"', async () => {
+    pinDaytime();
+    const sent = posts();
+    server.use(http.post(/\/quotes\/calculate$/, () => new Promise<Response>(() => undefined)));
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openForTomorrow(user, undefined, false);
+    expect(rateBox(dlg, addDays(tomorrow(), 1)).value).toBe('');
+    await typeRate(user, dlg, tomorrow(), '880000');
+    await user.click(holdButton(dlg));
+    expect(await within(dlg).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
+    expect(sent.some((s) => /\/quotes$/.test(s.path))).toBe(false);
+    expect(sent.some((s) => s.path.endsWith('/actions/create-hold'))).toBe(false);
+    expect(sent.some((s) => 'nightlyRates' in s.body)).toBe(false);
   });
 
   it('a typed rate outside the floor–ceiling: the preview puts the sentence on that night; the hold is refused the same way, nothing held', async () => {

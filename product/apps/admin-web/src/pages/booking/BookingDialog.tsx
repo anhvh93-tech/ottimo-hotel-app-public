@@ -840,6 +840,17 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     if (busy || !online) return;
     const v = validate();
     delete v.deposit;
+    // ARC 1.17 / QA-on-be-pr-103 2.2: every night with `edited` from its box (absent `edited` would mean "not
+    // edited" here); never 0 for a night whose calendar rate is not on the dialog yet – the hold waits instead.
+    const typedNights = typedRate
+      ? rateList.map((r) => ({
+          date: r.date,
+          amountVnd: parseVnd(r.raw) ?? 0,
+          edited: !!form.ratesEdited[r.date],
+        }))
+      : undefined;
+    if (typedNights?.some((n) => !(n.amountVnd > 0)) && !v.rates)
+      v.rates = t('booking.error.rate_empty');
     setErrors(v);
     if (Object.keys(v).length || longStay) return;
     setBusy('hold');
@@ -858,16 +869,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           channelId: channel!.id,
           guestId: form.guest!.id,
           websiteBookingRequestId: webRequest?.id,
-          // ARC 1.17: absent `edited` = not edited (the server prices that night) – here it is always sent.
-          ...(typedRate
-            ? {
-                nightlyRates: rateList.map((r) => ({
-                  date: r.date,
-                  amountVnd: parseVnd(r.raw) ?? 0,
-                  edited: !!form.ratesEdited[r.date],
-                })),
-              }
-            : {}),
+          ...(typedNights ? { nightlyRates: typedNights } : {}),
         },
         newIdempotencyKey(),
       );
