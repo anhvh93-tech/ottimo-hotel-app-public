@@ -8,6 +8,11 @@
  *   audit_event_property_actor_idx; the table is partitioned by month so the date range prunes partitions.
  * - before/after were reduced to the entity allowlist when written (SR-AUD-03); actorName passes the role
  *   serializer (x-rbac-field D27).
+ * - OpenAPI 0.3.13 bổ sung 1 (V5-15, SEC ARC-03, DOM 7.1) `overdueOnly=true`: only the overdue check-outs –
+ *   `reservation.checked_out` whose `after` holds `overdue` (B18 writes it on that path only). The server pins
+ *   `category = state` and `action = reservation.checked_out` (index audit_event_property_category_idx); a
+ *   `category` sent with it still applies (another category → nothing). The role scope does not change: OWN and MGR
+ *   see every row (MGR the rows of another MGR too), FDL/FD their own (they cannot do this check-out).
  */
 import { Controller, Get, Inject, Query, Req } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -23,6 +28,8 @@ import { addDays, atLocal, localDate, toZonedIso } from '../../../shared/time';
 export const AUDIT_MAX_RANGE_DAYS = 92;
 const DEFAULT_RANGE_DAYS = 7;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** V5-15 `overdueOnly`: the B18 audit action whose `after.overdue` marks the overdue path (checkout.service). */
+const CHECKED_OUT_ACTION = 'reservation.checked_out';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface Row {
@@ -71,12 +78,19 @@ export class AuditLogController {
     @Query('to') to?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
+    @Query('overdueOnly') overdueOnly?: string,
   ) {
     const p = req.ottimoAuth?.principal;
     if (!p?.propertyId) throw problem('UNAUTHENTICATED');
     if (category !== undefined && !AUDIT_CATEGORIES.includes(category as AuditCategory)) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'category', code: 'NOT_IN_LIST' }] });
     }
+    if (overdueOnly !== undefined && overdueOnly !== 'true' && overdueOnly !== 'false') {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'overdueOnly', code: 'VALIDATION_FAILED' }],
+      });
+    }
+    const overdue = overdueOnly === 'true';
     if (actorUserId !== undefined && !UUID.test(actorUserId)) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'actorUserId', code: 'VALIDATION_FAILED' }],
@@ -130,6 +144,13 @@ export class AuditLogController {
           where.push(`e.actor_user_id = ${ph(p.userId)}`); // x-scope own (AC2)
         else if (actorUserId) where.push(`e.actor_user_id = ${ph(actorUserId)}`);
         if (category) where.push(`e.category = ${ph(category)}`);
+        if (overdue) {
+          where.push(
+            `e.category = 'state'`,
+            `e.action = ${ph(CHECKED_OUT_ACTION)}`,
+            `e.after ? 'overdue'`,
+          );
+        }
         if (c) {
           where.push(
             `(e.occurred_at, e.id) < (${ph(String(c[0]))}::timestamptz, ${ph(Number(c[1]))}::bigint)`,

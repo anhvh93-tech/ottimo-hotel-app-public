@@ -18,7 +18,11 @@ import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { type LocalDate, businessDate, localDate } from '../../../shared/time';
 import { EventsService } from '../../events/public/events.service';
-import type { FrontdeskMinibarPort, MinibarCheckoutStatus } from '../../frontdesk/public/ports';
+import type {
+  FrontdeskMinibarPort,
+  MinibarCheckoutStatus,
+  MinibarCountWindow,
+} from '../../frontdesk/public/ports';
 import type { MinibarRefillDonePort } from '../../housekeeping/public/minibar-refill-done.port';
 import { ParameterService } from '../../platform/public/parameter.service';
 import {
@@ -53,14 +57,17 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
    * period – for the fridge of the room the stay is in, a count of TODAY's business day (B18's – K11-09, DOM BR-703
    * note 7, ARC 16.19 bổ sung); the fridge of a room left keeps any live count after the mark (R9). Inside B18 the
    * fridge's writers are kept out by B18's room lock (L2 FOR UPDATE against their KEY SHARE – ARC 16.19).
+   * OpenAPI 0.3.13 bổ sung 1 (V5-15): `window.countFrom` – the overdue check-out – a count of a business day ≥
+   * `countFrom` (the effective departure date) counts too (MinibarCountWindow).
    */
   async checkoutStatus(
     tx: Tx,
     reservationId: string,
     roomId: string,
+    window: MinibarCountWindow = {},
   ): Promise<MinibarCheckoutStatus> {
     const primaryId = (await primaryOf(tx, reservationId)) ?? reservationId;
-    const st = await this.fridgeState(tx, primaryId, roomId);
+    const st = await this.fridgeState(tx, primaryId, roomId, window);
     return { required: st.required, checked: st.checked };
   }
 
@@ -68,6 +75,7 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     tx: Tx,
     primaryId: string,
     roomId: string,
+    window: MinibarCountWindow = {},
   ): Promise<{ required: boolean; checked: boolean; live: boolean }> {
     const { fill, items } = await fridgeItems(tx, primaryId, roomId);
     // ARC R9 (BUG-R2-144): "counted" = a live count AFTER the latest mark – in the current period (a new period
@@ -83,8 +91,12 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     let checked = !!live;
     if (live) {
       const today = await this.today(tx, this.clock.now());
-      // K11-09: the room the stay is in → the count must be of the departure day (business day of B18).
-      if (live.business_date !== today && (await stayIsInRoom(tx, primaryId, roomId, today))) {
+      // K11-09: the room the stay is in → the count must be of the departure day (business day of B18). V5-15
+      // (contract 1.4, 1.18): an overdue check-out takes a count of any business day from the departure on.
+      const inWindow = window.countFrom
+        ? live.business_date >= window.countFrom
+        : live.business_date === today;
+      if (!inWindow && (await stayIsInRoom(tx, primaryId, roomId, today))) {
         checked = false;
       }
     }
@@ -311,11 +323,12 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
    * 16.14): `never_counted` – no count of this fridge in the stay; `stay_continued` – counted, then the stay went
    * on (back in the room, B13 – a period opened by `refill` or `carry`, or a count made stale); `new_fill` – a
    * period opened by a mid-stay refill without such an event (R3 – not written in R2). Priority stay_continued >
-   * new_fill > never_counted.
+   * new_fill > never_counted. `window` (V5-15): the day rule of `not_today` (MinibarCountWindow).
    */
   async uncheckedRooms(
     tx: Tx,
     reservationId: string,
+    window: MinibarCountWindow = {},
   ): Promise<
     Array<{
       roomId: string;
@@ -332,7 +345,7 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
       reason: 'never_counted' | 'stay_continued' | 'new_fill' | 'not_today';
     }> = [];
     for (const room of await stayRooms(tx, primaryId, businessDate(now, tz, rollover))) {
-      const st = await this.fridgeState(tx, primaryId, room.roomId);
+      const st = await this.fridgeState(tx, primaryId, room.roomId, window);
       if (!st.required || st.checked) continue;
       // K11-09 (ARC 16.19 bổ sung): counted in the current period, but not on the departure day.
       if (st.live) {
