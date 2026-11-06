@@ -5,8 +5,8 @@
 // stack's day (client only – `isAfterHours` reads the device clock); link, session and options come from the real
 // stack. axe: 0 critical/serious. Fake data only. Project desk-chromium (testMatch ui/).
 import { readFileSync } from 'node:fs';
-import { expect, test, type Page } from '@playwright/test';
-import { session, stackToday } from '../support/api.js';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { resetRateLimits, session, stackToday } from '../support/api.js';
 import { SEED_PASSWORD } from '../support/env.js';
 import { bookFree, cleanupTracked, room, s2Context } from '../support/s2.js';
 import { guestLink, namedGuest } from '../support/s3.js';
@@ -44,13 +44,19 @@ test.describe(
     test.skip(!UI, 'Chạy với E2E_UI=1');
     test.skip(!SEED_PASSWORD, 'Thiếu QA_SEED_PASSWORD');
     test.afterEach(async ({ request }) => cleanupTracked(request));
+    // a failed case must not leave its guest page open
+    let ctx: BrowserContext | undefined;
+    test.afterEach(async () => {
+      await ctx?.close().catch(() => undefined);
+      ctx = undefined;
+    });
 
     test('GW-01 (E) tab Yêu cầu sau 22:00: khung "Lễ tân trả lời từ 07:00" nền Cream, viền Sage, chữ và icon Ink, không xanh lam + axe', async ({
       browser,
       request,
     }, info) => {
       const { link, today } = await bookingWithLink(request, '301');
-      const ctx = await browser.newContext({
+      ctx = await browser.newContext({
         viewport: { width: 390, height: 844 },
         isMobile: true,
         hasTouch: true,
@@ -59,6 +65,9 @@ test.describe(
       });
       const page = await ctx.newPage();
       await page.clock.setFixedTime(new Date(`${today}T23:30:00+07:00`));
+      // The page opens its own session (POST /v1/guest/sessions): guest-open is 10/min per IP and every E2E call
+      // comes from one IP → clear the limiter first, as `openGuest` does on a 429 (CI #112 / #126, V5-46-2).
+      await resetRateLimits(request, 'GW-01: trang khách tự mở phiên (guest-open 10/phút/IP)');
       await page.goto(link.url);
       await page
         .getByRole('button', { name: VI['guest.tab.requests']!, exact: true })

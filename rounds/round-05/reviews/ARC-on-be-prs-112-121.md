@@ -6,11 +6,13 @@
     - ARC đọc mã ở **`452e8b01`**. CI của SHA này xanh (run 42263879947);
     - trong lúc review, BE-C đẩy hai commit gộp `main`, không rebase: `e06afa5a` (gộp `main` @ `dc0c5038`) và **`6d412a7b`** (gộp `main` @ `16ea5183`);
     - `git show --cc 6d412a7b`: commit này chỉ gỡ một xung đột, ở `tests/fixtures/br-examples.json` (chuỗi `owner` và `retiredIn` của BR-101-16 → `0.5.16`). `git diff e06afa5a 6d412a7b -- product/services product/apps product/docs/api`: chỉ đổi `br-examples.json` (dòng QA từ `main`);
-    - **SHA cuối ARC duyệt: `6d412a7b`**. CI của SHA này đang chạy lúc viết (OpenAPI lint đã xanh).
+    - sau khi ARC commit tệp này, BE-C đẩy **`089dbe99`** (SEC FB-R5-SEC-BE-C1-01): một dòng `warn` `list_price_append_only_refused requestId=<id>` khi 0094 từ chối, vẫn 409 `effective`. ARC đọc phần chênh `6d412a7b..089dbe99` (2 tệp: `rooms.service.ts` thêm `Logger` và một dòng log; test đơn vị kiểm đúng một dòng, không có id căn, giá, ngày). Đúng điều ARC đồng ý ở mục 1.5;
+    - **SHA cuối ARC duyệt: `089dbe99`**. CI của SHA này đang chạy lúc viết.
   - **#112**, nhánh `r5-b1`:
     - ARC đọc mã ở **`a2378981`**. CI của SHA này xanh (run 42256869962);
     - BE-B gộp `main` @ `999057ce` thành **`f16d7e09`**. Hai tệp gỡ xung đột (`folio-lines.service.ts`, `folio.service.ts`, chỉ phần import) cho ra blob **trùng từng byte** với bản ARC gộp thử (`31d43c59`, `2dcb743c`). `git diff <bản gộp thử của ARC> f16d7e09 -- product/services product/apps` rỗng: mã ARC đã chạy test là mã của `f16d7e09`;
-    - **SHA cuối ARC duyệt: `f16d7e09`**. CI của SHA này đang chạy lúc viết (API contract `RBAC --strict` và gitleaks đã xanh).
+    - sau khi ARC commit tệp này, BE-B đẩy **`7f4aaf44`** (SEC FB-R5-SEC-BE-B1-01): chỉ thêm test, một tệp (`pr-b1-v5-13-18-44.test.ts`, ca HTTP CTV/SAL/FD đọc folio, đơn và tóm tắt). Không đổi mã;
+    - **SHA cuối ARC duyệt: `7f4aaf44`**. CI của SHA này đang chạy lúc viết.
   - Hai PR không có migration, không đổi `openapi.yaml`.
 - Đã đọc:
   - hợp đồng trên `main`: `contract-0.3.13.md` mục 1.2 (T13), 1.6 (T18), 1.8 (T1A), 1.11 (T44), 1.24 (BE 11, 13, 14, 15, 19), 1.25, 1.26 và mục 2; `openapi.yaml` `createRoom`, `updateRoom`, `cancelScheduledRoomListPrice`, `RoomInput`/`RoomPatch`, `Problem.lockReason`, `Reservation.depositUnverifiedVnd`, `CheckoutSummary.openRefunds`, `OpenRefund`, `Folio.totals.openRefunds`, bảng "Mã lỗi theo trường";
@@ -32,8 +34,8 @@
 
 | PR | SHA cuối | Kết luận | Gộp khi |
 |---|---|---|---|
-| #121 | `6d412a7b` (mã đọc ở `452e8b01`) | **DUYỆT CÓ ĐIỀU KIỆN** | ĐK-1: CI xanh ở `6d412a7b`. Nếu cần gộp `main` thêm lần nữa: commit gộp chỉ gỡ xung đột ở tài liệu hoặc `br-examples.json` thì duyệt này áp cho HEAD mới |
-| #112 | `f16d7e09` (mã đọc ở `a2378981`) | **DUYỆT CÓ ĐIỀU KIỆN** | ĐK-2: CI xanh ở `f16d7e09`, cùng quy tắc HEAD mới như trên. Gộp **trước** #110 hoặc sau đều được: #110 phải gộp `main` vì xung đột với chính `main` (mục 3) |
+| #121 | `089dbe99` (mã đọc ở `452e8b01` + phần chênh `089dbe99`) | **DUYỆT CÓ ĐIỀU KIỆN** | ĐK-1: CI xanh ở `089dbe99`. Nếu cần gộp `main` thêm lần nữa: commit gộp chỉ gỡ xung đột ở tài liệu hoặc `br-examples.json` thì duyệt này áp cho HEAD mới |
+| #112 | `7f4aaf44` (mã đọc ở `a2378981`; `f16d7e09` gộp `main`, `7f4aaf44` chỉ thêm test) | **DUYỆT CÓ ĐIỀU KIỆN** | ĐK-2: CI xanh ở `7f4aaf44`, cùng quy tắc HEAD mới như trên. Gộp **trước** #110 hoặc sau đều được: #110 phải gộp `main` vì xung đột với chính `main` (mục 3) |
 
 Không điều kiện nào là lỗi mã. Cả hai PR đúng hợp đồng 0.3.13 ở mọi ca T1A, T13, T18, T44 mà PR nhận. Mỗi đột biến không tương đương đều bị bắt, trừ một (B12, thẻ ARC-BE-B1-02).
 
@@ -110,7 +112,7 @@ Thẻ:
 
 - **FB-R5-DOM-FE-121-01** (Minor, Desk chưa có biên trên): PO đã đưa vào v1.0.5 thành V5-5C (quyết định 27, mục 4a T10). ARC đồng ý. Mã cảnh báo đã có ở máy chủ; Desk chỉ cần đọc `warnings[]` và dùng khóa UXD 9.3 `rooms.night_high`.
 - **FB-R5-DOM-BE-121-02** (Suggestion 0.3.14, chặn bật bán căn chưa có giá): đồng ý. ARC ghi vào danh sách 0.3.14: `updateRoom` với `isSellable = true` cho căn chưa có dòng giá niêm yết → 422 (`field` = `isSellable`, `code` = `NOT_ALLOWED`). Không migration. Tới đó, `ops-check` `pricegap` vẫn là lưới bắt.
-- **FB-R5-SEC-BE-C1-01** (Suggestion, log khi trigger 0094 ra tay): đồng ý. Lớp chặn cuối từ chối nghĩa là lớp trước đã sai (đồng hồ lệch, luật ngày bị sửa). Một dòng `warn` chỉ có mã và `requestId` là đủ. Không đổi hợp đồng.
+- **FB-R5-SEC-BE-C1-01** (Suggestion, log khi trigger 0094 ra tay): đồng ý. Lớp chặn cuối từ chối nghĩa là lớp trước đã sai (đồng hồ lệch, luật ngày bị sửa). Một dòng `warn` chỉ có mã và `requestId` là đủ. Không đổi hợp đồng. BE-C đã làm ở `089dbe99`.
 - Chữ 1.24 của `contract-0.3.13.md` ("> giá tháng ÷ 3 [GIẢ ĐỊNH]") đã bị bổ sung 1d thay bằng ÷ 5. ARC sửa câu cũ ở bản hợp đồng tới. Không ảnh hưởng mã.
 
 ### 1.6 Điểm làm tốt
@@ -215,7 +217,7 @@ Thẻ:
 ### 2.5 ARC trả lời thẻ của vai khác về #112
 
 - **FB-R5-DOM-UXD-112-01** (Suggestion, sáu nhóm nhãn tiền hoàn): đồng ý. Trong đó mọi `CancelReasonCode` và `no_show` gom thành "Hoàn khi hủy đơn", kèm bảng nghĩa `lockReason` ở DOM 2.2. ARC thêm vào mô tả `OpenRefund.reasonCode` ở 0.3.14: "giá trị = `approval_request.reason_code`, gồm mọi `CancelReasonCode`". UXD dùng bảng DOM làm khóa chữ.
-- **FB-R5-SEC-BE-B1-01** (ca HTTP cho SAL/CTV): đồng ý, làm cùng FB-R5-ARC-BE-B1-01.
+- **FB-R5-SEC-BE-B1-01** (ca HTTP cho SAL/CTV): đồng ý; BE-B đã làm ở `7f4aaf44`. FB-R5-ARC-BE-B1-01 (người đọc FD-2) vẫn mở.
 - **FB-R5-SEC-BE-B1-02** (gỡ xung đột ở nhánh gộp sau): đồng ý. Test kiến trúc của #112 là chốt chặn. Ai gỡ xung đột mà phải sửa test đó thì gửi ARC xem.
 
 ### 2.6 Điểm làm tốt
@@ -250,4 +252,4 @@ Thẻ:
 
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
-`| 2026-11-07 | 5 | **ARC – review PR #121 (BE-C PR-C1, V5-1A + V5-44 (b)) @ 6d412a7b và PR #112 (BE-B PR-B1, V5-13/V5-18/V5-44 (a)) @ f16d7e09: cả hai DUYỆT CÓ ĐIỀU KIỆN** (rounds/round-05/reviews/ARC-on-be-prs-112-121.md). Mã đọc ở 452e8b01 và a2378981; các commit gộp main sau đó chỉ gỡ xung đột ở br-examples.json và phần import, blob trùng bản gộp thử của ARC. Điều kiện duy nhất: CI xanh ở SHA cuối. Đúng hợp đồng 0.3.13 ở mọi ca T1A-1…5, T44-1/3/4, T13-1…5, T18-1…4, BE 11/13/14/15/19. Đột biến: #121 11/11 bị bắt; #112 14/16 (B11 tương đương; B12 – bỏ đơn con khỏi tập đơn của folio – không test nào bắt, thẻ ARC-BE-B1-02). Không migration, không đổi openapi. Lỗi khi chạy bộ đầy đủ song song là do máy quá tải: chạy riêng các tệp đỏ thì 32/32 và 124/124 đạt. ARC chốt giữ VALUE_OUT_OF_RANGE cho giá căn ≤ 0, FE-A sửa mock ở V5-5C (ARC-BE-C1-01). Đồng ý DOM FE-121-01 (V5-5C), BE-121-02 (0.3.14: chặn isSellable = true khi căn chưa có giá), UXD-112-01 (sáu nhóm nhãn; ARC thêm mô tả OpenRefund.reasonCode ở 0.3.14), SEC C1-01 (log warn khi 0094 từ chối), SEC B1-01/B1-02. Thẻ mới: ARC-BE-B1-01 Minor (ca FD-2 đọc yêu cầu hoàn của FD-1 – đúng CO-01b), ARC-BE-B1-02 Suggestion, ARC-PO-112-01 Minor (PO thêm T12 #112 + FE V5-13/V5-18 hoặc sửa release notes; T13 FE V5-44 (a) không lên tag thiếu #112). Không ESC. |`
+`| 2026-11-07 | 5 | **ARC – review PR #121 (BE-C PR-C1, V5-1A + V5-44 (b)) @ 089dbe99 và PR #112 (BE-B PR-B1, V5-13/V5-18/V5-44 (a)) @ 7f4aaf44: cả hai DUYỆT CÓ ĐIỀU KIỆN** (rounds/round-05/reviews/ARC-on-be-prs-112-121.md). Mã đọc ở 452e8b01 và a2378981; các commit gộp main sau đó chỉ gỡ xung đột ở br-examples.json và phần import, blob trùng bản gộp thử của ARC; 089dbe99 thêm một dòng warn khi 0094 từ chối (SEC C1-01), 7f4aaf44 chỉ thêm test HTTP theo vai (SEC B1-01). Điều kiện duy nhất: CI xanh ở SHA cuối. Đúng hợp đồng 0.3.13 ở mọi ca T1A-1…5, T44-1/3/4, T13-1…5, T18-1…4, BE 11/13/14/15/19. Đột biến: #121 11/11 bị bắt; #112 14/16 (B11 tương đương; B12 – bỏ đơn con khỏi tập đơn của folio – không test nào bắt, thẻ ARC-BE-B1-02). Không migration, không đổi openapi. Lỗi khi chạy bộ đầy đủ song song là do máy quá tải: chạy riêng các tệp đỏ thì 32/32 và 124/124 đạt. ARC chốt giữ VALUE_OUT_OF_RANGE cho giá căn ≤ 0, FE-A sửa mock ở V5-5C (ARC-BE-C1-01). Đồng ý DOM FE-121-01 (V5-5C), BE-121-02 (0.3.14: chặn isSellable = true khi căn chưa có giá), UXD-112-01 (sáu nhóm nhãn; ARC thêm mô tả OpenRefund.reasonCode ở 0.3.14), SEC C1-01 (log warn khi 0094 từ chối – đã làm ở 089dbe99), SEC B1-01 (đã làm ở 7f4aaf44)/B1-02. Thẻ mới: ARC-BE-B1-01 Minor (ca FD-2 đọc yêu cầu hoàn của FD-1 – đúng CO-01b), ARC-BE-B1-02 Suggestion, ARC-PO-112-01 Minor (PO thêm T12 #112 + FE V5-13/V5-18 hoặc sửa release notes; T13 FE V5-44 (a) không lên tag thiếu #112). Không ESC. |`

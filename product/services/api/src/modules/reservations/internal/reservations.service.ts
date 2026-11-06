@@ -23,6 +23,7 @@ import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { divideRoundVnd } from '../../platform/public/money';
 import { PropertyContextService } from '../../platform/public/property-context';
+import { stayDepartureDateOf } from '../public/stay-departure';
 import { OccupancyService } from '../public/occupancy.service';
 import {
   countedPersons,
@@ -429,6 +430,8 @@ export class ReservationsService {
         ]));
     }
     const depositPaidVnd = await this.money.depositPaid(tx, row);
+    // 0.3.13 V5-18: read for every caller, removed for SAL/CTV by the role serializer (x-visible-to FD+).
+    const depositUnverifiedVnd = await this.money.depositUnverified(tx, row, depositPaidVnd);
     let requestedGroup: { id: string; code: string } | null = null;
     if (row.conflict_state === 'open') {
       const g = await tx.query<{ id: string; code: string }>(
@@ -484,6 +487,7 @@ export class ReservationsService {
       iso: ctx.iso,
       noShowAvailableFrom: markAt,
       depositPaidVnd,
+      depositUnverifiedVnd,
       requestedGroup,
       ...(stayDepartureDate ? { stayDepartureDate } : {}),
     });
@@ -493,19 +497,15 @@ export class ReservationsService {
    * OpenAPI 0.3.9 add 1 (`Reservation.stayDepartureDate`): latest departure of the primary booking and its extension
    * children still in force (BR-422) – the same children as `effectiveStay` of B16/B18 (in_house children of an
    * in-house stay; confirmed/in_house children of a confirmed one). One aggregate query; null for a child booking or
-   * another status.
+   * another status. The rule lives in public/stay-departure.ts (also read by StayInfo – FB-R5-ARC-BE-A2-01).
    */
-  private async stayDepartureDate(tx: Tx, row: ReservationRow): Promise<LocalDate | null> {
-    if (row.parent_reservation_id) return null;
-    if (row.status !== 'confirmed' && row.status !== 'in_house') return null;
-    const live = row.status === 'in_house' ? ['in_house'] : ['confirmed', 'in_house'];
-    const { rows } = await tx.query<{ d: string | null }>(
-      `SELECT max(departure_date)::text AS d FROM reservation
-        WHERE parent_reservation_id = $1 AND status = ANY($2::text[])`,
-      [row.id, live],
-    );
-    const child = rows[0]?.d ?? null;
-    return child && child > row.departure_date ? child : row.departure_date;
+  private stayDepartureDate(tx: Tx, row: ReservationRow): Promise<LocalDate | null> {
+    return stayDepartureDateOf(tx, {
+      id: row.id,
+      parentReservationId: row.parent_reservation_id,
+      status: row.status,
+      departureDate: row.departure_date,
+    });
   }
 
   // ─────────────────────────── B2 / B7b / AC5a – create ───────────────────────────

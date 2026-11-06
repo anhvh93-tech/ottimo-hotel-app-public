@@ -101,3 +101,55 @@ ORC lưu từ báo cáo bàn giao của OPS.
 - **Việc chuyển:**
   - SEC 95-02 ý 4 → PO ghi vào plan ĐK-2: V5-61 chưa đạt thì v1.0.5 chưa lên production.
   - SEC 95-07 → ORC theo dõi khi cắt bản.
+
+## 9. Cập nhật 07/11 – Phản hồi & sửa lượt 3 (sau khi #93, #95, #96, #109 gộp)
+Thẻ trả lời ở `rounds/round-05/responses/OPS-responses.md`.
+
+**PR #126 (`r5-ops-pgterse-fix`), gấp:**
+- Sửa FB-R5-ARC-OPS-11: test `postgres-log-terse` chờ server thật qua TCP, báo lỗi kết nối riêng. Test này làm job `infra scripts` đỏ ngẫu nhiên ở mọi PR.
+- Kiểm ở máy:
+  - bản sửa 20/20 xanh khi chạy tuần tự, 12/12 xanh khi chạy song song;
+  - bản cũ 10/12 khi chạy song song, đỏ đúng 2 dòng ARC thấy.
+- Sửa FB-R5-SEC-BE-D1-04: CODEOWNERS thêm 4 tệp SEC.
+
+**PR runbook r3 (`r5-ops-runbook-r3`):**
+- P2c và P2 mục 8 dùng khối `v525-run` SEC ghim, chép nguyên văn. Trích ra từ runbook vẫn đúng SHA `60872413…41eb`.
+- Bảng 0.1 đã điền:
+  - `SHA_V525` = `897ff46e`; tệp SQL `f5db74ac…243f`, kiểm bằng `shasum`;
+  - 7 khóa dừng;
+  - nhãn hai dòng đếm;
+  - hai merge commit #96 / #109.
+- Cách đọc hai dòng đếm theo ORC 07/11 và ARC 12.6.
+- K13 đếm bảng hoa hồng mới (V530-01 + DOM). Câu chờ SEC ghim; đã chạy thử trên DB dùng một lần.
+- Luật `roles_version` ở luật chung và README `server` 11.1.
+
+**Giả định:**
+- K13 in ngày tạo thay cho lọc theo giờ triển khai. Lý do: câu là hằng nên ghim được, và INV có thể đã nhập bảng trên v1.0.4.
+- "Đơn có người chốt" = đơn ngắn ngày, người chốt là sale/CTV, đúng luật của `syncCommission`. Chờ DOM xác nhận.
+
+**Vướng:**
+- Lúc nộp, job `gitleaks` đỏ ở PR #126. Lý do: commit `ae4a8358` trên nhánh `r5-s1-tests` (PR #123, BE) có một hằng thử dạng UUID ở `product/services/api/test/request-hash-guard-units.test.ts` dòng 20, bị luật `generic-api-key` bắt.
+- Job quét mọi nhánh đã fetch, nên mọi PR đều đỏ tới khi xử lý. Không do PR của OPS.
+- Cách xử lý chờ ORC/SEC quyết: một dòng allowlist neo đúng giá trị (đường dẫn SEC), hoặc BE viết lại lịch sử nhánh đó.
+- **Đã xử lý:** SEC thêm allowlist theo commit trên `main` @ `ad70dc21`. ORC gộp `main` vào #126 và #129.
+
+## 10. Cập nhật 07/11 – Phản hồi & sửa lượt 4 (review #126, #129)
+Nguồn:
+- `rounds/round-05/reviews/DOM-on-pr-99-delta-and-129.md`;
+- `rounds/round-05/reviews/ARC-on-ops-prs-126-129.md`;
+- `rounds/round-05/reviews/SEC-on-ops-prs-126-129.md`.
+
+Thẻ trả lời ở `rounds/round-05/responses/OPS-responses.md`.
+
+**#126:** ARC và SEC duyệt @ `d11a2700`. OPS không đẩy gì thêm vào #126. Các dòng CODEOWNERS reviewer gợi ý thêm đi vào #129.
+
+**#129 (runbook r4, một lần đẩy):**
+- **K13 đổi câu theo DOM 129-01, 129-02:**
+  - dòng đếm đơn tỷ lệ cũ tính theo dòng hoa hồng chưa void và ngày chụp tỷ lệ, so tỷ lệ ngay trong câu; tách thêm phần đã đạt và phần dự kiến;
+  - dòng mới đếm đơn hủy hoặc không đến mà OTTIMO giữ tiền.
+- **Hệ quả:** bản ghim SEC r3 (`9fda2a80…`, `e601cfcd…`) không còn dùng được. SEC phải ghim lại câu r4 (`c13c4d68…0d71`) và khối chạy (`4f89c218…32ab`).
+- **Chạy thử câu r4** trên DB dùng một lần có đủ 72 migration thật và vai thật: mọi ca DOM nêu ra đúng số kỳ vọng; không lộ chuỗi đánh dấu hay tỷ lệ; dòng gác dừng đúng.
+- **Repo chỉ ghi `= 0` / `> 0`** cho các dòng đếm đơn (SEC 129-01). K13 áp đủ luật "Thêm" của P2c.
+- **P2c bước 2** dùng `git -C` vào repo (ARC 129-01). OPS tái hiện lỗi cũ: chạy ngoài repo ra `fatal: not a git repository` rồi `THIEU`. Bản sửa ra `TRUNG`, `CO`, `CO`.
+- **README 11.1:** thêm `granted_by`/`granted_at` khi cấp vai (ARC 129-02); thêm dòng audit tùy ARC xác nhận, và vai DB do ARC + SEC chốt (SEC 129-02).
+- **CODEOWNERS:** thêm 3 dòng SEC: `postgres-log-terse.test.sh` (ARC 126-01), `scripts/*.sh`, `src/admin/` (SEC 126-01).

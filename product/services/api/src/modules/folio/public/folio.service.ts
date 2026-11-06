@@ -48,6 +48,7 @@ import { StayNightAllocationService } from '../../reservations/public/stay-night
 import { allocate } from './allocate';
 import { shortStayCommissionRate } from './commission-rate';
 import { lineLabel } from './line-labels';
+import { folioLocked, lockReasonOfStatus } from './folio-locked';
 import {
   type ReductionRequest,
   allocateKey,
@@ -284,12 +285,25 @@ export interface PaymentRowLite {
   reservation_id: string | null;
   approval_request_id: string | null;
   shift_id: string | null;
+  /** 0.3.13 bổ sung 1 (V5-48): computed at read by PAYMENT_COLUMNS (`AFTER_CLOSURE_SQL`) – display only. */
+  after_closure?: boolean;
   received_amount_vnd: number | null;
   provider: string | null;
   version: number;
   /** 0065 (DOM (f)): purpose of a VietQR and the inputs of its cap. */
   qr_purpose?: string | null;
   qr_context?: Record<string, unknown> | null;
+}
+
+/**
+ * 0.3.13 V5-13 (ARC A1 (b)) – OpenAPI `OpenRefund`: what the open refund requests of the stay still have to pay back,
+ * by `ApprovalRequest.reasonCode` (bổ sung 1, BE C0313-14: every refund reason – today `early_departure`,
+ * `overpayment`, `overbooking_relocated`, the typed codes of A32, and `payment_after_cancel` from 5B-1). Amounts only:
+ * no request code, requester or destination.
+ */
+export interface OpenRefundByReason {
+  reasonCode: string;
+  openVnd: number;
 }
 
 export interface FolioTotals {
@@ -310,6 +324,8 @@ export interface FolioTotals {
   unhandledCreditVnd: number;
   /** 0.3.6 bổ sung 2 (DOM BE-13): OTA collected beyond the OTA-covered charges. */
   otaExcessVnd: number;
+  /** 0.3.13 V5-13: Σ openVnd = the open refund requests deducted in `unhandledCreditVnd` (FD+ – x-visible-to). */
+  openRefunds: OpenRefundByReason[];
 }
 
 /**
@@ -333,6 +349,8 @@ export interface FolioBalance {
   rawCreditVnd: number;
   /** Σ (amount − refunded) of the refund requests still open (pending / escalated / approved not fully paid). */
   openRefundVnd: number;
+  /** 0.3.13 V5-13: the same requests by reason (`CheckoutSummary.openRefunds`); Σ openVnd = openRefundVnd. */
+  openRefunds: OpenRefundByReason[];
   /** Part of the overpayment that may be PAID OUT: only receipts reconciled or needing none (cash, POS). */
   payableCreditVnd: number;
   /** rawCreditVnd − payableCreditVnd: overpayment backed by receipts not reconciled yet. */
@@ -469,16 +487,17 @@ export function moneyPosition(
 }
 
 /**
- * OpenAPI `Folio.totals` (see moneyPosition). `openRefundVnd` = open refund requests of the folio's bookings
- * (FolioService.openRefundVnd) → `unhandledCreditVnd` (E15-05).
+ * OpenAPI `Folio.totals` (see moneyPosition). `openRefunds` = open refund requests of the folio's bookings by reason
+ * (FolioService.openRefundsByReason) → `unhandledCreditVnd` (E15-05) and `totals.openRefunds` (0.3.13 V5-13).
  */
 export function computeTotals(
   lines: ReadonlyArray<
     TotalsLine & Pick<FolioLineRow, 'category' | 'revenue_group' | 'amount_vnd' | 'line_state'>
   >,
   payments: ReadonlyArray<TotalsPayment>,
-  openRefundVnd = 0,
+  openRefunds: ReadonlyArray<OpenRefundByReason> = [],
 ): FolioTotals {
+  const openRefundVnd = sumOpenRefunds(openRefunds);
   let roomVnd = 0;
   let otherVnd = 0;
   let focVnd = 0;
@@ -502,7 +521,13 @@ export function computeTotals(
     creditVnd: m.creditVnd,
     unhandledCreditVnd: Math.max(0, m.creditVnd - openRefundVnd),
     otaExcessVnd: m.otaExcessVnd,
+    openRefunds: openRefunds.map((r) => ({ reasonCode: r.reasonCode, openVnd: r.openVnd })),
   };
+}
+
+/** Σ openVnd of `openRefundsByReason` – the deduction of `unhandledCreditVnd`. */
+export function sumOpenRefunds(openRefunds: ReadonlyArray<OpenRefundByReason>): number {
+  return openRefunds.reduce((s, r) => s + r.openVnd, 0);
 }
 
 /** Refunded amount (positive) of the succeeded refund rows (Bill.refundedVnd). */
@@ -513,12 +538,28 @@ export function refundedOf(payments: ReadonlyArray<TotalsPayment>): number {
 }
 
 /** Columns of PaymentRowLite (alias p + user joins ur/uc/uq) – shared with the payments module. */
+/**
+ * 0.3.13 bổ sung 1 (V5-48, BE C0313-22 ý 1, SEC-responses 1.1): `Payment.afterClosure` computed AT READ – a receipt
+ * (`deposit`/`charge`, not a reversal row) the SERVER wrote (`created_at`, never the typed `received_at`) once the
+ * folio's primary booking was `cancelled` (`cancelled_at`) or `no_show` (`no_show_marked_at`), while it still is.
+ * Display only (refund approval screen, money log): a booking restored later (B12, 5B-2) reads `false`. No write-time
+ * decision reads it (V5-48 422/409, 5B-1 – they read the booking under its lock), and the weekly filter
+ * `listAuditEvents.afterClosureOnly` reads the audit value written at write time instead.
+ */
+const AFTER_CLOSURE_SQL = `(p.type IN ('deposit', 'charge') AND p.reversal_of_id IS NULL AND EXISTS (
+    SELECT 1 FROM folio fac JOIN reservation rac ON rac.id = fac.primary_reservation_id
+     WHERE fac.id = p.folio_id
+       AND ((rac.status = 'cancelled' AND rac.cancelled_at IS NOT NULL AND p.created_at >= rac.cancelled_at)
+         OR (rac.status = 'no_show' AND rac.no_show_marked_at IS NOT NULL
+             AND p.created_at >= rac.no_show_marked_at))))`;
+
 export const PAYMENT_COLUMNS = `p.id, p.code, p.type, p.method, p.amount_vnd, p.status, p.received_at, p.recorded_by,
   ur.display_name AS recorded_by_name, p.recorded_by_role, p.reconciliation, p.reconciled_at, p.reconciled_by,
   uq.display_name AS reconciled_by_name, p.reconciliation_note, p.self_reconciled, p.payer_name, p.card_brand,
   p.card_last4, p.reversal_of_id, p.expires_at, p.method_detail, p.note, p.attachment_id, p.confirmed_at,
   p.confirmed_by, uc.display_name AS confirmed_by_name, p.reservation_id, p.approval_request_id, p.shift_id,
-  p.received_amount_vnd, p.provider, p.version, p.qr_purpose, p.qr_context`;
+  p.received_amount_vnd, p.provider, p.version, p.qr_purpose, p.qr_context,
+  ${AFTER_CLOSURE_SQL} AS after_closure`;
 export const PAYMENT_JOINS = `LEFT JOIN app_user ur ON ur.id = p.recorded_by
   LEFT JOIN app_user uc ON uc.id = p.confirmed_by LEFT JOIN app_user uq ON uq.id = p.reconciled_by`;
 
@@ -825,7 +866,7 @@ export class FolioService implements FolioStaySync {
     return computeTotals(
       lines,
       await this.payments(tx, folioId),
-      await this.openRefundVnd(tx, folioId, lines),
+      await this.openRefundsByReason(tx, folioId, lines),
     );
   }
 
@@ -879,7 +920,12 @@ export class FolioService implements FolioStaySync {
     ) {
       return { ...folio, postCheckout: true };
     }
-    throw problem('FOLIO_LOCKED');
+    // V5-44: a settled folio is refused for its window only when the caller takes post-checkout charges.
+    throw folioLocked(
+      folio.status === 'settled' && opts.allowPostCheckout
+        ? 'post_checkout_window_over'
+        : lockReasonOfStatus(folio.status),
+    );
   }
 
   /**
@@ -995,7 +1041,7 @@ export class FolioService implements FolioStaySync {
     const folio = await this.lock(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
     if (folio.status !== 'open' && !(opts.allowSettled && folio.status === 'settled')) {
-      throw problem('FOLIO_LOCKED');
+      throw folioLocked(lockReasonOfStatus(folio.status));
     }
     const { rows: liveRows } = await tx.query<LiveLine & { reservation_id: string | null }>(
       `SELECT l.id, l.category, l.revenue_group, l.description, l.quantity, l.unit_price_vnd, l.amount_vnd,
@@ -1051,7 +1097,8 @@ export class FolioService implements FolioStaySync {
     const payments = await this.payments(tx, folioId);
     const lines = await this.lines(tx, folioId);
     const m = moneyPosition(lines, payments);
-    const openRefundVnd = await this.openRefundVnd(tx, folioId, lines);
+    const openRefunds = await this.openRefundsByReason(tx, folioId, lines);
+    const openRefundVnd = sumOpenRefunds(openRefunds);
     const unhandled = Math.max(0, m.creditVnd - openRefundVnd);
     return {
       totalVnd: m.totalVnd,
@@ -1062,6 +1109,7 @@ export class FolioService implements FolioStaySync {
       unhandledCreditVnd: unhandled,
       rawCreditVnd: m.creditVnd,
       openRefundVnd,
+      openRefunds,
       payableCreditVnd: m.payableCreditVnd,
       unreconciledVnd: m.creditVnd - m.payableCreditVnd,
       unsettledPaymentIds: m.unsettledPaymentIds,
@@ -1073,24 +1121,41 @@ export class FolioService implements FolioStaySync {
   /**
    * Σ (amount − refunded) of the refund requests of the folio's bookings that are still open (pending,
    * escalated, approved not fully paid). The refund columns are written by payments (ARC B-4).
+   * 0.3.13 V5-13: the sum of `openRefundsByReason` – one query, so `unhandledCreditVnd` and `openRefunds` never differ.
    */
   async openRefundVnd(
     tx: Tx,
     folioId: string,
     lines?: ReadonlyArray<Pick<FolioLineRow, 'reservation_id'>>,
   ): Promise<number> {
+    return sumOpenRefunds(await this.openRefundsByReason(tx, folioId, lines));
+  }
+
+  /**
+   * 0.3.13 V5-13 (ARC A1 (b); bổ sung 1, BE C0313-14) – the open refund requests of the folio's bookings (primary +
+   * child bookings of its lines), by reason: Σ (amount − refunded) per `reason_code`, groups > 0 only, whoever asked
+   * (not the scope of listApprovalRequests – amounts by reason only). Read by `Folio.totals.openRefunds`,
+   * `CheckoutSummary.openRefunds` and `openRefundVnd` (→ `unhandledCreditVnd`).
+   */
+  async openRefundsByReason(
+    tx: Tx,
+    folioId: string,
+    lines?: ReadonlyArray<Pick<FolioLineRow, 'reservation_id'>>,
+  ): Promise<OpenRefundByReason[]> {
     const folio = await this.get(tx, folioId);
-    if (!folio) return 0;
+    if (!folio) return [];
     const ids = new Set<string>([folio.primary_reservation_id]);
     for (const l of lines ?? (await this.lines(tx, folioId)))
       if (l.reservation_id) ids.add(l.reservation_id);
-    const { rows } = await tx.query<{ total: string | number }>(
-      `SELECT COALESCE(SUM(amount_vnd - refunded_vnd), 0) AS total FROM approval_request
+    const { rows } = await tx.query<{ reason_code: string; open: string | number }>(
+      `SELECT reason_code, SUM(amount_vnd - refunded_vnd) AS open FROM approval_request
         WHERE type = 'refund' AND target_type = 'reservation' AND target_id = ANY($1::uuid[])
-          AND status IN ('pending', 'escalated', 'approved')`,
+          AND status IN ('pending', 'escalated', 'approved')
+        GROUP BY reason_code HAVING SUM(amount_vnd - refunded_vnd) > 0
+        ORDER BY reason_code`,
       [[...ids]],
     );
-    return Number(rows[0]?.total ?? 0);
+    return rows.map((r) => ({ reasonCode: r.reason_code, openVnd: Number(r.open) }));
   }
 
   /** The open refund requests behind openRefundVnd, oldest first (DOM-S4-14). */
@@ -1472,6 +1537,8 @@ export class FolioService implements FolioStaySync {
    * ALL hold – the booking is `checked_out`, its folio owes nothing, and no receipt recorded by the payee on
    * the folio is still `pending`/`disputed`. Called at the LAST of those events: B18 (reservation hook),
    * reconciliation / cash handover, a receipt after checkout (debt). The caller passes the booking status.
+   * "After the check-out" (a receipt still unconfirmed holds the commission) = after the folio was `settled` by B18
+   * (`folio.settled_at`, ARC 3.1 / DOM PR99-01) – not the guest's departure time (`actual_checkout_at`).
    */
   async tryEarnCommissions(
     tx: Tx,
@@ -1486,12 +1553,16 @@ export class FolioService implements FolioStaySync {
     // DOM 18/10 (BR-525 / BR-903, ARC 16.26): money received AFTER the check-out (a debt collected, a post-checkout
     // charge paid) counts once confirmed – a transfer still pending / disputed holds the commission until its
     // reconciliation (which runs this again: applyReconciliation → tryEarn).
+    // FB-R5-DOM-BE-PR99-01 (rules-v1.0.5 15.5): "after the check-out" = after B18 was RECORDED – `folio.settled_at`,
+    // set once by settle() in the B18 transaction, before this call. Not `reservation.actual_checkout_at`: since
+    // 0.3.13 (BE C0313-03) that is when the guest left (`checkoutAt`), earlier than the press, so the B18
+    // `finalPayment` and the VietQR collected at the desk would count as money after check-out.
     const { rows: unconfirmed } = await tx.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM payment p JOIN reservation r ON r.id = $1
-        WHERE p.folio_id = $2 AND p.status = 'succeeded' AND p.reversal_of_id IS NULL AND p.amount_vnd > 0
+      `SELECT count(*)::int AS n FROM payment p JOIN folio f ON f.id = p.folio_id
+        WHERE p.folio_id = $1 AND p.status = 'succeeded' AND p.reversal_of_id IS NULL AND p.amount_vnd > 0
           AND p.reconciliation IN ('pending', 'disputed')
-          AND r.actual_checkout_at IS NOT NULL AND p.created_at > r.actual_checkout_at`,
-      [stay.reservationId, folio.id],
+          AND f.settled_at IS NOT NULL AND p.created_at > f.settled_at`,
+      [folio.id],
     );
     if ((unconfirmed[0]?.n ?? 0) > 0) return 0;
     const { rows: due } = await tx.query<{ id: string; amount_vnd: number; payee_user_id: string }>(
@@ -1638,7 +1709,7 @@ export class FolioService implements FolioStaySync {
     }
     const folio = await this.lock(tx, input.folioId);
     if (!folio) throw new Error(`folio ${input.folioId} not visible for ${input.reservationCode}`);
-    if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
+    if (folio.status !== 'open') throw folioLocked(lockReasonOfStatus(folio.status));
     const now = this.clock.now();
     const nightIds = new Set(input.voidedStayNightIds);
     const voidedDates = new Set(
@@ -1936,7 +2007,7 @@ export class FolioService implements FolioStaySync {
   ): Promise<SyncResult> {
     const folio = await this.lock(tx, stay.folioId);
     if (!folio) throw new Error(`folio ${stay.folioId} not visible for ${stay.reservationCode}`);
-    if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
+    if (folio.status !== 'open') throw folioLocked(lockReasonOfStatus(folio.status));
     const now = this.clock.now();
     const tz = await this.timezone(tx);
     const today = localDate(now, tz);

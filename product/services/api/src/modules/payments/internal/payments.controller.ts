@@ -14,9 +14,12 @@ import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { toZonedIso } from '../../../shared/time';
+import { AuditService } from '../../audit/public/audit.service';
+import { recordUseCaseDenial } from '../../audit/public/use-case-denial';
 import { paymentDto } from '../../folio/public/folio-view';
 import type { PaymentRowLite } from '../../folio/public/folio.service';
 import { parseBody } from '../../platform/public/validation';
+import { OVERDUE_CHECKOUT_DENIED } from '../../reservations/public/overdue-checkout';
 import { type ListPaymentsQuery, PaymentsService } from './payments.service';
 
 interface Reply {
@@ -110,6 +113,7 @@ export class PaymentsController {
     @Inject(DATABASE) private readonly db: Database,
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
     @Inject(PaymentsService) private readonly payments: PaymentsService,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   @Post('folios/:folioId/payments')
@@ -314,7 +318,7 @@ export class PaymentsController {
       checkoutAt = new Date(input.checkoutAt);
     }
     const p = principal(req);
-    const result = await this.uow.run(req, async (tx) => ({
+    const run = this.uow.run(req, async (tx) => ({
       status: 201,
       // Only ids are kept for an idempotent replay (SEC-BE-43): never the payload with the account number.
       body: await this.payments.createVietQr(
@@ -340,6 +344,12 @@ export class PaymentsController {
         },
       ),
     }));
+    // V5-15 (OpenAPI 0.3.13 bổ sung 1, H-03/H-04, H-09): the 403 of a `check_out` QR on an overdue stay is decided
+    // inside the unit of work (the stay's departure) – logged as access.denied once the transaction rolled back.
+    const result = await run.catch(async (err: unknown) => {
+      await recordUseCaseDenial(this.audit, req, err, 'createVietQr', [OVERDUE_CHECKOUT_DENIED]);
+      throw err;
+    });
     const view = await this.db.withContext(
       tenantOf(p),
       async (tx) => {
