@@ -6,7 +6,8 @@
  * - openFolio()            B1/B2: one folio per booking; the caller pre-generates its id (both FKs DEFERRED).
  * - posted()               B2/B12: room + extra-person lines, commission, channel fee (onReservationConfirmed).
  *                          B4 is posted by payments itself after confirmFromHold() (sales-port).
- * - voided()               B5/B6/B10/B11/relocation: commissions → void + folio reversal (FOLIO_STAY_SYNC.voidStay).
+ * - voided()               B5/B6/B10/B11/relocation: commissions → void + folio reversal (FOLIO_STAY_SYNC.voidStay);
+ *                          the folio's pending VietQR expires (V5-48, PaymentService.expirePendingQrOnClosure).
  * - resynced()             B7/B8/PATCH guests/B12: folio follows the sold nights (FOLIO_STAY_SYNC.resyncStay).
  * - depositPaid()          Σ succeeded deposits of the booking's folio (BR-309 refund basis, J1 "đã có cọc").
  * - depositUnverified()    0.3.13 V5-18: the part of it still waiting for reconciliation (FD+ field).
@@ -150,6 +151,13 @@ export class MoneyBridge {
     });
     if (!input.folioId) throw new Error('booking without folio (folio_id NOT NULL)');
     await this.sync.voidStay(tx, { ...input, folioId: input.folioId }, { userId });
+    // 0.3.13 bổ sung 1 (V5-48, BUG-R5-002): the closed booking's VietQR still waiting expires now (J1, B5, B10, B11,
+    // relocation) – the Desk no longer shows it as "đang chờ"; confirmPaymentReceived answers 409 there anyway.
+    await this.payments.expirePendingQrOnClosure(tx, {
+      folioId: input.folioId,
+      reservationId: input.reservationId,
+      reservationStatus: input.reason === 'no_show' ? 'no_show' : 'cancelled',
+    });
   }
 
   /**

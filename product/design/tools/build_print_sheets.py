@@ -104,6 +104,7 @@ SPEC = {
     # (đo 06/11: 9 pt tràn; bớt khoảng cách vẫn chỉ vừa 8,5 pt và còn 1,5 mm). Giữ chữ nguyên văn, hạ cỡ.
     "1": {"size": "a4", "fs": 8.25, "cols": 2, "dense": True, "where": "Phía trong quầy, chỗ nhân viên"},
     # Tờ 2a: A5 10 pt tới bản 30/10. Bản 06/11 in A4 dọc, 2 cột, 11 pt (vừa tới 11,75 pt; còn ~36 mm mỗi cột).
+    # Bản 07/11 (thêm câu hộp Thông báo, DOM PO-08): vẫn 11 pt, dòng 1,28, còn 6,5 mm mỗi cột (CSS .snug).
     "2a": {"size": "a4", "fs": 11.0, "cols": 2, "frame": True, "snug": True, "where": "Cạnh Tờ 1, phía nhân viên"},
     "2b": {"size": "a5", "fs": 12.0, "cols": 1, "where": "Kẹp sau Tờ 1 hoặc trong bìa quầy"},
     "3": {"size": "a4", "fs": 12.0, "cols": 2, "where": "Phòng buồng / kho đồ vải"},
@@ -229,7 +230,8 @@ def staff_sheet(sid, sheet, meta):
         + '<header class="shead"><div class="hrow"><h2>%s</h2>%s</div>%s</header>'
         % (title, side, '<div class="intro">%s</div>' % render_blocks(intro) if intro else "")
         + '<div class="fit flow">%s</div>' % render_blocks(body)
-        + '<footer class="sfoot"><span>OTTIMO Desk · Tờ %s · %s</span><span>%s</span></footer>'
+        # Tên tờ ở chân không ngắt giữa cụm (chân hai dòng: "OTTIMO Desk · Tờ 2a ·" / "Giữ chỗ quá hạn (tạm)").
+        + '<footer class="sfoot"><span>OTTIMO Desk · Tờ %s · <span class="nb">%s</span></span><span>%s</span></footer>'
         % (esc(sid), esc(plain(sheet["heading"])), esc(edition_line(meta["edition"], short=spec["size"] == "a5")))
         + "</div></section>"
     )
@@ -330,7 +332,13 @@ code{font-family:var(--mono);font-size:.92em;font-weight:400;letter-spacing:0}
 .dense .shead{padding-bottom:1.8mm;margin-bottom:2mm}
 .staff.a4.dense .shead h2{font-size:15pt}.dense .intro{margin-top:1.4mm}
 .staff.a5 .inner{padding:var(--pad,11mm 11mm 8mm)}
-.snug{--lh:1.3}
+/* Tờ 2a bản 07/11 (hộp Thông báo, DOM FB-R5-DOM-PO-08) với dòng 1,3 chỉ vừa khít 11 pt (còn 0 mm). Giữ cỡ chữ 11 pt và
+   viền cách mép 6 mm; dòng 1,28 (dấu chồng tiếng Việt không chạm dòng trên, đã soi ảnh ~420 dpi) và bớt khoảng trắng phụ
+   để còn dư khoảng một dòng mỗi cột (đo 07/11: 6,5 mm), phòng khi in HTML ở trình duyệt khác. */
+.snug{--lh:1.28}
+.snug.c2 .flow{column-gap:6mm}
+.snug .shead{padding-bottom:2mm;margin-bottom:2.2mm}
+.snug .flow li{margin-bottom:.35mm}
 .staff.frame .inner{inset:6mm;border:0.8pt solid var(--oak);padding:3.5mm 4mm 1.5mm}
 .eyebrow{font-family:var(--sans);font-size:8pt;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
   color:var(--stone);line-height:1.2}

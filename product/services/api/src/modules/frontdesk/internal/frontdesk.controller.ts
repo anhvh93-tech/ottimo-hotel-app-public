@@ -27,7 +27,10 @@ import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { isDryRun } from '../../../shared/validation';
 import { ApprovalService } from '../../approvals/public/approval.service';
+import { AuditService } from '../../audit/public/audit.service';
+import { recordUseCaseDenial } from '../../audit/public/use-case-denial';
 import { PasswordReauth } from '../../identity/public/password-reauth';
+import { OVERDUE_CHECKOUT_DENIED } from '../../reservations/public/overdue-checkout';
 import { nightsOf } from '../../reservations/public/pricing';
 import type { GuestUploadChoice } from '../public/ports';
 import {
@@ -88,6 +91,7 @@ export class FrontdeskController {
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(PasswordReauth) private readonly reauth: PasswordReauth,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   /**
@@ -471,8 +475,25 @@ export class FrontdeskController {
         return stored;
       }
     }
+    // V5-15 (contract 1.16 H-01…H-04, H-09): the 403 of an overdue stay (role / night cap, before the body and before
+    // any password) is written as ONE `access.denied`, in its own transaction after the rollback.
+    const result = await this.checkOutRun(req, id, body).catch(async (err: unknown) => {
+      await recordUseCaseDenial(this.audit, req, err, 'checkOut', [OVERDUE_CHECKOUT_DENIED]);
+      throw err;
+    });
+    const out = applyResult(reply, result) as { reservation?: { version?: number } };
+    if (typeof out.reservation?.version === 'number') setETag(reply, out.reservation.version);
+    return out;
+  }
+
+  /** B18 after the Idempotency replay: the late-fee re-auth (its own transactions), then the unit of work. */
+  private async checkOutRun(req: GuardedRequest, id: string, body: Record<string, unknown>) {
+    if (body.lateFeeInsteadOfNight !== undefined && body.lateFeeInsteadOfNight !== null) {
+      // V5-15: on an overdue stay the role and night cap answer before the shape of the body and the password.
+      await this.read(req, (tx, ctx) => this.checkout.overdueGate(tx, ctx, id));
+    }
     const approver = await this.lateFeeApprover(req, id, body);
-    const result = await this.uow.run(req, async (tx) => {
+    return this.uow.run(req, async (tx) => {
       const ctx = await this.ctx(tx, req);
       const r = await this.checkout.checkOut(tx, ctx, id, expectedVersion(req), body, { approver });
       return {
@@ -484,9 +505,6 @@ export class FrontdeskController {
         },
       };
     });
-    const out = applyResult(reply, result) as { reservation?: { version?: number } };
-    if (typeof out.reservation?.version === 'number') setETag(reply, out.reservation.version);
-    return out;
   }
 
   // ───────────── party (US-022) ─────────────

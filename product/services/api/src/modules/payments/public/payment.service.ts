@@ -35,6 +35,7 @@ import {
   type AttachmentUsage,
   anchorPaymentAttachment,
 } from './attachment-usage';
+import { expirePendingQrOnClosure } from './payment-expiry';
 
 export interface ManualPaymentInput {
   folioId: string;
@@ -55,7 +56,22 @@ export interface ManualPaymentInput {
   attachmentId?: string | null;
   /** ARC 16.26 (BR-525): a debt collected after check-out – flagged in the money audit (`debtCollection`). */
   debtCollection?: boolean;
+  /**
+   * 0.3.13 bổ sung 1 (V5-48, SEC S6): the booking was already closed when this receipt was written – the money
+   * audit carries `afterClosure: true` + `reservationStatus` (the value at write time, read by afterClosureOnly).
+   */
+  afterClosure?: { reservationStatus: ClosedReservationStatus };
   requestId?: string;
+}
+
+/** 0.3.13 bổ sung 1 (V5-48): a booking that no longer takes money the usual way (BUG-R5-002). */
+export const CLOSED_RESERVATION_STATUSES = ['cancelled', 'no_show'] as const;
+export type ClosedReservationStatus = (typeof CLOSED_RESERVATION_STATUSES)[number];
+
+export function closedStatusOf(status: string): ClosedReservationStatus | null {
+  return (CLOSED_RESERVATION_STATUSES as readonly string[]).includes(status)
+    ? (status as ClosedReservationStatus)
+    : null;
 }
 
 /** OpenAPI PaymentCreate after JSON parsing (strings not yet checked). */
@@ -273,6 +289,9 @@ export class PaymentService {
         reconciliation,
         ...(role ? { recordedByRole: role } : {}),
         ...(p.debtCollection ? { debtCollection: true } : {}),
+        ...(p.afterClosure
+          ? { afterClosure: true, reservationStatus: p.afterClosure.reservationStatus }
+          : {}),
       },
       ...(p.requestId ? { requestId: p.requestId } : {}),
     });
@@ -313,6 +332,12 @@ export class PaymentService {
        * The caller holds L1 (every booking of the folio) and checked the open debt with the front desk.
        */
       debtCollection?: boolean;
+      /**
+       * 0.3.13 bổ sung 1 (V5-48): the booking is `cancelled`/`no_show` – the caller (PaymentsService.recordAfterClosure)
+       * holds its lock and checked method + image; the receipt always waits for the bank statement (`pending`, any
+       * role, OWN included) and its audit carries `afterClosure` + `reservationStatus`.
+       */
+      afterClosure?: { reservationStatus: ClosedReservationStatus };
     },
   ): Promise<PaymentRowLite> {
     const folios = this.need(this.folios, 'FolioService');
@@ -405,10 +430,11 @@ export class PaymentService {
       posAuthCode: auth,
       note,
       recordedBy: actor.userId,
-      ...(desk ? {} : { reconciliation: 'pending' as const }),
+      ...(desk && !ctx.afterClosure ? {} : { reconciliation: 'pending' as const }),
       recordedByRole: role,
       attachmentId: raw.attachmentId ?? null,
       ...(ctx.debtCollection ? { debtCollection: true } : {}),
+      ...(ctx.afterClosure ? { afterClosure: ctx.afterClosure } : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
     if (raw.attachmentId) {
@@ -423,6 +449,19 @@ export class PaymentService {
       await anchorPaymentAttachment(this.attachments, tx, row, now);
     }
     return row;
+  }
+
+  /**
+   * 0.3.13 bổ sung 1 (V5-48 "nên làm cùng"): the closure of a booking (J1, B5, B10, B11, BR-312 relocation – through
+   * MoneyBridge.voided, same transaction, booking and folio locked) expires the folio's VietQR still `pending`
+   * (payment-expiry.ts `expirePendingQrOnClosure`). Returns the expired ids.
+   */
+  async expirePendingQrOnClosure(
+    tx: Tx,
+    input: { folioId: string; reservationId: string; reservationStatus: ClosedReservationStatus },
+  ): Promise<string[]> {
+    const out = await expirePendingQrOnClosure(tx, this.audit, input, this.clock.now());
+    return out.expiredPaymentIds;
   }
 
   /** One payment with the display joins (PaymentRowLite). */

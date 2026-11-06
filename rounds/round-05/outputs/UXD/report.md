@@ -181,3 +181,202 @@ ORC lưu từ báo cáo bàn giao của UXD.
 - Số khóa mục 0: 74/133/7 = **214**.
 - Phát hiện: nhãn ô, 3 lý do gợi ý (DOM 7.1) và tiêu đề hộp chưa có trong `design/copy`. Đề xuất FE-A viết theo chữ DOM rồi UXD duyệt.
 - ESC mới: không có. Chưa sửa mã.
+
+## 11. Cập nhật 07/11 – Phản hồi & sửa: bản in Tờ 2a bản 07/11
+- **Nguồn:** `product/docs/staff-one-pager.md` @ `5bbed1fb`. Đây là bản DOM đọc lần cuối (FB-R5-DOM-PO-08 Closed, `DOM-on-ba-v105-docs.md` mục 1). Bảng "Cách in" theo câu DOM vừa tách: Tờ 1 in bản 06/11, Tờ 2a chỉ in bản 07/11. Chữ giữ nguyên văn, UXD không sửa nguồn.
+- **Dựng bằng cùng bộ dựng:** `product/design/tools/build_print_sheets.py --pdf --only to-2a-giu-cho-qua-han-a4`. Ra hai tệp, ghi đè đúng chỗ bản 06/11:
+  - `product/docs/print/to-2a-giu-cho-qua-han-a4.html`
+  - `product/docs/print/pdf/to-2a-giu-cho-qua-han-a4.pdf`
+- **Khổ:** A4 dọc, một mặt, 2 cột, **11 pt** như bảng "Cách in". Viền Light Oak cách mép 6 mm. Tờ có 1 trang (MediaBox 209,9 × 297 mm).
+- **Chỗ chữ:**
+  - Bản 07/11 dài hơn (hai câu PO-08). Với khoảng cách cũ (dòng 1,3), tờ vừa khít 11 pt và còn 0 mm. In HTML bằng trình duyệt khác có thể làm mất dòng cuối cột mà không báo.
+  - UXD giữ 11 pt. Chỉ đổi khoảng cách, và chỉ ở Tờ 2a (lớp `.snug`):
+    - dòng 1,28;
+    - khe cột 6 mm;
+    - đầu tờ bớt 0,8 mm;
+    - mỗi gạch đầu dòng bớt 0,2 mm.
+  - Đo: còn **6,5 mm mỗi cột** (khoảng 1 dòng). Đã soi ảnh khoảng 420 dpi: dấu chồng (ỗ, ẩ, ắ) không chạm chân chữ dòng trên.
+  - Không cắt câu "Tới v1.0.5…". DOM chỉ cho cắt câu này khi tờ không vừa và v1.0.5 đã lên production.
+- **Chân tờ:**
+  - Ghi "Bản 30/10/2026, sửa 06/11/2026 (…), 07/11/2026 (Tờ 2a: hộp Thông báo trên app nhân viên)". Nhìn chân tờ là phân biệt được với bản 06/11, đúng lời dặn "Không in Tờ 2a bản 06/11".
+  - Tên tờ không còn ngắt giữa cụm: "OTTIMO Desk · Tờ 2a ·" / "Giữ chỗ quá hạn (tạm)".
+- **Kiểm:**
+  - Bộ dựng thoát mã 0: không tràn, 1 trang.
+  - Trích chữ trong PDF bằng PDFKit: đủ 3 133/3 133 ký tự của phần "## Tờ 2a", đúng thứ tự, đủ 17 mũi tên. Không mất dòng.
+  - Không có emoji trong nguồn, HTML và chữ PDF.
+  - Font nhúng: Lora Medium, Be Vietnam Pro Regular/SemiBold, JetBrains Mono (mã `OTM-…`).
+  - Ảnh khổ in (PDF dựng ảnh khoảng 210 dpi, bản màu và bản xám): chữ Ink rõ; viền, chân tờ (Stone Grey) và chấm đầu dòng vẫn thấy khi in đen trắng.
+  - Ảnh màn hình 1440 px và 390 px (giả lập máy, không cuộn ngang): đủ hai cột và chân tờ.
+- **Ảnh kiểm để ngoài repo** (không có dữ liệu khách; repo công khai, tệp lớn): thư mục scratchpad của phiên `…/scratchpad/uxd-2a-0711/final/` gồm `print-a4-color.png`, `print-a4-gray.png`, `desktop-1440.png`, `mobile-390.png`.
+- **Tờ 1:** không dựng lại. Dựng thử ra ngoài repo: thân Tờ 1 giống hệt bản 06/11 đã commit (`bb67605d`). Chỉ khác chân tờ, vì dòng bản in nay có thêm "07/11/2026 (Tờ 2a…)". Bản Tờ 1 06/11 vẫn đúng để in.
+- **Còn từ trước, không mới:** mũi tên "→" in bằng Arial, vì gói Be Vietnam Pro của Google Fonts không có ký tự U+2192. Bản 06/11 của Tờ 1 và Tờ 2a cũng vậy. Ở 11 pt nhìn không ra. Đề xuất v1.0.6: nhúng font đủ ký tự cho tờ nhân viên, như đang làm cho Tờ 4.
+- **Dòng decision-log đề xuất** (ORC ghi):
+  `| 2026-11-07 | 5 | **UXD – dựng lại bản in Tờ 2a bản 07/11** (staff-one-pager.md @ 5bbed1fb, DOM PO-08 Closed): A4 dọc, 2 cột, 11 pt, một trang (product/docs/print/pdf/to-2a-giu-cho-qua-han-a4.pdf). Giữ cỡ 11 pt; riêng Tờ 2a dòng 1,28 và bớt khoảng trắng phụ, còn 6,5 mm mỗi cột (trước đó 0 mm). Không cắt câu nào. Chân tờ ghi bản 07/11. Tờ 1 bản 06/11 không đổi thân, không dựng lại | UXD | Quyền UXD (dàn trang bản in); chữ nguyên văn PO + DOM |`
+- **Việc cho ORC:** báo chủ đầu tư PDF Tờ 2a bản 07/11 đã dựng lại, theo dòng "Cách in" của `staff-one-pager.md`. Gỡ bản cũ cùng lúc.
+- ESC mới: không có. Không sửa nguồn chữ, không dựng HTML sổ tay 1.18 / bộ hướng dẫn 1.16 (chờ DOM đọc câu BA mới).
+
+## 12. Cập nhật 07/11 – Review: 3 việc chữ thêm của ORC (copy v1.0.5 bản 2.1)
+
+Làm sau review PR #97, #116, #117, #118, #122 (`a33cbb8f`). Chữ chốt ở `rounds/round-05/outputs/UXD/copy-v1.0.5.md` bản 2.1, mục 9.8 (ghi chú), 9.11 và 9.12. Không có dữ liệu khách, không có số hoa hồng.
+
+### 12.1 `mlog.a_money_not_found` (PR #111, đã gộp `ce404dd6`)
+
+- Chữ chốt:
+  - VI: "Không thấy tiền về cho đơn đã hủy";
+  - EN: "Money not received for cancelled booking".
+- Câu tạm của ARC kể thao tác màn hình ("Đóng mục…"). EN tạm không khớp tiêu đề `today.money_after_cancel`, và đọc thành "tiền đã về… không thấy tiền". Câu mới ghép tên nút "Không thấy tiền" với tiêu đề dòng Cần chú ý.
+- **Đã áp trên `main`** cùng commit này:
+  - `gen_strings.py`, sinh lại (`strings-vi.json`, `strings-en.json`, `strings-tables.md`, `strings.js`), mỗi tệp đổi đúng 1 dòng;
+  - dòng `content-guide.md`.
+
+  Test `v104-money-labels-fea.test.tsx` so bằng `tv(key)`, không phải sửa.
+- EN nút `today.money_after_cancel_not_found` (9.1) đổi "Money not found" → "Money not received", cho khớp `co.recon_missing` (cùng chữ VI "Không thấy tiền"). Khóa chưa có trong mã nhánh nào.
+
+### 12.2 Câu 422 `CARD_NUMBER_DETECTED` ở ô mã giao dịch
+
+- Câu chuẩn giữ như 9.8: "Nhập 8 chữ số cuối của mã giao dịch." / "Enter the last 8 digits of the transaction reference."
+- Lý do "chữ số" (đã ghi ở 9.8):
+  - giá trị bị chặn chỉ gồm chữ số và `.` `/` `_` `-`;
+  - đếm ký tự thì hai người gõ khác dấu ra hai mã khác nhau, chặn trùng S4 không bắt được;
+  - 8 chữ số dưới 13 nên không bao giờ bị chặn lại.
+- Hợp đồng trên `main` còn ghi "8 ký tự cuối" ở 2 chỗ (cộng tệp sinh). Thẻ dưới.
+
+### 12.3 Nhãn lý do hoàn (V5-13) và câu `lockReason` (V5-44) – DOM FB-R5-DOM-UXD-112-01
+
+Nhãn lý do hoàn (một mã, một nhãn ở cột Lý do, Trả phòng, folio, khung đơn):
+
+| Nhóm | Nhãn VI / EN | Khóa |
+|---|---|---|
+| `early_departure` | Hoàn khi trả sớm / Early departure refund | có sẵn |
+| `overpayment` | Hoàn tiền khách trả thừa / Overpayment refund | có sẵn |
+| `overbooking_relocated` | Hoàn khi chuyển khách sang nơi khác / Refund for moving the guest elsewhere | mới |
+| `payment_after_cancel` | Tiền về sau khi hủy / Money received after cancellation | có sẵn (1.5) |
+| mọi `CancelReasonCode` khác, `no_show` | Hoàn khi hủy hoặc không đến / Cancellation or no-show refund | mới |
+| mã nhập tay, mã lạ | Hoàn tiền / Refund | mới |
+
+Thêm:
+- 2 khóa tổng chờ hoàn: `folio.open_refunds_total`, `drawer.folio.open_refunds` (U4).
+- Sửa `checkout.pending_refund_unavailable`; xóa `checkout.pending_refund_line` khi V5-13 lên.
+- `lockReason`:
+  - 5 câu mới: `error.FOLIO_LOCKED_closed`, `_settled`, `_settled_mgr`, `_window_over`, `_invoice_issued`;
+  - `debt_reduction_requires_write_off` dùng lại 2 câu công nợ, có sửa cho đúng BR-525;
+  - câu chung sửa VI "Phiếu thanh toán" → "Folio".
+- Phát hiện khi rà: câu chung `error.FOLIO_LOCKED` ("kể cả quản lý") đang hiện cho cả ca `settled`, nơi quản lý vẫn Điều chỉnh được. Nên 2 câu `settled` đi cùng V5-44 như bắt buộc.
+
+Số khóa bản 2.1: sửa 4, mới 11, xóa 1. Cộng **236** (bản 2.0: 220).
+
+### 12.4 Thẻ
+
+#### FB-R5-UXD-ARC-111-01
+- Mức độ: Minor
+- Vị trí:
+  - `product/docs/api/openapi.yaml`, mô tả `recordPayment` (B): "Câu báo chỉ cách nhập 8 ký tự cuối của mã (UXD)";
+  - tệp sinh `product/packages/api-client/src/generated/openapi.ts`;
+  - `rounds/round-05/outputs/ARC/contract-0.3.13.md`, bảng "Ai làm tiếp", dòng BE C0313-25: "UXD: câu báo "nhập 8 ký tự cuối"".
+- Vấn đề: câu Desk đã chốt "8 chữ số cuối" (bảng chữ 9.8, decision-log 07/11). Hợp đồng còn ghi "8 ký tự cuối".
+- Vì sao quan trọng: BE, QA và BA đọc hợp đồng để viết test, sổ tay và lời dặn tạm cho chủ đầu tư. Lệch chữ thì một bên dặn "ký tự", một bên "chữ số". Theo SEC (thẻ SEC-ARC-24), hai cách đều không bao giờ ra số thẻ, nên đây chỉ là lệch chữ, không phải lỗ.
+- Đề xuất sửa: đổi thành "8 chữ số cuối (UXD `pay.bank_reference_card_like`)" ở cả 3 chỗ, trong lượt tài liệu tới. Không cần PR riêng, không đổi luật máy chủ.
+- Trạng thái: Open (ARC)
+
+#### FB-R5-UXD-FE-111-02
+- Mức độ: Suggestion
+- Vị trí: `product/apps/admin-web/src/pages/money/MoneyPage.tsx`, `ACTION_KEY`, dòng `'attention_event.resolved': 'mlog.a_money_not_found'`.
+- Vấn đề: câu được chọn chỉ theo `action`, không xét `after.kind`.
+- Vì sao quan trọng: hôm nay đúng, vì SEC ARC-20 chỉ đưa `deposit_after_cancel` vào tập `money`. Nếu sau này loại mục Cần chú ý khác cũng vào tập này, Nhật ký tiền sẽ ghi "Không thấy tiền về cho đơn đã hủy" cho một việc khác.
+- Đề xuất sửa: `after.kind === 'deposit_after_cancel'` thì dùng `mlog.a_money_not_found`; khác thì dùng `mlog.a_other` kèm mã chữ nhỏ. Thêm một ca vào `v104-money-labels-fea.test.tsx`. Làm khi FE chạm `MoneyPage.tsx` lần tới, hoặc v1.0.6.
+- Trạng thái: Open (FE-A)
+
+#### FB-R5-UXD-FE-112-01
+- Mức độ: Major (cho V5-13, V5-44 khi FE code)
+- Vị trí:
+  - `app/auditReason.ts` (`REFUND_REASON`);
+  - `pages/stay/CheckOutPage.tsx` (`pendingRefundRow`);
+  - `pages/stay/FolioDialog.tsx` (`debtRule`, `windowOver`, khung đã khóa);
+  - thẻ Folio của khung đơn;
+  - `app/problem.ts`.
+- Vấn đề:
+  - `openRefunds` trả theo từng mã thô, kể cả mã lý do hủy. Desk chưa có nhãn cho 3 nhóm.
+  - 409 `FOLIO_LOCKED` hiện một câu chung cho mọi `lockReason`, và câu đó sai ở ca `settled`.
+- Vì sao quan trọng:
+  - Thiếu nhãn thì dòng chờ hoàn không nói vì sao, hoặc rơi về mã. Không cộng theo nhóm thì một lý do hủy ra nhiều dòng.
+  - Ở ca `settled`, lễ tân đọc "kể cả quản lý" rồi không nhờ quản lý sửa, dù quản lý làm được.
+- Đề xuất sửa: theo bảng chữ 9.12:
+  - hàm nhãn 3 bước, xét `overbooking_relocated` trước nhóm hủy, lấy `CancelReasonCode` từ `@ottimo/contracts`;
+  - cộng theo nhóm, xếp cố định;
+  - chọn câu theo `lockReason`, `settled` theo vai.
+
+  Mục 6 có danh sách tệp. Mục 8 có ca kiểm.
+- Trạng thái: Open (FE nhận V5-13, FE-A cho V5-44)
+
+#### FB-R5-UXD-ARC-112-02
+- Mức độ: Suggestion (0.3.14)
+- Vị trí: `openapi.yaml`, `OpenRefund.reasonCode`; `CancelReasonCode` (enum có `other`).
+- Vấn đề: hợp đồng ghi "mã nhập tay của A32 giữ nguyên" nhưng không nói mã đó có thể trùng giá trị `CancelReasonCode` hay không. `other` là mã hủy hợp lệ.
+- Vì sao quan trọng: Desk gắn nhãn hủy cho mọi giá trị `CancelReasonCode`. Một yêu cầu hoàn nhập tay mang mã `other` sẽ hiện "Hoàn khi hủy hoặc không đến".
+- Đề xuất sửa: 0.3.14 thêm vào mô tả `OpenRefund.reasonCode`:
+  - nhóm mã lý do hủy (DOM 112-01);
+  - câu "Desk gom theo nhãn, không hiện mã";
+  - mã nhập tay không dùng lại giá trị của `CancelReasonCode` (hoặc nói cách máy chủ phân biệt).
+- Trạng thái: Open (ARC)
+
+#### FB-R5-UXD-DOM-112-03
+- Mức độ: Suggestion
+- Vị trí: bảng chữ 9.12, `folio.adjust_debt_locked`, `folio.debt_fd`.
+- Vấn đề: câu cũ "chỉ ghi được điều chỉnh tăng, không giảm hay bỏ dòng" là luật N-7 của R2. Từ BR-525 (chu kỳ nợ), máy chủ cho giảm trong phạm vi các phát sinh còn trong hạn sửa, chỉ từ chối phần vượt (`folio-lines.service.ts`, lỗi `debt_reduction_requires_write_off`). UXD viết lại thành "chỉ giảm được phát sinh còn trong hạn sửa, không giảm vào phần nợ".
+- Vì sao quan trọng: quản lý đọc câu cũ sẽ nghĩ không sửa giảm được dòng nào, kể cả dòng ghi nhầm vừa xong.
+- Đề xuất sửa: DOM xác nhận cụm "phát sinh còn trong hạn sửa" đúng nghĩa BR-525 (d), hoặc đưa cụm khác. Không chặn V5-44, vì câu cũ vẫn chỉ đúng nút Xóa công nợ.
+- Trạng thái: Open (DOM)
+
+### 12.5 Giả định
+
+- `today.money_after_cancel_not_found` chưa có trong mã nhánh nào: đã tìm trên mọi nhánh `origin` lúc 07/11. Chỉ thấy tên khóa trong ghi chú của `content-guide.md`.
+- Nhãn lý do hoàn hiện cả ở cột Lý do. Trước đây mã lạ ở cột này chỉ hiện ghi chú. Từ nay hiện "Hoàn tiền" rồi tới ghi chú. Không đổi chỗ nào khác.
+- Dòng tổng chờ hoàn trên khung đơn (U4) đọc từ `Folio.totals.openRefunds`. Nếu khung đơn không tải folio, FE báo lại để UXD đổi chỗ đặt.
+- Không sửa hợp đồng của ARC, không sửa `decision-log.md`.
+
+### 12.6 Dòng decision-log đề xuất (ORC ghi)
+
+`| 2026-11-07 | 5 | **UXD – 3 việc chữ thêm (copy-v1.0.5 bản 2.1)** (rounds/round-05/outputs/UXD/report.md mục 12). (1) mlog.a_money_not_found chốt "Không thấy tiền về cho đơn đã hủy" / "Money not received for cancelled booking", đã áp trên main (gen_strings, sinh lại, content-guide); EN nút today.money_after_cancel_not_found đổi "Money not received" theo co.recon_missing; chọn câu theo after.kind là Suggestion (FB-R5-UXD-FE-111-02). (2) Câu 422 CARD_NUMBER_DETECTED ở ô mã giao dịch giữ "8 chữ số cuối"; ARC sửa "8 ký tự cuối" ở openapi.yaml recordPayment (B) và contract-0.3.13.md dòng C0313-25 (FB-R5-UXD-ARC-111-01, Minor). (3) DOM 112-01: 6 nhóm nhãn lý do hoàn (3 có sẵn, 3 mới: "Hoàn khi chuyển khách sang nơi khác", "Hoàn khi hủy hoặc không đến", "Hoàn tiền"), FE xét overbooking_relocated trước nhóm hủy và cộng openRefunds theo nhãn; 5 câu lockReason, settled theo vai bắt buộc cùng V5-44 vì câu chung "kể cả quản lý" sai ở ca này (FB-R5-UXD-FE-112-01, Major khi code); ARC 0.3.14 ghi mã nhập tay không trùng CancelReasonCode (ARC-112-02); DOM xác nhận câu công nợ theo BR-525 (DOM-112-03). Không ESC | UXD | report.md mục 12 |`
+
+- ESC mới: không có.
+
+## 13. Cập nhật 07/11 – Phản hồi & sửa: HTML sổ tay 1.19, bộ hướng dẫn 1.17, sổ vận hành 1.7
+
+- **Nguồn:** main @ `83e3e29b` (có BA lượt 4 `da596507`). Sổ tay bản nội dung 1.19. Bộ hướng dẫn 1.17: `00` bản 1.17, `01` bản 1.16, `02` bản 1.16, `03` bản 1.8; `04`, `05` dựng lại cùng lượt, nguồn không đổi. Sổ vận hành bản 1.7. UXD không sửa Markdown.
+- **Lệnh:** `python3 -I product/design/tools/rebuild_manual_html.py --out-dir <scratchpad> --tag manual-1.19`. Kết quả **ĐẠT**.
+- **Tệp đã dựng** (không commit, theo `.gitignore` và FB-R4-SEC-UXD-HTML-01):
+  - `product/docs/manual/ottimo-manual-v1.0.html` (8,0 MB);
+  - `product/docs/manual/guides/html/` – `00-index`, `01-chu-dau-tu-quan-ly`, `02-le-tan`, `03-buong-phong`, `04-bao-tri`, `05-sale-ctv`, `your-id-details-tablet`;
+  - `product/docs/so-van-hanh.html` (0,4 MB, **mới**). `.gitignore` thêm dòng này, trong cùng khối HTML dựng tự động.
+- **Khối [Chờ xác nhận]:**
+  - `build_manual.py` nay **bỏ** mọi khối trích mở bằng `**[Chờ xác nhận …]**`. Bộ hướng dẫn và sổ vận hành dùng chung lõi này.
+  - Lượt này bỏ 2 khối "Wi-Fi của cơ sở trên Desk": sổ tay mục 1.4 và tệp `01` mục 9.2. Khung "Lỗi đang sửa – Wi-Fi" vẫn hiện, đúng với Desk hôm nay.
+  - Bộ kiểm báo lỗi nếu khung nào chứa "[Chờ xác nhận". Tên khối vẫn còn trong bảng Lịch sử: sổ tay dòng 1.18, 1.19; `00` dòng 1.17; lịch sử tệp `01`, `02`. Đó là ghi lịch sử, không phải bước làm, nên giữ.
+  - Khi ORC báo bản, BA bỏ ngoặc vuông thì khối tự lên. Không phải sửa bộ dựng.
+- **Sổ vận hành – bộ dựng mới `product/design/tools/build_so_van_hanh.py`:** dùng lõi `build_manual.py` (cùng CSS, font nhúng, in A4). Phần riêng:
+  - nhãn "Mục 1–7"; bìa ghi Bản 1.7 · 07/11/2026 · Dành cho Chủ đầu tư;
+  - 104 dòng `[ ]` thành ô vuông. In đen trắng vẫn rõ (đã xem ảnh xám trang 1);
+  - "In riêng mục này" in đúng mục đó, không kèm bìa. Mục 1 ra 5 trang A4, chân trang "Sổ vận hành OTTIMO · bản 1.7 · trang n". Cả sổ ra 22 trang;
+  - chỉ nối "mục x.y" của chính sổ: 61 link, không link hỏng. "sổ tay mục …" và "hướng dẫn `01` mục …" để chữ (22 chỗ), như bộ hướng dẫn đang làm.
+- **Kiểm:**
+  - 390 px và 1440 px: không tràn ngang ở sổ tay, `00`–`05` và sổ vận hành. Tờ tablet đo riêng: VỪA ở cả 3 khổ.
+  - Mất mạng: đủ 5 mặt font nhúng (Lora 500, Lora 400 nghiêng, Be Vietnam Pro 400/600, JetBrains Mono). Không trỏ Google Fonts.
+  - Ảnh nhúng chỉ từ `product/docs/manual/img/`, khớp từng byte. Đủ 6 mã ảnh bắt buộc.
+  - Màu: 7 màu brand, cộng các token tint đã có trong `design-system.md` (`--line`, `--line-strong`, `--deco`) và trắng giấy in.
+  - Không emoji. `00` có "★4, ★7" ở dòng lịch sử 1.2: ký hiệu chữ trích từ mục SEC, không phải emoji, giữ nguyên văn.
+- **Chưa hiện được ảnh** (hiện ô "Chưa có ảnh" / "Ảnh mới · chờ chụp", không phải lỗi dựng):
+  - sổ tay: C1-15, C1-23, C2-34;
+  - `01`: C1-15, C1-23;
+  - `02`: G2-03, G2-05, G2-06, C2-34;
+  - `03`: G3-02.
+  Ảnh mới phải qua QA soát che trước khi commit vào `img/`.
+- **Ảnh kiểm để ngoài repo**, thư mục scratchpad `…/scratchpad/r5-manual-1.19/`:
+  - `manual-1.19-check-1440.png`, `manual-1.19-check-390.png`;
+  - `manual-1.19-sovh-check-1440.png`, `manual-1.19-sovh-check-390.png`;
+  - `manual-wifi-1440.png`, `manual-wifi-390.png`, `g01-wifi-1440.png`, `g01-wifi-390.png` (chỗ khối Wi-Fi đã bỏ);
+  - `sovh-cover-1440.png`, `sovh-cover-390.png`, `sovh-print-muc-1.pdf`, `sovh-print-all.pdf`.
+  Ảnh không có dữ liệu khách (ảnh sổ tay lấy từ `img/` đã commit, tài khoản QA). Theo luật, chỉ commit sau khi QA soát che, nên lượt này không commit ảnh.
+- **4 ảnh kiểm cũ chưa track** (`rounds/round-03/outputs/UXD/manual-check-*.png`, `rounds/round-04/outputs/UXD/manual-1.8-check-*.png`): là ảnh UXD từ các lần dựng trước. UXD để nguyên, không xóa, không commit. Dựng lại được bất cứ lúc nào; ORC quyết có xóa hay không.
+- **Dòng decision-log đề xuất** (ORC ghi):
+  `| 2026-11-07 | 5 | **UXD – dựng HTML sổ tay 1.19, bộ hướng dẫn 1.17, sổ vận hành 1.7** từ main 83e3e29b (BA da596507), không commit HTML (.gitignore thêm product/docs/so-van-hanh.html). Bộ dựng bỏ mọi khối trích mở bằng **[Chờ xác nhận …]**: lượt này bỏ khối Wi-Fi trên Desk ở sổ tay 1.4 và 01 mục 9.2, BA bỏ ngoặc vuông thì khối tự lên. Sổ vận hành có bộ dựng mới build_so_van_hanh.py (lõi build_manual: nhãn Mục 1–7, 104 ô đánh dấu, in riêng từng mục). Kiểm 390/1440 không tràn, font nhúng khi mất mạng, ảnh chỉ từ img/; 7 mã ảnh chưa chụp vẫn là ô chờ | UXD | report.md mục 13 |`
+- ESC mới: không có.
