@@ -5,9 +5,10 @@
 //   when roles are added (owner/manager).
 // - `departuresDate` (contract 0.3.13 1.19, BUG-R4-036): between midnight and the rollover the departures list is
 //   the calendar day's; the title names that day. Arrivals and the KPI stay on the business day.
+import { isApiError } from '@ottimo/api-client';
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { api } from '../app/api';
+import { api, setCsrfToken } from '../app/api';
 import { shiftDay, weekdayDate } from '../app/dates';
 import { mockControl } from '../mocks/handlers';
 import { renderApp, signIn, tv } from '../test/render';
@@ -62,6 +63,28 @@ describe('V5-40 – lễ tân trưởng bắt buộc bật xác thực 2 bước
     renderApp('/today', 'qa.fdl');
     await screen.findByRole('region', { name: tv('today.arrivals', { n: 2 }) });
     expect(screen.queryByText(tv('secmail.nudge'))).toBeNull();
+  });
+
+  it('FB-R5-ARC-FE-118-01 – unchanged by V5-40: giving the FDL role needs no S2 step-up; giving manager does (SR-AUTH-06 keeps two lists)', async () => {
+    mockControl.signInAs('qa.owner');
+    setCsrfToken(mockControl.db.csrf);
+    const target = userOf('qa.fd');
+    const prop = target.roles[0]!.propertyId;
+    const fdl = await api.setUserRoles(
+      target.id,
+      [{ propertyId: prop, role: 'front_desk_lead' }],
+      target.version,
+    );
+    expect(fdl.data.roles.map((r) => r.role)).toEqual(['front_desk_lead']);
+    const refused = await api
+      .setUserRoles(target.id, [{ propertyId: prop, role: 'manager' }], userOf('qa.fd').version)
+      .then(
+        () => null,
+        (e: unknown) => e,
+      );
+    expect(isApiError(refused) && refused.fieldErrors.map((f) => f.code)).toEqual([
+      'STRONG_REAUTH_REQUIRED',
+    ]);
   });
 });
 

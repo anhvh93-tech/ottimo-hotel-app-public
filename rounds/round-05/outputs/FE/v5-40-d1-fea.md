@@ -43,3 +43,14 @@
 - Giả định:
   - `weekdayDate` của phụ đề trang đủ làm cách ghi ngày cho tiêu đề (chờ UXD xác nhận);
   - KPI "Khách đi hôm nay" giữ ngày nghiệp vụ tới 0.3.14 (ARC A3).
+
+## 6. Sửa theo review (07/11, sau merge main)
+Review: UXD `rounds/round-05/reviews/UXD-on-prs-97-116-117-118-122.md` (#118 @ `e96070a1`), ARC `rounds/round-05/reviews/ARC-on-fe-mob-prs-97-116-118-122.md`. Chữ theo `copy-v1.0.5.md` bản 2.0 mục 9.10.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-UXD-FE-PR118-01 (Major) | Done | Áp nguyên văn 3 câu mục 9.10, không kể tên vai: `mfa.enroll_required`, `mfa.required_note`, `mfa.nudge`. EN có U+2011 trong "2‑step". Ghi chú khóa thêm "v1.0.5 V5-40: không kể tên vai (UXD-on-prs-97-116-117-118-122; copy-v1.0.5 9.10)". Sinh lại 4 tệp. Mọi test so chữ qua `tv()` (`v5-40-d1-fea`, `r3-s1-fea`, `v103-email-fea`); 126/126 |
+| FB-R5-ARC-FE-118-01 (Suggestion) | Done | Ca mới trong `v5-40-d1-fea.test.tsx`: chủ đầu tư gán vai lễ tân trưởng cho `qa.fd` thì không cần S2; gán vai quản lý thì 422 `STRONG_REAUTH_REQUIRED`. Đổi điều kiện S2 sang `MFA_ROLES` thì ca này đỏ |
+| Tiêu đề "Khách đi (n) · <thứ ngày>" | – | UXD duyệt, không cần khóa mới (mục 2.2) |
+
+Kiểm: `tsc`; `eslint`; `prettier`; vitest các tệp liên quan 126/126, toàn bộ admin-web 1005/1005.
