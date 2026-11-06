@@ -3,14 +3,17 @@
  * - V5-1A, BR-101 (4) v0.5.13 (addendum 1d): `nightlyPriceUnusual` = nightly × 30 < monthly OR nightly × 5 > monthly,
  *   integer comparison, exactly on a bound → no warning; the DOM examples for the monthly price 8.500.000.
  * - V5-44 (b), contract 1.11 + 1.24 (BE 19), T44-4: `cancelScheduledListPrice` maps ONLY the refusal of trigger
- *   0094 (SQLSTATE 23514 + its message) to 409 `effective` after ROLLBACK TO SAVEPOINT, with no audit; any other
- *   check_violation (or the same text under another SQLSTATE) is rethrown as is → 500.
+ *   0094 (SQLSTATE 23514 + its message) to 409 `effective` after ROLLBACK TO SAVEPOINT, with no audit and one `warn`
+ *   line holding the request id only (SEC FB-R5-SEC-BE-C1-01); any other check_violation (or the same text under
+ *   another SQLSTATE) is rethrown as is → 500.
  * FAKE data only.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { Logger } from '@nestjs/common';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Tx } from '../src/db/database';
 import type { AuditService } from '../src/modules/audit/public/audit.service';
 import {
+  APPEND_ONLY_REFUSED_LOG,
   RoomsService,
   isAppliedPriceRefusal,
 } from '../src/modules/platform/internal/rooms.service';
@@ -123,7 +126,10 @@ describe('V5-44 (b) cancelScheduledListPrice – trigger 0094 → 409 effective 
     return { run, statements, audit };
   }
 
+  afterEach(() => vi.restoreAllMocks());
+
   it('the 0094 refusal (23514 + its message) → 409 INVALID_TRANSITION effective, rollback to savepoint, no audit', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const { run, statements, audit } = setup(pgError('23514', REFUSAL));
     const err = await run().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ProblemError);
@@ -134,9 +140,17 @@ describe('V5-44 (b) cancelScheduledListPrice – trigger 0094 → 409 effective 
     expect(statements).toContain('ROLLBACK TO SAVEPOINT cancel_list_price');
     expect(statements.some((s) => s.startsWith('UPDATE room'))).toBe(false);
     expect(audit.record).not.toHaveBeenCalled();
+    // SEC FB-R5-SEC-BE-C1-01: ONE warn line, the request id only – no room id, row id, price or date (SR-LOG-04).
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = String(warn.mock.calls[0]?.[0]);
+    expect(line).toBe(`${APPEND_ONLY_REFUSED_LOG} requestId=req-1`);
+    for (const secret of [ROOM, 'row-2', '2026-12-01', '9000000', '800000', 'Nhập nhầm']) {
+      expect(line).not.toContain(secret);
+    }
   });
 
   it('another check_violation stays the original error (→ 500), no rollback to savepoint, no audit', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const other = pgError(
       '23514',
       'new row for relation "room_list_price" violates check constraint',
@@ -145,6 +159,7 @@ describe('V5-44 (b) cancelScheduledListPrice – trigger 0094 → 409 effective 
     await expect(run()).rejects.toBe(other);
     expect(statements).not.toContain('ROLLBACK TO SAVEPOINT cancel_list_price');
     expect(audit.record).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('the same text under another SQLSTATE is not the trigger refusal either', async () => {

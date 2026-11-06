@@ -18,7 +18,7 @@
  *   `cancelScheduledListPrice` removes one of them (room version + 1, audit `room.list_price_cancelled`).
  */
 import { randomBytes } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { type Tx, pgCode } from '../../../db/database';
 import { type FieldError, problem } from '../../../shared/problem';
@@ -210,6 +210,13 @@ function listPriceWarnings(monthlyVnd: number, nightlyVnd: number): RoomWarning[
  * 0094) – SQLSTATE 23514 AND its own message. Any other check_violation is not this case (stays a 500).
  */
 const APPEND_ONLY_REFUSAL = 'room_list_price: applied price row is append-only';
+/**
+ * SEC FB-R5-SEC-BE-C1-01: the 0094 refusal is the LAST defence of the list price history – before V5-44 it showed as a
+ * 500 with an error line; the 409 must not make it silent. One `warn` line with the request id only: no room id,
+ * price or date (SR-LOG-04).
+ */
+export const APPEND_ONLY_REFUSED_LOG = 'list_price_append_only_refused';
+const log = new Logger('RoomsService');
 export function isAppliedPriceRefusal(err: unknown): boolean {
   if (pgCode(err) !== '23514') return false;
   const message =
@@ -360,7 +367,8 @@ export class RoomsService {
     }
     // V5-44 (b): the trigger of 0094 reads the DB's real clock. The check above uses the app clock, so the trigger
     // can still refuse – the calendar date turned between the check and the DELETE, or a staging clock
-    // (CLOCK_MODE=mutable) set back (P411-02). That refusal is the same 409 `effective`, nothing written, no audit.
+    // (CLOCK_MODE=mutable) set back (P411-02). That refusal is the same 409 `effective`, nothing written, no audit,
+    // and one `warn` line (SEC FB-R5-SEC-BE-C1-01) so a trigger that had to step in is still seen.
     try {
       await tx.query('SAVEPOINT cancel_list_price');
       await tx.query('DELETE FROM room_list_price WHERE id = $1', [row.id]);
@@ -368,6 +376,7 @@ export class RoomsService {
     } catch (err) {
       if (isAppliedPriceRefusal(err)) {
         await tx.query('ROLLBACK TO SAVEPOINT cancel_list_price');
+        log.warn(`${APPEND_ONLY_REFUSED_LOG} requestId=${requestId}`);
         throw problem('INVALID_TRANSITION', { extras: { currentState: 'effective' } });
       }
       throw err;
