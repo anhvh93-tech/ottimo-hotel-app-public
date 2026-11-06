@@ -72,10 +72,11 @@ Không có ESC mới ở bước Tổng kết.
 
 ## 5. Chuyển sang vận hành – các số cho kế hoạch Round 5
 
-- Đã xếp **534 mục** còn mở hoặc chưa rõ trạng thái:
-  - (a) v1.0.5: 125 mục, gom thành 59 việc;
-  - (b) backlog cải tiến: 193 mục, gồm 89 story;
-  - (c) đóng: 216 mục.
+- Đã xếp **553 mục** còn mở hoặc chưa rõ trạng thái (số plan R5 mục 7, QC đã kiểm; sửa 06/11 tối theo QC đóng R4 mục 5 ý 5):
+  - (a) v1.0.5: 126 mục, gom thành 59 việc;
+  - (b) backlog cải tiến: 203 mục, gồm 89 story;
+  - (c) đóng: 224 mục.
+  - Điều chỉnh sau cổng QC (plan R5 phụ lục I): BUG-R3-047 (a) → (c), thêm 2 cảnh báo Dependabot vào (b).
 - v1.0.5: đội đề xuất lên production 20–21/11 nếu INV đồng ý ở review 20/11. Hạn cứng: H2 hoa hồng trước 01/12/2026.
 
 ## 6. Cách đếm và giới hạn

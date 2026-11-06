@@ -1,8 +1,8 @@
 # OTTIMO Desk – Hướng dẫn 1 trang cho nhân viên
 
-Dành cho lễ tân và buồng phòng · Bản 30/10/2026 · v1.0.0 · Hướng dẫn đầy đủ: Sổ tay OTTIMO Desk v1.0 · In 4 tờ, mỗi tờ một mặt (cách in và chỗ dán: cuối tệp).
+Dành cho lễ tân và buồng phòng · Bản 30/10/2026, sửa 06/11/2026 (check-in online mở lại; giữ chỗ quá hạn theo v1.0.4) · Hướng dẫn đầy đủ: Sổ tay OTTIMO Desk v1.0 · In 4 tờ, mỗi tờ một mặt (cách in và chỗ dán: cuối tệp).
 
-<!-- Lịch sử sửa (bản in bỏ qua): Lập PO + DOM. 26/10: nhận phòng từ 12:00. 27/10: kiểm phòng do lễ tân trưởng, minibar buồng phòng báo số – lễ tân nhập, in phiếu; tối 27/10 (BA theo SEC): QR "vừa đổi tài khoản nhận", mã cửa không qua tin nhắn, báo lỗi không kèm dữ liệu khách. 30/10 (PO, theo `v1.0.0`): In phiếu dùng được; rà giữ chỗ quá hạn; check-in online tạm dừng tới v1.0.1; tờ thông báo giấy tờ. 30/10 tối (PO, Phản hồi & sửa – rounds/round-03/responses/PO-to-v1.0.0-docs-reviews.md): sắp thành 4 tờ theo UXD (FB-R3-UXD-PO-DT1-04, quyết định dàn trang UXD mục 2) – chỉ chuyển chỗ; giữ chỗ quá hạn theo quyết định DOM (DOM-on-PO-v1.0.0-docs.md mục A: rà 3 mốc, sau hạn Desk v1.0.0 chỉ còn Hủy, có cọc thì để nguyên – làm lại khi khách đến; chưa cọc thì hủy ngay – tạo lại 1 lần); chỗ tìm giữ chỗ theo BA M13-02; chỉ tờ thông báo TRƯỚC khi nhận giấy tờ (SEC D01 = UXD DT1-01); câu đồng ý và tờ "Your ID details" theo chữ UXD mục 1.1–1.2 (dựa trên SEC mục B); OTTIMO hiện 1 người trực giữ 6 vai (decision-log 29/10). 30/10 khuya (PO, Phản hồi & sửa theo QA thử luồng trên staging – rounds/round-03/qa/qa3-rc1.md mục 20.7; PO-to-v1.0.0-docs-reviews.md mục 10): Tờ 2a – không dùng lý do "Khác (ghi rõ)" (BUG-R3-046), người trực nhập nơi nhận hoàn – chủ đầu tư duyệt và chi (SELF_APPROVAL_FORBIDDEN / SELF_REFUND_FORBIDDEN), đơn mới thu đủ cọc ngay khi đặt (DEPOSIT_INSUFFICIENT); cắt chữ trong cùng tờ để vừa A5 10 pt (bỏ chú thích Hôm nay/Sơ đồ phòng – đã có ở sổ tay 2.4). Tờ 1 – tách "Hoàn tiền" khỏi dòng hạn mức (hoàn không có hạn mức tự duyệt); bù chỗ bằng cách rút câu khách tới 12:00–14:00. Tờ 4 không đổi. -->
+<!-- Lịch sử sửa (bản in bỏ qua): Lập PO + DOM. 26/10: nhận phòng từ 12:00. 27/10: kiểm phòng do lễ tân trưởng, minibar buồng phòng báo số – lễ tân nhập, in phiếu; tối 27/10 (BA theo SEC): QR "vừa đổi tài khoản nhận", mã cửa không qua tin nhắn, báo lỗi không kèm dữ liệu khách. 30/10 (PO, theo `v1.0.0`): In phiếu dùng được; rà giữ chỗ quá hạn; check-in online tạm dừng tới v1.0.1; tờ thông báo giấy tờ. 30/10 tối (PO, Phản hồi & sửa – rounds/round-03/responses/PO-to-v1.0.0-docs-reviews.md): sắp thành 4 tờ theo UXD (FB-R3-UXD-PO-DT1-04, quyết định dàn trang UXD mục 2) – chỉ chuyển chỗ; giữ chỗ quá hạn theo quyết định DOM (DOM-on-PO-v1.0.0-docs.md mục A: rà 3 mốc, sau hạn Desk v1.0.0 chỉ còn Hủy, có cọc thì để nguyên – làm lại khi khách đến; chưa cọc thì hủy ngay – tạo lại 1 lần); chỗ tìm giữ chỗ theo BA M13-02; chỉ tờ thông báo TRƯỚC khi nhận giấy tờ (SEC D01 = UXD DT1-01); câu đồng ý và tờ "Your ID details" theo chữ UXD mục 1.1–1.2 (dựa trên SEC mục B); OTTIMO hiện 1 người trực giữ 6 vai (decision-log 29/10). 30/10 khuya (PO, Phản hồi & sửa theo QA thử luồng trên staging – rounds/round-03/qa/qa3-rc1.md mục 20.7; PO-to-v1.0.0-docs-reviews.md mục 10): Tờ 2a – không dùng lý do "Khác (ghi rõ)" (BUG-R3-046), người trực nhập nơi nhận hoàn – chủ đầu tư duyệt và chi (SELF_APPROVAL_FORBIDDEN / SELF_REFUND_FORBIDDEN), đơn mới thu đủ cọc ngay khi đặt (DEPOSIT_INSUFFICIENT); cắt chữ trong cùng tờ để vừa A5 10 pt (bỏ chú thích Hôm nay/Sơ đồ phòng – đã có ở sổ tay 2.4). Tờ 1 – tách "Hoàn tiền" khỏi dòng hạn mức (hoàn không có hạn mức tự duyệt); bù chỗ bằng cách rút câu khách tới 12:00–14:00. Tờ 4 không đổi. 06/11/2026 (PO, Round 5 Gói 0, theo BA `rounds/round-05/outputs/BA/report.md` mục 4 và QC R4 ĐK-5): check-in online mở lại từ 06/11 cùng v1.0.4 (runbook v1.0.4 N1–N5, SEC N4 ĐẠT) – khối "tạm dừng từ 02/11" bỏ khỏi Tờ 2a, Tờ 1 thêm khối "Check-in online" theo sổ tay 2.9 và `guides/02` 17.3 (chỉ đơn đã xác nhận, gửi riêng 1–1, không kèm mã cửa, gửi nhầm thì thu hồi và tạo link mới, chủ đầu tư báo dừng thì ngừng – N6); Tờ 2a bỏ các câu v1.0.4 đã làm sai (Desk chưa báo ở Cần chú ý, "Khác" khóa nút hủy, sau hạn chỉ còn Hủy với giữ chỗ có cọc, hủy đơn cũ rồi đặt mới) theo release notes v1.0.4 bảng "Giữ chỗ và cọc" (BUG-R3-042…047, BR-303). Chờ DOM, SEC đọc lại; chủ đầu tư in lại Tờ 1 và Tờ 2a. Tờ 2a viết lại hẳn cùng sổ tay 2.4 ở V5-71. -->
 <!-- PO 27/10 (L2 trong rounds/round-03/outputs/BA/manual-report.md), QA xác nhận Q6, Q7 (rounds/round-03/qa/manual-check.md): phần buồng phòng đúng với v1.0.0 (8b3aec8) – hk_self_inspection_enabled = false, nút kiểm phòng chỉ cho vai lễ tân trưởng trở lên; app nhân viên không có màn đếm minibar. Căn cứ BR-401 v0.4.6, BR-415, BR-802. -->
 
 ---
@@ -34,7 +34,7 @@ Desk (máy quầy): `desk.ottimo.vn` · App buồng phòng (điện thoại): `s
 | +12 giờ | Hạn khai báo khách nước ngoài, tính từ giờ nhận phòng |
 
 ### Lễ tân
-**Mở quầy:** mở **Hôm nay** → xem khách đến, khách đi, **Cần chú ý**. Xử lý từ dòng đỏ trở xuống. Tới v1.0.1: rà giữ chỗ theo **Tờ 2a**.
+**Mở quầy:** mở **Hôm nay** → xem khách đến, khách đi, **Cần chú ý**. Xử lý từ dòng đỏ trở xuống. Rà giữ chỗ theo **Tờ 2a**.
 
 **Đặt phòng:** từ **Sơ đồ phòng** hoặc **Đơn đặt phòng**. Đơn Trực tiếp, CTV bắt buộc có số điện thoại và nguồn. Đơn OTA mới: nhập Desk **ngay**, rồi đóng phòng trên extranet các kênh khác.
 
@@ -43,6 +43,11 @@ Desk (máy quầy): `desk.ottimo.vn` · App buồng phòng (điện thoại): `s
 **Mã VietQR hiện dòng "Tài khoản nhận vừa đổi":** **chưa cho khách chuyển**. Gọi điện cho chủ đầu tư (số đã lưu ở điện thoại cơ sở) xác nhận trước; chủ đầu tư đồng ý mới tiếp. Không gọi được thì mời khách trả tiền mặt hoặc thẻ.
 
 **Giờ nhận phòng nói với khách:** "Nhận phòng từ 12:00. Phòng luôn sẵn sàng lúc 14:00." (EN: "Check-in is from 12:00. Your room is always ready by 14:00."). **Không** hứa "phòng sẵn sàng từ 12:00". Khách tới 12:00–14:00 mà căn chưa xong: giữ hành lý, hẹn giờ; không phụ thu, không giảm giá. Quá 14:00 vẫn chưa xong: đổi căn sẵn sàng hoặc nâng hạng (quyền lễ tân trưởng, quản lý), ghi lý do.
+
+**Check-in online – mở lại từ 06/11/2026.** Khách không làm online thì làm giấy tờ tại quầy như cũ.
+- **Chỉ đơn đã xác nhận.** Đơn giữ chỗ: xác nhận cọc trước. Mở đơn → **Tạo link check-in online** → **Sao chép link**. Link chỉ hiện một lần. Không chụp màn hình hộp link.
+- **Gửi riêng 1–1** cho khách của đơn, từ điện thoại cơ sở hoặc email của OTTIMO. Không gửi vào nhóm chat. **Không kèm mã cửa** hay số căn. Sale, CTV không gửi link.
+- **Gửi nhầm người:** **Thu hồi link** ngay, rồi tạo link mới cho đúng khách. Chủ đầu tư báo "dừng check-in online": ngừng tạo, ngừng gửi link tới khi được báo mở lại.
 
 **Nhận phòng:** buồng đã sạch; đã thu đủ phần còn lại (đơn trực tiếp); có giấy tờ người đứng tên **trước khi** giao mã cửa. **Trước khi nhận giấy tờ**, chỉ khách tờ **Your ID details** trên quầy: "Before I take your ID, please read this note on how we use it." / "Trước khi nhận giấy tờ, mời anh/chị đọc tờ này về cách chúng tôi dùng thông tin." Rồi nhập giấy tờ ở bước Giấy tờ, khai báo lưu trú và đánh dấu "đã khai" ở **Giấy tờ & khai báo** trước hạn.
 
@@ -67,26 +72,23 @@ Desk (máy quầy): `desk.ottimo.vn` · App buồng phòng (điện thoại): `s
 
 ---
 
-## Tờ 2a – Tạm tới bản v1.0.1
+## Tờ 2a – Giữ chỗ quá hạn (tạm)
 
-<!-- A5 một mặt, 10 pt, viền Light Oak. Dán cạnh Tờ 1, phía nhân viên. Gỡ khi chủ đầu tư báo hết tạm cả hai khối. Điều kiện bỏ khối giữ chỗ: v1.0.1 có đủ V1, V2, V4 (DOM A.3a) và QA thử lại cả ba lối ra BR-303 trước và sau hạn (DOM-09). Điều kiện bỏ khối check-in: SEC-on-PO-v1.0.0-docs.md mục C.1 + v1.0.0-docs-update.md mục 2.1. -->
+<!-- A5 một mặt, 10 pt, viền Light Oak. Dán cạnh Tờ 1, phía nhân viên. Gỡ khi chủ đầu tư báo hết tạm. Khối check-in online đã bỏ 06/11/2026 (mở lại cùng v1.0.4; cách gửi link chuyển sang Tờ 1). Điều kiện bỏ khối giữ chỗ: v1.0.1 có đủ V1, V2, V4 (DOM A.3a) và QA thử lại cả ba lối ra BR-303 trước và sau hạn (DOM-09). Điều kiện bỏ khối check-in: SEC-on-PO-v1.0.0-docs.md mục C.1 + v1.0.0-docs-update.md mục 2.1. -->
 
-**Gỡ tờ này khi chủ đầu tư báo cả hai việc dưới đây đã hết tạm.**
+**Gỡ tờ này khi chủ đầu tư báo hết tạm** (sau khi sổ tay 2.4 viết lại theo v1.0.4).
 
-**Rà giữ chỗ – 3 mốc mỗi ngày** (Desk chưa báo giữ chỗ quá hạn vào **Cần chú ý**)
+**Rà giữ chỗ – 3 mốc mỗi ngày** (từ 06/11 Desk cũng báo giữ chỗ quá hạn ở **Cần chú ý** và khối **Giữ chỗ chờ cọc** trên **Hôm nay**; vẫn rà đủ 3 mốc)
 - **Khi nào:** lúc mở quầy (muộn nhất 09:00) · **11:00** · trước khi rời quầy (muộn nhất 21:00) · mỗi lần thấy **Giữ chỗ sắp hết hạn**.
 - **Ở đâu:** **Đơn đặt phòng** → lọc **Đang hiệu lực** → mở từng dòng **Giữ chỗ · chờ cọc**.
 - **Còn dưới 2 giờ:** xử lý **trước hạn** – thu đủ rồi xác nhận, gia hạn 1 lần, hoặc hủy (Tờ 1, dòng Cọc).
-- **Đã "còn 0 giờ 00 phút" đỏ** ("0h00"): Desk chỉ còn **Hủy giữ chỗ**. Không bấm xác nhận cọc, không tạo đơn mới chồng lên. Khung đơn ghi "đơn đã tự hủy" mà trạng thái vẫn **Giữ chỗ · chờ cọc**: đơn **chưa** hủy.
-  - **Lý do hủy:** **Không liên lạc được** hoặc **Khách đổi ý**. **Không chọn Khác (ghi rõ)**: Desk khóa nút hủy.
+- **Đã "còn 0 giờ 00 phút" đỏ** ("0h00"): giữ chỗ **chưa cọc** chỉ còn **Hủy giữ chỗ**; không tạo đơn mới chồng lên. Giữ chỗ **có cọc** không tự hủy, căn vẫn giữ: khung đơn ghi "Quá hạn giữ chỗ lúc … Đã nhận …/… nên đơn chưa hủy, căn vẫn giữ."
+  - **Lý do hủy:** **Không liên lạc được** hoặc **Khách đổi ý**. Từ 06/11 chọn **Khác (ghi rõ)** cũng được, ghi rõ lý do.
   - **Chưa cọc:** hủy ngay, rồi báo khách (đơn CTV: báo CTV trước). Khách còn muốn: đến từ ngày mai → tạo giữ chỗ mới **12 h**, chỉ một lần; đến hôm nay → gửi VietQR, tạo đơn khi tiền về.
-  - **Đã có cọc:** gọi khách. Không đi, hoặc không liên lạc được tới 11:00 ngày đến → hủy; Desk vẫn tạo yêu cầu hoàn đủ (dù hộp ghi "không thu phí"). Bạn nhập nơi nhận; **chủ đầu tư duyệt và chi**, bạn không tự duyệt được. Vẫn đi → **để nguyên đơn**, báo khách phần còn lại trả khi nhận phòng. Khách đến: hủy đơn cũ → đặt mới cùng căn, giá, kênh, **thu đủ cọc ngay** → nhận phòng, thu phần còn lại → chủ đầu tư hoàn cọc cũ, vắng thì hẹn khách (sổ tay 2.4).
+  - **Đã có cọc:** gọi khách. Không đi, hoặc không liên lạc được tới 11:00 ngày đến → hủy; hộp hủy ghi trước "Không thu phí. Sẽ tạo yêu cầu hoàn …". Bạn nhập nơi nhận; **chủ đầu tư duyệt và chi**, bạn không tự duyệt được. Vẫn đi → **để nguyên đơn**. Khách chuyển nốt: **Xác nhận đã nhận cọc**, ô **Giờ nhận tiền** ghi giờ tiền về. Khách trả phần còn lại khi đến: quản lý tích **Chấp nhận cọc thiếu**, ghi lý do. Không hủy đơn cũ để đặt lại.
 - **Sổ giao ca:** mỗi đơn đã xử lý một dòng: mã đơn, đã làm gì, lý do thật. Đơn để nguyên: "OTM-… Giữ – cọc thiếu …, thu khi đến – [người quyết] dd/mm". Không ghi tên khách.
 - **Trước khi rời quầy:** mọi giữ chỗ 0h00 đỏ đã hủy, hoặc đã có dòng "Giữ – …" trong sổ giao ca.
 
-**Check-in online – tạm dừng từ 02/11**
-- **Không tạo, không gửi** link check-in online cho khách thật. Mọi khách làm giấy tờ tại quầy. Khách muốn gửi yêu cầu trong lúc ở: nhắn Zalo hoặc gọi lễ tân.
-- **Lỡ gửi link:** mở đơn → **Thu hồi link** ngay. Ghi **mã đơn** vào sổ giao ca (không ghi tên khách), báo chủ đầu tư trong ngày. Khách tới quầy thì chỉ tờ **Your ID details** như mọi khách.
 
 ---
 
@@ -206,11 +208,13 @@ OTTIMO · ID notice · v2 · 11/2026
 | Tờ | Khổ | Dán ở đâu | Giữ hay thay |
 |---|---|---|---|
 | 1 – Quầy lễ tân | A4 một mặt | Phía trong quầy, chỗ nhân viên (khách không đọc được) | Giữ |
-| 2a – Tạm tới v1.0.1 | A5 (in chung A4 với 2b, cắt đôi) | Cạnh Tờ 1 | Gỡ khi chủ đầu tư báo hết tạm |
+| 2a – Giữ chỗ quá hạn (tạm) | A5 (in chung A4 với 2b, cắt đôi) | Cạnh Tờ 1 | Gỡ khi chủ đầu tư báo hết tạm |
 | 2b – Khách ở quá 18:00 | A5 | Kẹp sau Tờ 1 hoặc trong bìa quầy | Giữ |
 | 3 – Buồng phòng | A4 một mặt | Phòng buồng / kho đồ vải | Giữ |
 | 4 – Your ID details (bản v1) | A5 dọc một mặt | – | **Thôi dùng.** Gỡ khỏi quầy đúng lúc dán bản v2 (dòng dưới). Không để hai bản cùng ở quầy |
 | 4 – Your ID details (bản v2) | A4 dọc một mặt (hoặc A5) | Khung mica trên quầy, chỗ tờ v1, mặt quay ra khách | Dán sau khi deploy v1.0.4, **cùng ngày** OWN đặt tham số `privacy_notice_version` = `privacy-2026-10-v2` (SEC 6.4 ý 5, bước 2–3). Không dán sớm khi Desk còn ghi v1 |
 | 4ru – Your ID details EN/RU | A4 dọc một mặt | Cạnh tờ EN/VI ở quầy, mặt quay ra khách | Dán cùng lúc với tờ v2 |
+
+**In lại Tờ 1 và Tờ 2a bản sửa 06/11/2026** (check-in online mở lại, giữ chỗ quá hạn theo v1.0.4), sau khi đội báo đã đọc lại xong. Gỡ bản cũ cùng lúc: bản cũ còn dặn không gửi link. Tờ 2b, 3, 4, 4ru không đổi.
 
 Không in hai mặt. In thử Tờ 4 dưới đèn quầy trước khi dán. Tờ 4 ở quầy phải cùng phiên bản với tham số `privacy_notice_version` trên Desk: chân tờ ghi phiên bản (`v2`), nên đổi tham số ngày nào thì đổi tờ ngày đó.

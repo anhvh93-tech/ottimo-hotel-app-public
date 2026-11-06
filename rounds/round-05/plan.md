@@ -1,6 +1,11 @@
 # Round 5 – Kế hoạch: bảo trì đợt 1 (bản v1.0.5)
 
 - Người lập: PO (ORC duyệt, ARC và QA góp ý trước khi giao) | Ngày: 06/11/2026 | Bước 1 – Lập kế hoạch.
+- Cập nhật 06/11/2026 tối (PO, Sản xuất Gói 0 – V5-01, V5-06), sau cổng QC đóng Round 4 (`rounds/round-04/qc/round-4-closeout-gate.md`):
+  - lịch có bảng điều kiện QC R4 ĐK-1…8 kèm hạn (mục 2, cuối "Thứ tự và lịch đề xuất");
+  - tiêu chí QC điều 8 thêm diễn tập khôi phục trước production nếu bản có migration (ĐK-2);
+  - V5-08 mở rộng theo ĐK-5 và theo việc BA đã làm; V5-53 bỏ BUG-R3-047 (đã sửa ở v1.0.4);
+  - mục 6 thêm quyết định 6–10; phụ lục I (điều chỉnh sau cổng QC, gồm hai cảnh báo Dependabot). Bảng đếm mục 7 giữ số QC đã kiểm, tác động ghi ngay dưới bảng.
 - Chế độ: **vận hành thực tế**. Đây là round bảo trì đầu tiên. Chủ đầu tư (INV) chỉ review định kỳ để cải thiện hoặc sửa lỗi. Nguyên văn 06/11: "project này kéo dài quá rồi".
 - Đầu vào:
   - bug list R1–R4: `rounds/round-0{1..4}/qa/bug-list.md`, `rounds/round-04/qa/bug-list-v1.0.4.md`;
@@ -80,14 +85,14 @@ Thứ tự làm như sau:
 
 | ID | Việc | Vai (làm → review) | Xong khi |
 |---|---|---|---|
-| V5-01 | **Release notes v1.0.4** (PO). Cập nhật:<ul><li>trạng thái "đã phát hành 06/11/2026 14:10, tag `v1.0.4` → `6414be25`";</li><li>LP-v2 đã lên, giá web đã bật; bỏ dòng "khách chưa thấy gì";</li><li>check-in online đã mở lại (N5);</li><li>số bản sổ tay sau #69;</li><li>BUG-R3-021 Desk dời sang v1.0.5 (V5-58).</li></ul>Mở mục v1.0.5 "Đang làm". | PO → BA, DOM | Release notes không còn câu trái production |
+| V5-01 | **Release notes v1.0.4** (PO). Cập nhật:<ul><li>trạng thái "đã phát hành 06/11/2026 14:10, tag `v1.0.4` → `6414be25`";</li><li>LP-v2 đã lên, giá web đã bật; bỏ dòng "khách chưa thấy gì";</li><li>check-in online đã mở lại (N5);</li><li>số bản sổ tay sau #69 (tối 06/11 #69 chưa gộp vì xung đột với `main`; PO ghi số bản khi BA gộp ở V5-08);</li><li>BUG-R3-021 Desk dời sang v1.0.5 (V5-58).</li></ul>Mở mục v1.0.5 "Đang làm".<br>**PO làm tối 06/11**, gồm cả các mục "Chưa có" của v1.0.0–v1.0.3 trỏ về V5-xx và ghi chú "đã mở lại" ở các đoạn check-in cũ. Còn: số bản sổ tay sau #69. | PO → BA, DOM | Release notes không còn câu trái production |
 | V5-02 | **QA đóng lỗi đã sửa** (danh sách phụ lục A, các dòng "(c) … QA xác nhận"). Gồm:<ul><li>chuyển Closed các lỗi v1.0.4 đang ghi "đã gộp / chờ staging";</li><li>kiểm lại BUG-R4-035, 039 mà QC v1.0.4 còn ghi mở;</li><li>dọn bug list R1 (14 dòng) và R3.</li></ul> | QA → QC | Bug list chỉ còn lỗi thật sự mở |
 | V5-03 | **Phần còn lại của SEC 9.5 và P10.**<ul><li>SEC đã kết luận 06/11 tối (`rounds/round-04/reviews/SEC-on-lp-v2-s6d.md`): ca 3 và ca 8 ĐẠT; ca 10 ĐẠT bằng bằng chứng thay thế; ca 4 web ĐẠT. SEC đã sửa câu ca 10 ở mục 9.5. Phần Desk "từ – đến" của ca 4 nằm ở V5-19.</li><li>QA đọc tệp SEC rồi đóng BUG-R4-056.</li><li>P10 trên Desk staging cho BUG-R4-011, 012.</li></ul> | ORC + QA → SEC | BUG-R4-011, 012, 056 Closed |
 | V5-04 | **Ảnh và bản HTML sổ tay.**<ul><li>UXD chụp lại C1-07, C1-22 (BUG-R4-023).</li><li>QA chụp lại `product/docs/manual/img/C2-39.png` (màn form đang bật) trên staging, chỉ dùng yêu cầu giả. QA kiểm che dữ liệu trước khi commit.</li><li>UXD dựng lại `ottimo-manual-v1.0.html` và `guides/html/` từ sổ tay mới nhất; không còn câu có tỷ lệ hoa hồng (FB-R4-SEC-UXD-HTML-01).</li></ul> | UXD, QA → BA, SEC (che dữ liệu) | Ảnh khớp production; HTML dựng lại, không vào repo |
 | V5-05 | FB-R4-SEC-OPS-LPV2S4-01: OPS đã sửa chữ runbook LP-v2 r2.3 (commit `cef4d688`) và thêm câu kiểm S0 của BUG-R4-055. SEC xác nhận rồi đóng thẻ. | OPS → SEC | Thẻ Closed |
-| V5-06 | **Backlog đúng trạng thái** (PO):<ul><li>story đã lên production chuyển "Xong" (phụ lục B1);</li><li>dòng mục 5.6 đã vào v1.0.4 ghi "Xong v1.0.4";</li><li>thêm mục 5.7 trỏ về kế hoạch này.</li></ul> | PO → BA | Backlog không còn story "Mới" đã chạy |
+| V5-06 | **Backlog đúng trạng thái** (PO):<ul><li>story đã lên production chuyển "Xong" (phụ lục B1);</li><li>dòng mục 5.6 đã vào v1.0.4 ghi "Xong v1.0.4";</li><li>thêm mục 5.7 trỏ về kế hoạch này.</li></ul>**PO làm tối 06/11:** 19 story chuyển **Xong (production)** (gồm 9 story LP-v1 US-146…154, phụ lục I); 111 dòng mục 5.6, 5.6a, 5.6b ghi đích mới; mục 5.7. | PO → BA | Backlog không còn story "Mới" đã chạy |
 | V5-07 | **Theo dõi lỗi 422 `ID_NUMBER_DETECTED`** tới 01/12 (4 tuần kể từ v1.0.2). Báo số ở review 20/11. | DATA + OPS → PO, SEC | Báo cáo tuần |
-| V5-08 | **Sổ tay: bỏ câu cũ về check-in online** ("tới v1.0.3, chưa gửi link"). Chỗ cần sửa:<ul><li>sổ tay 0.1, 2.9, 5.6;</li><li>`guides/00-index` dòng `g.ottimo.vn`;</li><li>`guides/02` mục 17.3.</li></ul>Điều kiện SEC N5 đã có: check-in online mở lại 06/11. | BA → SEC, UXD | Không còn câu "chưa gửi link" |
+| V5-08 | **Sổ tay, hướng dẫn, tờ dán quầy: bỏ câu cũ về check-in online** ("tạm dừng", "tới v1.0.3, chưa gửi link"). Mở rộng theo QC R4 ĐK-5. Phạm vi:<ul><li>mọi chỗ QC liệt kê: sổ tay 0.1, 2.4, 2.9, 4.2, 5.6 (dòng 47, 808, 1006, 1760, 2013 lúc QC kiểm); `guides/00-index.md` dòng 73; `guides/01` 15.4; `guides/02` 17.3; `guides/05` 8.3; `guides/screenshot-additions.md` dòng 8;</li><li>cộng 9 chỗ BA grep thêm (`rounds/round-05/outputs/BA/report.md` mục 1): sổ tay 0.9, 5.7, 5.8; `00` mục 4 bước 10; `01` 14.1 và đoạn mở đầu 15; `02` 4.5, 9.7, 16.2, đoạn mở đầu 17, 20.3; `05` 4.2, 7.2, đoạn mở đầu 8;</li><li>cộng ĐK-4 (c): sổ vận hành nhắc diễn tập khôi phục sau 35 ngày thay "hằng quý" (SEC đồng ý, `rounds/round-04/reviews/SEC-on-bug-r4-054.md` B1);</li><li>ghi lại câu nào còn đúng: Wi-Fi trang khách "hỏi lễ tân" (V5-58), mở lại link sau "Bổ sung tại quầy" (V5-5A), sale và CTV không gửi link;</li><li><b>sửa thêm (PO 06/11 tối):</b> câu "đơn giữ chỗ cũng hiện nút <b>Tạo link check-in online</b>, Desk luôn từ chối" <b>sai từ v1.0.4</b>. BUG-R3-047 đã sửa (`5539b7e6`): Desk chỉ hiện mục link cho đơn đã xác nhận. Chỗ còn câu này: sổ tay 2.4, 2.9 (khung đầu mục và bước 1), 5.6; `guides/02` 4.5 và 17.3; `guides/05` 4.2 (dòng "Khung đơn giữ chỗ hiện…"; sale, CTV không thấy mục link). Thay bằng "đơn giữ chỗ chưa có link: xác nhận cọc trước";</li><li>gộp #69 (đang xung đột với `main`, cùng 7 tệp) rồi đánh số bản sổ tay và bộ hướng dẫn; báo PO số bản để ghi release notes (V5-01);</li><li>PO: `staff-one-pager.md` Tờ 1 (thêm khối check-in online theo sổ tay 2.9 và SEC N4–N6), Tờ 2a (bỏ khối tạm dừng, bỏ các câu giữ chỗ v1.0.4 đã làm sai), `day-one-guide.md` mục 10 (dòng check-in ghi "hết hiệu lực từ 06/11"). Đã làm tối 06/11. Chờ DOM (phần giữ chỗ), SEC đọc lại. <b>INV in lại Tờ 1 và Tờ 2a</b> sau khi đội báo đọc xong, gỡ bản cũ cùng lúc.</li></ul>Điều kiện SEC N5 đã có: check-in online mở lại 06/11 14:22.<br>**Tình trạng 06/11 tối:** BA đã sửa chữ (`4d25f5b7`, ghi "chưa đánh số bản"); PO đã sửa tờ dán quầy và hướng dẫn ngày D. Còn: dòng "sửa thêm", gộp #69, review. HTML sổ tay dựng lại ở V5-04. | BA, PO → SEC, UXD, DOM (tờ dán quầy) | 10/11 (hết Gói 0). `grep -n "tạm dừng\|chưa gửi link"` trong `product/docs/manual/` chỉ còn câu đúng sự thật; không còn câu "đơn giữ chỗ cũng hiện nút link"; #69 gộp hoặc đóng kèm lý do; INV đã in lại Tờ 1, Tờ 2a |
 
 ### Gói 1 – Tiền và trả phòng ở quầy (bắt buộc)
 
@@ -145,7 +150,7 @@ Quy tắc: nếu tới **25/11** v1.0.5 chưa lên production thì PO + ORC tác
 | V5-50 | Hộp **Đổi phòng** lọc bỏ căn chưa dọn. Hiện Desk đã chặn khi chọn nhầm. | BUG-R3-023 (P2) | FE-A/BE-A → UXD, QA |
 | V5-51 | Hộp **Xác nhận cọc** có ô Mã giao dịch, để cột Chờ đối soát có số (liên quan ESC-039). | BUG-R3-025 | FE-A → UXD, QA |
 | V5-52 | Folio ở Trả phòng: dòng miễn bị từ chối không hiện số âm. | BUG-R3-030 | FE-A → UXD |
-| V5-53 | Giữ chỗ không hiện nút link check-in online. Máy chưa cấp quyền: khóa nút **Nhập nơi nhận hoàn**, ghi đúng lý do. | BUG-R3-047, 048 | FE-A → UXD, SEC |
+| V5-53 | Máy chưa cấp quyền: khóa nút **Nhập nơi nhận hoàn**, ghi đúng lý do. (Phần "giữ chỗ không hiện nút link check-in online" của BUG-R3-047 đã có ở v1.0.4, phụ lục I.) | BUG-R3-048 | FE-A → UXD, SEC |
 | V5-54 | SĐT nước ngoài hiện đúng nhóm số. Khách web 5 ngôn ngữ nên gặp hằng ngày. | BUG-R3-049 | FE-A → QA |
 | V5-55 | Yêu cầu web quá hạn ghi rõ "quá hạn", không chỉ đổi màu viền. | BUG-R3-054 | UXD → FE-A |
 | V5-56 | QA tái hiện trên v1.0.4: OWN không thấy **Xóa theo yêu cầu người gửi** ở yêu cầu đã đóng. Tái hiện được thì sửa (nâng P1 nếu OWN không có nút). Không tái hiện được thì đóng, ghi lý do. | BUG-R3-056 (P2) | QA → FE-A → SEC |
@@ -180,7 +185,7 @@ Bắt buộc: V5-60, V5-61, V5-62, V5-63, V5-65 (phần OR-03), V5-67, V5-70, V5
 
 | Ngày | Việc |
 |---|---|
-| 07–08/11 | Gói 0. ARC chốt hợp đồng 0.3.13. DOM chốt luật V5-11, V5-16, V5-30, V5-31, và sửa từ điển cùng BR-101 (5) (V5-1A). OPS sửa câu README dòng 120 và thêm `--ignore-existing` (V5-73, V5-60). ORC chạy truy vấn tĩnh `pricegap` một lần (V5-73). Diễn tập khôi phục ngay khi INV có 30 phút (V5-61). |
+| 07–08/11 | Gói 0. ARC chốt hợp đồng 0.3.13. DOM chốt luật V5-11, V5-16, V5-30, V5-31, và sửa từ điển cùng BR-101 (5) (V5-1A). OPS sửa câu README dòng 120 và thêm `--ignore-existing` (V5-73, V5-60; đã làm 06/11: `bede5332`, `a26804f6`). ORC chạy truy vấn tĩnh `pricegap` một lần (V5-73; production đã chạy 06/11, 0 căn thiếu giá; còn staging). Diễn tập khôi phục ngay khi INV có 30 phút (V5-61). Các điều kiện QC R4 hạn 08/11 và 10/11 (bảng dưới). |
 | 09–14/11 | Sản xuất Gói 1–4, Gói 6 bắt buộc. Gói 5 nếu còn người. |
 | 15–16/11 | Review chéo, Phản hồi & sửa. |
 | 17–18/11 | QA trên staging, gồm ca giờ thật 00:00–05:59 và ca trả phòng 06:00. |
@@ -189,6 +194,21 @@ Bắt buộc: V5-60, V5-61, V5-62, V5-63, V5-65 (phần OR-03), V5-67, V5-70, V5
 | 20–21/11 | Production nếu INV đồng ý. Dự phòng tới 25/11, trước hạn H2 01/12. |
 
 Đội làm ngay phần bắt buộc vì đây là lỗi và việc đã hẹn, không đổi chính sách. Ở buổi 20/11, mục nào INV muốn bỏ thì rút ra trước khi cắt bản.
+
+#### Điều kiện của cổng QC đóng Round 4 (ĐK-1…8)
+
+Nguồn: `rounds/round-04/qc/round-4-closeout-gate.md` mục 2. Hạn là hạn QC đặt. ORC theo dõi. Xong thì ghi commit hoặc dòng decision-log. ĐK-2 và ĐK-3 cần INV; các ĐK khác không cần.
+
+| ĐK | Việc | Mã V5 | Làm → xác nhận | Hạn | Tình trạng 06/11 tối |
+|---|---|---|---|---|---|
+| ĐK-1 | Một lượt CI xanh đủ mọi job trên `main` từ `bede5332`, gồm E2E smoke và landing Playwright | – | ORC | 07/11 12:00 | **Đạt:** run 42216567004 (`066da253`), 9/9 job kiểm xanh. ORC ghi vào decision-log khi tổng kết |
+| ĐK-2 | Diễn tập khôi phục production theo đủ yêu cầu SEC (môi trường cách ly, giải mã 1 ảnh mẫu, `purge_journal` + J16, xóa dữ liệu khôi phục, biên bản chỉ ghi số đếm) | V5-61 | OPS + INV (30 phút mở khóa `age`) → SEC | Chậm nhất 20/11 | Chưa làm. **Chặn production** bản có migration hoặc đổi sao lưu, khôi phục tới khi đạt (tiêu chí QC điều 8). Bản sửa P0 không migration vẫn lên được, kèm sao lưu ngay trước deploy |
+| ĐK-3 | Kéo sao lưu ra ngoài máy ít nhất 2 ngày một lần bằng `pull-backups.sh` bản `bede5332`, tới khi V5-60 tự động hóa. Thoát 3 ("server copy changed") = P0 bảo mật | V5-60 | ORC (INV cho phép SSH trong ngày) | Mỗi 2 ngày; lần đầu 08/11 khoảng 19:00 | Lần gần nhất 06/11 khoảng 19:00 (script cũ). Mỗi lần một dòng decision-log: giờ, mã thoát, tên bản mới nhất. Quá hạn vì INV vắng thì ORC báo INV ở phiên kế tiếp |
+| ĐK-4 | Sổ vận hành khớp quyết định 06/11: kéo sao lưu ít nhất 2 ngày một lần; phòng "Báo động" có thể thêm một người; (c) nhắc diễn tập sau 35 ngày | – (Gói 0) | BA → SEC, OPS | 08/11 | BA đã sửa: sổ vận hành bản 1.2, gồm (c) (`4d25f5b7`). Chờ SEC hoặc OPS đọc lại |
+| ĐK-5 | Bỏ mọi câu "check-in online tạm dừng / chưa gửi link"; PO sửa dòng V5-08 | V5-08 | BA, PO → SEC, UXD | 10/11 | BA đã sửa chữ (`4d25f5b7`); PO đã sửa dòng V5-08, tờ dán quầy và hướng dẫn ngày D. Còn câu "đơn giữ chỗ cũng hiện nút link", #69, review (dòng V5-08) |
+| ĐK-6 | Từ điển tham số: `night_from_month_divisor` là khóa còn dùng ở đường API đổi giá khi không gửi giá đêm (BUG-R4-057), giữ giá trị 12 | V5-1A | DOM → BA | 08/11 | DOM đang làm |
+| ĐK-7 | Chuyển Closed 28 lỗi "đã sửa, chờ QA" (gồm 8 lỗi P0/P1); kiểm lại BUG-R4-035, 039 không ghi thử trên production; sửa ô "Closed 10" ở `bug-list.md` | V5-02 | QA → QC | 10/11 | QA đang làm. P0/P1 nào hóa ra chưa sửa trên production thì đi đường hotfix (protocol 9.3) và báo INV ngay |
+| ĐK-8 | Dòng trả lời trong `responses/OPS-LP-v2.md` cho FB-R4-SEC-OPS-054-02 và các thẻ Minor SEC ngày 06/11 | – (Gói 0) | OPS → SEC | 08/11 | OPS đã trả lời (`a26804f6`). Chờ SEC đọc lại |
 
 ## 3. Vai trong Round 5
 
@@ -237,7 +257,8 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
 8. **Migration và quay lui:**
    - migration (nếu có) đi tiến, có đường lùi;
    - runbook v1.0.5 có M4d và phần quay lui kể cả biện pháp bảo vệ bị mất;
-   - đã diễn tập trên staging.
+   - đã diễn tập trên staging;
+   - **diễn tập khôi phục production (V5-61) xong và đạt trước khi lên production nếu bản có migration** hoặc đổi sao lưu, khôi phục (QC R4 ĐK-2). Chưa đạt thì bản đó không lên. Bản sửa P0 không migration vẫn lên được, kèm sao lưu ngay trước deploy.
 9. **Sao lưu:** trước khi lên production có bản sao lưu ngoài máy mới trong 24 giờ, kéo bằng `pull-backups.sh` đã có `--ignore-existing`. Diễn tập khôi phục Round 5 (V5-61) đạt theo yêu cầu SEC.
 10. **Tài liệu:**
     - release notes v1.0.5;
@@ -277,6 +298,18 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
    Phần bảo mật đi kèm (`header_up -Authorization`, 054-01) vẫn làm ở V5-67.
 5. **V5-19 (Desk "từ – đến") chuyển sang Gói 5.** ORC giao đưa vào v1.0.5. Sau đó SEC kết luận Minor, không bắt buộc ở v1.0.5, vì mọi hạng trên production đang có các căn cùng giá. PO giữ mục này trong v1.0.5 ở mức "nên có", kèm điều kiện kích hoạt: phải lên trước khi INV đặt hai căn cùng hạng khác giá. Điều này đã ghi cho INV ở `esc-pending-06-11.md` mục 3.
 
+6. **Dependabot `minimatch` (cảnh báo #19): xếp (b) B-KYTHUAT, không đóng, không ép bản** (06/11 tối, phụ lục I).
+   - `minimatch` 10.2.6 trong lockfile **nằm trong** dải bị ảnh hưởng (≥ 7.0.0, < 11.0.1). Câu "lockfile ngoài các dải bị ảnh hưởng" ở cổng QC đóng R4 mục 5 chưa đúng với cảnh báo này.
+   - Gói chỉ có ở công cụ phát triển (lint TypeScript), không vào image chạy production. Lượt Dependabot lỗi vì chưa có bản vá cài được qua cây phụ thuộc hiện tại. Job `audit` xanh vì CI chỉ chặn từ mức `high`.
+   - Đóng khi `typescript-eslint` ra bản dùng `minimatch` ≥ 11.0.1. SEC xem và ghi kết luận. Không chặn v1.0.5.
+7. **Dependabot `react-router` (cảnh báo #3, Desk): xếp (b) B-BAOMAT, SEC phân loại trong Gói 0.** Backlog R3-Q31 hẹn việc này từ 19/10 nhưng plan R5 chưa xếp. Bản vá là đổi bản lớn (7.x). Nếu SEC thấy Desk đưa địa chỉ do người dùng nhập vào `<Link>` hay `navigate`, PO đưa phần chặn vào v1.0.5 Gói 4. Các cảnh báo `nodemailer` đã ở V5-41.
+8. **BUG-R3-047 chuyển (c).** Lỗi đã sửa ở v1.0.4 (`5539b7e6`). V5-53 chỉ còn BUG-R3-048. Câu sai trong sổ tay sửa ở V5-08.
+9. **#69 gộp ở Gói 0 cùng V5-08**, không chờ V5-71. PO ghi số bản sổ tay vào release notes v1.0.4 khi gộp.
+10. **Tờ dán quầy sửa ngay, không chờ bản.**
+    - PO sửa tối 06/11: Tờ 1 thêm cách gửi link check-in online; Tờ 2a bỏ khối tạm dừng và các câu giữ chỗ mà v1.0.4 làm sai; hướng dẫn ngày D mục 10 ghi "hết hiệu lực".
+    - Phần giữ chỗ chỉ chép những gì Desk v1.0.4 đã làm (release notes v1.0.4 bảng "Giữ chỗ và cọc"), không thêm quy tắc mới. DOM đọc lại phần này, SEC đọc lại phần check-in.
+    - INV in lại Tờ 1 và Tờ 2a sau khi đội báo đọc xong. Tờ 2a viết lại hẳn cùng sổ tay 2.4 ở V5-71.
+
 ## 7. Tổng hợp xếp loại (đếm từ phụ lục)
 
 Đếm bằng script trên các bảng A–G của phụ lục. Mỗi mã ở cột đầu là một mục. Dòng ghi "đã đếm ở…" và mã trùng giữa các mục không đếm lại.
@@ -291,6 +324,8 @@ QC quyết **ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT** theo 12 điề
 | F. Vận hành (OPS, SEC 06/11 tối) và sổ vận hành (BA) | 29 | 14 | 6 |
 | G. Tham số lệch sổ tay | 1 | 2 | 10 |
 | **Tổng (553 mục)** | **126** | **203** | **224** |
+
+**Điều chỉnh sau cổng QC đóng R4 (PO 06/11 tối, phụ lục I).** Bảng trên giữ đúng số QC đã kiểm. Tác động nếu đếm lại: BUG-R3-047 (a) → (c); thêm 2 mục (b) là hai cảnh báo Dependabot. Khi đó có 555 mục: 125 (a), 205 (b), 225 (c). Số việc V5 vẫn 59.
 
 126 mục (a) được gom thành 59 việc V5-xx ở mục 2. Gói 5 có 12 việc (gồm V5-19) và không chặn QC; riêng V5-19 có điều kiện kích hoạt. Mục (c) "QA xác nhận" chỉ đóng hẳn khi QA chuyển Closed ở V5-02.
 
@@ -355,7 +390,7 @@ Cách đọc: cột "Xếp" có đúng một nhãn. Với (a), cột cuối là 
 | BUG-R3-036 | P3 | Phí hủy, phí không đến 00:00–05:59 mang ngày lịch | (a) | V5-11 |
 | BUG-R3-040 | P3 | Bản ghi audit bootstrap thiếu trường | (c) | Chỉ ghi nhận; nhật ký chỉ ghi thêm; không lặp lại từ v1.0.0 |
 | BUG-R3-041, BUG-R3-042, BUG-R3-043, BUG-R3-044, BUG-R3-045, BUG-R3-046, BUG-R3-052, BUG-R3-053 | P1–P3 | Nhóm giữ chỗ quá hạn, chữ, app | (c) | Vào v1.0.4 (backlog 5.6, plan v1.0.4); QA xác nhận |
-| BUG-R3-047 | P3 | Giữ chỗ hiện nút link check-in online | (a) | V5-53 |
+| BUG-R3-047 | P3 | Giữ chỗ hiện nút link check-in online | (c) | Đã sửa ở v1.0.4 (`5539b7e6`); QA xác nhận ở V5-02. Sửa từ (a) V5-53 ngày 06/11 tối (phụ lục I) |
 | BUG-R3-048 | P3 | Máy chưa cấp quyền: toast sai lý do | (a) | V5-53 |
 | BUG-R3-049 | P3 | SĐT nước ngoài sai nhóm số | (a) | V5-54 |
 | BUG-R3-050 | P3 | Hồ sơ tạo nhanh từ yêu cầu EN | (c) | Đã tách thành BUG-R4-011, 012 (đã sửa) |
@@ -730,3 +765,14 @@ Danh sách lấy bằng script: thẻ Minor không có dấu xử lý ở chính
 | B-DATA | Chỉ số (quốc tịch NULL) | Trước báo cáo theo quốc tịch đầu tiên |
 | B-KYTHUAT | Nợ kỹ thuật, test, chữ hợp đồng | Đội tự xếp vào bản khi chạm đúng chỗ đó; không cần INV chọn |
 | B-SAU | Story v1.1, v1.2, v1.3, R4+ (89 story) và H6, H7, H8 | INV chọn ở review định kỳ |
+
+### I. Điều chỉnh sau cổng QC đóng Round 4 (PO 06/11/2026 tối)
+
+Không cộng vào bảng mục 7 (bảng đó giữ số QC đã kiểm); tác động ghi ngay dưới bảng mục 7. Các cảnh báo Dependabot còn mở khác (`nodemailer`, 6 cảnh báo) đã có ở V5-41.
+
+| Mã | Việc | Xếp | Đích / lý do |
+|---|---|---|---|
+| DEP-minimatch | Dependabot cảnh báo #19 (GHSA-g3hv-75wg-m249, mức trung bình, `minimatch` có thể bị làm treo qua mẫu glob). Lockfile có `minimatch` 10.2.6, **nằm trong** dải bị ảnh hưởng (≥ 7.0.0, < 11.0.1). Gói đến gián tiếp qua `@typescript-eslint/typescript-estree` 8.71.2, phạm vi development. Bản mới nhất 8.72.1 vẫn cần `minimatch` ^10.2.2, nên lượt cập nhật Dependabot lỗi (run 41573607059, 42216172237). Job `audit` của CI xanh vì `pnpm audit --audit-level=high` | (b) | B-KYTHUAT. Không ép bản bằng override (lên 11.x có thể làm hỏng lint). Đóng khi `typescript-eslint` ra bản dùng `minimatch` ≥ 11.0.1 (Dependabot tự mở PR). SEC ghi kết luận: chấp nhận có hạn (chỉ ở máy dev và CI, không vào image) hoặc cách khác. Không chặn v1.0.5 (quyết định 6) |
+| DEP-react-router | Dependabot cảnh báo #3 (mức trung bình, phạm vi runtime): `react-router` 6.30.6 trong Desk (`apps/admin-web`), chuyển hướng mở qua dấu `\` ở `<Link>` và `useNavigate`. Bản vá 7.18.0 là đổi bản lớn. Backlog R3-Q31 hẹn SEC phân loại; plan R5 chưa xếp | (b) | B-BAOMAT. SEC phân loại trong Gói 0. Desk có đưa địa chỉ do người dùng nhập vào `<Link>` hay `navigate` thì PO đưa phần chặn vào v1.0.5 Gói 4; không thì làm cùng lần nâng toolchain FE (quyết định 7) |
+| BUG-R3-047 | Giữ chỗ hiện nút link check-in online | (a) → (c) | Đã sửa ở v1.0.4 (`5539b7e6`, test `v104-holds-feb`), đang chạy trên production. QA đóng ở V5-02. V5-53 chỉ còn BUG-R3-048 (quyết định 8). Sổ tay và hướng dẫn còn câu "đơn giữ chỗ cũng hiện nút": sửa ở V5-08 |
+| US-146…154 | 9 story website LP-v1 (lên ottimo.vn 25/10) | – | Backlog ghi **Xong (production)** ngày 06/11 (V5-06). Các story này không nằm trong bảng B1 nên không đổi số đếm |
