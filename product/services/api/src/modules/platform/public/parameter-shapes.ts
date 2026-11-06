@@ -385,6 +385,28 @@ export function maxOpenHoldsIssue(value: unknown): ShapeIssue | null {
 }
 
 /**
+ * The short-stay commission table, key short_stay_commission_pct (BR-903; DOM rules-v1.0.5 4.1 "Kiểm khi lưu", 7.3; ARC
+ * FB-R5-ARC-BE-H1-02): exactly
+ * `{staff, collaborator}`, both required, each a percent 0–100 with at most 2 decimals (`pctIssue`). A wrong cell
+ * (a string, a missing payee, a third decimal) would read as `rate_missing` for that payee and the next sync of a
+ * booking without a rate would void its `projected` row without telling anyone. Not read on the price paths, so not
+ * part of the V5-25 read-only SQL check.
+ */
+export const COMMISSION_TABLE_PAYEES = ['staff', 'collaborator'] as const;
+export function commissionTableIssue(value: unknown): ShapeIssue | null {
+  if (!isPlainObject(value)) return issue('value', missingOrType(value));
+  const extra = unknownKey(value, COMMISSION_TABLE_PAYEES);
+  if (extra !== null) {
+    return issue(`value.${extra}`, 'NOT_ALLOWED', { allowed: [...COMMISSION_TABLE_PAYEES] });
+  }
+  for (const payee of COMMISSION_TABLE_PAYEES) {
+    const bad = pctIssue(value[payee], `value.${payee}`);
+    if (bad) return bad;
+  }
+  return null;
+}
+
+/**
  * `lease_terms` (BR-201) – only what the short-stay quote reads (BR-108 one-month alternative): a non-empty list of
  * terms, each `months` whole 1–60 and not repeated, `discountPct` (when given) 0–100. The other fields of a term
  * (deposit factors, billing cycle, commission columns) are not read on these paths and are left as they are (V5-30

@@ -12,6 +12,13 @@
  *                (reverse lines of nights no longer sold or whose price changed – BR-107 re-tiering, D-8 –,
  *                post lines for sold nights without a live line, re-post extra-person lines for the new guest
  *                count, reverse a previous `no_show_fee` on B12, re-project commission on the snapshot %).
+ * - ensureCommission() FB-R5-DOM-BE-101-01 (Major; ARC FB-R5-ARC-BE-H1-03 (1)): the commission sync ALONE (no folio
+ *                line, no folio lock, the folio may be settled) for a short stay with a closer that has no commission
+ *                row in a live status yet (a booking confirmed while its payee had no rate – `rate_missing`). Same rate
+ *                order as resyncStay (snapshot, then the first row of the payee type, then the table in force today).
+ *                Still no rate → still no row. Run again → no change. Folio's `tryEarnCommissions` runs it before
+ *                deciding "earned" (B18, reconciliation, a debt paid or written off); a later job or PR-M may call it
+ *                for confirmed bookings once OWN typed the table (DOM 101-01 (3) – never from `setParameter`).
  */
 import type { Tx } from '../../../db/database';
 import type { ConfirmedStay } from './sales-port';
@@ -50,4 +57,10 @@ export interface FolioStaySync {
     stay: ConfirmedStay,
     actor: { userId: string | null; requestId?: string },
   ): Promise<void>;
+  /** Returns the amount of the row created (0 = nothing done). */
+  ensureCommission(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+  ): Promise<number>;
 }

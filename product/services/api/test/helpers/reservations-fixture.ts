@@ -57,10 +57,12 @@ export async function seedBooking(
   db: Database,
   t: TestTenant,
   i = 0,
-  opts: { otaBaseRate?: boolean } = {},
+  /** `skipParams`: DS-E keys left out (V5-30 / DOM 101-01: a property where OWN has not typed the table yet). */
+  opts: { otaBaseRate?: boolean; skipParams?: readonly string[] } = {},
 ): Promise<BookingIds> {
   for (const p of DS_E.parameters) {
     if (p.param === 'ota_base_rate' && opts.otaBaseRate === false) continue;
+    if (opts.skipParams?.includes(p.param)) continue;
     await setParam(db, t, p.param, p.value, '2026-10-01', i);
   }
   // ARC s2-contract 8.1 (migration 0018) – until QA's DS-E carries them.
