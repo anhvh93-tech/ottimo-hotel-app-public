@@ -417,7 +417,7 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
     ]);
   }, 60_000);
 
-  it('(h3) a sale on its own cancelled hold: recordPayment refused as before, confirmPaymentReceived → 409 + reservationStatus; CTV → 403; nothing written', async () => {
+  it('(h3) a sale on its own cancelled hold: recordPayment refused as before, confirmPaymentReceived and createVietQr → 409 + reservationStatus; CTV → 403; nothing written', async () => {
     const qr = await pendingQr(hSal, 'sal');
     const img = await attach('sal', hSal.id);
     const before = await snapshot(hSal);
@@ -446,6 +446,18 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
       currentState: 'pending',
       reservationStatus: 'cancelled',
     });
+    // SEC ARC-17: createVietQr is the sale's other call – its own closed hold (in scope) → the same 409.
+    const vq = await createQr(hSal, { amountVnd: 100_000, purpose: 'deposit' }, 'sal');
+    expect(vq.statusCode, vq.body).toBe(409);
+    expect(vq.json()).toMatchObject({
+      code: 'INVALID_TRANSITION',
+      currentState: 'cancelled',
+      reservationStatus: 'cancelled',
+    });
+    // CTV holds neither call: the role gate (403) comes before everything.
+    expect(
+      (await createQr(hSal, { amountVnd: 100_000, purpose: 'deposit' }, 'ctv')).statusCode,
+    ).toBe(403);
     const ctv = await record(
       hSal,
       { type: 'deposit', method: 'bank_transfer', amountVnd: 300_000, attachmentId: img },
