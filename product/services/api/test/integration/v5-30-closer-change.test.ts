@@ -19,7 +19,11 @@
  *   revenue − the write-off, `earned`;
  * - DOM FB-R5-DOM-ARC-1H-04: money the OLD closer recorded and nobody confirmed yet (cash not handed over, a transfer
  *   not reconciled) keeps the NEW closer's row `projected` – at B18 after an in-house correction and at OWN's correction
- *   after check-out – until the desk confirms the cash / MGR reconciles the transfer.
+ *   after check-out – until the desk confirms the cash / MGR reconciles the transfer;
+ * - r5-h1d (ARC FB-R5-ARC-BE-154-01, SEC FB-R5-SEC-BE-154-02, DOM FB-R5-DOM-BE-154-02): `recognized_at` of the new
+ *   closer's `earned` row = the exact time of OWN's edit; below OWN on a `payable` commission → 403 (no `currentState`),
+ *   never the 409; a combined edit (closer + head count) voids the earlier closer's row with `closer_changed` /
+ *   `closer_corrected`, not `resync`; 1H-04 counts the payees of THIS booking only.
  * SEC G3: the only rate is the test value `test_rate_short`. FAKE data only.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -667,14 +671,15 @@ describe.skipIf(!HAS_DB)(
         },
       ]);
       const recognized = await q(
-        `SELECT status, recognized_at IS NOT NULL AS recognized FROM commission
-          WHERE reservation_id = $1 ORDER BY created_at, id`,
+        `SELECT status, recognized_at FROM commission WHERE reservation_id = $1 ORDER BY created_at, id`,
         [X.id],
       );
-      expect(recognized).toEqual([
-        { status: 'void', recognized: false },
-        { status: 'earned', recognized: true },
-      ]);
+      expect(recognized.map((x) => x.status)).toEqual(['void', 'earned']);
+      expect(recognized[0].recognized_at).toBeNull();
+      // DOM 154-02 (ARC R1): the new closer earns at the time OWN made the correction, not at the B18 of 21/10 11:00.
+      expect(new Date(recognized[1].recognized_at).toISOString()).toBe(
+        new Date('2026-10-21T12:00:00+07:00').toISOString(),
+      );
     });
 
     it('a commission already payable → 409 INVALID_TRANSITION (currentState payable), nothing written', async () => {
@@ -682,6 +687,22 @@ describe.skipIf(!HAS_DB)(
       await q(`UPDATE commission SET status = 'payable' WHERE reservation_id = $1`, [Y.id]);
       const rows = await commissions(Y);
       const version = (await get(Y.id)).version;
+      // ARC 154-01 (c) / SEC 154-02 (1i: 403 → 422 → 409): below OWN the permission answers first – a refused role
+      // never learns that someone else's commission is in a pay-out (no currentState), and each try is logged once.
+      const before = await denials();
+      for (const who of ['mgr', 'fdl', 'fd']) {
+        const denied = await patch(
+          Y,
+          { closerUserId: sal2(), closerChangeReason: 'Sale 2 chốt đơn, sửa lại' },
+          who,
+        );
+        expect(denied.statusCode, `${who} ${denied.body}`).toBe(403);
+        expect(denied.json().code).toBe('FORBIDDEN_ACTION');
+        expect(denied.json()).not.toHaveProperty('currentState');
+      }
+      expect(await denials()).toBe(before + 3);
+      expect(await closerOf(Y)).toBe(sal());
+      expect(await commissions(Y)).toEqual(rows);
       const r = await patch(
         Y,
         { closerUserId: sal2(), closerChangeReason: 'Sale 2 chốt đơn, chủ đầu tư sửa' },
@@ -819,6 +840,65 @@ describe.skipIf(!HAS_DB)(
           new Date('2026-10-31T09:00:00+07:00').toISOString(),
         );
       }
+    });
+
+    it('ARC 154-01 (a): a combined edit (closer + adults) – MGR before arrival → closer_changed, OWN in house → closer_corrected; one live row of the new closer, never a resync void', async () => {
+      await at('2026-11-01T10:00:00+07:00');
+      const G1 = await book('201', '2026-11-02', 2);
+      const G2 = await book('202', '2026-11-02', 2);
+      const reasons = async (b: Booking) =>
+        (await commissions(b)).map((x) => [x.payee, x.status, x.void_reason]);
+      const live = async (b: Booking) => (await commissions(b)).filter((x) => x.status !== 'void');
+      const r1 = await patch(G1, { closerUserId: sal2(), adults: 1 }, 'mgr');
+      expect(r1.statusCode, r1.body).toBe(200);
+      expect(r1.json().adults).toBe(1);
+      expect(await reasons(G1)).toEqual([
+        ['sal', 'void', 'closer_changed'],
+        ['sal2', 'projected', null],
+      ]);
+      expect(await live(G1)).toEqual([row('sal2', 'projected', await roomBase(G1))]);
+      await checkIn(G2);
+      await at('2026-11-02T16:00:00+07:00');
+      const r2 = await patch(
+        G2,
+        { closerUserId: sal2(), closerChangeReason: 'Sale 2 chốt đơn, chủ đầu tư sửa', adults: 1 },
+        'owner',
+      );
+      expect(r2.statusCode, r2.body).toBe(200);
+      expect(r2.json().adults).toBe(1);
+      expect(await reasons(G2)).toEqual([
+        ['sal', 'void', 'closer_corrected'],
+        ['sal2', 'projected', null],
+      ]);
+      expect(await live(G2)).toEqual([row('sal2', 'projected', await roomBase(G2))]);
+    });
+
+    it('ARC 154-01 (b): 1H-04 counts the payees of THIS booking only – a pending cash deposit of a sale who earns on OTHER bookings does not hold this closer', async () => {
+      await at('2026-11-01T11:00:00+07:00');
+      const Q = await book('203', '2026-11-02', 2);
+      // sal2 is a payee on other bookings (A, O, X…), never on Q.
+      expect(
+        (await q(`SELECT count(*)::int AS n FROM commission WHERE payee_user_id = $1`, [sal2()]))[0]
+          .n,
+      ).toBeGreaterThan(0);
+      await at('2026-11-02T14:00:00+07:00');
+      const r = await db.withContext({ ...t.ctx(), userId: sal2(), actorType: 'user' }, (tx) =>
+        fa.app.get(PaymentService).recordManual(tx, {
+          folioId: Q.folioId,
+          reservationId: Q.id,
+          reservationCode: Q.code,
+          type: 'deposit',
+          method: 'cash',
+          amountVnd: 100_000,
+          receivedAt: new Date('2026-11-02T14:00:00+07:00'),
+          recordedBy: sal2(),
+        } as never),
+      );
+      const [p] = await q(`SELECT reconciliation FROM payment WHERE id = $1`, [r.id]);
+      expect(p.reconciliation).toBe('pending');
+      await checkIn(Q);
+      await checkOut(Q);
+      expect(await commissions(Q)).toEqual([row('sal', 'earned', await roomBase(Q))]);
     });
   },
 );
