@@ -19,11 +19,11 @@
 
 | Nhóm | Khóa | Kết luận | Điều kiện / ghi chú |
 |---|---|---|---|
-| C1 | 7 chuỗi RU "апартаменты" → "номер" | **DUYỆT CÓ ĐIỀU KIỆN** | 7 câu thay đúng, giữ nguyên chữ UXD. Điều kiện: cùng lượt sửa `sale.quote_text` RU, đổi dòng 4 "Депозит для бронирования" thành "Предоплата…" (thẻ 01, Major) |
+| C1 | 7 chuỗi RU "апартаменты" → "номер" | ~~DUYỆT CÓ ĐIỀU KIỆN~~ **DUYỆT** (lượt 2, mục 9: điều kiện đã áp ở bản 1.1) | 7 câu thay đúng, giữ nguyên chữ UXD. Điều kiện: cùng lượt sửa `sale.quote_text` RU, đổi dòng 4 "Депозит для бронирования" thành "Предоплата…" (thẻ 01, Major) |
 | C2 | `gw.lang_auto` EN, VI, RU | **DUYỆT** | Giữ chữ UXD. Thẻ 10 (Suggestion) cho bản đọc màn hình |
 | C3 | `bill.line.early_departure_fee_same_day`, `_notice_one`, `_notice_other` | **DUYỆT** | Đúng BR-428. Thẻ 03 (Minor): khoảng trắng không ngắt sau `{noticeDays}`, nên làm cùng lượt |
 | C4 | `bill.line.late_fee_as_night` | **DUYỆT** | Đúng BR-416 với dòng hệ thống ghi. Thẻ 04 (Minor): DOM, BE-B xác nhận ca quản lý sửa giảm thẳng dòng này. Thẻ 05 (Suggestion): ngoặc ở bản VI |
-| C5 | Dấu "!" ở `msg.hot_water_issue` | **DUYỆT CÓ ĐIỀU KIỆN** | Đồng ý hướng UXD: dấu chấm. Điều kiện: áp đúng 3 câu ở thẻ 06. Giữ "Здравствуйте, {name}!" (cách chào chuẩn tiếng Nga), đưa vào danh sách người bản xứ |
+| C5 | Dấu "!" ở `msg.hot_water_issue` | ~~DUYỆT CÓ ĐIỀU KIỆN~~ **DUYỆT** (lượt 2, mục 9: 3 câu đã vào bản 1.1 nguyên văn) | Đồng ý hướng UXD: dấu chấm. Điều kiện: áp đúng 3 câu ở thẻ 06. Giữ "Здравствуйте, {name}!" (cách chào chuẩn tiếng Nga), đưa vào danh sách người bản xứ |
 | C6 | "phụ thu" ở họ `bill.line.*` (để sau v1.0.5) | Ý kiến ngắn ở mục 2 | Đồng ý để sau. Làm một lượt ở v1.0.6, gộp với phần (c) của thẻ 02 |
 
 Tổng: **0 Blocker, 2 Major, 6 Minor, 3 Suggestion.**
@@ -167,7 +167,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     Предложение действительно до {expires}.
     ```
   - Kiểm sau khi áp: `quote-copy.ts` không còn "Депозит".
-- Trạng thái: Fixed (UXD, bản 1.1 của `copy-v1.0.5.md` mục 5.1: dòng 4 RU "Предоплата, чтобы закрепить номер: …", chép toàn bộ `sale.quote_text` RU theo khung của thẻ)
+- Trạng thái: Fixed (UXD, bản 1.1 của `copy-v1.0.5.md` mục 5.1: dòng 4 RU "Предоплата, чтобы закрепить номер: …", chép toàn bộ `sale.quote_text` RU theo khung của thẻ) → **Closed** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-02
 - Mức độ: Major (phần a); phần b, c có thể Deferred
@@ -212,7 +212,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     - `gw.room` "Phòng", hoặc xóa khóa.
   - Chữ Desk nội bộ giữ "căn".
   - Sau phần (a), FE-B thêm kiểm như thẻ 11.
-- Trạng thái: (a) Fixed – mục 4.20 (a), bắt buộc v1.0.5 · (b) Fixed – mục 4.20 (b) và 5.1, nên có, cùng lượt C5 (PO quyết định 15) · (c) Deferred – v1.0.6, backlog R5-B-03, gộp C6
+- Trạng thái: (a) Fixed – mục 4.20 (a), bắt buộc v1.0.5 · (b) Fixed – mục 4.20 (b) và 5.1, nên có, cùng lượt C5 (PO quyết định 15) · (c) Deferred – v1.0.6, backlog R5-B-03, gộp C6 → (a) **Closed**, (b) **Closed**, (c) Deferred **CPY đồng ý** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-03
 - Mức độ: Minor
@@ -227,7 +227,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     - VI: "Phí trả phòng sớm (báo trước {noticeDays} ngày)";
     - EN: "Early departure fee ({noticeDays} day's notice)" / "({noticeDays} days' notice)".
   - Trong 2 ví dụ trên, `\u00A0` chỉ chỗ đặt ký tự U+00A0, không gõ 6 ký tự này vào nguồn. Test so chữ lấy bằng `tv(key)`.
-- Trạng thái: Fixed (mục 4.1: U+00A0 sau `{noticeDays}` ở VI và EN của `_notice_one`, `_notice_other`)
+- Trạng thái: Fixed (mục 4.1: U+00A0 sau `{noticeDays}` ở VI và EN của `_notice_one`, `_notice_other`) → **Closed** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-04
 - Mức độ: Minor
@@ -242,7 +242,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     - `bill.line.late_fee_after_limit`: VI "Phụ thu trả muộn (rời sau mốc trả muộn)", EN "Late check-out fee (after the late check-out limit)";
     - cùng khuôn với `bill.line.extra_night`.
   - Không chặn v1.0.5 nếu V5-16 chưa lên cùng bản.
-- Trạng thái: Open – chờ DOM (ORC đã hỏi). UXD đã soạn sẵn khóa dự phòng `bill.line.late_fee_after_limit` theo chữ CPY ở mục 4.8, chưa đếm. DOM trả lời "chỉ giảm bằng FOC" thì đóng thẻ
+- Trạng thái: Open – chờ DOM (ORC đã hỏi). UXD đã soạn sẵn khóa dự phòng `bill.line.late_fee_after_limit` theo chữ CPY ở mục 4.8, chưa đếm. DOM trả lời "chỉ giảm bằng FOC" thì đóng thẻ → CPY lượt 2: vẫn **Open**, chờ DOM. Chữ khóa dự phòng trong bản 1.1 đúng nguyên văn CPY
 
 ### FB-R5-CPY-UXD-V105-05
 - Mức độ: Suggestion
@@ -250,7 +250,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
 - Vấn đề: các dòng phiếu cùng họ đặt phần giải thích trong ngoặc: "Phụ thu trả muộn ({time})", "Phí trả phòng sớm (báo trước…)". Bản EN mới cũng dùng ngoặc. Riêng bản VI viết liền "…trả muộn bằng giá 1 đêm".
 - Vì sao quan trọng: nhất quán trên cùng một phiếu; người đọc tách tên khoản và cách tính dễ hơn.
 - Đề xuất sửa: VI "Phụ thu trả muộn (bằng giá 1 đêm)". Chữ trên Desk (`co.*`) có thể giữ như cũ.
-- Trạng thái: Fixed (mục 4.8: VI "Phụ thu trả muộn (bằng giá 1 đêm)")
+- Trạng thái: Fixed (mục 4.8: VI "Phụ thu trả muộn (bằng giá 1 đêm)") → **Closed** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-06
 - Mức độ: Minor (là điều kiện của C5)
@@ -265,7 +265,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - VI: "Chào {name}, OTTIMO đã nhận được tin báo phòng {room} không có nước nóng. Kỹ thuật viên sẽ đến trước {time}. Xin lỗi bạn vì sự bất tiện này."
   - RU: "Здравствуйте, {name}! Мы получили сообщение об отсутствии горячей воды в номере {room}. Техник придёт до {time}. Приносим извинения за неудобства."
   - Nếu PO chưa nhận phần (b) của thẻ 02, bản VI tạm giữ "căn {room}" thay "phòng {room}". Phần còn lại vẫn áp.
-- Trạng thái: Fixed (mục 5.1: 3 câu EN, VI, RU theo chữ CPY; VI dùng "phòng {room}" vì 02 (b) đã nhận). Nên có, cùng lượt C5
+- Trạng thái: Fixed (mục 5.1: 3 câu EN, VI, RU theo chữ CPY; VI dùng "phòng {room}" vì 02 (b) đã nhận). Nên có, cùng lượt C5 → **Closed** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-07
 - Mức độ: Minor
@@ -285,7 +285,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - `msg.bill` RU: "Спасибо, что остановились в OTTIMO, {name}. Счёт {bill_no}: {amount}. Подробнее: {link}"
   - `guest.late.done_title`: EN "All set. Your door code is ready", VI "Đã xong. Mã cửa của bạn đã sẵn sàng".
   - Thời điểm: cùng lượt C5 nếu PO nhận, vì cùng nhóm `TEMPLATES` và đều rẻ. Không thì chuyển B-SAU cùng story nối mẫu tin (plan mục 6, quyết định PO số 14 – R1 của UXD).
-- Trạng thái: Fixed (mục 4.21: `msg.house_rules_smoking` 3 ngôn ngữ, `msg.bill` RU, `guest.late.done_title` EN/VI). Nên có, cùng lượt C5; không kịp thì US-125
+- Trạng thái: Fixed (mục 4.21: `msg.house_rules_smoking` 3 ngôn ngữ, `msg.bill` RU, `guest.late.done_title` EN/VI). Nên có, cùng lượt C5; không kịp thì US-125 → **Closed** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-08
 - Mức độ: Minor
@@ -295,7 +295,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - Khách RU có thể đọc là khoản trả trước **còn phải trả**, cộng với "остаток".
 - Vì sao quan trọng: câu tiền trong tin xác nhận. Đọc nhầm thì khách chuyển khoản lần hai, hoặc nhắn hỏi lại.
 - Đề xuất sửa: "Предоплата {deposit} получена, остаток {balance} — при заселении." Phần còn lại của tin giữ như C1. Mẫu chưa nối mã, nên làm cùng C1 hoặc C5, không gấp.
-- Trạng thái: Fixed (mục 5.1: "Предоплата {deposit} получена, остаток {balance} — при заселении.")
+- Trạng thái: Fixed (mục 5.1: "Предоплата {deposit} получена, остаток {balance} — при заселении.") → **Closed** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-09
 - Mức độ: Minor
@@ -309,7 +309,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - RU: "При долгом проживании уборка не входит в стоимость. Каждая уборка стоит {amount}." Đúng BR-204, BR-506: thuê tháng dọn theo lượt, giá theo hạng.
   - Tùy chọn: EN "Your long-stay rent doesn't include cleaning." → "Cleaning isn't included in long stays. Each clean costs {amount}." VI có thể giữ.
   - Không thêm "аренд" vào danh sách chặn, vì hợp đồng dài hạn dùng đúng chữ này. Chỉ tránh trên chữ khách đọc.
-- Trạng thái: Fixed (mục 5.1, khóa thứ 8 của V5-24: RU theo chữ CPY; UXD nhận cả bản EN tùy chọn; VI giữ)
+- Trạng thái: Fixed (mục 5.1, khóa thứ 8 của V5-24: RU theo chữ CPY; UXD nhận cả bản EN tùy chọn; VI giữ) → **Closed** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-10
 - Mức độ: Suggestion
@@ -324,7 +324,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - RU "Язык выбран автоматически".
   - FE-B dùng khóa này ở dòng 66. Câu không nói nguồn chọn, nên vẫn đúng tinh thần BUG-R2-218.
   - Để PO và UXD chọn v1.0.5 hay sau.
-- Trạng thái: Fixed (mục 4.6: khóa mới `gw.lang_auto_sr` cho `#gw-lang-state`, vào v1.0.5)
+- Trạng thái: Fixed (mục 4.6: khóa mới `gw.lang_auto_sr` cho `#gw-lang-state`, vào v1.0.5) → **Closed** (CPY lượt 2, mục 9)
 
 ### FB-R5-CPY-UXD-V105-11
 - Mức độ: Suggestion
@@ -336,7 +336,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
   - VI: `/(?<!\p{L})căn(?!\p{L})/iu`, sau phần (a) và (b) của thẻ 02, giống `dist-checks.mjs` dòng 281. Thêm `/phụ thu/iu` sau C6;
   - mọi ngôn ngữ: không "!" và không emoji. RU chừa đúng mẫu lời chào `^Здравствуйте, \{name\}!`, cho tới khi người bản xứ trả lời mục 3 câu 2.
   - Bật dần theo từng thẻ đã áp, để CI không đỏ vì phần còn Deferred.
-- Trạng thái: Fixed (phần UXD: mục 5.3 có 5 bước bật dần, mục 6 có dòng FE-B). Việc FE-B xếp sau 02 (a), (b) theo PO
+- Trạng thái: Fixed (phần UXD: mục 5.3 có 5 bước bật dần, mục 6 có dòng FE-B). Việc FE-B xếp sau 02 (a), (b) theo PO → **Closed** phần đặc tả (CPY lượt 2, mục 9). Phần mã theo dõi ở dòng FE-B mục 6 của bảng chữ
 
 ---
 
@@ -409,3 +409,88 @@ Ghi chú khác của CPY:
 - Danh sách cho người bản xứ (mục 3): UXD không đổi gì, INV chuyển. Nếu người bản xứ đổi câu nào, UXD cập nhật bảng.
 - Thứ tự số và tên phòng theo BR-012 (mục 5): PO và ARC xem cùng story mẫu tin. Bảng chữ không đổi cách ghép `{room} {room_name}`.
 - Không có ESC mới.
+
+---
+
+## 9. Lượt 2 – CPY đọc lại bản 1.1 (Round 5 – Review, 06/11/2026)
+
+- Đối tượng: `rounds/round-05/outputs/UXD/copy-v1.0.5.md` **bản 1.1** (commit `9f5c74a2`) và phản hồi của UXD ở mục 8 tệp này. Phạm vi theo PO: plan R5 mục 6, quyết định 15.
+- Cách kiểm: so từng câu trong bản 1.1 với chữ đề xuất của thẻ, theo từng ký tự. Riêng thẻ 03 kiểm bằng mã ký tự: cả 4 chỗ sau `{noticeDays}` (VI, EN của `_notice_one`, `_notice_other`) là `0xa0`. `strings-ru.json` hiện có đúng 1 chỗ "Депозит", là dòng thẻ 01 sửa.
+
+### 9.1 Kết luận lượt 2
+
+| Nhóm | Lượt 1 | Lượt 2 | Lý do |
+|---|---|---|---|
+| C1 | DUYỆT CÓ ĐIỀU KIỆN | **DUYỆT** | Thẻ 01 đã áp nguyên văn ở mục 5.1. Mục 8 của bảng chữ kiểm `quote-copy.ts` không còn "Депозит". Bước 2 của mục 5.3 chặn từ này quay lại |
+| C2 | DUYỆT | DUYỆT | Thêm `gw.lang_auto_sr` (thẻ 10), đúng chữ CPY |
+| C3 | DUYỆT | DUYỆT | Thẻ 03 đã áp |
+| C4 | DUYỆT | DUYỆT | Thẻ 05 đã áp. Thẻ 04 vẫn chờ DOM, không chặn v1.0.5 |
+| C5 | DUYỆT CÓ ĐIỀU KIỆN | **DUYỆT** | 3 câu thẻ 06 đã vào mục 5.1 nguyên văn. CPY duyệt chữ, không duyệt lịch: PO xếp mức "nên có, cùng lượt C5". Nếu chuyển US-125, chữ này đi theo, không cần CPY duyệt lại |
+| C6 | Để sau | Để sau | v1.0.6, backlog R5-B-03, gộp 02 (c) |
+
+Còn mở sau lượt 2: **0 Blocker, 0 Major, 1 Minor (thẻ 04, chờ DOM)**. Thẻ 02 (c) là Deferred, CPY đồng ý.
+
+### 9.2 Từng thẻ
+
+| ID | Trạng thái lượt 2 | Đã kiểm |
+|---|---|---|
+| V105-01 (Major) | **Closed** | Khung `sale.quote_text` RU ở 5.1 khớp thẻ cả 5 dòng. Dòng 2 vẫn "Номер {room} {room_name}…" (C1). Dòng 4 "Предоплата, чтобы закрепить номер: {deposit}. Остальное оплачивается при заселении." Mục 6 giao BE chạy lại `gen-quote-copy.mjs` |
+| V105-02 (a) (Major) | **Closed** | Mục 4.20 (a) ghi mức bắt buộc. `sale.quote_text` VI dòng 2 là "Phòng {room} {room_name}…", các dòng khác giữ nguyên. `gw.req.clean_makeup_free` và `gw.req.clean_second_fee` đúng chữ thẻ. EN, RU giữ. Chữ Desk giữ "căn" |
+| V105-02 (b) | **Closed** | `msg.booking_confirmed`, `msg.deposit_received`, `msg.hot_water_issue` VI ở 5.1 đều dùng "phòng {room}". Cả 8 mẫu VI không còn "căn" đứng riêng. "đặt phòng {code}: phòng {room}" có hai chữ "phòng" gần nhau, nhưng đọc vẫn rõ, nên giữ |
+| V105-02 (c) | Deferred – **CPY đồng ý** | Danh sách khóa ở 4.20 (c) khớp thẻ. Bước 3 của 5.3 chừa đúng các khóa này tới v1.0.6 |
+| V105-03 | **Closed** | 4 chỗ U+00A0 đúng vị trí. Có ghi chú cho FE gõ thẳng ký tự, không gõ ` `. Mục 8 có kiểm ở khung 362 px |
+| V105-04 | Open – chờ DOM | Khóa dự phòng `bill.line.late_fee_after_limit` đúng nguyên văn CPY, chưa đếm, chỉ thêm khi DOM xác nhận. Cách xử lý hai nhánh ở 4.8 đúng ý thẻ |
+| V105-05 | **Closed** | VI "Phụ thu trả muộn (bằng giá 1 đêm)". Desk `co.*` giữ |
+| V105-06 | **Closed** | EN, VI, RU khớp nguyên văn. Lời chào RU giữ "!" |
+| V105-07 | **Closed** | `msg.house_rules_smoking` 3 ngôn ngữ, `msg.bill` RU, `guest.late.done_title` EN, VI khớp nguyên văn (4.21) |
+| V105-08 | **Closed** | "Предоплата {deposit} получена, остаток {balance} — при заселении." khớp |
+| V105-09 | **Closed** | RU khớp. UXD nhận cả bản EN tùy chọn; VI giữ. "аренд" không vào danh sách chặn, đúng ý thẻ |
+| V105-10 | **Closed** | `gw.lang_auto_sr` EN, VI, RU khớp. Chỉ dùng ở `#gw-lang-state`; `gw.lang_auto` giữ cho HomePage. Mục 8 có kiểm bằng trình đọc màn hình |
+| V105-11 | **Closed** (phần đặc tả) | 5 bước ở 5.3 đúng thứ tự và đúng điều kiện bật. Bước 4 chừa đúng mẫu lời chào RU. Phần mã do FE-B làm sau 02 (a), (b) |
+
+### 9.3 Ghi chú
+- Phương án dự phòng ở cuối 5.1 chấp nhận được. Nếu lượt C5 không kịp v1.0.5, 3 mẫu tin chỉ thay "апартаменты" bằng "номер", và phần còn lại sang US-125. Mẫu tin chưa có mã nào gọi, nên khách không thấy chữ cũ. Riêng `sale.quote_text` và 3 chuỗi trang khách vẫn bắt buộc, đúng như bảng chữ ghi.
+- Câu RU mới của thẻ 10 ("Язык выбран автоматически") chưa có trong danh sách mục 3. CPY đã gộp vào câu 9 của khối người bản xứ ở mục 10.
+- Tệp này không có dữ liệu khách, không có số hoa hồng. ESC mới: **không**.
+
+---
+
+## 10. Khối gửi người bản xứ (RU) – INV chuyển khi tiện
+
+Thứ tự: câu rủi ro nhất trước. Mỗi mục gồm câu tiếng Nga, nghĩa tiếng Việt và điều cần hỏi. `{…}` là chỗ hệ thống điền, không cần dịch.
+
+1. **Предоплата, чтобы закрепить номер: {deposit}. Остальное оплачивается при заселении.** (báo giá)
+   - Nghĩa: Tiền trả trước để giữ phòng: {deposit}. Phần còn lại thanh toán khi nhận phòng.
+   - Hỏi: khách có hiểu đây là tiền trả trước, trừ vào tổng, không hoàn lại khi trả phòng không? Bản ngắn «Предоплата для брони: {deposit}.» có tốt hơn không?
+2. **Здравствуйте, {name}!** (đầu mọi tin nhắn)
+   - Nghĩa: Xin chào {name}.
+   - Hỏi: với một nơi lưu trú điềm tĩnh, viết «Здравствуйте, {name}.» (dấu chấm) có bị lạnh hoặc cộc không? Hay giữ dấu «!»?
+3. **OTTIMO подтверждает бронирование {code}: номер {room}, {from} → {to} ({nights_text}).** (tin xác nhận)
+   - Nghĩa: OTTIMO xác nhận đặt phòng {code}: phòng {room}, từ {from} đến {to} ({số đêm}).
+   - Hỏi: «номер» đứng ngay sau mã đặt phòng có bị đọc thành «số» không? Nếu có, đổi thành «ваш номер {room}».
+4. **Номер {room} {room_name}, {from} → {to} ({nights_text}), {guests}.** (báo giá, ví dụ «Номер 401 The Pine, …»)
+   - Nghĩa: Phòng 401 The Pine, từ … đến … (… đêm), … khách.
+   - Hỏi: thứ tự số rồi tên phòng có tự nhiên không?
+5. **Приносим извинения за неудобства.** (tin sự cố nước nóng). Cùng kiểu: **Спасибо.** ở cuối tin nhắc hút thuốc.
+   - Nghĩa: Chúng tôi xin lỗi vì sự bất tiện. / Cảm ơn.
+   - Hỏi: kết bằng dấu chấm thay «!» có đủ ấm và chân thành không?
+6. **Предоплата {deposit} получена, остаток {balance} — при заселении.** (tin xác nhận)
+   - Nghĩa: Đã nhận tiền trả trước {deposit}; phần còn lại {balance} trả khi nhận phòng.
+   - Hỏi: đã rõ là tiền **đã nhận**, không phải tiền còn phải trả chưa?
+7. **При долгом проживании уборка не входит в стоимость. Каждая уборка стоит {amount}.** (trang khách, đang chạy)
+   - Nghĩa: Khi ở dài hạn, dọn phòng không gồm trong giá. Mỗi lần dọn có giá {amount}.
+   - Hỏi: câu có tự nhiên không, có gợi cảm giác thuê căn hộ không?
+8. **Спасибо, что остановились в OTTIMO, {name}.** (tin gửi hóa đơn)
+   - Nghĩa: Cảm ơn {name} đã lưu trú tại OTTIMO.
+   - Hỏi: câu có tự nhiên không? Có cần «у нас» thay cho «в OTTIMO» không?
+9. **Язык можно сменить вверху страницы.** (dòng chữ trên trang khách) và **Язык выбран автоматически** (chỉ trình đọc màn hình đọc, ở ô chọn ngôn ngữ)
+   - Nghĩa: Bạn có thể đổi ngôn ngữ ở đầu trang. / Ngôn ngữ đã được chọn sẵn cho bạn.
+   - Hỏi: hai câu có tự nhiên không? «автоматически» có nghe máy móc quá không?
+10. **Правила проживания и штрафы** (tiêu đề trên trang khách, đang chạy; bản EN là «House rules and fees»)
+    - Nghĩa: Nội quy và tiền phạt.
+    - Hỏi: «штрафы» có nặng hơn ý tiếng Anh không? Có từ nào trung tính hơn mà vẫn đúng không?
+11. **OTTIMO получил предоплату…** (tin đã nhận cọc) so với **Мы получили сообщение…** (tin sự cố)
+    - Nghĩa: OTTIMO đã nhận tiền trả trước… / Chúng tôi đã nhận được tin báo…
+    - Hỏi: nên thống nhất một cách nói không? Nếu có, chọn cách nào?
+
+Người bản xứ sửa câu nào thì INV gửi lại nguyên văn. UXD cập nhật bảng chữ, CPY đọc lại.
