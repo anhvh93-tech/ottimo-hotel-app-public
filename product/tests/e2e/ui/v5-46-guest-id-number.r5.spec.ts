@@ -3,14 +3,15 @@
 // does for a card number. Two notes: the arrival note of online check-in (updateOnlineCheckin.arrivalNote) and the
 // note of a guest request (createGuestRequest.note). Sentence = `error.ID_NUMBER_DETECTED` from strings-vi.json.
 //
-// The guest-portal half of the server rule ships under the same tag as this page ("bật cùng tag máy chủ", contract
-// 0.3.13 mục 1.12). Until the stack under test has it, the refused call is answered by `page.route` with the contract
-// example (openapi.yaml `idInNote`) – the number never reaches the server. Everything else (link, session, steps,
-// the call after the guest removes the number) runs against the real stack. axe on the refused state: 0
-// critical/serious. Fake data only (`fakeCccd`, no real document).
+// The guest-portal half of the server rule (BE-A1 `r5-v5-46-server`, FB-R5-SEC-BE-V546-01) is on the stack under
+// test, so the whole case runs against the REAL server – no `page.route` any more (ARC FB-R5-ARC-FE-107-02): the
+// server's own 422 is read back (only `field` + `code`, never the number), the refused write stores nothing (read
+// back through the guest API), and the call after the guest removes the number goes through. axe on the refused
+// state: 0 critical/serious. Fake data only: the constant `079000000000` (six trailing zeros – plainly a sample,
+// SEC FB-R5-SEC-FE-V546-03), never a random number that could match a real CCCD.
 // Project desk-chromium (testMatch ui/); each case makes its own phone-sized browser context.
 import { readFileSync } from 'node:fs';
-import { expect, test, type Browser, type Page, type Route } from '@playwright/test';
+import { expect, test, type Browser, type Page, type Response } from '@playwright/test';
 import { session, stackToday } from '../support/api.js';
 import { GUEST_ORIGIN, SEED_PASSWORD } from '../support/env.js';
 import { bookFree, cleanupTracked, room, s2Context } from '../support/s2.js';
@@ -18,7 +19,6 @@ import {
   EP3,
   PRIVACY_NOTICE,
   callMultipart,
-  fakeCccd,
   guestCall,
   guestLink,
   namedGuest,
@@ -32,33 +32,39 @@ const VI = JSON.parse(
   readFileSync(new URL('../../../design/copy/strings-vi.json', import.meta.url), 'utf8'),
 ) as Record<string, string>;
 
-/** openapi.yaml `idInNote` example – only `field` + `code`, never the guest's text. */
-function idInNote(field: 'arrivalNote' | 'note') {
-  return {
-    status: 422,
-    contentType: 'application/problem+json',
-    body: JSON.stringify({
-      type: '/problems/validation-failed',
-      title: 'Dữ liệu chưa hợp lệ',
-      status: 422,
-      code: 'VALIDATION_FAILED',
-      errors: [{ field, code: 'ID_NUMBER_DETECTED' }],
-    }),
-  };
+/** SEC FB-R5-SEC-FE-V546-03: the same sample number as the guest-web vitest (`FAKE_ID`). */
+const FAKE_ID = '079000000000';
+
+/** Every write of the page that carries the sample number (`METHOD /path`) – the page must send it once only. */
+function writesWithNumber(page: Page): string[] {
+  const seen: string[] = [];
+  page.on('request', (req) => {
+    if (req.method() !== 'GET' && (req.postData() ?? '').includes(FAKE_ID)) {
+      seen.push(`${req.method()} ${new URL(req.url()).pathname}`);
+    }
+  });
+  return seen;
 }
 
-/** Answer the write whose JSON body carries `field` with the contract 422; every other call goes to the stack. */
-function refuseNote(field: 'arrivalNote' | 'note', seen: string[]) {
-  return async (route: Route) => {
-    const req = route.request();
-    const body =
-      req.method() === 'GET' ? null : (req.postDataJSON() as Record<string, unknown> | null);
-    if (body && typeof body[field] === 'string' && /\d{12}/.test(body[field] as string)) {
-      seen.push(`${req.method()} ${new URL(req.url()).pathname}`);
-      return route.fulfill(idInNote(field));
-    }
-    return route.continue();
-  };
+/** The server's answer to the write carrying the number (contract `idInNote`): 422, only `field` + `code`. */
+function refusedWrite(page: Page, method: 'PUT' | 'POST', path: string): Promise<Response> {
+  return page.waitForResponse(
+    (r) =>
+      r.request().method() === method &&
+      new URL(r.url()).pathname === path &&
+      (r.request().postData() ?? '').includes(FAKE_ID),
+    { timeout: 15_000 },
+  );
+}
+async function expectRefusedAsId(res: Response, field: 'arrivalNote' | 'note') {
+  expect(res.status(), `${field}: ${await res.text()}`).toBe(422);
+  const body = (await res.json()) as Record<string, unknown>;
+  expect(body).toMatchObject({
+    code: 'VALIDATION_FAILED',
+    errors: [{ field, code: 'ID_NUMBER_DETECTED' }],
+  });
+  expect(body.detail).toBeUndefined();
+  expect(JSON.stringify(body)).not.toContain(FAKE_ID);
 }
 
 async function guestPage(browser: Browser): Promise<Page> {
@@ -124,8 +130,7 @@ test.describe(
       expect(e.status, JSON.stringify(e.body)).toBe(200);
 
       const page = await guestPage(browser);
-      const refused: string[] = [];
-      await page.route(/\/v1\/guest\/online-checkin(\?.*)?$/, refuseNote('arrivalNote', refused));
+      const refused = writesWithNumber(page);
       await page.goto(link.url);
       await page
         .getByRole('button', { name: VI['guest.cta.checkin_short']! })
@@ -138,8 +143,10 @@ test.describe(
       });
       await page.getByRole('radio').first().check();
       const note = page.getByLabel(VI['guest.oci.note']!);
-      await note.fill(`CCCD ${fakeCccd()}`);
+      await note.fill(`CCCD ${FAKE_ID}`);
+      const answer = refusedWrite(page, 'PUT', '/v1/guest/online-checkin');
       await page.getByRole('button', { name: VI['common.next']! }).last().click();
+      await expectRefusedAsId(await answer, 'arrivalNote');
 
       const alert = page.getByRole('alert').filter({ hasText: VI['error.ID_NUMBER_DETECTED']! });
       await expect(alert).toBeVisible();
@@ -149,6 +156,11 @@ test.describe(
         page.getByRole('heading', { name: VI['guest.oci.step2']!, level: 1 }),
       ).toBeVisible();
       expect(refused).toEqual(['PUT /v1/guest/online-checkin']);
+      // Nothing stored: the whole write was refused – still on the ETA step, no arrival time.
+      const after = await guestCall(request, 'GET', EP3.getOnlineCheckin[1], g.cookie);
+      expect(after.status, JSON.stringify(after.body)).toBe(200);
+      expect(after.body).toMatchObject({ currentStep: 'eta' });
+      expect(after.body.etaTime ?? null).toBeNull();
       await scan(page, info, 'V5-46-eta-id-number');
 
       // The guest removes the number: the sentence goes, the real server takes the step.
@@ -166,8 +178,7 @@ test.describe(
     }, info) => {
       const link = await bookingWithLink(request, '402');
       const page = await guestPage(browser);
-      const refused: string[] = [];
-      await page.route(/\/v1\/guest\/requests(\?.*)?$/, refuseNote('note', refused));
+      const refused = writesWithNumber(page);
       await page.goto(link.url);
       await page
         .getByRole('button', { name: VI['guest.tab.requests']!, exact: true })
@@ -175,14 +186,22 @@ test.describe(
         .click({ timeout: 15_000 });
       await page.getByRole('button', { name: VI['gw.req.new']!, exact: true }).click();
       await page.getByRole('button', { name: new RegExp(`^${VI['guest.req.other']!}`) }).click();
-      await page.getByLabel(VI['gw.req.note_label']!).fill(`Số CCCD của tôi ${fakeCccd()}`);
+      await page.getByLabel(VI['gw.req.note_label']!).fill(`Số CCCD của tôi ${FAKE_ID}`);
+      const answer = refusedWrite(page, 'POST', '/v1/guest/requests');
       await page.getByRole('button', { name: VI['guest.req.send']!, exact: true }).click();
+      await expectRefusedAsId(await answer, 'note');
 
       await expect(page.getByText(VI['error.ID_NUMBER_DETECTED']!)).toBeVisible({
         timeout: 15_000,
       });
       await expect(page.getByText(VI['gw.req.note_required']!)).toHaveCount(0);
       expect(refused).toEqual(['POST /v1/guest/requests']);
+      // Nothing stored: the booking still has no request (own list through the guest API).
+      const g = await openGuest(request, link.token);
+      expect(g.status, `openGuestSession: ${JSON.stringify(g.body)}`).toBe(200);
+      const mine = await guestCall(request, 'GET', '/v1/guest/requests', g.cookie);
+      expect(mine.status, JSON.stringify(mine.body)).toBe(200);
+      expect((mine.body as { data?: unknown[] }).data ?? []).toEqual([]);
       await scan(page, info, 'V5-46-request-id-number');
       await page.context().close();
     });

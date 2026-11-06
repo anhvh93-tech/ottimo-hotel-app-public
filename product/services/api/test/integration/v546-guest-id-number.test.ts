@@ -16,6 +16,8 @@ import { Writable } from 'node:stream';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
 import { RATE_LIMITER, type RateLimiter } from '../../src/modules/identity/public/rate-limiter';
+import { looksLikeCard } from '../../src/shared/sensitive-number';
+import { containsCardNumber } from '../../src/shared/validation';
 import { type FeatureApp, P, cookieValue, startFeatureApp } from '../helpers/feature-app';
 import {
   GUEST_TEST_ORIGIN,
@@ -39,6 +41,21 @@ const ID_TEXTS = [
 ];
 /** A test card number (Luhn) next to an ID-like number → the card code wins (card first). */
 const CARD_AND_ID = `Thẻ 4111 1111 1111 1111, CCCD ${FAKE_CCCD}`;
+/**
+ * ARC FB-R5-ARC-BE-V546-01 (1): a test card number only the ORIGINAL V-09 rule catches (a known miss of the
+ * detector's card half, shared/validation.ts) – still `CARD_NUMBER_DETECTED`: the guest portal keeps
+ * `containsCardNumber` first, never the narrower `sensitiveNumberKind` card half.
+ */
+const CARD_OLD_RULE_ONLY = 'Thẻ 4111 1111 11-11 1111';
+/** ARC FB-R5-ARC-BE-V546-01: texts that must still go through (no card, no ID). */
+const CLEAN_TEXTS = [
+  'Phòng 202 và 203 cần thêm gối',
+  'Chuyến bay VN 1234 hạ cánh 21:30',
+  'Đến lúc 22h30 ngày 23.10.2026',
+  'Đã chuyển 1.500.000 VND tiền cọc',
+  'Gọi tôi số +84 905 111 222',
+  'Mã đặt chỗ Agoda 482913',
+];
 /** What must never leave the request in any form. */
 const SECRETS = [FAKE_CCCD, '079 000 000 000', FAKE_PASSPORT, '9001019'];
 
@@ -193,17 +210,31 @@ describe.skipIf(!HAS_DB)('V5-46 – ID numbers refused in guest-typed notes (BE-
     expect(lines.length).toBeGreaterThan(0); // the request log was captured
   });
 
-  it('createGuestRequest.note: a card number next to an ID-like number → CARD_NUMBER_DETECTED (card first, unchanged)', async () => {
+  it('createGuestRequest.note: card first, shape unchanged – a card next to an ID-like number, and a card only the original V-09 rule catches → CARD_NUMBER_DETECTED', async () => {
+    // The regression case is meaningful: the detector's card half misses it, the original rule does not.
+    expect(looksLikeCard(CARD_OLD_RULE_ONLY)).toBe(false);
+    expect(containsCardNumber(CARD_OLD_RULE_ONLY)).toBe(true);
     const before = await counts();
-    const r = await guest(fa, inHouse.sid, 'POST', '/v1/guest/requests', {
-      json: { type: 'amenities', note: CARD_AND_ID },
-    });
-    expect(r.statusCode, r.body).toBe(422);
-    expect(r.json()).toMatchObject({
-      code: 'CARD_NUMBER_DETECTED',
-      errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
-    });
+    for (const note of [CARD_AND_ID, CARD_OLD_RULE_ONLY]) {
+      const r = await guest(fa, inHouse.sid, 'POST', '/v1/guest/requests', {
+        json: { type: 'amenities', note },
+      });
+      expect(r.statusCode, r.body).toBe(422);
+      expect(r.json()).toMatchObject({
+        code: 'CARD_NUMBER_DETECTED',
+        errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
+      });
+    }
     expect(await counts()).toEqual(before);
+  });
+
+  it('createGuestRequest.note: room numbers, a flight, a time, a date, an amount with its unit, a +84 phone, a booking code still go through', async () => {
+    for (const note of CLEAN_TEXTS) {
+      const r = await guest(fa, inHouse.sid, 'POST', '/v1/guest/requests', {
+        json: { type: 'other', note },
+      });
+      expect(r.statusCode, `${note}: ${r.body}`).toBe(201);
+    }
   });
 
   it('control: clean notes are stored and copied to the HK task and the work order as before', async () => {
@@ -236,6 +267,15 @@ describe.skipIf(!HAS_DB)('V5-46 – ID numbers refused in guest-typed notes (BE-
       q(`SELECT * FROM online_checkin WHERE reservation_id = $1`, [arriving.reservationId]);
     const stored = await row();
     expect(stored).toHaveLength(1);
+    // ARC FB-R5-ARC-BE-V546-01 (3): the SR-RL-05 write counter is part of the row – a refused write is not counted.
+    const writes = () =>
+      q<{ write_count: number; write_count_date: string | null }>(
+        `SELECT write_count, write_count_date::text AS write_count_date FROM online_checkin
+          WHERE reservation_id = $1`,
+        [arriving.reservationId],
+      );
+    const counted = await writes();
+    expect(counted[0]!.write_count).toBeGreaterThan(0);
     const before = await counts();
     const { text } = await captured(async () => {
       for (const arrivalNote of ID_TEXTS) {
@@ -246,14 +286,27 @@ describe.skipIf(!HAS_DB)('V5-46 – ID numbers refused in guest-typed notes (BE-
       }
     });
     expect(await row()).toEqual(stored);
+    expect(await writes()).toEqual(counted);
     expect(await counts()).toEqual(before);
     for (const s of SECRETS) expect(text).not.toContain(s);
-    const card = await guest(fa, arriving.sid, 'PUT', '/v1/guest/online-checkin', {
-      json: { etaTime: '21:30', arrivalNote: CARD_AND_ID },
-    });
-    expect(card.statusCode, card.body).toBe(422);
-    expect(card.json().code).toBe('CARD_NUMBER_DETECTED');
+    for (const arrivalNote of [CARD_AND_ID, CARD_OLD_RULE_ONLY]) {
+      const card = await guest(fa, arriving.sid, 'PUT', '/v1/guest/online-checkin', {
+        json: { etaTime: '21:30', arrivalNote },
+      });
+      expect(card.statusCode, card.body).toBe(422);
+      expect(card.json()).toMatchObject({
+        code: 'CARD_NUMBER_DETECTED',
+        errors: [{ field: 'arrivalNote', code: 'CARD_NUMBER_DETECTED' }],
+      });
+    }
     expect(await row()).toEqual(stored);
+    expect(await writes()).toEqual(counted);
+    for (const arrivalNote of CLEAN_TEXTS) {
+      const r = await guest(fa, arriving.sid, 'PUT', '/v1/guest/online-checkin', {
+        json: { arrivalNote },
+      });
+      expect(r.statusCode, `${arrivalNote}: ${r.body}`).toBe(200);
+    }
     const ok = await guest(fa, arriving.sid, 'PUT', '/v1/guest/online-checkin', {
       json: { etaTime: '21:30', arrivalNote: 'Đến bằng xe khách đêm, phòng 2 người' },
     });
