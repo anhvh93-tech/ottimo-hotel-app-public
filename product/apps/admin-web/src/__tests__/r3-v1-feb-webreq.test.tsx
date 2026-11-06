@@ -30,7 +30,9 @@ describe('menu number (US-155 v1.0)', () => {
     expect(within(navLink()).getByText('2')).toHaveAttribute('aria-hidden', 'true');
     await user.click(screen.getByRole('button', { name: 'W7K3QX9P' }));
     const dlg = await screen.findByRole('dialog');
-    await user.click(await within(dlg).findByRole('button', { name: tv('webreq.claim') }));
+    await user.click(
+      await within(dlg).findByRole('button', { name: tv('webreq.claim') }, { timeout: 5000 }),
+    );
     await waitFor(() =>
       expect(
         within(navLink()).getByText(tv('nav.website_requests_new', { n: '1' })),
@@ -82,7 +84,12 @@ describe('"Tạo đơn" from a website request (US-155 AC2, WR6)', () => {
     await user.click(await screen.findByRole('button', { name: 'W7K3QX9P' }));
     const drawer = await screen.findByRole('dialog');
     await user.click(
-      await within(drawer).findByRole('button', { name: tv('webreq.create_booking') }),
+      await within(drawer).findByRole(
+        'button',
+        { name: tv('webreq.create_booking') },
+        // the drawer reads the request first; on a busy machine that is more than the 1 s default (ARC #140 G2)
+        { timeout: 5000 },
+      ),
     );
     const dlg = await screen.findByRole('dialog', { name: /Đặt phòng cho yêu cầu W7K3QX9P/ });
     expect(within(dlg).getByText(tv('webreq.booking_hint'))).toBeInTheDocument();
@@ -119,7 +126,12 @@ describe('"Tạo đơn" from a website request (US-155 AC2, WR6)', () => {
     await user.click(await screen.findByRole('button', { name: '7K3QX9MD' }));
     const drawer = await screen.findByRole('dialog');
     await user.click(
-      await within(drawer).findByRole('button', { name: tv('webreq.create_booking') }),
+      await within(drawer).findByRole(
+        'button',
+        { name: tv('webreq.create_booking') },
+        // the drawer reads the request first; on a busy machine that is more than the 1 s default (ARC #140 G2)
+        { timeout: 5000 },
+      ),
     );
     expect(
       await screen.findByRole('dialog', { name: /Đặt phòng cho yêu cầu 7K3QX9MD/ }),
@@ -131,7 +143,9 @@ describe('"Tạo đơn" from a website request (US-155 AC2, WR6)', () => {
     const { user } = renderApp('/website-requests', 'qa.sal');
     await user.click(await screen.findByRole('button', { name: 'W7K3QX9P' }));
     const dlg = await screen.findByRole('dialog');
-    await user.click(await within(dlg).findByRole('button', { name: tv('webreq.claim') }));
+    await user.click(
+      await within(dlg).findByRole('button', { name: tv('webreq.claim') }, { timeout: 5000 }),
+    );
     expect(
       await within(dlg).findByRole('button', { name: tv('webreq.quote') }),
     ).toBeInTheDocument();

@@ -373,8 +373,10 @@ export class PaymentsService {
    * - SAL: blocked as before (422 AMOUNT_EXCEEDS_BALANCE, `max` 0 – a closed booking owes a sale nothing), CTV has no
    *   role; FD+ only below.
    * - `method` other than bank_transfer / vietqr → 422 `method` NOT_IN_LIST (cash is refused by the API: a guest at the
-   *   desk pays on a new booking); no `attachmentId` → 422 `attachmentId` REQUIRED; an image already attached to a
-   *   "khách đã chuyển" notice (`createDepositNotice`) → 422 `attachmentId` NOT_IN_LIST (SEC S7). Then the usual
+   *   desk pays on a new booking); no `attachmentId` → 422 `attachmentId` REQUIRED; an image a sale or a CTV
+   *   uploaded (`attachment.uploaded_by_role` – sent with a "khách đã chuyển" notice, replaced on it, or never sent:
+   *   FB-R5-SEC-BE-105-01) or an image on a notice (`createDepositNotice`) → 422 `attachmentId` NOT_IN_LIST (SEC S7;
+   *   DOM 11.4 2 (c): the proof is OTTIMO's bank notice, never a forwarded image). Then the usual
    *   receipt rules (`recordInTx`: image of this booking, one image one receipt, `receivedAt` window, note ≥ 3 for an
    *   overpayment).
    * - always `reconciliation = pending`; audit `payment.recorded` + `afterClosure: true`, `reservationStatus`.
@@ -406,13 +408,17 @@ export class PaymentsService {
     const attachmentId = typeof raw.attachmentId === 'string' ? raw.attachmentId.trim() : '';
     if (!attachmentId) errors.push({ field: 'attachmentId', code: 'REQUIRED' });
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
-    // SEC S7: the image a sale/CTV sent with "khách đã chuyển" is the guest's word, not the bank's – never the proof.
+    // SEC S7 + FB-R5-SEC-BE-105-01: an image a sale/CTV uploaded is the guest's word passed on, not the bank's –
+    // never the proof, whether it sits on a "khách đã chuyển" notice, was replaced there or was never sent. The
+    // uploader role is read through the files port (ARC FB-R5-ARC-BE-139-01); the notice is this module's table and
+    // stays a rule of its own (SEC 6: a desk + sale person's upload is labelled desk – only the notice catches the
+    // image that person sent with "khách đã chuyển").
     if (UUID.test(attachmentId)) {
       const { rows } = await tx.query(
         'SELECT 1 FROM deposit_notice WHERE attachment_id = $1 LIMIT 1',
         [attachmentId],
       );
-      if (rows[0]) {
+      if (rows[0] || (await this.attachments.uploadedBySales(tx, attachmentId))) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'attachmentId', code: 'NOT_IN_LIST' }],
         });
@@ -923,14 +929,20 @@ export class PaymentsService {
     return out;
   }
 
-  /** BE-15 / DOM S3-3: try SM-11 `earned` after money moved on a booking (see FolioService). */
+  /**
+   * BE-15 / DOM S3-3: try SM-11 `earned` after money moved on a booking (see FolioService). FB-R5-DOM-BE-101-01: a
+   * checked-out stay hands its sold nights over, so a booking confirmed without a rate gets its commission row
+   * before the "earned" check (a debt paid, a transfer reconciled after OWN typed the table).
+   */
   private async tryEarn(tx: Tx, reservationId: string | null, requestId?: string): Promise<void> {
     if (!reservationId) return;
     const own = await this.port().ownership(tx, reservationId);
     if (!own) return;
+    const stay =
+      own.status === 'checked_out' ? await this.port().confirmedStayOf(tx, own.id) : null;
     await this.folios.tryEarnCommissions(
       tx,
-      { reservationId: own.id, reservationCode: own.code, status: own.status },
+      { reservationId: own.id, reservationCode: own.code, status: own.status, stay },
       requestId,
     );
   }

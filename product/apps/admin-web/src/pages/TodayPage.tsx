@@ -245,7 +245,8 @@ function Board({
   state: ResourceState<ArrivalsDepartures>;
   onRetry: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const tz = useSession().property?.timezone;
   const b = state.data;
   if (!b && state.status === 'error')
     return (
@@ -269,6 +270,13 @@ function Board({
       Number(!!x.roomNo) - Number(!!y.roomNo) ||
       (x.etaTime ?? '99').localeCompare(y.etaTime ?? '99'),
   );
+  // v1.0.5 (contract 0.3.13 1.19, BUG-R4-036): between midnight and the rollover (01:30) the server lists the
+  // departures of the CALENDAR day and says which in `departuresDate`; arrivals and the KPI stay on the business
+  // day. The title then names that day. Absent (older server) or = `date` → the title as before.
+  const depDate =
+    b.departuresDate && b.departuresDate !== b.date
+      ? weekdayDate(locale, tz, new Date(`${b.departuresDate}T12:00:00+07:00`))
+      : null;
   const departures = [...b.departures].sort(
     (x, y) =>
       Number(!y.hasArrivalSameRoomToday) - Number(!x.hasArrivalSameRoomToday) ||
@@ -295,7 +303,10 @@ function Board({
       </section>
       <section className="card" aria-labelledby="today-dep">
         <div className="card-h">
-          <h2 id="today-dep">{t('today.departures', { n: departures.length })}</h2>
+          <h2 id="today-dep">
+            {t('today.departures', { n: departures.length })}
+            {depDate ? ` · ${depDate}` : null}
+          </h2>
         </div>
         {departures.length ? (
           <ul className="list">
