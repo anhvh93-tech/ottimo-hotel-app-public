@@ -110,7 +110,7 @@
       "name": "The Amber",
       "group": "L12",
       "monthlyListPriceVnd": 8000000,
-      "expectedNightlyListPriceVnd": 667000,
+      "nightlyListPriceVnd": 667000,
       "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
@@ -120,7 +120,7 @@
       "name": "The Fern",
       "group": "L12",
       "monthlyListPriceVnd": 9000000,
-      "expectedNightlyListPriceVnd": 750000,
+      "nightlyListPriceVnd": 750000,
       "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
@@ -130,7 +130,7 @@
       "name": "The Bloom",
       "group": "L12",
       "monthlyListPriceVnd": 9000000,
-      "expectedNightlyListPriceVnd": 750000,
+      "nightlyListPriceVnd": 750000,
       "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
@@ -140,7 +140,7 @@
       "name": "The Mist",
       "group": "L12",
       "monthlyListPriceVnd": 8500000,
-      "expectedNightlyListPriceVnd": 708000,
+      "nightlyListPriceVnd": 708000,
       "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
@@ -150,7 +150,7 @@
       "name": "The Valley",
       "group": "L12",
       "monthlyListPriceVnd": 9500000,
-      "expectedNightlyListPriceVnd": 792000,
+      "nightlyListPriceVnd": 792000,
       "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
@@ -160,7 +160,7 @@
       "name": "The Sage",
       "group": "L12",
       "monthlyListPriceVnd": 9500000,
-      "expectedNightlyListPriceVnd": 792000,
+      "nightlyListPriceVnd": 792000,
       "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
@@ -170,7 +170,7 @@
       "name": "The Velvet",
       "group": "N",
       "monthlyListPriceVnd": 11500000,
-      "expectedNightlyListPriceVnd": 958000,
+      "nightlyListPriceVnd": 958000,
       "baseOccupancy": 4,
       "maxOccupancy": 5,
       "isSellable": true
@@ -180,7 +180,7 @@
       "name": "The Ivory",
       "group": "NPLUS",
       "monthlyListPriceVnd": 11000000,
-      "expectedNightlyListPriceVnd": 917000,
+      "nightlyListPriceVnd": 917000,
       "baseOccupancy": 3,
       "maxOccupancy": 4,
       "isSellable": true
@@ -190,7 +190,7 @@
       "name": "The Pine",
       "group": "N",
       "monthlyListPriceVnd": 12500000,
-      "expectedNightlyListPriceVnd": 1042000,
+      "nightlyListPriceVnd": 1042000,
       "baseOccupancy": 4,
       "maxOccupancy": 5,
       "isSellable": true
@@ -200,13 +200,13 @@
       "name": "The Ember",
       "group": "NPLUS",
       "monthlyListPriceVnd": 12000000,
-      "expectedNightlyListPriceVnd": 1000000,
+      "nightlyListPriceVnd": 1000000,
       "baseOccupancy": 3,
       "maxOccupancy": 4,
       "isSellable": true
     }
   ],
-  "roomsNote": "baseOccupancy = định mức từng căn (INV gửi 16/10, BR-110 – INV-TT); maxOccupancy = định mức + 1 người ngủ sofa (INV quyết ESC-014 16/10: Studio 3; 301, 401: 5; 302, 402: 4); trẻ dưới 6 tuổi không tính. Loader nạp vào room.base_occupancy / room.max_occupancy (khóa BR mục 13 room.<no>.*). expectedNightlyListPriceVnd là kết quả mong đợi BR-101, server tự tính – không nạp cột này",
+  "roomsNote": "baseOccupancy = định mức từng căn (INV gửi 16/10, BR-110 – INV-TT); maxOccupancy = định mức + 1 người ngủ sofa (INV quyết ESC-014 16/10: Studio 3; 301, 401: 5; 302, 402: 4); trẻ dưới 6 tuổi không tính. Loader nạp vào room.base_occupancy / room.max_occupancy (khóa BR mục 13 room.<no>.*). nightlyListPriceVnd là giá đêm nhập cùng giá tháng, hai giá độc lập (BR-101 (1), (5); v1.0.5 V5-1A: server không tự tính giá đêm từ giá tháng) – loader nạp cả hai vào room_list_price",
   "parameters": [
     {
       "param": "timezone",

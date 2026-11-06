@@ -572,6 +572,10 @@ export function createReservationMock(ctx: Ctx) {
   }
   const deposit = (roomTotal: number) => Math.round((roomTotal * 0.3) / 100_000) * 100_000;
   function calculate(body: QuoteInput, roles: Role[]): QuoteCalculation | Response {
+    // FB-R5-ARC-FE-122-01: the server's order (quote-pricing.ts `calculate`) – `type` first: typed prices only on a
+    // short stay (422 NOT_ALLOWED on `nightlyRates`), then the body of the typed prices, then the channel.
+    if (body.type !== 'short' && body.nightlyRates !== undefined)
+      return validation([{ field: 'nightlyRates', code: 'NOT_ALLOWED' }]);
     const nights = body.nights ?? 0;
     const r = roomById(body.roomId);
     const errors: Array<{ field: string; code: string }> = [];
@@ -588,9 +592,53 @@ export function createReservationMock(ctx: Ctx) {
         max: r.maxOccupancy,
         errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }],
       });
-    const { rates, losPct } = price(body.roomId, body.arrivalDate, nights);
-    const roomTotal = rates.reduce((s, x) => s + x.amountVnd, 0);
     const ch = channelById(body.channelId);
+    // V5-14 (contract 0.3.13 1.3, 1.17; server quote-pricing.ts): typed prices of the desk – FD+ only, direct/agent
+    // channels only, every night once, > 0; a night `edited = true` is priced at its typed CALENDAR price (the BR-107
+    // step applies on it), any other night keeps the server calendar (its amount is ignored – SEC ARC-06); a typed
+    // price outside the BR-105 floor–ceiling → 422 RATE_OUT_OF_RANGE with `dates[]`, `min`, `max` (V5-22).
+    const typed = new Map<string, number>();
+    if (body.nightlyRates !== undefined) {
+      if (!has(roles, FD_PLUS)) return problem(403, 'FORBIDDEN_ACTION');
+      // contract 1.17 "thân lệnh → kênh": the body rules below come before the channel (FB-R5-ARC-FE-122-01)
+      const want = new Set(Array.from({ length: nights }, (_, i) => addDays(body.arrivalDate, i)));
+      const seen = new Set<string>();
+      const bad: Array<{ field: string; code: string }> = [];
+      let notPositive = false;
+      body.nightlyRates.forEach((n, i) => {
+        if (!want.has(n.date) || seen.has(n.date))
+          return bad.push({ field: `nightlyRates[${i}].date`, code: 'DATE_INVALID' });
+        seen.add(n.date);
+        if (!(n.amountVnd > 0)) notPositive = true;
+        else if (n.edited === true) typed.set(n.date, n.amountVnd);
+      });
+      if (bad.length) return validation(bad);
+      if (notPositive) return validation([{ field: 'nightlyRates', code: 'AMOUNT_NOT_POSITIVE' }]);
+      if (seen.size < want.size) return validation([{ field: 'nightlyRates', code: 'REQUIRED' }]);
+      if (!ch || !['direct', 'agent'].includes(ch.channelGroup))
+        return validation([{ field: 'channelId', code: 'NOT_IN_LIST' }]);
+      const out = [...typed].filter(([, v]) => v < 300_000 || v > 3_000_000).map(([d]) => d);
+      if (out.length)
+        return problem(422, 'RATE_OUT_OF_RANGE', {
+          errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
+          dates: out.sort(),
+          min: 300_000,
+          max: 3_000_000,
+        });
+    }
+    const listed = price(body.roomId, body.arrivalDate, nights);
+    const losPct = listed.losPct;
+    const rates = typed.size
+      ? listed.rates.map((n) => {
+          const v = typed.get(n.date) ?? n.calendarRateVnd;
+          return {
+            date: n.date,
+            amountVnd: Math.round((v * (100 - losPct)) / 100 / 1000) * 1000,
+            calendarRateVnd: v,
+          };
+        })
+      : listed.rates;
+    const roomTotal = rates.reduce((s, x) => s + x.amountVnd, 0);
     const fee =
       ch && ch.channelGroup !== 'ota'
         ? extraFee(r, body.adults, body.children6to11 ?? 0, nights).fee
@@ -852,6 +900,9 @@ export function createReservationMock(ctx: Ctx) {
       // 0.3.9 B16 (A17, FD+; bổ sung 1 mục 10.1): the primary booking, while max(today, arrival + 1) <
       // stayDepartureDate (the whole stay, child extensions included – BR-422). Like the real server (QA PR #22,
       // BUG-R4-014) a long stay gets it too: the Desk shows BR-313 instead of BR-428 for it.
+      // V5-11 (#114 `allowed-actions.ts earlyDepartureOpen`): "today" here is the CALENDAR day – the server's
+      // `minCalendarDate` (the business day, the calendar day from 00:00 to the rollover). A stay ending on the
+      // calendar day at 03:00 offers Trả phòng only.
       const from = addDays(r.arrivalDate, 1) > today() ? addDays(r.arrivalDate, 1) : today();
       if (!r.parentReservationId && from < stayDeparture(r))
         add('early_departure', 'B16', 'early-departure');
@@ -1868,6 +1919,18 @@ export function createReservationMock(ctx: Ctx) {
     http.post(`${prop}/quotes/:quoteId/actions/create-hold`, async ({ request, params }) => {
       const g = guard(request, [...FD_PLUS, ...SALES]);
       if (isResponse(g)) return g;
+      const body = (await request.json()) as { holdHours: number } & Record<string, unknown>;
+      // V5-14 (ARC PR75-01): the hold takes the quoted price – a price field in the body is refused, nothing written.
+      // FB-R5-ARC-FE-122-01: the server refuses it in the controller (`rejectHoldPriceFields`), before every other check.
+      const priced = [
+        'nightlyRates',
+        'rates',
+        'rateVnd',
+        'amountVnd',
+        'totalVnd',
+        'depositVnd',
+      ].filter((k) => k in body);
+      if (priced.length) return validation(priced.map((field) => ({ field, code: 'NOT_ALLOWED' })));
       const q = state.quotes.find((x) => x.id === params.quoteId);
       if (!q || (!has(g.roles, FD_PLUS) && q.createdBy !== g.user.id))
         return problem(404, 'NOT_FOUND');
@@ -1878,7 +1941,6 @@ export function createReservationMock(ctx: Ctx) {
       if (q.arrivalDate === today()) return problem(422, 'HOLD_NOT_ALLOWED_TODAY');
       const guest = ctx.db().guests.find((x) => x.id === q.guestId);
       if (!guest?.phone) return problem(422, 'PHONE_REQUIRED');
-      const body = (await request.json()) as { holdHours: number };
       if (![12, 24, 48].includes(body.holdHours))
         return validation([{ field: 'holdHours', code: 'NOT_IN_LIST' }]);
       const departure = addDays(q.arrivalDate!, q.nights ?? 1);
@@ -1902,7 +1964,12 @@ export function createReservationMock(ctx: Ctx) {
           bookerGuestId: q.guestId!,
           paymentModel: 'direct',
           allowUnassigned: false,
-          nightlyRates: q.nightlyRates,
+          // V5-14: the quoted nights (typed ones included) as calendar prices – createRes applies the BR-107 step
+          // once (before, the stepped amounts were stepped again on ≥ 7 nights).
+          nightlyRates: q.nightlyRates?.map((n) => ({
+            date: n.date,
+            amountVnd: n.calendarRateVnd ?? n.amountVnd,
+          })),
         },
         g.user,
       );
@@ -1948,9 +2015,12 @@ export function createReservationMock(ctx: Ctx) {
         .users.filter((u) => u.status === 'active')
         .flatMap((u) => {
           const roles = u.roles.map((x) => x.role);
+          // like the server (0.3.5 A-06): `staff` = sales, front desk, front desk lead, manager, owner
           const k = roles.includes('collaborator')
             ? ('agent' as const)
-            : roles.includes('sales_staff')
+            : roles.some((x) =>
+                  ['sales_staff', 'front_desk', 'front_desk_lead', 'manager', 'owner'].includes(x),
+                )
               ? ('staff' as const)
               : null;
           return k && (kind === 'all' || kind === k)

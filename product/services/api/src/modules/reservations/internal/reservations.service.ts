@@ -430,6 +430,8 @@ export class ReservationsService {
         ]));
     }
     const depositPaidVnd = await this.money.depositPaid(tx, row);
+    // 0.3.13 V5-18: read for every caller, removed for SAL/CTV by the role serializer (x-visible-to FD+).
+    const depositUnverifiedVnd = await this.money.depositUnverified(tx, row, depositPaidVnd);
     let requestedGroup: { id: string; code: string } | null = null;
     if (row.conflict_state === 'open') {
       const g = await tx.query<{ id: string; code: string }>(
@@ -485,6 +487,7 @@ export class ReservationsService {
       iso: ctx.iso,
       noShowAvailableFrom: markAt,
       depositPaidVnd,
+      depositUnverifiedVnd,
       requestedGroup,
       ...(stayDepartureDate ? { stayDepartureDate } : {}),
     });
@@ -3044,6 +3047,8 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: retained,
         retainedKind: retained > 0 ? 'cancellation_fee' : null,
+        // V5-11 (BUG-R3-036, BR-309-27): the fee line is dated the business date of the cancellation.
+        businessDate: ctx.today,
         ...(otaPenaltyFee !== undefined ? { channelFeeActualVnd: otaPenaltyFee } : {}),
         reason: reasonCode as string,
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
@@ -4401,6 +4406,8 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: kept,
         retainedKind: kept > 0 ? 'no_show_fee' : null,
+        // V5-11 (BUG-R3-036, BR-311-04): the fee line is dated the business date of the no-show mark.
+        businessDate: ctx.today,
         reason: 'no_show',
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
         services: { retainLines },
@@ -4624,7 +4631,8 @@ export class ReservationsService {
    * (FB-R2-SEC-BE-24). A hold with money received (DOM D-9, US-085 AC4) is never auto-cancelled: its creator/closer +
    * FD/FDL/MGR are told once (`hold_overdue_with_deposit`), MGR/OWN once the BR-302 cap (12:00 on arrival day) has
    * passed (`hold_overdue_cap`); a cancelled hold tells its creator/closer + every active FD/FDL (`hold_expired`,
-   * V5-1B) – inbox + SSE, DOM A.5, v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until check-in (BUG-R3-042).
+   * V5-1B) – inbox + SSE, DOM A.5, v1.0.4 P4-10 (hold-notices.ts). The desk can still confirm a kept hold until
+   * check-in (BUG-R3-042).
    */
   async expireHolds(
     tx: Tx,
@@ -4650,7 +4658,7 @@ export class ReservationsService {
       const sp = `hold_${n}`;
       await tx.query(`SAVEPOINT ${sp}`);
       try {
-        const outcome = await this.expireOne(tx, id, now, tz, latest);
+        const outcome = await this.expireOne(tx, id, now, tz, latest, today);
         await tx.query(`RELEASE SAVEPOINT ${sp}`);
         if (outcome === 'expired') expired += 1;
         if (outcome === 'kept_paid') keptPaid += 1;
@@ -4668,6 +4676,7 @@ export class ReservationsService {
     now: Date,
     tz: string,
     latest: LocalTime,
+    today: LocalDate,
   ): Promise<'expired' | 'kept_paid' | 'skipped'> {
     const system = SYSTEM_ACTOR;
     const row = await loadReservation(tx, id, system);
@@ -4766,6 +4775,7 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: 0,
         retainedKind: null,
+        businessDate: today,
         reason: 'hold_expired',
       },
       null,
@@ -4847,6 +4857,7 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: 0,
         retainedKind: null,
+        businessDate: ctx.today,
         reason: 'overbooking_relocated',
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       },

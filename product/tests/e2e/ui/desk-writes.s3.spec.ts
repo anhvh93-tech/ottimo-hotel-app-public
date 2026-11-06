@@ -38,7 +38,7 @@ import {
   type Stay,
 } from '../support/s3.js';
 import { approvalsOf, farBooking } from '../support/s3-stay.js';
-import { go } from './axe.js';
+import { go, scan } from './axe.js';
 import { UI, signIn, t } from './helpers.js';
 import {
   pickDocPerson,
@@ -341,6 +341,77 @@ test.describe(
       expect(after?.refundedVnd).toBe(amount);
       const f = await getFolio(request, mgr, res.folioId);
       expect(f.payments.some((p) => p.type === 'refund' && p.amountVnd === -amount)).toBe(true);
+    });
+
+    test('C0313-25 (E) UXD 9.8 / SEC 4.3 hộp Ghi đã hoàn chuyển khoản: mã giao dịch giống số thẻ (số thẻ thử công khai) → 422 CARD_NUMBER_DETECTED ở bankReference, câu `pay.bank_reference_card_like` dưới ô và trong khung lỗi, không có câu ô ghi chú, không có lệnh chi, giá trị còn trong ô; 8 chữ số cuối → lưu được', async ({
+      browser,
+      request,
+    }, info) => {
+      test.slow();
+      const amount = 200000;
+      const { res, approvalId } = await overpaidWithRefund(
+        request,
+        amount,
+        'Hoan chuyen khoan ma giong so the',
+      );
+      const fd = await session(request, 'qa.fd');
+      const mgr = await session(request, 'qa.mgr');
+      // nơi nhận và duyệt: API, như TC-L4-094 (không phải đối tượng kiểm)
+      const accountNo = `9${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+      const dest = await call(request, 'PUT', p3(EP3.setRefundDestination, fd, { approvalId }), {
+        ...dev(fd),
+        idempotencyKey: true,
+        body: {
+          method: 'bank_transfer',
+          bankBin: '970436',
+          accountNo,
+          accountHolder: 'NGUYEN VAN E2E',
+        },
+      });
+      expect(dest.status, JSON.stringify(dest.body)).toBe(200);
+      const ok = await approve(request, mgr, approvalId);
+      expect(ok.status, `approve: ${JSON.stringify(ok.body)}`).toBe(200);
+
+      const own = await deskAs(browser, 'qa.owner');
+      try {
+        const payouts = recordWrites(own, 'POST', /\/actions\/execute-refund$/);
+        const row = await refundRow(own, res.code);
+        await row.getByRole('button', { name: t('refund.execute_transfer'), exact: true }).click();
+        const dlg = own.getByRole('dialog', { name: t('refund.execute_transfer') });
+        await expect(dlg).toBeVisible();
+        const refInput = dlg.getByLabel(t('refund.bank_reference'));
+        await dlg.getByLabel(t('refund.proof')).setInputFiles(photo(PNG_16X16, 'uy-nhiem-chi.png'));
+        // SEC 4.3: only a public test card number, never a real transaction reference
+        const cardLike = '4111-1111-1111-1111';
+        await refInput.fill(cardLike);
+        await dlg.getByRole('button', { name: t('refund.execute_transfer'), exact: true }).click();
+        const refused = await waitWrite(payouts, 'executeRefund – mã giống số thẻ', 422);
+        const problem = JSON.parse(refused.body) as ProblemFields;
+        expect(problem.code).toBe('CARD_NUMBER_DETECTED');
+        expect(problem.errors?.map((e) => e.field)).toEqual(['bankReference']);
+        expect(refused.body, 'máy chủ không lặp lại giá trị').not.toContain('4111');
+        // dưới ô: Field error nối qua aria-describedby; khung lỗi theo nhánh VALIDATION_FAILED (hộp không có map)
+        await expect(refInput).toHaveAccessibleDescription(t('pay.bank_reference_card_like'));
+        await expect(refInput).toHaveAttribute('aria-invalid', 'true');
+        await expect(dlg.getByRole('alert')).toHaveText(t('pay.bank_reference_card_like'));
+        await expect(dlg).not.toContainText(t('error.CARD_NUMBER_DETECTED'));
+        await expect(refInput, 'không tự xóa ô').toHaveValue(cardLike);
+        await scan(own, info, 'refund-transfer-card-like');
+
+        // lối ra câu chữ đưa ra: 8 chữ số cuối (dưới 13 chữ số – không bao giờ bị chặn lại)
+        const last8 = String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
+        await refInput.fill(last8);
+        await dlg.getByRole('button', { name: t('refund.execute_transfer'), exact: true }).click();
+        const pay = await waitWrite(payouts, 'executeRefund – 8 chữ số cuối', 201);
+        expect(pay.request?.bankReference).toBe(last8);
+        await expect(dlg).toBeHidden({ timeout: 10_000 });
+      } finally {
+        await own.context().close();
+      }
+      const after = (await approvalsOf(request, mgr, res.code, 'refund')).find(
+        (a) => a.id === approvalId,
+      );
+      expect(after?.refundedVnd).toBe(amount);
     });
 
     test('TC-L2-085 (E) US-021/AC2+AC4 hộp Hủy đơn khi hoàn 100 % cọc (BR-309-03): nêu số tiền hoàn, không nói "chưa thu tiền"; hủy → yêu cầu hoàn đúng số (BUG-R2-069)', async ({

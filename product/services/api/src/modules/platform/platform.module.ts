@@ -7,6 +7,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ParametersService } from './internal/parameters.service';
 import { PlatformController } from './internal/platform.controller';
+import { PropertyWifiController } from './internal/property-wifi.controller';
 import { RoomsService } from './internal/rooms.service';
 import { ChannelsService } from './public/channels';
 import { ParameterHooks } from './public/parameter-hooks';
@@ -15,7 +16,8 @@ import './audit-entities';
 
 @Global()
 @Module({
-  controllers: [PlatformController],
+  // V5-58: getPropertyWifi / setPropertyWifi.
+  controllers: [PlatformController, PropertyWifiController],
   providers: [
     PropertyContextService,
     ChannelsService,

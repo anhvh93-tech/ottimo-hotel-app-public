@@ -34,8 +34,17 @@ function argsFor(error: ApiError, locale: 'vi' | 'en' = 'vi'): Args {
   if (typeof p.pendingApprovals === 'number') args.n = p.pendingApprovals;
   // UXR #9: "Còn {n} ô cần sửa" – the number of fields the server listed (at least 1).
   else if (p.code === 'VALIDATION_FAILED') args.n = Math.max(1, error.fieldErrors.length);
-  if (p.min !== undefined) args.min = String(p.min);
-  if (p.max !== undefined) args.max = String(p.max);
+  // copy-v1.0.5 mục 3 (FB-R5-UXD-FE-PR122-01): the BR-105 floor–ceiling of RATE_OUT_OF_RANGE is money ("300.000 đ"),
+  // never a raw integer – the extra night at check-out and the folio night price use this generic sentence.
+  const rateBounds =
+    p.code === 'RATE_OUT_OF_RANGE' ||
+    error.fieldErrors.some((fe) => fe.code === 'RATE_OUT_OF_RANGE');
+  const bound = (v: unknown) =>
+    rateBounds && typeof v === 'number'
+      ? translate(locale, 'common.currency_vnd', { amount: formatNumber(locale, v) })
+      : String(v);
+  if (p.min !== undefined) args.min = bound(p.min);
+  if (p.max !== undefined) args.max = bound(p.max);
   if (Array.isArray(p.allowed)) args.allowed = p.allowed.join(', ');
   // US-155 (SEC ARC-17): PUBLIC_FORM_NOT_READY lists what is missing before the website form can be turned on.
   if (Array.isArray(p.missing))
@@ -111,11 +120,32 @@ const FIELD_FALLBACK: Record<string, string> = {
 };
 
 /**
- * FieldError.code → string key: `field.<CODE>` → `field_error.<code>` → known aliases → `error.<CODE>`.
- * The code set is open (OpenAPI): an unknown code falls back to `field_error.generic`, not to the
+ * (field, code) pairs whose sentence differs from the code's own one. UXD copy-v1.0.5 9.8 (C0313-25): a bank
+ * transaction reference refused as a card number says "enter the last 8 digits", not the note sentence of
+ * `error.CARD_NUMBER_DETECTED` ("remove the digits") – free-text fields keep that one. The field may carry a
+ * prefix (`payment.bankReference`, `body.bankReference`).
+ */
+const FIELD_PAIR: Array<{ field: RegExp; code: string; key: string }> = [
+  {
+    field: /(^|\.)bankReference$/,
+    code: 'CARD_NUMBER_DETECTED',
+    key: 'pay.bank_reference_card_like',
+  },
+];
+
+/** The pair sentence key for this field error, if any (see `FIELD_PAIR`). */
+export function fieldPairKey(fe: FieldError): string | undefined {
+  return FIELD_PAIR.find((p) => p.code === fe.code && p.field.test(fe.field))?.key;
+}
+
+/**
+ * FieldError → string key: (field, code) pair → `field.<CODE>` → `field_error.<code>` → known aliases →
+ * `error.<CODE>`. The code set is open (OpenAPI): an unknown code falls back to `field_error.generic`, not to the
  * misleading "Chọn một giá trị trong danh sách" (UXD s3 #2).
  */
 export function fieldErrorText(t: T, fe: FieldError, args: Args = {}): string {
+  const pair = fieldPairKey(fe);
+  if (pair && hasKey(pair)) return t(pair, args);
   const candidates = [
     `field.${fe.code}`,
     `field_error.${fe.code.toLowerCase()}`,
@@ -136,7 +166,7 @@ export function fieldErrors(
 ): Record<string, string> {
   if (!isApiError(error)) return {};
   const out: Record<string, string> = {};
-  const extra = argsFor(error);
+  const extra = argsFor(error, locale);
   delete extra.seconds;
   for (const fe of error.fieldErrors) {
     const field = fe.field.replace(/^body\./, '');

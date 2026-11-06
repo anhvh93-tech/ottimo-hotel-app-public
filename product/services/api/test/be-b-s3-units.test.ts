@@ -29,6 +29,7 @@ import {
   parseReceivingAccount,
 } from '../src/modules/platform/public/receiving-account';
 import { ProblemError } from '../src/shared/problem';
+import { primaryRoleOf, STAFF_ROLE_ORDER } from '../src/shared/role-order';
 import { withoutSecrets } from '../src/shared/secret-fields';
 import { addDays } from '../src/shared/time';
 
@@ -275,7 +276,7 @@ describe('money position – review S3 (DOM BE-13/14, ARC 13, E15-05)', () => {
     const totals = computeTotals(
       [ln('n1', 'room', 1_000_000)],
       [{ type: 'charge', method: 'cash', amount_vnd: 1_300_000, status: 'succeeded' }],
-      300_000,
+      [{ reasonCode: 'overpayment', openVnd: 300_000 }],
     );
     expect(totals).toMatchObject({ creditVnd: 300_000, unhandledCreditVnd: 0, otaExcessVnd: 0 });
   });
@@ -472,6 +473,30 @@ describe('roles and reconciliation flags', () => {
     expect(primaryRole(['collaborator'])).toBe('collaborator');
     expect(isDesk(['sales_staff'])).toBe(false);
     expect(isDesk(['front_desk_lead'])).toBe(true);
+  });
+
+  it('SEC 6 (a) / ARC 139-02: one role order, desk first – never the name order the guard loads roles in', () => {
+    const DEPOSIT_RECEIPT = [
+      'owner',
+      'manager',
+      'front_desk_lead',
+      'front_desk',
+      'sales_staff',
+      'collaborator',
+    ];
+    // `ORDER BY role` gives collaborator before front_desk and front_desk before sales_staff: both read as the desk.
+    expect(primaryRoleOf(['collaborator', 'front_desk'], DEPOSIT_RECEIPT)).toBe('front_desk');
+    expect(primaryRoleOf(['front_desk', 'sales_staff'], DEPOSIT_RECEIPT)).toBe('front_desk');
+    expect(primaryRoleOf(['collaborator', 'sales_staff'], DEPOSIT_RECEIPT)).toBe('sales_staff');
+    expect(primaryRoleOf(['collaborator'], DEPOSIT_RECEIPT)).toBe('collaborator');
+    expect(primaryRoleOf(['housekeeping', 'sales_staff'], DEPOSIT_RECEIPT)).toBe('sales_staff');
+    expect(primaryRoleOf(['housekeeping'], DEPOSIT_RECEIPT)).toBeNull();
+    // The recorder snapshot (A-40) is the same order.
+    expect(primaryRole(['collaborator', 'front_desk'])).toBe('front_desk');
+    expect(primaryRole(['housekeeping', 'maintenance'])).toBe('housekeeping');
+    expect(STAFF_ROLE_ORDER.indexOf('front_desk')).toBeLessThan(
+      STAFF_ROLE_ORDER.indexOf('sales_staff'),
+    );
   });
 
   it('oracle BR-527-01: "Cần chú ý" after bank_reconcile_alert_days × 24 h, pending business days', () => {
