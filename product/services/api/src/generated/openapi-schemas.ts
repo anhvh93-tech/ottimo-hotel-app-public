@@ -2421,7 +2421,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         type: { s: { k: 'scalar' } },
         status: { s: { k: 'ref', name: 'ApprovalStatus' } },
         reservationCode: { s: { k: 'scalar' } },
-        possibleDuplicateCodes: { s: { k: 'array', items: { k: 'scalar' } } },
+        possibleDuplicateCodes: {
+          s: { k: 'array', items: { k: 'scalar' } },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         folioLineId: { s: { k: 'ref', name: 'Uuid' } },
         amountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         effectiveAmountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },

@@ -11,19 +11,22 @@
   - câu chống giả danh ở sổ tay `guides/02-le-tan.md` 4.1;
   - FAQ landing: "We never ask for card numbers." / "OTTIMO không bao giờ hỏi số thẻ."
 - Chỗ dùng: sổ tay `product/docs/manual/user-manual-v1.0.md` và `guides/02-le-tan.md`, dòng "Khách lỡ gửi số thẻ hoặc ảnh thẻ qua Zalo, SMS, email". BA thay chữ "(câu chuẩn: chờ CPY)" (mục 6).
-- Chờ review:
-  - SEC: nghĩa, mục 7;
-  - UXD: giọng, chỗ in;
-  - DOM: đúng vận hành ở quầy.
+- Trạng thái: **SEC duyệt 07/11** (`SEC-responses.md` mục 6.5, `16ea5183`):
+  - nguyên văn mục 2, 3 và 5;
+  - thứ tự "trả lời trước, xóa ngay sau";
+  - email và SMS bỏ câu 4.
+- Cách xóa theo kênh: INT `rounds/round-05/outputs/INT/message-deletion-by-channel.md`.
+- Còn chờ review: UXD (giọng, chỗ in), DOM (đúng vận hành ở quầy).
+- Lượt sửa: Lượt 2 ở cuối tệp.
 
 ---
 
 ## 1. Dùng khi nào, gửi thế nào (cho lễ tân)
 
-- **Mục đích:** một tin, một việc. Cảm ơn khách, nói OTTIMO không nhận thông tin thẻ qua tin nhắn và sẽ xóa tin, nhờ khách thu hồi, mời trả thẻ tại quầy.
-- **Lúc gửi:** ngay khi thấy tin có số thẻ hoặc ảnh thẻ, **trước** khi xóa tin (thứ tự của SEC 6.1). Gửi xong thì xóa ngay, không chờ khách thu hồi. Đây là tin trả lời khách nên gửi được mọi giờ (BR-973 (4)).
+- **Mục đích:** một tin, một việc. Cảm ơn khách, nói OTTIMO không nhận thông tin thẻ qua tin nhắn và, ở kênh xóa được, sẽ xóa tin; nhờ khách thu hồi; mời trả thẻ tại quầy.
+- **Lúc gửi:** ngay khi thấy tin có số thẻ hoặc ảnh thẻ, **trước** khi xóa tin (thứ tự của SEC 6.1). Kênh xóa được: gửi xong thì xóa ngay, không chờ khách thu hồi. Kênh không xóa được: mục 5. Đây là tin trả lời khách nên gửi được mọi giờ (BR-973 (4)).
 - **Gửi bằng một tin mới:**
-  - Zalo: không bấm **Trả lời**, không trích tin của khách;
+  - Zalo, Messenger, hộp thư OTA: không bấm **Trả lời**, không trích tin của khách;
   - WhatsApp, Telegram, Viber: không vuốt để trả lời;
   - email: **soạn thư mới** tới địa chỉ của khách, không bấm Trả lời hay Chuyển tiếp, vì cả hai đều chép lại thư cũ.
 - **Một ngôn ngữ mỗi tin, theo khách** (design-system 11.2 mục 3): tiếng Việt cho khách Việt, tiếng Anh cho mọi khách khác. Không gửi hai thứ tiếng trong cùng một tin. Bản tiếng Anh là bản gốc.
@@ -31,11 +34,12 @@
 
 | Kênh | Bản | Bỏ câu nào |
 |---|---|---|
-| Zalo | Bản ngắn (mục 3) | – |
+| Zalo số cơ sở (tài khoản Zalo thường) | Bản ngắn (mục 3) | – |
+| Zalo OA (OA Manager) | **Bản không có vế xóa (mục 5)**. Dùng tới khi lượt thử T1 chứng minh xóa được tin khỏi tài khoản OA: quản trị viên thứ hai mở OA Manager (web và mini app) cũng không còn thấy tin. INT báo T1 đạt thì quay về bản ngắn mục 3 | – |
 | WhatsApp, Telegram, Viber | Bản đầy đủ (mục 2) | – |
 | Email | Bản đầy đủ, thư mới | Câu 4 (email không thu hồi được) |
 | SMS | Bản đầy đủ | Câu 4 (SMS không thu hồi được) |
-| Hội thoại OTA, hoặc kênh lễ tân không xóa được tin | **Chưa dùng hai bản này** | Đây là ca "không xóa được" ở SEC 6.3: gọi chủ đầu tư. Câu cho ca này ở mục 5, chờ SEC |
+| Hộp thư OTA (Airbnb, Booking, Agoda), Messenger (fanpage) | **Bản không có vế xóa (mục 5)**. Messenger: dùng tới khi INT tra xong cách xóa | – |
 
 - **Tiêu đề thư (email):** "OTTIMO · About your message" / "OTTIMO · Về thư bạn gửi". Không ghi gì về thẻ trong tiêu đề.
 - **Tên khách:** chưa rõ tên thì viết "Hello," / "Chào bạn,".
@@ -54,13 +58,13 @@
 | 2 | For your security, OTTIMO does not accept card details by message or email. | Vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn hay email. |
 | 3 | We will delete your message on our side straight away. | Ở phía OTTIMO, lễ tân sẽ xóa ngay tin bạn đã gửi. |
 | 4 | If your app allows, please unsend it as well. | Nếu ứng dụng cho phép, bạn vui lòng thu hồi tin đó. |
-| 5 | You are welcome to pay by card at our front desk, or we can suggest another way to pay. | Bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc chọn cách khác theo hướng dẫn của lễ tân. |
+| 5 | You are welcome to pay by card at reception, or we can suggest another way to pay. | Bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc chọn cách khác theo hướng dẫn của lễ tân. |
 
 Bản để sao chép.
 
 EN:
 
-> Hello {name}, thank you for getting in touch. For your security, OTTIMO does not accept card details by message or email. We will delete your message on our side straight away. If your app allows, please unsend it as well. You are welcome to pay by card at our front desk, or we can suggest another way to pay.
+> Hello {name}, thank you for getting in touch. For your security, OTTIMO does not accept card details by message or email. We will delete your message on our side straight away. If your app allows, please unsend it as well. You are welcome to pay by card at reception, or we can suggest another way to pay.
 
 VI:
 
@@ -71,13 +75,13 @@ VI:
 | # | English (gốc) | Tiếng Việt |
 |---|---|---|
 | 1 | Thank you – for your security, OTTIMO does not accept card details over chat, so we are deleting your message on our side now. | Cảm ơn bạn – vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn, nên lễ tân sẽ xóa ngay tin bạn đã gửi ở phía OTTIMO. |
-| 2 | If you can, please recall it too; card payments are welcome at our front desk, or we can suggest another way. | Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn. |
+| 2 | If you can, please recall it too; card payments are welcome at reception, or we can suggest another way. | Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn. |
 
 Bản để sao chép.
 
 EN:
 
-> Thank you – for your security, OTTIMO does not accept card details over chat, so we are deleting your message on our side now. If you can, please recall it too; card payments are welcome at our front desk, or we can suggest another way.
+> Thank you – for your security, OTTIMO does not accept card details over chat, so we are deleting your message on our side now. If you can, please recall it too; card payments are welcome at reception, or we can suggest another way.
 
 VI:
 
@@ -94,9 +98,9 @@ VI:
 | "…does not accept card details by message." | Chưa nói tới email, mà sổ tay ghi cả email | Bản đầy đủ: "…by message or email." / "…qua tin nhắn hay email." |
 | "We will delete your message on our side; please also recall it if you can." | Hai việc trong một câu. Thiếu chữ "ngay" của SEC ("xóa ngay, không chờ") | Tách làm câu 3 và câu 4, thêm "straight away" / "ngay" |
 | "recall" | Chỉ Zalo gọi nút này là "Recall" | Zalo giữ "recall" / "thu hồi". Kênh khác dùng "unsend" |
-| "You are welcome to pay by card at our front desk terminal." | "terminal" là chữ kỹ thuật. Chưa có vế "hoặc theo cách lễ tân hướng dẫn" (ORC giao), nên khách cần trả cọc trước khi đến không biết làm gì | "You are welcome to pay by card at our front desk, or we can suggest another way to pay." Bản tiếng Việt giữ "máy POS" vì khách Việt quen chữ này |
+| "You are welcome to pay by card at our front desk terminal." | "terminal" là chữ kỹ thuật. Chưa có vế "hoặc theo cách lễ tân hướng dẫn" (ORC giao), nên khách cần trả cọc trước khi đến không biết làm gì | "You are welcome to pay by card at reception, or we can suggest another way to pay." Bản tiếng Việt giữ "máy POS" vì khách Việt quen chữ này |
 | "anh/chị" | Mẫu tin dùng "bạn" (content-guide mục 1) | "bạn". Lễ tân đổi sang "anh/chị" cho cả tin khi cần |
-| ORC giao ý "đã xóa tin" | SEC 6.1 bảo gửi trả lời **trước**, xóa **ngay sau**. Lúc gửi tin, tin của khách chưa bị xóa, nên viết "đã xóa" là chưa đúng | Bản đầy đủ: "We will delete … straight away" / "sẽ xóa ngay". Bản Zalo: "we are deleting … now" / "sẽ xóa ngay". Nếu SEC đổi thứ tự (xóa trước, trả lời sau) thì CPY sửa thành "We have deleted…" / "…đã xóa…" |
+| ORC giao ý "đã xóa tin" | SEC 6.1 bảo gửi trả lời **trước**, xóa **ngay sau**. Lúc gửi tin, tin của khách chưa bị xóa, nên viết "đã xóa" là chưa đúng | Bản đầy đủ: "We will delete … straight away" / "sẽ xóa ngay". Bản Zalo: "we are deleting … now" / "sẽ xóa ngay". SEC giữ thứ tự và duyệt chữ này (6.5.1). Không dùng "đã xóa" |
 
 Giữ nguyên ý SEC đã duyệt:
 - không nhận thông tin thẻ qua tin nhắn;
@@ -105,32 +109,50 @@ Giữ nguyên ý SEC đã duyệt:
 
 Không thêm lời hứa nào. "On our side" / "ở phía OTTIMO" giữ đúng phạm vi: OTTIMO xóa trên máy và tài khoản của mình, không nói là tin đã mất khỏi Zalo hay máy của khách.
 
-## 5. Ca không xóa được tin – chưa dùng, chờ SEC
+## 5. Bản không có vế xóa – Zalo OA, hộp thư OTA, Messenger
 
-Nhiều hộp thư OTA không cho cơ sở xóa tin khách gửi. CPY chưa biết OA Manager có cho xóa tin khách gửi hay không: INT kiểm. Gặp kênh như vậy thì vế "sẽ xóa" trong mục 2 và 3 là lời hứa không làm được. Theo SEC 6.3 đây là ca bất thường số 3: lễ tân gọi chủ đầu tư. Bản đề xuất bỏ vế xóa, phần còn lại giữ nguyên:
+Ở ba kênh này, phía OTTIMO không có thao tác xóa tin khách gửi khỏi tài khoản (INT bảng theo kênh; SEC 6.5.2). Vế "sẽ xóa" ở mục 2 và 3 vì vậy là lời hứa không làm được. Bản dưới bỏ vế xóa, phần còn lại giữ nguyên. SEC duyệt nguyên văn ngày 07/11 (6.5.2).
 
 | | English (gốc) | Tiếng Việt |
 |---|---|---|
-| Đề xuất | Thank you – for your security, OTTIMO does not accept card details by message. If you can, please recall or unsend your message; card payments are welcome at our front desk, or we can suggest another way. | Cảm ơn bạn – vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn. Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn. |
+| Bản không có vế xóa | Thank you – for your security, OTTIMO does not accept card details by message. If you can, please recall or unsend your message; card payments are welcome at reception, or we can suggest another way. | Cảm ơn bạn – vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn. Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn. |
 
-Khi SEC duyệt, BA mới đưa bản này vào sổ tay. Trước đó, gặp ca này: lễ tân gọi chủ đầu tư theo SEC 6.3 và hỏi nên nhắn khách thế nào.
+Bản để sao chép.
+
+EN:
+
+> Thank you – for your security, OTTIMO does not accept card details by message. If you can, please recall or unsend your message; card payments are welcome at reception, or we can suggest another way.
+
+VI:
+
+> Cảm ơn bạn – vì an toàn của bạn, OTTIMO không nhận thông tin thẻ qua tin nhắn. Nếu được, bạn vui lòng thu hồi tin; bạn có thể thanh toán bằng thẻ qua máy POS tại quầy, hoặc theo cách lễ tân hướng dẫn.
+
+- Theo SEC 6.5.3, đây là **ca thường**, không phải ca bất thường số 3. Lễ tân:
+  - gửi bản này;
+  - xóa mọi bản sao xóa được;
+  - ghi sổ giao ca;
+  - báo chủ đầu tư trước khi hết ca.
+
+  Các bước chi tiết do BA đưa vào sổ tay.
+- Không dùng "Đánh dấu spam" hay nhãn "Hoàn thành" thay cho xóa: hai thao tác này chỉ ẩn hội thoại.
+- "Recall or unsend" để khách dùng đúng nút của Zalo hoặc Messenger. Chữ "If you can" giữ cho trường hợp kênh không cho khách thu hồi.
 
 ## 6. Cho BA: chữ dán vào sổ tay
 
 Thay "(câu chuẩn: chờ CPY)" ở `guides/02-le-tan.md` (dòng "Khách lỡ gửi số thẻ…") và `user-manual-v1.0.md` (dòng tương ứng) bằng:
 
-> (câu chuẩn ở dưới bảng; Zalo dùng bản ngắn; email soạn thư mới, email và SMS bỏ câu thu hồi; hội thoại OTA chưa dùng, gọi chủ đầu tư)
+> (câu chuẩn ở dưới bảng; Zalo số cơ sở dùng bản ngắn; Zalo OA, hộp thư OTA và Messenger dùng bản không có vế xóa; email soạn thư mới; email và SMS bỏ câu thu hồi)
 
-Đặt bốn đoạn để sao chép ở mục 2 và 3 (EN, VI mỗi bản) ngay dưới bảng tình huống, đúng nguyên văn. Thêm một dòng nhắc:
+Đặt sáu đoạn để sao chép ở mục 2, 3 và 5 (EN, VI mỗi bản) ngay dưới bảng tình huống, đúng nguyên văn. Thêm một dòng nhắc:
 
-> Gửi một ngôn ngữ: tiếng Việt cho khách Việt, tiếng Anh cho khách khác. Gửi tin mới, không bấm Trả lời. Gửi xong thì xóa ngay tin của khách, không chờ khách thu hồi.
+> Gửi một ngôn ngữ: tiếng Việt cho khách Việt, tiếng Anh cho khách khác. Gửi tin mới, không bấm Trả lời. Gửi xong thì xóa ngay tin của khách (kênh xóa được), không chờ khách thu hồi.
 
-Nếu in lên Tờ 1 (quầy lễ tân): chỉ in bản ngắn mục 3, hai thứ tiếng. UXD chốt chỗ và cỡ chữ.
+Nếu in lên Tờ 1 (quầy lễ tân): in bản ngắn mục 3 và bản mục 5, hai thứ tiếng, ghi rõ bản nào cho kênh nào. UXD chốt chỗ và cỡ chữ.
 
 ## 7. Quy tắc kiểm và test đề xuất
 
 Ở v1.0 chưa có màn mẫu tin (mẫu tin dự kiến v1.2). Lễ tân sao chép câu từ sổ tay. Khi làm mẫu ở v1.2 (US-125), đề xuất:
-- Khóa: `msg.card_by_message` (bản đầy đủ), `msg.card_by_message_short` (bản Zalo). Bản ở mục 5 thì thêm khóa `msg.card_by_message_no_delete` sau khi SEC duyệt.
+- Khóa: `msg.card_by_message` (bản đầy đủ), `msg.card_by_message_short` (bản Zalo). Bản ở mục 5: khóa `msg.card_by_message_no_delete` (SEC duyệt 07/11).
 - Biến: chỉ `{name}` (bản đầy đủ). Không có biến nào chứa thẻ, số tiền hay link.
 - Test:
   - chuỗi không chứa chữ số `[0-9]`;
@@ -143,9 +165,10 @@ Số đo (đếm bằng script; `{name}` tính 6 ký tự):
 
 | Bản | EN | VI |
 |---|---|---|
-| Đầy đủ, 5 câu | 310 ký tự | 320 ký tự |
-| Đầy đủ, bỏ câu 4 (email, SMS) | 264 ký tự | 268 ký tự |
-| Zalo, 2 câu | 236 ký tự | 253 ký tự |
+| Đầy đủ, 5 câu | 305 ký tự | 320 ký tự |
+| Đầy đủ, bỏ câu 4 (email, SMS) | 259 ký tự | 268 ký tự |
+| Zalo, 2 câu | 231 ký tự | 253 ký tự |
+| Không có vế xóa (mục 5) | 199 ký tự | 200 ký tự |
 
 - Gửi bằng SMS: bản tiếng Việt có dấu nên tách thành nhiều tin SMS (khoảng 70 ký tự một tin). Điện thoại tự ghép lại; chấp nhận được.
 - Câu dài nhất tính bằng chữ tiếng Anh: câu 1 bản Zalo, 23 chữ. Dài hơn mốc 20 chữ của content-guide một chút, để giữ trong 2 câu như ORC giao. Mọi câu ở bản đầy đủ ≤ 20 chữ.
@@ -161,7 +184,65 @@ Số đo (đếm bằng script; `{name}` tính 6 ký tự):
 
 - [x] Đúng guideline: tiếng Anh dẫn, không emoji, không "!", không IN HOA để nhấn, giọng điềm tĩnh. Không hù dọa (không "lừa đảo", "rủi ro", "lộ"), không đổ lỗi (không "bạn không nên gửi").
 - [x] Không có từ cấm, không nêu số căn, không có giá.
-- [x] Lời hứa khớp quy trình SEC: xóa ở phía OTTIMO, ngay sau khi trả lời; trả thẻ tại quầy; cách khác do lễ tân hướng dẫn. Ca không xóa được tách riêng (mục 5).
+- [x] Lời hứa khớp quy trình SEC: xóa ở phía OTTIMO, ngay sau khi trả lời; trả thẻ tại quầy; cách khác do lễ tân hướng dẫn. Kênh không xóa được dùng bản riêng (mục 5).
 - [x] Giữ ba ý SEC đã duyệt. Không khẳng định "tuân thủ".
-- [x] Câu cần SEC xem: thì "sẽ xóa" thay cho "đã xóa"; câu cho ca không xóa được (mục 5); chữ "unsend" / "recall". Không có câu cần luật sư.
+- [x] SEC duyệt 07/11 (6.5): thì "sẽ xóa ngay" thay cho "đã xóa"; bản mục 5; chọn bản theo kênh. Không có câu cần luật sư.
 - [x] Không có câu ko/zh/ru mới.
+
+---
+
+## Lượt 2 – SEC duyệt 07/11, chọn bản theo cách xóa từng kênh
+
+- Nguồn:
+  - SEC `rounds/round-05/responses/SEC-responses.md` mục 6.5 (`16ea5183`);
+  - INT `rounds/round-05/outputs/INT/message-deletion-by-channel.md`;
+  - ORC giao 07/11.
+- Không đổi chữ nào gửi khách. Mục 2, 3, 5 giữ nguyên văn như lượt 1, SEC đã duyệt.
+- Đầu tệp: thay "Chờ review" bằng trạng thái "SEC duyệt 07/11".
+- Mục 1, bảng "Chọn bản":
+  - dòng Zalo tách làm hai: Zalo số cơ sở dùng bản ngắn mục 3; Zalo OA dùng bản mục 5 tới khi T1 chứng minh xóa được khỏi tài khoản OA;
+  - hộp thư OTA và Messenger dùng bản mục 5, bỏ chữ "chưa dùng" và "gọi chủ đầu tư";
+  - dòng "Lúc gửi" và "Mục đích" ghi rõ "xóa ngay" chỉ cho kênh xóa được;
+  - luật "không bấm Trả lời" thêm Messenger, hộp thư OTA.
+- Mục 4, dòng "đã xóa": SEC giữ thứ tự (6.5.1), bỏ câu "nếu SEC đổi thứ tự".
+- Mục 5:
+  - bỏ "chờ SEC";
+  - đổi tên bản thành "Bản không có vế xóa";
+  - thêm hai đoạn để sao chép;
+  - ghi rõ đây là ca thường (SEC 6.5.3), không đánh dấu spam.
+- Mục 6:
+  - chữ trong ngoặc theo SEC 6.5.6;
+  - sáu đoạn để sao chép thay cho bốn;
+  - dòng nhắc thêm "(kênh xóa được)";
+  - Tờ 1 in cả bản mục 5.
+- Mục 7: thêm khóa `msg.card_by_message_no_delete` đã duyệt và số đo của bản mục 5.
+- Mục 9: cập nhật dòng về SEC.
+- Còn mở:
+  - kết quả T1 (Zalo OA), INT báo;
+  - INT tra cách xóa trên Messenger.
+
+  Có kết quả thì CPY sửa bảng "Chọn bản" ở lượt sau, không đổi chữ gửi khách.
+
+---
+
+## Lượt 3 – "front desk" thành "reception" (chỉ đổi một từ)
+
+- Lý do: chữ khách nhìn thấy dùng thống nhất "reception":
+  - trang khách, ví dụ `gw.wifi_ask_desk` "Please ask reception…";
+  - landing (`en.ts`);
+  - tin đổi mật khẩu Wi-Fi (`guest-notice-wifi-change.md`).
+
+  ORC đồng ý 07/11.
+- SEC đã duyệt nghĩa ở `SEC-responses.md` mục 6.5. Lượt này **chỉ đổi một từ**, không đổi nghĩa, không đổi câu nào khác.
+- Đổi "at our front desk," thành "at reception," ở cả ba bản EN:
+  - bản đầy đủ: câu 5, mục 2 (bảng và đoạn để sao chép);
+  - bản ngắn Zalo: câu 2, mục 3 (bảng và đoạn để sao chép);
+  - bản không có vế xóa: mục 5 (bảng và đoạn để sao chép);
+  - cột "Câu mới" ở mục 4. Cột "Câu cũ (SEC)" giữ nguyên văn bản nháp của SEC.
+- Tiếng Việt không đổi: "qua máy POS tại quầy", "theo hướng dẫn của lễ tân", "theo cách lễ tân hướng dẫn" đã đúng.
+- Số đo mục 7 (EN):
+  - đầy đủ 310 thành 305 ký tự;
+  - đầy đủ bỏ câu 4 264 thành 259;
+  - Zalo 236 thành 231;
+  - không có vế xóa 204 thành 199.
+- BA áp vào sổ tay cùng lượt dán câu Wi-Fi, sau khi DOM chốt bước 5 của quy trình đổi mật khẩu.

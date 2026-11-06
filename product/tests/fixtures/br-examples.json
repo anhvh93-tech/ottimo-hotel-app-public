@@ -6,7 +6,7 @@
     "version": "0.5.3",
     "date": "2026-11-04"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C; v0.5.2 DOM 04/11 (Round 4 v1.0.4 gói P4-20, DOM kiêm QA – `rounds/round-04/outputs/DOM/v1.0.4-p4-20-br-fixtures.md`): hoa hồng cũ BR-212-01/02, 326-01, 903-01…04 thêm supersededBy + validUntil, BR-309-26, 525-04/10/14, 527-05/06 thêm oldCommissionFigures (không đổi, không thêm số); BR-313-01, 403-01, 501-01 thêm supersededBy; INV-043 cho dòng lấy số từ bảng giá 01/11; GIẢ ĐỊNH BR-114-01, 207-02, 208-01/02, 210-04; BR-114-02 thêm INV-045, PHÁP LÝ; BR-103-04 thêm NGÀNH; BR-115-05/06/08 bỏ INV-045; calc cho dòng bảng giá 01/11 (calcPending cho hàm test BE còn đọc DS-E); thêm BR-110-21/22, BR-202-06…12, BR-206-04, BR-428-10…13; retiredIds; v0.5.3 BE 04/11 (Round 4 v1.0.4, BUG-R4-039 – ORC giao; BR-402 v0.5.3 DOM): thêm BR-402-03 (ví dụ căn 202, ngày là giả định QA), BR-402-04 (mốc biên theo trạng thái buồng); v0.5.6 BE 05/11 (#74 C1, DOM lượt 7 mục 2 – rounds/round-04/reviews/DOM-on-v104-pr68-docs.md): ghi chú BR-402-04 thay bằng câu DOM; thêm BR-402-05 (ví dụ căn 301 – lượt quá ngày đi + CL, ngày giờ là giả định QA, QA rà); QA2 05/11: rà BR-402-04 (ghi chú mới) và BR-402-05 trên #74 @ 0950313e – đúng; bỏ nhãn GIẢ ĐỊNH QA của BR-402-05; v0.5.13 DOM 06/11 (Round 5 Phản hồi & sửa, BUG-R5-003 – ORC giao; rules-v1.0.5 mục 12): thêm BR-113-06…BR-113-30 (luật lưu min_stay cho V5-25 và đọc phòng thủ; calc null, pendingFix BUG-R5-003); thêm channels \"all\" vào params min_stay của BR-113-01/02/03/05 cho đúng dạng bắt buộc; v0.5.14 BE 06/11 (Round 5 Sản xuất, V5-25 – BUG-R5-003 đóng ở PR V5-25): bỏ pendingFix BUG-R5-003 ở BR-113-06…BR-113-30 (test BE `test/v5-25-parameter-shapes.test.ts` đọc theo id, integration `test/integration/v5-25-parameter-save.test.ts`); v0.5.14 QA 07/11 (Round 5 Phản hồi & sửa, FB-R5-DOM-QA-BR438-01 – DOM `rounds/round-05/reviews/DOM-on-be-prs-101-108-110.md` mục 3.5; BR-438 v0.5.14): BR-438-01, -02, -05 `source` minibar → `minibar_check`, BR-438-04 `source` → `checkout` (+ `postedByFlow` B18; ghi chú: dòng này luôn trên folio `settled`, chờ DOM – FB-R5-QA-DOM-BR438-01); khóa `typedByHand` ở BR-438-01…05; không đổi `expected` dòng cũ; thêm BR-438-07 (trả muộn B15 lưu `manual` là dòng hệ thống, pendingFix FB-R4-SEC-BE-A31-01) và BR-438-08 (đếm lại minibar là sửa giảm, ca a–g, pendingFix FB-R5-SEC-BE-V516-01 – PR BE-A2 `r5-v516-minibar`)",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C; v0.5.2 DOM 04/11 (Round 4 v1.0.4 gói P4-20, DOM kiêm QA – `rounds/round-04/outputs/DOM/v1.0.4-p4-20-br-fixtures.md`): hoa hồng cũ BR-212-01/02, 326-01, 903-01…04 thêm supersededBy + validUntil, BR-309-26, 525-04/10/14, 527-05/06 thêm oldCommissionFigures (không đổi, không thêm số); BR-313-01, 403-01, 501-01 thêm supersededBy; INV-043 cho dòng lấy số từ bảng giá 01/11; GIẢ ĐỊNH BR-114-01, 207-02, 208-01/02, 210-04; BR-114-02 thêm INV-045, PHÁP LÝ; BR-103-04 thêm NGÀNH; BR-115-05/06/08 bỏ INV-045; calc cho dòng bảng giá 01/11 (calcPending cho hàm test BE còn đọc DS-E); thêm BR-110-21/22, BR-202-06…12, BR-206-04, BR-428-10…13; retiredIds; v0.5.3 BE 04/11 (Round 4 v1.0.4, BUG-R4-039 – ORC giao; BR-402 v0.5.3 DOM): thêm BR-402-03 (ví dụ căn 202, ngày là giả định QA), BR-402-04 (mốc biên theo trạng thái buồng); v0.5.6 BE 05/11 (#74 C1, DOM lượt 7 mục 2 – rounds/round-04/reviews/DOM-on-v104-pr68-docs.md): ghi chú BR-402-04 thay bằng câu DOM; thêm BR-402-05 (ví dụ căn 301 – lượt quá ngày đi + CL, ngày giờ là giả định QA, QA rà); QA2 05/11: rà BR-402-04 (ghi chú mới) và BR-402-05 trên #74 @ 0950313e – đúng; bỏ nhãn GIẢ ĐỊNH QA của BR-402-05; v0.5.13 DOM 06/11 (Round 5 Phản hồi & sửa, BUG-R5-003 – ORC giao; rules-v1.0.5 mục 12): thêm BR-113-06…BR-113-30 (luật lưu min_stay cho V5-25 và đọc phòng thủ; calc null, pendingFix BUG-R5-003); thêm channels \"all\" vào params min_stay của BR-113-01/02/03/05 cho đúng dạng bắt buộc; v0.5.14 BE 06/11 (Round 5 Sản xuất, V5-25 – BUG-R5-003 đóng ở PR V5-25): bỏ pendingFix BUG-R5-003 ở BR-113-06…BR-113-30 (test BE `test/v5-25-parameter-shapes.test.ts` đọc theo id, integration `test/integration/v5-25-parameter-save.test.ts`); v0.5.14 QA 07/11 (Round 5 Phản hồi & sửa, FB-R5-DOM-QA-BR438-01 – DOM `rounds/round-05/reviews/DOM-on-be-prs-101-108-110.md` mục 3.5; BR-438 v0.5.14): BR-438-01, -02, -05 `source` minibar → `minibar_check`, BR-438-04 `source` → `checkout` (+ `postedByFlow` B18; ghi chú: dòng này luôn trên folio `settled`, chờ DOM – FB-R5-QA-DOM-BR438-01); khóa `typedByHand` ở BR-438-01…05; không đổi `expected` dòng cũ; thêm BR-438-07 (trả muộn B15 lưu `manual` là dòng hệ thống, pendingFix FB-R4-SEC-BE-A31-01) và BR-438-08 (đếm lại minibar là sửa giảm, ca a–g, pendingFix FB-R5-SEC-BE-V516-01 – PR BE-A2 `r5-v516-minibar`); v0.5.15 QA 07/11 (Round 5 Phản hồi & sửa, DOM chọn phương án A của FB-R5-QA-DOM-BR438-01 – `rounds/round-05/responses/DOM-responses.md`; BR-438 ví dụ v0.5.15): BR-438-04 thành ca A32 trên folio `settled` (FD/FDL 403 `FORBIDDEN_ACTION` không `requiredFlow`, không `access.denied` lý do BR-438; MGR được, BR-433 (e)), bỏ `hint`, bỏ pendingFix (mã HEAD đáp ứng), thêm nhãn INV-007; BR-438-07 thêm `carryToCheckout` (FOC đã duyệt trên dòng B15 đi theo sang dòng B18, tối đa bằng dòng mới; chưa có test BE riêng); v0.5.16 QA 07/11 (Round 5 Review, ORC giao từ hợp đồng 0.3.13 bổ sung 1f mục 1.26): thêm quy ước `typedByHand` (`input.line` ↔ audit `before.rootLineManual`, ARC giữ tên khóa audit); BR-438-01 thêm `expected.auditBefore` (`rootLineManual`, `postedByActor`, `sameBusinessDay` = true). Không đổi `allowed` hay số tiền của dòng nào",
   "updated": "2026-11-07",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
@@ -22,7 +22,8 @@
     "supersededBy": "v0.5.2: dòng của chính sách đã bị thay (BR mục 0.1 \"Trước 01/11 – hết hiệu lực\"): supersededBy = id dòng mới hoặc nguồn mới; validUntil = ngày cuối còn hiệu lực (YYYY-MM-DD). Chỉ để tra đơn/HĐ cũ – BE không dùng làm đáp án cho đơn sau validUntil. Validator: nhãn INV-0xx mà ô Nhãn BR ghi \"thay ESC-0xx\" thì bắt buộc có hai khóa này",
     "oldCommissionFigures": "v0.5.2 (FB-R4-PO-DOM-PR25-01, FB-R4-SEC-DOM-01): dòng có số tiền/tỷ lệ hoa hồng tính theo ESC-005 (trước 01/11 – hết hiệu lực) nhưng quy tắc chính của dòng vẫn đúng. Từ 01/11 hoa hồng theo bảng nội bộ INV, KHÔNG ghi số ở kho mã; ca hoa hồng mới (H2) chỉ dùng tham số thử đặt tên test_rate_* (SEC G3), không dùng số thật",
     "calcPending": "v0.5.2 (P4-20, FB-R4-QA-DOM-PR25-01): tên hàm validator đã tính lại được bằng params của dòng (bảng giá 01/11), nhưng test BE byCalc còn dùng tham số DS-E cũ. Luôn đi với calc null + pendingFix FB-R4-QA-DOM-PR25-01. Khi P4-11 (BE-C) cho byCalc gộp params của dòng (gồm room.<no>.*) lên DS-E: chuyển calcPending → calc, bỏ pendingFix (DOM đồng ý BE-C sửa đúng các khóa này trong P4-11)",
-    "retiredIds": "v0.5.2 (FB-R4-QA-DOM-PR25-02, PO-05, BA-S1): id đã bỏ ghi ở retiredIds và không dùng lại – ca mới đánh số tiếp. reused: true chỉ cho hai id đã lỡ dùng lại ở v0.5.1 (BR-208-02, BR-208-03); validator chặn mọi id khác trong danh sách"
+    "retiredIds": "v0.5.2 (FB-R4-QA-DOM-PR25-02, PO-05, BA-S1): id đã bỏ ghi ở retiredIds và không dùng lại – ca mới đánh số tiếp. reused: true chỉ cho hai id đã lỡ dùng lại ở v0.5.1 (BR-208-02, BR-208-03); validator chặn mọi id khác trong danh sách",
+    "typedByHand": "(BR-438 v0.5.14, hợp đồng 0.3.13 mục 1.20 và 1.26) Ở `input.line` của dòng BR-438: dòng gốc do người gõ số (dòng Thêm dòng phát sinh A30 lưu `manual`, hoặc dòng đếm minibar lưu `minibar_check`). Không suy từ `source`: phụ thu trả muộn B13/B15/B16 lưu `manual` và B18 lưu `checkout` có `typedByHand: false`. Audit `folio_line.adjusted` giữ tên `before.rootLineManual` cho cùng nghĩa (ARC không đổi tên; nếu 0.3.14 thêm `before.rootLineTypedByHand` thì là khóa song song). Test đọc oracle so `typedByHand` với `before.rootLineManual`"
   },
   "examples": [
     {
@@ -14114,9 +14115,14 @@
         "afterVnd": 70000,
         "shiftCloseListed": true,
         "focMonthDeltaVnd": 0,
-        "audited": true
+        "audited": true,
+        "auditBefore": {
+          "rootLineManual": true,
+          "postedByActor": true,
+          "sameBusinessDay": true
+        }
       },
-      "note": "v0.5.14 (QA 07/11, FB-R5-DOM-QA-BR438-01): dòng minibar là dòng đếm (`recordMinibarCheck`, mã lưu `minibar_check`), không phải `manual`. \"Nhập tay\" xét theo người gõ số (BR-438 (1)(a) v0.5.14), xem `typedByHand`. Dòng `manual` + `minibar` không phải nhập tay (PR #110 `reductionScope`). Lần sửa ở đây là Điều chỉnh (`adjustFolioLine`) trên dòng đếm; đếm lại thấp hơn là BR-438-08. `shiftCloseListed`: danh sách đóng ca có từ v1.0.6 (`ShiftReport.lineReductions[]`, BR-438 (4)(i)). Ở v1.0.5, đọc là: có trong Nhật ký `reductionsOnly=true` (BR-438 (4)(ii)). Không đổi `expected`."
+      "note": "v0.5.14 (QA 07/11, FB-R5-DOM-QA-BR438-01): dòng minibar là dòng đếm (`recordMinibarCheck`, mã lưu `minibar_check`), không phải `manual`. \"Nhập tay\" xét theo người gõ số (BR-438 (1)(a) v0.5.14), xem `typedByHand`. Dòng `manual` + `minibar` không phải nhập tay (PR #110 `reductionScope`). Lần sửa ở đây là Điều chỉnh (`adjustFolioLine`) trên dòng đếm; đếm lại thấp hơn là BR-438-08. `shiftCloseListed`: danh sách đóng ca có từ v1.0.6 (`ShiftReport.lineReductions[]`, BR-438 (4)(i)). Ở v1.0.5, đọc là: có trong Nhật ký `reductionsOnly=true` (BR-438 (4)(ii)). Không đổi `expected`. v0.5.16 (QA 07/11): thêm `expected.auditBefore` theo hợp đồng T16-6 – `typedByHand: true` ở `input.line` ↔ `before.rootLineManual = true` ở audit (quy ước `typedByHand`)."
     },
     {
       "id": "BR-438-02",
@@ -14191,26 +14197,48 @@
     {
       "id": "BR-438-04",
       "br": "BR-438",
-      "case": "(v0.5.12, V5-16) Dòng hệ thống tự ghi (phụ thu trả muộn ghi khi chính lễ tân đó bấm Trả phòng) → lễ tân bỏ dòng bị chặn; lễ tân trưởng cũng bị chặn; quản lý được",
-      "origin": "rule-boundary",
-      "labels": ["NGÀNH"],
-      "pendingFix": "FB-R4-SEC-BE-A31-01",
+      "case": "(v0.5.12, V5-16; sửa v0.5.15) Phụ thu trả muộn Desk tự ghi lúc bấm Trả phòng (B18, mã lưu `checkout`): Trả phòng chốt folio trong cùng giao dịch, nên dòng nằm trên folio `settled` và theo A32, không theo BR-438 → lễ tân, lễ tân trưởng bỏ dòng bị chặn (403 `FORBIDDEN_ACTION`, không `requiredFlow`, không gợi ý FOC); quản lý được, tính một lần miễn (BR-433 (e))",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
       "calc": null,
       "input": {
+        "lastNightRateVnd": 700000,
         "line": {
           "category": "late_checkout",
           "source": "checkout",
           "typedByHand": false,
           "postedByFlow": "B18",
-          "postedBy": "actor"
+          "postedBy": "actor",
+          "checkoutTime": "15:00",
+          "amountVnd": 210000
+        },
+        "folioStatus": "settled",
+        "paidInFullAtCheckout": true,
+        "action": {
+          "voidLine": true,
+          "reason": "khách phàn nàn"
         },
         "actorRoles": ["front_desk", "front_desk_lead", "manager"]
       },
       "expected": {
         "allowed": [false, false, true],
-        "hint": "foc_request"
+        "httpStatus": [403, 403, 201],
+        "code": ["FORBIDDEN_ACTION", "FORBIDDEN_ACTION", null],
+        "requiredFlowInBody": [false, false, null],
+        "folioUnchangedWhenRefused": true,
+        "accessDeniedBr438PerRefusal": 0,
+        "managerWaiver": {
+          "auditAfterReducedVnd": 210000,
+          "settledReductionVnd": 210000,
+          "settledReductionRole": "manager",
+          "autoRefundVnd": 210000,
+          "refundRequestedBy": "manager",
+          "refundReasonNotePrefix": "Tự sinh từ A32",
+          "refundApproverNot": "same_manager"
+        }
       },
-      "note": "v0.5.14 (QA 07/11, FB-R5-DOM-QA-BR438-01): phụ thu trả muộn ghi lúc bấm Trả phòng (B18, `checkout.service.ts`, `replaceLateCharge` với `source: 'checkout'`) lưu `source = checkout`, không phải `system`. Dòng trả muộn ghi khi đặt giờ trả muộn, gia hạn, trả sớm (B15, B13, B16) lưu `manual`: ca đó là BR-438-07. Không đổi `expected`. QA đọc mã main @ dce1c0fd và PR #110 @ c71ae350: B18 ghi dòng này rồi `folios.settle` trong cùng giao dịch, nên dòng `checkout` luôn nằm trên folio `settled`. BR-438 chỉ áp folio chưa `settled`. Trên folio `settled`, FD/FDL bị chặn bởi A32 (`folio-lines.service.ts` `adjust`: 403 `FORBIDDEN_ACTION` **không có** `requiredFlow`, trước kiểm BR-438); MGR theo A32 + BR-433 (e). Vậy `allowed` đúng, còn `hint` chưa dựng được ca trên mã hiện tại. Chờ DOM chốt (thẻ FB-R5-QA-DOM-BR438-01). Ca dòng hệ thống trên folio mở: BR-438-07. `hint` = trường `requiredFlow` của thân 403 (hợp đồng 0.3.13 mục 1.20)."
+      "note": "v0.5.15 (QA 07/11, DOM chọn phương án A của thẻ FB-R5-QA-DOM-BR438-01 – `rounds/round-05/responses/DOM-responses.md`; BR-438 ví dụ v0.5.15, `rules-v1.0.5.md` 7.2 ý 3, T-16-4): B18 ghi dòng trả muộn (`replaceLateCharge` với `source: 'checkout'`) rồi `folios.settle` trong cùng giao dịch, nên dòng `checkout` luôn nằm trên folio `settled`. BR-438 chỉ áp folio chưa `settled`; ở `folio-lines.service.ts` `adjust`, kiểm A32 (`folio.status === 'settled' && !managers` → 403 `FORBIDDEN_ACTION`) đứng trước kiểm BR-438. Vì vậy: thân 403 của FD/FDL **không có** `requiredFlow`; không có `access.denied` lý do `BR-438` (lý do đó chỉ cho lần chặn BR-438, hợp đồng 0.3.13 mục 1.20, H-09). Bỏ `hint` cũ. MGR: A32 + BR-433 (e) v0.4.3 – một `folio_line.adjusted` có `after.reducedVnd`, một dòng `folio_settled_reduction` (vai `manager`, vào Σ lượt ESC-026), khách đã trả đủ nên có yêu cầu hoàn tự sinh, người duyệt là quản lý khác hoặc chủ đầu tư (như BR-433-22). Bỏ `pendingFix`: mã HEAD đáp ứng – A32 có từ trước V5-16, QA đọc `main` @ 1ab71583 và PR #110 `r5-b2` @ c71ae350. Muốn miễn phụ thu trả muộn: đặt giờ trả muộn (B15) rồi FOC **trước** khi bấm Trả phòng; FOC đã duyệt đi theo sang dòng B18 – BR-438-07 `carryToCheckout`. Ca dòng hệ thống trên folio mở: BR-438-07. Số 210.000 = 30 % × 700.000 lúc 15:00 (BR-412-15).",
+      "qaAssumption": "Giờ 15:00, giá đêm cuối 700.000 (số của BR-412-15), khách trả đủ lúc Trả phòng và lý do bỏ dòng do QA chọn; `accessDeniedBr438PerRefusal` = 0 là QA suy từ hợp đồng 1.20 (H-09 chỉ cho lần chặn BR-438) và mã `folio.controller.ts`"
     },
     {
       "id": "BR-438-05",
@@ -14276,7 +14304,7 @@
     {
       "id": "BR-438-07",
       "br": "BR-438",
-      "case": "(v0.5.14, V5-16) Phụ thu trả muộn Desk tự ghi khi lễ tân đặt giờ trả muộn trước giờ trả phòng (B15, mã lưu `manual`, người ghi = chính lễ tân đó, cùng ngày nghiệp vụ, folio mở) là dòng hệ thống → lễ tân bỏ dòng bị chặn, lễ tân trưởng bị chặn, quản lý được",
+      "case": "(v0.5.14, V5-16) Phụ thu trả muộn Desk tự ghi khi lễ tân đặt giờ trả muộn trước giờ trả phòng (B15, mã lưu `manual`, người ghi = chính lễ tân đó, cùng ngày nghiệp vụ, folio mở) là dòng hệ thống → lễ tân bỏ dòng bị chặn, lễ tân trưởng bị chặn, quản lý được; (v0.5.15) FOC đã duyệt trên dòng này đi theo sang dòng trả muộn lúc Trả phòng (B18), tối đa bằng số tiền dòng mới",
       "origin": "example",
       "labels": ["NGÀNH"],
       "pendingFix": "FB-R4-SEC-BE-A31-01",
@@ -14297,7 +14325,35 @@
           "voidLine": true,
           "at": "2026-11-12T09:10:00+07:00"
         },
-        "actorRoles": ["front_desk", "front_desk_lead", "manager"]
+        "actorRoles": ["front_desk", "front_desk_lead", "manager"],
+        "carryToCheckout": {
+          "lastNightRateVnd": 700000,
+          "runs": [
+            {
+              "b15Time": "15:00",
+              "focRequestedBy": "front_desk",
+              "focApprovedBy": "front_desk_lead",
+              "approvedFocVnd": 210000,
+              "b18Time": "17:00",
+              "applyLateSurcharge": true,
+              "expectedSurchargeVnd": 350000
+            },
+            {
+              "b15Time": "17:00",
+              "focRequestedBy": "front_desk",
+              "focApprovedBy": "manager",
+              "approvedFocVnd": 350000,
+              "b18Time": "15:00"
+            },
+            {
+              "b15Time": "15:00",
+              "focRequestedBy": "front_desk",
+              "focApprovedBy": "front_desk_lead",
+              "approvedFocVnd": 210000,
+              "b18Time": "15:00"
+            }
+          ]
+        }
       },
       "expected": {
         "allowed": [false, false, true],
@@ -14309,10 +14365,45 @@
           "actorRole": "manager",
           "rootLineManual": false,
           "postedByActor": false
-        }
+        },
+        "carryToCheckout": [
+          {
+            "b15LineVnd": 210000,
+            "liveLateLineVnd": 350000,
+            "liveLateLineSource": "checkout",
+            "b15LineReversed": true,
+            "focOnLiveLineVnd": 210000,
+            "guestPaysLateVnd": 140000,
+            "focApprovalRequests": 1,
+            "approvalEffectiveVnd": 210000,
+            "folioStatusAfter": "settled"
+          },
+          {
+            "b15LineVnd": 350000,
+            "liveLateLineVnd": 210000,
+            "liveLateLineSource": "checkout",
+            "b15LineReversed": true,
+            "focOnLiveLineVnd": 210000,
+            "guestPaysLateVnd": 0,
+            "focApprovalRequests": 1,
+            "approvalEffectiveVnd": 210000,
+            "folioStatusAfter": "settled"
+          },
+          {
+            "b15LineVnd": 210000,
+            "liveLateLineVnd": 210000,
+            "liveLateLineSource": "manual",
+            "b15LineReversed": false,
+            "focOnLiveLineVnd": 210000,
+            "guestPaysLateVnd": 0,
+            "focApprovalRequests": 1,
+            "approvalEffectiveVnd": 210000,
+            "folioStatusAfter": "settled"
+          }
+        ]
       },
-      "note": "Nguồn: BR-438 (2) v0.5.14 (\"kể cả phụ thu trả muộn ghi khi đặt giờ trả muộn, gia hạn hay trả sớm, dù mã lưu là `manual`\") và ví dụ \"Hạnh đặt giờ trả muộn 14:00 trước ngày đi → Hạnh bỏ dòng → bị chặn\"; DOM review PR #110 mục 3.1, 3.5; `rules-v1.0.5.md` 3.5 T-16-12. QA 07/11 (FB-R5-DOM-QA-BR438-01). Ca này tách lý do \"dòng hệ thống\" khỏi hai lý do khác: cùng người ghi, cùng ngày nghiệp vụ, folio mở. Chỉ còn `typedByHand = false` làm FD/FDL bị chặn. B13 (gia hạn) và B16 (trả sớm) ghi dòng trả muộn qua cùng `replaceLateCharge`, lưu `manual`, cùng kết quả. `hint` = trường `requiredFlow` của thân 403 `FORBIDDEN_ACTION` (hợp đồng 0.3.13 mục 1.20). `managerAuditBefore` = các khóa của `before` trong `folio_line.adjusted` (khớp test PR #110 T16-10/T16-11). Lần bị chặn: không ghi gì, đúng một `access.denied` lý do `BR-438` (H-09).",
-      "qaAssumption": "Ngày đi 12/11, đặt giờ trả muộn lúc 09:00 sáng ngày đi (trước giờ trả phòng, như test PR #110 T16-10) và bỏ dòng lúc 09:10 do QA chọn; mã HTTP 201 của lần quản lý bỏ dòng theo endpoint Điều chỉnh hiện có"
+      "note": "Nguồn: BR-438 (2) v0.5.14 (\"kể cả phụ thu trả muộn ghi khi đặt giờ trả muộn, gia hạn hay trả sớm, dù mã lưu là `manual`\") và ví dụ \"Hạnh đặt giờ trả muộn 14:00 trước ngày đi → Hạnh bỏ dòng → bị chặn\"; DOM review PR #110 mục 3.1, 3.5; `rules-v1.0.5.md` 3.5 T-16-12. QA 07/11 (FB-R5-DOM-QA-BR438-01). Ca này tách lý do \"dòng hệ thống\" khỏi hai lý do khác: cùng người ghi, cùng ngày nghiệp vụ, folio mở. Chỉ còn `typedByHand = false` làm FD/FDL bị chặn. B13 (gia hạn) và B16 (trả sớm) ghi dòng trả muộn qua cùng `replaceLateCharge`, lưu `manual`, cùng kết quả. `hint` = trường `requiredFlow` của thân 403 `FORBIDDEN_ACTION` (hợp đồng 0.3.13 mục 1.20). `managerAuditBefore` = các khóa của `before` trong `folio_line.adjusted` (khớp test PR #110 T16-10/T16-11). Lần bị chặn: không ghi gì, đúng một `access.denied` lý do `BR-438` (H-09). v0.5.15 (QA 07/11, DOM trả lời FB-R5-QA-DOM-BR438-01, phương án A): thêm `carryToCheckout` – đường miễn của lễ tân là FOC **trước** khi bấm Trả phòng; FOC đã duyệt trên dòng B15 đi theo sang dòng trả muộn lúc Trả phòng (B18), tối đa bằng số tiền dòng mới. Mã: `stay-support.ts` `replaceLateCharge` đảo dòng cũ rồi ghi dòng mới, `syncReductions` áp FOC theo khóa trả muộn của lượt = min(số **đã duyệt**, dòng mới) (BR-434-07, BR-412-16); B18 chỉ gọi `replaceLateCharge` khi số mới khác số đang có (`checkout.service.ts`: nhỏ hơn, hoặc lớn hơn và lễ tân xác nhận `applyLateSurcharge`), nên lần 3 (rời đúng giờ đã đặt) giữ dòng B15 lưu `manual`. Lần 1: khách rời 17:00, dòng mới 350.000, FOC giữ 210.000 đã duyệt, khách trả 140.000 – không tự nâng FOC, không cần duyệt lần hai. Lần 2: rời 15:00, dòng 210.000, FOC hạ còn 210.000, khách trả 0. Lần 3: dòng và FOC giữ nguyên. Sau Trả phòng, mọi dòng trả muộn (lưu `checkout` hay `manual`) nằm trên folio `settled`: lễ tân bỏ dòng thì theo A32 như BR-438-04. Phần `carryToCheckout` không phụ thuộc PR #110 (đường S4-34 có trên `main`), nhưng chưa có test nào đi từ B15 sang B18: `foc-keys-s4.test.ts` BR-412-15…17 chỉ đổi giờ bằng B15. Số 210.000 / 350.000 = 30 % / 50 % × 700.000 theo BR-412-15, BR-412-16.",
+      "qaAssumption": "Ngày đi 12/11, đặt giờ trả muộn lúc 09:00 sáng ngày đi (trước giờ trả phòng, như test PR #110 T16-10) và bỏ dòng lúc 09:10 do QA chọn; mã HTTP 201 của lần quản lý bỏ dòng theo endpoint Điều chỉnh hiện có. `carryToCheckout`: giá đêm cuối 700.000, giờ 15:00 / 17:00, người duyệt FOC (lễ tân trưởng cho 210.000, quản lý cho 350.000, như test BR-412-15, BR-412-16) và ba lần chạy do QA chọn; khách trả phần còn lại trước khi chốt folio"
     },
     {
       "id": "BR-438-08",
