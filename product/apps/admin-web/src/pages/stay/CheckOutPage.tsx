@@ -63,9 +63,12 @@ import {
 } from './foc';
 import {
   OVERDUE_REASONS,
+  canExtendStay,
   localDayTime,
   overdueCheckOutAllowed,
   overdueDenial,
+  overdueEarlyAt,
+  overdueGuidanceText,
   overdueNeedText,
   type OverdueReasonPick,
 } from './overdue';
@@ -391,6 +394,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     nights: number;
     requiredRole?: string;
   } | null>(null);
+  // FB-R5-UXD-FE-145-03 (copy 9.14 (c)): the guidance replacing the steps after that 403 takes the focus once – never
+  // left on `body` once the confirmation box closes.
+  const deniedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (overdueDenied) deniedRef.current?.focus();
+  }, [overdueDenied]);
 
   useEffect(() => {
     // E03-07: the guest leaves now – never a future time, never the standard time by default. KB7 (UXR 17/10):
@@ -454,7 +463,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   }, [focusNote, step]);
   useEffect(() => {
     if (!focusReason || step !== 1) return;
-    reasonRef.current?.focus();
+    const el = reasonRef.current;
+    el?.focus();
+    el?.setSelectionRange(el.value.length, el.value.length);
     setFocusReason(false);
   }, [focusReason, step]);
 
@@ -743,11 +754,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         <Topbar title={t('checkout.title', { room, guest })} sub={<Code>{r.code}</Code>} />
         <Page>
           <section className="card stack">
-            <Alert tone="info" title={t('checkout.overdue_title')}>
-              {overdueDenied
-                ? overdueNeedText(t, overdueDenied.nights, overdueDenied.requiredRole)
-                : overdueNeedText(t, nightsNotBilled)}
-            </Alert>
+            <div tabIndex={-1} ref={deniedRef}>
+              <Alert tone="info" title={t('checkout.overdue_title')}>
+                {overdueGuidanceText(
+                  t,
+                  overdueDenied
+                    ? overdueNeedText(t, overdueDenied.nights, overdueDenied.requiredRole)
+                    : overdueNeedText(t, nightsNotBilled),
+                  canExtendStay(r),
+                )}
+              </Alert>
+            </div>
             <div className="row wrap">
               <Link className="btn pri" to={`/reservations/${reservationId}`}>
                 {t('ci.back_to_booking')}
@@ -776,6 +793,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // V5-15 (contract 1.4): B18 of an overdue stay never adds a night – a time after the last tier is refused; a night
   // the guest stayed goes through Gia hạn (B13) first.
   const overdueAfterLimit = overdue && !!s?.extraNightRequired;
+  // DOM 145-02 / ARC 3.4: the server's `checkoutAt` fell on a later day than the effective departure (a time before the
+  // rollover, v1.0.5 – V515-01): say how Desk read it, never "extend first" (that night was not stayed). Server-day only.
+  const overdueEarly = overdueEarlyAt(overdueAfterLimit, s?.checkoutAt, stayDeparture);
+  const overdueLimitText = overdueEarly
+    ? t('checkout.overdue_time_early', {
+        time: overdueEarly.time,
+        next: date(overdueEarly.day),
+        date: date(stayDeparture),
+        rollover,
+      })
+    : t('checkout.overdue_after_limit');
   const extraNightNeeded = !overdue && !!s?.extraNightRequired;
   const extraUnavailable = extraNightNeeded && s?.extraNightAvailable === false;
   // E05-11: the extra night is posted inside the check-out transaction, so the summary does not
@@ -824,7 +852,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           message: t('common.required'),
         })
       : overdueAfterLimit
-        ? t('checkout.overdue_after_limit')
+        ? overdueLimitText
         : reasonShort
           ? t('field_error.reason_required')
           : null;
@@ -1680,7 +1708,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       );
     const timeError =
       overdueLimitError || overdueAfterLimit
-        ? t('checkout.overdue_after_limit')
+        ? overdueLimitText
         : (act.fields.checkoutAt ??
           act.fields.checkoutTime ??
           (timeAfterNow ? t('field.TIME_AFTER_ACTION') : undefined) ??
@@ -1688,19 +1716,25 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     // FB-R5-UXD-FE-PR125-01: the brown ring is only a second sign – the sentence says the time was filled in by Desk and
     // costs the guest money (DOM 15.1: key returned 11:40, clicked 12:10). PR125-03: an error is the only thing shown.
     const prefilledHint = timePrefilledCharged && !timeError;
-    const timeHelp = [
-      r.agreedCheckoutTime ? t('co.time_from_late', { time: r.agreedCheckoutTime }) : '',
-      prefilledHint ? t('checkout.time_prefilled_help') : '',
-      // DOM 15.3: the day the time is on, and what to enter with no proof of it.
-      overdue
-        ? t('checkout.overdue_time_help', {
+    // DOM 15.3 (+ ý 2a, FB-R5-DOM-FE-145-01; copy 9.15 bảng A): on an overdue stay ONE sentence – the day the time is on
+    // and what to enter with no proof: the agreed late time and its charge when there is one (never the standard time,
+    // and no separate `co.time_from_late`), else the standard time.
+    const timeHelp = overdue
+      ? r.agreedCheckoutTime
+        ? t('checkout.overdue_time_help_agreed', {
+            date: date(stayDeparture),
+            time: r.agreedCheckoutTime,
+          })
+        : t('checkout.overdue_time_help', {
             date: date(stayDeparture),
             time: s?.standardCheckoutTime ?? rules.checkoutTime,
           })
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
+      : [
+          r.agreedCheckoutTime ? t('co.time_from_late', { time: r.agreedCheckoutTime }) : '',
+          prefilledHint ? t('checkout.time_prefilled_help') : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
     body = (
       <section className="card stack">
         <Field
@@ -1721,11 +1755,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           )}
         </Field>
         {overdue ? (
-          // V5-15 (DOM 7.1 ý 1): the reason, typed or from 3 suggestions; SEC 2.5 – the D12c line is always shown.
+          // V5-15 (DOM 7.1 ý 1): the reason, typed or from 3 suggestions; SEC 2.5 – the D12c line is always shown, after
+          // the line asking how the time is known (DOM 145-04, copy 9.15 bảng B) – one help line, errors or not.
           <Field
             label={t('checkout.overdue_reason_label')}
             required
-            help={t('checkout.overdue_reason_help')}
+            help={`${t('checkout.overdue_reason_evidence')} ${t('checkout.overdue_reason_help')}`}
             error={act.fields.overdueReason}
           >
             {(p) => (
@@ -1739,7 +1774,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                     const o = OVERDUE_REASONS.find((x) => x.value === v);
                     setReason(o?.fills ? t(o.key) : '');
                     if (act.fields.overdueReason) act.reset();
-                    if (!o?.fills) setFocusReason(true);
+                    // "Khác" empties the box; the other two leave the cursor after the filled text (UXD 145-05).
+                    if (o) setFocusReason(true);
                   }}
                 />
                 <input

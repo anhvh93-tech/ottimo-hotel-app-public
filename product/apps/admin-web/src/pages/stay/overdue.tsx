@@ -15,7 +15,10 @@ type T = (key: string, args?: Args) => string;
  * - B18 answering 403 FORBIDDEN_ACTION with `requiredRole: owner` (a manager past the cap of 1 night) → the owner.
  */
 
-/** DOM 7.1 ý 1: the three suggested reasons; the server takes free text (3–500 characters). */
+/**
+ * DOM 7.1 ý 1: the three suggested reasons; the server takes free text (3–500 characters). The first two fill the box
+ * and leave the cursor at its end, to add how the time is known (DOM 145-04, UXD 145-05) – no comma added.
+ */
 export const OVERDUE_REASONS = [
   { value: 'no_notice', key: 'checkout.overdue_reason.no_notice', fills: true },
   { value: 'desk_forgot', key: 'checkout.overdue_reason.desk_forgot', fills: true },
@@ -39,6 +42,35 @@ export function overdueNeedText(t: T, nights: number, requiredRole?: unknown): s
   return requiredRole === 'owner' || nights >= 2
     ? t('checkout.overdue_need_owner', { n: nights })
     : t('checkout.overdue_need_manager');
+}
+
+/** The server offers this caller Gia hạn (B13) on the booking. */
+export function canExtendStay(r: Reservation | undefined): boolean {
+  return !!r?.allowedActions?.some((a) => a.event === 'extend_stay');
+}
+
+/**
+ * DOM 145-03 (copy-v1.0.5 9.15 bảng B, FB-R5-UXD-FE-145-02 (b)): after the whom-to-call sentence, the reminder that the
+ * desk can extend the stay itself – only for a viewer the server offers Gia hạn (never a button they do not have).
+ */
+export function overdueGuidanceText(t: T, need: string, canExtend: boolean): string {
+  return canExtend ? `${need} ${t('checkout.overdue_extend_hint')}` : need;
+}
+
+/**
+ * DOM 145-02 / ARC review 145-146 mục 3.4 (FB-R5-FE-ARC-V515-01): past the departure's last tier on an overdue stay, the
+ * SERVER put the typed time on a later day than the effective departure (v1.0.5 reads a time before the rollover as the
+ * early hours of the next day) – the day and time of that `checkoutAt`, else `null`. Never the typed time compared with
+ * the rollover here: once the server reads it on the departure day (v1.0.6), this is `null` with no change on the Desk.
+ */
+export function overdueEarlyAt(
+  overdueAfterLimit: boolean,
+  checkoutAt: string | undefined,
+  stayDeparture: string,
+): { day: string; time: string } | null {
+  if (!overdueAfterLimit || !checkoutAt) return null;
+  const at = localDayTime(checkoutAt);
+  return at.day !== stayDeparture ? at : null;
 }
 
 /** B18 / the check-out QR refused the overdue path (403): the role and nights the server named, if any. */

@@ -1,5 +1,5 @@
 // V5-15 (OpenAPI 0.3.13 `checkOut` bổ sung 1, contract 1.4 + 1.18; BE #99; DOM rules-v1.0.5 7.1, 15.3, 15.4, 15.7;
-// UXD copy-v1.0.5 9.9 + UXD-on-fe-prs-125-128 mục 3) – H16 "Trả phòng quá ngày đi". The SERVER says who may record it:
+// UXD copy-v1.0.5 9.9, 9.15 + UXD-on-fe-prs-125-128 mục 3, UXD-on-fe-prs-145-146) – H16 "Trả phòng quá ngày đi". The SERVER says who may record it:
 // `allowedActions` check_out `overdue` (OWN; MGR while ≤ 1 night) opens the box; otherwise the summary's
 // `nightsNotBilled` says whom to call; a 403 `requiredRole: owner` on B18 says it too. B18 then carries the server's
 // `checkoutAt` (a time on the departure day) and `overdueReason` – no time note, no extra night, no one-night fee.
@@ -10,6 +10,7 @@ import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { canCheckOutOverdue, overdueNights } from '../mocks/overdue';
 import { server } from '../mocks/node';
+import { overdueEarlyAt, overdueGuidanceText } from '../pages/stay/overdue';
 import { renderApp, tv } from '../test/render';
 
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -21,6 +22,12 @@ const at = (hhmm: string) => {
 afterEach(() => vi.useRealTimers());
 
 const huy = () => mockControl.rsv.reservations.find((r) => r.guestName === 'Phạm Huy')!;
+const dmy = (d: string) => d.split('-').reverse().join('/');
+/** DOM 145-03: the whom-to-call sentence, then the Gia hạn reminder – every FD+ viewer of an in-house stay has B13. */
+const guidance = (need: string) => `${need} ${tv('checkout.overdue_extend_hint')}`;
+/** DOM 145-04 then SEC 2.5 (D12c): one help line under the reason. */
+const reasonHelp = () =>
+  `${tv('checkout.overdue_reason_evidence')} ${tv('checkout.overdue_reason_help')}`;
 /** Phạm Huy (201) was due out `nights` days ago and is still in house; minibar counted, room nights paid. */
 function overdueStay(nights: number) {
   const r = huy();
@@ -113,8 +120,12 @@ describe('V5-15 – H16 overdue box (OWN, MGR ≤ 1 night)', () => {
     // DOM 15.3: the standard time, not the desk's clock (09:00 today means nothing for a stay left yesterday)
     expect(await timeBox()).toHaveValue('12:00');
     expect(await timeBox()).not.toHaveAttribute('data-prefilled');
-    // SEC 2.5: the D12c line always under the reason, read with the box
-    expect(reasonBox()).toHaveAccessibleDescription(tv('checkout.overdue_reason_help'));
+    // copy 9.15 bảng A: no agreed late time → the standard time, no surcharge – one sentence
+    expect(await timeBox()).toHaveAccessibleDescription(
+      tv('checkout.overdue_time_help', { date: dmy(dep), time: '12:00' }),
+    );
+    // SEC 2.5: the D12c line always under the reason, read with the box (after DOM 145-04's line)
+    expect(reasonBox()).toHaveAccessibleDescription(reasonHelp());
     expect(goBill()).toHaveAttribute('aria-disabled', 'true');
     expect(goBill()).toHaveAccessibleDescription(tv('field_error.reason_required'));
     // the usual "use Trả muộn" hint has no place here
@@ -122,14 +133,19 @@ describe('V5-15 – H16 overdue box (OWN, MGR ≤ 1 night)', () => {
 
     await user.click(screen.getByRole('button', { name: tv('checkout.overdue_reason.no_notice') }));
     expect(reasonBox()).toHaveValue(tv('checkout.overdue_reason.no_notice'));
-    expect(reasonBox()).toHaveAccessibleDescription(tv('checkout.overdue_reason_help'));
+    expect(reasonBox()).toHaveAccessibleDescription(reasonHelp());
+    // UXD 145-05: the cursor waits after the filled text, to add how the time is known – no comma added
+    await waitFor(() => expect(reasonBox()).toHaveFocus());
+    expect((reasonBox() as HTMLInputElement).selectionStart).toBe(
+      tv('checkout.overdue_reason.no_notice').length,
+    );
 
     const box = await completeNow(user);
     expect(
       within(box).getByText(
         tv('checkout.overdue_effect', {
           time: '12:00',
-          date: dep.split('-').reverse().join('/'),
+          date: dmy(dep),
         }),
       ),
     ).toBeInTheDocument();
@@ -205,7 +221,7 @@ describe('V5-15 – H16 overdue box (OWN, MGR ≤ 1 night)', () => {
     expect(
       screen.getByText(
         tv('checkout.overdue_body', {
-          date: huy().departureDate.split('-').reverse().join('/'),
+          date: dmy(huy().departureDate),
           nights: tv('common.nights_other', { n: 2 }),
         }),
       ),
@@ -236,9 +252,24 @@ describe('V5-15 – H16 overdue box (OWN, MGR ≤ 1 night)', () => {
     expect(sent[1]!.body.overdueReason).toBe('Buồng phòng thấy căn trống lúc 11:00');
   });
 
-  it('422 CARD_NUMBER_DETECTED on overdueReason → back on the time step, said under the reason', async () => {
+  it('422 CARD_NUMBER_DETECTED on overdueReason (server shape) → back on the time step, said under the reason, the D12c line kept', async () => {
     at('09:00');
     overdueStay(1);
+    // FB-R5-SEC-FE-145-02: the mock answers like `Fields.done()` – the card number is the problem code itself.
+    const answers: Array<{ status: number; code?: unknown; errors?: unknown }> = [];
+    const onResponse = ({ request, response }: { request: Request; response: Response }) => {
+      if (request.method === 'POST' && new URL(request.url).pathname.endsWith('/actions/check-out'))
+        void response
+          .clone()
+          .json()
+          .then((b: Record<string, unknown>) =>
+            answers.push({ status: response.status, code: b.code, errors: b.errors }),
+          );
+    };
+    server.events.on('response:mocked', onResponse);
+    onTestFinished(() => {
+      server.events.removeListener('response:mocked', onResponse);
+    });
     const { user } = await toTimeStep('qa.mgr');
     await user.type(reasonBox(), 'Khách báo qua thẻ 4111 1111 1111 1111');
     const box = await completeNow(user);
@@ -248,7 +279,29 @@ describe('V5-15 – H16 overdue box (OWN, MGR ≤ 1 night)', () => {
         new RegExp(`^${esc(tv('error.CARD_NUMBER_DETECTED'))}`),
       ),
     );
+    // SEC 2.5: the error is added – the help (DOM 145-04 line + D12c line) is still read with the box
+    expect(reasonBox()).toHaveAccessibleDescription(
+      `${tv('error.CARD_NUMBER_DETECTED')} ${reasonHelp()}`,
+    );
+    expect(screen.getByText(reasonHelp())).toBeInTheDocument();
+    await waitFor(() => expect(answers).toHaveLength(1));
+    expect(answers[0]).toEqual({
+      status: 422,
+      code: 'CARD_NUMBER_DETECTED',
+      errors: [{ field: 'overdueReason', code: 'CARD_NUMBER_DETECTED' }],
+    });
     expect(huy().status).toBe('in_house');
+  });
+
+  it('the server reads the reason like V-09: times and dates in it are not a card number (ARC 145-01)', async () => {
+    at('09:00');
+    const r = overdueStay(1);
+    const { user } = await toTimeStep('qa.mgr');
+    // 13+ digits once joined (the old mock rule) – no 13–19 digit run, so no CARD_NUMBER_DETECTED
+    await user.type(reasonBox(), `Khách đi 11:40 ngày ${dmy(r.departureDate)}, thấy trống 12:15`);
+    const box = await completeNow(user);
+    await user.click(within(box).getByRole('button', { name: /hoàn tất$/ }));
+    await waitFor(() => expect(huy().status).toBe('checked_out'));
   });
 
   it('B18 403 with requiredRole owner (the stay crossed into a 2nd night) → "the owner", from the 403, nothing written', async () => {
@@ -263,9 +316,9 @@ describe('V5-15 – H16 overdue box (OWN, MGR ≤ 1 night)', () => {
       nightsNotBilled: 2,
     });
     await user.click(within(box).getByRole('button', { name: /hoàn tất$/ }));
-    expect(
-      await screen.findByText(tv('checkout.overdue_need_owner', { n: 2 })),
-    ).toBeInTheDocument();
+    const said = await screen.findByText(guidance(tv('checkout.overdue_need_owner', { n: 2 })));
+    // FB-R5-UXD-FE-145-03: the guidance takes the focus once (never `body` after the box closes)
+    await waitFor(() => expect(said.closest('[tabindex="-1"]')).toHaveFocus());
     expect(screen.queryByRole('button', { name: tv('co.go_bill') })).toBeNull();
     expect(screen.getByRole('link', { name: tv('ci.back_to_booking') })).toBeInTheDocument();
     expect(huy().status).toBe('in_house');
@@ -278,7 +331,9 @@ describe('V5-15 – whom to call (FD/FDL, MGR past 1 night): no steps, nothing w
     const r = overdueStay(1);
     const { writes } = traffic();
     renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
-    expect(await screen.findByText(tv('checkout.overdue_need_manager'))).toBeInTheDocument();
+    expect(
+      await screen.findByText(guidance(tv('checkout.overdue_need_manager'))),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: tv('co.go_extras') })).toBeNull();
     expect(screen.getByRole('link', { name: tv('ci.back_to_booking') })).toHaveAttribute(
       'href',
@@ -292,7 +347,7 @@ describe('V5-15 – whom to call (FD/FDL, MGR past 1 night): no steps, nothing w
     const r = overdueStay(2);
     renderApp(`/reservations/${r.id}/check-out`, 'qa.fdl');
     expect(
-      await screen.findByText(tv('checkout.overdue_need_owner', { n: 2 })),
+      await screen.findByText(guidance(tv('checkout.overdue_need_owner', { n: 2 }))),
     ).toBeInTheDocument();
   });
 
@@ -301,9 +356,11 @@ describe('V5-15 – whom to call (FD/FDL, MGR past 1 night): no steps, nothing w
     const r = overdueStay(2);
     renderApp(`/reservations/${r.id}/check-out`, 'qa.mgr');
     expect(
-      await screen.findByText(tv('checkout.overdue_need_owner', { n: 2 })),
+      await screen.findByText(guidance(tv('checkout.overdue_need_owner', { n: 2 }))),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: tv('co.go_extras') })).toBeNull();
+    // no focus moved when the page simply opens on the guidance (only after a refused "Hoàn tất")
+    expect(document.activeElement).toBe(document.body);
   });
 
   it('drawer (FD, 1 night): "Trả phòng" locked, the reason next to it', async () => {
@@ -313,7 +370,11 @@ describe('V5-15 – whom to call (FD/FDL, MGR past 1 night): no steps, nothing w
     const d = await screen.findByRole('dialog', { name: 'Phạm Huy' });
     const btn = await within(d).findByRole('button', { name: tv('drawer.action.check_out') });
     expect(btn).toHaveAttribute('aria-disabled', 'true');
-    expect(btn).toHaveAccessibleDescription(tv('checkout.overdue_need_manager'));
+    // DOM 145-03: the need, then the Gia hạn reminder, in the one span the button points to
+    expect(btn).toHaveAccessibleDescription(guidance(tv('checkout.overdue_need_manager')));
+    expect(within(d).getByRole('button', { name: tv('drawer.action.extend') })).not.toHaveAttribute(
+      'aria-disabled',
+    );
   });
 
   it('drawer (MGR, 1 night): the usual "Trả phòng" (the server offers it, flagged overdue)', async () => {
@@ -335,11 +396,209 @@ describe('V5-15 – whom to call (FD/FDL, MGR past 1 night): no steps, nothing w
     expect(
       await screen.findByText(
         tv('checkout.overdue_body', {
-          date: r.departureDate.split('-').reverse().join('/'),
+          date: dmy(r.departureDate),
           nights: tv('common.nights_one', { n: 1 }),
         }),
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(tv('checkout.overdue_need_owner', { n: 2 }))).toBeNull();
+  });
+});
+
+describe('V5-15 – copy 9.15 (UXD-on-fe-prs-145-146; DOM 145-01 … 145-03, ARC 3.4)', () => {
+  /** DOM 4 example: last night 700.000 (list price of 201, OTA stay), late check-out agreed at 17:00 → 50 % = 350.000. */
+  function agreedLate() {
+    const r = overdueStay(1);
+    const room = mockControl.db.rooms.find((x) => x.id === r.roomId)!;
+    room.currentListPrice = { ...room.currentListPrice!, nightlyListPriceVnd: 700_000 };
+    r.agreedCheckoutTime = '17:00';
+    const f = mockControl.stay.folios.get(r.folioId)!;
+    f.lines.push({
+      ...f.lines[0]!,
+      id: 'late-v515',
+      category: 'late_checkout',
+      description: 'late_checkout 17:00 50%',
+      labelKey: undefined,
+      labelParams: undefined,
+      amountVnd: 350_000,
+      unitPriceVnd: 350_000,
+    } as (typeof f.lines)[number]);
+    return r;
+  }
+
+  it('DOM 145-01 (rules 15.3 ý 2a): agreed late 17:00 → keep 17:00 and the agreed charge – never "12:00, no surcharge"; 14:00 with proof lowers it, no tick', async () => {
+    at('09:00');
+    const r = agreedLate();
+    const dep = r.departureDate;
+    const { b18 } = traffic();
+    await toTimeStep('qa.mgr');
+    const box = await timeBox();
+    expect(box).toHaveValue('17:00');
+    // one sentence: the agreed time and its charge
+    expect(box).toHaveAccessibleDescription(
+      tv('checkout.overdue_time_help_agreed', { date: dmy(dep), time: '17:00' }),
+    );
+    const said = box.getAttribute('aria-describedby') ?? '';
+    const help = said
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent ?? '')
+      .join(' ');
+    expect(help).toContain('giữ 17:00 (giờ trả muộn đã hẹn)');
+    expect(help).not.toContain('(giờ trả chuẩn)');
+    expect(help).not.toContain('12:00');
+    expect(help).not.toContain('không phụ thu');
+    // no separate co.time_from_late on the overdue path
+    expect(screen.queryByText(/Theo giờ trả muộn đã hẹn/)).toBeNull();
+    expect(
+      screen.queryByText(tv('checkout.overdue_time_help', { date: dmy(dep), time: '12:00' })),
+    ).toBeNull();
+    // the agreed charge as recorded: no recalculation, no tick
+    expect(
+      await screen.findByText(
+        tv('checkout.late_fee', {
+          amount: tv('common.currency_vnd', { amount: '350.000' }),
+          pct: 50,
+        }),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: `${tv('ci.told_guest')} *` })).toBeNull();
+
+    // proof the guest left at 14:00 (housekeeping found the room empty) → the charge goes down by itself, no tick
+    fireEvent.change(box, { target: { value: '14:00' } });
+    expect(
+      await screen.findByText(
+        tv('checkout.late_recalc', {
+          old: tv('common.currency_vnd', { amount: '350.000' }),
+          new: tv('common.currency_vnd', { amount: '210.000' }),
+        }),
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: `${tv('ci.told_guest')} *` })).toBeNull();
+    // the help line stays the agreed one (the agreed time is still what "no proof" means)
+    expect(await timeBox()).toHaveAccessibleDescription(
+      tv('checkout.overdue_time_help_agreed', { date: dmy(dep), time: '17:00' }),
+    );
+    expect(b18()).toHaveLength(0);
+  });
+
+  it('DOM 145-02 / ARC 3.4: 03:00 typed – the server puts it on the next day → how Desk read it, not "extend first"; 06:00 → recorded on the departure day', async () => {
+    at('09:00');
+    const r = overdueStay(1);
+    const dep = r.departureDate;
+    const { b18 } = traffic();
+    const { user } = await toTimeStep('qa.mgr');
+    fireEvent.change(await timeBox(), { target: { value: '03:00' } });
+    const early = tv('checkout.overdue_time_early', {
+      time: '03:00',
+      next: dmy(todayLocal()),
+      date: dmy(dep),
+      rollover: '06:00',
+    });
+    await waitFor(
+      () =>
+        expect(
+          screen.getByLabelText(new RegExp(esc(tv('checkout.departure_time')))),
+        ).toHaveAccessibleDescription(new RegExp(`^${esc(early)}`)),
+      { timeout: 3000 },
+    );
+    expect(screen.queryAllByText(tv('checkout.overdue_after_limit'))).toHaveLength(0);
+    expect(screen.queryByText(tv('checkout.post_midnight'))).toBeNull();
+    await user.click(screen.getByRole('button', { name: tv('checkout.overdue_reason.no_notice') }));
+    // the reason is kept where it is typed: the cursor is after the filled text
+    await user.keyboard(', khách nhắn đi lúc 03:00');
+    expect(reasonBox()).toHaveValue(
+      `${tv('checkout.overdue_reason.no_notice')}, khách nhắn đi lúc 03:00`,
+    );
+    expect(goBill()).toHaveAttribute('aria-disabled', 'true');
+    expect(goBill()).toHaveAccessibleDescription(early);
+
+    // DOM 3.3: the departure day's rollover, the real time in the reason – no extension
+    fireEvent.change(await timeBox(), { target: { value: '06:00' } });
+    await waitFor(() => expect(screen.queryByText(early)).toBeNull(), { timeout: 3000 });
+    const box = await completeNow(user);
+    expect(
+      within(box).getByText(tv('checkout.overdue_effect', { time: '06:00', date: dmy(dep) })),
+    ).toBeInTheDocument();
+    await user.click(within(box).getByRole('button', { name: /hoàn tất$/ }));
+    await waitFor(() => expect(huy().status).toBe('checked_out'));
+    const body = b18().at(-1)!.body;
+    expect(body.checkoutAt).toBe(iso('06:00', dep));
+    expect(body.overdueReason).toContain('03:00');
+    expect(mockControl.rsv.reservations.filter((x) => x.parentReservationId === r.id)).toHaveLength(
+      0,
+    );
+  });
+
+  it('ARC 3.4: an extended stay still overdue – {date} is the departure after Gia hạn, {next} the server day', async () => {
+    at('09:00');
+    const r = huy();
+    const T = todayLocal();
+    r.departureDate = addDays(T, -2);
+    for (const s of r.segments ?? []) s.toDate = r.departureDate;
+    mockControl.stay.minibarChecks.set(r.id, []);
+    // B13 extended the stay by the night T−2 → T−1; nobody checked it out on T−1.
+    mockControl.rsv.reservations.push({
+      ...r,
+      id: '0192a1b0-0000-7000-8000-000000095151',
+      code: 'OTM-95151',
+      parentReservationId: r.id,
+      status: 'in_house' as const,
+      arrivalDate: addDays(T, -2),
+      departureDate: addDays(T, -1),
+      nights: 1,
+      nightlyRates: [{ date: addDays(T, -2), amountVnd: 700_000 }],
+      totalRoomVnd: 700_000,
+      folioId: '0192a1b0-0000-7000-8000-000000095152',
+      segments: (r.segments ?? []).map((sg) => ({
+        ...sg,
+        fromDate: addDays(T, -2),
+        toDate: addDays(T, -1),
+      })),
+      allowedActions: [],
+      version: 1,
+    });
+    await toTimeStep('qa.mgr');
+    fireEvent.change(await timeBox(), { target: { value: '03:00' } });
+    const early = tv('checkout.overdue_time_early', {
+      time: '03:00',
+      next: dmy(T),
+      date: dmy(addDays(T, -1)),
+      rollover: '06:00',
+    });
+    await waitFor(() => expect(goBill()).toHaveAccessibleDescription(early), { timeout: 3000 });
+    expect(screen.queryAllByText(tv('checkout.overdue_after_limit'))).toHaveLength(0);
+  });
+
+  it('a time after the last tier ON the departure day stays "extend first" (the server day = the departure)', async () => {
+    at('09:00');
+    overdueStay(1);
+    await toTimeStep('qa.mgr');
+    fireEvent.change(await timeBox(), { target: { value: '18:30' } });
+    await waitFor(
+      () => expect(goBill()).toHaveAccessibleDescription(tv('checkout.overdue_after_limit')),
+      {
+        timeout: 3000,
+      },
+    );
+    expect(screen.queryByText(/rạng sáng/)).toBeNull();
+  });
+
+  it('pure helpers: the Gia hạn reminder only with B13; the early-hours sentence only off the departure day', () => {
+    const need = tv('checkout.overdue_need_manager');
+    expect(overdueGuidanceText(tv, need, false)).toBe(need);
+    expect(overdueGuidanceText(tv, need, true)).toBe(guidance(need));
+    const dep = '2026-11-10';
+    expect(overdueEarlyAt(true, '2026-11-11T03:00:00+07:00', dep)).toEqual({
+      day: '2026-11-11',
+      time: '03:00',
+    });
+    // v1.0.6 (0.3.14): the server reads 03:00 on the departure day → nothing, no Desk change
+    expect(overdueEarlyAt(true, '2026-11-10T03:00:00+07:00', dep)).toBeNull();
+    expect(overdueEarlyAt(true, '2026-11-10T18:30:00+07:00', dep)).toBeNull();
+    // not past the last tier, or no instant from the server → nothing
+    expect(overdueEarlyAt(false, '2026-11-11T03:00:00+07:00', dep)).toBeNull();
+    expect(overdueEarlyAt(true, undefined, dep)).toBeNull();
   });
 });

@@ -18,7 +18,7 @@ import {
 } from '../../app/reservations';
 import { lineLabel, signed } from '../../app/folio';
 import { DebtCollectDialog, DebtWriteOffDialog } from '../stay/DebtCollectDialog';
-import { overdueNeedText, useOverdueNeed } from '../stay/overdue';
+import { overdueGuidanceText, overdueNeedText, useOverdueNeed } from '../stay/overdue';
 import { Code } from '../../app/mono';
 import { useRules } from '../../app/rules';
 import { LoadingBlock } from '../../components/states';
@@ -396,7 +396,8 @@ export function ReservationDrawer({
       ) : overdueNights !== null ? (
         <>
           <span className="li-s" id={`${drawerId}-overdue`}>
-            {overdueNeedText(t, overdueNights)}
+            {/* DOM 145-03: the Gia hạn reminder in the same span the locked button points to. */}
+            {overdueGuidanceText(t, overdueNeedText(t, overdueNights), allowed.has('extend_stay'))}
           </span>
           <Button
             variant="pri"

@@ -8,6 +8,7 @@ import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'ms
 import { businessDayLocal, todayLocal } from '../app/dates';
 import { currentSegment } from '../app/reservations';
 import { overdueNights, overdueRefusal } from './overdue';
+import { containsCardNumber } from './replyNote';
 import type { MockFolioPort, MockReservation, MockServiceLine } from './reservations';
 import { MOCK_PASSWORD, type MockUser } from './seed';
 
@@ -3165,7 +3166,9 @@ export function createStayMock(ctx: Ctx) {
             .trim();
           if (why.length < 3) errs.push({ field: 'overdueReason', code: 'REASON_REQUIRED' });
           else if (why.length > 500) errs.push({ field: 'overdueReason', code: 'TOO_LONG' });
-          else if (luhn(why.replace(/\D/g, '')))
+          // V-09 like the server (`containsCardNumber`, ARC FB-R5-ARC-FE-145-01): a 13–19 digit run passing Luhn – never
+          // every digit of the sentence joined (times and dates of the reason are not a card).
+          else if (containsCardNumber(why))
             errs.push({ field: 'overdueReason', code: 'CARD_NUMBER_DETECTED' });
           if (body.lateFeeInsteadOfNight !== undefined && body.lateFeeInsteadOfNight !== null)
             errs.push({ field: 'lateFeeInsteadOfNight', code: 'NOT_ALLOWED' });
@@ -3173,6 +3176,9 @@ export function createStayMock(ctx: Ctx) {
             errs.push({ field: 'extraNight', code: 'NOT_ALLOWED' });
           if (sentAt && s.treatAsExtension)
             errs.push({ field: 'checkoutAt', code: 'LATE_CHECKOUT_AFTER_LIMIT' });
+          // `Fields.done()` (FB-R5-SEC-FE-145-02): a card number is its own problem code, with only that field.
+          const card = errs.find((e) => e.code === 'CARD_NUMBER_DETECTED');
+          if (card) return problem(422, 'CARD_NUMBER_DETECTED', { errors: [card] });
           if (errs.length) return validation(errs);
         } else {
           if (body.overdueReason !== undefined && body.overdueReason !== null)
