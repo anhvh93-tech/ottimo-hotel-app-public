@@ -161,6 +161,12 @@ export interface StayInfo {
   parentReservationId: string | null;
   arrivalDate: LocalDate;
   departureDate: LocalDate;
+  /**
+   * The stay's EFFECTIVE departure, same meaning as `Reservation.stayDepartureDate` (BR-422 – extension children in
+   * force; public/stay-departure.ts): null for a child booking or a status other than confirmed / in_house.
+   * FB-R5-ARC-BE-A2-01: the minibar standard's overdue window.
+   */
+  stayDepartureDate: LocalDate | null;
   /** Room of the segment covering the last night (current room in house); null while unassigned. */
   roomId: string | null;
   roomNo: string | null;
