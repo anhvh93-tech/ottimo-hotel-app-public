@@ -60,6 +60,18 @@ const quoteInput = z.object({
   channelId: uuid,
   closerUserId: uuid.optional(),
   returnGuestCode: z.string().max(40).optional(),
+  // V5-14 (OpenAPI 0.3.13 QuoteInput.nightlyRates): FD+ only – SAL/CTV never get here (x-write-roles, AuthGuard).
+  // Amount ≤ 0, coverage and dates are checked by the pricing (contract codes AMOUNT_NOT_POSITIVE/REQUIRED/DATE_INVALID).
+  nightlyRates: z
+    .array(
+      z.object({
+        date: localDateSchema,
+        amountVnd: z.number().int(),
+        edited: z.boolean().optional(),
+      }),
+    )
+    .max(60)
+    .optional(),
 });
 
 // US-155 AC2 (0.3.7 bổ sung 2 – BE-D R3 S1): a quote answering a website booking request.
@@ -73,6 +85,30 @@ const holdInput = z.object({
   holdHours: z.number().int().min(1).max(168),
   depositMethod: z.enum(['vietqr', 'bank_transfer', 'cash', 'vnpay', 'momo']).optional(),
 });
+
+/**
+ * V5-14 (OpenAPI 0.3.13 createHoldFromQuote; ARC PR75-01): the hold takes the prices captured in the quote. A price
+ * field in the body → 422 NOT_ALLOWED per field, nothing written – the command never drops a price silently (to
+ * change a price, save the quote again). Other unknown fields are still ignored, as before.
+ */
+export const HOLD_PRICE_FIELDS = [
+  'nightlyRates',
+  'rates',
+  'rateVnd',
+  'amountVnd',
+  'totalVnd',
+  'depositVnd',
+] as const;
+
+export function rejectHoldPriceFields(body: unknown): void {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return;
+  const sent = HOLD_PRICE_FIELDS.filter((f) => Object.prototype.hasOwnProperty.call(body, f));
+  if (sent.length > 0) {
+    throw problem('VALIDATION_FAILED', {
+      errors: sent.map((field) => ({ field, code: 'NOT_ALLOWED' })),
+    });
+  }
+}
 
 const extendInput = z.object({ reason: z.string().max(500).optional() });
 
@@ -266,6 +302,7 @@ export class QuotesController {
   ) {
     if (!UUID.test(quoteId)) throw problem('NOT_FOUND');
     rejectDryRun(body);
+    rejectHoldPriceFields(body);
     const input = parseBody(holdInput, body);
     // R2: VNPay/MoMo are hidden until the gateways exist (R3, ESC-010).
     const depositMethod = input.depositMethod ?? 'vietqr';

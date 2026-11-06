@@ -13,7 +13,7 @@ import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { CANCEL_REASON_CODES, type CancelReasonCode } from '../../../db/schema';
 import { ProblemError, problem } from '../../../shared/problem';
 import { assertNoCardNumber, containsCardNumber } from '../../../shared/validation';
-import { type LocalDate, type LocalTime, addDays, atLocal } from '../../../shared/time';
+import { type LocalDate, type LocalTime, addDays, atLocal, localDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { ApprovalService, type ApprovalRow } from '../../approvals/public/approval.service';
@@ -46,6 +46,7 @@ import {
 } from '../public/pricing';
 import type { NightSource } from '../public/added-night-price';
 import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
+import { rateOutOfRange } from '../public/rate-out-of-range';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
 import type { ConfirmedStay } from '../public/sales-port';
 import {
@@ -447,6 +448,8 @@ export class ReservationsService {
       arrivalDate: row.arrival_date,
       departureDate: row.departure_date,
       today: ctx.today,
+      // 0.3.13 (V5-10, BE C0313-09): check_out from 00:00 of the departure day (post-midnight window).
+      calendarDate: localDate(ctx.now, ctx.tz),
       holdExpired: !!row.hold_expires_at && row.hold_expires_at.getTime() <= ctx.now.getTime(),
       holdExtendedCount: row.hold_extended_count,
       depositPaidVnd,
@@ -728,19 +731,14 @@ export class ReservationsService {
         nightlyRates,
         otaRoomAmountVnd,
       });
+      // V5-22 (BUG-R4-040): `dates[]` + `min`/`max` of the first night out of range, block and warning alike.
       if (priced.outOfRange.length > 0) {
         if (group === 'ota') {
           if (!rateOverrideReason) {
-            throw problem('VALIDATION_FAILED', {
-              errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE_WARNING' }],
-              extras: { dates: priced.outOfRange },
-            });
+            throw rateOutOfRange(priced.outOfRange, priced.nights, { warning: true });
           }
         } else {
-          throw problem('RATE_OUT_OF_RANGE', {
-            errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
-            extras: { dates: priced.outOfRange },
-          });
+          throw rateOutOfRange(priced.outOfRange, priced.nights);
         }
       }
     }
