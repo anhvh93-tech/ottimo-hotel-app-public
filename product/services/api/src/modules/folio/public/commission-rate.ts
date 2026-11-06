@@ -13,13 +13,18 @@
  */
 import type { Tx } from '../../../db/database';
 import type { LocalDate } from '../../../shared/time';
+import { SHORT_STAY_COMMISSION_KEY } from '../../platform/public/commission-keys';
 import {
   ParameterMissingError,
   type ParameterService,
 } from '../../platform/public/parameter.service';
 
-/** Parameter key of the short-stay rate table: `{"staff": %, "collaborator": %}` (BR-903, DOM 4.1). */
-export const SHORT_STAY_COMMISSION_KEY = 'short_stay_commission_pct';
+/**
+ * Parameter key of the short-stay rate table: `{"staff": %, "collaborator": %}` (BR-903, DOM 4.1). The name lives in
+ * platform/public/commission-keys.ts (the save rule and the OWN/MGR-only filter need it there); this file stays the
+ * only reader of the value.
+ */
+export { SHORT_STAY_COMMISSION_KEY };
 
 /** OpenAPI `QuoteCalculation.commission.status` (0.3.13). */
 export type CommissionStatus = 'computed' | 'rate_missing' | 'not_applicable';

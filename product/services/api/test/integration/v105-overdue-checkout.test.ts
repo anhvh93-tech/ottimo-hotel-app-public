@@ -13,9 +13,10 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Database } from '../../src/db/database';
 import { AuditService } from '../../src/modules/audit/public/audit.service';
+import { CheckoutService } from '../../src/modules/frontdesk/internal/checkout.service';
 import {
   NoGuestAccessPort,
   UnwiredChildDataPort,
@@ -389,6 +390,16 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
       expect(r.statusCode, r.body).toBe(422);
       expect(r.json().code).toBe('VALIDATION_FAILED');
       expect(r.json().errors).toEqual([{ field: 'overdueOnly', code: 'VALIDATION_FAILED' }]);
+    });
+
+    it('FB-R5-ARC-BE-A2-04: overdueOnly empty reads as false, like removalsOnly / reductionsOnly (boolQuery)', async () => {
+      // FB-R5-ARC-BE-135-01: on this block's day (5 rows, 2 overdue) – "empty → true" would leave only the 2.
+      const codes = async (qs: string) => (await list('own', qs)).map((r) => r.entityCode);
+      const all = await codes('');
+      expect(all.length).toBeGreaterThanOrEqual(5);
+      expect(await codes('overdueOnly=')).toEqual(all);
+      expect(await codes('overdueOnly=false')).toEqual(all);
+      expect(await codes('overdueOnly=&removalsOnly=&reductionsOnly=')).toEqual(all);
     });
   });
 
@@ -875,6 +886,66 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
       expect(ids2).toContain(s1.id);
       expect(ids2).toContain(s2.id);
       expect(ids2).not.toContain(s4.id);
+    });
+
+    it('FB-R5-ARC-BE-A2-03 / FB-R5-SEC-BE-99D-01: the stay stops being overdue between the unlocked read and the locks → 409 CONCURRENT_UPDATE with Retry-After: 1, nothing written; the same Idempotency-Key then runs again on the new state (no replay of the 409)', async () => {
+      const s6 = await inHouse('401', '2029-01-25', '2029-01-27');
+      await at('2029-01-28T09:00:00+07:00');
+      await count(s6);
+      const body = { checkoutAt: '2029-01-27T11:00:00+07:00', overdueReason: REASON };
+      const key = randomUUID();
+      const ifMatch = `"${(await get(s6.id)).version}"`;
+      const send = () =>
+        c.mgr!.send('POST', url(`/reservations/${s6.id}/actions/check-out`), body, {
+          'idempotency-key': key,
+          'if-match': ifMatch,
+        });
+      // The race of contract 1.18 (an OTA B13 adds an in-house child without bumping the primary's version): the
+      // first read (overdueGate, no lock) says overdue, the read under the locks says otherwise – simulated on that
+      // read, both branches of the check: no longer overdue (null), and FB-R5-ARC-BE-135-02 still overdue with
+      // another departure date.
+      const proto = CheckoutService.prototype as unknown as {
+        overdueStay: (...a: unknown[]) => Promise<unknown>;
+      };
+      const real = proto.overdueStay;
+      const raced = async (locked: unknown) => {
+        let calls = 0;
+        const spy = vi.spyOn(proto, 'overdueStay').mockImplementation(async function (
+          this: unknown,
+          ...a: unknown[]
+        ) {
+          calls += 1;
+          return calls === 1 ? real.apply(this, a) : locked;
+        });
+        try {
+          return { r: await send(), calls };
+        } finally {
+          spy.mockRestore();
+        }
+      };
+      const before = await snapshot(s6);
+      for (const locked of [null, { departureDate: '2029-01-26', nights: 2 }]) {
+        const { r, calls } = await raced(locked);
+        expect(calls).toBe(2);
+        expect(r.statusCode, r.body).toBe(409);
+        expect(r.json().code).toBe('CONCURRENT_UPDATE');
+        expect(r.headers['retry-after']).toBe('1');
+        expect(r.headers['idempotent-replayed']).toBeUndefined();
+        expect(await snapshot(s6)).toEqual(before);
+        expect(await overdueAudit(s6)).toEqual([]);
+      }
+      // Same key, same If-Match: the 409 rolled back with the key – the retry is decided on the state now (overdue,
+      // MGR at 1 night) and writes the B18 once; it is not a replay.
+      const again = await send();
+      expect(again.statusCode, again.body).toBe(200);
+      expect(again.headers['idempotent-replayed']).toBeUndefined();
+      expect((await get(s6.id)).status).toBe('checked_out');
+      expect(await overdueAudit(s6)).toHaveLength(1);
+      // A third send with the key is now the stored 200.
+      const replay = await send();
+      expect(replay.statusCode, replay.body).toBe(200);
+      expect(replay.headers['idempotent-replayed']).toBe('true');
+      expect(await overdueAudit(s6)).toHaveLength(1);
     });
   });
 });

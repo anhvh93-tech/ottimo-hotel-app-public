@@ -900,6 +900,9 @@ export function createReservationMock(ctx: Ctx) {
       // 0.3.9 B16 (A17, FD+; bổ sung 1 mục 10.1): the primary booking, while max(today, arrival + 1) <
       // stayDepartureDate (the whole stay, child extensions included – BR-422). Like the real server (QA PR #22,
       // BUG-R4-014) a long stay gets it too: the Desk shows BR-313 instead of BR-428 for it.
+      // V5-11 (#114 `allowed-actions.ts earlyDepartureOpen`): "today" here is the CALENDAR day – the server's
+      // `minCalendarDate` (the business day, the calendar day from 00:00 to the rollover). A stay ending on the
+      // calendar day at 03:00 offers Trả phòng only.
       const from = addDays(r.arrivalDate, 1) > today() ? addDays(r.arrivalDate, 1) : today();
       if (!r.parentReservationId && from < stayDeparture(r))
         add('early_departure', 'B16', 'early-departure');
@@ -2012,9 +2015,12 @@ export function createReservationMock(ctx: Ctx) {
         .users.filter((u) => u.status === 'active')
         .flatMap((u) => {
           const roles = u.roles.map((x) => x.role);
+          // like the server (0.3.5 A-06): `staff` = sales, front desk, front desk lead, manager, owner
           const k = roles.includes('collaborator')
             ? ('agent' as const)
-            : roles.includes('sales_staff')
+            : roles.some((x) =>
+                  ['sales_staff', 'front_desk', 'front_desk_lead', 'manager', 'owner'].includes(x),
+                )
               ? ('staff' as const)
               : null;
           return k && (kind === 'all' || kind === k)

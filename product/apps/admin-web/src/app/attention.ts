@@ -253,8 +253,17 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
         [key, args] = ['attn.foc_pct', { pct: fmt(ctx, p.pct), threshold: fmt(ctx, p.threshold) }];
       else if (p.check === 'foc_count_per_approver')
         [key, args] = ['attn.foc_count', { count: str(p.count), max: str(p.max) }];
+      else if (p.check === 'line_reduction_count')
+        // 0.3.13 bổ sung 1 (BR-438 (4)(iii), US-177 AC7): one FD/FDL over the line-reduction threshold – no name; the
+        // server's link opens "Sửa giảm dòng" of the money log for that person and month.
+        [key, args] = ['attn.line_reduction_count', { count: str(p.count), max: str(p.max) }];
       else args = {};
-      to = '/approvals';
+      to =
+        p.check === 'line_reduction_count'
+          ? item.link?.startsWith('/audit?')
+            ? item.link
+            : '/audit?reductionsOnly=true'
+          : '/approvals';
       break;
     case 'security_alert':
       to = '/settings/users';
