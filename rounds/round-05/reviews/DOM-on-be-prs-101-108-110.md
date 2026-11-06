@@ -179,7 +179,7 @@ Ví dụ: buồng phòng Minh đếm căn 202 lúc 10:00 ngày 12/11: 3 bia × 3
 | BR-438-01 | `line.source: "manual"` (minibar) | `"minibar_check"` | dòng đếm minibar là "nhập tay" |
 | BR-438-02 | `line.source: "manual"` (minibar) | `"minibar_check"` | như trên |
 | BR-438-05 | `root.source: "manual"` (minibar) | `"minibar_check"` | bước B sửa tăng tạo dòng thay thế `manual`; gốc vẫn là dòng đếm |
-| BR-438-04 | `line.source: "system"` (late_checkout, "khi chính lễ tân đó bấm Trả phòng") | `"checkout"` | B18 lưu `checkout` |
+| BR-438-04 | `line.source: "system"` (late_checkout, "khi chính lễ tân đó bấm Trả phòng") | `"checkout"` | B18 lưu `checkout`. **Sửa 07/11 (QA FB-R5-QA-DOM-BR438-01, DOM chọn A):** B18 chốt folio cùng giao dịch, nên đây là ca A32 trên folio `settled`: FD/FDL 403 `FORBIDDEN_ACTION` không `requiredFlow`, MGR được (BR-433 (e)); bỏ `hint` khỏi `expected` |
 | **BR-438-07** (mới) | – | late_checkout `source: "manual"` từ B15 (đặt giờ trả muộn trước), `postedBy: actor` → FD chặn, FDL chặn, MGR được, `hint: foc_request` | khớp T16-10 / H-08 của #110 |
 | **BR-438-08** (mới, khi BE làm mục 3.3) | – | ví dụ minibar 3.3: Lan đếm thấp hơn số Minh → 403 `foc_request`, không ghi gì; Minh đếm lại → được, có `folio_line.adjusted` `minibar_recount`; Lan đếm lại lần mình đếm trong ngày → được | |
 
