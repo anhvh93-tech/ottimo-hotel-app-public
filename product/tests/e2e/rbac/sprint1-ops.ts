@@ -187,6 +187,7 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
         roomNo: `Z${uniq(4).toUpperCase()}`,
         roomGroupId: uuid(),
         monthlyListPriceVnd: 9000000,
+        nightlyListPriceVnd: 800000,
       },
       accept: [404, 409, 422],
       note: 'roomGroupId ngẫu nhiên → không tạo căn',

@@ -414,17 +414,28 @@ Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 7. Lịch sử: "Bổ sung cùng ngày, lượt 4" ở sổ tay 1.19, `00` 1.17, `01` 1.16, `02` 1.16; đầu tệp `01`, `02`. Không tăng số bản.
 
 **Giả định (lượt 5):**
-- "Ảnh đã bị lưu" ở SEC 6.6 (c) gồm cả lần lỡ tải về rồi xóa ngay, nên dòng ghi "xóa ở Tải về, Thùng rác, rồi gọi". SEC xác nhận hoặc sửa.
-- Thư báo tin nhắn mà OTA, Zalo gửi về email cơ sở có ảnh: xóa như bản sao xóa được ở dòng số thẻ không xóa được (SEC 6.5).
+- ~~"Ảnh đã bị lưu" gồm cả lần lỡ tải về rồi xóa ngay~~: SEC 6.6.1 (`abfaa83b`) sửa, đó là **ca giữa**. Đã áp, xem "phần 2" dưới.
+- Thư báo có ảnh về email cơ sở là bản sao xóa được: SEC 6.6.1 xác nhận. Đã áp.
 - Khung lỗi ô ngày "sửa ở v1.0.5" giả định #128 vào tag v1.0.5.
 - Danh sách **Nhật ký thao tác tiền** chỉ lấy trang đầu (`limit` 100, không có nút xem thêm) ở `main` và cả nhánh #128. BA không ghi vào sổ tay; chuyển FE, QA xem có cần nút xem thêm khi mở cả tháng từ Cần chú ý không.
 
 **Chuyển vai (lượt 5):**
 - **UXD:** dựng lại HTML sổ tay 1.19 và bộ hướng dẫn 1.17 từ commit này; khối Wi-Fi vẫn không dựng.
-- **SEC:** giả định "lỡ tải về thì gọi".
 - **FE, QA:** nút xem thêm ở Nhật ký thao tác tiền (giới hạn 100 dòng).
 - **ORC:** báo khi máy chủ sinh `line_reduction_count` (BA bỏ "(khi Desk có dòng này)", thêm dòng vào danh sách Cần chú ý) và nếu #128 trượt khỏi v1.0.5.
 
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | BA – lượt 5 sổ tay 1.19 / bộ hướng dẫn 1.17 (cùng số bản): áp dụng ngay – dòng khách gửi ảnh giấy tờ qua chat ở sổ tay 2.21, 02 16.1 theo SEC 6.6 và DOM BA-08, BA-09 (mọi máy, không tải lên Desk, trả lời trước rồi xóa, 5a chỉ khi link còn dùng được và gửi trong cùng lượt, ca thường không ghi sổ, ca bất thường gọi chủ đầu tư; 18 đoạn câu CPY f40e1480, câu 5c cho khách đang ở; luật chung tên khách, xưng hô dưới bảng); câu mã cửa "at reception", VI xưng "bạn"; lỗi đang sửa: ô ngày ở Nhật ký thao tác tiền chưa có tác dụng tới v1.0.5, cộng theo cột Lúc. Từ v1.0.5 (#128) – ô Người làm, tìm lần đếm lại minibar khi tắt công tắc, mở từ Cần chú ý là cả tháng (DOM BA-128-01; chưa thêm dòng line_reduction_count). Khối Wi-Fi chờ xác nhận: đổi gấp là tin sự cố (DOM BA-10) | BA | Không ESC; BA report mục 8 lượt 5 |`
+
+**Bổ sung lượt 5, phần 2 (07/11) – SEC 6.6.1** (`abfaa83b`, trả lời hai giả định của BA ở `f332f503`):
+1. Sổ tay 2.21, `02` 16.1, dòng "Khách gửi ảnh giấy tờ": lỡ tải về hoặc máy tự lưu, trên máy của cơ sở, chưa mở hay gửi sang đâu, là **ca giữa**: xóa ở Tải về và Thùng rác (Đã xóa gần đây), tắt lại tự lưu, sổ giao ca một dòng không mã đơn, không tên khách (chữ SEC), báo chủ đầu tư trước khi hết ca, không gọi trong 1 giờ. Danh sách gọi trong 1 giờ bỏ "lưu, tải về", thêm: mở hay gửi sang app khác, tải lên đâu kể cả Desk, không xóa được bản đã tải về, ảnh trên máy cá nhân.
+2. Cùng dòng: thư OTA, Zalo báo về email cơ sở có ảnh hoặc có nội dung tin thì xóa cả Thùng rác, không mở tệp đính kèm, xóa ở máy khác đang mở hộp thư; thư chỉ báo "bạn có tin mới" để nguyên; thư về hộp thư lễ tân không mở được thì chủ đầu tư tự xóa.
+3. Sổ tay 1.16 và `01` 13 (ngay dưới gạch tắt tự lưu ảnh): chủ đầu tư kiểm bản sao trên mây (iCloud Ảnh, Google Photos, Google Drive) và xóa cả thùng rác của mây; tài khoản mây không của cơ sở hoặc dùng chung với người ngoài thì xử như sự cố, báo đội qua điều phối viên; chủ đầu tư tự xóa thư báo có ảnh ở hộp thư của mình. `01` 13 thêm theo cùng ý vì là tệp của chủ đầu tư.
+4. Lịch sử: ghi tiếp vào "Bổ sung cùng ngày, lượt 4" ở sổ tay 1.19, `00` 1.17, `01` 1.16, `02` 1.16. Không tăng số bản.
+
+Giả định: câu "báo đội qua điều phối viên… chỉ nói 'sự cố ảnh giấy tờ' và giờ" là cách sổ tay đã dùng cho báo lỗi (mục 0.8 điểm 9); SEC 6.6.1 chỉ ghi "xử như sự cố theo SR-INC-01".
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | BA – lượt 5 phần 2 (SEC 6.6.1 abfaa83b), cùng số bản: dòng khách gửi ảnh giấy tờ ở sổ tay 2.21, 02 16.1 – lỡ tải về hoặc máy tự lưu rồi xóa ngay là ca giữa (sổ giao ca một dòng không mã đơn, báo chủ đầu tư trước khi hết ca), danh sách gọi trong 1 giờ bỏ "lưu, tải về"; thư báo có ảnh về email cơ sở xóa cả Thùng rác; sổ tay 1.16, 01 13 – chủ đầu tư kiểm bản sao trên mây, tự xóa thư báo ở hộp thư của mình | BA | Không ESC; BA report mục 8 lượt 5 phần 2 |`

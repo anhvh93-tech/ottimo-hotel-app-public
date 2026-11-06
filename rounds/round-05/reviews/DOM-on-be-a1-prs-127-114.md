@@ -158,7 +158,7 @@ Phần mã khớp luật:
   - Bỏ 3 đêm (02, 03, 04/12) = 2.100.000 → hoàn 1.050.000, phí 1.050.000.
   - Dòng phí trước đây mang ngày 02/12 (tháng 12), nay mang ngày **29/11** (tháng 11).
 - Test BR-428-16 đã khóa dòng mã này: Ngày rời mới 21/10 khác ngày mong đợi 20/10. Không cần ca ban ngày riêng.
-- Việc: DATA xác nhận K-22e "doanh thu khác theo ngày" đọc ngày này (T-11-9). PO hoặc BA ghi một dòng release notes v1.0.5 cho chủ đầu tư: "Phí trả phòng sớm, phí hủy, phí không đến ghi vào ngày thao tác (ngày nghiệp vụ, đổi lúc 06:00)."
+- Việc: DATA xác nhận K-07 "doanh thu khác theo ngày" đọc ngày này (T-11-9); K-22e chỉ gồm phí hủy và không đến, phí trả sớm vào K-22g (sửa 07/11 theo DATA FB-R5-DATA-DOM-01). PO hoặc BA ghi một dòng release notes v1.0.5 cho chủ đầu tư: "Phí trả phòng sớm, phí hủy, phí không đến ghi vào ngày thao tác (ngày nghiệp vụ, đổi lúc 06:00)."
 
 ## 4. Ghi chú cho vai khác (không phải thẻ BE)
 
@@ -175,7 +175,7 @@ Phần mã khớp luật:
   - 0.3.14: ghi `DATE_INVALID` trên `checkoutTime` (mục 2.1, DOM không phản đối).
   - Ghi đề xuất PR106-02 đã sửa (mục 2.3).
   - Câu "≤" của `useCheckout` (mục 3.3 ý 1).
-- **DATA:** mục 3.4 (K-22e, ca T-11-9).
+- **DATA:** mục 3.4 (K-07, K-22e, K-22g, ca T-11-9).
 - **QA:**
   - Sau khi #114 gộp, bỏ `pendingFix` ở BR-428-15, 16, 17, BR-309-27, BR-311-04.
   - Chạy giờ thật trên staging các ca T-10-14 (rules 15.6), T-11-1 … T-11-9 (rules 2.4).
