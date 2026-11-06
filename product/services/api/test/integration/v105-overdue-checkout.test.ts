@@ -590,6 +590,16 @@ describe.skipIf(!HAS_DB)('V5-15 overdue check-out (BE-A2)', () => {
       );
     });
 
+    it('SEC A1B-01: overdueReason is read without control / invisible characters – none left, or under 3 once removed → 422 REASON_REQUIRED', async () => {
+      for (const overdueReason of ['\u0000\u200B\u202E\u202C\u0007', 'ab\u200B\u200B\u200B']) {
+        fieldError(
+          await checkOut(s1, { checkoutAt: S1_LEFT, overdueReason }, 'mgr'),
+          'overdueReason',
+          'REASON_REQUIRED',
+        );
+      }
+    });
+
     it('minibar gate on the overdue path: no count → 409 MINIBAR_NOT_CHECKED; a count made after the guest left (overdue day) clears it', async () => {
       const r = await checkOut(s1, { checkoutAt: S1_LEFT, overdueReason: REASON }, 'mgr');
       expect(r.statusCode, r.body).toBe(409);
