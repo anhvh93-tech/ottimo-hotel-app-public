@@ -23,6 +23,7 @@
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.0**: mục 9.10 mới, theo review `rounds/round-05/reviews/UXD-on-prs-97-116-117-118-122.md`. Gồm 3 câu 2FA không kể tên vai (V5-40, #118), xóa `booking.hold.typed_rate_locked` (V5-14, #122), 2 câu app nhân viên cho nút Báo cần dọn (V5-15, #97), và 2 ghi chú khóa (`bk.src_typed`, `staff.notif.k.hold_expired` theo FB-R5-ARC-UXD-117-01). Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.1**: theo việc thêm của ORC sau review PR #97, #116, #117, #118, #122. Mục 9.11 mới: chữ chốt `mlog.a_money_not_found` (ARC đặt tạm ở PR #111, đã gộp `ce404dd6`; UXD áp trên `main` cùng commit này) và EN nút `today.money_after_cancel_not_found` ở 9.1. Mục 9.12 mới: nhãn 6 nhóm lý do hoàn (V5-13) và câu theo `lockReason` (V5-44), theo DOM FB-R5-DOM-UXD-112-01. Mục 9.8 thêm ghi chú: hợp đồng còn ghi "8 ký tự cuối", ARC sửa. Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.2**: mục 9.13 mới, chữ Desk cho V5-11 (Trả sớm trong 00:00–05:59; hợp đồng 0.3.13 mục 1.21, DOM `rules-v1.0.5.md` mục 2, BE PR #114) theo việc ORC giao cho làn FE-A V5-11: câu cho hai 409 `INVALID_TRANSITION` (`minNewDepartureDate`, `useCheckout`) và dòng ngày ghi phí giữ lại. 4 khóa mới, UXD đã áp trên `main` cùng commit này. Kèm một chỗ FE phải sửa để chữ đúng ở bước ③ (`canCheckOut`). Cùng mục 0, 6, 8.
+- Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.3**: mục 9.14 mới, theo review FE-3 Desk #134, #137, #141 (`rounds/round-05/reviews/UXD-on-fe3-prs-134-137-141.md`). Gồm: chữ chốt V5-18 `deposit.accept_shortfall_unverified` (thay nháp FE-3); khóa mới `folio.open_refunds_may_decrease` thay câu của hàng chờ duyệt dưới tổng chờ hoàn, kèm điều kiện hiện (V5-13); sửa `error.closed_booking_payment_sales`; B4 nhập tay trên đơn đã đóng dùng câu 9.1a (V5-48). FE-3 áp trong PR. UXD không áp trên `main`, để không đụng `gen_strings.py` của 3 PR đang mở. Ghi chú ở 9.1a, 9.12. Cùng mục 0, 6, 8.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -67,7 +68,8 @@
 | `mlog.a_money_not_found` (bản 2.1, mục 9.11) | 0 | 1 | 0 | **1** | Ngoài Gói 2. ARC thêm khóa ở #111 với câu tạm; UXD chốt chữ, đã áp trên `main`. EN `today.money_after_cancel_not_found` (9.1) đổi, không đổi số khóa |
 | V5-13, V5-44 (bản 2.1, mục 9.12) | 4 | 10 | 1 | **15** | Ngoài Gói 2. 3 nhãn lý do hoàn mới (3 nhãn còn lại đã có), 2 khóa tổng chờ hoàn, 5 câu `lockReason`. Sửa 4, xóa `checkout.pending_refund_line` khi V5-13 lên |
 | V5-11 Trả sớm trong 00:00–05:59 (bản 2.2, mục 9.13) | 0 | 4 | 0 | **4** | Ngoài Gói 2. Đi cùng FE-A V5-11 (cùng tag với #114). Đã áp trên `main`. Thêm ghi chú cho 4 khóa có sẵn, không đếm |
-| **Tổng** | **81** | **150** | **9** | **240** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240 |
+| V5-18, V5-13, V5-48 sau review FE-3 (bản 2.3, mục 9.14) | 1 | 2 | 0 | **3** | Ngoài Gói 2. `deposit.accept_shortfall_unverified` (FE-3 thêm ở #141, UXD chốt chữ) và `folio.open_refunds_may_decrease`: điều kiện gộp #141, #134. `error.closed_booking_payment_sales` (sửa): cùng PR sau #137, trước tag v1.0.5. FE-3 áp trong PR |
+| **Tổng** | **82** | **152** | **9** | **243** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243 |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
@@ -83,6 +85,7 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Mục 9.11 (bản 2.1):** `mlog.a_money_not_found` đã áp trên `main`. EN nút `today.money_after_cancel_not_found` áp khi FE thêm khóa (5B-1). Chọn câu theo `after.kind`: nên có.
 - **Mục 9.12 (bản 2.1):** nhãn lý do hoàn và 3 khóa tổng chờ hoàn bắt buộc, lên cùng V5-13. `lockReason`: bắt buộc cùng V5-44 phần chọn câu theo trường (không dò `detail`) và 2 câu `settled`, vì câu chung "kể cả quản lý" nói sai ở ca này. 3 câu mới còn lại và 3 câu sửa nên có cùng V5-44, không kịp thì v1.0.6, không chặn QC.
 - **Mục 9.13 (bản 2.2):** `err.min_date`, `use_min_date`, `use_checkout` và chỗ sửa `canCheckOut` bắt buộc, lên cùng FE-A V5-11 (cùng tag với #114, DOM review #114 mục 4). Thiếu thì lễ tân ca đêm chỉ thấy câu chung `INVALID_TRANSITION`. `fee_business_date` nên có cùng lượt, không kịp thì v1.0.6, không chặn QC. FE trễ cả làn thì release notes ghi dòng (b) của DOM.
+- **Mục 9.14 (bản 2.3):** bắt buộc. (a) là điều kiện gộp #141 (FB-R5-UXD-FE-141-01), (b) là điều kiện gộp #134 (FB-R5-UXD-FE-134-01). (c) lên cùng PR sau #137 (FB-R5-UXD-FE-137-01), trước tag v1.0.5. Phần (b) chỉ hiện câu theo `awaitingDecision` chờ hợp đồng 0.3.14, không chặn QC.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -782,7 +785,9 @@ Bắt buộc v1.0.5. `confirmPaymentReceived` và `createVietQr` trên đơn `ca
 |---|---|---|---|---|
 | `error.closed_booking_payment` | Mới (1.5) | Đơn này đã đóng ("{status}") nên không xác nhận cọc hay tạo mã VietQR được nữa. Tiền đã vào tài khoản OTTIMO: bấm Ghi tiền về sau khi hủy trên đơn. Khách muốn đặt lại: tạo giữ chỗ mới. | This booking is closed ("{status}"), so you can't confirm a deposit or create a VietQR code for it. If the money is already in OTTIMO's account, use Record money received after cancellation on the booking. If the guest wants to book again, create a new hold. | FD+, khi 5B-1 đã lên |
 | `error.closed_booking_payment_no_5b1` | Mới (1.5) | Đơn này đã đóng ("{status}") nên không xác nhận cọc hay tạo mã VietQR được nữa. Tiền đã vào tài khoản OTTIMO: làm theo Tờ 2a, dòng "Tiền đã về mà đơn đã tự hủy". | This booking is closed ("{status}"), so you can't confirm a deposit or create a VietQR code for it. If the money is already in OTTIMO's account, follow sheet 2a, the line on money received after a hold was cancelled. | FD+, khi V5-48 lên trước 5B-1. Gỡ khóa này khi 5B-1 lên |
-| `error.closed_booking_payment_sales` | Mới (1.5) | Đơn này đã đóng ("{status}") nên không tạo mã VietQR được nữa. Khách đã chuyển tiền: báo lễ tân kèm mã đơn. | This booking is closed ("{status}"), so you can't create a VietQR code for it. If the guest has already paid, tell the front desk and give the booking code. | Sale, CTV |
+| `error.closed_booking_payment_sales` | Mới (1.5), sửa (2.3) | Đơn này đã đóng ("{status}") nên không xác nhận cọc hay tạo mã VietQR được nữa. Khách đã trả tiền: báo lễ tân kèm mã đơn. | This booking is closed ("{status}"), so you can't confirm a deposit or create a VietQR code for it. If the guest has already paid, tell the front desk and give the booking code. | Sale, CTV. Bản 2.3: thêm "xác nhận cọc" và "đã trả tiền" (mục 9.14 (c)) |
+
+Bản 2.3 (mục 9.14 (c)): B4 `confirmDeposit` nhập tay trong hộp Xác nhận cọc cũng dùng 3 câu này, khi gặp 409 có `currentState` đóng, hoặc 412 mà lần đọc lại thấy đơn đóng.
 
 ### 9.2 Câu lỗi khi lưu `min_stay` sai dạng (V5-25; DOM 12.1, 12.7)
 
@@ -1179,7 +1184,7 @@ Thêm:
 
 | Khóa | Kiểu | VI | EN | Khi nào |
 |---|---|---|---|---|
-| `folio.open_refunds_total` | Mới | Đang chờ hoàn cho khách | Refund pending for the guest | Dòng tổng ở bước ③ Bill, màn Kết quả của Trả phòng và phần tổng của folio. Cột tiền = Σ `openRefunds`. Dưới dòng tổng: mỗi nhóm một dòng `tr.sub` (nhãn bảng trên + số), rồi `approvals.refund_may_decrease` khi còn yêu cầu chờ duyệt. Σ = 0 thì không hiện |
+| `folio.open_refunds_total` | Mới | Đang chờ hoàn cho khách | Refund pending for the guest | Dòng tổng ở bước ③ Bill, màn Kết quả của Trả phòng và phần tổng của folio. Cột tiền = Σ `openRefunds`. Dưới dòng tổng: mỗi nhóm một dòng `tr.sub` (nhãn bảng trên + số), rồi `folio.open_refunds_may_decrease` (bản 2.3, mục 9.14 (b); bản 2.1 ghi `approvals.refund_may_decrease`). Σ = 0 thì không hiện |
 | `drawer.folio.open_refunds` | Mới | Đang chờ hoàn | Refund pending | Dòng ở thẻ Folio của khung đơn, dưới "Còn phải thu" (U4). Chỉ số tổng, không tách nhóm. Vai không nhận trường (SAL, CTV) hoặc Σ = 0 thì không hiện |
 | `checkout.pending_refund_unavailable` | Sửa | Chưa tải được khoản chờ hoàn của đơn. Hỏi quản lý trước khi báo khách. | Couldn't load the refunds pending for this booking. Ask a manager before telling the guest. | Như cũ (U5). Bỏ "từ Trả sớm", vì nay tính mọi lý do |
 | `checkout.pending_refund_line` | Xóa (khi V5-13 lên) | – | – | Câu có "(yêu cầu từ Trả sớm)", chỉ đúng với một lý do. Hai khóa đầu bảng thay câu này |
@@ -1277,6 +1282,49 @@ Cách FE hiện (FE-A, `pages/stay/EarlyDepartureDialog.tsx`, `app/problem.ts`):
   - "đang trong W" = ngày nghiệp vụ < ngày lịch theo múi giờ khách sạn, cùng `rollover` như `checkoutInstant` (`app/dates.ts`).
 - Theo DS hiện có: `Alert info`, nút phụ cùng kiểu nút `bk.deposit_use_quote`. Không thêm màu.
 
+### 9.14 Chữ chốt sau review FE-3 Desk (#134, #137, #141) – bản 2.3
+
+Căn cứ:
+- `rounds/round-05/reviews/UXD-on-fe3-prs-134-137-141.md` mục 2 (đo trên mock, ở đúng SHA từng PR);
+- hợp đồng 0.3.13: `Reservation.depositUnverifiedVnd` (mục 1.6), `OpenRefund`, `Folio.totals.openRefunds`, `Problem.reservationStatus`;
+- ARC `rounds/round-05/reviews/ARC-on-fe3-prs-134-137-141.md` mục 5.1 (`OpenRefund.awaitingDecision` ở 0.3.14).
+
+FE-3 áp cả 3 dòng trong PR (`gen_strings.py`, sinh lại). UXD không áp trên `main`: hai khóa đầu chỉ có trong nhánh #141, #134, và cả 3 PR đang sửa `gen_strings.py`. Dòng `gen_strings.py` đầy đủ (kèm ghi chú khóa) nằm ở thẻ 134-01, 137-01, 141-01 của tệp review.
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `deposit.accept_shortfall_unverified` | Mới (FE-3 thêm ở #141, UXD chốt chữ) | Trong số cọc đã nhận, {amount} còn chờ đối soát. Trước khi chấp nhận, kiểm khoản này đã có trong sao kê, hoặc tiền mặt sale, CTV thu đã nộp quầy. | Of the deposit received, {amount} is still awaiting reconciliation. Before you accept, check it's on the bank statement, or that cash collected by sales or an agent has been handed in. | OWN, MGR, hộp Xác nhận cọc. `Alert warn` ngay dưới ô `deposit.accept_shortfall` khi đã chọn ô và `depositUnverifiedVnd > 0`, trước hoặc sau hạn giữ chỗ. `{amount}` = `money()` có đơn vị. Bỏ chọn thì Alert mất |
+| `folio.open_refunds_may_decrease` | Mới | Số chưa duyệt có thể giảm khi duyệt: phát sinh ghi sau yêu cầu được trừ trước khi hoàn. | Amounts not yet approved may go down at approval: charges posted after the request are taken off first. | Dòng `tr.sub` cuối, dưới `folio.open_refunds_total`: bước ③ Bill, màn Kết quả của Trả phòng, hộp Folio. Không có ở thẻ Folio của khung đơn. Điều kiện ở (b) |
+| `error.closed_booking_payment_sales` | Sửa | Đơn này đã đóng ("{status}") nên không xác nhận cọc hay tạo mã VietQR được nữa. Khách đã trả tiền: báo lễ tân kèm mã đơn. | This booking is closed ("{status}"), so you can't confirm a deposit or create a VietQR code for it. If the guest has already paid, tell the front desk and give the booking code. | Như 9.1a (sale, CTV), thêm đường B4 ở (c) |
+
+**(a) V5-18.**
+- `depositUnverifiedVnd` gồm mọi khoản cọc còn `reconciliation = pending`: chuyển khoản, VietQR, và tiền sale, CTV ghi (cả tiền mặt chờ nộp quầy). Nháp FE-3 gọi cả số là "chưa đối soát với sao kê", nên sai với phần tiền mặt.
+- "Chờ đối soát" là tên trạng thái Desk đã dùng (`pay.pending_reconcile`). Vế sau đi theo hai đường đối soát của `recon.intro`.
+- Viết "đã có trong sao kê", không viết "đã khớp sao kê": "Đã khớp sao kê" là tên nút đổi trạng thái.
+- Hiện cả trước và sau hạn giữ chỗ (đồng ý FE-3): rủi ro như nhau ở hai lúc.
+
+**(b) V5-13 – câu "có thể giảm" và dòng không đọc được ở khung đơn.**
+- Với 0.3.13: hiện mỗi khi Σ `openRefunds` > 0. Hợp đồng chưa cho biết nhóm nào còn chờ quyết định. Câu tự giới hạn vào "số chưa duyệt", nên vẫn đúng khi mọi yêu cầu đã duyệt.
+- Từ 0.3.14 (`OpenRefund.awaitingDecision`): chỉ hiện khi có ít nhất một nhóm `true`. Trường vắng thì giữ như 0.3.13.
+- Không dùng `approvals.refund_may_decrease` ở đây. Câu đó viết cho một dòng của hàng chờ duyệt ("yêu cầu này"), giữ nguyên ở Cần duyệt.
+- Thẻ Folio của khung đơn (FD+), khi đọc folio lỗi:
+  - hiện `checkout.pending_refund_unavailable` ở đúng chỗ dòng `drawer.folio.open_refunds` (ngay dưới "Còn phải thu"), `tr.sub`, không đỏ, không nút thử lại;
+  - nút "Folio & điều chỉnh" là lần đọc lại;
+  - khung đơn không có câu "có thể giảm";
+  - đã đọc được một lần mà lần đọc lại lỗi: câu này thay số cũ (FB-R5-ARC-FE-134-01).
+
+**(c) B4 `confirmDeposit` trên đơn đã đóng: dùng câu 9.1a.**
+- Chỉ trong hộp Xác nhận cọc, không đổi hợp đồng.
+- B4 trả 409 `INVALID_TRANSITION` có `currentState` = `cancelled` hoặc `no_show` (B4 là lệnh của đơn, nên ở đây `currentState` là trạng thái đơn):
+  - câu 9.1a theo vai và theo 5B-1, khóa nút chính, đọc lại khung đơn;
+  - hộp không đóng, không hiện `error.INVALID_TRANSITION`.
+- B4 trả 412 `VERSION_CONFLICT` mà lần đọc lại cho thấy đơn `cancelled`/`no_show`: làm như trên ngay, không hiện "Tải lại".
+- Khi hộp khóa:
+  - focus vào Alert 9.1a (`tabIndex = -1`);
+  - nên khóa các ô và đổi nút chân hộp thành `common.close`.
+- `_sales` thêm "xác nhận cọc", vì sale có nút "Xác nhận đã nhận cọc" trong hộp này. "Đã trả tiền" thay "đã chuyển tiền", vì sale có thể cầm tiền mặt. Hai câu FD+ đã nói "xác nhận cọc hay tạo mã VietQR", giữ nguyên.
+- Theo DS hiện có: `Alert bad` (9.1a), `Alert warn` (V5-18), dòng `tr.sub` chữ Stone Grey. Không thêm màu.
+
 ---
 
 ## 6. Yêu cầu cho FE, BE (gom theo tệp)
@@ -1324,6 +1372,12 @@ Cách FE hiện (FE-A, `pages/stay/EarlyDepartureDialog.tsx`, `app/problem.ts`):
 | ARC | `openapi.yaml` `OpenRefund.reasonCode` (0.3.14) | Bản 2.1: thêm nhóm mã lý do hủy (DOM 112-01) và câu "Desk gom theo nhãn, không hiện mã"; ghi rõ mã nhập tay không dùng lại giá trị của `CancelReasonCode` | 9.12 |
 | FE-A (làn V5-11) | `pages/stay/EarlyDepartureDialog.tsx`, `app/problem.ts` | Bản 2.2: thứ tự xét 409 (`useCheckout` → `minNewDepartureDate` → câu chung); `err.min_date` + nút `use_min_date`, nâng `{min}`; Alert `use_checkout` + nút `checkout_now`; W với khoảng chọn rỗng → `use_checkout`; `canCheckOut` so ngày lịch trong W (bắt buộc); `fee_business_date` (nên có). Khóa đã có trên `main`, FE bỏ khóa tạm | 9.13 |
 | UXD | `design/tools/gen_strings.py` (+ sinh lại), `design/content-guide.md` | Bản 2.2: 4 khóa mới, ghi chú 4 khóa có sẵn. **Đã áp** cùng commit bản 2.2 | 9.13 |
+| FE-3 (#134) | `design/tools/gen_strings.py` (+ sinh lại), `pages/stay/OpenRefundRows.tsx` | Bản 2.3: thêm `folio.open_refunds_may_decrease`, dùng ở biến thể `full` thay `approvals.refund_may_decrease`; sửa ghi chú `folio.open_refunds_total`. Điều kiện gộp #134 (FB-R5-UXD-FE-134-01) | 9.14 (b) |
+| FE-3 (#141) | `design/tools/gen_strings.py` (+ sinh lại), `__tests__/v5-18-deposit-unverified-fe3.test.tsx` | Bản 2.3: chữ chốt `deposit.accept_shortfall_unverified`, bỏ "NHÁP" ở ghi chú; test dòng 100 dò chữ mới. Điều kiện gộp #141 (FB-R5-UXD-FE-141-01) | 9.14 (a) |
+| FE-3 (PR sau #137) | `pages/reservations/ReservationDialogs.tsx` (`DepositDialog`, `useAction`), `design/tools/gen_strings.py`, test | Bản 2.3: B4 gặp 409 `currentState` đóng, hoặc 412 mà đọc lại thấy đơn đóng → câu 9.1a, khóa hộp; `_sales` mới; focus về Alert (137-02); khóa ô, nút Đóng (137-03, nên có). Bắt buộc trước tag v1.0.5 (137-01) | 9.1a, 9.14 (c) |
+| FE (sau 0.3.14) | `pages/stay/OpenRefundRows.tsx` | Bản 2.3: chỉ hiện `folio.open_refunds_may_decrease` khi có nhóm `awaitingDecision = true`; trường vắng thì giữ Σ > 0 | 9.14 (b) |
+| ARC | `openapi.yaml` `OpenRefund.awaitingDecision` (0.3.14, đã có trong kế hoạch ARC 5.1) | Bản 2.3: mô tả trường ghi "true = nhóm còn ít nhất một yêu cầu chưa duyệt", để Desk chọn câu `folio.open_refunds_may_decrease` | 9.14 (b) |
+| UXD | `design/content-guide.md` | Bản 2.3: sau khi #134, #141 và PR 137-01 gộp, thêm 3 khóa 9.14 vào mục 8 | 9.14 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
 - lưu lại đúng giá trị đề xuất của từ điển sẽ bị 422, kèm câu "Chọn một trong: 1, 2, 3, 4, 5, 6, 7";
@@ -1394,3 +1448,15 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - Bản 2.2, mục 9.13, ca T-11-4 trên Desk: đơn 19–21/10, mở Trả sớm lúc 23:50 ngày 20/10, chọn Ngày rời mới 20/10, bấm Xem trước lúc 00:05 → Alert "Đang sau nửa đêm của ngày đi – không cần Trả sớm, làm Trả phòng như thường lệ. Chưa ghi gì.", không còn nút Xem trước; nút chính Trả phòng ngay mở trang Trả phòng, có câu `checkout.post_midnight`, phụ thu 0. Đơn 20–21/10 lúc 03:00 ngày 21/10 (ca T-11-4 của DOM): khung đơn không có nút Trả sớm, chỉ Trả phòng; nếu hộp vẫn mở được (liên kết cũ) → Alert ngay, không gọi máy chủ.
 - Bản 2.2, mục 9.13, ca T-11-1 (03:00 ngày 21/10, đơn 20–24/10, Ngày rời mới 21/10): ô đặt sẵn 21/10. Bước ② dưới "Phí trả phòng sớm" có "Đang sau nửa đêm nên phí ghi vào ngày nghiệp vụ 20/10/2026."; folio có dòng phí ngày 20/10 (T-11-3). Bước ③ có "Ngày rời là hôm nay…" và nút Trả phòng ngay, **không** có "nút Trả phòng hiện vào ngày đó". Cùng đơn lúc 10:00: không có câu ngày ghi phí.
 - Bản 2.2, mục 9.13, Desk EN ở 1366 px: Alert `use_checkout` không đẩy nút chính ra khỏi hộp; nút "Use 21/10/2026" không tách ngày xuống dòng.
+- Bản 2.3, mục 9.14 (a), quản lý, dữ liệu QA:
+  - đơn giữ chỗ có cọc chuyển khoản tay 200.000 chờ đối soát. Mở Xác nhận cọc, chọn "Chấp nhận cọc thiếu" → `Alert warn` "Trong số cọc đã nhận, 200.000 đ còn chờ đối soát. Trước khi chấp nhận, …", ngay dưới ô chọn;
+  - cọc chỉ có tiền mặt tại quầy → không có câu;
+  - lễ tân không có ô này, nên không có câu.
+- Bản 2.3, mục 9.14 (b):
+  - đơn có hai yêu cầu hoàn đã duyệt chưa chi → dưới "Đang chờ hoàn cho khách" là các dòng nhóm, rồi "Số chưa duyệt có thể giảm khi duyệt…". Không còn câu có "yêu cầu này";
+  - sau 0.3.14, cùng đơn → không có câu "có thể giảm";
+  - khung đơn khi đọc folio lỗi → "Chưa tải được khoản chờ hoàn…" dưới "Còn phải thu", không có số 0.
+- Bản 2.3, mục 9.14 (c): lễ tân mở Xác nhận cọc, chọn Chuyển khoản, gõ số. Ở tab khác hủy giữ chỗ, rồi bấm Xác nhận →
+  - câu 9.1a có "Đã hủy" ngay trong hộp. Không có "Dữ liệu vừa được người khác thay đổi", không có "Đơn vừa chuyển sang";
+  - nút chính khóa, focus ở câu;
+  - sale, cùng ca → "…không xác nhận cọc hay tạo mã VietQR được nữa. Khách đã trả tiền: báo lễ tân kèm mã đơn."
