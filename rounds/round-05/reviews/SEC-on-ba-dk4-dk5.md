@@ -352,7 +352,7 @@ Round 5 · bước **Review**, lượt 3 · SEC · 06/11/2026 (tối). PO đổi
   - "Nơi nhận: **Nhật ký tiền → Hoàn tiền** → **Nhập nơi nhận hoàn** → **Cùng cách khách đã trả** (Desk chọn sẵn Tiền mặt: đổi lại). Không hỏi số tài khoản. Khách xin hoàn vào tài khoản khác: không nhập, báo chủ đầu tư."
   - Sổ tay đã có đường bấm này ở dòng 985. Chỉ cần đưa tên nút lên tờ.
   - Câu dài hơn câu cũ khoảng 20 chữ. Tờ 2a không vừa A5 10 pt thì dùng 9 pt (PO đã tính trong `PO-responses.md`). **Không** rút câu này.
-- Trạng thái: Open. PO sửa cùng lượt với các thẻ DOM của Tờ 2a, nên không thêm vòng chờ. PO dùng đúng câu trên thì SEC không cần đọc lại: ORC grep "Cùng cách khách đã trả" và "Không hỏi số tài khoản" trong Tờ 2a là đủ để đóng thẻ.
+- Trạng thái: **Fixed** – PO 06/11 khuya (commit "round-5: Phản hồi & sửa – PO SEC cards PO-04..06…"). Dùng nguyên văn câu SEC đề xuất, thay cả câu "Nơi nhận: …" cũ. ORC grep "Cùng cách khách đã trả" và "Không hỏi số tài khoản" trong Tờ 2a để đóng. (Câu cũ của trạng thái: PO sửa cùng lượt với các thẻ DOM của Tờ 2a, nên không thêm vòng chờ. PO dùng đúng câu trên thì SEC không cần đọc lại: ORC grep "Cùng cách khách đã trả" và "Không hỏi số tài khoản" trong Tờ 2a là đủ để đóng thẻ.)
 
 ##### FB-R5-SEC-PO-05
 - Mức độ: Minor (không chặn in)
@@ -370,14 +370,14 @@ Round 5 · bước **Review**, lượt 3 · SEC · 06/11/2026 (tối). PO đổi
 - Đề xuất sửa:
   - Tờ 1, sau "…tài khoản của OTTIMO", thêm "(ảnh chụp, SMS khách gửi không tính)". Khoảng 7 chữ.
   - Tờ 2a: "ô **Giờ nhận tiền** ghi đúng giờ trên tin báo tiền vào, không sớm hơn, không sau bây giờ." Hiện người trực biết giờ này qua chủ đầu tư (sổ tay 2.13, chờ ESC-039).
-- Trạng thái: Open. Không chặn in. PO thêm trước khi in thì tốt hơn. In rồi thì sửa ở lần in sau. Không cần SEC đọc lại.
+- Trạng thái: **Fixed** – PO 06/11 khuya, cùng commit, trước khi in. Tờ 1 dòng Cọc thêm "(ảnh chụp, SMS khách gửi không tính)". Tờ 2a: "ô **Giờ nhận tiền** ghi đúng giờ trên tin báo tiền vào, không sớm hơn, không sau bây giờ." (Câu cũ của trạng thái: Không chặn in. PO thêm trước khi in thì tốt hơn. In rồi thì sửa ở lần in sau. Không cần SEC đọc lại.)
 
 ##### FB-R5-SEC-PO-06
 - Mức độ: Suggestion
 - Vị trí: Tờ 1 dòng 41 "(có cọc: xem Tờ 2a)"; chú thích đầu Tờ 2a (điều kiện gỡ tờ).
 - Vấn đề: Tờ 2a là tờ tạm. Khi gỡ Tờ 2a, Tờ 1 vẫn chỉ tới một tờ không còn. Người trực sẽ đọc "bấm trước giờ hạn" thành luật cứng, không thu nốt cọc sau hạn. Lệch này về phía an toàn, không phải lỗ hổng, nhưng giữ chỗ có cọc sẽ bị treo.
 - Đề xuất sửa: thêm vào chú thích đầu Tờ 2a: "Gỡ tờ này thì sửa Tờ 1 dòng Cọc: 'xem Tờ 2a' → 'xem sổ tay 2.4'." Chữ in không đổi.
-- Trạng thái: Open
+- Trạng thái: **Fixed** – PO 06/11 khuya, cùng commit. Chú thích đầu Tờ 2a thêm: "Gỡ tờ này thì sửa Tờ 1 dòng Cọc: 'xem Tờ 2a' → 'xem sổ tay 2.4'." Chữ in không đổi
 
 **Kết luận lượt 3:**
 - **Tờ 1: vẫn được in.**

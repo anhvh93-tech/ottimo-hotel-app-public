@@ -40,3 +40,13 @@ Các thẻ dưới gửi UXD. PO chỉ chốt phạm vi (plan R5 mục 6, quyế
 | FB-R5-DOM-PO-06 | Fixed | Sổ giao ca: đơn có cọc đã hủy ghi "chờ chủ đầu tư hoàn"; không hứa ngày |
 
 Tờ 2a dài hơn bản trước khoảng 5 dòng. Khi in, UXD kiểm còn vừa A5 10 pt. Không vừa thì dùng 9 pt như Tờ 1, hoặc chuyển dòng "chờ chủ đầu tư hoàn" sang sổ tay 2.4 (V5-71) như DOM cho phép ở thẻ 06.
+
+## Review SEC lượt 3 (`rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md` mục 3a lượt 3, commit `00d6816d`)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-SEC-PO-04 | Fixed | Tờ 2a, nhánh "Không đi": thay câu "Nơi nhận: …" bằng nguyên văn câu SEC. Đường bấm **Nhật ký tiền → Hoàn tiền** → **Nhập nơi nhận hoàn** → **Cùng cách khách đã trả** (đổi từ Tiền mặt Desk chọn sẵn). Không hỏi số tài khoản. Khách xin hoàn vào tài khoản khác: không nhập, báo chủ đầu tư. ORC grep "Cùng cách khách đã trả", "Không hỏi số tài khoản" để đóng |
+| FB-R5-SEC-PO-05 | Fixed | Tờ 1 dòng Cọc: "(ảnh chụp, SMS khách gửi không tính)", câu SEC đề xuất, không cần đọc lại. Tờ 2a: Giờ nhận tiền "ghi đúng giờ trên tin báo tiền vào, không sớm hơn, không sau bây giờ" |
+| FB-R5-SEC-PO-06 | Fixed | Chú thích đầu Tờ 2a: gỡ tờ này thì sửa Tờ 1 "xem Tờ 2a" → "xem sổ tay 2.4". Chữ in không đổi |
+
+Câu SEC gửi DOM ở cuối lượt 3 (tiền về trước hạn mà chưa ai bấm, rồi giữ chỗ bị hủy; khách chuyển theo mã QR cũ sau khi giữ chỗ tự hủy): DOM quyết. PO sửa Tờ 2a theo quyết định đó khi ORC chuyển tới.
