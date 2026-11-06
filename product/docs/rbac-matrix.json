@@ -438,7 +438,8 @@
    "operationIds": [
     "getCheckoutSummary",
     "checkOut"
-   ]
+   ],
+   "note": "Ghi chú 46a (hợp đồng 0.3.13-draft, PR #94 chưa gộp, V5-15): đơn đã quá ngày đi – B18 và VietQR purpose=check_out chỉ OWN, MGR; FDL, FD → 403 FORBIDDEN_ACTION + access.denied trước mọi kiểm thân lệnh. Quyền theo điều kiện: x-roles checkOut vẫn có FD, FDL; rbac-cases không phủ, ca viết tay SR-AZ-09 lớp 2"
   },
   {
    "id": "A19",
@@ -827,7 +828,8 @@
     "getQuoteText",
     "listQuotes",
     "withdrawQuote"
-   ]
+   ],
+   "note": "Ghi chú 46b (hợp đồng 0.3.13-draft, PR #94 chưa gộp, V5-14): QuoteInput.nightlyRates chỉ FD+ (theo A31), báo giá ngắn ngày, kênh direct/agent; SAL, CTV gửi nightlyRates ở calculateQuote/saveQuote → 403 FORBIDDEN_ACTION + access.denied trước mọi kiểm giá, thân lỗi không có min/max/dates. Quyền theo điều kiện: x-roles vẫn có SAL, CTV; rbac-cases không phủ, ca viết tay SR-AZ-09 lớp 2"
   },
   {
    "id": "A51",
