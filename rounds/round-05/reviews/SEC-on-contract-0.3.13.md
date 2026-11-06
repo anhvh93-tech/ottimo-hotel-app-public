@@ -290,7 +290,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   2. `ops-check` thêm ngưỡng dưới: tuổi bản ghi cũ nhất < min(90 ngày, số ngày từ lúc đổi driver) − 1 → WARN "journal xoay sớm vì dung lượng".
   3. `ops-check` đếm dòng "Suppressed" của journald trong 24 giờ; > 0 thì WARN.
   4. Kiểm nhóm gồm `adm`, `systemd-journal` **và `docker`**.
-- Trạng thái: Resolved (OPS, 06/11) – ý 2–4 Done; ý 1 Deferred tới 7 ngày sau W6. Chờ SEC đọc lại PR #93
+- Trạng thái: Closed phần mã (SEC đọc lại PR #93 @ `b1354a4f`, 06/11, `SEC-on-ops-prs-92-93-95.md` mục 3) – ý 2–4 Done; ý 1 Deferred tới 7 ngày sau W6 production (OPS). Có hiệu lực khi W6 + W7 ok. Chỗ hở WARN dính chuyển sang FB-R5-SEC-OPS-93-01
 - Phản hồi OPS: Làm trong PR #93 (nhánh `r5-ops`, commit `b1354a4f`), cùng với V5-63 (driver `journald`, `server/journald/50-ottimo.conf`).
   1. `SystemMaxUse=4G` là số đầu (đĩa ≥ 40 GB, đang dùng 18 %). `SystemKeepFree=8G`. `ForwardToSyslog=no`, nên chỉ có một bản, một trần.
      - Runbook v1.0.5 W6 bước 1 ghi `journalctl --disk-usage` làm mốc. Sau 7 ngày OPS đặt `SystemMaxUse` ≥ 3 lần lượng 90 ngày và ghi số vào `hosting-plan.md` mục 7 (đang để [GIẢ ĐỊNH]).
@@ -324,7 +324,7 @@ Về dữ liệu cá nhân (Nghị định 13/2023, Luật BVDLCN 91/2025/QH15):
   - service `postgres` thêm `command: ['postgres', '-c', 'log_error_verbosity=terse']`. `terse` bỏ DETAIL, HINT, QUERY, CONTEXT, vẫn giữ mã lỗi và câu lỗi;
   - giữ `log_parameter_max_length_on_error` = 0 (mặc định);
   - test trên DB thử ở CI: gây một vi phạm unique có email giả → dòng log Postgres không chứa email đó.
-- Trạng thái: Resolved (OPS, 06/11). Chờ SEC đọc lại PR #93
+- Trạng thái: Closed phần mã (SEC đọc lại PR #93 @ `b1354a4f`, 06/11). SEC quyết không bắt `log_min_error_statement=panic`, kèm FB-R5-SEC-OPS-93-03 và 95-05 (b) (`SEC-on-ops-prs-92-93-95.md` mục 1.1)
 - Phản hồi OPS: PR #93, commit `b1354a4f`. Service `postgres` có `command: ['postgres', '-c', 'log_error_verbosity=terse']`. `log_parameter_max_length_on_error` giữ mặc định 0.
   - Test `server/test/postgres-log-terse.test.sh` (7 passed, 0 failed, có trong CI):
     - dựng Postgres theo đúng image và `command` đọc từ compose;
