@@ -5,6 +5,7 @@
 // opens the same filter, the month turned into its days up to today. Mock data only.
 import { translate } from '@ottimo/i18n';
 import { screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { attentionLine } from '../app/attention';
 import { todayLocal } from '../app/dates';
@@ -157,5 +158,65 @@ describe('Nhật ký tiền – "Sửa giảm dòng – 7 ngày" (US-177 AC7 (i)
         ctx,
       ).to,
     ).toBe('/audit?reductionsOnly=true');
+  });
+});
+
+describe('Nhật ký tiền – UXD review #128 (FB-R5-UXD-FE-PR128-01…03)', () => {
+  /** Not a seed account: someone who left (or lost the role) since the "Cần chú ý" line was computed. */
+  const GONE = '0192a1b0-0000-7000-8000-0000000000ff';
+
+  it('PR128-01 + PR128-03 (a): a link to someone not on the list → "Someone not on the list" stays the filter; no reduction → the reductions empty title, MGR body', async () => {
+    const { today } = seed();
+    renderApp(
+      `/audit?reductionsOnly=true&month=${today.slice(0, 7)}&actorUserId=${GONE}`,
+      'qa.mgr',
+    );
+    const who = await screen.findByLabelText(tv('mlog.who'));
+    await waitFor(() =>
+      expect(
+        within(who).getByRole('option', { name: tv('mlog.who_unlisted') }),
+      ).toBeInTheDocument(),
+    );
+    expect(who).toHaveValue(GONE);
+    expect(within(who).queryByRole('option', { name: '–' })).toBeNull();
+    expect(await screen.findByText(tv('mlog.empty_reductions_title'))).toBeInTheDocument();
+    expect(screen.getByText(tv('mlog.empty_body'))).toBeInTheDocument();
+    expect(screen.queryByText(tv('mlog.empty_title'))).toBeNull();
+  });
+
+  it('PR128-02: the list of people cannot be read → the help line under "Người làm", tied to the box; the table still loads', async () => {
+    seed();
+    server.use(
+      http.get('*/v1/properties/:propertyId/closer-candidates', () =>
+        HttpResponse.json(
+          { type: 'about:blank', title: 'Service unavailable', status: 500, code: 'INTERNAL' },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderApp('/audit', 'qa.mgr');
+    await screen.findByRole('table', { name: tv('moneylog.title') });
+    const who = screen.getByLabelText(tv('mlog.who'));
+    await waitFor(() => expect(who).toHaveAccessibleDescription(tv('mlog.who_error')));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('PR128-02: the list loads → no help line', async () => {
+    seed();
+    renderApp('/audit', 'qa.mgr');
+    await screen.findByRole('table', { name: tv('moneylog.title') });
+    const who = screen.getByLabelText(tv('mlog.who'));
+    await waitFor(() =>
+      expect(within(who).getByRole('option', { name: /^Lan/ })).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(tv('mlog.who_error'))).toBeNull();
+  });
+
+  it('PR128-03 (b): FD with nothing in the range → the usual title, the body that only speaks of dates (no person filter to clear)', async () => {
+    seed();
+    renderApp('/audit?month=2020-01', 'qa.fd');
+    expect(await screen.findByText(tv('mlog.empty_title'))).toBeInTheDocument();
+    expect(screen.getByText(tv('mlog.empty_body_dates'))).toBeInTheDocument();
+    expect(screen.queryByText(tv('mlog.empty_body'))).toBeNull();
   });
 });

@@ -55,4 +55,22 @@
 - Không có ESC mới.
 - Giả định:
   - danh sách người lấy từ `closer-candidates` `kind=staff` là đủ cho bộ lọc, vì người sửa giảm là FD, FDL, MGR, OWN;
-  - người của liên kết "Cần chú ý" không còn trong danh sách (đã nghỉ) thì ô hiện "–" mà vẫn lọc theo người đó.
+  - người của liên kết "Cần chú ý" không còn trong danh sách (đã nghỉ) thì ô vẫn lọc theo người đó. Nhãn của lựa chọn này nay là `mlog.who_unlisted` (mục 6, PR128-01), không còn "–".
+
+## 6. Phản hồi review UXD #128 (`rounds/round-05/reviews/UXD-on-fe-prs-125-128.md`)
+Đã merge main trước (merge, không rebase; strings.js lấy bản của main rồi chạy lại `gen_strings.py`). Bốn khóa mới chép nguyên văn từ tệp review, đặt ngay sau `mlog.filter_reductions` trong `gen_strings.py`.
+
+| Thẻ | Mức | Trạng thái | Cách làm |
+|---|---|---|---|
+| FB-R5-UXD-FE-PR128-01 | Minor | Done | Lựa chọn cho người của liên kết "Cần chú ý" không có trong danh sách: nhãn `mlog.who_unlisted` thay "–". Lúc danh sách chưa tải xong thì nhãn là `common.loading`, để không gọi nhầm một người còn làm là "không còn trong danh sách". Bộ lọc vẫn theo người đó |
+| FB-R5-UXD-FE-PR128-02 | Minor | Done | Tải danh sách người lỗi thì ô Người làm có dòng `help` = `mlog.who_error`. Dòng này gắn vào ô qua `aria-describedby` của `Field`. Chữ Stone, không Alert; bảng vẫn tải |
+| FB-R5-UXD-FE-PR128-03 | Minor | Done | (a) Công tắc bật mà không có dòng nào thì tiêu đề là `mlog.empty_reductions_title`. (b) FD, FDL không có ô Người làm, nên thân là `mlog.empty_body_dates`. MGR, OWN giữ `mlog.empty_body` |
+| FB-R5-UXD-FE-PR128-04 | Minor | Deferred (v1.0.6) | Theo review: giữ nhãn "Sửa giảm dòng – 7 ngày" ở v1.0.5. PO, BA, UXD đổi nhãn ở v1.0.6 |
+
+Test thêm 4 ca vitest trong `v5-16-mlog-reductions-fea.test.tsx`:
+- người không có trong danh sách: lựa chọn đúng nhãn, vẫn là giá trị đang lọc, tiêu đề rỗng của công tắc, thân MGR;
+- danh sách người lỗi (500): câu nhắc là mô tả của ô, không có `role=alert`;
+- danh sách tải được: không có câu nhắc;
+- FD, khoảng ngày không có dòng nào: tiêu đề thường, thân chỉ nói về ngày.
+
+Hai thẻ DOM (FB-R5-DOM-FE-125-01, FB-R5-DOM-UXD-128-02) không làm trong PR này, theo lệnh ORC: đi PR tiếp nối hoặc v1.0.6.

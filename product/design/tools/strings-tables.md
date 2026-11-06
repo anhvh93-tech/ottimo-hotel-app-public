@@ -2379,6 +2379,10 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `mlog.date_from` | Từ ngày | From | ⟨chừa chỗ⟩ |  |
 | `mlog.date_to` | Đến ngày | To | ⟨chừa chỗ⟩ |  |
 | `mlog.filter_reductions` | Sửa giảm dòng – 7 ngày | Line reductions – 7 days | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.5 – bộ lọc reductionsOnly ở Nhật ký tiền, chỉ MGR, OWN (US-177 AC7 (i)) |
+| `mlog.who_unlisted` | Người không còn trong danh sách | Someone not on the list | ⟨chừa chỗ⟩ | v1.0.5 US-177 AC7 (i) (UXD-on-fe-prs-125-128, FB-R5-UXD-FE-PR128-01). Lựa chọn của ô Người làm khi liên kết Cần chú ý trỏ tới người không có trong danh sách (đã nghỉ, mất vai) |
+| `mlog.who_error` | Chưa tải được danh sách người làm. Tải lại trang để lọc theo người. | Couldn't load the list of people. Reload the page to filter by person. | ⟨chừa chỗ⟩ | v1.0.5 (FB-R5-UXD-FE-PR128-02). help dưới ô Người làm khi tải danh sách người lỗi; chữ Stone, không Alert. Bảng vẫn chạy |
+| `mlog.empty_reductions_title` | Không có lần sửa giảm dòng nào trong khoảng này | No line reductions in this period | ⟨chừa chỗ⟩ | v1.0.5 (FB-R5-UXD-FE-PR128-03 (a)). Tiêu đề trạng thái rỗng khi công tắc Sửa giảm dòng bật. Thân giữ mlog.empty_body cho MGR, OWN |
+| `mlog.empty_body_dates` | Đổi khoảng ngày để xem thêm. | Change the date range to see more. | ⟨chừa chỗ⟩ | v1.0.5 (FB-R5-UXD-FE-PR128-03 (b)). Thân trạng thái rỗng thay mlog.empty_body khi không có ô Người làm (FD, FDL) |
 | `rooms.future_keep` | Căn còn {n} đơn tương lai – các đơn này giữ nguyên, đổi căn nếu cần. | This room has {n} future booking(s) – they stay as they are; move them if needed. | ⟨chừa chỗ⟩ |  |
 | `bill.ota_prepaid_one` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} night – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
 | `bill.ota_prepaid_few` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} nights – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |

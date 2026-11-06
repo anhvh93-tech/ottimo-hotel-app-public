@@ -317,7 +317,11 @@ function MoneyLog() {
           )}
         </Field>
         {mgr ? (
-          <Field label={t('mlog.who')}>
+          <Field
+            label={t('mlog.who')}
+            // FB-R5-UXD-FE-PR128-02: the list did not load – say so (the table still works)
+            help={people.state.status === 'error' ? t('mlog.who_error') : undefined}
+          >
             {(p) => (
               <select
                 {...p}
@@ -332,8 +336,11 @@ function MoneyLog() {
                   </option>
                 ))}
                 {actor && !(people.state.data ?? []).some((c) => c.userId === actor) ? (
-                  // the person of a "Cần chú ý" link who is not in the list (left since): still the filter on screen
-                  <option value={actor}>–</option>
+                  // the person of a "Cần chú ý" link who is not in the list (left since): still the filter on screen,
+                  // named as such (FB-R5-UXD-FE-PR128-01); while the list loads, "Đang tải…"
+                  <option value={actor}>
+                    {people.state.data ? t('mlog.who_unlisted') : t('common.loading')}
+                  </option>
                 ) : null}
               </select>
             )}
@@ -355,8 +362,13 @@ function MoneyLog() {
       ) : !state.data ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
-        <StateView icon="bill" title={t('mlog.empty_title')}>
-          {t('mlog.empty_body')}
+        // FB-R5-UXD-FE-PR128-03: the empty state answers what was asked (no reduction = good news); no person filter
+        // to clear for FD/FDL.
+        <StateView
+          icon="bill"
+          title={t(reductions ? 'mlog.empty_reductions_title' : 'mlog.empty_title')}
+        >
+          {t(mgr ? 'mlog.empty_body' : 'mlog.empty_body_dates')}
         </StateView>
       ) : (
         <div className="table-wrap">
