@@ -702,7 +702,7 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
 |---|---|---|
 | T58-7 | Hai cơ sở, đặt Wi-Fi cơ sở A | Cơ sở B không đổi |
 | T58-8 | Dữ liệu dạng cũ theo ngôn ngữ (`raw.vi`) | GET đọc đúng như trang khách |
-| T58-9 | `ssid` = tên đăng nhập `qa.fd`; mật khẩu = mật khẩu thử của người gọi | 422 `NOT_ALLOWED` cả hai, không ghi, không audit, thân lỗi không có giá trị gửi |
+| T58-9 | `ssid` = tên đăng nhập `qa.fd`; mật khẩu = mật khẩu thử của người gọi | ~~422 `NOT_ALLOWED` cả hai~~ **1.27 (SEC V558-01):** 422 `NOT_ALLOWED` ở `ssid`, không so, không đếm; gửi lại với `ssid` đúng → 422 `NOT_ALLOWED` ở `password`. Không ghi, không audit `config`, thân lỗi không có giá trị gửi |
 | T58-10 | E2E: trình duyệt đã lưu tài khoản Desk mở màn Wi-Fi | Hai ô trống |
 | T58-6 (sửa) | Phản hồi GET **và** PUT | Có `no-store`; PUT không có `password` |
 
@@ -712,7 +712,7 @@ Bản đầu của mục này (đóng đường, thao tác riêng) **bỏ**. H�
 - **`RATE_OUT_OF_RANGE` (BE 12):** `min`, `max` ở mọi nơi trả mã (gồm bản `_WARNING`, B13, báo giá); B13 thêm `dates[]`, giữ `date`. T22-3.
 - **`depositUnverifiedVnd` (BE 13):** = min(`depositPaidVnd`, Σ cọc chờ đối soát). T18-4.
 - **`openRefunds` (BE 14):** T13-5 sửa: Σ `openVnd` = tiền hoàn đang mở; `creditVnd` − `unhandledCreditVnd` = min(`creditVnd`, Σ `openVnd`). `reasonCode` = mọi mã lý do của yêu cầu hoàn (BE liệt kê đủ trong PR-B1 cho UXD).
-- **V5-1A (BE 15, SEC ARC-12):** sửa câu changelog (Desk không có màn tạo căn); bootstrap tạo căn `isSellable = false` khi chưa có giá. Danh sách việc kèm của BE (viết lại TC-NT-018, ví dụ BR-101 (5) ở `br-examples`, `validate-fixtures` bỏ ÷12, DS-E `expectedNightlyListPriceVnd`, các test gọi `createRoom`) là việc của PR-C1. Cảnh báo `NIGHTLY_PRICE_UNUSUAL` (không chặn) khi giá đêm < giá tháng ÷ 30 (BR-101 (4), đúng kiểm mềm Desk đang có) hoặc > giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt biên trên]. DOM ghi `night_from_month_divisor` "ngừng dùng từ v1.0.5".
+- **V5-1A (BE 15, SEC ARC-12):** sửa câu changelog (Desk không có màn tạo căn); bootstrap tạo căn `isSellable = false` khi chưa có giá. Danh sách việc kèm của BE (viết lại TC-NT-018, ví dụ BR-101 (5) ở `br-examples`, `validate-fixtures` bỏ ÷12, DS-E `expectedNightlyListPriceVnd`, các test gọi `createRoom`) là việc của PR-C1. Cảnh báo `NIGHTLY_PRICE_UNUSUAL` (không chặn) khi giá đêm < giá tháng ÷ 30 (BR-101 (4), đúng kiểm mềm Desk đang có) hoặc ~~> giá tháng ÷ 3 [GIẢ ĐỊNH – DOM chốt biên trên]~~ **bổ sung 1d:** > giá tháng ÷ 5 (so số nguyên, đúng biên không cảnh báo). DOM ghi `night_from_month_divisor` "ngừng dùng từ v1.0.5".
 - **`listParameters.missing[]` (BE 17):** lọc vai như `data`; mọi chỗ đọc khóa hoa hồng bắt `ParameterMissingError` → `rate_missing`. T30-5.
 - **Trigger 0094 (BE 19):** bắt theo SQLSTATE `23514` + tiền tố câu, trong `SAVEPOINT`. T44-4.
 - **V5-25 (BE 06, 18; BUG-R5-001, BUG-R5-003; DOM 8.4, 12) – trả lời ORC: chỉ thêm dòng mô tả ở `setParameter`; không đổi schema, không trường mở rộng mới.** `PARAM_OUT_OF_RANGE` đã có `min`, `max`, `allowed[]`, `errors[{field, code}]`. ARC chốt tên DOM để mở:
@@ -814,6 +814,14 @@ Chỉ mô tả `openapi.yaml`, `erd.md` và tệp `.md`: không đổi schema, `
 | BE C0313-29 | Hàm `isCardNumberReference` ở #119, PR-B3 chỉ dùng lại; `executeRefund` sửa cùng #119. ARC chọn thứ tự lỗi như `note`: lỗi dạng trước, `CARD_NUMBER_DETECTED` chỉ khi không còn lỗi dạng | BE-B chỉnh #119; QA viết ca "thân có cả hai lỗi" |
 | BE C0313-30 | T14-4: "OTA không có `nightlyRates`, hoặc `nightlyRates` đúng dạng" | QA |
 | UXD ARC-112-02, DOM ARC-120-01, DOM BE-121-02 | Vào danh sách 0.3.14 (1.26), chưa làm | ARC (0.3.14), BE |
+
+### 1.27 Sau review PR #112, #120, #121 (ARC 07/11) – chỉ tài liệu này, không đổi `openapi.yaml`
+
+- **V5-58 – SEC FB-R5-SEC-BE-V558-01, BE-D làm ở #120 (`ce81ba5c`), ARC chấp nhận:** `setPropertyWifi` chỉ so mật khẩu (và đếm SR-RL-15) khi **mọi kiểm khác đã qua**: dạng `ssid`, dạng `password`, số căn, tên đăng nhập nhân viên. `ssid` sai → 422 chỉ có lỗi `ssid`; sửa xong mới tới lỗi `password`. Lý do: mỗi lần đoán sai đều lưu Wi-Fi mới và để lại audit `property.wifi_changed`, không còn lần đoán im lặng sau một lỗi `ssid`. T58-9 sửa ở 1.23. Mô tả `openapi.yaml` ghi câu này ở 0.3.14; SEC thêm câu vào SR-RL-15.
+- **Thêm vào danh sách 0.3.14:**
+  - `setPropertyWifi`: câu trên. Số căn chỉ gồm chữ số bị từ chối khi trước và sau nó không phải chữ số (`OTTIMO401`, `P-202` → `NOT_ALLOWED`; `OTTIMO 2026`, `OTTIMO 4012` → được); số căn có chữ giữ luật từ riêng (DOM FB-R5-DOM-ARC-120-01). BE-D đổi một hàm, không migration.
+  - `createRoom`, `updateRoom`: giá ≤ 0 → `VALUE_OUT_OF_RANGE` (min 1), đúng mã đang chạy (ARC-BE-C1-01). `updateRoom` với `isSellable = true` cho căn chưa có dòng giá niêm yết → 422 `NOT_ALLOWED` (`field` = `isSellable`) (DOM FB-R5-DOM-BE-121-02).
+  - `OpenRefund.reasonCode`: "= `approval_request.reason_code`, gồm mọi `CancelReasonCode`" (DOM FB-R5-DOM-UXD-112-01).
 
 ---
 
