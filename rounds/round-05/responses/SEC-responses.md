@@ -24,6 +24,7 @@
 | Hạn thẻ `FB-R5-SEC-ARC-20` | Đồng ý có điều kiện | Đổi thành "trong PR-B3 (BE-D), chữ hợp đồng ở PR ARC-16", với 3 điều kiện ở mục 5 |
 | FB-R5-DOM-BA-01 (Minor) – câu "khách lỡ gửi số thẻ qua tin nhắn" | Done – SEC chốt, có sửa (thẻ vẫn Open phía BA) | (a) Đúng hướng; SEC sửa 4 chỗ, quan trọng nhất là thêm "không dùng số đó để thu tiền". (b) Có ghi sổ giao ca, một dòng, không có số nào của thẻ. (c) Ca thường: báo chủ đầu tư trước khi hết ca, tin không có số. Ca bất thường: gọi ngay, muộn nhất 1 giờ. Bỏ nhãn [GIẢ ĐỊNH]. Chi tiết ở mục 6 |
 | Câu CPY trả lời khách + INT xóa tin theo kênh (07/11, câu hỏi của ORC) | Done – SEC duyệt, có sửa 6.3 | Giữ thứ tự "trả lời trước, xóa ngay sau"; duyệt chữ "sẽ xóa ngay" (không "đã xóa"). Duyệt bản bỏ vế xóa (CPY mục 5) cho kênh không xóa được theo thiết kế: Zalo OA (tới khi T1 chứng minh xóa được), hộp thư OTA, Messenger. Kênh đó là **ca thường**, không phải ca bất thường số 3. Chốt 6 ghi chú của INT và lượt thử T1–T6. Chi tiết ở mục 6.5 |
+| FB-R5-DOM-BA-08 (Suggestion) – khách gửi ảnh giấy tờ qua chat (07/11, câu hỏi của ORC) | Done – SEC xác nhận hai vế, thêm 3 ý (thẻ vẫn Open phía BA, CPY) | Không lưu về máy nào, không chuyển tiếp, không tải từ chat lên Desk; xóa theo kênh như dòng số thẻ; kênh không xóa được là ca thường; ca bất thường như 6.3. Mục 6.6 |
 
 **Tổng: 4 thẻ, 4 Done (phần SEC), 0 Rejected, 0 Deferred, 0 Escalated.** Không thẻ nào đổi kiểu sinh: không thêm mã lỗi, không thêm 429. ARC ghi chữ vào hợp đồng trong delta tài liệu tới; BE làm trong PR V5-48 (thẻ 22) và PR V5-58 (thẻ 23). Thẻ vẫn Open ở phía ARC/BE cho tới khi có chữ và test.
 
@@ -408,3 +409,51 @@ Thêm cho mọi kênh xóa được: tài khoản đang mở trên nhiều máy 
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | **SEC – duyệt câu CPY trả lời khách gửi số thẻ, chốt cách xóa theo kênh** (rounds/round-05/responses/SEC-responses.md mục 6.5; CPY dc0c5038, INT 40cd4651). Giữ thứ tự trả lời trước, xóa ngay sau; duyệt "sẽ xóa ngay / straight away / deleting now", không "đã xóa". Duyệt bản bỏ vế xóa (CPY mục 5) cho kênh không xóa được theo thiết kế: Zalo OA (tới khi T1 chứng minh xóa được khỏi tài khoản OA), hộp thư OTA, Messenger. Sửa 6.3: kênh đó là ca thường (gửi bản mục 5, xóa bản sao xóa được, ghi sổ giao ca, báo chủ đầu tư trước hết ca); ca bất thường số 3 chỉ còn máy/tài khoản không mở được, tài khoản dùng chung với người ngoài, xóa không thành. Rủi ro còn lại Low (lịch sử OA/OTA còn số thẻ, chỉ quản trị viên xem). INT: thêm thùng rác SMS vào câu 6.1; Telegram không đánh dấu "Also delete for"; tắt tự lưu ảnh trên điện thoại cơ sở là quy định; Workspace khôi phục 25 ngày và bản sao lưu chat chấp nhận Low. Lượt thử T1–T6 (T1 trước) do lễ tân cùng chủ đầu tư/quản lý làm bằng tin "TEST XOA", thêm bước tắt tự lưu ảnh và hỏi Vault; không chặn phát hành. Không ESC | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật, mức rủi ro) |`
+
+---
+
+### 6.6 FB-R5-DOM-BA-08: khách gửi ảnh giấy tờ (CCCD, hộ chiếu) qua chat (07/11, câu hỏi của ORC)
+
+Nguồn: DOM `DOM-on-ba-v105-docs.md` thẻ BA-08; BA `rounds/round-05/outputs/BA/report.md` lượt 4 ("SEC xác nhận vế xóa và vế 'không tải ảnh từ chat lên Desk'"). Ở `da596507`, BA chưa viết dòng này vào sổ tay; BA chờ câu trả lời này.
+
+**SEC xác nhận cả hai vế** trong câu DOM đề xuất, với 3 ý thêm.
+
+1. **"Không lưu ảnh về máy, không chuyển tiếp, không tải từ chat lên Desk": đúng.**
+   - Ảnh giấy tờ là dữ liệu C3. Desk chỉ nhận ảnh giấy tờ theo hai đường:
+     - khách tự tải lên qua check-in online (`02` 17.3), sau khi đã thấy thông báo xử lý dữ liệu bản 2;
+     - ở quầy, sau khi khách xem tờ **Your ID details** và đồng ý lưu ảnh ở Khối 1 (`02` 7.2, 8.2).
+   - Tải ảnh từ chat lên Desk là bỏ qua bước thông báo và đồng ý đó.
+   - Muốn tải lên thì phải lưu ảnh xuống máy trước. Ảnh khi đó nằm ngoài vòng xóa của Desk (SR-RET), đúng điều luật tắt tự lưu ảnh muốn tránh.
+   - Ảnh qua chat cũng không thay được bước đối chiếu bản gốc lúc nhận phòng.
+   - **Thêm (a):** "máy" là **mọi** máy của cơ sở: điện thoại, máy tính quầy, Zalo PC, bản web. Không bấm Tải về, không chụp màn hình, không mở ảnh bằng app khác. Lỡ tải về thì xóa ở thư mục Tải về và Thùng rác, hoặc Đã xóa gần đây ở điện thoại.
+2. **"Xóa tin có ảnh theo cách xóa của kênh, như dòng số thẻ; kênh không xóa được thì để nguyên, không chuyển tiếp": đúng.** Dùng nguyên cách xóa và danh sách kênh của 6.5:
+   - xóa ở **từng** máy đang mở tài khoản đó;
+   - SMS thì xóa cả trong Đã xóa gần đây hoặc Thùng rác;
+   - Telegram không đánh dấu "Also delete for…";
+   - email thì xóa cả trong Thùng rác;
+   - Zalo OA (tới khi lượt thử T1 cho thấy xóa được), hộp thư OTA, Messenger: để nguyên, không chuyển tiếp.
+
+   **Thêm (b):** trả lời khách **trước**, xóa ngay sau, như 6.5.1. Câu trả lời (CPY viết) nói "sẽ xóa", không nói "đã xóa". Câu chỉ khách hai lối:
+   - đơn đã xác nhận: link check-in online, gửi riêng 1–1 theo `02` 17.3;
+   - chưa xác nhận: mang bản gốc khi nhận phòng.
+
+   Câu không mời khách gửi lại qua kênh chat khác.
+3. **Thêm (c): mức báo.**
+   - **Ca thường** (đã trả lời, đã xóa ở kênh xóa được, hoặc kênh không xóa được theo thiết kế, và không ai lưu, chụp hay chuyển tiếp): không ghi sổ giao ca, không báo chủ đầu tư. Lý do:
+     - khách tự gửi giấy tờ của chính mình, cho đúng việc lưu trú;
+     - ca này gặp thường xuyên; báo mỗi lần chỉ thành tiếng ồn.
+   - **Ca bất thường:** báo như 6.3 (gọi chủ đầu tư ngay, muộn nhất 1 giờ). Gồm:
+     - ảnh đã bị lưu, chụp hay chuyển tiếp, kể cả vào nhóm chat nội bộ;
+     - máy giữ tin bị mất trước khi xóa;
+     - kênh xóa được mà xóa không thành;
+     - tài khoản đó có người ngoài cơ sở dùng chung.
+
+     Ảnh giấy tờ lọt ra ngoài là sự cố dữ liệu C3 (SR-INC-01). Đồng hồ 72 giờ (luật sư xác nhận) có thể bắt đầu từ lúc biết, nên không chờ hết ca.
+
+Việc cho BA (khi viết dòng BA-08 vào sổ tay 2.21 và `02` 16.1): ghi đúng 1–3 trên. Dẫn sang cách xóa theo kênh của dòng số thẻ, không chép lại bảng. Thêm "mọi máy" vào câu "Không chụp giấy tờ khách, không gửi giấy tờ qua Zalo/Messenger" ở `02`.
+
+Việc cho CPY: câu trả lời theo 2(b), ba bản theo kênh như câu số thẻ (bản bỏ vế xóa cho kênh không xóa được).
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | **SEC – xác nhận DOM BA-08 (khách gửi ảnh giấy tờ qua chat)** (rounds/round-05/responses/SEC-responses.md mục 6.6). Không lưu về máy nào của cơ sở (điện thoại, máy tính, Zalo PC, bản web), không chụp màn hình, không chuyển tiếp, không tải từ chat lên Desk (bỏ qua thông báo xử lý dữ liệu và đồng ý ở Khối 1; ảnh nằm ngoài vòng xóa SR-RET); xóa theo kênh như dòng số thẻ (SEC 6.5), kênh không xóa được là ca thường; trả lời khách trước (check-in online cho đơn đã xác nhận, hoặc mang bản gốc), xóa ngay sau. Ca thường không ghi sổ, không báo; ca bất thường báo chủ đầu tư như 6.3 (sự cố C3, SR-INC-01). BA viết dòng vào sổ tay 2.21 và 02 16.1, CPY viết câu trả lời. | SEC |`
