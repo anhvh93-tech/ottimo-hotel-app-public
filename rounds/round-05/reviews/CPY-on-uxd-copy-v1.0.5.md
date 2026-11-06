@@ -242,7 +242,7 @@ Không có câu KO/ZH trong gói này (trang khách chỉ có VI, EN, RU).
     - `bill.line.late_fee_after_limit`: VI "Phụ thu trả muộn (rời sau mốc trả muộn)", EN "Late check-out fee (after the late check-out limit)";
     - cùng khuôn với `bill.line.extra_night`.
   - Không chặn v1.0.5 nếu V5-16 chưa lên cùng bản.
-- Trạng thái: Fixed (bản 1.2 của `copy-v1.0.5.md` mục 4.8: DOM xác nhận ca sửa thẳng xảy ra được, `rules-v1.0.5.md` mục 10. `bill.line.late_fee_after_limit` vào bảng chính theo chữ CPY; BE-B chọn nhãn theo `amount_vnd` so với `limit_ref_vnd`, mục 6)
+- Trạng thái: Fixed (bản 1.2 của `copy-v1.0.5.md` mục 4.8: DOM xác nhận ca sửa thẳng xảy ra được, `rules-v1.0.5.md` mục 10. `bill.line.late_fee_after_limit` vào bảng chính theo chữ CPY; BE-B chọn nhãn theo `amount_vnd` so với `limit_ref_vnd`, mục 6) → **Closed** (CPY lượt 3, mục 12)
 
 ### FB-R5-CPY-UXD-V105-05
 - Mức độ: Suggestion
@@ -509,3 +509,72 @@ Người bản xứ sửa câu nào thì INV gửi lại nguyên văn. UXD cập
 Nhờ CPY đọc thêm (chữ mới, không phải thẻ của CPY):
 - 3 câu `sale.hold_next`, `sale.hold_next_ctv`, `sale.hold_next_no_qr` (bảng chữ 4.14), sửa theo thẻ DOM FB-R5-DOM-UXD-01 (Major). Câu bỏ vế "Bạn sẽ được nhắc…", vì sale và CTV không có chỗ nào nhận tin nhắc. Thay vào đó là giờ hạn và việc người tạo phải làm. Đây là chữ Desk cho sale và CTV (VI, EN), không phải chữ cho khách. FE áp được ngay; CPY sửa chữ thì UXD chỉ đổi bảng.
 - `stay.charge_penalty_note` (4.3): chữ Desk nội bộ, câu do DOM đề xuất ("Phí phạt và tiền bồi thường hư hỏng không tính vào doanh thu phòng."). CPY xem thêm nếu muốn.
+
+---
+
+## 12. Lượt 3 – CPY đọc lại bản 1.2 (Round 5 – Review, 06/11/2026)
+
+- Đối tượng: `rounds/round-05/outputs/UXD/copy-v1.0.5.md` **bản 1.2** (commit `49c9f76c`), mục 4.3, 4.8, 4.14, 6, 8. Trả lời của UXD ở mục 11 tệp này. Căn cứ: DOM `rounds/round-05/outputs/DOM/rules-v1.0.5.md` mục 8.1, 8.2 và 10.
+- Đã kiểm thêm, chỉ đọc mã:
+  - `services/api/src/modules/reservations/internal/allowed-actions.ts` dòng 63–79;
+  - `apps/admin-web/src/session/nav.ts` dòng 85–92;
+  - `product/docs/rbac-matrix.md` A03;
+  - BR-303.
+
+### 12.1 Kết luận lượt 3
+
+| Mục | Kết luận | Ghi chú |
+|---|---|---|
+| Thẻ 04 / `bill.line.late_fee_after_limit` (4.8) | **Closed** | Xem 12.2 |
+| 3 câu `sale.hold_next`, `sale.hold_next_ctv`, `sale.hold_next_no_qr` (4.14) | **DUYỆT CÓ ĐIỀU KIỆN** | Hướng của DOM và UXD đúng: bỏ lời hứa nhắc, nêu giờ hạn. Điều kiện: thẻ 12 (Major). Vế cuối đang chỉ sai người làm việc gia hạn |
+| G6 `stay.charge_penalty_note` (4.3) | **DUYỆT** | Chữ Desk nội bộ. Câu đúng cho cả `penalty` và `damage`, đúng K-06/K-07 theo DOM. Bản EN tự nhiên. Không có thẻ |
+
+Còn mở sau lượt 3: **0 Blocker, 1 Major (thẻ 12, mới), 0 Minor.** Thẻ 02 (c) vẫn Deferred, CPY đồng ý. ESC mới: **không**.
+
+### 12.2 Thẻ 04 – đóng
+- Nhãn dự phòng đúng nguyên văn CPY (VI, EN), đã vào bảng chính và đã đếm.
+- Quy tắc chọn nhãn của BE-B: số tiền dòng bằng `limit_ref_vnd` thì ghi "bằng giá 1 đêm", khác thì ghi "rời sau mốc trả muộn". Quy tắc này an toàn về nghĩa tiền:
+  - nhãn dự phòng không nói số tiền, nên **luôn đúng**;
+  - mọi ca lệch, kể cả ca hiếm khi `limit_ref_vnd` khác số ghi lúc trả phòng, đều rơi về câu đúng. Cái mất chỉ là phần giải thích "(bằng giá 1 đêm)", không có câu sai.
+- Ca FOC riêng giữ nhãn "bằng giá 1 đêm" là đúng: dòng gốc vẫn bằng giá một đêm, phần miễn nằm ở dòng FOC.
+- Mục 8 có đủ hai ca kiểm của DOM.
+
+### FB-R5-CPY-UXD-V105-12
+- Mức độ: Major
+- Vị trí: `copy-v1.0.5.md` bản 1.2, mục 4.14: `sale.hold_next`, `sale.hold_next_ctv`, `sale.hold_next_no_qr` (VI, EN), vế "khách cần thêm giờ thì báo lễ tân trước hạn" / "tell the front desk before then".
+- Vấn đề:
+  - Câu bảo sale, CTV nhờ lễ tân gia hạn. Nhưng chính sale, CTV gia hạn được giữ chỗ của mình:
+    - BR-303 ghi "Sale được gia hạn giữ 1 lần… trước khi hết hạn";
+    - `rbac-matrix.md` A03 ghi SAL và CTV "M" (khách của mình);
+    - `allowed-actions.ts` dòng 74–76 cho `extend_hold` khi `sal || ctv`, đơn của mình, chưa gia hạn lần nào và chưa quá hạn;
+    - sale, CTV mở được đơn ở mục "Đơn của tôi" (`nav.ts` dòng 85–92). Khung đơn có nút "Gia hạn giữ chỗ (1 lần)" (`drawer.action.extend_hold`).
+  - Ghi chú "lễ tân gia hạn được 1 lần, Tờ 1 dòng Cọc" ở 4.14 lấy từ tờ dán quầy, là tờ viết cho lễ tân, không viết cho sale.
+  - Hai chỗ nhỏ khác:
+    - VI "hết hạn {time}" ra "hết hạn 15:30 07/11". Nên có "lúc".
+    - EN "without a deposit it's cancelled" không nói rõ mốc là giờ hạn.
+- Vì sao quan trọng:
+  - Đây là câu dặn việc cho một hành động có giờ chót. Thẻ DOM-UXD-01 sửa câu này để giữ chỗ không tự hủy mà không ai biết.
+  - Câu mới lại đẩy việc sang người khác. Lễ tân bận hoặc đọc tin muộn thì hạn vẫn trôi, trong khi người gửi có sẵn nút tự làm.
+  - Với CTV (người ngoài), mỗi lần nhờ thêm một người là thêm một chỗ có thể đứt.
+- Đề xuất sửa: giữ cấu trúc 3 vế của UXD, đổi vế cuối sang việc tự làm, thêm "lúc". Câu vẫn đúng với mọi giá trị `hold_expiry_reminder_hours`, vì không hứa nhắc.
+  - `sale.hold_next`
+    - VI: "Gửi mã QR cho khách. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn."
+    - EN: "Send the QR code to the guest. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires."
+  - `sale.hold_next_ctv`
+    - VI: "Nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cọc cho khách. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn."
+    - EN: "Ask the front desk or sales staff to send the guest the deposit VietQR. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires."
+  - `sale.hold_next_no_qr`
+    - VI: "Thu cọc của khách theo hướng dẫn bên dưới. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn."
+    - EN: "Collect the deposit as shown below. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires."
+  - Tên nút trong câu khớp nguyên văn `drawer.action.extend_hold` ("Gia hạn giữ chỗ (1 lần)" / "Extend hold (once)"). Đổi tên nút thì đổi cả 3 câu.
+  - "Bạn tự theo dõi" thay "Tự theo dõi": vẫn nói rõ không ai nhắc, nhưng bớt cộc với CTV. Khuôn "Bạn …" đã có ở chữ sale như `field.HOLD_LIMIT_REACHED`.
+  - "chưa cọc" giữ cùng chữ `sale.hold_until`. Đúng ca cọc một phần không tự hủy (BR-303).
+  - Nếu PO hoặc DOM muốn sale, CTV **không** tự gia hạn mà luôn qua lễ tân, thì quyền A03 và `allowed-actions.ts` đang ngược lại. Khi đó việc cần sửa nằm ở quyền, không ở chữ. Khi chưa có quyết định đó, chữ theo quyền đang chạy.
+  - FE áp được ngay phần `{time}` từ `held.holdExpiresAt` như bảng chữ. Chỉ đổi chữ, không đổi khóa hay biến.
+  - QA kiểm, đăng nhập vai sale và vai CTV: tạo giữ chỗ, đọc hộp xanh, mở đơn ở "Đơn của tôi" → nút "Gia hạn giữ chỗ (1 lần)" hiện trước hạn.
+- Trạng thái: Open
+
+### 12.3 Ghi chú
+- G6: bản EN "Fines and damage charges don't count as room revenue." đúng nghĩa. Chỉ dùng trên Desk, nên không cần lọc từ như chữ khách. Không đổi.
+- Không có chữ khách mới trong bản 1.2, ngoài `bill.line.late_fee_after_limit`, và câu này đã duyệt. Danh sách người bản xứ (mục 10) không đổi.
+- Tệp này không có dữ liệu khách, không có số hoa hồng.
