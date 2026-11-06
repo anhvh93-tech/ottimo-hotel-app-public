@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { divideRoundVnd, roundVnd } from '../src/modules/platform/public/money';
+import { roundVnd } from '../src/modules/platform/public/money';
 import {
   applyNightDiscount,
   calendarRate,
@@ -198,18 +198,8 @@ describe('br-examples.json – booking rules (BE-A Sprint 2)', () => {
     },
   );
 
-  it.each(byCalc('nightlyListPrice').map((e) => [e.id, e] as const))(
-    '%s list price (BR-101)',
-    (_id, e) => {
-      expect(
-        divideRoundVnd(
-          e.input.monthlyListPriceVnd as number,
-          Pe(e, 'night_from_month_divisor'),
-          pp(e).nightRateUnit,
-        ),
-      ).toBe(e.expected.nightlyListPriceVnd);
-    },
-  );
+  // BR-101-16 (monthly ÷ night_from_month_divisor) retired with V5-1A: the nightly list price is entered, never
+  // derived – API cases in test/integration/v5-1a-nightly-price.test.ts (BR-101-17).
 
   it.each(byCalc('otaWeekendRate').map((e) => [e.id, e] as const))(
     '%s OTA weekend (BR-103)',

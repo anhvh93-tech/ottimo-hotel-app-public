@@ -151,6 +151,7 @@ describe.skipIf(!HAS_DB)('BUG-R4-004 – Room.publicRoomType is stored and retur
       roomNo,
       roomGroupId: ids.groups.L12,
       monthlyListPriceVnd: 8_000_000,
+      nightlyListPriceVnd: 667_000,
       publicRoomType: CITY,
     });
     const created = await c.own!.send('POST', url('/rooms'), body('901'));
@@ -163,6 +164,7 @@ describe.skipIf(!HAS_DB)('BUG-R4-004 – Room.publicRoomType is stored and retur
       roomNo: '903',
       roomGroupId: ids.groups.L12,
       monthlyListPriceVnd: 8_000_000,
+      nightlyListPriceVnd: 667_000,
     });
     expect(plain.statusCode, plain.body).toBe(201);
     expect(plain.json().publicRoomType).toBeNull();
