@@ -5,6 +5,7 @@
  *   T10-8, T10-9 at the rule level (BUG-R4-051; BE C0313-01, 07, 08).
  * - V5-10 `allowedActions.check_out` on the effective departure from 00:00 of the departure day (BUG-R4-036;
  *   BE C0313-09, T15-15) and the same rule as the "Hôm nay" row.
+ * - `Fields.text` drops control / invisible formatting characters (SEC FB-R5-SEC-BE-A1B-01, D12c).
  * Fake dates only.
  */
 import { describe, expect, it } from 'vitest';
@@ -14,6 +15,7 @@ import {
   type ActionContext,
   allowedActions,
 } from '../src/modules/reservations/internal/allowed-actions';
+import { Fields } from '../src/modules/reservations/internal/inputs';
 import {
   dayClock,
   inEarlyHours,
@@ -66,6 +68,8 @@ describe('V5-10 resolveCheckoutAt – one departure instant (checkOut "Quy đổ
     rollover: '06:00',
     toleranceMinutes: 30,
     checkedInAt: at('2026-11-21T15:00'),
+    // A typed `checkoutTime` unless the case says otherwise (DOM PR106-01).
+    typed: true,
   };
   const iso = (d: Date | undefined) => d?.toISOString();
 
@@ -158,15 +162,81 @@ describe('V5-10 resolveCheckoutAt – one departure instant (checkOut "Quy đổ
   });
 
   it('C0313-08: nothing typed → the agreed / standard time, not the server clock', () => {
-    // BE C0313-01 example: agreed 17:00, guest gone at 01:00 on the departure day – the evening before, no surcharge.
-    const dep24 = { ...base, departureDate: '2026-11-24' };
-    const r = resolveCheckoutAt({ ...dep24, now: at('2026-11-24T01:00'), time: '17:00' });
-    expect(iso(r?.at)).toBe(iso(at('2026-11-23T17:00')));
-    expect(r?.postMidnight).toBe(true);
     // Before the standard time on the departure day → the standard time is ahead.
     expect(
-      resolveCheckoutAt({ ...base, now: at('2026-11-23T10:00'), time: '12:00' })?.afterNow,
+      resolveCheckoutAt({ ...base, typed: false, now: at('2026-11-23T10:00'), time: '12:00' })
+        ?.afterNow,
     ).toBe(true);
+  });
+
+  it('DOM PR106-01: the evening before only from a TYPED time – never from the agreed or the standard time', () => {
+    const dep24 = { ...base, departureDate: '2026-11-24' };
+    // Agreed 17:00, 01:00 on 24/11, nothing typed → 24/11 17:00 (ahead → the desk asks for the time), not 23/11 17:00.
+    const agreed = resolveCheckoutAt({
+      ...dep24,
+      typed: false,
+      now: at('2026-11-24T01:00'),
+      time: '17:00',
+    });
+    expect(iso(agreed?.at)).toBe(iso(at('2026-11-24T17:00')));
+    expect(agreed).toMatchObject({ afterNow: true, postMidnight: false });
+    // Standard 12:00, 01:05 on 24/11, nothing typed → 24/11 12:00 ahead (was 23/11 12:00 + note required).
+    const standard = resolveCheckoutAt({
+      ...dep24,
+      typed: false,
+      now: at('2026-11-24T01:05'),
+      time: '12:00',
+    });
+    expect(iso(standard?.at)).toBe(iso(at('2026-11-24T12:00')));
+    expect(standard).toMatchObject({ afterNow: true, noteRequired: false });
+    // Typed 01:00 at 01:00 on 24/11 → 24/11 01:00, the post-midnight window (no surcharge).
+    const typed = resolveCheckoutAt({ ...dep24, now: at('2026-11-24T01:00'), time: '01:00' });
+    expect(iso(typed?.at)).toBe(iso(at('2026-11-24T01:00')));
+    expect(typed).toMatchObject({ postMidnight: true, afterNow: false });
+    // Typed 17:00 at 01:00 on 24/11 → still the evening before (T10-8 rule kept for typed times).
+    const eve = resolveCheckoutAt({ ...dep24, now: at('2026-11-24T01:00'), time: '17:00' });
+    expect(iso(eve?.at)).toBe(iso(at('2026-11-23T17:00')));
+    expect(eve?.postMidnight).toBe(true);
+  });
+
+  it('SEC A1A-01 (PU1): never before the actual check-in, on every path', () => {
+    // One night 23/11 → 24/11, checked in at 01:00 on 24/11 (business date 23/11).
+    const pu1 = { ...base, departureDate: '2026-11-24', checkedInAt: at('2026-11-24T01:00') };
+    const now = at('2026-11-24T01:20');
+    // Sent 00:30 (the departure's post-midnight window, before the check-in) → refused (422 DATE_INVALID).
+    expect(
+      resolveCheckoutAt({ ...pu1, now, time: '12:00', sent: at('2026-11-24T00:30') }),
+    ).toBeNull();
+    // Sent at or after the check-in → accepted.
+    expect(
+      resolveCheckoutAt({ ...pu1, now, time: '12:00', sent: at('2026-11-24T01:00') }),
+    ).toMatchObject({ sent: true, postMidnight: true });
+    expect(
+      resolveCheckoutAt({ ...pu1, now, time: '12:00', sent: at('2026-11-24T01:10') }),
+    ).toMatchObject({ sent: true, postMidnight: true, afterNow: false });
+    // Typed 00:30: the 24/11 00:30 candidate is dropped; 25/11 00:30 is ahead → afterNow (B18 422 TIME_AFTER_ACTION).
+    const typed = resolveCheckoutAt({ ...pu1, now, time: '00:30' });
+    expect(iso(typed?.at)).toBe(iso(at('2026-11-25T00:30')));
+    expect(typed?.afterNow).toBe(true);
+    // The bound holds on a sent instant of the departure business day too (no check-in recorded = no bound).
+    const day = { ...base, checkedInAt: at('2026-11-23T08:00') };
+    expect(
+      resolveCheckoutAt({
+        ...day,
+        now: at('2026-11-23T10:00'),
+        time: '12:00',
+        sent: at('2026-11-23T07:30'),
+      }),
+    ).toBeNull();
+    expect(
+      resolveCheckoutAt({
+        ...day,
+        checkedInAt: null,
+        now: at('2026-11-23T10:00'),
+        time: '12:00',
+        sent: at('2026-11-23T07:30'),
+      }),
+    ).toMatchObject({ sent: true });
   });
 
   it('a sent instant keeps the old day rule: departure business day or its post-midnight window', () => {
@@ -262,5 +332,44 @@ describe('V5-10 allowedActions.check_out (BUG-R4-036; BE C0313-09)', () => {
         expect(row, `${roles[0]} ${today} ${calendarDate}`).toEqual(ref);
       }
     }
+  });
+});
+
+describe('SEC A1B-01 Fields.text – control and invisible formatting characters removed (D12c)', () => {
+  const read = (v: unknown, opts: { required?: boolean; min?: number } = {}) => {
+    const f = new Fields({ x: v });
+    return { value: f.text('x', 500, opts), errors: f.errors };
+  };
+
+  it('NUL, U+202E…U+202C (bidi override), U+200B (zero width), BEL are dropped; the text is kept', () => {
+    expect(read('Khách\u0000 đi\u200B sớm \u202Egnirts\u202C\u0007')).toEqual({
+      value: 'Khách đi sớm gnirts',
+      errors: [],
+    });
+    // Tabs and line breaks stay whitespace (collapsed as before).
+    expect(read('a\tb\nc').value).toBe('a b c');
+  });
+
+  it('nothing left after removal = absent: REASON_REQUIRED / REQUIRED when required, undefined otherwise', () => {
+    const hidden = '\u0000\u200B\u202E\u202C\u0007';
+    expect(read(hidden, { required: true, min: 3 })).toEqual({
+      value: undefined,
+      errors: [{ field: 'x', code: 'REASON_REQUIRED' }],
+    });
+    expect(read(hidden, { required: true }).errors).toEqual([{ field: 'x', code: 'REQUIRED' }]);
+    expect(read(hidden)).toEqual({ value: undefined, errors: [] });
+    // The minimum length counts the visible text only.
+    expect(read('a\u200Bb', { min: 3 }).errors).toEqual([{ field: 'x', code: 'REASON_REQUIRED' }]);
+  });
+
+  it('unchanged otherwise: non-string → VALIDATION_FAILED, a card number → CARD_NUMBER_DETECTED (also behind a zero-width join)', () => {
+    expect(read(42).errors).toEqual([{ field: 'x', code: 'VALIDATION_FAILED' }]);
+    expect(read('Thẻ 4111 1111 1111 1111').errors).toEqual([
+      { field: 'x', code: 'CARD_NUMBER_DETECTED' },
+    ]);
+    expect(read('Thẻ 4111\u200B1111\u200B1111\u200B1111').errors).toEqual([
+      { field: 'x', code: 'CARD_NUMBER_DETECTED' },
+    ]);
+    expect(read(null)).toEqual({ value: undefined, errors: [] });
   });
 });
