@@ -1,7 +1,7 @@
 {
- "version": "0.2.6",
+ "version": "0.2.7",
  "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
- "generated": "2026-11-03",
+ "generated": "2026-11-06",
  "author": "BA",
  "roles": [
   "owner",
@@ -438,7 +438,8 @@
    "operationIds": [
     "getCheckoutSummary",
     "checkOut"
-   ]
+   ],
+   "note": "Ghi chú 46a (hợp đồng 0.3.13-draft, PR #94 chưa gộp, V5-15): đơn đã quá ngày đi – B18 và VietQR purpose=check_out chỉ OWN, MGR; FDL, FD → 403 FORBIDDEN_ACTION + access.denied trước mọi kiểm thân lệnh. Quyền theo điều kiện: x-roles checkOut vẫn có FD, FDL; rbac-cases không phủ, ca viết tay SR-AZ-09 lớp 2"
   },
   {
    "id": "A19",
@@ -501,7 +502,7 @@
    "trusted_device_required": false,
    "c3_access_log": false,
    "operationIds": [],
-   "note": "SAL không cấp/gửi/sao chép link (quyết định bước 4, SEC-BA-07); OpenAPI x-rbac A22 = issueGuestLink, issueGuestVerificationCode – chỉ FD+ (BUG-R1-006)"
+   "note": "SAL không cấp/gửi/sao chép link (quyết định bước 4, SEC-BA-07). A22 = hệ thống gửi link qua kênh của OTTIMO (sự kiện send_guest_link), không ánh xạ operation nào (operationIds rỗng). Hai operation trên OpenAPI: issueGuestLink → A22a, issueGuestVerificationCode → A113; cả hai chỉ FD+ (BUG-R1-006, BUG-R1-023)"
   },
   {
    "id": "A22a",
@@ -827,7 +828,8 @@
     "getQuoteText",
     "listQuotes",
     "withdrawQuote"
-   ]
+   ],
+   "note": "Ghi chú 46b (hợp đồng 0.3.13-draft, PR #94 chưa gộp, V5-14): QuoteInput.nightlyRates chỉ FD+ (theo A31), báo giá ngắn ngày, kênh direct/agent; SAL, CTV gửi nightlyRates ở calculateQuote/saveQuote → 403 FORBIDDEN_ACTION + access.denied trước mọi kiểm giá, thân lỗi không có min/max/dates. Quyền theo điều kiện: x-roles vẫn có SAL, CTV; rbac-cases không phủ, ca viết tay SR-AZ-09 lớp 2"
   },
   {
    "id": "A51",
@@ -1857,88 +1859,11 @@
   }
  ],
  "openapi_check": {
-  "note": "So sánh roles (gộp theo operationId) với x-roles trong api/openapi.yaml lúc sinh file. Dùng để ARC sửa x-roles và QA sinh test phân quyền (SR-AZ-01/09). Bản 0.2.1 (16/10): bỏ khỏi danh sách lệch issueGuestLink (A22 không còn sales_staff) và 3 operation thiết bị (A110 chỉ owner) – đã khớp OpenAPI; các mục còn lại ARC đã xử lý ở bước 4, chờ QA chạy lại gen_traceability --strict. Lượt 2 (16/10): thêm A119 (tham số bảo mật, chỉ owner) ánh xạ setParameter; A118 ánh xạ setParameter.",
-  "differences": [
-   {
-    "operationId": "cancelRequest",
-    "method": "POST",
-    "path": "/v1/properties/{propertyId}/approval-requests/{approvalId}/actions/cancel",
-    "missing_in_openapi": [
-     "collaborator"
-    ],
-    "extra_in_openapi": [],
-    "note": "QA #12 – CTV cần theo dõi/rút yêu cầu gia hạn báo giá của mình (x-scope own)"
-   },
-   {
-    "operationId": "listApprovalRequests",
-    "method": "GET",
-    "path": "/v1/properties/{propertyId}/approval-requests",
-    "missing_in_openapi": [
-     "collaborator"
-    ],
-    "extra_in_openapi": [],
-    "note": "QA #12 – CTV cần theo dõi/rút yêu cầu gia hạn báo giá của mình (x-scope own)"
-   },
-   {
-    "operationId": "setMyApprovalPin",
-    "method": "PUT",
-    "path": "/v1/me/approval-pin",
-    "missing_in_openapi": [
-     "front_desk"
-    ],
-    "extra_in_openapi": [],
-    "note": "SQ-3 – FD tự áp FOC minibar bằng PIN của chính mình"
-   }
-  ],
-  "operations_without_action_mapping": [
-   "cancelScheduledRoomListPrice",
-   "createGuest",
-   "createRoom",
-   "deleteMyPushSubscription",
-   "getArrivalsDepartures",
-   "getBill",
-   "getChargeCatalog",
-   "getFolio",
-   "getGuest",
-   "getInspectionChecklist",
-   "getLeaseContract",
-   "getParameterHistory",
-   "getRack",
-   "getReservation",
-   "getReservationHistory",
-   "getTonightKpi",
-   "getWorkOrder",
-   "listAttentionItems",
-   "listAuditEvents",
-   "listChannels",
-   "listCheckoutReminders",
-   "listGuestRequests",
-   "listHkTasks",
-   "listItems",
-   "listMyNotifications",
-   "listOverbookingIncidents",
-   "listParameters",
-   "listParty",
-   "listReservations",
-   "listRoomBlocks",
-   "listRoomGroups",
-   "listRoomStatuses",
-   "listRooms",
-   "listWorkOrders",
-   "lookupGuestByContact",
-   "markNotificationRead",
-   "putMyPushSubscription",
-   "recordCheckoutConfirmation",
-   "resolveAttentionEvent",
-   "searchAvailability",
-   "searchGuests",
-   "streamEvents",
-   "transitionGuestRequest",
-   "updateGuest",
-   "updateRoom",
-   "uploadAttachment"
-  ],
-  "operations_without_action_mapping_note": "Endpoint đọc theo màn hình – quyền theo rbac-matrix.md mục 3 (màn hình) và mục 6 (trường); chưa gán mã hành động A-xx"
+  "note": "Bản 0.2.7 (06/11/2026, BUG-R1-023): bỏ ảnh chụp lệch của bản 0.2.1 (16/10). Kiểm lệch quyền giữa OpenAPI (x-roles, x-rbac, x-rbac-field) và tệp này do product/tests/tools/gen_traceability.py --strict làm, chạy ở CI job \"API contract\" mỗi lần push. Lần chạy 06/11 trên product/docs/api/openapi.yaml 0.3.12-draft: 0 operation lệch. Không script nào đọc khối này; chỉ để người đọc.",
+  "checked_against": "product/docs/api/openapi.yaml 0.3.12-draft",
+  "checked_at": "2026-11-06",
+  "differences": [],
+  "operations_without_action_mapping_note": "Danh sách operation chưa gán mã A-xx đã bỏ ở 0.2.7 (ảnh chụp 0.2 đã cũ). Quyền của mọi operation: x-roles, x-rbac trong OpenAPI và rbac-matrix.md mục 3 (màn hình), mục 6 (trường)."
  },
  "screen_scope_notes": {
   "S25": "listRooms/listRoomGroups: owner, manager đầy đủ; front_desk_lead, front_desk, sales_staff, collaborator x-scope catalog_only (số căn, tầng, nhóm, tên, sức chứa, giá niêm yết hiện hành); housekeeping, maintenance KHÔNG được gọi – dùng listHkTasks/listRoomStatuses/listWorkOrders/getRack; maxOccupancy, baseOccupancy, giá = K với HK/MT (rbac ghi chú 25a, BUG-R1-005). 0.3.9 (ARC, BUG-R3-018): Room.scheduledListPrices (giá đã lên lịch) chỉ owner, manager; cancelScheduledRoomListPrice owner, manager (sửa giá S25, như updateRoom)",

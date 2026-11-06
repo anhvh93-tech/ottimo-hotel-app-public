@@ -1,7 +1,7 @@
 # Sổ vận hành OTTIMO – dành cho chủ đầu tư
 
 - Dành cho: chủ đầu tư (OWN). Quản lý (MGR) và lễ tân trưởng (FDL) đọc phần của mình ở mục 1.
-- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.1 (06/11/2026, mục 5.4 ghi rõ việc chốt giá 2027 và gia hạn ngày cuối web hiện giá)
+- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
 - Áp dụng từ: 06/11/2026. Hôm nay OTTIMO chạy thật đủ 4 trang: Desk, app nhân viên, trang khách, website 5 ngôn ngữ (form đặt phòng và giá ước tính đã bật).
 - Cách dùng: in mục 1 dán cạnh bàn làm việc. Đánh dấu ô `[ ]` khi xong. Mục 3 mở ra khi có sự cố.
 - Đọc cùng: sổ tay sử dụng `product/docs/manual/user-manual-v1.0.md`, từ điển tham số `product/docs/tham-so-quy-tac.md`, bộ hướng dẫn theo vai `product/docs/manual/guides/`.
@@ -41,11 +41,32 @@ Ký hiệu vai: **OWN** chủ đầu tư · **MGR** quản lý · **FDL** lễ t
 - [ ] 22:00: chép tay danh sách khách đến và khách đi ngày mai, cất ngăn khóa, hủy bản cũ (sổ tay mục 0.9; tạm tới v1.1).
 - [ ] Đầu ca, cuối ca: theo sổ tay mục 2.1 và tờ dán quầy `product/docs/staff-one-pager.md`.
 
+### 1.1a Hai ngày một lần – cho đội kéo bản sao lưu về Mac
+
+Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và đội bảo mật chốt nhịp này ngày 06/11/2026.
+
+- [ ] **OWN – cho phép kéo bản sao lưu**, ít nhất **2 ngày một lần**. Mở Claude Code trong thư mục dự án, gõ: "Kéo bản sao lưu production về Mac". Đội chỉ kết nối máy chủ vào ngày anh/chị cho phép trong chat. Anh/chị chỉ cần đồng ý khi đội hỏi.
+- Lần gần nhất: 06/11/2026, khoảng 19:00. Lần tới: 08/11/2026.
+- Đội báo lại một dòng: giờ chạy, **mã thoát (0 là ổn)**, số tệp mới, tên bản mới nhất, có dòng "server copy changed" không.
+- Cách kéo từ lần kéo 08/11: bản đã có trên Mac **không bao giờ bị máy chủ ghi đè hay xóa**. Bản quá 35 ngày trong thư mục sao lưu trên Mac tự xóa sau mỗi lần kéo. Anh/chị không tự xóa, không chuyển thư mục.
+- **Giữ đúng lời hứa 35 ngày** trong thông báo quyền riêng tư: thư mục sao lưu trên Mac không được nằm trong Time Machine hay iCloud.
+  - Đội kiểm chỉ đọc ngày 06/11: Mac chưa có ổ Time Machine nào, nên chưa có bản chép nào ngoài thư mục sao lưu. Thư mục **chưa** được loại khỏi Time Machine: nếu sau này anh/chị bật Time Machine, các bản sao lưu sẽ bị chép và giữ lâu hơn 35 ngày. Thư mục nằm ngoài Desktop và Documents nên iCloud Drive không đồng bộ.
+  - Đội đề nghị loại thư mục này khỏi Time Machine (mục 5.4). Đội chỉ đổi khi anh/chị đồng ý trong chat.
+  - Anh/chị định bật Time Machine trước khi đồng ý: báo đội trước.
+  - Ở mỗi lần kéo, bắt đầu từ 08/11, đội kiểm lại (chỉ đọc) và ghi có/không vào nhật ký quyết định.
+- Đội báo **"server copy changed"** (lượt kéo kết thúc với **mã 3**): bản trên máy chủ khác bản đã có trên Mac. Coi là **P0 bảo mật**, nghi máy chủ bị xâm nhập, tới khi đội bảo mật kết luận (mục 3.1). Bản trên Mac vẫn giữ nguyên. Anh/chị không xóa, không kéo lại, không đăng nhập máy chủ. Khác với P0 thường ở mục 3.4:
+  - Không duyệt phát hành nào (email "Review deployments") tới khi đội bảo mật báo.
+  - Đội có thể đề nghị tạm tắt máy chủ. Khi đó Desk ngừng, quầy làm theo mục 3.2 với sổ giấy. Anh/chị quyết.
+  - Nếu xác nhận dữ liệu khách bị lộ, có thể phải báo cơ quan chức năng trong 72 giờ. Đội và luật sư chuẩn bị, anh/chị quyết.
+- Lượt kéo lỗi mạng hoặc kết nối (**mã 2**): đội báo anh/chị trong ngày, kéo lại vào lần anh/chị cho phép kế tiếp. Không để quá 2 ngày.
+- Mã kiểm tra một bản trên Mac không khớp (**mã 1**): đội xử lý, báo anh/chị trong ngày. Kéo lại không tự sửa được lỗi này.
+- Máy chủ hỏng hẳn thì chỉ còn bản trên Mac để dựng lại (mục 2.1a).
+
 ### 1.2 Hằng tuần
 
 Đội đề xuất làm vào sáng thứ Hai.
 
-- [ ] **OWN – kéo bản sao lưu về Mac.** Mở Claude Code trong thư mục dự án, gõ: "Kéo bản sao lưu production về Mac". Đội chạy lệnh, anh/chị chỉ cần cho phép trong chat. Máy chủ hỏng hẳn thì chỉ còn bản này để dựng lại (mục 2.2).
+- [ ] **OWN** – lần kéo bản sao lưu về Mac gần nhất cách hôm nay không quá 2 ngày (mục 1.1a). Quá: nhắn đội kéo ngay hôm đó.
 - [ ] **OWN** – hộp thư `info@ottimo.vn` (cả mục Spam): còn thư "down", "failing" từ UptimeRobot, Healthchecks.io chưa xử lý không. Còn: mục 2.3.
 - [ ] **OWN** – phòng "OTTIMO – Báo động": tin **FAIL** nào chưa có tin **OK** theo sau. Có: báo đội trong ngày.
 - [ ] **MGR** – **Chờ đối soát**: không còn khoản ghi **Quá … ngày**.
@@ -60,7 +81,7 @@ Ký hiệu vai: **OWN** chủ đầu tư · **MGR** quản lý · **FDL** lễ t
 
 - [ ] **OWN – rà thành viên phòng "OTTIMO – Yêu cầu đặt phòng"**: chỉ OWN, MGR, FDL, FD, tài khoản `@ottimo.vn`. Không sale, CTV, buồng phòng, bảo trì, không ai lạ. Quản lý phòng chỉ là OWN và MGR.
 - [ ] **OWN – đối chiếu sổ xóa Chat** với các yêu cầu đóng lý do "Đã xóa theo yêu cầu của người gửi" trong tháng (**Yêu cầu từ website** → **Đã đóng**). Mã nào thiếu dòng "đã xóa": xóa luồng Chat ngay.
-- [ ] **OWN** – phòng "OTTIMO – Báo động": chỉ có anh/chị.
+- [ ] **OWN** – phòng "OTTIMO – Báo động": chỉ có anh/chị và người thứ hai anh/chị đã chọn (nếu có, mục 7.2). Không ai lạ.
 - [ ] **OWN – Người dùng & vai**: người nghỉ đã **Khóa tài khoản** và **Xóa email**; mỗi người đúng vai; quản lý đã có email nhận thông báo bảo mật.
 - [ ] **OWN – Tham số quy tắc → Lịch sử thay đổi**: mỗi dòng trong tháng có tên người sửa và lý do. Không có dòng mình không biết.
 - [ ] **OWN – một giá ở mọi nơi** (ESC-043 C): báo giá thử một ca trên Desk, so với ottimo.vn và Booking.com, Agoda, Airbnb cùng ngày, cùng số khách.
@@ -85,6 +106,8 @@ Ký hiệu vai: **OWN** chủ đầu tư · **MGR** quản lý · **FDL** lễ t
 
 | Ngày | Việc | Ai |
 |---|---|---|
+| 08/11/2026, rồi ít nhất 2 ngày một lần | Cho đội kéo bản sao lưu về Mac (mục 1.1a) | OWN + đội |
+| Chậm nhất 20/11/2026 | Diễn tập khôi phục sao lưu: anh/chị dành khoảng 30 phút mở khóa giải mã. Chỉ anh/chị mở được khóa | OWN + đội |
 | 20/11/2026 | Review lần 1 (mục 5.3) | OWN + đội |
 | Trước 01/12/2026 | Quyết ESC-033: VAT từ 01/01/2027 | OWN |
 | 04/12/2026 | Review lần 2 | OWN + đội |
@@ -97,7 +120,7 @@ Ký hiệu vai: **OWN** chủ đầu tư · **MGR** quản lý · **FDL** lễ t
 
 - [ ] **Người mới**: tạo tài khoản đúng vai (**Người dùng & vai**, chỉ OWN), đưa mật khẩu tạm tận tay. Quản lý, lễ tân trưởng bật 2 bước ngay. Quản lý nhập email nhận thông báo bảo mật. Đào tạo theo sổ tay mục 5.8 trên trang tập.
 - [ ] Người mới là MGR, FDL hoặc FD: cài điện thoại theo bảng ở hướng dẫn `01` mục 12.1 **trước**, rồi mới thêm vào phòng "OTTIMO – Yêu cầu đặt phòng".
-- [ ] **Người nghỉ**: làm khối **Ngày cuối của người nghỉ** ở sổ tay mục 1.5 (8 bước, gồm gỡ khỏi phòng Chat, đổi mật khẩu dùng chung, đổi mã cửa căn thuê tháng trong 7 ngày).
+- [ ] **Người nghỉ**: làm khối **Ngày cuối của người nghỉ** ở sổ tay mục 1.5 (8 bước, gồm gỡ khỏi phòng Chat, đổi mật khẩu dùng chung, đổi mã cửa căn thuê tháng trong 7 ngày). Người đó ở phòng "OTTIMO – Báo động": gỡ khỏi phòng cùng ngày.
 
 ---
 
@@ -121,14 +144,26 @@ Ký hiệu vai: **OWN** chủ đầu tư · **MGR** quản lý · **FDL** lễ t
 | Thư bảo mật: đổi tài khoản nhận, đặt lại 2 bước, dùng mã khôi phục, đổi email | Mỗi lần có việc | Về email nhận thông báo bảo mật mỗi người tự nhập trên Desk (sổ tay mục 0.3a) |
 | Nhật ký: ai sửa giá, tham số, tiền, ai xem giấy tờ | Mỗi thao tác | Xem trên Desk (**Lịch sử thay đổi**, **Nhật ký tiền**) |
 
+### 2.1a Mất tối đa bao nhiêu dữ liệu khi có sự cố
+
+| Sự cố | Hiện nay | Từ v1.0.5 |
+|---|---|---|
+| Dữ liệu hỏng hoặc bị xóa nhầm, máy chủ vẫn còn | Tới **24 giờ**: máy chủ sao lưu mỗi đêm một lượt | Tới **12 giờ**: thêm lượt sao lưu lúc 14:00 |
+| Máy chủ mất hẳn (hỏng đĩa, nhà cung cấp khóa tài khoản, bị chiếm quyền) | Chỉ còn bản trên Mac. Mất phần dữ liệu sau bản mới nhất có trên Mac. Vì vậy kéo đúng nhịp mục 1.1a | Như cột bên trái, tới khi Mac tự kéo hằng ngày (mục 2.2) |
+
+- Con số "mất tối đa 15 phút" ghi từ trước chưa đúng: máy chủ chưa có cách sao lưu liên tục.
+- Anh/chị xác nhận mức **12 giờ** ở buổi review 20/11 (mục 5.4). Muốn dưới 12 giờ thì cần máy chủ phụ, có chi phí. Đội sẽ trình phương án riêng khi anh/chị muốn.
+- Phần dữ liệu bị mất, nhân viên nhập lại từ OTA, Zalo, sổ giấy.
+
 ### 2.2 Chưa có – đề xuất v1.0.5
 
 | Việc | Hiện nay làm thế nào | Đề xuất |
 |---|---|---|
-| Bản sao lưu ngoài máy chủ tự kéo về theo lịch | Kéo tay về Mac mỗi tuần (mục 1.2) | chưa có – đề xuất v1.0.5: kéo tự động hằng ngày, báo vào phòng Báo động khi quá 8 ngày chưa kéo |
+| Bản sao lưu ngoài máy chủ tự kéo về theo lịch | Đội kéo tay về Mac **ít nhất 2 ngày một lần**, vào ngày anh/chị cho phép (mục 1.1a) | chưa có – đề xuất v1.0.5: Mac của anh/chị tự kéo hằng ngày, chỉ cài khi anh/chị đồng ý (mục 5.4). Lượt tự kéo lỗi thì có email báo ngay về `info@ottimo.vn`; lỗi "server copy changed" là P0 như mục 1.1a. Quá **48 giờ** không có lượt kéo nào thành công (ví dụ Mac tắt) cũng có email |
+| Lượt sao lưu thứ hai trong ngày | Mỗi đêm một lượt, mất tối đa 24 giờ (mục 2.1a) | chưa có – đề xuất v1.0.5: thêm lượt 14:00, mất tối đa 12 giờ |
 | Tự báo khi tin Google Chat không gửi được ("chat dead") | Đội kiểm bằng lệnh khi có việc. Lễ tân luôn xem Desk nên không sót yêu cầu | chưa có – đề xuất v1.0.5: thêm vào lượt kiểm 30 phút |
 | Nhắc hạn tên miền, máy chủ, Google Workspace | Anh/chị tự nhớ (mục 1.4) | chưa có – đề xuất v1.0.5: nhắc trước 30 ngày vào phòng Báo động |
-| Lịch diễn tập khôi phục sao lưu khi không chạy round | Đội diễn tập mỗi round | chưa có – đề xuất v1.0.5: hằng quý, biên bản trình ở buổi review |
+| Nhắc diễn tập khôi phục sao lưu | Đội diễn tập ít nhất mỗi round, cần anh/chị khoảng 30 phút mở khóa giải mã. Lần gần nhất 29/10/2026; lần tới chậm nhất 20/11/2026 (mục 1.4) | chưa có – đề xuất v1.0.5: quá **35 ngày** chưa diễn tập thì phòng Báo động nhận tin **FAIL**. Biên bản trình ở buổi review, chỉ có số đếm |
 | Nhắc ngày xóa phòng Chat hằng năm | Lịch riêng của anh/chị | chưa có – đề xuất v1.0.5: dòng nhắc ở **Cần chú ý** trước 14 ngày |
 | Nhắc đổi khóa 12 tháng | Đội nhớ theo sổ bí mật | chưa có – đề xuất v1.0.5: nhắc vào phòng Báo động |
 
@@ -141,6 +176,7 @@ Ký hiệu vai: **OWN** chủ đầu tư · **MGR** quản lý · **FDL** lễ t
 3. **Vào được**: người trực làm việc bình thường. Anh/chị báo đội trong ngày bằng `/feedback`, kèm giờ nhận tin và tên mục trong tin.
 4. Tin **OK** đến sau tin **FAIL**: không cần làm gì. Mang vào buổi review nếu lặp lại.
 5. Không tự sửa máy chủ, không đăng nhập máy chủ.
+6. **Người thứ hai trong phòng** (nếu anh/chị đã thêm, mục 7.2) nhận **FAIL**: làm bước 1. Không vào được Desk: gọi anh/chị ngay, người trực làm theo mục 3.2. Vào được: nhắn anh/chị trong ngày, kèm giờ nhận tin và tên mục trong tin. Anh/chị báo đội theo mục 3.3.
 
 ---
 
@@ -155,7 +191,7 @@ Ký hiệu vai: **OWN** chủ đầu tư · **MGR** quản lý · **FDL** lễ t
 | | Không làm được việc chính ở quầy | Không nhận phòng, trả phòng, thu tiền được |
 | | **Sai tiền** | Báo giá, folio, cọc, hoàn sai; giá web khác giá Desk khi thử cùng ca, cùng lúc; mã VietQR ra tên chủ tài khoản sai |
 | | Mất dữ liệu | Đơn, khoản thu biến mất |
-| | Nghi bị xâm nhập hoặc lộ dữ liệu khách | Dòng **Đã lên lịch** lạ ở tài khoản nhận; thư bảo mật về việc mình không làm; tài khoản lạ đăng nhập; ảnh giấy tờ gửi nhầm ra ngoài |
+| | Nghi bị xâm nhập hoặc lộ dữ liệu khách | Dòng **Đã lên lịch** lạ ở tài khoản nhận; thư bảo mật về việc mình không làm; tài khoản lạ đăng nhập; ảnh giấy tờ gửi nhầm ra ngoài; lượt kéo sao lưu báo "server copy changed" (mục 1.1a) |
 | **Lỗi thường** | Vẫn làm được việc bằng cách khác | Chữ sai, nút khó tìm, chậm nhưng vẫn chạy, tin Chat không đến mà Desk vẫn có yêu cầu, tin FAIL rồi OK trong vòng 1 giờ |
 
 Không chắc: coi là P0.
@@ -187,6 +223,8 @@ Không chắc: coi là P0.
 6. Đội hỏi lại tối đa 2 câu. Trả lời ngắn, rồi chờ đội báo.
 
 ### 3.4 Đội xử lý P0 thế nào
+
+Nghi máy chủ bị xâm nhập ("server copy changed", mục 1.1a): **không** làm bước 2–5 dưới đây. Làm theo mục 1.1a, chờ đội bảo mật báo.
 
 1. Điều phối viên ghi phiếu phản hồi và gửi anh/chị một bảng ngắn: "hiểu thế này, mức P0 – đúng không".
 2. Lỗi do bản vừa phát hành: đội đề xuất **quay lui về bản trước** trong vài phút. Dữ liệu giữ nguyên. Đội chỉ làm khi anh/chị đồng ý trong chat.
@@ -276,7 +314,7 @@ Mỗi buổi khoảng 45–60 phút. Ngoài lịch: P0 báo ngay (mục 3), khô
 - [ ] 2. **Việc chờ quyết (ESC)**: chọn phương án. Không chắc thì chọn đề xuất của đội.
 - [ ] 3. **Lỗi còn mở**: còn P0, P1 nào không. P2, P3 nào anh/chị muốn sửa trước.
 - [ ] 4. **Báo động trong kỳ**: bao nhiêu tin FAIL, đã hồi phục hết chưa, có mục nào lặp lại.
-- [ ] 5. **Sao lưu**: lần kéo về Mac gần nhất (không quá 8 ngày); lần diễn tập khôi phục gần nhất.
+- [ ] 5. **Sao lưu**: lần kéo về Mac gần nhất (không quá 2 ngày); trong kỳ có lượt kéo nào báo "server copy changed" không; lần diễn tập khôi phục gần nhất (không quá 35 ngày).
 - [ ] 6. **Website**: số yêu cầu mới, số trả lời đúng hạn, số quá hạn, khách theo ngôn ngữ. Mọi WR8 đã xóa Chat.
 - [ ] 7. **Giá**: Desk = web = OTA; tham số còn lệch sổ tay; mốc sắp tới ở mục 1.4.
 - [ ] 8. **Người và quyền**: người dùng và vai, thành viên hai phòng Chat.
@@ -292,6 +330,12 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 - [ ] Quyết ESC-033 (VAT 2027), hạn trước 01/12.
 - [ ] Quản lý nhập email nhận thông báo bảo mật, để đội bật cảnh báo thư (mục 2.2).
 - [ ] Hỏi đội bảo mật: đã bỏ được kiểm bảo mật buổi sáng chưa.
+- [ ] Diễn tập khôi phục sao lưu: nếu chưa làm, hẹn khoảng 30 phút trước buổi này (mục 1.4).
+- [ ] Trả lời **có hoặc không**, không gửi giá trị: (a) sao lưu tự động của nhà cung cấp máy chủ đang tắt, hoặc giữ tối đa 7 ngày; (b) bản ngoại tuyến của khóa dữ liệu và khóa giải mã sao lưu vẫn còn, anh/chị mở được; (c) FileVault trên Mac vẫn bật (đã xác nhận 27/10).
+- [ ] **Đồng ý hay không** cho đội loại thư mục sao lưu trên Mac khỏi Time Machine (mục 1.1a). Chỉ đổi danh sách loại trừ của Time Machine, không xóa gì. Đồng ý sớm hơn thì nhắn đội trong chat, không cần chờ buổi này.
+- [ ] **Đồng ý hay không** cho đội cài lịch tự kéo sao lưu hằng ngày về Mac của anh/chị (v1.0.5). Chưa đồng ý thì đội vẫn kéo tay theo mục 1.1a.
+- [ ] **Xác nhận** mức mất dữ liệu tối đa **12 giờ** từ v1.0.5, thay con số 15 phút ghi từ trước (mục 2.1a). Hiện mức thật là 24 giờ.
+- [ ] Chọn **một người thứ hai** vào phòng "OTTIMO – Báo động" (mục 7.2). Không tốn tiền.
 - [ ] Chọn việc cho v1.0.5: ô nhập giá OTA nền trên Desk, các việc "chưa có" ở mục 2.2.
 
 ---
@@ -300,14 +344,14 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 
 - [ ] **Không dán** mật khẩu, mã 2 bước, mã khôi phục, khóa sao lưu, khóa dữ liệu (KEK), số tài khoản, mật khẩu Wi-Fi, đường dẫn webhook của hai phòng Chat, địa chỉ ping Healthchecks vào Claude Code, `/feedback`, email, Zalo hay bất kỳ chat nào.
 - [ ] **Không gửi ảnh** có CCCD, hộ chiếu, ảnh giấy tờ, tên, số điện thoại, email khách, số tài khoản, mã cửa. Không gõ tên khách vào `/feedback`.
-- [ ] **Không cấp quyền sai vai**: không mời sale, CTV, buồng phòng, bảo trì vào phòng "OTTIMO – Yêu cầu đặt phòng"; không thêm ai vào phòng "OTTIMO – Báo động"; không cấp vai quản lý, chủ đầu tư "cho tiện"; không dùng chung tài khoản. Tài khoản chủ đầu tư thứ hai chỉ cấp cho một người khác anh/chị tin cậy.
+- [ ] **Không cấp quyền sai vai**: không mời sale, CTV, buồng phòng, bảo trì vào phòng "OTTIMO – Yêu cầu đặt phòng"; phòng "OTTIMO – Báo động" chỉ có anh/chị và tối đa **một** người thứ hai anh/chị chọn (mục 7.2); không cấp vai quản lý, chủ đầu tư "cho tiện"; không dùng chung tài khoản. Tài khoản chủ đầu tư thứ hai chỉ cấp cho một người khác anh/chị tin cậy.
 - [ ] Không tắt 2 bước của chủ đầu tư, quản lý.
 - [ ] Không tự đăng nhập máy chủ, không chạy lệnh ai gửi qua tin nhắn hay email.
 - [ ] Không sửa bản ghi DNS ở Mắt Bão khi chưa báo đội.
 - [ ] Không duyệt "Review deployments" trên GitHub khi đội chưa báo QC đạt và chưa hỏi anh/chị.
 - [ ] Không tập thao tác trên Desk thật. Dữ liệu thật chỉ ghi thêm, không xóa được. Tập trên trang tập.
 - [ ] Không xóa phòng Chat, webhook "Desk OTTIMO", webhook "ottimo-alert" ngoài lịch xóa hằng năm cùng đội.
-- [ ] Không xóa thư mục sao lưu OTTIMO trên Mac.
+- [ ] Không xóa, không chuyển thư mục sao lưu OTTIMO trên Mac, kể cả khi đội báo "server copy changed".
 - [ ] Không cho người khác đăng nhập `info@ottimo.vn` khi chưa báo đội.
 - [ ] Không gửi mã cửa bằng chữ hay ảnh. Không mở Google Chat trên máy quầy.
 - [ ] Không bấm link trong tin tự xưng là Desk mà không dẫn tới `desk.ottimo.vn`.
@@ -331,10 +375,19 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | Tên | Có gì | Ai ở trong |
 |---|---|---|
 | Google Chat "OTTIMO – Yêu cầu đặt phòng" | Tin yêu cầu website mức A | OWN, MGR, FDL, FD. Quản lý phòng: OWN, MGR |
-| Google Chat "OTTIMO – Báo động" | Tin FAIL, OK của máy chủ | Chỉ OWN |
+| Google Chat "OTTIMO – Báo động" | Tin FAIL, OK của máy chủ | OWN. Có thể thêm **một** người thứ hai anh/chị chọn (ngay dưới bảng) |
 | Healthchecks.io, check `ottimo-production` | Báo khi việc kiểm máy chủ im lặng | Email về hộp thư nhóm `info@ottimo.vn` |
 | UptimeRobot, 5 trang | Báo khi trang không mở được từ bên ngoài | Email về hộp thư nhóm `info@ottimo.vn` |
 | GitHub, môi trường `production` | Email "Review deployments" mỗi lần phát hành | OWN là người duyệt |
+
+**Thêm người thứ hai vào phòng "OTTIMO – Báo động"** (anh/chị chọn, không tốn tiền):
+- Vì sao: hiện cảnh báo chỉ tới một mình anh/chị. Ban đêm, lúc anh/chị không xem điện thoại, không ai khác nhận.
+- Ai: **một** người anh/chị tin cậy, có tài khoản `@ottimo.vn`. Đội đề xuất quản lý (MGR) hoặc lễ tân trưởng (FDL).
+- Tin trong phòng chỉ có tên mục kiểm và số đếm, không có dữ liệu khách.
+- Trước khi thêm: điện thoại người đó đã cài theo hướng dẫn `01` mục 12.1 (2 bước, khóa màn hình, quản lý thiết bị).
+- Cách thêm: anh/chị mở phòng trong Google Chat, thêm người đó bằng tài khoản `@ottimo.vn` là **thành viên** (không làm quản lý phòng). Trong phòng không thêm ứng dụng hay webhook nào khác ngoài cảnh báo `ottimo-alert`. Cho người đó đọc mục 2.3 bước 6 (lễ tân trưởng: hướng dẫn `02` mục 13.5). Thêm xong, nhắn đội "đã thêm người thứ hai vào phòng Báo động – vai …". Không ghi tên, email.
+- Người đó nhận **FAIL**: làm theo mục 2.3 bước 6.
+- Người đó nghỉ việc: gỡ khỏi phòng cùng ngày (mục 1.5).
 
 ### 7.3 Nhà cung cấp
 
@@ -377,7 +430,7 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | # | Giả định | Nếu anh/chị muốn khác |
 |---|---|---|
 | G1 | Review 20/11 và 04/12/2026, sau đó thứ Sáu tuần đầu mỗi tháng | Báo ngày khác ở buổi review hoặc qua `/feedback` |
-| G2 | Kéo bản sao lưu về Mac mỗi thứ Hai, đội chạy khi anh/chị cho phép | Ít nhất 2 tuần một lần, để luôn còn bản Chủ nhật trên máy chủ |
+| G2 | Kéo bản sao lưu về Mac ít nhất 2 ngày một lần, đội chạy vào ngày anh/chị cho phép (đội và đội bảo mật chốt 06/11, mục 1.1a) | Muốn Mac tự kéo hằng ngày: đồng ý ở buổi review 20/11, đội cài ở v1.0.5 (mục 5.4) |
 | G3 | Lỗi thường sửa ở round kế tiếp; bản vá phát hành khung thứ Tư 09:30–10:30 | Chọn khung giờ khác |
 | G4 | Ngày xóa phòng Chat hằng năm là ngày anh/chị đã ghi trong lịch. Chưa chọn thì đội đề xuất tuần đầu tháng 11 | Báo đội ngày đã chọn (không cần lý do) |
 
@@ -387,3 +440,5 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 |---|---|---|---|
 | 06/11/2026 | 1.0 | BA | Bản đầu, ngày OTTIMO chạy đủ Desk, app nhân viên, trang khách, website 5 ngôn ngữ có form và giá ước tính |
 | 06/11/2026 | 1.1 | BA | Round 4 – Phản hồi & sửa. Mục 5.4: việc cần chốt ở buổi review 20/11 là giá 2027 và gia hạn `web_estimate.open_until`; chưa gia hạn thì từ 01/01/2027 web ghi "giá theo yêu cầu". Mục 7.4: bản HTML của sổ tay cần dựng lại |
+| 06/11/2026 | 1.2 | BA | Round 5 – Sản xuất (QC Round 4 ĐK-4). Mục 1.1a mới: kéo sao lưu về Mac ít nhất 2 ngày một lần vào ngày anh/chị cho phép; cách kéo mới không ghi đè bản trên Mac; "server copy changed" là P0 bảo mật. Mục 1.2, 5.3 ý 5, G2 theo nhịp này. Mục 1.3, 1.5, 2.3, 6, 7.2: phòng Báo động có thể thêm một người thứ hai. Mục 2.1a mới: mất dữ liệu tối đa 24 giờ, 12 giờ từ v1.0.5. Mục 2.2: báo kéo chậm sau 48 giờ, lượt sao lưu 14:00, nhắc diễn tập sau 35 ngày thay cho "hằng quý". Mục 1.4, 5.4: diễn tập chậm nhất 20/11 và các việc mang vào buổi review 20/11. Mục 3.1: thêm ví dụ P0 |
+| 06/11/2026 | 1.3 | BA | Round 5 – Phản hồi & sửa (review SEC `rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md`). Mục 1.1a: dòng báo lại có giờ chạy và mã thoát; cách kéo mới từ lần kéo 08/11; Time Machine, iCloud áp cho mọi bản trên Mac, ghi đúng kết quả kiểm chỉ đọc 06/11 (chưa có ổ Time Machine, thư mục chưa được loại, iCloud không đồng bộ); mã 3 = bản trên máy chủ khác bản trên Mac, không duyệt phát hành, có thể tạm tắt máy chủ, có thể phải báo trong 72 giờ; tách mã 1 với mã 2. Mục 3.4: nhánh nghi xâm nhập không làm bước 2–5. Mục 2.2: lượt tự kéo lỗi báo ngay, 48 giờ là ngưỡng im lặng. Mục 5.4: câu Time Machine tách khỏi câu lịch tự kéo; FileVault đã xác nhận 27/10. Mục 7.2: người thứ hai là thành viên, điện thoại cài theo `01` 12.1, không thêm webhook khác, đọc 2.3 bước 6. Chưa sửa: con số 12/13 giờ và dòng máy chủ mất hẳn ở 2.1a, 2.2, 5.4, chờ OPS chọn giờ lượt sao lưu thứ hai (FB-R5-SEC-BA-05) |

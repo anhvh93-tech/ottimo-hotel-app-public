@@ -320,7 +320,7 @@ Lễ tân thấy: **Hôm nay**, **Sơ đồ phòng**, **Đơn đặt phòng**, *
 - Mã VietQR hết hạn: bấm **Tạo mã VietQR mới** (mã cũ hết hiệu lực), hoặc ghi như chuyển khoản tay (**Chờ đối soát**).
 - Gia hạn giữ chỗ: **Gia hạn giữ chỗ (1 lần)**, tối đa thêm 24 giờ, không quá 12:00 ngày đến. **Chỉ làm trước hạn**; sau hạn nút này không còn.
 - Sale/CTV đã báo khách chuyển cọc: khung đơn hiện **CTV/sale đã báo chuyển cọc** kèm **Xem ảnh biên nhận**. Vẫn kiểm tiền về trước khi xác nhận.
-- Khung đơn giữ chỗ hiện **Tạo link check-in online** và **Thu hồi link**: **không bấm** (mục 17.3).
+- Check-in online: từ v1.0.4, khung đơn giữ chỗ không còn mục **Link check-in online**. Xác nhận cọc trước, rồi gửi link (mục 17.3).
 
 ---
 
@@ -812,7 +812,7 @@ Folio là bảng tiền của lượt ở.
 
 Hiện trên **Hôm nay**. **Đã nhận** → làm hoặc chuyển bộ phận → **Làm xong**. Không làm được: **Không thực hiện được** → **Lý do (khách thấy)**. **Lời nhắn cho khách**: khách đọc được, không ghi mã cửa, số giấy tờ, số điện thoại, số thẻ. Yêu cầu có phí ghi vào folio khi xong.
 
-Từ 02/11 tới bản v1.0.3, khách chưa có link trang khách (mục 17.3), nên yêu cầu chủ yếu tới qua Zalo hoặc điện thoại.
+Từ 06/11/2026 khách có lại link trang khách (mục 17.3). Khách chưa có link vẫn nhắn Zalo hoặc gọi điện như trước.
 
 [ẢNH: C2-29-Yêu cầu của khách]
 
@@ -1024,13 +1024,11 @@ Desk tính tiền theo chính sách trả sớm; lễ tân không tự tính.
 - Có khoản hoàn: Desk tạo **một** yêu cầu hoàn cho phần trả sớm, cần quản lý duyệt. **Nhập nơi nhận hoàn** ngay trên máy quầy đã cấp quyền (mục 12.2). Chủ đầu tư duyệt và chi (mục 17.4).
 - Đơn Trực tiếp/CTV báo trong ngày rời mà các đêm bỏ không có phụ thu người khách đã trả: Desk ghi 'Không có khoản hoàn.', không có yêu cầu hoàn, không cần nhập nơi nhận. Có phụ thu người đã trả: Desk vẫn tạo **một** yêu cầu hoàn đúng phần đó, làm như bullet **Có khoản hoàn** ở trên. Dòng phí trên bill: 'Phí trả phòng sớm (báo trước 0 ngày)'.
 - Trả phòng sau đó **không tạo lại** khoản này. Folio còn tiền khách trả thừa **khác** (ví dụ đêm đã thu rồi được FOC): bước **Bill & thu tiền** hỏi cách xử lý **đúng phần đó**. Chọn hoàn thì có **thêm một** đề nghị hoàn, không trùng (mục 11.1 bước 6).
-- Yêu cầu Trả sớm có thể bị Desk tự đóng ("Yêu cầu không còn cần duyệt nên đã tự đóng."), kể cả khi đã duyệt mà chưa chi, và thay bằng **một** yêu cầu mới đúng số còn nợ khách. Ở **Nhật ký tiền → Hoàn tiền**, yêu cầu mới vẫn ghi anh/chị gửi, số khác số Trả sớm, giờ gửi là lúc Desk tự đóng, không ghi lý do. Đó là yêu cầu thay thế, không phải yêu cầu lạ. Ở v1.0.3, yêu cầu thay thế **không mang nơi nhận** của yêu cầu cũ: kiểm **Cách hoàn** của dòng mới, trống (—) thì **Nhập nơi nhận hoàn** lại (mục 12.2), nhất là khoản hoàn tiền mặt. **Áp dụng từ v1.0.4:** yêu cầu thay thế **giữ nơi nhận** của yêu cầu cũ nếu các yêu cầu cũ chỉ có một nơi nhận, do một người nhập (yêu cầu cũ không có nơi nhận thì không tính); vẫn kiểm **Cách hoàn** trước khi duyệt. Yêu cầu cũ có 2 nơi nhận khác nhau, hoặc do 2 người khác nhau nhập: dòng mới trống (—), **Nhập nơi nhận hoàn** lại. Yêu cầu thay thế tạo **trước** ngày v1.0.4 lên vẫn trống. Yêu cầu cũ đã duyệt thì yêu cầu mới vẫn **Chờ duyệt** (duyệt không mang sang). Nhật ký thao tác tiền có thêm dòng **Chép nơi nhận hoàn sang yêu cầu thay thế**: Desk tự làm, bình thường. **Cách hoàn** mang sang là **Tiền mặt** mà khách đã về, hoặc khách báo đổi tài khoản: liên hệ khách 1–1, đổi nơi nhận ở dòng mới theo mục 12.2, ghi sổ giao ca để chủ đầu tư không duyệt theo nơi nhận cũ. Nhật ký thao tác tiền có thể ghi lý do bằng mã `overpayment` (lỗi chữ, sửa ở v1.0.4).
+- Yêu cầu Trả sớm có thể bị Desk tự đóng ("Yêu cầu không còn cần duyệt nên đã tự đóng."), kể cả khi đã duyệt mà chưa chi, và thay bằng **một** yêu cầu mới đúng số còn nợ khách. Ở **Nhật ký tiền → Hoàn tiền**, yêu cầu mới vẫn ghi anh/chị gửi, số khác số Trả sớm, giờ gửi là lúc Desk tự đóng, lý do ghi **Hoàn tiền khách trả thừa**. Đó là yêu cầu thay thế, không phải yêu cầu lạ. Ở v1.0.3, yêu cầu thay thế **không mang nơi nhận** của yêu cầu cũ: kiểm **Cách hoàn** của dòng mới, trống (—) thì **Nhập nơi nhận hoàn** lại (mục 12.2), nhất là khoản hoàn tiền mặt. **Áp dụng từ v1.0.4:** yêu cầu thay thế **giữ nơi nhận** của yêu cầu cũ nếu các yêu cầu cũ chỉ có một nơi nhận, do một người nhập (yêu cầu cũ không có nơi nhận thì không tính); vẫn kiểm **Cách hoàn** trước khi duyệt. Yêu cầu cũ có 2 nơi nhận khác nhau, hoặc do 2 người khác nhau nhập: dòng mới trống (—), **Nhập nơi nhận hoàn** lại. Yêu cầu thay thế tạo **trước** ngày v1.0.4 lên vẫn trống. Yêu cầu cũ đã duyệt thì yêu cầu mới vẫn **Chờ duyệt** (duyệt không mang sang). Nhật ký thao tác tiền có thêm dòng **Chép nơi nhận hoàn sang yêu cầu thay thế**: Desk tự làm, bình thường. **Cách hoàn** mang sang là **Tiền mặt** mà khách đã về, hoặc khách báo đổi tài khoản: liên hệ khách 1–1, đổi nơi nhận ở dòng mới theo mục 12.2, ghi sổ giao ca để chủ đầu tư không duyệt theo nơi nhận cũ.
 - Desk ghi "Khách chưa trả thừa nên không có khoản hoàn…": phần hoàn chỉ làm giảm số khách đang nợ, không trả ra bằng tiền.
 - **Áp dụng từ v1.0.4** (khi chủ đầu tư báo v1.0.4 đã lên): ở **Trả phòng**, bước **Bill & thu tiền** và màn kết quả, dưới **Còn phải thu**, Desk hiện "Đang chờ hoàn cho khách {số tiền} (yêu cầu từ Trả sớm)." Đó là số OTTIMO còn hoàn khách từ yêu cầu Trả sớm chưa chi xong. Dòng này chỉ để báo, không chặn **Hoàn tất**. **Giới hạn đã biết của v1.0.4:** lễ tân và lễ tân trưởng chỉ thấy yêu cầu hoàn chờ duyệt do **chính mình** tạo. Yêu cầu do người khác tạo (ví dụ ca trước bấm **Trả sớm**) mà còn chờ duyệt thì **không hiện**, cả ở dòng này lẫn ở **Nhật ký tiền → Hoàn tiền**. Yêu cầu đã được quản lý duyệt thì vẫn thấy như thường. Khách đã Trả sớm mà không thấy dòng, hoặc không chắc: **hỏi quản lý (hoặc chủ đầu tư) trước khi báo khách** số tiền hoàn. Không báo khách "không có khoản hoàn". v1.0.5 (chưa có ngày): trang **Trả phòng** và folio hiện **tổng số đang chờ hoàn** của đơn, kể cả yêu cầu do người khác tạo (chỉ số tiền). Tab **Hoàn tiền** giữ phạm vi như hiện nay.
 
 Ví dụ (từ ngày chủ đầu tư chuyển giá): đơn căn 202 từ 9/11 đến 16/11, 7 × 800.000 = 5.600.000 đ. Ngày 12/11 khách báo sẽ rời 14/11 (báo trước 2 ngày). Hai đêm bỏ (14/11, 15/11) 2 × 800.000 = 1.600.000 đ → hoàn **800.000 đ** (50 %), phí trả phòng sớm **800.000 đ**. Không còn giảm theo số đêm, nên không có mức giảm nào phải tính lại.
-
-> **Lỗi nhỏ đã biết (đang sửa):** ở bước **Xem trước**, dưới **Sẽ xin hoàn cho khách** Desk ghi "Trả phòng sau đó không tạo thêm yêu cầu." Câu này thiếu ngoại lệ ở trên. Làm theo tệp này.
 
 #### 11.5.3 Nhánh HĐ thuê tháng (đơn dài hạn nhập tay)
 
@@ -1419,6 +1417,15 @@ Khách báo hỏng: tạo phiếu ở **Vận hành → Bảo trì** → tab **P
 
 [ẢNH: C4-05-Phiếu sửa mới và khóa căn trên Desk]
 
+### 13.5 Khi anh/chị là người thứ hai ở phòng "OTTIMO – Báo động"
+
+Chỉ áp dụng khi chủ đầu tư đã thêm anh/chị vào phòng này (sổ vận hành mục 7.2). Tin trong phòng chỉ có tên mục kiểm và số đếm, không có dữ liệu khách.
+
+1. Nhận tin **FAIL**: mở `desk.ottimo.vn` bằng dấu trang, trên điện thoại dùng **4G** (không dùng Wi-Fi quầy).
+2. **Không vào được Desk**: gọi chủ đầu tư ngay. Người trực làm theo mục 15 (danh sách giấy, sổ giấy).
+3. **Vào được**: làm việc bình thường. Nhắn chủ đầu tư trong ngày, kèm giờ nhận tin và tên mục trong tin.
+4. Không tự sửa máy chủ, không đăng nhập máy chủ. Không thêm ứng dụng hay webhook nào vào phòng. Tin **OK** đến sau tin **FAIL**: không cần làm gì.
+
 ---
 
 ## 14. Việc riêng của lễ tân trưởng
@@ -1540,14 +1547,14 @@ Không ai tự duyệt yêu cầu của chính mình, trừ khoản nằm trong 
 - Không nhận khách vào căn `VD`, `CL` mà không qua xác nhận của lễ tân trưởng. Không bao giờ nhận khách vào căn đang có khách (`OC`, `OD`), căn còn đơn khác đang ở, hoặc căn `OOO`.
 - Không bán căn của đơn đã trả đủ/OTA đã thu trong đêm đánh dấu không đến, trước 06:00.
 - Không thu tiền ngoài Desk.
-- Không tạo, không gửi link check-in online cho khách thật (tới khi chủ đầu tư báo mở lại).
+- Không gửi link check-in online vào nhóm chat, không gửi kèm mã cửa hay số căn, không chụp màn hình hộp link, không gửi tới số hay tài khoản không ghi trên đơn, kể cả người xưng là khách (mục 17.3).
 - Không chép tên, SĐT, lời nhắn của khách từ phòng Google Chat sang Zalo hay nơi khác. Không mở Google Chat trên máy quầy. Không mời ai vào phòng Chat (mục 13.1a).
 
 ---
 
 ## 17. Tạm thời tới v1.0.3 và các bản sau
 
-Các việc dưới đây làm theo cách tạm từ **02/11** tới khi **chủ đầu tư báo** bản có sửa đã lên. Giữ chỗ quá hạn (17.1) và check-in online (17.3) sửa ở **v1.0.3** (dự kiến 07/11); lý do hủy "Khác" (17.2) sửa ở v1.0.3 hoặc v1.0.4. Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này. Khi chủ đầu tư báo, bỏ cách tạm, làm theo Desk mới. Riêng **mục 17.5** là giới hạn của bản v1.0.2, giữ tới v1.0.3.
+Các việc dưới đây làm theo cách tạm từ **02/11** tới khi **chủ đầu tư báo** bản có sửa đã lên. Giữ chỗ quá hạn (17.1) sửa ở **v1.0.3** (dự kiến 07/11); lý do hủy "Khác" (17.2) sửa ở v1.0.3 hoặc v1.0.4. Check-in online đã mở lại từ 06/11/2026 (17.3). Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này. Khi chủ đầu tư báo, bỏ cách tạm, làm theo Desk mới. Riêng **mục 17.5** là giới hạn của bản v1.0.2, giữ tới v1.0.3.
 
 ### 17.1 Rà giữ chỗ 3 mốc mỗi ngày
 
@@ -1624,14 +1631,30 @@ Khi OTTIMO có thêm lễ tân: rà ở đầu mỗi ca, và việc quyết đơ
 
 [ẢNH: G2-07-Hộp Hủy giữ chỗ, danh sách Lý do hủy]
 
-### 17.3 Check-in online tạm dừng
+### 17.3 Check-in online (mở lại từ 06/11/2026)
 
-- **Không tạo, không gửi link check-in online cho khách thật**, kể cả đơn chuyển đổi ngày D. Mọi khách làm giấy tờ tại quầy: cho xem tờ **Your ID details** trước khi nhận giấy tờ (mục 7.2), rồi hỏi đồng ý lưu ảnh ở Khối 1 (mục 8.2).
-- Khách muốn gửi yêu cầu trong lúc ở: nhắn Zalo hoặc gọi lễ tân.
-- Đơn **giữ chỗ** cũng hiện nút **Tạo link check-in online**: không bấm (Desk luôn từ chối với đơn giữ chỗ).
-- **Lỡ gửi link:** mở đơn → **Thu hồi link** ngay. Ghi **mã đơn** vào sổ giao ca (không ghi tên khách), báo chủ đầu tư trong ngày. Khách tới quầy thì cho xem tờ **Your ID details** như mọi khách. Không xóa ảnh khách đã gửi (cần cho khai báo lưu trú).
-- Đội kiểm mỗi sáng số link mới tạo trên Desk thật; khác 0 thì đội báo chủ đầu tư mã đơn để đối chiếu với sổ giao ca.
-- Chỉ gửi link lại khi chủ đầu tư báo "mở lại check-in online". Trên Desk tập vẫn tập các bước với dữ liệu giả.
+Từ 06/11/2026 (v1.0.4) lễ tân gửi lại link check-in online cho khách thật. Trang khách có thông báo xử lý dữ liệu bản 2 bằng tiếng Việt, Anh, Nga, cùng nội dung tờ **Your ID details** v2 ở quầy.
+
+- Chỉ đơn **đã xác nhận**. Đơn **giữ chỗ** không có mục **Link check-in online**: xác nhận cọc trước.
+- Sale, CTV không cấp, không gửi link. Sale hoặc CTV nhắn mã đơn thì lễ tân gửi link cho khách.
+- Khách không làm check-in online: làm giấy tờ tại quầy như cũ. Cho xem tờ **Your ID details** trước khi nhận giấy tờ (mục 7.2), rồi hỏi đồng ý lưu ảnh ở Khối 1 (mục 8.2).
+
+**Các bước:**
+1. Mở đơn **đã xác nhận** → mục **Link check-in online** → **Tạo link check-in online**. Gửi qua Zalo thì làm trên Desk ở điện thoại cơ sở, vì máy quầy không mở Zalo (mục 4.1).
+2. Hộp **Link check-in online · đơn …** hiện link, mã QR của link và hạn link. Bấm **Sao chép link**. **Link chỉ hiện một lần**: đóng hộp là không xem lại được; cần thì **Tạo link mới** (link cũ ngừng hoạt động). **Không chụp màn hình hộp này** (mã QR là link).
+3. Gửi **riêng 1–1** tới số điện thoại (Zalo), email hoặc hội thoại OTA **ghi trên đơn**, từ tài khoản OTTIMO (mục 4.1) hoặc email của OTTIMO. Không gửi vào nhóm chat. Không kèm mã cửa hay số căn. Người nhắn từ số hoặc tài khoản khác, dù xưng là khách: không gửi; gửi tới liên hệ trên đơn, hoặc mời làm thủ tục tại quầy. Đơn CTV: gửi khách, không gửi CTV.
+4. Khách gửi xong: **Hôm nay** ghi **Đã làm thủ tục trước**. Lúc khách đến, chỉ đối chiếu bản gốc.
+5. **Gửi nhầm người** (tới số, email hay tài khoản không phải của khách trên đơn):
+   - **Thu hồi link** ngay (Desk hỏi lại; người mở link sẽ thấy "Liên kết đã hết hạn"). Rồi **Tạo link mới**, gửi đúng khách.
+   - Ghi sổ giao ca: mã đơn, giờ gửi nhầm, giờ thu hồi, kênh đã gửi. Không ghi tên khách. Không ghi tên hay số của người nhận nhầm.
+   - Báo chủ đầu tư **trong ngày**.
+   - Trước giờ thu hồi, đơn đã hiện **Đã làm thủ tục trước**, giờ đến mới hoặc yêu cầu mới mà khách thật nói mình chưa gửi: không dùng giấy tờ đó để khai báo; khách đến thì đối chiếu bản gốc như mọi khách; ảnh không phải của người trên đơn thì không **Gắn người**, quản lý **Xóa ảnh** (mục 8.3); báo chủ đầu tư **ngay trong ca**.
+   - Vì sao: người nhận nhầm thấy tên gọi của khách, mã đơn, ngày ở, căn, giờ đến, và ghi được vào đơn tới lúc thu hồi. Chủ đầu tư cùng đội bảo mật quyết có phải báo cơ quan chức năng hay không.
+   - Không báo khách hay người nhận nhầm, trừ khi đội bảo mật đề nghị.
+
+- Khách chọn **Bổ sung tại quầy** rồi đóng và mở lại link giữa chừng: **Gửi thủ tục** không được, trang quay về bước Giấy tờ mà không báo gì. Mời khách làm giấy tờ tại quầy khi đến.
+- **Chủ đầu tư báo "dừng check-in online"**: ngừng tạo, ngừng gửi link. Mọi khách làm giấy tờ tại quầy tới khi chủ đầu tư báo mở lại. Link đã gửi: đội báo có cần thu hồi không. Chưa có lời đội thì không tự thu hồi.
+- Trên Desk tập, tập các bước với dữ liệu giả.
 
 [ẢNH: C2-14-Link check-in online]
 
@@ -1785,7 +1808,7 @@ Bài tập:
 5. Thêm phát sinh, gia hạn 1 đêm.
 6. Trả phòng 3 bước, xem và in phiếu thanh toán.
 7. Rà giữ chỗ ở **Đơn đặt phòng** → **Đang hiệu lực** → **Giữ chỗ · chờ cọc**; nói được 3 mốc rà, việc trước hạn, và cách xử lý sau hạn cho giữ chỗ chưa cọc (hủy ngay, tạo lại 1 lần) và có cọc (hủy – hoàn, hoặc để nguyên rồi làm lại khi khách đến); nhận ra dòng "đơn đã tự hủy" và "Không thu phí" sai với đơn có cọc; chọn đúng lý do hủy (không chọn **Khác**); **Nhập nơi nhận hoàn** với **Cùng cách khách đã trả**; nói được vì sao chủ đầu tư phải duyệt và chi khoản hoàn người trực tạo, và hẹn khách thế nào khi chủ đầu tư vắng.
-8. Nói được việc phải làm khi lỡ gửi link check-in online.
+8. Gửi link check-in online cho một đơn đã xác nhận (trên Desk tập, dữ liệu giả); nói được việc phải làm khi gửi nhầm người (mục 17.3).
 9. Lễ tân trưởng thêm: duyệt một yêu cầu, kiểm phòng trên app nhân viên.
 10. Người trực hiện nay thêm (trên Desk tập): dọn và kiểm một căn rồi bấm **Làm xong** (mục 13.2a); khi Desk tập đã lên v1.0.4: bấm **Làm xong** rồi kiểm căn đó trên app (mục 14.2); hủy một việc dọn với lý do **Khách nói không cần dọn**; tạo, nhận và đóng một phiếu sửa trên Desk (tệp 04 mục 4.4); nói được việc 22:00, 23:00 sau khi đóng quầy và cách nhận phòng khách đến sau 22:00 (mục 13.3).
 11. Website 5 ngôn ngữ và giá ước tính (trên Desk tập): lọc **Yêu cầu từ website** theo **Tiếng Hàn**; dịch lời nhắn bằng Google Dịch; gửi câu mẫu 1; lập báo giá, chỉ ra ô **Ngôn ngữ gửi khách** là English và câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh."; gửi câu mẫu 3; đọc dòng **Giá ước tính khách đã thấy** và nói được việc phải làm khi hộp báo giá hiện "Khác giá web khách đã thấy: … → …" (mục 13.1c, 13.1d).

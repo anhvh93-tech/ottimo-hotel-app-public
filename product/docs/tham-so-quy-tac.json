@@ -12,7 +12,7 @@
   "affects": "Yêu cầu từ trang khách, folio.",
   "related": [],
   "recommended": "100.000",
-  "recommended_reason": "INV-005 (BR-506). Khách thuê tháng dùng phí dọn theo hạng (bản sau, H3).",
+  "recommended_reason": "INV-005 (BR-506). Khách thuê tháng: phí dọn theo hạng có khóa riêng từ v1.0.5 (H3, V5-31 – xem mục Sắp có ở v1.0.5 trong tham-so-quy-tac.md); tới khi anh/chị nhập khóa đó, lễ tân thêm dòng phí phần chênh.",
   "caution": "Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner",
@@ -154,7 +154,7 @@
  },
  {
   "key": "booking_window_days",
-  "name": null,
+  "name": "Nhận đặt trước tối đa",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Nhận đặt trước tối đa bao nhiêu ngày tính từ hôm nay.",
@@ -232,15 +232,15 @@
  },
  {
   "key": "c3_stepup_minutes",
-  "name": "Thời gian xem giấy tờ sau khi nhập lại mật khẩu",
+  "name": "Thời gian xem giấy tờ, số tài khoản sau khi nhập lại mật khẩu",
   "group": "Bảo mật",
   "topic": "Bảo mật",
-  "meaning": "Sau khi nhập lại mật khẩu để xem giấy tờ khách, được xem trong bao nhiêu phút.",
+  "meaning": "Sau khi nhập lại mật khẩu để xem giấy tờ khách hoặc xem đủ số tài khoản nhận hoàn tiền, được xem tiếp trong bao nhiêu phút. Mỗi lần xem trong khoảng này tính lại từ đầu.",
   "unit": "Phút",
   "bounds": "Từ 1 đến 15 (biên cứng của đội bảo mật)",
   "default": "15",
   "example": "15.",
-  "affects": "Xem ảnh giấy tờ.",
+  "affects": "Xem ảnh giấy tờ, xem đủ số tài khoản nhận hoàn tiền.",
   "related": [],
   "recommended": "15",
   "recommended_reason": "SR-C3-09.",
@@ -1077,7 +1077,7 @@
  },
  {
   "key": "early_checkin_tiers",
-  "name": null,
+  "name": "Bậc phụ thu nhận phòng sớm",
   "group": "Khác",
   "topic": "Nhận/trả phòng và lưu trú",
   "meaning": "Bậc phụ thu nhận phòng sớm theo giờ (tính % giá một đêm).",
@@ -1379,7 +1379,7 @@
    "foc_alert_pct_of_room_revenue"
   ],
   "recommended": "10",
-  "recommended_reason": "INV-007.",
+  "recommended_reason": "INV-007. Từ v1.0.5 (BR-438, V5-16) ngưỡng này cũng áp cho số lần một lễ tân tự sửa giảm dòng mình ghi trong tháng.",
   "caution": "Áp từ ngày hiệu lực cho việc phát sinh từ ngày đó; không đổi số tiền đã ghi. Chỉ chủ đầu tư. Ai sửa: Chủ đầu tư. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner"
@@ -1871,18 +1871,18 @@
   "name": "Nhắc trước khi hết hạn giữ chỗ",
   "group": "Giữ chỗ, cọc, hủy",
   "topic": "Giữ chỗ, cọc, hủy",
-  "meaning": "Nhắc lễ tân trước khi giữ chỗ hết hạn bao nhiêu giờ.",
+  "meaning": "Báo trước khi giữ chỗ hết hạn bao nhiêu giờ: tin cho người tạo và người chốt giữ chỗ, và dòng Giữ chỗ sắp hết hạn ở Cần chú ý. 0 = không nhắc: không tin, không dòng sắp hết hạn. Hết hạn vẫn như cũ: chưa cọc thì Desk tự hủy, có cọc một phần thì báo đỏ (BR-303).",
   "unit": "Giờ",
   "bounds": "Từ 0 đến 24",
   "default": "Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).",
-  "example": "2: giữ chỗ hết 18:00 → nhắc lúc 16:00.",
+  "example": "2: giữ chỗ hết 18:00 → nhắc lúc 16:00. 0: không nhắc; 18:00 chưa cọc → Desk tự hủy.",
   "affects": "Mục Cần chú ý, thông báo.",
   "related": [
    "hold_extension_max_hours"
   ],
   "recommended": "2",
   "recommended_reason": "INV-006 (BR-303).",
-  "caution": "Áp từ ngày hiệu lực cho việc phát sinh từ ngày đó; không đổi số tiền đã ghi. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
+  "caution": "Không nên đặt 0: dòng Giữ chỗ sắp hết hạn là cách duy nhất quầy thấy trước giữ chỗ do sale, CTV tạo (sale, CTV chưa nhận được tin trên Desk). Áp từ ngày hiệu lực cho việc phát sinh từ ngày đó; không đổi số tiền đã ghi. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner",
    "manager"
@@ -2177,7 +2177,7 @@
  },
  {
   "key": "late_checkout_tiers",
-  "name": null,
+  "name": "Bậc phụ thu trả phòng muộn",
   "group": "Khác",
   "topic": "Nhận/trả phòng và lưu trú",
   "meaning": "Bậc phụ thu trả phòng muộn theo giờ (tính % giá một đêm).",
@@ -2410,7 +2410,7 @@
  },
  {
   "key": "long_stay_compare_from_nights",
-  "name": null,
+  "name": "Hiện so sánh thuê 1 tháng từ",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Từ bao nhiêu đêm Desk hiện thêm khối \"So sánh: thuê 1 tháng\" trong báo giá.",
@@ -2489,7 +2489,7 @@
  },
  {
   "key": "long_stay_required_from_nights",
-  "name": null,
+  "name": "Bắt buộc thuê dài hạn từ",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Từ bao nhiêu đêm thì bắt buộc làm thuê tháng (không bán giá đêm nữa).",
@@ -2516,7 +2516,7 @@
  },
  {
   "key": "los_discount",
-  "name": null,
+  "name": "Giảm giá theo số đêm ở",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Giảm giá theo số đêm ở (ở càng lâu giảm càng nhiều).",
@@ -2773,17 +2773,16 @@
  },
  {
   "key": "min_stay",
-  "name": null,
+  "name": "Ở tối thiểu",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Ở tối thiểu: đến vào những ngày này thì phải ở ít nhất bao nhiêu đêm.",
-  "unit": "Danh sách quy tắc {nights, channels, arrivalWeekdays hoặc arrivalOnSpecialDates}",
+  "unit": "Danh sách quy tắc {nights, channels, arrivalWeekdays (mã thứ như \"FRI\", \"SAT\") hoặc arrivalOnSpecialDates}",
   "bounds": "Không có giới hạn số. Desk kiểm đúng dạng khi lưu.",
   "default": "Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).",
   "example": "Đến thứ Sáu, quy tắc 2 đêm → báo giá 1 đêm bị chặn (\"chưa đủ số đêm tối thiểu\"); 2 đêm thứ Sáu + thứ Bảy Studio = 1.600.000.",
   "affects": "Báo giá Desk, form web, đơn mới.",
   "related": [
-   "weekend_nights",
    "special_dates",
    "min_stay_orphan_night_exception"
   ],
@@ -2801,7 +2800,7 @@
  },
  {
   "key": "min_stay_orphan_night_exception",
-  "name": null,
+  "name": "Cho bán đêm lẻ kẹp giữa hai đơn",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Cho phép bán 1 đêm lẻ kẹp giữa hai đơn dù ngày đó có quy tắc ở tối thiểu.",
@@ -2854,24 +2853,26 @@
   "name": null,
   "group": "Khác",
   "topic": "Thuê tháng",
-  "meaning": "Cách cũ: giá đêm = giá tháng ÷ số này. Đã bỏ.",
-  "unit": "Số",
+  "meaning": "Còn tác dụng ở đường gọi API, không ở thao tác trên Desk. Khi một lệnh tạo căn hoặc đổi giá căn không gửi giá đêm, máy chủ tự tính giá đêm = giá tháng ÷ số này, làm tròn theo `rounding.night_rate`, và không cảnh báo (BUG-R4-057). Ba đường đi qua khóa này: (1) lệnh đổi giá căn qua API chỉ gửi giá tháng; (2) lệnh tạo căn mới qua API (bản hiện tại chưa nhận giá đêm, luôn tính theo khóa này); (3) công cụ nhập danh mục căn. Trên Desk, màn Danh mục căn luôn gửi đủ giá tháng và giá đêm, nên anh/chị sửa giá trên Desk không đi đường này.",
+  "unit": "Số (chia giá tháng)",
   "bounds": "Từ 1 đến 31",
   "default": "Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).",
-  "example": "12: 9.000.000 ÷ 12 = 750.000 (cách cũ).",
-  "affects": "Chỉ còn đường nhập danh mục căn cũ.",
-  "related": [],
-  "recommended": "Không dùng.",
-  "recommended_reason": "Đã bỏ từ v1.0.1 (FB-INV-005): giá đêm và giá tháng nhập riêng.",
-  "caution": "Tham số đã bỏ, không còn tác dụng. Không sửa. Đội sẽ ẩn khỏi màn hình. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
+  "example": "12: căn 102 giá tháng 9.000.000, một lệnh API đổi giá chỉ gửi giá tháng → máy chủ ghi giá đêm 9.000.000 ÷ 12 = 750.000, trong khi bảng giá 01/11 là 800.000. Báo giá Desk và giá web 2 đêm thành 1.500.000 thay vì 1.600.000, không có thông báo nào.",
+  "affects": "Giá đêm niêm yết của căn khi căn được tạo hoặc đổi giá ngoài Desk mà thiếu giá đêm → báo giá Desk, giá ước tính trên web, đơn OTA để trống giá, phiếu thanh toán.",
+  "related": [
+   "rounding.night_rate"
+  ],
+  "recommended": "Giữ 12, không sửa.",
+  "recommended_reason": "Đổi số này không làm giá đúng hơn; cách đúng là mọi lệnh đổi giá luôn gửi đủ hai giá. v1.0.5 (V5-1A) gỡ đường này: thiếu giá đêm thì máy chủ báo lỗi (422), tạo căn và công cụ nhập danh mục nhận giá đêm. Từ bản đó khóa không còn được đọc và đội ẩn khỏi màn hình.",
+  "caution": "Không sửa. Sửa số này đổi giá đêm của mọi căn tạo mới hoặc đổi giá qua API mà thiếu giá đêm. Tới khi v1.0.5 lên: (a) script của đội gọi API đổi giá luôn gửi đủ hai giá và đọc lại giá sau khi ghi; (b) căn mới tạo bằng API hoặc công cụ nhập danh mục thì ngay sau đó anh/chị mở Danh mục căn, kiểm và nhập lại giá đêm theo bảng giá. Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner",
    "manager"
   ],
   "security": false,
-  "price_related": false,
+  "price_related": true,
   "br_ref": "BR-101",
-  "in_use": false
+  "in_use": true
  },
  {
   "key": "no_deposit_hold_until",
@@ -3055,7 +3056,7 @@
  },
  {
   "key": "ota_base_rate",
-  "name": null,
+  "name": "Giá gốc riêng cho đơn OTA",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Giá gốc riêng cho đơn OTA theo nhóm căn. Có dòng này thì nó thắng giá đêm niêm yết của căn.",
@@ -3233,7 +3234,7 @@
  },
  {
   "key": "prices_include_vat",
-  "name": null,
+  "name": "Giá niêm yết đã gồm VAT",
   "group": "Khác",
   "topic": "Tiền, thuế, hóa đơn",
   "meaning": "Giá niêm yết đã gồm thuế VAT hay chưa.",
@@ -3408,7 +3409,7 @@
  },
  {
   "key": "public_show_prices",
-  "name": null,
+  "name": "Hiện giá ước tính trên web",
   "group": "Khác",
   "topic": "Website",
   "meaning": "Công tắc hiện giá ước tính trên web ottimo.vn.",
@@ -3461,7 +3462,7 @@
  },
  {
   "key": "rate_ceiling_pct",
-  "name": null,
+  "name": "Giá trần (% giá gốc)",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Giá trần: giá một đêm không được cao hơn bao nhiêu % so với giá gốc.",
@@ -3488,7 +3489,7 @@
  },
  {
   "key": "rate_floor_pct",
-  "name": null,
+  "name": "Giá sàn (% giá gốc)",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Giá sàn: giá một đêm không được thấp hơn bao nhiêu % so với giá gốc của căn.",
@@ -3915,7 +3916,7 @@
  },
  {
   "key": "return_guest_code",
-  "name": null,
+  "name": "Mã khách quay lại",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Mã giảm giá cho khách quay lại.",
@@ -3942,7 +3943,7 @@
  },
  {
   "key": "return_guest_pct",
-  "name": null,
+  "name": "Giảm cho khách quay lại",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Phần trăm giảm khi khách dùng mã khách quay lại.",
@@ -4017,7 +4018,7 @@
  },
  {
   "key": "rounding.deposit",
-  "name": null,
+  "name": "Làm tròn tiền cọc",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Cọc ngắn ngày được làm tròn tới bội số nào.",
@@ -4043,7 +4044,7 @@
  },
  {
   "key": "rounding.fee",
-  "name": null,
+  "name": "Làm tròn phí, phụ thu",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Phí, phụ thu (nhận sớm, trả muộn, dịch vụ) được làm tròn tới bội số nào.",
@@ -4070,7 +4071,7 @@
  },
  {
   "key": "rounding.monthly_rent",
-  "name": null,
+  "name": "Làm tròn tiền thuê tháng",
   "group": "Khác",
   "topic": "Thuê tháng",
   "meaning": "Tiền thuê tháng sau giảm được làm tròn tới bội số nào.",
@@ -4097,10 +4098,10 @@
  },
  {
   "key": "rounding.night_rate",
-  "name": null,
+  "name": "Làm tròn giá đêm",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
-  "meaning": "Giá đêm, phụ thu tính ra được làm tròn tới bội số nào.",
+  "meaning": "Giá đêm tính ra (giá đêm niêm yết từ giá tháng, giá sau tăng cuối tuần hoặc ngày đặc biệt, sau giảm theo số đêm) và giá một ngày khi tính lẻ ngày thuê tháng được làm tròn tới bội số nào. Phụ thu, phí làm tròn theo `rounding.fee`.",
   "unit": "VND (1, 100, 1.000, 10.000, 100.000)",
   "bounds": "Chỉ nhận: 1, 100, 1.000, 10.000, 100.000",
   "default": "Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).",
@@ -4123,7 +4124,7 @@
  },
  {
   "key": "rounding.ota_rate",
-  "name": null,
+  "name": "Làm tròn giá đêm đơn OTA",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Giá đêm tính cho đơn OTA (khi lễ tân để trống giá) được làm tròn tới bội số nào.",
@@ -4215,7 +4216,7 @@
    "commission_pay_by_day"
   ],
   "recommended": "Theo bảng nội bộ của chủ đầu tư.",
-  "recommended_reason": "INV 01/11 (BR-903). Không ghi số trong kho mã.",
+  "recommended_reason": "INV 01/11 (BR-903). Không ghi số trong kho mã. Từ v1.0.5 (H2, V5-30): mã không còn số mặc định; thiếu tỷ lệ thì Desk báo \"chưa có tỷ lệ hoa hồng\", không tính bằng 0; cơ sở tính theo bảng nội bộ (xem mục Sắp có ở v1.0.5 trong tham-so-quy-tac.md).",
   "caution": "Đơn đã tạo giữ tỷ lệ lúc tạo (BR-006). Chỉ chủ đầu tư. Không gửi con số cho đội. Đơn đã tạo giữ tỷ lệ lúc tạo (BR-006). Ai sửa: Chủ đầu tư. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner"
@@ -4254,7 +4255,7 @@
  },
  {
   "key": "short_stay_max_nights",
-  "name": null,
+  "name": "Đơn ngắn ngày dài nhất",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Đơn ngắn ngày dài nhất bao nhiêu đêm.",
@@ -4305,7 +4306,7 @@
  },
  {
   "key": "special_dates",
-  "name": null,
+  "name": "Danh sách ngày đặc biệt",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Danh sách ngày đặc biệt (lễ, Tết, Noel). Mỗi dòng có tên, ngày bắt đầu, ngày kết thúc (đêm cuối là ngày trước ngày kết thúc).",
@@ -4333,7 +4334,7 @@
  },
  {
   "key": "special_uplift_channels",
-  "name": null,
+  "name": "Kênh áp tăng giá ngày đặc biệt",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Mức tăng ngày đặc biệt áp cho kênh nào.",
@@ -4359,7 +4360,7 @@
  },
  {
   "key": "special_uplift_pct",
-  "name": null,
+  "name": "Tăng giá ngày đặc biệt",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Phần trăm cộng thêm vào giá các đêm thuộc `special_dates`.",
@@ -4388,7 +4389,7 @@
  },
  {
   "key": "stackable",
-  "name": null,
+  "name": "Cộng dồn mã khách quay lại với giảm theo số đêm",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Mã khách quay lại có được cộng dồn với giảm theo số đêm không.",
@@ -4745,7 +4746,7 @@
  },
  {
   "key": "web_estimate.open_until",
-  "name": null,
+  "name": "Web hiện giá cho đêm trước ngày",
   "group": "Khác",
   "topic": "Website",
   "meaning": "Web chỉ hiện giá cho đêm trước ngày này. Đêm từ ngày này trở đi web ghi \"giá theo yêu cầu\".",
@@ -4955,22 +4956,22 @@
  },
  {
   "key": "weekend_nights",
-  "name": null,
+  "name": "Đêm tính là cuối tuần",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Những đêm nào tính là cuối tuần.",
-  "unit": "Danh sách thứ trong tuần (FRI = thứ Sáu, SAT = thứ Bảy…)",
-  "bounds": "Không có giới hạn số. Desk kiểm đúng dạng khi lưu.",
+  "unit": "Danh sách mã thứ trong tuần, viết hoa, trong ngoặc kép: \"MON\", \"TUE\", \"WED\", \"THU\", \"FRI\", \"SAT\", \"SUN\" (\"FRI\" = đêm thứ Sáu). Không dùng số 1–7.",
+  "bounds": "Mỗi thứ một lần, không để trống. Desk v1.0.4 kiểm sai dạng (BUG-R5-001): xem Lưu ý khi sửa.",
   "default": "Không có trong danh mục (đội nạp giá trị đầu theo BR mục 13 lúc khởi tạo).",
-  "example": "[\"FRI\",\"SAT\"]: đêm thứ Sáu và đêm thứ Bảy là cuối tuần.",
-  "affects": "Mức tăng cuối tuần và ở tối thiểu 2 đêm khi đến thứ Sáu, thứ Bảy (qua `min_stay`).",
+  "example": "[\"FRI\",\"SAT\"]: đêm thứ Sáu và đêm thứ Bảy là cuối tuần. Sai: [5,6] – Desk v1.0.4 cho lưu, nhưng bộ tính giá không nhận ra đêm nào, mức tăng cuối tuần mất mà không báo.",
+  "affects": "Chỉ mức tăng cuối tuần (`weekend_uplift_pct`): báo giá Desk, giá ước tính trên web, đơn OTA để trống giá. Không ảnh hưởng ở tối thiểu (`min_stay` có danh sách ngày đến riêng).",
   "related": [
    "weekend_uplift_pct",
-   "min_stay"
+   "weekend_uplift_channels"
   ],
   "recommended": "[\"FRI\",\"SAT\"]",
-  "recommended_reason": "Giữ dù mức tăng = 0 %, vì quy tắc ở tối thiểu 2 đêm vẫn dùng.",
-  "caution": "Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
+  "recommended_reason": "Giá trị đang chạy trên production. Mức tăng đang 0 % (ESC-045 câu 1) nên hiện chưa đổi số tiền nào; giữ để khi bật mức tăng thì đúng đêm.",
+  "caution": "Tới khi đội sửa lỗi BUG-R5-001: không sửa khóa này. Desk v1.0.4 từ chối dạng đúng [\"FRI\",\"SAT\"] và nhận dạng số 1–7, là dạng làm hỏng phép tính. Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Ai sửa: Chủ đầu tư, Quản lý. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [
    "owner",
    "manager"
@@ -4982,7 +4983,7 @@
  },
  {
   "key": "weekend_uplift_channels",
-  "name": null,
+  "name": "Kênh áp tăng giá cuối tuần",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Mức tăng cuối tuần áp cho kênh nào.",
@@ -5008,7 +5009,7 @@
  },
  {
   "key": "weekend_uplift_pct",
-  "name": null,
+  "name": "Tăng giá đêm cuối tuần",
   "group": "Khác",
   "topic": "Giá ngắn ngày",
   "meaning": "Phần trăm cộng thêm vào giá đêm cuối tuần (các đêm ở `weekend_nights`).",
