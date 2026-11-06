@@ -109,7 +109,7 @@ Ra 1.840.000 ở ca đầu → mức tăng cuối tuần chưa về 0. Có dòng
 | [`return_guest_pct`](#k-return-guest-pct) | (chưa có tên tiếng Việt) | 5 |
 | [`stackable`](#k-stackable) | (chưa có tên tiếng Việt) | Tắt (false) |
 | [`prices_include_vat`](#k-prices-include-vat) | (chưa có tên tiếng Việt) | Bật (true) |
-| [`public_show_prices`](#k-public-show-prices) | (chưa có tên tiếng Việt) | Bật sau khi đội báo giá web khớp giá Desk (QA LP-v2 F2). Tới lúc đó để tắt. |
+| [`public_show_prices`](#k-public-show-prices) | (chưa có tên tiếng Việt) | Bật (INV quyết, đã bật trên production 06/11/2026 sau khi QA LP-v2 F2 báo giá web khớp Desk 4/4 mẫu). Cần tắt gấp (giá sai, bị cào): OWN đặt false ngay – web hết giá, form vẫn chạy. |
 | [`web_estimate.open_until`](#k-web-estimate-open-until) | (chưa có tên tiếng Việt) | 2027-01-01, gia hạn khi chủ đầu tư chốt giá cho năm 2027. |
 | [`early_checkin_tiers`](#k-early-checkin-tiers) | (chưa có tên tiếng Việt) | [{"from":"10:00","to":"11:00","pct":30},{"from":"06:00","to":"10:00","pct":50}] |
 | [`late_checkout_tiers`](#k-late-checkout-tiers) | (chưa có tên tiếng Việt) | [{"after":"12:00","until":"15:00","pct":30},{"after":"15:00","until":"18:00","pct":50}] |
@@ -887,7 +887,7 @@ Chủ đề trong nhóm: Giá ngắn ngày · Website · Thuê tháng · Nhận/
 - **Giới hạn:** Không có giới hạn số. Desk kiểm đúng dạng khi lưu. · **Mặc định:** tắt
 - **Ví dụ:** Bật: khách chọn hạng, ngày, số khách thì thấy "khoảng 1.600.000, đã gồm thuế". Tắt: chỉ còn form gửi yêu cầu.
 - **Ảnh hưởng:** Web khách (form "Plan your stay"). **Đi kèm:** `web_estimate.open_until`, `short_stay_max_nights`, `public_booking_requests_enabled`
-- **Đội đề xuất:** Bật sau khi đội báo giá web khớp giá Desk (QA LP-v2 F2). Tới lúc đó để tắt. – Mặc định tắt (SEC SR-PE-08).
+- **Đội đề xuất:** Bật (INV quyết, đã bật trên production 06/11/2026 sau khi QA LP-v2 F2 báo giá web khớp Desk 4/4 mẫu). Cần tắt gấp (giá sai, bị cào): OWN đặt false ngay – web hết giá, form vẫn chạy. – Mặc định tắt (SEC SR-PE-08).
 - **Lưu ý khi sửa:** Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Chỉ chủ đầu tư. Tắt (false) có hiệu lực ngay trong ngày, khoảng 2 phút sau web hết hiện giá. Bật lại theo luật thường (từ ngày sau nếu hôm nay đã lưu). Ai sửa: Chủ đầu tư. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.
 
 <a id="k-retention-web-request-declined-days"></a>

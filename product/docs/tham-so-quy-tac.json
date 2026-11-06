@@ -3422,7 +3422,7 @@
    "short_stay_max_nights",
    "public_booking_requests_enabled"
   ],
-  "recommended": "Bật sau khi đội báo giá web khớp giá Desk (QA LP-v2 F2). Tới lúc đó để tắt.",
+  "recommended": "Bật (INV quyết, đã bật trên production 06/11/2026 sau khi QA LP-v2 F2 báo giá web khớp Desk 4/4 mẫu). Cần tắt gấp (giá sai, bị cào): OWN đặt false ngay – web hết giá, form vẫn chạy.",
   "recommended_reason": "Mặc định tắt (SEC SR-PE-08).",
   "caution": "Đơn, báo giá, hợp đồng đã tạo trước ngày hiệu lực giữ số cũ (BR-006). Sau khi lưu, báo giá thử một ca trên Desk (không lưu báo giá). Chỉ chủ đầu tư. Tắt (false) có hiệu lực ngay trong ngày, khoảng 2 phút sau web hết hiện giá. Bật lại theo luật thường (từ ngày sau nếu hôm nay đã lưu). Ai sửa: Chủ đầu tư. Không cần nhập lại mật khẩu. Hiệu lực từ: để ngày Desk điền sẵn (hôm nay) hoặc chọn ngày sau. Đã lưu thì trong ngày không sửa lại được; lỡ sai thì lưu lại với Hiệu lực từ = ngày mai.",
   "edit_roles": [

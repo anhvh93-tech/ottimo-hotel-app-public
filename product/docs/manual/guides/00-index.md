@@ -21,7 +21,7 @@ Mỗi tệp **đọc độc lập được**: người đọc chỉ cần cầm 
 1. **Đăng nhập** – viết riêng cho vai đó: địa chỉ đúng, lần đầu, hằng ngày, đăng xuất, quên mật khẩu, mất điện thoại.
 2. **Việc mỗi ngày** – danh sách theo giờ.
 3. Các thao tác của vai, theo thứ tự công việc thật, kèm tình huống thường gặp và **không được làm**.
-4. **Tạm thời tới v1.0.3 và các bản sau** – các cách làm tạm cho tới khi chủ đầu tư báo bản có sửa đã lên. Phần lớn sửa ở v1.0.3 (dự kiến 07/11). Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
+4. **Tạm thời tới v1.0.3 và các bản sau** – các cách làm tạm cho tới khi chủ đầu tư báo bản có sửa đã lên. Phần lớn đã sửa ở v1.0.3 (04/11) và v1.0.4 (lên production 06/11). Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
 5. **Bảng giờ** và **Khi có sự cố – gọi ai**.
 6. Bài tập đào tạo.
 
