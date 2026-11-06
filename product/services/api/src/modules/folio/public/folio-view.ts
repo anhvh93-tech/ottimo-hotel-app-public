@@ -87,6 +87,8 @@ export function paymentDto(
     qrPurpose: p.method === 'vietqr' ? (p.qr_purpose ?? undefined) : undefined,
     amountDueNowVnd:
       p.method === 'vietqr' && p.status === 'pending' ? extra.amountDueNowVnd : undefined,
+    // 0.3.13 bổ sung 1 (V5-48, SEC S6 display): absent = a usual receipt (or a booking restored since).
+    afterClosure: p.after_closure === true ? true : undefined,
     version: p.version,
   });
 }

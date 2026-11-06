@@ -8,11 +8,19 @@
  *   audit_event_property_actor_idx; the table is partitioned by month so the date range prunes partitions.
  * - before/after were reduced to the entity allowlist when written (SR-AUD-03); actorName passes the role
  *   serializer (x-rbac-field D27).
+ * - OpenAPI 0.3.13 bổ sung 1 (V5-15, SEC ARC-03, DOM 7.1) `overdueOnly=true`: only the overdue check-outs –
+ *   `reservation.checked_out` whose `after` holds `overdue` (B18 writes it on that path only). The server pins
+ *   `category = state` and `action = reservation.checked_out` (index audit_event_property_category_idx); a
+ *   `category` sent with it still applies (another category → nothing). The role scope does not change: OWN and MGR
+ *   see every row (MGR the rows of another MGR too), FDL/FD their own (they cannot do this check-out).
  * - 0.3.13 (V5-16, FB-R4-SEC-BE-A31-01) + bổ sung 1 (1.20, BE C0313-20): `action` – exact codes, several values,
  *   at most 10, an unknown code gives an empty page (never 422); `removalsOnly` – a line voided or brought to 0;
  *   `reductionsOnly` – every reduction (`after.amountVnd < before.amountVnd`), removals included. Both pin
  *   `category = money` + `action = folio_line.adjusted` (index audit_event_property_category_idx) and leave out the
  *   room money (room, extra_person, room_change_difference). The scope stays: FD/FDL see their own rows only.
+ * - 0.3.13 bổ sung 1 `afterClosureOnly` (V5-48; SEC S6, SEC-responses 1.2): the weekly "Tiền về sau khi đơn đã đóng"
+ *   filter – the server pins the action set (AFTER_CLOSURE_ACTIONS) and keeps the rows whose `after.afterClosure` is
+ *   true, i.e. the flag written AT WRITE TIME: a booking restored afterwards (B12, 5B-2) never drops a row.
  */
 import { Controller, Get, Inject, Query, Req } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -28,6 +36,8 @@ import { addDays, atLocal, localDate, toZonedIso } from '../../../shared/time';
 export const AUDIT_MAX_RANGE_DAYS = 92;
 const DEFAULT_RANGE_DAYS = 7;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** V5-15 `overdueOnly`: the B18 audit action whose `after.overdue` marks the overdue path (checkout.service). */
+const CHECKED_OUT_ACTION = 'reservation.checked_out';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** 0.3.13 (V5-16) `action`: OpenAPI items pattern / maxLength, maxItems. */
 const ACTION_CODE = /^[a-z][a-z0-9_.]*$/;
@@ -75,6 +85,17 @@ function actionQuery(raw: unknown): string[] {
 const amountOf = (side: 'before' | 'after') =>
   `(CASE WHEN jsonb_typeof(e.${side}->'amountVnd') = 'number' THEN (e.${side}->>'amountVnd')::numeric END)`;
 
+/**
+ * 0.3.13 bổ sung 1 (V5-48, 5B-1, 5B-2; SEC S6, S8): actions whose `after.afterClosure` marks money (or a report of
+ * money) that came for a booking already `cancelled`/`no_show`. 5B-1 adds the "Không thấy tiền" closing of
+ * `deposit_after_cancel`; 5B-2 adds `reservation.restored_after_cancel`.
+ */
+export const AFTER_CLOSURE_ACTIONS: readonly string[] = [
+  'payment.recorded',
+  'deposit_notice.created',
+  'deposit_notice.updated',
+];
+
 interface Row {
   id: number;
   occurred_at: Date;
@@ -121,15 +142,23 @@ export class AuditLogController {
     @Query('to') to?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
+    @Query('overdueOnly') overdueOnly?: string,
     @Query('action') actionRaw?: string | string[],
     @Query('removalsOnly') removalsOnlyRaw?: string,
     @Query('reductionsOnly') reductionsOnlyRaw?: string,
+    @Query('afterClosureOnly') afterClosureOnlyRaw?: string,
   ) {
     const p = req.ottimoAuth?.principal;
     if (!p?.propertyId) throw problem('UNAUTHENTICATED');
     if (category !== undefined && !AUDIT_CATEGORIES.includes(category as AuditCategory)) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'category', code: 'NOT_IN_LIST' }] });
     }
+    if (overdueOnly !== undefined && overdueOnly !== 'true' && overdueOnly !== 'false') {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'overdueOnly', code: 'VALIDATION_FAILED' }],
+      });
+    }
+    const overdue = overdueOnly === 'true';
     if (actorUserId !== undefined && !UUID.test(actorUserId)) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'actorUserId', code: 'VALIDATION_FAILED' }],
@@ -138,6 +167,7 @@ export class AuditLogController {
     const actions = actionQuery(actionRaw);
     const removalsOnly = boolQuery('removalsOnly', removalsOnlyRaw);
     const reductionsOnly = boolQuery('reductionsOnly', reductionsOnlyRaw);
+    const afterClosureOnly = boolQuery('afterClosureOnly', afterClosureOnlyRaw);
     const n = parseLimit(limit, 50);
     const c = decodeCursor(cursor, 2);
     const full = p.roles.includes('owner') || p.roles.includes('manager');
@@ -186,6 +216,13 @@ export class AuditLogController {
           where.push(`e.actor_user_id = ${ph(p.userId)}`); // x-scope own (AC2)
         else if (actorUserId) where.push(`e.actor_user_id = ${ph(actorUserId)}`);
         if (category) where.push(`e.category = ${ph(category)}`);
+        if (overdue) {
+          where.push(
+            `e.category = 'state'`,
+            `e.action = ${ph(CHECKED_OUT_ACTION)}`,
+            `e.after ? 'overdue'`,
+          );
+        }
         if (actions.length) where.push(`e.action = ANY(${ph(actions)}::text[])`);
         if (removalsOnly || reductionsOnly) {
           // BE C0313-20: pinned whatever the client sent (a `category` / `action` that differs → empty page).
@@ -195,6 +232,10 @@ export class AuditLogController {
           );
           if (removalsOnly) where.push(`${amountOf('after')} = 0`);
           if (reductionsOnly) where.push(`${amountOf('after')} < ${amountOf('before')}`);
+        }
+        if (afterClosureOnly) {
+          where.push(`e.action = ANY(${ph([...AFTER_CLOSURE_ACTIONS])}::text[])`);
+          where.push(`(e.after->>'afterClosure') = 'true'`);
         }
         if (c) {
           where.push(

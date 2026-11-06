@@ -6,6 +6,7 @@
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { isCheckoutDay } from '../../../shared/business-day';
 import { type LocalDate, addDays } from '../../../shared/time';
+import { canCheckOutOverdue, isOverdue, nightsNotBilled } from '../public/overdue-checkout';
 
 export interface AllowedAction {
   event: string;
@@ -13,6 +14,8 @@ export interface AllowedAction {
   action: string;
   requiresApproval?: boolean;
   requiresTrustedDevice?: boolean;
+  /** 0.3.13 (V5-15): `check_out` of a stay past its departure – only when the caller may do it (OWN; MGR ≤ 1 night). */
+  overdue?: boolean;
 }
 
 export const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'] as const;
@@ -71,6 +74,16 @@ export function checkOutOpen(c: ActionContext): boolean {
     { today: c.today, calendarDate: c.calendarDate ?? c.today },
     c.stayDepartureDate,
   );
+}
+
+/**
+ * 0.3.13 bổ sung 1 (V5-15, BE C0313-09): the stay is past its EFFECTIVE departure (business date > `stayDepartureDate`
+ * – outside the post-midnight window by construction) and the caller may check it out on that path: OWN; MGR while
+ * `nightsNotBilled` ≤ 1; FDL/FD never (reservations/public/overdue-checkout.ts – the rule of B18 itself).
+ */
+export function checkOutOverdueOpen(roles: readonly string[], c: ActionContext): boolean {
+  if (!c.stayDepartureDate || !isOverdue(c.today, c.stayDepartureDate)) return false;
+  return canCheckOutOverdue(roles, nightsNotBilled(c.today, c.stayDepartureDate));
 }
 
 /** B16 new-departure window [max(today, arrival + 1), stayDepartureDate − 1] is not empty (same rule as the server). */
@@ -134,6 +147,8 @@ export function allowedActions(roles: readonly string[], c: ActionContext): Allo
         }
         if (checkOutOpen(c)) {
           out.push({ event: 'check_out', transition: 'B18', action: 'check-out' });
+        } else if (checkOutOverdueOpen(roles, c)) {
+          out.push({ event: 'check_out', transition: 'B18', action: 'check-out', overdue: true });
         }
       }
       if (mgr) out.push({ event: 'undo_check_in', transition: 'B17', action: 'undo-check-in' });
