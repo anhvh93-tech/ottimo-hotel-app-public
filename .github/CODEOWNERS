@@ -24,6 +24,12 @@
 /product/services/api/src/shared/serialization/field-policy.ts @anhvh93-tech
 # SEC – the pinned list of SELF_DATA_FIELDS (018-01): the pin only blocks when the test itself is SEC-owned.
 /product/services/api/test/serializer.test.ts @anhvh93-tech
+# SEC – the two files the V5-43 scan test trusts to apply the field policy to every response (SEC FB-R5-SEC-BE-D1-04).
+/product/services/api/src/shared/serialization/serializer.ts @anhvh93-tech
+/product/services/api/src/shared/serialization/serialize.interceptor.ts @anhvh93-tech
+# SEC – the 2FA gate (MFA_ENROLLMENT_REQUIRED) and the list of roles that must enrol (D1-04; SQL twin in 0079, D1-05).
+/product/services/api/src/shared/http/auth.guard.ts @anhvh93-tech
+/product/services/api/src/modules/identity/public/mfa-roles.ts @anhvh93-tech
 
 # SEC – shared-mailbox rule for staff security e-mail (SENT-02, ARC M18-01).
 /product/services/api/src/modules/identity/public/shared-mailboxes.ts @anhvh93-tech
