@@ -27,7 +27,7 @@
 | BUG-R5-003 | P1 | Tham số `min_stay`: bộ kiểm khi lưu cho qua `2` hay `{"nights":2}`, bộ tính giá lại cần danh sách luật. Lưu một giá trị như vậy thì mọi báo giá và đơn trực tiếp mới bị 500 tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (+ ARC ghi `setParameter`) | Mới |
 | BUG-R5-004 | P1 | Tham số `damage_catalog` (bảng giá hư hỏng, BR-512): bộ kiểm khi lưu nhận mọi giá trị JSON. Lưu một bảng có phần tử `null` thì mở folio, in bill, danh mục phí và ghi dòng dịch vụ đều 500, với mọi đơn, tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (V5-25, BE-C, PR xếp chồng trên PR #96) | Mới |
 | BUG-R5-005 | P3 | Web khách, tab Yêu cầu: khách gõ một chuỗi giống số thẻ vào lời nhắn. Máy chủ chặn đúng (422, mã cấp trên `CARD_NUMBER_DETECTED`), nhưng trang hiện câu "Hệ thống đang gặp sự cố…" thay cho câu "Vui lòng không ghi số thẻ thanh toán." | FE (FE-B, đã sửa ở PR #107) | Đã sửa, chờ xác nhận trên staging v1.0.5 |
-| BUG-R5-006 | P2 | `executeRefund` (chi hoàn chuyển khoản): luật số thẻ V-09 thử Luhn trên mọi cửa sổ 13–19 chữ số, nên chặn nhầm (422 `CARD_NUMBER_DETECTED`) mã chuyển khoản có phần số dài từ 13 chữ số. Ô này bắt buộc, nên MGR/OWN không ghi được lệnh chi. Mã toàn số 16 chữ số bị chặn khoảng 65 % | BE (BE-B; SEC đã chọn luật, UXD + FE-A câu báo) | Mở, giao BE (v1.0.5) |
+| BUG-R5-006 | P2 | `executeRefund` (chi hoàn chuyển khoản): luật số thẻ V-09 thử Luhn trên mọi cửa sổ 13–19 chữ số, nên chặn nhầm (422 `CARD_NUMBER_DETECTED`) mã chuyển khoản có phần số dài từ 13 chữ số. Ô này bắt buộc, nên MGR/OWN không ghi được lệnh chi. Mã toàn số 16 chữ số bị chặn khoảng 65 % | BE `r5-v09-reference` + FE `r5-fe-bankref` (SEC đã chọn luật, UXD đã có câu) | Mở, giao BE (v1.0.5) |
 
 ## 3. Chi tiết
 
@@ -590,9 +590,9 @@
   - Chưa có báo lỗi nào từ production (SEC 4.4, BE C0313-25).
   - Sửa trong v1.0.5 theo SEC phương án (a). Không hotfix v1.0.4.
 - **Vai chịu trách nhiệm:**
-  - BE (BE-B, PR-B3): luật riêng cho ô mã tham chiếu, đặt trong `shared/validation.ts`. SEC 4.4: áp vào `executeRefund` sớm nhất có thể, không cần chờ hết PR-B3.
+  - BE, nhánh `r5-v09-reference` (v1.0.5): luật riêng cho ô mã tham chiếu, đặt trong `shared/validation.ts`, áp cho `executeRefund` và `PaymentCreate.bankReference` (PR-B3 dùng lại hàm này). SEC 4.4: áp vào `executeRefund` sớm nhất có thể, không cần chờ hết PR-B3.
   - SEC giữ luật (mục 4.1, 4.3). ARC sửa chữ ở 0.3.14 (thẻ FB-R5-BE-ARC-C0313-25).
-  - UXD + FE-A: câu báo cho 422 ở ô mã, cả màn chi hoàn và màn ghi khoản thu (SEC 4.2). UXD đã có chữ (`dcfca8b1`); FE-A còn phải gắn vào hộp chi hoàn.
+  - FE, nhánh `r5-fe-bankref` (v1.0.5): gắn câu báo cho 422 ở ô mã, cả hộp chi hoàn và hộp ghi khoản thu (SEC 4.2). UXD đã có chữ (`dcfca8b1`).
   - ORC: báo INV cách làm tạm cho MGR/OWN trước khi bản sửa lên (SEC 4.4).
   - Nguồn phát hiện: BE (`rounds/round-05/reviews/BE-on-contract-0.3.13.md` mục 7.8.3, thẻ C0313-25); SEC trả lời và đề nghị ghi lỗi (mục 4).
 - **Môi trường:**
@@ -612,6 +612,7 @@
   - `product/services/api/src/shared/validation.ts` dòng 42–58: `containsCardNumber` = luật V-09 gốc **hoặc** `looksLikeCard`. Luật gốc thử Luhn trên **mọi cửa sổ 13–19 chữ số, ở mọi vị trí** của mọi dãy số. Hợp với chữ tự do, nhưng với ô mã thì một mã có phần số dài từ 13 chữ số rất dễ có một cửa sổ qua Luhn.
   - Controller (`refunds.controller.ts` dòng 232) chỉ cắt khoảng trắng hai đầu.
   - Desk (theo mã, QA chưa chạy Desk): `MoneyPage.tsx` dòng 931, ô "Mã giao dịch" hiện lỗi trường qua `fieldErrors` → `fieldErrorText` (`app/problem.ts` 118–128). Không có khóa `field.CARD_NUMBER_DETECTED`, nên ra khóa `error.CARD_NUMBER_DETECTED`: "Ô ghi chú có dãy số giống số thẻ thanh toán. Xóa dãy số đó – OTTIMO không lưu số thẻ." Câu nói "Ô ghi chú" và bảo xóa dãy số, trong khi đây là ô mã giao dịch và bắt buộc.
+    - Trên production v1.0.4, dưới ô mã đang hiện đúng câu của ô ghi chú này (ORC xác nhận 07/11). Sửa ở v1.0.5, nhánh FE `r5-fe-bankref`.
   - `PaymentCreate` trên v1.0.4 không bị:
     - chưa có `bankReference`: trường lạ bị từ chối (BE 7.8.2, ARC-15);
     - `posAuthCode` chỉ nhận tối đa 12 chữ và số (`payment.service.ts` 163–173), nên V-09 (từ 13 chữ số) không chặn nhầm một mã POS hợp lệ.
@@ -625,8 +626,8 @@
   2. Ô Mã giao dịch: `2026110700000000` (16 chữ số ví dụ; cả chuỗi không qua Luhn). Bấm Lưu.
   3. Kết quả: 422 `CARD_NUMBER_DETECTED`, `errors[{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }]`. Không ghi lệnh chi.
   4. Để trống ô → 422 `REQUIRED`.
-  5. Nhập 8 ký tự cuối (`00000000`) → qua bước kiểm số thẻ.
-- **Kết quả thực tế:** mã chuyển khoản không phải số thẻ vẫn bị chặn. Ô bắt buộc, nên MGR/OWN không ghi được lệnh chi, trừ khi sửa mã đi.
+  5. Nhập 8 chữ số cuối của mã giao dịch (`00000000`) → qua bước kiểm số thẻ.
+- **Kết quả thực tế:** mã chuyển khoản không phải số thẻ vẫn bị chặn. Ô bắt buộc, nên MGR/OWN không ghi được lệnh chi, trừ khi sửa mã đi. Dưới ô mã, Desk hiện câu của ô ghi chú ("Ô ghi chú có dãy số giống số thẻ thanh toán. Xóa dãy số đó…").
 
   | Mã ví dụ | Mô tả | `executeTransfer` hiện nay | Luật SEC 4.1 (QA mô phỏng) |
   |---|---|---|---|
@@ -636,7 +637,7 @@
   | `FT26110700000000` | Chữ kèm 14 chữ số, một cửa sổ qua Luhn | **422** (nhầm) | nhận |
   | `2026110700000100` | 16 chữ số, không cửa sổ nào qua Luhn | qua | nhận |
   | `202611070001` | 12 chữ số | qua | nhận |
-  | `00000000` | 8 ký tự cuối của mã bị chặn | qua | nhận |
+  | `00000000` | 8 chữ số cuối của mã bị chặn | qua | nhận |
 
   Tỉ lệ bị chặn trên 20.000 mã toàn số ngẫu nhiên mỗi độ dài (khớp mô phỏng của BE ở C0313-25):
 
@@ -653,18 +654,19 @@
     4. còn lại thì nhận. Không cộng `looksLikeCard`.
   - Mọi ô chữ tự do (ghi chú, lý do…) giữ nguyên `containsCardNumber`.
   - Không lưu, không log giá trị bị chặn. Thân 422 không lặp lại giá trị.
-  - Desk: câu riêng cho 422 ở ô mã, ở hộp chi hoàn và hộp ghi khoản thu. Không gợi ý để trống. UXD đã viết khóa `pay.bank_reference_card_like` (`rounds/round-05/outputs/UXD/copy-v1.0.5.md` bản 1.8, mục 9.8; decision-log 07/11, commit `dcfca8b1`): VI "Mã này trông giống số thẻ thanh toán nên Desk không lưu. Nhập 8 chữ số cuối của mã giao dịch." FE-A gắn khóa này.
+  - Desk: câu riêng cho 422 ở ô mã, ở hộp chi hoàn và hộp ghi khoản thu. Không gợi ý để trống. UXD đã viết khóa `pay.bank_reference_card_like` (`rounds/round-05/outputs/UXD/copy-v1.0.5.md` bản 1.8, mục 9.8; decision-log 07/11, commit `dcfca8b1`): VI "Mã này trông giống số thẻ thanh toán nên Desk không lưu. Nhập 8 chữ số cuối của mã giao dịch." FE gắn khóa này ở nhánh `r5-fe-bankref`.
   - Rủi ro còn lại SEC đã chấp nhận: mã toàn số 13–19 chữ số vẫn bị chặn nhầm khoảng 10 % (xác suất Luhn); số thẻ có chữ đứng trước sẽ lọt.
-- **Cách làm tạm (tới khi bản sửa lên):** MGR/OWN gặp lỗi "giống số thẻ" ở ô mã chuyển khoản thì **nhập 8 ký tự cuối của mã**.
-  - 8 ký tự không bao giờ là số thẻ, vẫn đủ để tìm trên sao kê.
+- **Cách làm tạm (tới khi bản sửa lên):** MGR/OWN gặp lỗi số thẻ ở ô mã chuyển khoản thì **nhập 8 chữ số cuối của mã giao dịch**.
+  - Câu này ORC chốt 07/11 cho khớp chữ UXD trên Desk (`dcfca8b1`). Lấy chữ số, không lấy ký tự, để hai lần nhập cùng một mã luôn ra cùng giá trị dù người gõ có dấu gạch hay chấm (chặn trùng S4).
+  - 8 chữ số không bao giờ là số thẻ, vẫn đủ để tìm trên sao kê.
+  - Trên production, câu báo dưới ô mã hiện nay là câu của ô ghi chú ("Ô ghi chú có dãy số giống số thẻ thanh toán…"). Người dùng cứ làm theo cách này, không theo câu đó.
   - Không để trống (máy chủ không cho), không tự đổi sang mã khác.
   - ORC báo INV cách này trước khi v1.0.5 lên (SEC 4.4).
-  - **Lệch chữ cần ORC chốt một cách nói:** SEC 4.2 và lời dặn ORC viết "8 **ký tự** cuối"; câu UXD trên Desk viết "8 **chữ số** cuối", để chặn trùng S4 khớp dù người gõ có dấu gạch hay chấm. Với mã chỉ có chữ số thì hai cách như nhau. Với mã có `-` `.` hay chữ cái ở cuối thì ra hai giá trị khác nhau, và hai lần nhập cùng một mã có thể không khớp nhau. QA đề nghị lời dặn gửi INV dùng đúng câu UXD ("8 chữ số cuối").
-- **Ca hồi quy** (BE-B viết, QA duyệt; theo SEC 4.3; chạy cho cả `recordPayment` và `executeRefund`):
+- **Ca hồi quy** (BE viết ở `r5-v09-reference`, QA duyệt; theo SEC 4.3; chạy cho cả `recordPayment` và `executeRefund`):
   - (a) `4111111111111111`, `4111-1111-1111-1111`, `4111.1111.1111.1111`, `4111_1111_1111_1111` → 422 `CARD_NUMBER_DETECTED`, `field` = `bankReference`; không có dòng khoản thu hay lệnh chi; thân lỗi không chứa `1111`;
   - (b) `FT26110700000000` (chữ kèm 14 chữ số, một cửa sổ qua Luhn) → 201;
   - (c) `2026110700000000` và `26110700000004` (cả chuỗi không qua Luhn, một cửa sổ bên trong qua) → 201. **Hai ca này đỏ trên mã hiện nay**;
-  - (d) 12 chữ số `202611070001` → 201; 8 ký tự cuối của một mã bị chặn → 201;
+  - (d) 12 chữ số `202611070001` → 201; 8 chữ số cuối của một mã bị chặn → 201;
   - (e) 16 chữ số qua Luhn cả chuỗi, ví dụ `1234567812345670` → 422 (rủi ro SEC đã chấp nhận);
   - (f) ô ghi chú chứa `4111 1111 1111 1111` → vẫn 422 (luật chung không đổi);
   - (g) hồi quy: các ca `bankReference` hiện có ở `test/integration/payments-s3.test.ts` (`FT26290001`…) vẫn xanh.
