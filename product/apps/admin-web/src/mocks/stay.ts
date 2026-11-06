@@ -2258,10 +2258,28 @@ export function createStayMock(ctx: Ctx) {
         const stayEnd = stay.reduce((a, o) => (o.departureDate > a ? o.departureDate : a), '');
         const day = businessDayLocal();
         const newDate = String(body.newDepartureDate ?? '');
+        // 0.3.13 bổ sung 1 (V5-11; #114 `stay.service.ts earlyDeparture`, `shared/business-day.ts minCalendarDate`):
+        // from 00:00 to the rollover (calendar day D + 1, business day D) the night of D is slept – the floor is the
+        // calendar day. Checked before every other date check, dry run included; nothing written:
+        // the stay ends on (or before) the calendar day → 409 `useCheckout`; an earlier date → 409 `minNewDepartureDate`.
+        const calendar = today();
+        const minDeparture = calendar > day ? calendar : day;
+        if (calendar > day && /^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+          if (stayEnd <= calendar)
+            return problem(409, 'INVALID_TRANSITION', {
+              currentState: r.status,
+              useCheckout: true,
+            });
+          if (newDate < minDeparture)
+            return problem(409, 'INVALID_TRANSITION', {
+              currentState: r.status,
+              minNewDepartureDate: minDeparture,
+            });
+        }
         const errors: Array<{ field: string; code: string }> = [];
         if (
           !/^\d{4}-\d{2}-\d{2}$/.test(newDate) ||
-          newDate < day ||
+          newDate < minDeparture ||
           newDate >= stayEnd ||
           newDate <= r.arrivalDate
         )
@@ -2388,6 +2406,8 @@ export function createStayMock(ctx: Ctx) {
           }
         }
         // ARC 0.3.9 bổ sung 2 (BR-428-09): the OTA part carries no notice days on its label.
+        // V5-11 (#114, oracle BR-428-16; DOM rules-v1.0.5 2.1 (5)): a retained fee is dated the business day of the
+        // action – not the new departure, not the calendar day (03:00 on the 21st → the 20th).
         if (droppedNetVnd - refundableVnd > 0)
           addLine(
             r,
@@ -2395,7 +2415,7 @@ export function createStayMock(ctx: Ctx) {
               category: 'early_departure_fee',
               amountVnd: droppedNetVnd - refundableVnd,
               description: `early_departure_fee ${noticeDays}d`,
-              serviceDate: newDate,
+              serviceDate: day,
             },
             g.user.displayName,
           );
@@ -2406,7 +2426,7 @@ export function createStayMock(ctx: Ctx) {
               category: 'early_departure_fee',
               amountVnd: otaRetained,
               description: 'early_departure_fee ota_retained',
-              serviceDate: newDate,
+              serviceDate: day,
             },
             g.user.displayName,
           );
@@ -3348,6 +3368,8 @@ export function createStayMock(ctx: Ctx) {
                 amountVnd: tt.unhandledCreditVnd,
                 description: 'retain_with_guest_consent',
                 chargeCode: 'overpayment_retained',
+                // V5-11 (#114 `checkout.service.ts`): the business day of the check-out (its eve until 06:00).
+                serviceDate: businessDayLocal(),
               },
               g.user.displayName,
             );

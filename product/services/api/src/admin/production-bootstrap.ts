@@ -2,7 +2,9 @@
  * R3-OPS-02 (v1.0 blocker – `rounds/round-03/outputs/OPS/v1-production.md` section 9): ONE-TIME initialisation of
  * an empty production database. No HTTP endpoint; run by OPS through `production-bootstrap-cli.ts`.
  * Creates, in ONE transaction (a failure leaves the database untouched):
- * - the organisation and the property OTTIMO Đà Lạt, the 3 room groups and the 10 units (production-defaults.ts);
+ * - the organisation and the property OTTIMO Đà Lạt, the 3 room groups and the 10 units (production-defaults.ts),
+ *   every unit NOT for sale (`is_sellable = false` – it has no list price yet; OpenAPI 0.3.13 V5-1A addendum 1,
+ *   BE C0313-15): OWN enters both prices on Desk (Danh mục căn), then puts the unit on sale;
  * - the sales channels (BR-901) and the BR section 13 parameters the catalogue has no default for (plus the
  *   document retention keys whose production value is set by BR v0.4.4);
  * - the first `owner` with a RANDOM temporary password (`must_change_password = true`; under MFA_ENFORCED the first
@@ -212,7 +214,8 @@ export async function bootstrapProduction(
         );
       }
 
-      // Room groups and units – no list price (INV enters prices in the app, BR-101).
+      // Room groups and units – no list price (INV enters prices in the app, BR-101), so no unit is for sale yet
+      // (V5-1A, contract 0.3.13 addendum 1): a sellable unit without a price is what ops-check `pricegap` counts.
       const groupIds = new Map<string, string>();
       for (const g of PRODUCTION_ROOM_GROUPS) {
         const id = uuidv7();
@@ -240,7 +243,7 @@ export async function bootstrapProduction(
         await tx.query(
           `INSERT INTO room (id, organization_id, property_id, room_group_id, room_no, name, floor, base_occupancy,
              max_occupancy, public_slug, is_sellable, active_from, public_room_type, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $12, $13, $13)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, $11, $12, $13, $13)`,
           [
             uuidv7(),
             organizationId,
