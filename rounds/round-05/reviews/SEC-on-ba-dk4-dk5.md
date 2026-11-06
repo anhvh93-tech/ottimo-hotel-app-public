@@ -9,6 +9,7 @@ Round 5 · bước **Review** · SEC · 06/11/2026 (tối)
   - `product/docs/manual/guides/00-index.md`, `01-chu-dau-tu-quan-ly.md`, `02-le-tan.md`, `05-sale-ctv.md`, `screenshot-additions.md`;
   - báo cáo `rounds/round-05/outputs/BA/report.md` (ORC lưu ở `b9f017f7`).
 - PO, commit `8d607f98` (ORC thêm phạm vi): `product/docs/staff-one-pager.md`, Tờ 1 khối "Check-in online – mở lại từ 06/11/2026" và Tờ 2a.
+- Đọc lại: PO `106722d7` (lượt 2) và `451d3230` (lượt 3: dòng "Cọc" của Tờ 1, hai câu mới ở Tờ 2a). Xem mục 3a.
 
 SEC đối chiếu với:
 - `rounds/round-04/reviews/SEC-on-bug-r4-054.md` (B1, B4, OR-02 và mục "Xác nhận OR-01");
@@ -29,7 +30,7 @@ SEC chỉ đọc repo. Không SSH, không gọi staging hay production. Tệp n�
 |---|---|---|
 | Sổ vận hành 1.2 (ĐK-4) | **DUYỆT CÓ ĐIỀU KIỆN** | FB-R5-SEC-BA-02 (Major): sửa chữ trước lần kéo 08/11; ORC kiểm Time Machine ở lần kéo đó. Các thẻ Minor 03–07 sửa trước buổi review 20/11 |
 | Sổ tay + bộ hướng dẫn (ĐK-5 / V5-08) | **DUYỆT CÓ ĐIỀU KIỆN** | FB-R5-SEC-BA-01 (Major): bước "gửi nhầm người" thêm ghi sổ và báo chủ đầu tư. Hạn **08/11**, sớm hơn hạn ĐK-5, vì luồng gửi link đang chạy thật từ 06/11 14:22 |
-| Tờ dán quầy (PO) | ~~Tờ 1: chưa in.~~ **Tờ 1: được in** (SEC đọc lại lượt 2, mục 3a, `106722d7`). **Tờ 2a: được in** | PO-01, PO-02, PO-03 đã **Closed**. Tờ 2a bản in không còn chữ nào về check-in online. Phần giữ chỗ của Tờ 2a vẫn chờ DOM đọc |
+| Tờ dán quầy (PO) | ~~Tờ 1: chưa in.~~ **Tờ 1: được in** (lượt 2 `106722d7`; lượt 3 `451d3230` vẫn được in, mục 3a). ~~Tờ 2a: được in~~ **Tờ 2a: chưa in tới khi sửa PO-04** (lượt 3) | PO-01, PO-02, PO-03 đã **Closed**. PO-04 (Major, nơi nhận hoàn cọc) chặn in Tờ 2a. PO-05 (Minor) và PO-06 (Suggestion) không chặn. Phần giữ chỗ của Tờ 2a vẫn chờ DOM đọc |
 
 - QC ĐK-5, tiêu chí grep: **đạt**. Trong `product/docs/manual/`, `grep "tạm dừng\|chưa gửi link"` còn 6 dòng, đều đúng: chú thích nguồn ẩn, phiếu sửa chờ vật tư, mục lịch sử.
 - QC ĐK-4 (a), (b), (c): **đạt phần nội dung**. Nhịp 2 ngày, mã 3 là P0 bảo mật, giữ bản Mac, người thứ hai ở phòng Báo động, nhắc diễn tập 35 ngày: đều đúng quyết định 06/11. Các thẻ dưới đây là độ chính xác và chỗ hở còn lại.
@@ -315,6 +316,85 @@ Round 5 · bước **Review**, lượt 2 · SEC · 06/11/2026 (tối). SEC đọ
 Dòng decision-log đề xuất (lượt 2):
 
 `| 2026-11-06 | 5 | SEC – đọc lại tờ dán quầy (106722d7, rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md mục 3a): FB-R5-SEC-PO-01 (Major), PO-02, PO-03 Closed. Tờ 1 được in: gửi nhầm link thì thu hồi, tạo link mới, ghi sổ giao ca mã đơn + giờ gửi/thu hồi + kênh, báo chủ đầu tư trong ngày; chỉ gửi tới liên hệ ghi trên đơn. Tờ 2a được in (phần giữ chỗ chờ DOM). In thử xem Tờ 1 còn vừa một mặt A4 | SEC | Quyền SEC (yêu cầu bảo mật, dữ liệu cá nhân) |`
+
+#### Lượt 3 – dòng "Cọc" của Tờ 1 và hai câu mới ở Tờ 2a (commit `451d3230`)
+
+Round 5 · bước **Review**, lượt 3 · SEC · 06/11/2026 (tối). PO đổi các dòng này khi sửa thẻ FB-R5-DOM-PO-02 và DOM-PO-03. SEC đọc `git show 451d3230 -- product/docs/staff-one-pager.md`. Tệp không đổi tới `main` lúc đọc. Đối chiếu với:
+- `product/services/api/src/modules/payments/internal/deposits.service.ts`: hàm `confirm` và `overdueHoldAccepts`, tức Desk làm gì khi bấm **Xác nhận đã nhận cọc**;
+- `product/apps/admin-web/src/pages/money/MoneyPage.tsx`: màn **Nhập nơi nhận hoàn**;
+- `product/docs/specs/EP03-05-stay.md` dòng 197 (`refund.method`);
+- sổ tay `user-manual-v1.0.md`: dòng 650 và 985 (nhập nơi nhận hoàn), mục 2.13 (kiểm tiền đã về, chờ ESC-039).
+
+| Dòng | Kết quả SEC | Lý do |
+|---|---|---|
+| Tờ 1 dòng 41 "Cọc": thêm "(có cọc: xem Tờ 2a)" | **Đạt** | Cụm thêm chỉ nới vế "trước giờ hạn". Vế "chỉ bấm khi thấy tiền về tài khoản của OTTIMO" đứng đầu câu, áp cho mọi đơn. Tờ 2a cũng nhắc lại vế đó. Desk chặn đúng chỗ này: sau hạn chỉ lễ tân trở lên bấm được, sale và CTV bị chặn. Giữ chỗ chưa nhận đồng nào thì chỉ nhận tiền về trước hạn. Cụm thêm không mở đường mới cho tiền chưa có |
+| Tờ 2a dòng 89: "thấy tiền về tài khoản OTTIMO thì **Xác nhận đã nhận cọc** …; ô **Giờ nhận tiền** ghi giờ tiền về, không ghi giờ sau bây giờ" | **Đạt**, kèm thẻ PO-05 | Đúng điều kiện chống ghi tiền chưa có. Vế "không ghi giờ sau bây giờ" thì Desk đã tự chặn (lỗi `DATE_INVALID`). Chỗ hở thật là chiều ngược lại: ghi giờ **sớm hơn** lúc tiền về |
+| Tờ 2a dòng 88: "Nơi nhận: tài khoản khách đã chuyển cọc (không liên lạc được thì ghi đúng câu này)" | **Đúng ý, chưa đúng nút bấm** (PO-04, Major) | Hoàn về đúng tài khoản đã chuyển cọc là quy tắc chống lừa hoàn tiền, cần giữ. Nhưng Desk không có ô nào để "ghi câu này". Chữ "tài khoản" lại dễ đẩy người trực sang nút **Chuyển khoản** |
+
+##### FB-R5-SEC-PO-04
+- Mức độ: Major (chặn in Tờ 2a; không chặn Tờ 1)
+- Vị trí: `product/docs/staff-one-pager.md` Tờ 2a, nhánh "Hết hạn, có cọc" → "Không đi", câu cuối (dòng 88).
+- Vấn đề:
+  - Đường bấm là **Nhật ký tiền → Hoàn tiền → Nhập nơi nhận hoàn**. Ở đó **Cách hoàn** có 3 nút: **Tiền mặt** (Desk chọn sẵn), **Cùng cách khách đã trả**, **Chuyển khoản**. Không có ô chữ để ghi "tài khoản khách đã chuyển cọc".
+  - Thấy chữ "tài khoản", người trực dễ bấm **Chuyển khoản**:
+    - nút này đòi số tài khoản và tên chủ tài khoản, nên người trực sẽ gọi hoặc nhắn khách để hỏi;
+    - người tự xưng là khách có thể đọc một tài khoản khác;
+    - chủ đầu tư duyệt chỉ thấy 4 số cuối, rồi chi vào tài khoản đó.
+    Đây đúng là kiểu lừa hoàn tiền mà quy tắc "hoàn về tài khoản đã chuyển" muốn chặn. Số tài khoản cũng đi qua điện thoại, Zalo.
+  - Không bấm gì thì Desk để **Tiền mặt**. Khách không đến thì không ai nhận tiền mặt. Khoản hoàn treo, hoặc bị chi tiền mặt cho người không phải khách.
+  - Nút **Cùng cách khách đã trả** (`original_method`) mới đúng ý PO và DOM:
+    - Desk không lưu số tài khoản nào;
+    - chủ đầu tư chuyển trả về đúng tài khoản trên sao kê;
+    - không cần liên lạc được với khách.
+    Vế "không liên lạc được thì ghi đúng câu này" vì thế không cần nữa.
+- Vì sao quan trọng: sai tiền, và lộ số tài khoản của khách qua kênh nhắn tin. Tờ in khó sửa lại, và người trực làm theo tờ hơn theo sổ tay.
+- Đề xuất sửa (thay nguyên câu "Nơi nhận: …"):
+  - "Nơi nhận: **Nhật ký tiền → Hoàn tiền** → **Nhập nơi nhận hoàn** → **Cùng cách khách đã trả** (Desk chọn sẵn Tiền mặt: đổi lại). Không hỏi số tài khoản. Khách xin hoàn vào tài khoản khác: không nhập, báo chủ đầu tư."
+  - Sổ tay đã có đường bấm này ở dòng 985. Chỉ cần đưa tên nút lên tờ.
+  - Câu dài hơn câu cũ khoảng 20 chữ. Tờ 2a không vừa A5 10 pt thì dùng 9 pt (PO đã tính trong `PO-responses.md`). **Không** rút câu này.
+- Trạng thái: Open. PO sửa cùng lượt với các thẻ DOM của Tờ 2a, nên không thêm vòng chờ. PO dùng đúng câu trên thì SEC không cần đọc lại: ORC grep "Cùng cách khách đã trả" và "Không hỏi số tài khoản" trong Tờ 2a là đủ để đóng thẻ.
+
+##### FB-R5-SEC-PO-05
+- Mức độ: Minor (không chặn in)
+- Vị trí:
+  - Tờ 1 dòng 41: "thấy tiền về tài khoản của OTTIMO";
+  - Tờ 2a dòng 89 và 90: ô **Giờ nhận tiền**.
+- Vấn đề:
+  - Tờ 1 chưa nói ảnh chụp màn hình hay SMS khách gửi **không** phải là tiền về. Đây là cách lừa cọc hay gặp nhất. Sổ tay 2.13 đã có câu này, tờ quầy thì chưa.
+  - Ô **Giờ nhận tiền**:
+    - "không ghi giờ sau bây giờ" thì Desk đã chặn;
+    - ghi giờ **sớm hơn** thì Desk vẫn nhận, với lễ tân trở lên chỉ cần không sớm hơn lúc tạo giữ chỗ;
+    - với giữ chỗ chưa nhận đồng nào, ghi giờ trước hạn là cách duy nhất để xác nhận được sau hạn;
+    - giờ này còn vào báo cáo dòng tiền (K-20) và đối soát ca.
+  - Nhật ký vẫn giữ giờ bấm thật, nên ghi sớm vẫn lần ra được. Nhưng tờ nên dặn trước.
+- Đề xuất sửa:
+  - Tờ 1, sau "…tài khoản của OTTIMO", thêm "(ảnh chụp, SMS khách gửi không tính)". Khoảng 7 chữ.
+  - Tờ 2a: "ô **Giờ nhận tiền** ghi đúng giờ trên tin báo tiền vào, không sớm hơn, không sau bây giờ." Hiện người trực biết giờ này qua chủ đầu tư (sổ tay 2.13, chờ ESC-039).
+- Trạng thái: Open. Không chặn in. PO thêm trước khi in thì tốt hơn. In rồi thì sửa ở lần in sau. Không cần SEC đọc lại.
+
+##### FB-R5-SEC-PO-06
+- Mức độ: Suggestion
+- Vị trí: Tờ 1 dòng 41 "(có cọc: xem Tờ 2a)"; chú thích đầu Tờ 2a (điều kiện gỡ tờ).
+- Vấn đề: Tờ 2a là tờ tạm. Khi gỡ Tờ 2a, Tờ 1 vẫn chỉ tới một tờ không còn. Người trực sẽ đọc "bấm trước giờ hạn" thành luật cứng, không thu nốt cọc sau hạn. Lệch này về phía an toàn, không phải lỗ hổng, nhưng giữ chỗ có cọc sẽ bị treo.
+- Đề xuất sửa: thêm vào chú thích đầu Tờ 2a: "Gỡ tờ này thì sửa Tờ 1 dòng Cọc: 'xem Tờ 2a' → 'xem sổ tay 2.4'." Chữ in không đổi.
+- Trạng thái: Open
+
+**Kết luận lượt 3:**
+- **Tờ 1: vẫn được in.**
+  - Dòng "Cọc" sau `451d3230` không làm yếu điều kiện "thấy tiền về tài khoản của OTTIMO".
+  - Không thẻ nào chặn Tờ 1.
+  - Nếu PO còn sửa Tờ 1 trước khi in thì nên thêm PO-05 ý 1 (7 chữ). In rồi thì để lần in sau.
+- **Tờ 2a: chưa in tới khi sửa PO-04.** Tờ 2a cũng đang chờ DOM đọc lại các thẻ DOM-PO-01…06, nên chặn này không làm chậm thêm.
+- Ngoài hai dòng được giao, chuyển DOM. Đây là câu hỏi, không phải thẻ:
+  - Nhánh "Hết hạn, chưa cọc" → "Quá hạn vài phút mà đơn vẫn **Giữ chỗ · chờ cọc**: **Hủy giữ chỗ**". Giả sử tiền thật ra đã về **trước** hạn mà chưa ai bấm. Hủy thì thành đơn hủy mà tiền vẫn nằm trong tài khoản. Desk không tạo yêu cầu hoàn, vì không thấy cọc nào. Desk cho lễ tân xác nhận trường hợp này nếu **Giờ nhận tiền** trước hạn.
+  - Cùng loại: khách chuyển theo mã QR cũ sau khi giữ chỗ đã tự hủy.
+  - DOM quyết: hỏi chủ đầu tư tiền đã về chưa trước khi hủy, hay giữ cách "hủy rồi báo chủ đầu tư".
+- Kiểm lộ thông tin trong phần thêm của `451d3230` (4 tệp): 0 IP, 0 bí mật, 0 email, 0 số điện thoại, 0 dữ liệu khách.
+- Thẻ BA: chưa đọc lại, theo ORC. Các dòng "Resolved (BA, 06/11)" ở mục 2 là phản hồi của BA, SEC chưa đóng.
+
+Dòng decision-log đề xuất (lượt 3):
+
+`| 2026-11-06 | 5 | SEC – đọc lại dòng "Cọc" Tờ 1 và hai câu mới ở Tờ 2a (451d3230, rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md mục 3a lượt 3): Tờ 1 vẫn được in. Tờ 2a chưa in tới khi sửa FB-R5-SEC-PO-04 (Major): nơi nhận hoàn cọc chọn nút "Cùng cách khách đã trả", không hỏi số tài khoản, khách xin hoàn vào tài khoản khác thì báo chủ đầu tư. PO-05 (Minor, không chặn): ảnh chụp, SMS khách gửi không tính là tiền về; Giờ nhận tiền không ghi sớm hơn tin báo tiền vào | SEC | Quyền SEC (yêu cầu bảo mật, tiền, dữ liệu cá nhân) |`
 
 ---
 
