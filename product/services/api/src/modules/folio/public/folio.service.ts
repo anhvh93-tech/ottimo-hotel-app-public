@@ -1472,6 +1472,8 @@ export class FolioService implements FolioStaySync {
    * ALL hold – the booking is `checked_out`, its folio owes nothing, and no receipt recorded by the payee on
    * the folio is still `pending`/`disputed`. Called at the LAST of those events: B18 (reservation hook),
    * reconciliation / cash handover, a receipt after checkout (debt). The caller passes the booking status.
+   * "After the check-out" (a receipt still unconfirmed holds the commission) = after the folio was `settled` by B18
+   * (`folio.settled_at`, ARC 3.1 / DOM PR99-01) – not the guest's departure time (`actual_checkout_at`).
    */
   async tryEarnCommissions(
     tx: Tx,
@@ -1486,12 +1488,16 @@ export class FolioService implements FolioStaySync {
     // DOM 18/10 (BR-525 / BR-903, ARC 16.26): money received AFTER the check-out (a debt collected, a post-checkout
     // charge paid) counts once confirmed – a transfer still pending / disputed holds the commission until its
     // reconciliation (which runs this again: applyReconciliation → tryEarn).
+    // FB-R5-DOM-BE-PR99-01 (rules-v1.0.5 15.5): "after the check-out" = after B18 was RECORDED – `folio.settled_at`,
+    // set once by settle() in the B18 transaction, before this call. Not `reservation.actual_checkout_at`: since
+    // 0.3.13 (BE C0313-03) that is when the guest left (`checkoutAt`), earlier than the press, so the B18
+    // `finalPayment` and the VietQR collected at the desk would count as money after check-out.
     const { rows: unconfirmed } = await tx.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM payment p JOIN reservation r ON r.id = $1
-        WHERE p.folio_id = $2 AND p.status = 'succeeded' AND p.reversal_of_id IS NULL AND p.amount_vnd > 0
+      `SELECT count(*)::int AS n FROM payment p JOIN folio f ON f.id = p.folio_id
+        WHERE p.folio_id = $1 AND p.status = 'succeeded' AND p.reversal_of_id IS NULL AND p.amount_vnd > 0
           AND p.reconciliation IN ('pending', 'disputed')
-          AND r.actual_checkout_at IS NOT NULL AND p.created_at > r.actual_checkout_at`,
-      [stay.reservationId, folio.id],
+          AND f.settled_at IS NOT NULL AND p.created_at > f.settled_at`,
+      [folio.id],
     );
     if ((unconfirmed[0]?.n ?? 0) > 0) return 0;
     const { rows: due } = await tx.query<{ id: string; amount_vnd: number; payee_user_id: string }>(
