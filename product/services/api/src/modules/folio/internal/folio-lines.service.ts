@@ -124,6 +124,56 @@ export class FolioLinesService {
     }
   }
 
+  /**
+   * 0.3.13 V5-16 + bổ sung 1 (BE C0313-04, DOM 7.2 ý 2–3; contract 1.5, 1.20): where a corrected line comes from – the
+   * ROOT of its `related_line_id` chain (each adjustFolioLine replacement points to the line it replaced, same
+   * category; a FOC / discount line points to another category and ends the chain). `postedByActor`: the root was
+   * posted by the person correcting now; `sameBusinessDay`: the root was posted on today's business day;
+   * `rootLineManual`: the root is `source = manual`. A correction in two steps ("FD-2 lowers FD-1's line, then
+   * lowers its own replacement") is measured on FD-1's line. Ids and booleans only – no amount.
+   */
+  private async lineOrigin(
+    tx: Tx,
+    lineId: string,
+    actorUserId: string,
+  ): Promise<{
+    postedByActor: boolean;
+    sameBusinessDay: boolean;
+    rootLineId: string;
+    rootLineManual: boolean;
+  }> {
+    const { rows } = await tx.query<{
+      id: string;
+      posted_by: string | null;
+      posted_at: Date;
+      source: string;
+    }>(
+      `WITH RECURSIVE chain AS (
+         SELECT l.id, l.related_line_id, l.category, 0 AS depth FROM folio_line l WHERE l.id = $1
+         UNION ALL
+         SELECT p.id, p.related_line_id, p.category, c.depth + 1
+           FROM chain c JOIN folio_line p ON p.id = c.related_line_id
+          WHERE p.category = c.category AND p.reversal_of_id IS NULL AND c.depth < 200
+       )
+       SELECT l.id, l.posted_by, l.posted_at, l.source
+         FROM chain c JOIN folio_line l ON l.id = c.id
+        ORDER BY c.depth DESC LIMIT 1`,
+      [lineId],
+    );
+    const root = rows[0];
+    if (!root) throw new Error(`folio line ${lineId} not found for its origin`);
+    const { today, tz, now } = await this.today(tx);
+    const rollover =
+      (await this.param<string>(tx, 'business_day_rollover', localDate(root.posted_at, tz))) ??
+      (await this.params.get<string>(tx, 'business_day_rollover', localDate(now, tz)));
+    return {
+      postedByActor: root.posted_by !== null && root.posted_by === actorUserId,
+      sameBusinessDay: businessDate(root.posted_at, tz, rollover) === today,
+      rootLineId: root.id,
+      rootLineManual: root.source === 'manual',
+    };
+  }
+
   /** getChargeCatalog (US-032): parameter-priced items + typed-in F&B / service lines. */
   async catalog(tx: Tx): Promise<ChargeCatalogItem[]> {
     const { today } = await this.today(tx);
@@ -556,6 +606,11 @@ export class FolioLinesService {
     }
     const qty = input.newQuantity ?? Number(line.quantity);
     const price = input.newUnitPriceVnd ?? line.unit_price_vnd;
+    // 0.3.13 V5-16 (+ bổ sung 1): every folio_line.adjusted below carries the role at the time and the line's origin.
+    const origin = {
+      actorRole: actorRoleOf(actor.userId, actor.roles),
+      ...(await this.lineOrigin(tx, line.id, actor.userId)),
+    };
     // BR-525 N-7 by the number (ARC 16.31.1 – BUG-R2-208, DOM 18/10; SEC s1 D): on a settled folio inside its window
     // a correction that REDUCES a line (void, lower price, lower quantity; reduction = line before − after) is allowed
     // only up to W = max(0, còn phải thu) − `openDebtVnd` (the charges still in their window); above → 409, every
@@ -661,12 +716,31 @@ export class FolioLinesService {
           before: {
             category: line.category,
             amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
+            ...origin,
           },
           after: { category: line.category, amountVnd: newAmount },
           reason,
           ...(actor.requestId ? { requestId: actor.requestId } : {}),
         });
       }
+    } else if (folio.status !== 'settled') {
+      // 0.3.13 V5-16 (FB-R4-SEC-BE-A31-01): a line voided – or brought to quantity 0 – on an open folio is a removal:
+      // the `folio_line.adjusted` with `after.amountVnd = 0` the weekly "Bỏ/giảm dòng" filter reads (removalsOnly).
+      // On a settled folio the reduction audits below write it (MGR+ only there).
+      await this.audit.recordMoney(tx, {
+        action: 'folio_line.adjusted',
+        entityType: 'folio_line',
+        entityId: line.id,
+        ...(stayCode ? { entityCode: stayCode } : {}),
+        before: {
+          category: line.category,
+          amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
+          ...origin,
+        },
+        after: { category: line.category, amountVnd: 0 },
+        reason,
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
     }
     await this.folios.syncReductions(tx, folio.id, {
       userId: actor.userId,
@@ -693,7 +767,7 @@ export class FolioLinesService {
           amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
           openDebtVnd: debtCheck.openDebtVnd,
           windowVnd: debtCheck.windowVnd,
-          actorRole: actorRoleOf(actor.userId, actor.roles),
+          ...origin,
         },
         after: {
           category: line.category,
@@ -726,7 +800,7 @@ export class FolioLinesService {
           entityType: 'folio_line',
           entityId: line.id,
           ...(stayCode ? { entityCode: stayCode } : {}),
-          before: { category: line.category, amountVnd: lineBeforeVnd, actorRole: role },
+          before: { category: line.category, amountVnd: lineBeforeVnd, ...origin },
           after: { category: line.category, amountVnd: lineAfterVnd, reducedVnd },
           reason,
           ...(actor.requestId ? { requestId: actor.requestId } : {}),
