@@ -1091,6 +1091,36 @@ export function createStayMock(ctx: Ctx) {
   }
 
   /**
+   * V5-10 (0.3.13 1.1 ý 2, 1.19 ý 3 – `resolveCheckoutAt` of #106): the instant of a check-out time. Sent `checkoutAt`
+   * → as is. Else `t` = typed ?? agreed ?? 12:00 on (departure, t), plus (departure + 1, t) when t < rollover, plus
+   * (departure − 1, t) while the clock is in the departure's post-midnight window and t ≥ rollover; the latest not
+   * after now + tolerance (mock 15'), else the earliest. Also the two flags of `CheckoutSummary`.
+   */
+  function resolveCheckoutAt(r: MockReservation, time: string | undefined, sentAt?: unknown) {
+    const tol = 15 * 60_000;
+    const at = (d: string, hhmm: string) => `${d}T${hhmm}:00+07:00`;
+    let iso: string;
+    if (typeof sentAt === 'string' && sentAt) iso = sentAt;
+    else {
+      const t = time && /^\d{2}:\d{2}$/.test(time) ? time : (r.agreedCheckoutTime ?? '12:00');
+      const dep = r.departureDate;
+      const cands = [at(dep, t)];
+      if (t < '06:00') cands.push(at(addDays(dep, 1), t));
+      if (postMidnightWindow(r) && t >= '06:00') cands.unshift(at(addDays(dep, -1), t));
+      const limit = Date.now() + tol;
+      const ok = cands.filter((c) => Date.parse(c) <= limit);
+      iso = ok.length ? ok.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a)) : cands[0]!;
+    }
+    const diff = Date.parse(iso) - Date.now();
+    return {
+      checkoutAt: iso,
+      hhmm: iso.slice(11, 16),
+      afterNow: diff > tol,
+      noteRequired: diff < -tol,
+    };
+  }
+
+  /**
    * 0.3.6 add. 2 (B18/B16 window): business day = departure − 1 while the calendar already shows the
    * departure date, before `business_day_rollover` (mock 06:00) – an early-morning check-out is valid
    * with no surcharge. After the departure day's last tier (incl. after its midnight) → extra night.
@@ -2963,8 +2993,9 @@ export function createStayMock(ctx: Ctx) {
       const x = withRes(request, params, FD_PLUS);
       if (isResponse(x)) return x;
       const { r } = x;
-      const time =
-        new URL(request.url).searchParams.get('checkoutTime') ?? r.agreedCheckoutTime ?? '12:00';
+      const asked = new URL(request.url).searchParams.get('checkoutTime') ?? undefined;
+      const at = resolveCheckoutAt(r, asked);
+      const time = asked ?? r.agreedCheckoutTime ?? '12:00';
       const s = lateSurcharge(r, time);
       const tt = totals(r);
       const f = folioOf(r);
@@ -3003,6 +3034,10 @@ export function createStayMock(ctx: Ctx) {
         lateFeeAsNightVnd: lateFeeAsNight(r, time),
         minibarUncheckedRooms: unchecked.length ? unchecked : undefined,
         postMidnightWindow: postMidnightWindow(r),
+        // V5-10: the instant every figure here is priced at, and what B18 will say about it.
+        checkoutAt: at.checkoutAt,
+        checkoutTimeNoteRequired: at.noteRequired,
+        checkoutAtAfterNow: at.afterNow,
         unhandledCreditVnd: tt.unhandledCreditVnd,
         lateSurchargeRecalc: liveLate(r).length
           ? { oldVnd: live, newVnd, newTierPct: s.treatAsExtension ? 0 : s.tierPct }
@@ -3028,7 +3063,11 @@ export function createStayMock(ctx: Ctx) {
         if (r.status !== 'in_house')
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
         const body = (await request.json()) as Body;
-        const time = String(body.checkoutTime ?? '12:00');
+        // V5-10: `checkoutAt` (the summary's) is used as is – its clock time drives the tiers below.
+        const time =
+          typeof body.checkoutAt === 'string'
+            ? body.checkoutAt.slice(11, 16)
+            : String(body.checkoutTime ?? '12:00');
         const timeErr = timeCheck(time, body.checkoutTimeNote, 'checkoutTime', 'checkoutTimeNote');
         if (timeErr) return timeErr;
         const s = lateSurcharge(r, time);
@@ -3717,6 +3756,13 @@ export function createStayMock(ctx: Ctx) {
         typeof body.checkoutAt === 'string'
           ? String(body.checkoutAt).slice(11, 16)
           : (r.agreedCheckoutTime ?? '12:00');
+      // 0.3.13 bổ sung 1 (C0313-01): a check-out QR later than now + tolerance is refused, nothing written.
+      if (
+        body.purpose === 'check_out' &&
+        !hold &&
+        resolveCheckoutAt(r, undefined, body.checkoutAt).afterNow
+      )
+        return validation([{ field: 'checkoutAt', code: 'TIME_AFTER_ACTION' }]);
       // 0.3.7 add. 4 (BUG-R2-139, BR-416-06): `lateFeeAsNight` only while the night of departure is sold;
       // then no typed extra-night rate either.
       const unsold = body.purpose === 'check_out' && lateFeeAsNight(r, outTime) !== undefined;

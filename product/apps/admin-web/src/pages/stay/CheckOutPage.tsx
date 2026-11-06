@@ -166,7 +166,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
   const { roles, property } = useSession();
-  // BUG-R4-050: the instant of the typed time on the business-day axis B18 reads it on (`checkoutInstant`).
+  // BUG-R4-050: the instant of the typed time on the business-day axis B18 reads it on (`checkoutInstant`) – only for a
+  // server that does not return `CheckoutSummary.checkoutAt` yet (≤ 0.3.12); V5-10 forwards the server's instant.
   const rollover = property?.businessDayRollover ?? DEFAULT_ROLLOVER;
   // R3-Q39 #10, #11 (BR-010): the BUSINESS day – at 02:40 the stay is still in last night's room, and the
   // debt due date counts from the business day of the write (BR-525 (i) v0.4.0).
@@ -189,12 +190,20 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const hereRoomId = here?.roomId ?? undefined;
   const [step, setStep] = useState(0);
   const [time, setTime] = useState('');
+  /** DOM rules-v1.0.5 15.2: the desk changed the time the page filled in (the desk's clock, KB7). */
+  const [timeTouched, setTimeTouched] = useState(false);
   const qTime = useDebounced(time, 300);
+  // V5-10 (0.3.13 1.1 ý 3, 1.19 ý 4): each read keeps the time it asked for – QR and B18 forward the `checkoutAt` of
+  // a read WITH the time on screen only (DOM rules-v1.0.5 15.2: the read without a time is the agreed or standard
+  // time, never the guest's).
   const sum = useResource(
-    async () => (await api.getCheckoutSummary(R, qTime || undefined)).data,
+    async () => ({
+      summary: (await api.getCheckoutSummary(R, qTime || undefined)).data,
+      askedTime: qTime,
+    }),
     [propertyId, reservationId, qTime],
   );
-  const s = sum.state.data;
+  const s = sum.state.data?.summary;
   // 0.3.7 bổ sung 4 (minibar M-1, BR-703-01): one cabinet per (stay, room) – after B14 the old room's cabinet is
   // counted too (`CheckoutSummary.minibarUncheckedRooms`); `undefined` = the room assigned now.
   const [cabinet, setCabinet] = useState<string | undefined>(undefined);
@@ -383,7 +392,22 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   }, [toBill, sum.state.status, res.state.status]);
   // "Tiếp tục" pressed while the summary is still priced for another time (typed < 300 ms ago): the click is
   // kept and carried out once the server amount for the typed time is on screen – never lost, never stale.
-  const priced = !time || (s?.checkoutTime ?? '').slice(0, 5) === time;
+  const timedSummary = !!s && !!time && sum.state.data?.askedTime === time;
+  const priced = !time || timedSummary;
+  /**
+   * V5-10 (0.3.13 1.1 ý 3, 1.19; T10-6): the ONE instant of this check-out – the server's `checkoutAt` of the last
+   * summary read with the time on screen, sent as is to the check-out VietQR (and its due probe) and to B18. No read
+   * with that time yet → nothing (the QR and B18 wait, like "Tiếp tục"). The desk never puts a date to the time itself,
+   * except for a server without the field (≤ 0.3.12).
+   */
+  const checkoutAt =
+    timedSummary && r
+      ? (s.checkoutAt ??
+        checkoutInstant(time, today, r.stayDepartureDate ?? r.departureDate, rollover))
+      : undefined;
+  // 0.3.13 bổ sung 1 (C0313-01): that instant is later than the server's clock + tolerance – B18 and the check-out QR
+  // would answer 422 TIME_AFTER_ACTION: said under the time box, "Tiếp tục", the QR and "Hoàn tất" are off.
+  const timeAfterNow = timedSummary && s.checkoutAtAfterNow === true;
   const [wantBill, setWantBill] = useState(false);
   const goBillRef = useRef<() => void>(() => undefined);
   useEffect(() => {
@@ -463,7 +487,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   useEffect(() => {
     if (sum.state.status !== 'ready' || sum.state.loadedAt === seenRead.current) return;
     seenRead.current = sum.state.loadedAt;
-    const due = sum.state.data.minibarUncheckedRooms ?? [];
+    const due = sum.state.data.summary.minibarUncheckedRooms ?? [];
     const release = [...doneCabinets.keys()].filter((id) => due.some((c) => c.roomId === id));
     if (release.length) {
       const kept = new Map([...doneRef.current].filter(([id]) => !release.includes(id)));
@@ -493,7 +517,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const typedRate =
     s?.extraNightRequired && s.extraNightAvailable !== false ? amountOf(extraRate) : 0;
   const rateTyped = typedRate > 0 && typedRate !== (s?.extraNightDefaultRateVnd ?? 0);
-  const typedKey = rateTyped && r ? `${time}|${typedRate}` : '';
+  const typedKey =
+    rateTyped && r && checkoutAt && !timeAfterNow ? `${checkoutAt}|${typedRate}` : '';
   const debTypedKey = useDebounced(typedKey, 300);
   const [typedDue, setTypedDue] = useState<{ key: string; due?: number; failed?: boolean } | null>(
     null,
@@ -501,19 +526,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   useEffect(() => {
     if (!debTypedKey || debTypedKey !== typedKey || !r) return;
     let stale = false;
-    const [hhmm, rate] = debTypedKey.split('|') as [string, string];
+    const [at, rate] = debTypedKey.split('|') as [string, string];
     api
       .createVietQr(
         { propertyId, folioId: r.folioId },
         {
           amountVnd: DUE_PROBE_VND,
           purpose: 'check_out',
-          checkoutAt: checkoutInstant(
-            hhmm,
-            today,
-            r.stayDepartureDate ?? r.departureDate,
-            rollover,
-          ),
+          checkoutAt: at,
           extraNightRateVnd: Number(rate),
         },
         newIdempotencyKey(),
@@ -537,7 +557,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       stale = true;
     };
     // `s` – a payment recorded or a line written changes what is due at that rate.
-  }, [debTypedKey, typedKey, r, propertyId, s, today, rollover]);
+  }, [debTypedKey, typedKey, r, propertyId, s]);
 
   if (!r && res.state.status === 'error')
     return (
@@ -691,6 +711,11 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const lateRaise = lateNew > lateOld;
   const lateDelta = lateNew - lateOld;
   const lateTier = s?.lateSurchargeRecalc?.newTierPct ?? s?.lateCheckoutSurcharge?.tierPct ?? 0;
+  // DOM rules-v1.0.5 15.1–15.2 (review #106 2.1): the fee follows the time the guest LEFT. The page fills in the desk's
+  // clock (KB7) – left as it is, a guest who handed the key in at 11:40 is charged at the click (12:10). While the time
+  // is still the one filled in and it costs the guest something, the box stands out for the desk to check.
+  const timePrefilled = !!time && !timeTouched;
+  const timePrefilledCharged = timePrefilled && (lateNew > 0 || extraNightNeeded);
   // 0.3.6 add. 2: only credit not yet covered by a refund request needs a decision.
   const credit0 = s?.unhandledCreditVnd ?? s?.creditVnd ?? 0;
   // S4-47 / ARC 0.3.7 bổ sung 4: what B18 leaves due at this time is the SERVER's figure (late charge
@@ -942,6 +967,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           };
     const body: CheckOutBody = {
       checkoutTime: time || s?.checkoutTime || rules.checkoutTime,
+      // V5-10: the instant the bill and the QR were priced at (T10-6) – the server uses it as is.
+      checkoutAt,
       checkoutTimeNote: timeNote.trim() || undefined,
       applyLateSurcharge: lateRaise && lateTold,
       expectedSurchargeVnd: lateRaise && lateTold ? lateNew : undefined,
@@ -1016,15 +1043,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // KB7 (1): a higher late surcharge is written to the folio (B15 at the actual time, the amount the desk saw
   // and told the guest – BR-414) before the bill step, so step 3 collects it with everything else.
   // S4-48 / BUG-R2-088: the reason says what to do (tick the box), not the box's own label.
-  const lateWhy = extraRangeError
-    ? extraRangeError
-    : dueComputing
-      ? t('checkout.due_computing')
-      : lateRaise && !lateTold
-        ? t('co.go_bill_needs_told')
-        : lateRaise
-          ? surchargeFocMissing(t, lateFoc)
-          : null;
+  const lateWhy = timeAfterNow
+    ? t('field.TIME_AFTER_ACTION')
+    : extraRangeError
+      ? extraRangeError
+      : dueComputing
+        ? t('checkout.due_computing')
+        : lateRaise && !lateTold
+          ? t('co.go_bill_needs_told')
+          : lateRaise
+            ? surchargeFocMissing(t, lateFoc)
+            : null;
   const goBill = async () => {
     if (toBill || lateAct.busy) return;
     if (!priced) {
@@ -1068,6 +1097,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   goBillRef.current = () => void goBill();
   const changeTime = (v: string) => {
     setTime(v);
+    setTimeTouched(true);
     setLateTold(false);
     // KB7 (4): the red "earlier than the click" line was about the old time – a new time clears it (B18 checks
     // again on "Hoàn tất").
@@ -1500,20 +1530,27 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               ? t('co.time_from_late', { time: r.agreedCheckoutTime })
               : undefined
           }
-          error={act.fields.checkoutTime}
+          error={
+            act.fields.checkoutTime ?? (timeAfterNow ? t('field.TIME_AFTER_ACTION') : undefined)
+          }
         >
           {(p) => (
             <input
               {...p}
               type="time"
-              className="input"
+              className={`input${timePrefilledCharged ? ' is-prefilled' : ''}`}
+              data-prefilled={timePrefilled || undefined}
               value={time}
               onChange={(e) => changeTime(e.target.value)}
             />
           )}
         </Field>
         {s?.postMidnightWindow ? <Alert tone="info">{t('checkout.post_midnight')}</Alert> : null}
-        {noteAsked || act.fields.checkoutTimeNote || timeNote ? (
+        {/* V5-10: the server says B18 will ask for the note (`checkoutTimeNoteRequired`) – the box is there first. */}
+        {noteAsked ||
+        act.fields.checkoutTimeNote ||
+        timeNote ||
+        (timedSummary && s.checkoutTimeNoteRequired) ? (
           <Field
             label={t('checkout.time_note')}
             help={t('stay.time_note_help')}
@@ -1790,7 +1827,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 reservation={r}
                 balanceVnd={balance}
                 checkout={{
-                  checkoutAt: checkoutInstant(time, today, stayDeparture, rollover),
+                  checkoutAt,
+                  // 0.3.13 bổ sung 1: the QR would be refused (TIME_AFTER_ACTION) – off, the reason is by "Hoàn tất".
+                  qrOff: timeAfterNow,
                   // ARC 16.18: the same rule as B18 – only a rate the desk changed.
                   extraNightRateVnd:
                     extraNightNeeded && !extraUnavailable && extraEdited
@@ -1970,8 +2009,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   }
 
   // FE-S3-04: say why "Hoàn tất" is locked (first missing thing).
-  const whyLocked =
-    extraUnavailable && !lateFeeMode && !lateFeeFree
+  const whyLocked = timeAfterNow
+    ? t('field.TIME_AFTER_ACTION')
+    : extraUnavailable && !lateFeeMode && !lateFeeFree
       ? t('checkout.extra_night_unavailable')
       : !lfReady
         ? lfReview
