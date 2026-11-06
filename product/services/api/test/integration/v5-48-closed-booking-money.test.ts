@@ -19,7 +19,8 @@
  *   `payment.expired` + `reservationStatus`, SM-12 reason `reservation_closed`);
  * - (h6) MGR still reverses a receipt written on a closed booking;
  * - FB-R5-SEC-BE-105-01: an image a sale uploaded is never the proof – the image REPLACED on its notice and an image
- *   it never sent with a notice → 422 `attachmentId` NOT_IN_LIST like the one on the notice; an FD image → 201.
+ *   it never sent with a notice → 422 `attachmentId` NOT_IN_LIST like the one on the notice; an FD image → 201;
+ *   FB-R5-SEC-BE-139-02: the same for an image a CTV (collaborator) uploaded on its own booking.
  * Fake clock and FAKE data only (guest name of the fixture, `@example.test`-free).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -607,5 +608,44 @@ describe.skipIf(!HAS_DB)('V5-48 – money on a closed booking (BUG-R5-002, SEC B
     );
     expect(ok.statusCode, ok.body).toBe(201);
     expect(ok.json().reconciliation).toBe('pending');
+  }, 120_000);
+
+  it('FB-R5-SEC-BE-139-02: an image a CTV uploaded on its own booking, never sent → 422 attachmentId NOT_IN_LIST, nothing written', async () => {
+    // After the case above (clock 22/11 09:00, outside the afterClosureOnly window of the earlier cases).
+    const res = await x.c.fd!.send('POST', x.url('/reservations'), {
+      roomId: x.ids.rooms['301'],
+      channelId: x.ids.channels.collaborator,
+      closerUserId: x.t.users.ctv!.id,
+      adults: 2,
+      bookerGuestId: x.guest,
+      paymentModel: 'direct',
+      arrivalDate: '2027-01-05',
+      departureDate: '2027-01-07',
+      initialPayment: { type: 'deposit', method: 'cash', amountVnd: 1_000_000 },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const b = res.json() as B;
+    const ctvImg = await attach('ctv', b.id);
+    const [img] = await x.q(`SELECT uploaded_by_role FROM attachment WHERE id = $1`, [ctvImg]);
+    expect(img).toEqual({ uploaded_by_role: 'collaborator' });
+    const cancel = await x.act(b.id, 'cancel', { reasonCode: 'found_other' });
+    expect(cancel.statusCode, cancel.body).toBe(200);
+    const before = await snapshot(b);
+    for (const who of DESK) {
+      const r = await record(
+        b,
+        {
+          type: 'deposit',
+          method: 'bank_transfer',
+          amountVnd: 300_000,
+          note: NOTE,
+          attachmentId: ctvImg,
+        },
+        who,
+      );
+      expect(r.statusCode, `${who} ${r.body}`).toBe(422);
+      expect(r.json().errors, who).toEqual([{ field: 'attachmentId', code: 'NOT_IN_LIST' }]);
+    }
+    expect(await snapshot(b)).toEqual(before);
   }, 120_000);
 });
