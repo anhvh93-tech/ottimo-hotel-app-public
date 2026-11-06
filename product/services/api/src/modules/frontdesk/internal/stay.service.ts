@@ -375,9 +375,10 @@ export class StayService {
         // BUG-R2-134 (BR-105, BR-107 v0.3.8): the default is checked like a typed rate.
         const rate = typed ?? d.calendarVnd;
         if (rate < floor || rate > ceiling) {
+          // V5-22 (contract 1.24 BE 12): `dates[]` like every RATE_OUT_OF_RANGE; `date` kept for older clients.
           throw problem('RATE_OUT_OF_RANGE', {
             errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
-            extras: { date, min: floor, max: ceiling },
+            extras: { dates: [date], date, min: floor, max: ceiling },
           });
         }
         // ARC 16.18 (BR-417 appendix 5A step 3 (i)): a night with an element in `nightlyRates` is typed (`manual`)
