@@ -1278,7 +1278,7 @@ Giá trị mặc định **không chép ở đây** – lấy đúng `business-r
 | `night_from_month_divisor`, `long_stay_daily_divisor` | int | 101, 102 | OWN, MGR | HĐ |
 | `ota_base_rate` (BR viết `ota_base_rate.<group>`) | **json** `{"<room_group.code>": int VND}` – một khóa, giá trị là bảng theo **mã nhóm** (`{"L12": 760000, "N": 1050000, "NPLUS": 980000}`), có `effective_from` như mọi tham số (lịch sử giá, snapshot BR-006). **0.3.5 – BUG-R2-017**: catalogue `config_parameter_def` thêm khóa này (migration mới, BE-A) + seed DS-E (QA) | 103, 104, 105 | OWN, MGR | đơn OTA (giá mặc định), sàn–trần BR-105 |
 | `rounding.ota_rate` | int (10.000) | 005 | OWN, MGR | giá đêm OTA – **0.3.5** tách khỏi `rounding.monthly_rent` (BR-005 ghi riêng "giá OTA") |
-| `weekend_uplift_pct`, `weekend_nights` | pct; int[] (ISO weekday) | 103 | OWN, MGR | – |
+| `weekend_uplift_pct`, `weekend_nights` | pct; `Weekday[]` (`MON`…`SUN`; OTTIMO `["FRI","SAT"]` – OpenAPI 0.3.13 bổ sung 1, BUG-R5-001) | 103 | OWN, MGR | – |
 | `special_dates[]`, `special_uplift_pct` | [{from,to,name}]; pct | 104 | OWN, MGR | – |
 | `rate_floor_pct`, `rate_ceiling_pct` | pct | 105 | OWN, MGR | – |
 | `los_discount` | [{min_nights, pct}] | 107 | OWN, MGR | đơn, báo giá |
@@ -1426,7 +1426,9 @@ DOM xem lại biên trong review (đổi biên = migration mới, không sửa g
 - `time` (`HH:mm`): 00:00–23:59; **chéo**: `checkout_time` < `late_grace_until` ≤ mốc đầu `late_checkout_tiers`; `no_show_call_time` < `no_show_mark_time`; `hold_latest_time_on_arrival` ≤ `checkin_time`.
 - Bậc giờ (`early_checkin_tiers`, `late_checkout_tiers`, `long_stay_cleaning_window`, `front_desk_hours`): khoảng `[from, to)` không chồng nhau, `pct` 0–100.
 - Danh sách % theo mốc (`los_discount`, `cancel_policy_direct`, `early_termination`, `early_departure_refund`, `lease_terms`, `short_stay_commission_pct`, `commission_payout`): mỗi `pct` 0–100, mốc (`min_nights`, `min_days_before`, `months`…) ≥ 0 và tăng dần không trùng; `commission_payout` Σ `pct` = 100.
-- `weekend_nights`: tập con {1…7} (ISO weekday), không rỗng; `hold_hours_options`: 1–5 phần tử, mỗi phần tử 1–72; `min_stay`: số đêm 1–7.
+- `weekend_nights`: mảng `Weekday` (`MON`…`SUN`), không rỗng, không trùng – dạng số 1–7 (ISO weekday) của bản cũ **sai** với migration và bộ tính giá, bị từ chối
+  (OpenAPI 0.3.13 bổ sung 1, BUG-R5-001; DOM rules-v1.0.5 mục 11); `hold_hours_options`: 1–5 phần tử, mỗi phần tử 1–72; `min_stay`: mảng `MinStayRule`
+  (`nights` 1–7, `arrivalWeekdays` `Weekday[]`, `arrivalOnSpecialDates`, `channels`) – dạng số hoặc đối tượng bị từ chối (V5-25, BE C0313-18).
 - `foc_limits`: mỗi mức tiền 0–100.000.000 VND, số đêm 0–30; `wo_sla`: phút 5–1.440, giờ 1–720.
 - `bool`, `text` enum (`deposit_base`, `ota_surcharge_base`, `registration_deadline_foreigner_mode`, `business_entity_type`…): giá trị ngoài danh mục → `PARAM_OUT_OF_RANGE` với `allowed[]`.
 - Cột căn (không phải tham số): `room.base_occupancy` 1–10; `room.max_occupancy` ∈ {base, base + 1} (ESC-014) → `MAX_OCCUPANCY_RANGE` (mục 4.1).
