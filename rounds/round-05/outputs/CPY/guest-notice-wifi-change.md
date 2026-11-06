@@ -10,9 +10,9 @@
   - mẫu `msg.*` (design-system 11.2.1): "Hello {name}," / "Chào {name},", xưng "bạn", không "!";
   - chữ trên trang khách: tab "My stay" / "Lưu trú", "Back to my stay" / "Về trang lưu trú", và "reception" như các chuỗi trang khách khác (`gw.wifi_ask_desk`).
 - Chỗ dùng: BA thay câu ở bước 4 của khối trên.
-- Chờ review:
-  - DOM: đúng quy trình đổi mật khẩu;
-  - UXD: giọng.
+- Review:
+  - DOM đã review 07/11 (`b0fa79ff`, FB-R5-DOM-BA-05): giữ câu 4, chốt giờ đổi, thêm vế loại trừ ở mục 1 (Lượt 2);
+  - còn chờ UXD (giọng).
 
   Không có câu về dữ liệu khách, nên không cần SEC duyệt nghĩa.
 
@@ -21,7 +21,12 @@
 ## 1. Dùng khi nào, gửi thế nào
 
 - **Mục đích:** một tin, một việc. Báo mật khẩu Wi-Fi đã đổi, chỉ chỗ xem mật khẩu mới, báo thẻ trong phòng sẽ được thay.
-- **Lúc gửi:** ngay sau bước 3, tức là bộ phát đã đổi, Desk đã lưu và trang khách đã kiểm. Gửi cho **mọi khách đang ở**, kể cả khách dài hạn, qua kênh đang dùng với từng khách.
+- **Lúc gửi:** ngay sau bước 3, tức là bộ phát đã đổi, Desk đã lưu và trang khách đã kiểm. Giờ đổi là 13:00–17:00 (DOM BA-05). Gửi cho **mọi khách đang ở**, kể cả khách dài hạn, qua kênh đang dùng với từng khách. **Không gửi** cho:
+  - khách đi hôm nay, kể cả trả muộn;
+  - khách nhận phòng sau giờ đổi;
+  - đơn hôm nay đã có 2 tin chủ động.
+
+  Các khách này được báo ở quầy khi hỏi; lễ tân ghi sổ giao ca mã đơn. Một đơn nhiều phòng: gửi một tin cho người liên hệ của đơn. Chủ đầu tư quyết đổi gấp ngoài khung giờ: tin này là tin sự cố, gửi ngay.
 - **Một ngôn ngữ mỗi tin, theo khách:** tiếng Việt cho khách Việt, tiếng Anh cho khách khác. Bản tiếng Anh là bản gốc.
 - **Chọn bản:**
   - Zalo (OA hoặc số cơ sở): bản ngắn (mục 3);
@@ -88,7 +93,7 @@ ORC gợi ý mời khách xem thẻ Wi-Fi trong phòng. CPY **không** viết v�
 - "ask reception": không hứa giờ. Người trực đêm đọc Wi-Fi trên Desk được (lễ tân, lễ tân trưởng chỉ xem).
 - "We will also replace the Wi-Fi card in your room": đúng nếu bước 5 thay thẻ cho mọi phòng.
 
-  Bước 5 hiện ghi "căn có khách thay lúc dọn, **hoặc** đưa thẻ ở quầy". Nếu "đưa thẻ ở quầy" nghĩa là **không** thay thẻ trong phòng, câu 4 sai. Đề xuất BA/DOM sửa bước 5: căn có khách thay thẻ ở lần dọn tới; khách hỏi trước lúc đó thì đưa thẻ ở quầy. Nếu DOM giữ nguyên ý "hoặc", CPY đổi câu 4 thành "Reception can also give you an updated Wi-Fi card." / "Lễ tân có thể đưa bạn thẻ Wi-Fi mới."
+  Bước 5 hiện ghi "căn có khách thay lúc dọn, **hoặc** đưa thẻ ở quầy". Nếu "đưa thẻ ở quầy" nghĩa là **không** thay thẻ trong phòng, câu 4 sai. Đề xuất BA/DOM sửa bước 5: căn có khách thay thẻ ở lần dọn tới; khách hỏi trước lúc đó thì đưa thẻ ở quầy. Nếu DOM giữ nguyên ý "hoặc", CPY đổi câu 4 thành "Reception can also give you an updated Wi-Fi card." / "Lễ tân có thể đưa bạn thẻ Wi-Fi mới." **DOM chốt 07/11 (BA-05): đồng ý thay thẻ mọi phòng, câu 4 giữ nguyên.**
 - Không hứa thời điểm thay thẻ: khách dài hạn có thể dọn theo tuần.
 
 ## 6. Cho BA và DOM
@@ -99,9 +104,9 @@ ORC gợi ý mời khách xem thẻ Wi-Fi trong phòng. CPY **không** viết v�
 
   Đặt bốn đoạn để sao chép (mục 2 và 3, EN và VI) ngay dưới khối, đúng nguyên văn.
 - **DOM, BA – đề xuất, không phải chữ của CPY:**
-  1. Bước 1 "chọn giờ vắng khách": nên đổi trong **08:00–21:00** (BR-973). Đây là tin chủ động, không phải tin sự cố. Đổi ngoài khung thì khách mất Wi-Fi cả đêm mà tin báo phải chờ tới 08:00.
-  2. Tin này tính vào trần 2 tin chủ động mỗi ngày mỗi đơn (BR-974).
-  3. Bước 5: xem mục 5.
+  1. Bước 1 "chọn giờ vắng khách": nên đổi trong **08:00–21:00** (BR-973). Đây là tin chủ động, không phải tin sự cố. Đổi ngoài khung thì khách mất Wi-Fi cả đêm mà tin báo phải chờ tới 08:00. **DOM chốt: 13:00–17:00 (BA-05).**
+  2. Tin này tính vào trần 2 tin chủ động mỗi ngày mỗi đơn (BR-974). **DOM đồng ý; vế loại trừ ở mục 1.**
+  3. Bước 5: xem mục 5. **DOM đã chốt.**
 
 ## 7. Quy tắc kiểm và test đề xuất (khi làm mẫu tin v1.2)
 
@@ -133,5 +138,24 @@ Câu dài nhất: câu 1 bản Zalo, 21 chữ tiếng Anh, để giữ trong 2 c
 
 - [x] Đúng guideline: tiếng Anh dẫn, ngắn, điềm tĩnh, không emoji, không "!", không IN HOA để nhấn.
 - [x] Không mật khẩu, không link, không số căn, không tên phòng, không từ cấm. Dùng "phòng" / "room", không dùng "căn".
-- [x] Lời hứa khớp quy trình: gửi sau khi đổi; trang khách chỉ nhắc khi đã lên bản; thẻ trong phòng báo rõ là còn ghi mật khẩu cũ. Một điểm chờ DOM: bước 5 (mục 5).
+- [x] Lời hứa khớp quy trình: gửi sau khi đổi; trang khách chỉ nhắc khi đã lên bản; thẻ trong phòng báo rõ là còn ghi mật khẩu cũ. DOM đã chốt bước 5 (BA-05).
 - [x] Không có câu ko/zh/ru mới; không có câu cần SEC hay luật sư.
+
+---
+
+## Lượt 2 – vế loại trừ ở "Lúc gửi" (DOM FB-R5-DOM-BA-05)
+
+- Nguồn:
+  - DOM `rounds/round-05/reviews/DOM-on-ba-v105-docs.md` mục 5, thẻ FB-R5-DOM-BA-05 (`b0fa79ff`);
+  - BA lượt 4 (`da596507`).
+- Không đổi chữ nào gửi khách. Mục 2 và 3 giữ nguyên văn.
+- Mục 1, gạch **Lúc gửi**:
+  - thêm giờ đổi 13:00–17:00;
+  - thêm vế loại trừ đúng như bước 4 DOM đề xuất: khách đi hôm nay, khách nhận phòng sau giờ đổi, đơn đã có 2 tin chủ động, đơn nhiều phòng, đổi gấp.
+- Ghi "DOM chốt" ngay tại chỗ ở đầu tệp, mục 5, mục 6 và mục 9. Ba điểm CPY hỏi đã đóng:
+  - thay thẻ mọi phòng, câu 4 giữ nguyên;
+  - giờ đổi 13:00–17:00;
+  - tin tính vào trần BR-974.
+- Hỏi DOM, không chặn: khi đổi gấp ngoài khung, tin là tin sự cố nên không tính trần (BR-974). Vậy có còn bỏ khách đi hôm nay và đơn đã có 2 tin không?
+  - CPY đề xuất: đổi gấp thì gửi mọi khách đang ở, kể cả khách đi hôm nay chưa trả phòng, vì họ đang mất Wi-Fi.
+  - Chữ ở mục 1 tạm theo nguyên văn DOM ("tin sự cố, gửi ngay").
