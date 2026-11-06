@@ -483,3 +483,24 @@ describe('v1.0.3 endpoints (OpenAPI 0.3.10, BUG-R3-032)', () => {
     });
   });
 });
+
+describe('v1.0.5 endpoints (OpenAPI 0.3.13, no contract change)', () => {
+  it('transitionRoomStatus (V5-15 "Cần dọn", R8): POST with Idempotency-Key, expectedFrom in the body, no If-Match', async () => {
+    const { api, call } = setup();
+    await api.transitionRoomStatus(
+      { propertyId: 'p', roomId: 'r1' },
+      { event: 'needs_cleaning', expectedFrom: 'OC', performedAt: '2026-11-07T09:00:00+07:00' },
+      'k-1',
+    );
+    const [url, init] = call();
+    expect(url).toBe('http://x/v1/properties/p/rooms/r1/status-transitions');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({
+      event: 'needs_cleaning',
+      expectedFrom: 'OC',
+      performedAt: '2026-11-07T09:00:00+07:00',
+    });
+    expect(init.headers).toMatchObject({ 'Idempotency-Key': 'k-1', 'X-CSRF-Token': 'tok' });
+    expect(init.headers).not.toHaveProperty('If-Match');
+  });
+});

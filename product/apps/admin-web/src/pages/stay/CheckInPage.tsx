@@ -80,7 +80,12 @@ export function roomBlockedMessage(
     return c.heldByReservationCode
       ? { key: 'checkin.room_held_code', code: c.heldByReservationCode }
       : { key: 'checkin.room_held' };
-  if (c.cause === 'room_status' && occupiedStatus) return { key: 'checkin.room_status_stuck' };
+  // v1.0.5 V5-15 (UXD-on-fe-prs-98-102-107): OC → the sentence points to "Báo cần dọn" (S10); OD is already
+  // "needs cleaning" and has no such button → ask housekeeping.
+  if (c.cause === 'room_status' && occupiedStatus)
+    return {
+      key: c.detail === 'OD' ? 'checkin.room_status_stuck_od' : 'checkin.room_status_stuck',
+    };
   if (!hasRoom) return null;
   return occupiedStatus ? { key: 'checkin.room_occupied' } : { key: 'checkin.room_held' };
 }
@@ -1060,7 +1065,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
             )}
           </div>
         </div>
-        <div className="wiz-foot">
+        <div className="wiz-foot desk-foot">
           {step === 0 || c3Blocked ? (
             <Link className="btn ghost" to={`/reservations/${reservationId}`}>
               {t('ci.back_to_booking')}
