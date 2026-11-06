@@ -372,7 +372,8 @@ info:
       ở bảng mã, bảng trường mở rộng và `Problem` (SEC ARC-21). `serializeSchema` (SSE, outbox) không trả `x-self-data` (V5-43, ghi ở 0.3.12 (f)). `getArrivalsDepartures`,
       `TonightKpi.departures`: ngoại lệ cửa sổ sau nửa đêm – số KPI theo ngày nghiệp vụ tới 0.3.14. `setPropertyWifi`: luật đổi số SR-RL-10 → **SR-RL-15**, bộ đếm `rate_limit_counter`
       khóa `wifi_pw_cmp:<user_id>`, không `x-rate-limit` (SEC C0313-24); dọn chữ SEC ARC-22 (`setPropertyWifi`, `Payment.afterClosure`). Ô `bankReference` (`PaymentCreate`,
-      `executeRefund`): luật số thẻ riêng – chỉ toàn bộ giá trị 13–19 chữ số qua Luhn (SEC C0313-25), không mã lỗi mới.
+      `executeRefund`): luật số thẻ riêng – chỉ toàn bộ giá trị 13–19 chữ số qua Luhn (SEC C0313-25), không mã lỗi mới. BR-438 "dòng gõ tay" (`adjustFolioLine` (a),
+      `before.rootLineManual`) = dòng A30 hoặc đếm minibar, không xét riêng `source` (DOM 3.1, BR-438 v0.5.14).
     - **(i) Tin `hold_expired` (DOM mục 9)**: gửi người tạo, người chốt **và** mọi FD, FDL đang hoạt động (bỏ nhánh "chỉ khi không có người tạo"). Không đổi schema.
     - **(k) V5-30, V5-31 (DOM 4, 5, 7.3, 7.4) – cần migration, PR riêng (PR-M)**: `Commission.instalmentNo`, `voidReason`; `getManagerPerformanceBonus` (tính lúc đọc); `AttentionItem.kind`
       `commission_rate_missing`; `GuestRequest.feeFallback`. Khóa mới `long_stay_commission`, `manager_performance_bonus_pct`, `long_stay_cleaning_fee_by_room` cần dòng danh mục
@@ -5700,7 +5701,9 @@ paths:
       description: |
         **0.3.13 bổ sung 1 (V5-16, BR-438 – DOM mục 3, 7.2; SEC FB-R4-SEC-BE-A31-01)** – **sửa giảm** = `voidLine`, giảm `newQuantity` (kể cả về 0) hoặc giảm `newUnitPriceVnd`, trên dòng
         khác `room`, `extra_person`, `room_change_difference`, folio chưa `settled`. **FD/FDL** sửa giảm trực tiếp khi đủ cả ba, xét trên **dòng gốc** của chuỗi `related_line_id`:
-        (a) dòng gốc `source = manual` (A30) **và** do chính người gọi ghi; (b) ngày nghiệp vụ ghi dòng gốc = ngày nghiệp vụ hiện tại; (c) folio chưa `settled`. Ngoài ra → `403 FORBIDDEN_ACTION`
+        (a) dòng gốc **gõ tay** **và** do chính người gọi ghi – **bổ sung 1f (DOM `DOM-on-be-prs-101-108-110.md` 3.1, BR-438 v0.5.14)**: gõ tay = dòng A30 (`addFolioLine`,
+        nguồn `manual`, danh mục A30) hoặc dòng đếm minibar (nguồn `minibar_check`); **không** xét riêng mã `source`: phụ thu trả muộn B13/B15/B16 (lưu `manual`) và B18
+        (lưu `checkout`) là dòng hệ thống; (b) ngày nghiệp vụ ghi dòng gốc = ngày nghiệp vụ hiện tại; (c) folio chưa `settled`. Ngoài ra → `403 FORBIDDEN_ACTION`
         + `requiredFlow: foc_request` + `access.denied`, không ghi gì (kiểm sau khi tải dòng, dưới khóa L3, trước kiểm giá). Dòng hệ thống (phụ thu nhận sớm/trả muộn, phí giữ lại, phí dọn từ
         yêu cầu khách) luôn đi FOC, kể cả khi chính lễ tân đó bấm thao tác sinh dòng. Sửa **tăng** không thuộc luật này. OWN/MGR như cũ. Sửa giảm theo luật này không tính FOC tháng,
         không tính hạn mức BR-433; mọi lần có audit (xem `listAuditEvents.reductionsOnly`), vào `ShiftReport.lineReductions` và cảnh báo `foc_threshold` `check = line_reduction_count`.
@@ -7292,7 +7295,7 @@ paths:
             Bộ lọc tuần của quản lý: `category=money&removalsOnly=true&from=…&to=…`. Từ 0.3.13 mọi `folio_line.adjusted` ghi thêm `before.actorRole` (vai lúc sửa), `before.postedByActor`
             (`true` = người sửa cũng là người đã ghi dòng) và `before.sameBusinessDay` (dòng ghi cùng ngày nghiệp vụ với lần sửa) – không thêm số tiền nào. FD/FDL vẫn chỉ thấy bản ghi của mình.
             **Bổ sung 1 (BE C0313-04, DOM 7.2 ý 2–3)**: `postedByActor`, `sameBusinessDay` tính trên **dòng gốc** của chuỗi `related_line_id` (dòng đầu: `posted_by`, `business_date` của nó);
-            thêm `before.rootLineId` (chỉ id) và `before.rootLineManual` (dòng gốc `source = manual`). Allowlist audit `folio_line` thêm `postedByActor`, `sameBusinessDay`, `rootLineId`,
+            thêm `before.rootLineId` (chỉ id) và `before.rootLineManual` (dòng gốc **gõ tay** như `adjustFolioLine` (a) – bổ sung 1f: dòng A30 hoặc đếm minibar, không xét riêng `source`). Allowlist audit `folio_line` thêm `postedByActor`, `sameBusinessDay`, `rootLineId`,
             `rootLineManual`. Bật bộ lọc này → máy chủ tự ghim `category = money`, `action = folio_line.adjusted` (dùng index có sẵn – BE C0313-20); so jsonb
             `(after->>'amountVnd')::numeric = 0`, dòng khác `room`, `extra_person`, `room_change_difference`.
           schema: { type: boolean, default: false }

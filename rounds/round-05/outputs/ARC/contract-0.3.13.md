@@ -613,8 +613,8 @@ Thay T14-4 cũ ("kênh Nội bộ theo BR-421") bằng T14-8.
 
 **Luật (DOM chọn SEC (a) + báo cáo (b)):**
 - "Sửa giảm" = `voidLine`, giảm `newQuantity`, giảm `newUnitPriceVnd`; dòng khác `room`, `extra_person`, `room_change_difference`; folio chưa `settled`.
-- FD/FDL sửa giảm trực tiếp khi dòng **gốc** của chuỗi `related_line_id` (BE 04): `source = manual`, do chính người gọi ghi, ngày nghiệp vụ ghi = hôm nay. Ngoài ra → 403 + `requiredFlow: foc_request`; Desk chuyển sang "Gửi miễn có duyệt" (A35).
-- Audit tính trên dòng gốc: `before.postedByActor`, `before.sameBusinessDay`, thêm `before.rootLineId`, `before.rootLineManual`. Allowlist `folio_line` thêm 4 khóa (BE).
+- FD/FDL sửa giảm trực tiếp khi dòng **gốc** của chuỗi `related_line_id` (BE 04): **gõ tay**, do chính người gọi ghi, ngày nghiệp vụ ghi = hôm nay. **Bổ sung 1f (DOM `DOM-on-be-prs-101-108-110.md` 3.1, BR-438 v0.5.14):** "gõ tay" = dòng A30 (`addFolioLine`, nguồn `manual`, danh mục A30) hoặc dòng đếm minibar (nguồn `minibar_check`); không xét riêng mã `source` – phụ thu trả muộn B13/B15/B16 (lưu `manual`) và B18 (lưu `checkout`) là dòng hệ thống. Chữ cũ ghi "`source = manual`"; hành vi không đổi (PR #110 dùng `typedByHand`). Ngoài ra → 403 + `requiredFlow: foc_request`; Desk chuyển sang "Gửi miễn có duyệt" (A35).
+- Audit tính trên dòng gốc: `before.postedByActor`, `before.sameBusinessDay`, thêm `before.rootLineId`, `before.rootLineManual` (= dòng gốc gõ tay theo nghĩa trên). Allowlist `folio_line` thêm 4 khóa (BE).
 - Báo cáo: `listAuditEvents.reductionsOnly`; `ShiftReport.lineReductions[]` (tính lúc đọc từ audit; không kịp thì v1.0.6 – DOM 7.2 ý 4); "Cần chú ý" `foc_threshold` `check = line_reduction_count` (ngưỡng chung `foc_alert_count_per_approver`, tháng theo ngày nghiệp vụ).
 - FOC `reasonCode` thêm `entered_in_error` (không CHECK DB). Sửa giảm theo luật (1) không tính FOC tháng, không tính hạn mức BR-433.
 - `removalsOnly`, `reductionsOnly`: máy chủ ghim `category = money`, `action = folio_line.adjusted` (BE 20).
@@ -786,7 +786,9 @@ Chỉ chữ và mô tả `openapi.yaml`: không đổi schema, không mã lỗi 
 
 **Thêm vào danh sách 0.3.14 (1.25):**
 - `TonightKpi.departuresDate` (thêm trường, không phá); `departures`, `departuresCheckedOut` theo `departuresDateFor` như danh sách; Desk ghi ngày ở ô khi khác `businessDate` (BE ~0,25 ngày, không migration).
-- A4 (chờ DOM): trong cửa sổ, có đưa lượt `in_house` có ngày đi = ngày nghiệp vụ lên đầu "Khách đi" (`overdue`) không.
+- **A4 (DOM trả lời: có, v1.0.6 – `DOM-on-be-prs-101-108-110.md` mục 4, thẻ FB-R5-DOM-ARC-D1-01):** trong 00:00 tới trước `business_day_rollover` (06:00), khi vắng `date`, "Khách đi" gồm (1) lượt đi theo `departuresDate` như #100 và (2) **thêm** lượt còn `in_house` có ngày đi hiệu lực (`stayDepartureDate`, gồm gia hạn B13 và đơn con) = ngày nghiệp vụ – nhóm (2) **đặt trên cùng**, trạng thái `overdue`, nút Trả phòng như thường. Lượt có ngày đi trước ngày nghiệp vụ vẫn thuộc V5-15 (`overdueOnly`). Ô "Khách đi" (`TonightKpi`) đếm cả nhóm (2) là chưa trả phòng. v1.0.5: BA thêm câu sổ tay ca đêm.
+- **FB-R5-DOM-BE-101-02:** báo giá có `commission.status = rate_missing` → `ottimoRemainingVnd` **vắng** (cột `quote.ottimo_remaining_vnd` null), không bằng tổng tiền như hoa hồng 0 (DOM 4.1 "không tính 0"). Tới đó DATA không dùng cột này ở báo giá có `commission_vnd` null mà có người hưởng.
+- **Khóa `typedByHand` (DOM 3.5, đề nghị, không bắt buộc):** QA thêm `typedByHand` vào `input.line` của oracle BR-438 (`br-examples.json`) ngay khi sửa thẻ FB-R5-DOM-QA-BR438-01 – không cần hợp đồng. Audit: ARC **giữ** khóa `before.rootLineManual` (đổi tên làm lệch bản ghi cũ và bộ lọc); nếu 0.3.14 cần tên rõ hơn thì thêm khóa `before.rootLineTypedByHand` song song, không bỏ khóa cũ.
 - `executeRefund.bankReference` thêm `pattern: '^[A-Za-z0-9./_-]{1,64}$'` vào schema (máy chủ và CHECK 0040 đã áp; 1f chỉ ghi ở mô tả).
 - Hàm SQL `auth_resolve_session().mfa_required` (migration 0079) – mục 7.
 
