@@ -613,7 +613,28 @@ Chạy: `bash "$W/b002_1.sh"`, một lần gọi, không `| tee`, không `>`. Xo
      - ghi sổ giao ca.
   3. Thêm vào 11.4 mục 2(c): "ảnh thông báo tiền vào tài khoản OTTIMO (chủ đầu tư gửi hoặc app ngân hàng của OTTIMO), không dùng ảnh hay SMS khách gửi". UXD có thể thêm cụm "vào tài khoản OTTIMO" vào nhãn `rsv.after_cancel.proof`.
   4. Xác nhận lễ tân đọc được mã giao dịch trên thông báo ngân hàng. Không đọc được thì S4 chỉ làm bản tối thiểu.
-- Trạng thái: Open
+- Trạng thái: Done (DOM trả lời 06/11, SEC xem lại). Luật đã ghi ở `rounds/round-05/outputs/DOM/rules-v1.0.5.md` 11.4 mục 2(c), 3, 3a, 3b, ca QA (h), (i); BR-522 (v0.5.13, bổ sung cùng ngày); decision-log 06/11.
+- **Trả lời DOM (06/11):**
+  1. **Nơi nhận hoàn – đồng ý S3.** Khoản thu ghi sau khi đơn đóng chỉ hoàn **chuyển khoản về đúng tài khoản đã chuyển** (`original_method`, máy chủ đặt sẵn khi tự tạo yêu cầu). Không chi tiền mặt, kể cả khi khách đứng ở quầy. Không đổi nơi nhận sang tiền mặt hay tài khoản khác.
+     - MGR/OWN chi theo dòng sao kê đã khớp. Tách người theo BR-522 (b) giữ nguyên. Lễ tân không hỏi, không ghi số tài khoản khách.
+     - Khách xin hoàn về tài khoản khác: không đổi. Tài khoản cũ không nhận được (tiền chuyển đi bị trả lại): yêu cầu hoàn để mở, quản lý báo chủ đầu tư. Đội làm luật riêng khi có ca thật [GIẢ ĐỊNH: ca hiếm ở 10 căn].
+  2. **Lỡ ghi hai lần – đồng ý đề xuất SEC, thêm ba nhánh** (11.4 mục 3b):
+     - MGR+ kiểm sao kê trước. Hai dòng là hai lần chuyển thật, giữ cả hai. Cảnh báo S4 không chặn.
+     - Đơn cũ và đơn mới: giữ khoản ở đơn mới (khách đã dùng làm cọc). Khoản ở đơn cũ: đối soát `disputed`, MGR/OWN đảo. Yêu cầu hoàn đi kèm tự hủy khi đảo (`reconcileRefundsAfterReversal` → refundPlan `superseded`, kể cả yêu cầu đã duyệt chưa chi). Không cần ai bấm hủy. Ghi sổ giao ca.
+     - Cùng một đơn ghi hai lần: giữ khoản ghi trước, đảo khoản sau.
+     - Đã chi hoàn rồi mới thấy trùng: không đảo khoản hoàn. Đảo khoản cọc ở đơn mới. Đơn mới giữ trạng thái, còn thiếu cọc. Quản lý xin khách chuyển lại; khách không chuyển thì chủ đầu tư quyết giữ hay hủy đơn.
+     - Luật đối soát thêm: **một dòng sao kê chỉ khớp một khoản thu**. Dòng đã khớp khoản khác thì khoản này `disputed`.
+  3. **Ảnh chứng từ – có, bắt buộc là thông báo tiền vào tài khoản OTTIMO.** Nguồn:
+     - chủ đầu tư hoặc quản lý gửi qua số đã lưu sẵn, ảnh từ app ngân hàng trên máy của họ (đúng cách tạm ở sổ tay lễ tân 10.3);
+     - nếu ESC-039 chọn A: ảnh thông báo trên thiết bị báo tiền ở quầy.
+     - Sửa một chỗ trong chữ SEC ("hoặc app ngân hàng của OTTIMO"): app ngân hàng chỉ ở máy chủ đầu tư, quản lý, không ở quầy (điều kiện `FB-R3-SEC-BA-10` ở ESC-039).
+     - Không dùng ảnh, SMS khách gửi, không dùng ảnh sale, CTV chuyển tiếp (S7). Ảnh không thay đối soát.
+     - UXD: đồng ý thêm cụm "vào tài khoản OTTIMO" vào `rsv.after_cancel.proof`. Gợi ý: "Ảnh thông báo tiền vào tài khoản OTTIMO (bắt buộc)", kèm một dòng "Ảnh chủ đầu tư hoặc quản lý gửi. Không dùng ảnh khách gửi." UXD chốt chữ.
+  4. **Mã giao dịch – lễ tân không chắc đọc được.** Quầy không có app ngân hàng, lễ tân chỉ thấy ảnh người khác gửi. Mã có trên màn chi tiết giao dịch và sao kê. Thông báo đẩy, loa báo tiền thường chỉ có số tiền, giờ, nội dung [CHƯA XÁC MINH – tùy ngân hàng của OTTIMO]. Vì vậy:
+     - S4 **bản tối thiểu bắt buộc** khi 5B-1 lên, đúng điều kiện SEC.
+     - Không bắt buộc mã lúc ghi. Nếu ARC thêm `bankReference` vào `recordPayment`: ô không bắt buộc, lễ tân gõ khi ảnh có mã. Có mã thì máy chủ trả 409 khi trùng một khoản chưa đảo của cơ sở.
+     - Chỗ chắc có mã là bước đối soát (MGR+ luôn có sao kê). Tới khi có ô riêng: MGR+ chép mã vào Ghi chú đối soát. DOM đề xuất "nên có" (ARC, SEC xếp; v1.0.6 nếu không kịp): ô mã giao dịch khi đối soát `reconciled`, máy chủ trả 409 nếu mã đã khớp khoản khác chưa đảo.
+  - Không ESC mới. Câu hỏi "thông báo ngân hàng của OTTIMO có mã giao dịch không" không chặn việc nào, vì ô mã không bắt buộc. ORC có thể hỏi kèm ESC-039 khi chủ đầu tư trả lời.
 
 ### FB-R5-SEC-PO-B002-05
 - Mức độ: Major

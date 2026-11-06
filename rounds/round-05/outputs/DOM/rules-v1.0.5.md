@@ -1,7 +1,7 @@
 # Luật nghiệp vụ cho v1.0.5 – V5-1A, V5-11, V5-16, V5-30, V5-31, V5-25 (`min_stay`); trả lời ARC, UXD, CPY
 
 - Tác giả: DOM | Round 5 – v1.0.5 | Bước: Sản xuất (Gói 0) | Ngày: 06/11/2026
-- Sửa: DOM | Bước: Phản hồi & sửa | 06/11/2026 khuya – theo QA `rounds/round-05/qa/bug-list.md` (BUG-R5-002, BUG-R5-003, commit `233b9b5d`): mục 11.2 bỏ câu "J1 đứng thì Xác nhận đã nhận cọc", thêm chữ thay cho Tờ 2a dòng 86; mục 11.3 tách "dòng tay" với "khoản thu"; mục 11.4 viết lại theo V5-5B (dùng lại `recordPayment`); **mục 12 mới**: luật kiểm khi lưu `min_stay` cho V5-25.
+- Sửa: DOM | Bước: Phản hồi & sửa | 06/11/2026 khuya – theo QA `rounds/round-05/qa/bug-list.md` (BUG-R5-002, BUG-R5-003, commit `233b9b5d`): mục 11.2 bỏ câu "J1 đứng thì Xác nhận đã nhận cọc", thêm chữ thay cho Tờ 2a dòng 86; mục 11.3 tách "dòng tay" với "khoản thu"; mục 11.4 viết lại theo V5-5B (dùng lại `recordPayment`); **mục 12 mới**: luật kiểm khi lưu `min_stay` cho V5-25. Bổ sung 06/11 (thẻ SEC `FB-R5-SEC-DOM-B002-04`): mục 11.4 – 2(c) ảnh thông báo tiền vào tài khoản OTTIMO, 3 hoàn về đúng tài khoản đã chuyển, 3a mã giao dịch và S4, 3b lỡ ghi hai lần.
 - Người đọc: ARC (hợp đồng 0.3.13), BE, FE-A, BA, QA, SEC, DATA.
 - Nguồn sự thật: `product/docs/business-rules.md` **v0.5.13** (BR-010, BR-101, BR-204, BR-212, BR-303, BR-309, BR-311, BR-428, BR-438 mới, BR-506, BR-903, mục 13); `product/docs/tham-so-quy-tac.md` bản 1.3; oracle `product/tests/fixtures/br-examples.json`. Tệp này giải thích và gom ca kiểm, không thay BR.
 - **Không có tỷ lệ, số tiền hoa hồng hay thưởng, hay ranh giới khoảng kỳ hạn của bảng nội bộ** trong tệp này. Ca kiểm hoa hồng dùng tham số thử `test_rate_*` (SEC G3).
@@ -604,7 +604,7 @@ Tên đề xuất: "Tiền cọc về cho giữ chỗ đã tự hủy: Desk khô
 
 ### 11.4 Việc mới cho BE – V5-5B (PO xếp: 5B-1 ghi tiền và hoàn, 5B-2 khôi phục; v1.0.5 nếu kịp, không thì v1.0.6)
 
-Viết lại 06/11 khuya theo BUG-R5-002 ("Phát hiện thêm khi chạy"). Bản trước chỉ cho lý do `hold_expired` và chưa nói dùng đường nào.
+Viết lại 06/11 khuya theo BUG-R5-002 ("Phát hiện thêm khi chạy"). Bản trước chỉ cho lý do `hold_expired` và chưa nói dùng đường nào. Bổ sung 06/11 theo thẻ SEC `FB-R5-SEC-DOM-B002-04` (`rounds/round-05/reviews/SEC-on-bug-r5-002.md`): 2(c) ảnh của ai; mục 3 nơi nhận hoàn; **3a** mã giao dịch và cảnh báo trùng (S4); **3b** lỡ ghi hai lần; ca QA (h), (i).
 
 **DOM quyết (nghiệp vụ): dùng lại `recordPayment`, không làm đường ghi tiền riêng.** Một khoản tiền khách đã trả đi một đường duy nhất: cùng số phiếu thu PT-, cùng audit tiền, cùng đối soát BR-527, cùng đường hoàn BR-522. Đường riêng sẽ có luật riêng, báo cáo tiền và đóng ca phải đọc thêm một nguồn. ARC chốt cách làm (thêm nhánh trong `record` khi đơn đã đóng, hay một thao tác bọc gọi cùng hàm), mã lỗi, có cần đổi hợp đồng không.
 
@@ -618,7 +618,11 @@ Viết lại 06/11 khuya theo BUG-R5-002 ("Phát hiện thêm khi chạy"). Bả
 2. **Luật thêm cho khoản thu trên đơn đã đóng** (đơn đang mở giữ luật hiện hành):
    - (a) chỉ FD+ (đã có; sale, CTV vẫn bị chặn);
    - (b) **chỉ `bank_transfer`, `vietqr`**, tức tiền đã vào tài khoản. Tiền mặt, POS, `ota_collect` → 422. Khách đứng ở quầy thì tạo đơn mới và thu trên đơn mới; tiền OTA thu không đi đường này. Luật này bịt kẽ hở ở 11.3 (ghi tiền mặt lên đơn đã hủy không ảnh, không đối soát);
-   - (c) **ảnh chứng từ bắt buộc** (`attachmentId`, loại `deposit_receipt`); thiếu → 422;
+   - (c) **ảnh chứng từ bắt buộc** (`attachmentId`, loại `deposit_receipt`); thiếu → 422. Ảnh là **thông báo tiền vào tài khoản OTTIMO**:
+     - nguồn: chủ đầu tư hoặc quản lý gửi qua số đã lưu sẵn trong danh bạ cơ sở (ảnh từ app ngân hàng trên máy của họ, như sổ tay lễ tân 10.3). Nếu chủ đầu tư chọn ESC-039 A: ảnh thông báo trên thiết bị báo tiền của cơ sở ở quầy;
+     - không dùng ảnh chụp màn hình hay SMS khách gửi, cũng không dùng ảnh sale, CTV chuyển tiếp từ khách (S7). Máy ở quầy không đăng nhập app ngân hàng (điều kiện SEC ở ESC-039);
+     - ảnh nên thấy số tiền, giờ, nội dung chuyển khoản (mã đơn). Ghi chú không chép số tài khoản hay tên người chuyển;
+     - ảnh không thay đối soát: khoản vẫn chờ MGR+ khớp với sao kê (d);
    - (d) luôn **chờ đối soát** (đúng sẵn với hai phương thức trên). MGR+ đối soát theo sao kê, không phải người ghi (BR-527);
    - (e) Giờ nhận tiền từ lúc tạo đơn tới bây giờ (đã có). Ghi chú bắt buộc (đã có, vì số còn phải thu = 0 đ);
    - (f) loại khoản thu `deposit` khi đơn bị hủy lúc còn là giữ chỗ, để 5B-2 xác nhận cọc bằng chính khoản này (`existingPaymentId`). Đơn khác: ARC chốt;
@@ -627,6 +631,24 @@ Viết lại 06/11 khuya theo BUG-R5-002 ("Phát hiện thêm khi chạy"). Bả
    - Người ghi là người tạo yêu cầu, nên không tự duyệt. MGR/OWN duyệt; chỉ chi khi khoản thu đã đối soát (BR-522). Hai chốt này cùng với (b), (c) đủ để một khoản ghi khống không thành tiền chi ra.
    - Lý do hoàn: "Tiền về sau khi hủy". ARC chốt dùng lại `overpayment` hay thêm mã.
    - **Một khoản tiền chỉ ghi một lần.** Khách muốn đặt lại mà 5B-2 chưa lên: **không** ghi ở đơn cũ, làm như 11.2 (giữ chỗ mới, xác nhận cọc trên đơn mới, Giờ nhận tiền để bây giờ, Ghi chú giờ tiền về và mã đơn cũ). Hộp ghi trên Desk phải nói rõ điều này, ví dụ: "Ghi khoản này sẽ tạo yêu cầu hoàn đủ số. Khách muốn đặt lại: không ghi ở đây, tạo giữ chỗ mới." UXD viết chữ.
+   - **Nơi nhận hoàn:** chuyển khoản **về đúng tài khoản đã chuyển** (`original_method`, máy chủ đặt sẵn khi tự tạo yêu cầu). **Không chi tiền mặt**, kể cả khi khách đứng ở quầy. Máy chủ chặn chi tiền mặt và chặn đổi nơi nhận trên yêu cầu này (SEC S3).
+     - Lý do: tiền đã vào tài khoản. Chi tiền mặt cho một người tự xưng là khách thì khách thật vẫn chờ hoàn. Đây cũng là đường "chuyển khoản rồi xin lại tiền mặt" mà BR-522 đã chặn.
+     - MGR/OWN chi theo dòng sao kê đã khớp, ghi mã giao dịch hoàn như mọi khoản hoàn chuyển khoản. Tách người theo BR-522 (b) giữ nguyên.
+     - Lễ tân không hỏi, không ghi số tài khoản của khách. Câu cho khách (CPY, UXD sửa chữ): "The refund will be sent back to the account you paid from." / "Tiền hoàn sẽ về đúng tài khoản anh/chị đã chuyển."
+     - Khách xin hoàn về tài khoản khác: không đổi, giải thích như câu trên. Tài khoản cũ không nhận được (tiền chuyển đi bị trả lại): yêu cầu hoàn để mở, quản lý báo chủ đầu tư. Đội làm luật riêng khi có ca thật.
+   - **3a. Mã giao dịch ngân hàng và cảnh báo trùng (S4):**
+     - Lễ tân **không chắc đọc được** mã giao dịch. Quầy không có app ngân hàng; lễ tân chỉ thấy ảnh chủ đầu tư, quản lý gửi. Mã có trên màn chi tiết giao dịch và trên sao kê. Thông báo đẩy, loa báo tiền thường chỉ có số tiền, giờ, nội dung [CHƯA XÁC MINH – tùy ngân hàng của OTTIMO].
+     - Vì vậy **S4 bản tối thiểu là bắt buộc** khi 5B-1 lên: "Có thể trùng" ở màn duyệt hoàn và màn đối soát, theo điều kiện SEC (khoản chuyển khoản, VietQR khác, chưa đảo, cùng số tiền, Giờ nhận tiền cách ≤ 24 giờ, ở đơn khác; chỉ hiện mã đơn kia).
+     - Cảnh báo không chặn: khách có thể chuyển thật hai lần cùng số. Người đối soát xem sao kê có một hay hai dòng.
+     - Ô mã giao dịch lúc ghi (nếu ARC thêm `bankReference` vào `recordPayment`): **không bắt buộc**. Lễ tân gõ khi ảnh có mã. Có mã thì máy chủ trả 409 nếu mã đó đã ở một khoản thu chưa đảo của cơ sở. Không có mã thì chỉ còn cảnh báo.
+     - Luật đối soát, áp ngay bằng tay: **một dòng sao kê chỉ khớp một khoản thu.** Dòng đã khớp khoản khác thì khoản này ghi `disputed`, không `reconciled`. MGR+ chép mã giao dịch của dòng sao kê vào Ghi chú đối soát.
+     - DOM đề xuất (nên có; ARC, SEC xếp, v1.0.6 nếu không kịp): ô mã giao dịch ở bước đối soát `reconciled` cho chuyển khoản, VietQR; máy chủ trả 409 nếu mã đã khớp một khoản khác chưa đảo. Người đối soát luôn có sao kê, nên chặn ở bước này chắc hơn chặn lúc ghi.
+   - **3b. Lỡ ghi một khoản hai lần.** Ai thấy trước (cảnh báo S4, người đối soát, lễ tân) thì báo quản lý và ghi sổ giao ca. Lễ tân không tự đảo, không chi.
+     - MGR+ kiểm sao kê trước. Hai dòng: hai lần chuyển thật, giữ cả hai, ghi chú "đã kiểm sao kê: hai giao dịch". Một dòng: ghi trùng, xử lý như dưới.
+     - **Đơn cũ (đã đóng) và đơn mới:** giữ khoản ở đơn mới, vì khách đã dùng tiền làm cọc. Khoản ở đơn cũ: MGR+ đối soát `disputed`, ghi chú "trùng khoản ở đơn {mã mới}", rồi MGR/OWN đảo (`reversePayment`). Yêu cầu hoàn đi kèm **tự hủy** khi đảo (refundPlan, `superseded`, kể cả yêu cầu đã duyệt chưa chi). Không ai phải bấm hủy.
+     - **Cùng một đơn ghi hai lần:** giữ khoản ghi trước, đảo khoản sau, cùng cách trên.
+     - **Đã chi hoàn từ khoản ở đơn cũ** rồi mới thấy trùng: không đảo khoản hoàn. Đảo khoản cọc ở đơn mới (`disputed` rồi đảo). Đơn mới giữ trạng thái, thành còn thiếu cọc. Quản lý liên hệ khách xin chuyển lại cọc. Khách không chuyển lại: chủ đầu tư quyết giữ hay hủy đơn. Báo chủ đầu tư ngay khi thấy.
+     - Phòng trước: hộp ghi 5B-1 nhắc lễ tân tìm đơn mới của khách (theo tên hoặc số điện thoại) trước khi ghi. Đã có đơn mới xác nhận cọc bằng khoản này thì không ghi ở đơn cũ.
 4. **Desk (FE):** trên khung đơn `cancelled`, `no_show`, FD+ có nút ghi tiền về sau khi hủy, mở hộp ghi thu có ô ảnh bắt buộc, chỉ hai phương thức. Không có nút cho sale, CTV.
 5. **"Cần chú ý" `deposit_after_cancel`** (US-085 AC4; kind đã khai báo, chưa nơi nào tạo):
    - Desk v1.0.x không tự biết tiền về (chưa có báo từ ngân hàng). Nguồn tạo mục là **sale, CTV báo "khách đã chuyển"** (`createDepositNotice`) trên đơn đã đóng: thay 409 bằng tạo mục cho FD, FDL, MGR, OWN, chữ `today.money_after_cancel` ("Tiền về cho đơn đã hủy {code}"). Sau này có báo từ ngân hàng thì thêm nguồn đó.
@@ -656,6 +678,8 @@ Viết lại 06/11 khuya theo BUG-R5-002 ("Phát hiện thêm khi chạy"). Bả
 - (d') người ghi không tự duyệt yêu cầu hoàn; MGR duyệt được; chi trước khi đối soát → bị chặn (BR-522);
 - (e') sale báo "khách đã chuyển" trên đơn tự hủy → mục `deposit_after_cancel` cho FD+; lễ tân ghi khoản thu → mục đóng; ca khác: FD bấm "Không thấy tiền" → mục đóng, có ghi chú trong audit;
 - (b') 5B-2 với giữ chỗ do người bấm hủy (B5), căn còn trống → khôi phục được như giữ chỗ tự hủy; đơn `confirmed` rồi hủy → không có lựa chọn khôi phục.
+- (h) yêu cầu hoàn tự tạo từ khoản thu trên đơn đã đóng: nơi nhận `original_method`; chi tiền mặt → bị chặn; đổi nơi nhận sang tiền mặt hoặc tài khoản khác → bị chặn; MGR chi chuyển khoản sau đối soát → được;
+- (i) cùng 400.000 ghi ở đơn cũ (5B-1) và cọc ở giữ chỗ mới, Giờ nhận tiền cách 2 giờ → "Có thể trùng" ở màn duyệt hoàn và màn đối soát, chỉ hiện mã đơn; MGR đối soát khoản ở đơn cũ `disputed`, OWN đảo → yêu cầu hoàn đi kèm `superseded`, mục tiền dư đơn đã đóng tự đóng; khoản ở đơn mới giữ nguyên.
 
 11. Khi lên: PO sửa Tờ 2a, BA sửa sổ tay 2.4 (V5-71) bỏ các bước làm tay ở 11.2. Khi có 5B-2: câu J1 đứng ở 11.2 vẫn đúng (hủy rồi khôi phục, hoặc hủy rồi đặt lại); không cần mở nút xác nhận cọc sau hạn.
 
