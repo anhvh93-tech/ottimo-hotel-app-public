@@ -1,0 +1,14 @@
+# OPS – Phản hồi thẻ Round 5
+
+Các thẻ của #92, #93, #95 (r0–r2) đã trả lời ở `rounds/round-05/outputs/OPS/report.md` mục 3 và 8, và ở phần đầu runbook v1.0.5. Bảng dưới là bước **Phản hồi & sửa** ngày 07/11: PR #126 (`r5-ops-pgterse-fix`) và PR runbook r3 (`r5-ops-runbook-r3`).
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-OPS-11 | Done | PR #126. `provoke()` chờ server thật bằng `pg_isready -h 127.0.0.1`; mọi `psql` cũng đi qua TCP; bỏ `\|\| true`, kiểm mã thoát của `psql`. Không kết nối được thì báo `harness: postgres not reachable in the <run> run` và thoát 1. Ở máy: bản sửa 20/20 xanh khi chạy tuần tự. Chạy song song (container tranh CPU): bản sửa 12/12 xanh, bản cũ 10/12 với đúng 2 dòng lỗi ARC thấy. Ca âm (server không nghe TCP) ra lỗi harness |
+| FB-R5-SEC-BE-D1-04 | Done | PR #126. `.github/CODEOWNERS` thêm 4 dòng SEC: `serializer.ts`, `serialize.interceptor.ts`, `auth.guard.ts`, `mfa-roles.ts` (đường dẫn đầy đủ) |
+| FB-R5-SEC-BE-V530-01 (phần OPS: bước đếm trong runbook) | Done – chờ SEC ghim | Runbook r3 bước **K13**. Câu SQL chỉ đọc in số dòng, ngày hiệu lực, vai người tạo, ngày tạo; không in `value`. Thêm số đơn có người chốt mang tỷ lệ cũ (DOM 1.2 ý 2). Đã chạy thử trên DB dùng một lần. Lệch so với thẻ: in ngày tạo thay cho lọc "sau giờ triển khai" (giả định (a) runbook mục 8). Phần ORC nhắc INV trong `round-summary.md` là việc của ORC |
+| SEC-on-pr-96-v5-25 mục 4.1 (runbook chép nguyên văn khối `v525-run`, ghi commit và SHA) | Done | Runbook r3 P2c bước 3. Trích bằng `awk` từ runbook ra SHA-256 `60872413…41eb`, trùng bản ghim. Bảng 0.1 có `SHA_V525` = `897ff46e` (tệp SQL `f5db74ac…243f`, OPS kiểm bằng `shasum -a 256`) và `V525_RUN`. Không sửa tệp SQL |
+| ARC-on-pr-96-v5-25 12.6 ý 1 (`lease_terms` khóa dừng thứ 7) | Done | `V525_STOP_KEYS` có 7 khóa (decision-log 07/11, DOM đồng ý) |
+| ARC-on-pr-96-v5-25 12.6 ý 2a, 2b, 2c | Done | P2c "Cách đọc": hai số đếm khác 0 không dừng; `damage_catalog_rows_broken` chỉ được bỏ qua khi gói có `be64cdf4` (#96) và `c7431973` (#109), P2c bước 2 kiểm bằng `git merge-base`; hệ quả 500 / hoàn 0 % báo DOM; câu đọc thứ hai do SEC ghim, INV đồng ý riêng, danh sách mã đơn không vào repo, chat hay subagent; không `UPDATE` tay `config_parameter` hay `pricing_snapshot` |
+| SEC-on-be-pr-100-d1 mục 7 (Info cho OPS: sửa `user_property_role` bằng SQL tay) | Done | Luật chung của runbook, và `product/infra/server/README.md` mục 11.1: script một lần có ARC + SEC review và INV đồng ý; cùng giao dịch tăng `roles_version` và thu hồi phiên như `setRoles` |
+| FB-R5-SEC-OPS-V525-02 | Open | Hạn v1.0.6, ngoài việc được giao lần này. Ý 1 (dòng CODEOWNERS cho `product/services/api/scripts/*.sql`) không đổi tệp SQL nên làm được bất cứ lúc nào ORC giao. Ý 2 (lint cho `scripts/*.sql`) và ý 3 (sửa chú thích tệp SQL) làm sau lần chạy v1.0.5, để không đụng tệp đã ghim |

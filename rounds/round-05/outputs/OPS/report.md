@@ -101,3 +101,33 @@ ORC lưu từ báo cáo bàn giao của OPS.
 - **Việc chuyển:**
   - SEC 95-02 ý 4 → PO ghi vào plan ĐK-2: V5-61 chưa đạt thì v1.0.5 chưa lên production.
   - SEC 95-07 → ORC theo dõi khi cắt bản.
+
+## 9. Cập nhật 07/11 – Phản hồi & sửa lượt 3 (sau khi #93, #95, #96, #109 gộp)
+Thẻ trả lời ở `rounds/round-05/responses/OPS-responses.md`.
+
+**PR #126 (`r5-ops-pgterse-fix`), gấp:**
+- Sửa FB-R5-ARC-OPS-11: test `postgres-log-terse` chờ server thật qua TCP, báo lỗi kết nối riêng. Test này làm job `infra scripts` đỏ ngẫu nhiên ở mọi PR.
+- Kiểm ở máy:
+  - bản sửa 20/20 xanh khi chạy tuần tự, 12/12 xanh khi chạy song song;
+  - bản cũ 10/12 khi chạy song song, đỏ đúng 2 dòng ARC thấy.
+- Sửa FB-R5-SEC-BE-D1-04: CODEOWNERS thêm 4 tệp SEC.
+
+**PR runbook r3 (`r5-ops-runbook-r3`):**
+- P2c và P2 mục 8 dùng khối `v525-run` SEC ghim, chép nguyên văn. Trích ra từ runbook vẫn đúng SHA `60872413…41eb`.
+- Bảng 0.1 đã điền:
+  - `SHA_V525` = `897ff46e`; tệp SQL `f5db74ac…243f`, kiểm bằng `shasum`;
+  - 7 khóa dừng;
+  - nhãn hai dòng đếm;
+  - hai merge commit #96 / #109.
+- Cách đọc hai dòng đếm theo ORC 07/11 và ARC 12.6.
+- K13 đếm bảng hoa hồng mới (V530-01 + DOM). Câu chờ SEC ghim; đã chạy thử trên DB dùng một lần.
+- Luật `roles_version` ở luật chung và README `server` 11.1.
+
+**Giả định:**
+- K13 in ngày tạo thay cho lọc theo giờ triển khai. Lý do: câu là hằng nên ghim được, và INV có thể đã nhập bảng trên v1.0.4.
+- "Đơn có người chốt" = đơn ngắn ngày, người chốt là sale/CTV, đúng luật của `syncCommission`. Chờ DOM xác nhận.
+
+**Vướng:**
+- Lúc nộp, job `gitleaks` đỏ ở PR #126. Lý do: commit `ae4a8358` trên nhánh `r5-s1-tests` (PR #123, BE) có một hằng thử dạng UUID ở `product/services/api/test/request-hash-guard-units.test.ts` dòng 20, bị luật `generic-api-key` bắt.
+- Job quét mọi nhánh đã fetch, nên mọi PR đều đỏ tới khi xử lý. Không do PR của OPS.
+- Cách xử lý chờ ORC/SEC quyết: một dòng allowlist neo đúng giá trị (đường dẫn SEC), hoặc BE viết lại lịch sử nhánh đó.

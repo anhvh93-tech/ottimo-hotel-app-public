@@ -195,6 +195,26 @@ Script dựng môi trường dùng một lần (mạng nội bộ, không mở c
 | Đĩa đầy | `docker system df`; `docker image prune -a --filter until=168h`; xem `/var/backups/ottimo` |
 | Mất khóa age | Bản sao lưu cũ không đọc được nữa: tạo cặp khóa mới, thay `recipients.txt`, chạy `backup.sh` ngay |
 
+### 11.1 Đổi vai nhân viên: chỉ trên Desk; sửa bằng SQL thì phải tăng `roles_version` và thu hồi phiên
+
+Nguồn: SEC `rounds/round-05/reviews/SEC-on-be-pr-100-d1.md` mục 1.1 và 7; sổ vận hành bản 1.6 (`product/docs/so-van-hanh.md` mục 1.5, BA).
+
+- **Đổi vai làm trên Desk:** Người dùng & vai → Sửa vai (`setRoles`, `identity/internal/users.service.ts`). Trong **một** giao dịch, `setRoles`:
+  - sửa `user_property_role`;
+  - tăng `app_user.roles_version` (và `version`);
+  - thu hồi mọi phiên của người đó (`user_session.revoked_at`, lý do `role_changed`);
+  - xóa lượt đăng nhập 2 bước đang dở (`mfa_login_challenge`);
+  - ghi `audit_event` loại `security` (`user.roles_changed`).
+- **Không runbook nào sửa `user_property_role` bằng SQL tay.** Sự cố buộc phải làm (ví dụ không còn OWN nào vào được Desk) thì đó là **script một lần**: ARC + SEC review, INV đồng ý riêng trong chat, chạy trong **một giao dịch**, làm đủ như `setRoles`:
+  1. sửa dòng `user_property_role`. Thu hồi vai là đặt `revoked_at`, không `DELETE`;
+  2. `UPDATE app_user SET roles_version = roles_version + 1, version = version + 1, updated_at = now() WHERE id = $1`;
+  3. `UPDATE user_session SET revoked_at = now(), revoked_reason = 'role_changed' WHERE user_id = $1 AND revoked_at IS NULL`, rồi `DELETE FROM mfa_login_challenge WHERE user_id = $1`;
+  4. ghi lý do, người chạy, giờ UTC vào decision-log. Lần sửa này không có dòng `audit_event` của app.
+- **Vì sao:** `AuthGuard` lưu vai và cờ bắt buộc 2 bước theo khóa `user_id:roles_version`, sống `roleCacheMs` (mặc định 60 giây).
+  - Thiếu bước 2: mỗi tiến trình api còn dùng vai cũ tới khoảng 60 giây. Vai vừa bị bỏ vẫn mở được màn của vai đó; FDL vừa được cấp chưa bị buộc bật 2 bước.
+  - Thiếu bước 3: phiên đang mở sống tiếp, người đó không phải đăng nhập lại. Phiên hạn chế "chỉ được bật 2 bước" chỉ được ghi lúc đăng nhập.
+- Cùng luật cho mọi đường đổi quyền khác ngoài app, ví dụ nạp lại dữ liệu demo DS-E trên staging khi DB đang có phiên: thu hồi phiên và tăng `roles_version` của người bị đổi.
+
 ## 12. Production trên cùng VPS + edge + landing (R3 v1.0)
 
 Thiết kế, lý do, DNS, RAM, kiểm thử: `rounds/round-03/outputs/OPS/v1-production.md`. Việc của INV: `rounds/round-03/outputs/OPS/inv-production-steps.md`.
