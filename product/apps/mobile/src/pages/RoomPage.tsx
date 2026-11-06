@@ -84,7 +84,7 @@ export function RoomPage({
 
   const finish = () => act.roomStatus(room, 'finish_cleaning', eff.value, cleanTask, occupied);
   const start = () => act.roomStatus(room, 'start_cleaning', eff.value, cleanTask);
-  // V5-15 (R8): guest staying, room already cleaned (OC) → "Cần dọn" puts it back to OD; the server adds the
+  // V5-15 (R8): guest staying, room already cleaned (OC) → "Báo cần dọn" puts it back to OD; the server adds the
   // stay-over cleaning task. Queued like the other steps (10 s undo, offline queue, one command per tap).
   const needsCleaning = () => act.roomStatus(room, 'needs_cleaning', eff.value);
 

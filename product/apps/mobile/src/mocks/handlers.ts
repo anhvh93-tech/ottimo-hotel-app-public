@@ -507,7 +507,7 @@ function allowedEvents(r: Room): S['RoomStatusEntry']['allowedEvents'] {
       return ['start_cleaning'];
     case 'CL':
       return ['finish_cleaning'];
-    // v1.0.5 V5-15 – R8 "Cần dọn" (rules.ts `allowedEvents`: FD+ and HK inside scope T).
+    // v1.0.5 V5-15 – R8 "Báo cần dọn" (rules.ts `allowedEvents`: FD+ and HK inside scope T).
     case 'OC':
       return inHkScope(r) ? ['needs_cleaning'] : [];
     case 'VC':

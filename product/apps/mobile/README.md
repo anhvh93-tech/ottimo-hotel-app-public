@@ -58,7 +58,7 @@ kèm mã 2 bước khi đã bật); `Me.mfaEnrollmentRequired` / `403 MFA_ENROLL
 `EnrollOnDeskPage` (bật trên OTTIMO Desk – nút mở `desk.<miền>` khi app chạy ở `staff.<miền>`, rồi đăng xuất / đăng nhập lại). Hàng đợi gặp 403 này thì
 tạm dừng như 401 (không vào "Cần xem lại").
 
-**v1.0.5 (V5-15)** – nút **Cần dọn** ở màn căn (H20) khi `allowedEvents` của máy chủ có `needs_cleaning` (căn "Khách đang ở – đã dọn",
+**v1.0.5 (V5-15)** – nút **Báo cần dọn** (UXD bản 1.7 mục 9.7; việc trong plan gọi là "nút Cần dọn") ở màn căn (H20) khi `allowedEvents` của máy chủ có `needs_cleaning` (căn "Khách đang ở – đã dọn",
 R8 OC → OD, máy chủ thêm việc dọn phòng khách đang ở; hợp đồng 0.3.13 mục 1.4, không đổi API). Đi hàng đợi như các bước khác: Hoàn tác
 10 giây, mất mạng thì lưu trên máy rồi tự gửi, một lần bấm = một lệnh (bấm lặp khi màn chưa kịp vẽ lại không tạo lệnh thứ hai,
 `waitingRoomEvent`); 409 `currentState` = OD (lễ tân bấm trước) → "Đã áp dụng", trạng thái khác → "Cần xem lại". Trong lúc chờ gửi, bước kế

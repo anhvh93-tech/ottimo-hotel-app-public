@@ -1,4 +1,4 @@
-// v1.0.5 V5-15 – "Cần dọn" on the staff PWA (contract 0.3.13 mục 1.4, T15-8): `transitionRoomStatus`
+// v1.0.5 V5-15 – "Báo cần dọn" (plan: "nút Cần dọn") on the staff PWA (contract 0.3.13 mục 1.4, T15-8): `transitionRoomStatus`
 // `event = needs_cleaning` (R8, OC → OD) when the server lists it in `allowedEvents`. Same path as the other
 // room steps: 10-second undo = delayed send, offline queue (R8 of ADR-005 mục 3), one command per tap, 409
 // `currentState` = OD → "Đã áp dụng", any other state → "Cần xem lại". Against the MSW mock (same as `pnpm dev`).
@@ -44,7 +44,7 @@ function recordKeys() {
   return { keys, stop: () => server.events.removeListener('request:start', on) };
 }
 
-describe('V5-15 – "Cần dọn" button on the room screen (H20)', () => {
+describe('V5-15 – "Báo cần dọn" button on the room screen (H20)', () => {
   it('OC room: the button shows; a tap waits 10 s, then sends needs_cleaning from OC once; then "Bắt đầu dọn"', async () => {
     const { user } = await openRoom('301', 'The Velvet');
     expect(screen.getByText(tv('hk.status.OC'))).toBeInTheDocument();
@@ -318,7 +318,14 @@ describe('V5-15 – engine', () => {
     expect(q.items()).toHaveLength(0);
   });
 
-  it('while "Cần dọn" waits (OD on the phone), the next step is "Bắt đầu dọn" only', () => {
+  it('button label is not the filter / status words (UXD 1.7 mục 9.7, FB-R5-UXD-FE-PR102-01)', () => {
+    const label = NEEDS();
+    expect(label.startsWith(tv('hk.filter.dirty', { n: 0 }).replace(/ \(0\)$/, ''))).toBe(false);
+    expect(label).not.toBe(tv('hk.status.VD'));
+    expect(label).not.toBe(tv('hk.status.OD'));
+  });
+
+  it('while "Báo cần dọn" waits (OD on the phone), the next step is "Bắt đầu dọn" only', () => {
     expect(eventsFor('OD', ['needs_cleaning'], true)).toEqual(['start_cleaning']);
     expect(eventsFor('OC', ['needs_cleaning'], false)).toEqual(['needs_cleaning']);
   });
