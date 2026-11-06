@@ -49,3 +49,14 @@ Trả lời đủ thẻ ở `rounds/round-05/responses/FE-responses.md`.
 - **Ảnh đã đổi** (chụp lại trên mock, dữ liệu giả): `v5-15-needs-cleaning-1366-before.png`, `-1366-after.png`, `-390-before.png` – nhãn nút mới, nút 44 px ở 390.
 - **Trùng khóa với MOB #97**: `hk.action.needs_cleaning` cũng có ở #97, cùng chữ mới. PR nào gộp sau thì bỏ dòng trùng trong `gen_strings.py`.
 - Kiểm: toàn bộ vitest admin-web 998/998 xanh, `tsc`, `eslint`, `prettier`, `gen_strings.py` sinh lại không lệch.
+
+## 8. Phản hồi & sửa (ARC-on-fe-prs-98-102-107, 07/11)
+- **102-01 (Major, điều kiện gộp)**: E2E `ui-clock/v5-15-needs-cleaning.r5.spec.ts` lấy phiên mới `fd16 = sessionOrSkip(request, 'qa.fd')` ngay sau `at(request, D, '16:00')` và dùng nó cho GET `hk-tasks` và lệnh R8 qua API ở lượt 2. Phiên lấy lúc 14:00 giờ ảo hết hạn khi rảnh 30 phút theo giờ máy chủ, nên trả 401 (CI 42251128926).
+- **102-02 (Minor)**: mock `mocks/ops.ts`:
+  - R8a chỉ tạo việc `stayover_clean` khi căn **không có** việc `stayover_clean` `open`/`in_progress` (như `housekeeping.service.ts`). Việc dọn ở lại sáng đã `done` không chặn việc mới.
+  - Phạm vi T: hàm `inScope` theo `scopeRooms` của máy chủ (việc của ngày nghiệp vụ hoặc việc mở chuyển sang, khác `cancelled`, chưa giao hoặc giao cho người gọi). HK-only ngoài phạm vi: `allowedEvents` rỗng, lệnh trạng thái trả 404. Người có vai lễ tân thấy mọi căn.
+  - 2 ca vitest mới: sáng đã dọn xong → bấm Báo cần dọn → có việc mới; việc đang mở → không thêm việc thứ hai. Desk không phục vụ HK-only nên phạm vi T chỉ kiểm qua mã mock, không có ca giao diện.
+- 102-03 (Suggestion, câu `PERFORMED_AT_OUT_OF_RANGE`): v1.0.6, cần UXD viết câu.
+- Ảnh: không đổi trong lượt này.
+- Kiểm: vitest admin-web 1000/1000, `tsc` (admin-web, tests), `eslint`, `prettier`.
+

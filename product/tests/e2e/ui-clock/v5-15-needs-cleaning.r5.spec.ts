@@ -65,6 +65,9 @@ test.describe(
       expect(await roomStatusOf(request, b.room.id), '302 sau nhận phòng').toBe('OC');
 
       const now = await at(request, D, '16:00');
+      // FB-R5-ARC-FE-102-01: the Desk session expires after 30 idle minutes of server time (virtual here) – the 14:00
+      // session answers 401 at 16:00 (CI 42251128926). Every API call after the jump uses a session taken at 16:00.
+      const fd16 = await sessionOrSkip(request, 'qa.fd');
       const page = await desk(browser, 'qa.fd', now);
       try {
         const writes = recordWrites(page, 'POST', /\/status-transitions$/);
@@ -96,8 +99,8 @@ test.describe(
         const tasks = await call<{ data: Array<{ roomId: string; type: string; status: string }> }>(
           request,
           'GET',
-          `/v1/properties/${propertyIdOf(fd)}/hk-tasks`,
-          { session: fd },
+          `/v1/properties/${propertyIdOf(fd16)}/hk-tasks`,
+          { session: fd16 },
         );
         expect(tasks.status).toBe(200);
         expect(
@@ -111,9 +114,9 @@ test.describe(
         const api = await call(
           request,
           'POST',
-          `/v1/properties/${propertyIdOf(fd)}/rooms/${b.room.id}/status-transitions`,
+          `/v1/properties/${propertyIdOf(fd16)}/rooms/${b.room.id}/status-transitions`,
           {
-            session: fd,
+            session: fd16,
             idempotencyKey: true,
             body: { event: 'needs_cleaning', expectedFrom: 'OC', performedAt: vnTime(D, '15:59') },
           },

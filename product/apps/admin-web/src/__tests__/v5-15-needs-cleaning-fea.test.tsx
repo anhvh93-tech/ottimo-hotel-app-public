@@ -88,6 +88,59 @@ describe('V5-15 – "Báo cần dọn" (Mark for cleaning) on the Desk room boar
     }
   });
 
+  it('R8a (FB-R5-ARC-FE-102-02): the stay-over clean of this morning is done → Báo cần dọn still adds a new open stay-over clean', async () => {
+    mockControl.stay.roomStatus['301'] = 'OC';
+    const base = mockControl.ops.hkTasks.find((t) => t.type === 'stayover_clean')!;
+    const morning = {
+      ...base,
+      id: '00000000-0000-4000-8000-000000963011',
+      roomId: room('301').id,
+      roomNo: '301',
+      status: 'done' as const,
+      doneAt: new Date().toISOString(),
+    };
+    mockControl.ops.hkTasks = [
+      ...mockControl.ops.hkTasks.filter((t) => t.roomNo !== '301'),
+      morning,
+    ];
+    const { user } = renderApp('/housekeeping', 'qa.fd');
+    await user.click(
+      within(await roomRow('301')).getByRole('button', { name: tv('hk.action.needs_cleaning') }),
+    );
+    expect(
+      await screen.findByText(tv('hk.desk.needs_cleaning_toast', { room: '301' })),
+    ).toBeInTheDocument();
+    const of301 = mockControl.ops.hkTasks.filter(
+      (t) => t.roomNo === '301' && t.type === 'stayover_clean',
+    );
+    expect(of301.map((t) => t.status).sort()).toEqual(['done', 'open']);
+  });
+
+  it('R8a: a stay-over clean already open → no second task', async () => {
+    mockControl.stay.roomStatus['301'] = 'OC';
+    const base = mockControl.ops.hkTasks.find((t) => t.type === 'stayover_clean')!;
+    mockControl.ops.hkTasks = [
+      ...mockControl.ops.hkTasks.filter((t) => t.roomNo !== '301'),
+      {
+        ...base,
+        id: '00000000-0000-4000-8000-000000963012',
+        roomId: room('301').id,
+        roomNo: '301',
+        status: 'open' as const,
+      },
+    ];
+    const { user } = renderApp('/housekeeping', 'qa.fd');
+    await user.click(
+      within(await roomRow('301')).getByRole('button', { name: tv('hk.action.needs_cleaning') }),
+    );
+    expect(
+      await screen.findByText(tv('hk.desk.needs_cleaning_toast', { room: '301' })),
+    ).toBeInTheDocument();
+    expect(
+      mockControl.ops.hkTasks.filter((t) => t.roomNo === '301' && t.type === 'stayover_clean'),
+    ).toHaveLength(1);
+  });
+
   it('the room changed meanwhile → 409 INVALID_TRANSITION: the board reloads and says so; nothing else is sent', async () => {
     mockControl.stay.roomStatus['301'] = 'OC';
     const cap = captureTransitions();

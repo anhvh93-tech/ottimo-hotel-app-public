@@ -16,6 +16,14 @@
 | FB-R5-UXD-FE-PR107-01 (Minor) | Deferred | v1.0.6 theo ORC: câu số thẻ và số giấy tờ của tab Yêu cầu chuyển xuống dòng trợ giúp dưới ô, kèm `aria-invalid`; sửa một lần cho cả hai. Đã ghi vào thân #107 |
 | FB-R5-UXD-FE-GW-01 (Major) | Done | PR mới FE-B `r5-fe-gw-alert-brand`: `.guest-app .alert.info` nền Cream, viền Sage, chữ và icon Ink, chỉ trong `apps/guest-web/src/styles.css`. Không đụng `@ottimo/ui`, token `--info`, Desk. Ảnh trước/sau trên mock |
 
+## Trả lời ARC – `rounds/round-05/reviews/ARC-on-fe-prs-98-102-107.md` (07/11)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-FE-102-01 (Major) | Done | #102: E2E lấy phiên `fd16` sau `at(D, '16:00')`, dùng cho GET `hk-tasks` và R8 qua API |
+| FB-R5-ARC-FE-102-02 (Minor) | Done | #102: mock R8a xét việc `stayover_clean` `open`/`in_progress`; `inScope` (phạm vi T) cho HK-only ở `allowedEvents` và lệnh trạng thái (404 ngoài phạm vi); 2 ca vitest |
+| FB-R5-ARC-FE-102-03 (Suggestion) | Deferred | v1.0.6: cần UXD viết câu `PERFORMED_AT_OUT_OF_RANGE` cho Desk |
+
 Ghi chú:
 - Không có ESC mới.
 - Ảnh đổi trong lượt này chỉ có dữ liệu giả từ mock MSW; SEC kiểm lại ảnh mới.
