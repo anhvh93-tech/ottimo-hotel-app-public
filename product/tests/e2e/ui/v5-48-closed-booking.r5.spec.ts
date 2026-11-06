@@ -9,7 +9,14 @@
 import { expect, test } from '@playwright/test';
 import { session, stackToday } from '../support/api.js';
 import { SEED_PASSWORD } from '../support/env.js';
-import { action, cleanupTracked, freeWindow, makeHold, s2Context } from '../support/s2.js';
+import {
+  action,
+  cleanupTracked,
+  freeWindow,
+  getReservation,
+  makeHold,
+  s2Context,
+} from '../support/s2.js';
 import { getFolio } from '../support/s3.js';
 import { go, scan } from './axe.js';
 import { UI, signIn, t } from './helpers.js';
@@ -59,7 +66,8 @@ test.describe(
         reasonCode: 'guest_changed_mind',
       });
       expect(cancel.status, JSON.stringify(cancel.body)).toBe(200);
-      expect(cancel.body.status).toBe('cancelled');
+      // B5 answers { reservation, cancellation } – read the booking back rather than the answer's shape
+      expect((await getReservation(request, fd, hold.id)).body.status).toBe('cancelled');
 
       const answers: Array<{ status: number; body: Record<string, unknown> }> = [];
       page.on('response', async (res) => {
