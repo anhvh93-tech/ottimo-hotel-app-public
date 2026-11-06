@@ -39,6 +39,7 @@ import {
 import { HAS_DB, type TestTenant, appDatabase, createTenant, setParam } from '../helpers/tenant';
 
 const ROLES = { own: ['owner'], mgr: ['manager'], fd: ['front_desk'] };
+const DAMAGE = 'damage_catalog';
 const TODAY = '2026-11-05';
 const NOW = new Date(`${TODAY}T09:00:00+07:00`);
 const LABEL = 'Standard Studio · City View';
@@ -474,9 +475,10 @@ describe.skipIf(!HAS_DB)(
         await setParam(db, t, key, value, f);
         expected.set(`${key} ${f}`, ok);
       };
-      for (const [key, value] of BAD_SHAPES) await add(key, value, false);
+      // damage_catalog has no per-row line: its rows go through the count (b) test below.
+      for (const [key, value] of BAD_SHAPES) if (key !== DAMAGE) await add(key, value, false);
       for (const value of MIN_STAY_BAD) await add('min_stay', value, false);
-      for (const [key, value] of GOOD_SHAPES) await add(key, value, true);
+      for (const [key, value] of GOOD_SHAPES) if (key !== DAMAGE) await add(key, value, true);
       const got = new Map((await run()).map((r) => [`${r.key} ${r.f}`, r.ok]));
       for (const [k, ok] of expected) expect(got.get(k), k).toBe(ok);
     });
@@ -611,40 +613,21 @@ describe.skipIf(!HAS_DB)(
       expect(await broken()).toBe(0);
       await setParam(db, t, 'damage_catalog', [item, null], '2026-10-03');
       expect(await broken()).toBe(1);
-      // Every broken scheduled row is counted too.
+      // Every broken scheduled row is counted too – the shared cases of the save rule (same verdict both sides), plus
+      // a name of tabs only and a name 101 characters long with spaces around (counted before trimming).
       let n = 1;
       const bad: unknown[] = [
-        { glass: 50_000 },
-        [{ ...item, code: 'Glass' }],
-        [{ ...item, priceVnd: 0 }],
-        [{ ...item, priceVnd: -50_000 }],
-        [{ ...item, priceVnd: '50000' }],
-        [{ code: 'glass', name: 'Ly' }],
+        ...BAD_SHAPES.filter(([k]) => k === DAMAGE).map(([, v]) => v),
         [{ ...item, name: ' \t ' }],
-        [{ ...item, name: 'x'.repeat(101) }],
-        [{ ...item, note: 'x' }],
-        [item, { code: 'cup', name: ' ly ', priceVnd: 40_000 }],
-        [item, { ...item, name: 'Cup' }],
-        Array.from({ length: 101 }, (_, i) => ({
-          code: `c${i}`,
-          name: `Item ${i}`,
-          priceVnd: 1_000,
-        })),
+        [{ ...item, name: ` ${'x'.repeat(99)} ` }],
       ];
       for (const v of bad) {
         await setParam(db, t, 'damage_catalog', v, nextDate());
         n += 1;
         expect(await broken(), JSON.stringify(v).slice(0, 80)).toBe(n);
       }
-      const good: unknown[] = [
-        [],
-        [item, { code: 'remote', name: 'Remote', priceVnd: 20_000_000 }],
-        Array.from({ length: 100 }, (_, i) => ({
-          code: `c${i}`,
-          name: `${i} `.padEnd(100, 'x'),
-          priceVnd: 1_000,
-        })),
-      ];
+      const good: unknown[] = GOOD_SHAPES.filter(([k]) => k === DAMAGE).map(([, v]) => v);
+      expect(good.length).toBeGreaterThanOrEqual(4);
       for (const v of good) {
         await setParam(db, t, 'damage_catalog', v, nextDate());
         expect(await broken(), JSON.stringify(v).slice(0, 80)).toBe(n);

@@ -14,9 +14,9 @@
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 2 | 2 (BUG-R5-003, BUG-R5-004) | 0 | 0 |
-| P2 | 2 | 2 (BUG-R5-001, BUG-R5-002) | 0 | 0 |
-| P3 | 0 | 0 | 0 | 0 |
-| **Tổng** | **4** | **4** | **0** | **0** |
+| P2 | 3 | 3 (BUG-R5-001, BUG-R5-002, BUG-R5-006) | 0 | 0 |
+| P3 | 1 | 0 | 1 (BUG-R5-005) | 0 |
+| **Tổng** | **6** | **5** | **1** | **0** |
 
 ## 2. Bảng lỗi
 
@@ -26,6 +26,8 @@
 | BUG-R5-002 | P2 | Tiền cọc về cho giữ chỗ đã tự hủy (`hold_expired`): Desk không ghi được khoản thu, không tạo được yêu cầu hoàn, không có mục "Cần chú ý" `deposit_after_cancel` (US-085 AC4). Tiền nằm ngoài Desk | BE (+ FE nút, ARC chốt khôi phục hay đơn mới, SEC xem quyền) | Mới |
 | BUG-R5-003 | P1 | Tham số `min_stay`: bộ kiểm khi lưu cho qua `2` hay `{"nights":2}`, bộ tính giá lại cần danh sách luật. Lưu một giá trị như vậy thì mọi báo giá và đơn trực tiếp mới bị 500 tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (+ ARC ghi `setParameter`) | Mới |
 | BUG-R5-004 | P1 | Tham số `damage_catalog` (bảng giá hư hỏng, BR-512): bộ kiểm khi lưu nhận mọi giá trị JSON. Lưu một bảng có phần tử `null` thì mở folio, in bill, danh mục phí và ghi dòng dịch vụ đều 500, với mọi đơn, tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (V5-25, BE-C, PR xếp chồng trên PR #96) | Mới |
+| BUG-R5-005 | P3 | Web khách, tab Yêu cầu: khách gõ một chuỗi giống số thẻ vào lời nhắn. Máy chủ chặn đúng (422, mã cấp trên `CARD_NUMBER_DETECTED`), nhưng trang hiện câu "Hệ thống đang gặp sự cố…" thay cho câu "Vui lòng không ghi số thẻ thanh toán." | FE (FE-B, đã sửa ở PR #107) | Đã sửa, chờ xác nhận trên staging v1.0.5 |
+| BUG-R5-006 | P2 | `executeRefund` (chi hoàn chuyển khoản): luật số thẻ V-09 thử Luhn trên mọi cửa sổ 13–19 chữ số, nên chặn nhầm (422 `CARD_NUMBER_DETECTED`) mã chuyển khoản có phần số dài từ 13 chữ số. Ô này bắt buộc, nên MGR/OWN không ghi được lệnh chi. Mã toàn số 16 chữ số bị chặn khoảng 65 % | BE `r5-v09-reference` + FE `r5-fe-bankref` (SEC đã chọn luật, UXD đã có câu) | Mở, giao BE (v1.0.5) |
 
 ## 3. Chi tiết
 
@@ -492,4 +494,196 @@
     - Log nằm ở scratchpad của QA, ngoài repo.
   - `adjustFolioLine` và các màn Desk ở mục "Mức" suy ra từ mã. QA chưa chạy hai phần này.
   - Không có dữ liệu khách thật.
+- **Ghi chú test lại:** chưa có.
+
+### BUG-R5-005 – Web khách, tab Yêu cầu: lời nhắn có số thẻ thì trang báo "lỗi máy chủ" thay vì câu hướng dẫn
+
+- **Mức:** P3. Trạng thái: **Đã sửa, chờ xác nhận trên staging v1.0.5.**
+  - Chỉ sai câu chữ với khách. Máy chủ vẫn chặn đúng: 422 trước khi ghi, không tạo yêu cầu, không chép sang việc buồng phòng hay phiếu bảo trì, không lưu số thẻ. Không mất tiền, không lộ dữ liệu.
+  - Không xếp P2:
+    - yêu cầu không có số thẻ vẫn gửi được bình thường;
+    - khách ít khi gõ số thẻ vào lời nhắn;
+    - câu sai vẫn chỉ đường "nhắn OTTIMO kèm mã".
+  - Vẫn phải ghi và sửa, vì đây là câu khách thấy trên production: câu bảo "thử lại sau ít phút", mà gửi lại thì vẫn bị chặn, và khách không biết phải bỏ số thẻ đi.
+- **Vai chịu trách nhiệm:**
+  - FE (FE-B): đã sửa ở PR #107 (V5-46).
+  - FE-B: mock lệch máy chủ, thẻ FB-R5-ARC-FE-107-01 (Minor, Open). Đây là lý do test đơn vị không bắt được lỗi này.
+  - ARC: thống nhất câu chữ hợp đồng về `CARD_NUMBER_DETECTED` ở `createGuestRequest` trong danh sách 0.3.14. Bảng mã cấp trên (openapi dòng 154) và mô tả 422 của op (dòng 9447) đang nói hai cách (SEC review #107 mục 1, ghi chú).
+  - Nguồn phát hiện: FE khi làm #107. ARC (`rounds/round-05/reviews/ARC-on-fe-prs-98-102-107.md` mục 3.1) và SEC (`rounds/round-05/reviews/SEC-on-fe-prs-98-102-107.md` mục 1, dòng "Đọc cả mã cấp trên") xác nhận và đề nghị QA ghi lỗi.
+- **Môi trường:**
+  - production v1.0.4 = `6414be25`. Các tệp nêu ở "Chỗ lỗi trong mã" giống hệt `3de4b139`, là commit cha của merge #107 (`git diff` rỗng). Phía máy chủ không đổi từ `6414be25` tới `main` @ `be0c0cfd`.
+  - Có từ R2 Sprint 4 (`5987a627`, 17/10): trang và nhánh lỗi của máy chủ vào cùng commit này. Vậy lỗi có trong mọi bản v1.0.0–v1.0.4.
+  - Bản sửa: PR #107, merge `1c155881` trên `main`. Commit này không nằm trong `v1.0.4`; sẽ lên cùng v1.0.5.
+  - QA tái hiện trên mã nguồn, không trên production và không trên staging (cách làm ở "Bằng chứng").
+- **Liên quan:**
+  - V5-46; V-09 / R-PAY-07 (máy chủ không bao giờ lưu số thẻ);
+  - operationId `createGuestRequest` (`POST /v1/guest/requests`);
+  - FB-R5-ARC-FE-107-01; plan R5 dòng V5-46.
+- **Chỗ lỗi trong mã:**
+  - Máy chủ, `product/services/api/src/modules/guest-portal/internal/guest-requests.service.ts` `note()` dòng 391–394: `throw problem('CARD_NUMBER_DETECTED', { errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }] })`. Kết quả là 422 với **mã cấp trên `CARD_NUMBER_DETECTED`**, không phải `VALIDATION_FAILED`.
+    - Test máy chủ đang khẳng định đúng dạng này: `test/integration/guest-requests-s4-bed.test.ts` dòng 342–357.
+  - Web khách, `product/apps/guest-web/src/pages/RequestsPage.tsx` tại `3de4b139` (= v1.0.4), hàm `send` dòng 343–370:
+    - chỉ đọc mã trường khi `e.code === 'VALIDATION_FAILED'` (dòng 351);
+    - mã cấp trên `CARD_NUMBER_DETECTED` không vào nhánh đó, không phải lỗi mạng, nên rơi xuống nhánh cuối (dòng 369) → câu `gw.error_server`.
+    - Nhánh `codes.includes('CARD_NUMBER_DETECTED')` (dòng 361) không bao giờ chạy với máy chủ thật.
+  - Trang này không tự dò số thẻ trước khi gửi, nên mọi chuỗi giống số thẻ đều đi tới máy chủ.
+  - Vì sao test không bắt được: mock `mocks/handlers.ts`, nhánh thẻ của `POST /v1/guest/requests`, trả `VALIDATION_FAILED` kèm mã trường, khác máy chủ thật (thẻ FB-R5-ARC-FE-107-01).
+  - Phạm vi chỉ là tab Yêu cầu:
+    - ô ghi chú lúc đến (check-in online) không bị: `CheckinFlow.tsx` tự chặn số thẻ trên máy (dòng 484), và khi máy chủ chặn thì đọc mã trường (dòng 325);
+    - `git grep`: ngoài guest-web, không ứng dụng nào gọi `createGuestRequest`.
+- **Tiền điều kiện / dữ liệu:** một lượt ở đang ở (in-house) có link khách, DS-E. Số thẻ dùng để thử chỉ là số thẻ thử công khai `4111 1111 1111 1111`, `4242 4242 4242 4242`. Không dữ liệu khách thật.
+- **Các bước tái hiện:**
+  1. Khách mở link, chọn tab Yêu cầu → Yêu cầu mới → Khác.
+  2. Lời nhắn: `Thẻ 4111 1111 1111 1111 trả giúp`. Bấm Gửi.
+  3. Máy chủ trả 422, `code: CARD_NUMBER_DETECTED`, `errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }]`. Không tạo yêu cầu.
+  4. Xem câu báo trên trang.
+- **Kết quả thực tế** (v1.0.4, `3de4b139`):
+  - VI: "Hệ thống đang gặp sự cố. Thử lại sau ít phút; nếu vẫn lỗi, nhắn OTTIMO kèm mã {request_id}."
+  - EN: "Something went wrong on our side. Try again in a few minutes; if it keeps happening, message OTTIMO with the code {request_id}."
+  - Khách không biết lỗi do số thẻ. Gửi lại thì bị chặn lại, với cùng câu đó.
+- **Kết quả mong đợi:**
+  - Câu `gw.req.card_detected`: VI "Vui lòng không ghi số thẻ thanh toán.", EN "Please don't include a payment card number.", RU theo `strings-ru.json`.
+  - Không có câu "lỗi máy chủ". Khách vẫn ở form, chữ còn trong ô để tự sửa; lần gửi sau dùng khóa idempotency mới.
+  - Câu không nhắc lại số khách gõ (SEC).
+- **Bản sửa** (PR #107, FE-B; UXD, SEC, ARC duyệt @ `e2ffd228`; merge `1c155881`):
+  - `app/problem.ts`: hàm mới `sensitiveNumberOf()` đọc cả mã cấp trên lẫn mã trường, thẻ trước, giấy tờ sau;
+  - `RequestsPage.tsx` dòng 351: vào nhánh lỗi chữ khi mã là `VALIDATION_FAILED` **hoặc** có mã số nhạy cảm; số thẻ → `gw.req.card_detected`;
+  - test hồi quy trong repo: `product/apps/guest-web/src/__tests__/v5-46-id-number.test.tsx`, ca "guest-portal shape for a card number (top-level code CARD_NUMBER_DETECTED) → the card sentence, not "server error"".
+- **Ca xác nhận trên staging v1.0.5** (QA chạy khi staging đã lên bản có `1c155881`; không làm trên production):
+  - Ca S-005-1 – số thẻ trong lời nhắn, VI và EN:
+    - link khách của một lượt DS-E đang ở, màn 390 px;
+    - tab Yêu cầu → Yêu cầu mới → Khác, lời nhắn `Thẻ 4111 1111 1111 1111 trả giúp` (EN: `Card 4242 4242 4242 4242 please`) → Gửi;
+    - mong đợi:
+      - câu `gw.req.card_detected` đúng ngôn ngữ, không có câu `gw.error_server`;
+      - tab Network: 422, `code` = `CARD_NUMBER_DETECTED`, thân lỗi không chứa `1111` hay `4242`;
+      - `qa.fd` trên Desk: danh sách yêu cầu khách không có yêu cầu mới; không có việc buồng phòng hay phiếu bảo trì mới.
+  - Ca S-005-2 – sau khi bỏ số thẻ: sửa lời nhắn thành `Cho tôi thêm 2 khăn tắm` → Gửi → 201, yêu cầu hiện trên Desk. `qa.fd` đóng yêu cầu thử theo cách dọn DS-E.
+  - Đạt cả hai ca thì QA chuyển lỗi sang Đóng.
+- **Việc cho ORC / PO (không chặn):** release notes v1.0.5 nêu một dòng: "Tab Yêu cầu của web khách: lời nhắn có số thẻ nay hiện đúng câu hướng dẫn (BUG-R5-005)" (ARC mục 3.1). Không cần báo INV trước.
+- **Bằng chứng:**
+  - Đọc mã: các dòng nêu ở "Chỗ lỗi trong mã".
+  - Chạy cục bộ 07/11 (QA), vitest trên mã của hai commit:
+    - mỗi bản lấy bằng `git archive` (`3de4b139` và `1c155881`) vào thư mục riêng trong scratchpad, ngoài repo; dùng `node_modules` của repo. `design/copy` và `packages/` giống nhau ở hai commit;
+    - một tệp test tạm của QA, không commit. MSW trả đúng thân lỗi của máy chủ thật, chép từ test máy chủ dòng 342–357. Không gọi staging hay production.
+    - Kết quả:
+
+      | Ca | `3de4b139` (= v1.0.4) | `1c155881` (#107) |
+      |---|---|---|
+      | VI, dạng máy chủ thật, `4111 1111 1111 1111` | "Hệ thống đang gặp sự cố. Thử lại sau ít phút; nếu vẫn lỗi, nhắn OTTIMO kèm mã req-qa-p3." → **lỗi** | "Vui lòng không ghi số thẻ thanh toán." → đạt; chữ còn trong ô |
+      | EN, dạng máy chủ thật, `4242 4242 4242 4242` | "Something went wrong on our side. …" → **lỗi** | "Please don't include a payment card number." → đạt |
+      | VI, mock mặc định (`VALIDATION_FAILED` + mã trường) | "Vui lòng không ghi số thẻ thanh toán." | như bên trái |
+
+      Dòng cuối cho thấy vì sao test đơn vị cũ vẫn xanh.
+    - Tệp test của repo `v5-46-id-number.test.tsx` tại `1c155881`: 10/10 ca qua.
+    - Bộ dò máy chủ `containsCardNumber` (`shared/validation.ts`, chạy bằng `tsx`) nhận cả hai chuỗi thử là số thẻ (`true`). Hai lời nhắn thường `Cho tôi hỏi giờ ăn sáng`, `Phòng 302 cần thêm khăn` → `false`.
+  - QA chưa chạy integration máy chủ (cần PostgreSQL). Dạng 422 lấy từ mã và từ test integration đang xanh trên CI.
+  - Log nằm ở scratchpad của QA, ngoài repo. Không có dữ liệu khách thật.
+- **Ghi chú test lại:** 07/11, QA, trên mã nguồn: đạt tại `1c155881` (bảng trên). **Chưa đóng**: chờ ca S-005-1, S-005-2 trên staging v1.0.5.
+
+### BUG-R5-006 – `executeRefund`: luật số thẻ V-09 chặn nhầm mã chuyển khoản dài, MGR/OWN không ghi được lệnh chi hoàn
+
+- **Mức:** P2. Trạng thái: **Mở, giao BE (v1.0.5).**
+  - Đây là sai chức năng trên đường tiền, có cách làm tạm. Không phải lỗi bảo mật (SEC `rounds/round-05/responses/SEC-responses.md` mục 4.4).
+  - Không mất tiền, không lộ dữ liệu: lệnh bị chặn thì không ghi gì. Số thẻ thật vẫn bị chặn đúng.
+  - Không xếp P1: chỉ chặn một thao tác chi hoàn, không chặn nhận phòng, trả phòng hay thu tiền. Cách làm tạm rẻ, giữ được việc tìm trên sao kê.
+  - Không xếp P3: thao tác tiền bị chặn, và câu báo trên Desk nói sai ô (xem "Chỗ lỗi trong mã"). Người dùng dễ sửa mã tùy ý cho qua, làm mã trong Desk không còn khớp sao kê.
+  - Chưa có báo lỗi nào từ production (SEC 4.4, BE C0313-25).
+  - Sửa trong v1.0.5 theo SEC phương án (a). Không hotfix v1.0.4.
+- **Vai chịu trách nhiệm:**
+  - BE, nhánh `r5-v09-reference` (v1.0.5): luật riêng cho ô mã tham chiếu, đặt trong `shared/validation.ts`, áp cho `executeRefund` và `PaymentCreate.bankReference` (PR-B3 dùng lại hàm này). SEC 4.4: áp vào `executeRefund` sớm nhất có thể, không cần chờ hết PR-B3.
+  - SEC giữ luật (mục 4.1, 4.3). ARC sửa chữ ở 0.3.14 (thẻ FB-R5-BE-ARC-C0313-25).
+  - FE, nhánh `r5-fe-bankref` (v1.0.5): gắn câu báo cho 422 ở ô mã, cả hộp chi hoàn và hộp ghi khoản thu (SEC 4.2). UXD đã có chữ (`dcfca8b1`).
+  - ORC: báo INV cách làm tạm cho MGR/OWN trước khi bản sửa lên (SEC 4.4).
+  - Nguồn phát hiện: BE (`rounds/round-05/reviews/BE-on-contract-0.3.13.md` mục 7.8.3, thẻ C0313-25); SEC trả lời và đề nghị ghi lỗi (mục 4).
+- **Môi trường:**
+  - mã `main` @ `be0c0cfd`. Các tệp nêu ở "Chỗ lỗi trong mã" giống `6414be25` (production v1.0.4): `git diff` rỗng.
+  - Kiểm số thẻ ở ô mã chi hoàn có từ R2 Sprint 3 (`2923bf43`, 17/10). Vậy lỗi có trong mọi bản v1.0.0–v1.0.4.
+  - QA chạy cục bộ bằng `tsx`, không stack, không DB, không gọi staging hay production (cách làm ở "Bằng chứng").
+- **Liên quan:**
+  - operationId `executeRefund` (`POST /v1/properties/{propertyId}/approval-requests/{approvalId}/actions/execute-refund`, OWN/MGR, A47); BR-522; E15-02 (mã bắt buộc khi chi chuyển khoản);
+  - V-09 / R-PAY-07; SEC-BE-44;
+  - `PaymentCreate.bankReference` (PR-B3, hợp đồng 0.3.13 bổ sung 1e, ARC-15);
+  - thẻ FB-R5-BE-ARC-C0313-25; SEC-responses mục 4.
+  - **Cập nhật 07/11 (QA, ORC giao sau ARC #111 và BE-D):**
+    - hợp đồng 0.3.13 bổ sung 1f mục 1.26 (PR #111 @ `90adc56d`, gộp `ce404dd6`) ghi luật C0313-25: chỉ chặn khi **toàn bộ** giá trị, sau khi bỏ `.` `/` `_` `-`, là 13–19 chữ số qua Luhn. Đúng "Kết quả mong đợi" dưới đây; QA không đổi mức hay ca;
+    - SEC ghi ngoại lệ này ở SR-PAY-10 (`441502cd`);
+    - máy chủ v1.0.4 vẫn quét mọi đoạn số bên trong mã (SEC 4.4). Lỗi còn **Mở** tới khi PR `r5-v09-reference` gộp và ca hồi quy (a)–(g) xanh;
+    - chữ hợp đồng 1.26 ghi câu UXD là "nhập 8 ký tự cuối", còn UXD (`dcfca8b1`) và ORC chốt "8 **chữ số** cuối". SEC đã đưa việc sửa chữ vào 0.3.14 (thẻ FB-R5-SEC-ARC-24). QA kiểm theo "8 chữ số cuối".
+- **Chỗ lỗi trong mã:**
+  - `product/services/api/src/modules/payments/internal/refunds.service.ts` `payOut`:
+    - dòng 668–672: mẫu `^[A-Za-z0-9./_-]{1,64}$`;
+    - dòng 673–678: `containsCardNumber(input.bankReference)` → 422 `CARD_NUMBER_DETECTED`, `field` = `bankReference`;
+    - dòng 759–763: chi chuyển khoản (`bank_transfer`, `vietqr`, `card_pos`, kênh `transfer`) mà ô trống → 422 `REQUIRED`. Vậy không thể để trống cho qua.
+  - `product/services/api/src/shared/validation.ts` dòng 42–58: `containsCardNumber` = luật V-09 gốc **hoặc** `looksLikeCard`. Luật gốc thử Luhn trên **mọi cửa sổ 13–19 chữ số, ở mọi vị trí** của mọi dãy số. Hợp với chữ tự do, nhưng với ô mã thì một mã có phần số dài từ 13 chữ số rất dễ có một cửa sổ qua Luhn.
+  - Controller (`refunds.controller.ts` dòng 232) chỉ cắt khoảng trắng hai đầu.
+  - Desk (theo mã, QA chưa chạy Desk): `MoneyPage.tsx` dòng 931, ô "Mã giao dịch" hiện lỗi trường qua `fieldErrors` → `fieldErrorText` (`app/problem.ts` 118–128). Không có khóa `field.CARD_NUMBER_DETECTED`, nên ra khóa `error.CARD_NUMBER_DETECTED`: "Ô ghi chú có dãy số giống số thẻ thanh toán. Xóa dãy số đó – OTTIMO không lưu số thẻ." Câu nói "Ô ghi chú" và bảo xóa dãy số, trong khi đây là ô mã giao dịch và bắt buộc.
+    - Trên production v1.0.4, dưới ô mã đang hiện đúng câu của ô ghi chú này (ORC xác nhận 07/11). Sửa ở v1.0.5, nhánh FE `r5-fe-bankref`.
+  - `PaymentCreate` trên v1.0.4 không bị:
+    - chưa có `bankReference`: trường lạ bị từ chối (BE 7.8.2, ARC-15);
+    - `posAuthCode` chỉ nhận tối đa 12 chữ và số (`payment.service.ts` 163–173), nên V-09 (từ 13 chữ số) không chặn nhầm một mã POS hợp lệ.
+    - Nhưng PR-B3 thêm `bankReference` "như `executeRefund`". Nếu dùng lại `containsCardNumber` thì mang theo đúng lỗi này. Ở đó ô tùy chọn, nên lễ tân sẽ để trống, và khoản thu mất chặn trùng S4 mà không ai biết (BE C0313-25). Vậy bản sửa phải phủ cả hai đường (SEC 4.1).
+  - Không test nào thử mã chuyển khoản dài toàn số ở `executeRefund`. Test repo dùng `FT26290001` (10 ký tự).
+- **Tiền điều kiện / dữ liệu:**
+  - **Chỉ làm trên stack local, staging hoặc test tự động. Không làm trên production.** Chỉ dùng chuỗi số ví dụ dưới đây, không dùng mã giao dịch thật.
+  - Một yêu cầu hoàn `refund` `approved`, nơi nhận chuyển khoản; ảnh chứng từ `refund_proof`. Tài khoản `qa.mgr`.
+- **Các bước tái hiện:**
+  1. `qa.mgr` mở Desk, màn Tiền, mở yêu cầu hoàn đã duyệt → Chi chuyển khoản. Nhập số tiền, gắn ảnh.
+  2. Ô Mã giao dịch: `2026110700000000` (16 chữ số ví dụ; cả chuỗi không qua Luhn). Bấm Lưu.
+  3. Kết quả: 422 `CARD_NUMBER_DETECTED`, `errors[{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }]`. Không ghi lệnh chi.
+  4. Để trống ô → 422 `REQUIRED`.
+  5. Nhập 8 chữ số cuối của mã giao dịch (`00000000`) → qua bước kiểm số thẻ.
+- **Kết quả thực tế:** mã chuyển khoản không phải số thẻ vẫn bị chặn. Ô bắt buộc, nên MGR/OWN không ghi được lệnh chi, trừ khi sửa mã đi. Dưới ô mã, Desk hiện câu của ô ghi chú ("Ô ghi chú có dãy số giống số thẻ thanh toán. Xóa dãy số đó…").
+
+  | Mã ví dụ | Mô tả | `executeTransfer` hiện nay | Luật SEC 4.1 (QA mô phỏng) |
+  |---|---|---|---|
+  | `4111111111111111`, `4111-1111-1111-1111` | Số thẻ thử công khai | 422 `CARD_NUMBER_DETECTED` | chặn (đúng) |
+  | `2026110700000000` | 16 chữ số, cả chuỗi không qua Luhn, một cửa sổ bên trong qua Luhn | **422** (nhầm) | nhận |
+  | `26110700000004` | 14 chữ số, như trên | **422** (nhầm) | nhận |
+  | `FT26110700000000` | Chữ kèm 14 chữ số, một cửa sổ qua Luhn | **422** (nhầm) | nhận |
+  | `2026110700000100` | 16 chữ số, không cửa sổ nào qua Luhn | qua | nhận |
+  | `202611070001` | 12 chữ số | qua | nhận |
+  | `00000000` | 8 chữ số cuối của mã bị chặn | qua | nhận |
+
+  Tỉ lệ bị chặn trên 20.000 mã toàn số ngẫu nhiên mỗi độ dài (khớp mô phỏng của BE ở C0313-25):
+
+  | Độ dài | 12 | 13 | 14 | 15 | 16 | 18 |
+  |---|---|---|---|---|---|---|
+  | V-09 hiện nay | 0,0 % | 10,2 % | 26,6 % | 46,5 % | **64,5 %** | 88,7 % |
+  | Luật SEC 4.1 (QA mô phỏng) | 0,0 % | 10,2 % | 9,7 % | 9,9 % | 10,2 % | 10,3 % |
+
+- **Kết quả mong đợi** (SEC 4.1–4.3):
+  - Luật riêng cho ô mã tham chiếu (`bankReference` ở `executeRefund` và ở mọi đường `PaymentCreate` qua `recordInTx`). BE đặt tên hàm, ví dụ `isCardNumberReference`, cạnh `containsCardNumber`:
+    1. giá trị đã qua mẫu `^[A-Za-z0-9./_-]{1,64}$` và đã bỏ khoảng trắng;
+    2. bỏ `.` `/` `_` `-`;
+    3. **toàn bộ** là 13–19 chữ số **và** qua Luhn → 422 `CARD_NUMBER_DETECTED`, `field` = `bankReference`;
+    4. còn lại thì nhận. Không cộng `looksLikeCard`.
+  - Mọi ô chữ tự do (ghi chú, lý do…) giữ nguyên `containsCardNumber`.
+  - Không lưu, không log giá trị bị chặn. Thân 422 không lặp lại giá trị.
+  - Desk: câu riêng cho 422 ở ô mã, ở hộp chi hoàn và hộp ghi khoản thu. Không gợi ý để trống. UXD đã viết khóa `pay.bank_reference_card_like` (`rounds/round-05/outputs/UXD/copy-v1.0.5.md` bản 1.8, mục 9.8; decision-log 07/11, commit `dcfca8b1`): VI "Mã này trông giống số thẻ thanh toán nên Desk không lưu. Nhập 8 chữ số cuối của mã giao dịch." FE gắn khóa này ở nhánh `r5-fe-bankref`.
+  - Rủi ro còn lại SEC đã chấp nhận: mã toàn số 13–19 chữ số vẫn bị chặn nhầm khoảng 10 % (xác suất Luhn); số thẻ có chữ đứng trước sẽ lọt.
+- **Cách làm tạm (tới khi bản sửa lên):** MGR/OWN gặp lỗi số thẻ ở ô mã chuyển khoản thì **nhập 8 chữ số cuối của mã giao dịch**.
+  - Câu này ORC chốt 07/11 cho khớp chữ UXD trên Desk (`dcfca8b1`). Lấy chữ số, không lấy ký tự, để hai lần nhập cùng một mã luôn ra cùng giá trị dù người gõ có dấu gạch hay chấm (chặn trùng S4).
+  - 8 chữ số không bao giờ là số thẻ, vẫn đủ để tìm trên sao kê.
+  - Trên production, câu báo dưới ô mã hiện nay là câu của ô ghi chú ("Ô ghi chú có dãy số giống số thẻ thanh toán…"). Người dùng cứ làm theo cách này, không theo câu đó.
+  - Không để trống (máy chủ không cho), không tự đổi sang mã khác.
+  - ORC báo INV cách này trước khi v1.0.5 lên (SEC 4.4).
+- **Ca hồi quy** (BE viết ở `r5-v09-reference`, QA duyệt; theo SEC 4.3; chạy cho cả `recordPayment` và `executeRefund`):
+  - (a) `4111111111111111`, `4111-1111-1111-1111`, `4111.1111.1111.1111`, `4111_1111_1111_1111` → 422 `CARD_NUMBER_DETECTED`, `field` = `bankReference`; không có dòng khoản thu hay lệnh chi; thân lỗi không chứa `1111`;
+  - (b) `FT26110700000000` (chữ kèm 14 chữ số, một cửa sổ qua Luhn) → 201;
+  - (c) `2026110700000000` và `26110700000004` (cả chuỗi không qua Luhn, một cửa sổ bên trong qua) → 201. **Hai ca này đỏ trên mã hiện nay**;
+  - (d) 12 chữ số `202611070001` → 201; 8 chữ số cuối của một mã bị chặn → 201;
+  - (e) 16 chữ số qua Luhn cả chuỗi, ví dụ `1234567812345670` → 422 (rủi ro SEC đã chấp nhận);
+  - (f) ô ghi chú chứa `4111 1111 1111 1111` → vẫn 422 (luật chung không đổi);
+  - (g) hồi quy: các ca `bankReference` hiện có ở `test/integration/payments-s3.test.ts` (`FT26290001`…) vẫn xanh.
+- **Ca xác nhận trên staging v1.0.5** (QA, sau khi bản sửa lên staging; không làm trên production):
+  - trên một yêu cầu hoàn DS-E đã duyệt: mã `4111111111111111` → 422; mã `2026110700000000` → 201 và lệnh chi ghi đúng mã đó;
+  - Desk hiện câu mới của UXD ở ô Mã giao dịch khi bị chặn.
+- **Bằng chứng:**
+  - Đọc mã: các dòng nêu ở "Chỗ lỗi trong mã".
+  - Chạy cục bộ 07/11 (QA): một script `tsx` trong scratchpad, ngoài repo.
+    - Gọi thẳng `RefundsService.executeTransfer` của repo với phụ thuộc giả và `tx` rỗng. Kiểm số thẻ (dòng 673) chạy trước mọi lệnh DB (dòng 681). Vì vậy 422 ở bảng trên là đúng hành vi máy chủ; "qua" nghĩa là lệnh đã tới bước DB (lỗi `tx` rỗng, đúng như dự kiến).
+    - Cột "Luật SEC 4.1" là hàm QA tự viết theo mô tả của SEC để so sánh, không phải mã repo.
+    - Tỉ lệ ngẫu nhiên dùng bộ sinh số có hạt cố định, 20.000 mẫu mỗi độ dài.
+  - Câu trên Desk và các bước 1, 4 suy ra từ mã. QA chưa chạy trên Desk hay stack có DB.
+  - Mọi mã trong mục này là chuỗi ví dụ hoặc số thẻ thử công khai, không phải mã giao dịch hay số thẻ thật.
 - **Ghi chú test lại:** chưa có.

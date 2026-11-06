@@ -1,7 +1,7 @@
 # Sổ vận hành OTTIMO – dành cho chủ đầu tư
 
 - Dành cho: chủ đầu tư (OWN). Quản lý (MGR) và lễ tân trưởng (FDL) đọc phần của mình ở mục 1.
-- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.5 (06/11/2026, Round 5: không lưu `weekend_nights`, `min_stay` tới khi v1.0.5 lên; con số "máy chủ mất hẳn" theo cùng một cách tính) · Bản 1.4 (06/11/2026, Round 5: lượt sao lưu thứ hai lúc 15:00, mức mất dữ liệu khi máy chủ mất hẳn) · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
+- Lập: BA · Round 4 – Tổng kết · 06/11/2026 · Bản 1.7 (07/11/2026, Round 5: đếm kho minibar mỗi tuần K-MB ở mục 1.2; kiểm điện thoại cơ sở còn tắt tự lưu ảnh ở mục 1.3; đổi giá căn xong báo giá thử 1 đêm ở mục 4.1 bước 7) · Bản 1.6 (07/11/2026, Round 5: lễ tân trưởng bật 2 bước trước ngày lên v1.0.5; đổi vai chỉ trên Desk) · Bản 1.5 (06/11/2026, Round 5: không lưu `weekend_nights`, `min_stay` tới khi v1.0.5 lên; con số "máy chủ mất hẳn" theo cùng một cách tính) · Bản 1.4 (06/11/2026, Round 5: lượt sao lưu thứ hai lúc 15:00, mức mất dữ liệu khi máy chủ mất hẳn) · Bản 1.3 (06/11/2026, Round 5: sửa theo review bảo mật – mã thoát của lượt kéo, Time Machine, nghi máy chủ bị xâm nhập, báo ngay khi lượt tự kéo lỗi, người thứ hai ở phòng Báo động) · Bản 1.2 (06/11/2026, Round 5: kéo sao lưu về Mac ít nhất 2 ngày một lần, phòng Báo động có thể thêm một người, mức mất dữ liệu tối đa, diễn tập khôi phục 35 ngày)
 - Áp dụng từ: 06/11/2026. Hôm nay OTTIMO chạy thật đủ 4 trang: Desk, app nhân viên, trang khách, website 5 ngôn ngữ (form đặt phòng và giá ước tính đã bật).
 - Cách dùng: in mục 1 dán cạnh bàn làm việc. Đánh dấu ô `[ ]` khi xong. Mục 3 mở ra khi có sự cố.
 - Đọc cùng: sổ tay sử dụng `product/docs/manual/user-manual-v1.0.md`, từ điển tham số `product/docs/tham-so-quy-tac.md`, bộ hướng dẫn theo vai `product/docs/manual/guides/`.
@@ -69,6 +69,7 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 - [ ] **OWN** – lần kéo bản sao lưu về Mac gần nhất cách hôm nay không quá 2 ngày (mục 1.1a). Quá: nhắn đội kéo ngay hôm đó.
 - [ ] **OWN** – hộp thư `info@ottimo.vn` (cả mục Spam): còn thư "down", "failing" từ UptimeRobot, Healthchecks.io chưa xử lý không. Còn: mục 2.3.
 - [ ] **OWN** – phòng "OTTIMO – Báo động": tin **FAIL** nào chưa có tin **OK** theo sau. Có: báo đội trong ngày.
+- [ ] **OWN** – **đếm kho minibar (K-MB)**, khoảng 10 phút: tồn đầu + nhập − tồn cuối so với phiếu nạp; so 3 dòng phiếu nạp ngẫu nhiên với **Folio** của đơn. Lệch quá 2 món một tuần: hỏi người trực, ghi sổ (hướng dẫn `01` mục 2.1).
 - [ ] **MGR** – **Chờ đối soát**: không còn khoản ghi **Quá … ngày**.
 - [ ] **MGR** – **Giấy tờ & khai báo**, tab **Tất cả**: không còn hồ sơ quá hạn; hồ sơ **Cổng từ chối** đã khai lại.
 - [ ] **MGR** – **Cần chú ý**: công nợ, phiếu sửa quá hạn đã có người xử lý.
@@ -88,6 +89,7 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 - [ ] **OWN + kế toán** – **Nhật ký tiền** lọc cả tháng; đối chiếu theo cách thanh toán; hóa đơn GTGT vẫn xuất ngoài Desk (sổ tay mục 1.13, 4.3).
 - [ ] **OWN** – yêu cầu xem, sửa, xóa dữ liệu của khách (lễ tân chuyển lên) đã xử lý xong.
 - [ ] **OWN** – **Thiết bị được cấp**: chỉ còn máy quầy đang dùng; máy mất hoặc thay đã thu hồi.
+- [ ] **OWN** – **điện thoại cơ sở**: Zalo, WhatsApp, Telegram, Viber vẫn tắt tự lưu ảnh và file vào thư viện ảnh. App cập nhật có thể bật lại: thấy bật thì tắt lại ngay (hướng dẫn `01` mục 13).
 
 ### 1.4 Hằng năm và các mốc ngày
 
@@ -120,6 +122,8 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
 
 - [ ] **Người mới**: tạo tài khoản đúng vai (**Người dùng & vai**, chỉ OWN), đưa mật khẩu tạm tận tay. Quản lý, lễ tân trưởng bật 2 bước ngay. Quản lý nhập email nhận thông báo bảo mật. Đào tạo theo sổ tay mục 5.8 trên trang tập.
 - [ ] Người mới là MGR, FDL hoặc FD: cài điện thoại theo bảng ở hướng dẫn `01` mục 12.1 **trước**, rồi mới thêm vào phòng "OTTIMO – Yêu cầu đặt phòng".
+- [ ] **Trước ngày lên v1.0.5:** mọi lễ tân trưởng đã bật 2 bước, anh/chị nhìn tận mắt (hướng dẫn `01` mục 1.9 bước 8). Từ v1.0.5, lễ tân trưởng chưa bật bị hạn chế ngay ở lượt bấm kế tiếp sau khi bản lên, kể cả giữa ca (release notes v1.0.5).
+- [ ] **Đổi vai chỉ làm trên Desk** (**Người dùng & vai → Sửa vai**): Desk đăng xuất người đó ngay trên mọi máy, quyền mới áp dụng ngay. Không nhờ đội đổi vai thẳng trong cơ sở dữ liệu. Sự cố buộc đội phải làm vậy: đội phải làm như Desk, tức đăng xuất người đó và báo phần mềm vai đã đổi (tăng `roles_version`); thiếu bước này thì quyền cũ còn dùng được tới khoảng 1 phút (đội bảo mật 07/11).
 - [ ] **Người nghỉ**: làm khối **Ngày cuối của người nghỉ** ở sổ tay mục 1.5 (8 bước, gồm gỡ khỏi phòng Chat, đổi mật khẩu dùng chung, đổi mã cửa căn thuê tháng trong 7 ngày). Người đó ở phòng "OTTIMO – Báo động": gỡ khỏi phòng cùng ngày.
 
 ---
@@ -262,7 +266,7 @@ Anh/chị tự làm được, không cần báo đội:
 - [ ] 4. Chọn **Hiệu lực từ**: hôm nay (Desk điền sẵn; ngày trên Desk đổi lúc 06:00) hoặc ngày sau. Đơn, báo giá, hợp đồng đã tạo **giữ số cũ**.
 - [ ] 5. Ghi **Lý do** ngắn. Bấm **Lưu thay đổi**.
 - [ ] 6. Mở **Lịch sử thay đổi** trong cùng hộp. Dòng mới phải có **tên anh/chị**, đúng giá trị, đúng ngày hiệu lực. Không thấy tên mình, hoặc thấy dòng lạ: dừng, báo đội (P0 nếu là tài khoản nhận tiền hoặc tham số bảo mật).
-- [ ] 7. Tham số giá: báo giá thử một ca trên Desk (không lưu báo giá) theo bảng "Ví dụ kiểm nhanh" của từ điển. Mở ottimo.vn, thử cùng ca: web phải ra cùng số.
+- [ ] 7. Tham số giá: báo giá thử một ca trên Desk (không lưu báo giá) theo bảng "Ví dụ kiểm nhanh" của từ điển. Mở ottimo.vn, thử cùng ca: web phải ra cùng số. Giá căn: báo giá thử 1 đêm của căn đó, vì Desk chưa cảnh báo giá đêm cao bất thường (gõ thừa số 0) tới khi có bản sửa.
 - [ ] 8. Ghi sổ giao ca: tên tham số, ngày hiệu lực. Báo lễ tân trưởng.
 
 **Lưu ý:**
@@ -348,7 +352,7 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 - [ ] **Không dán** mật khẩu, mã 2 bước, mã khôi phục, khóa sao lưu, khóa dữ liệu (KEK), số tài khoản, mật khẩu Wi-Fi, đường dẫn webhook của hai phòng Chat, địa chỉ ping Healthchecks vào Claude Code, `/feedback`, email, Zalo hay bất kỳ chat nào.
 - [ ] **Không gửi ảnh** có CCCD, hộ chiếu, ảnh giấy tờ, tên, số điện thoại, email khách, số tài khoản, mã cửa. Không gõ tên khách vào `/feedback`.
 - [ ] **Không cấp quyền sai vai**: không mời sale, CTV, buồng phòng, bảo trì vào phòng "OTTIMO – Yêu cầu đặt phòng"; phòng "OTTIMO – Báo động" chỉ có anh/chị và tối đa **một** người thứ hai anh/chị chọn (mục 7.2); không cấp vai quản lý, chủ đầu tư "cho tiện"; không dùng chung tài khoản. Tài khoản chủ đầu tư thứ hai chỉ cấp cho một người khác anh/chị tin cậy.
-- [ ] Không tắt 2 bước của chủ đầu tư, quản lý.
+- [ ] Không tắt 2 bước của chủ đầu tư, quản lý, lễ tân trưởng.
 - [ ] Không tự đăng nhập máy chủ, không chạy lệnh ai gửi qua tin nhắn hay email.
 - [ ] Không sửa bản ghi DNS ở Mắt Bão khi chưa báo đội.
 - [ ] Không duyệt "Review deployments" trên GitHub khi đội chưa báo QC đạt và chưa hỏi anh/chị.
@@ -447,3 +451,4 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | 06/11/2026 | 1.3 | BA | Round 5 – Phản hồi & sửa (review SEC `rounds/round-05/reviews/SEC-on-ba-dk4-dk5.md`). Mục 1.1a: dòng báo lại có giờ chạy và mã thoát; cách kéo mới từ lần kéo 08/11; Time Machine, iCloud áp cho mọi bản trên Mac, ghi đúng kết quả kiểm chỉ đọc 06/11 (chưa có ổ Time Machine, thư mục chưa được loại, iCloud không đồng bộ); mã 3 = bản trên máy chủ khác bản trên Mac, không duyệt phát hành, có thể tạm tắt máy chủ, có thể phải báo trong 72 giờ; tách mã 1 với mã 2. Mục 3.4: nhánh nghi xâm nhập không làm bước 2–5. Mục 2.2: lượt tự kéo lỗi báo ngay, 48 giờ là ngưỡng im lặng. Mục 5.4: câu Time Machine tách khỏi câu lịch tự kéo; FileVault đã xác nhận 27/10. Mục 7.2: người thứ hai là thành viên, điện thoại cài theo `01` 12.1, không thêm webhook khác, đọc 2.3 bước 6. Chưa sửa: con số 12/13 giờ và dòng máy chủ mất hẳn ở 2.1a, 2.2, 5.4, chờ OPS chọn giờ lượt sao lưu thứ hai (FB-R5-SEC-BA-05) |
 | 06/11/2026 | 1.4 | BA | Round 5 – Phản hồi & sửa (SEC FB-R5-SEC-BA-05, chữ ở mục 2a của review; OPS `c224f0e8`, V5-62). Lượt sao lưu thứ hai lúc **15:00** (production 03:00 + 15:00): mục 2.1a, 2.2, 5.4. Mục 2.1a dòng "Máy chủ mất hẳn" có con số: hiện nay khoảng 64 giờ; từ v1.0.5 khoảng 60 giờ nếu kéo tay, khoảng 36 giờ nếu Mac tự kéo hằng ngày. Mục 5.4: câu xác nhận nêu cả hai kịch bản |
 | 06/11/2026 | 1.5 | BA | Round 5 – Phản hồi & sửa (BUG-R5-001, BUG-R5-003; OPS PR #93, `hosting-plan.md` mục 7 dòng RPO / RTO). **Áp dụng ngay, tới khi v1.0.5 lên:** mục 4.1 khung "Lỗi đang sửa – hai tham số" (không bấm **Lưu thay đổi** ở `weekend_nights`, `min_stay`; buộc phải đổi thì nhắn đội trước, **Hiệu lực từ** từ ngày mai để còn **Hủy lịch**; lỡ lưu thì báo đội, coi là P0) và câu "Trừ…" ở danh sách tự làm; mục 3.1 ví dụ P0 "mọi báo giá trên Desk báo lỗi"; mục 3.2 dòng "Lỡ bấm Lưu thay đổi…". Mục 4.1 ví dụ cặp tham số: "mức tăng cuối tuần với đêm tính là cuối tuần" thay "cuối tuần với ở tối thiểu" (theo từ điển 1.2: `weekend_nights` không ảnh hưởng ở tối thiểu). Mục 2.1a, 5.4: con số "máy chủ mất hẳn" theo cùng một cách – mức tối đa, kèm mức thường khi kéo lúc khoảng 19:00: hiện nay tới 72 giờ (thường khoảng 64 giờ); từ v1.0.5 kéo tay tới 60 giờ (thường khoảng 52 giờ); Mac tự kéo hằng ngày tới khoảng 36 giờ |
+| 07/11/2026 | 1.6 | BA | Round 5 – Phản hồi & sửa (V5-40, V5-71; SEC `rounds/round-05/reviews/SEC-on-be-pr-100-d1.md` mục 7, ARC `ARC-on-be-pr-100-d1.md` mục 2). Mục 1.5: trước ngày lên v1.0.5 mọi lễ tân trưởng đã bật 2 bước; đổi vai chỉ trên Desk, đội sửa vai thẳng trong cơ sở dữ liệu thì phải đăng xuất người đó và tăng `roles_version` như Desk. Mục 6: không tắt 2 bước của lễ tân trưởng |

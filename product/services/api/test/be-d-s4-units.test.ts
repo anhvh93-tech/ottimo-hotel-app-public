@@ -301,7 +301,10 @@ describe('Hôm nay row actions (OpenAPI 0.3.7 B-20)', () => {
                 capacityConflict,
                 arrivalDate: '2026-10-15',
                 departureDate: '2026-10-17',
+                // 0.3.13 (V5-10, BE C0313-09): check_out reads the stay's effective departure and the calendar date.
+                stayDepartureDate: '2026-10-17',
                 today,
+                calendarDate: today,
               }).filter((a) => a.event === 'check_in' || a.event === 'check_out');
               const mine = [
                 ...checkInAction(roles, {

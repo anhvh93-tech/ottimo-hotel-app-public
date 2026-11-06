@@ -13,7 +13,7 @@ import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { CANCEL_REASON_CODES, type CancelReasonCode } from '../../../db/schema';
 import { ProblemError, problem } from '../../../shared/problem';
 import { assertNoCardNumber, containsCardNumber } from '../../../shared/validation';
-import { type LocalDate, type LocalTime, addDays, atLocal } from '../../../shared/time';
+import { type LocalDate, type LocalTime, addDays, atLocal, localDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { ApprovalService, type ApprovalRow } from '../../approvals/public/approval.service';
@@ -448,6 +448,8 @@ export class ReservationsService {
       arrivalDate: row.arrival_date,
       departureDate: row.departure_date,
       today: ctx.today,
+      // 0.3.13 (V5-10, BE C0313-09): check_out from 00:00 of the departure day (post-midnight window).
+      calendarDate: localDate(ctx.now, ctx.tz),
       holdExpired: !!row.hold_expires_at && row.hold_expires_at.getTime() <= ctx.now.getTime(),
       holdExtendedCount: row.hold_extended_count,
       depositPaidVnd,
