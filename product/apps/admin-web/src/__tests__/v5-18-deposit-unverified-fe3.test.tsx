@@ -8,7 +8,7 @@ import { renderApp, tv } from '../test/render';
 
 /**
  * V5-18 (FB-R4-SEC-FE-HOLDS-03, OpenAPI 0.3.13 1.6, C0313-13): when OWN/MGR accept a short deposit, the deposit box
- * says how much of the money received is not yet on a bank statement – `Reservation.depositUnverifiedVnd`
+ * says how much of the money received is still awaiting reconciliation – `Reservation.depositUnverifiedVnd`
  * (min(deposit held, Σ deposits `succeeded` still `reconciliation = pending`), FD+ only). Nothing said at 0.
  */
 const rsvOf = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
@@ -97,7 +97,7 @@ describe('V5-18 – the unreconciled part of the deposit when a manager accepts 
     const { user, dlg } = await openDeposit('qa.mgr');
     await user.clear(within(dlg).getByLabelText(/Số tiền đã nhận/));
     await user.click(within(dlg).getByRole('checkbox', { name: tv('deposit.accept_shortfall') }));
-    expect(within(dlg).queryByText(/chưa đối soát với sao kê/)).toBeNull();
+    expect(within(dlg).queryByText(/còn chờ đối soát/)).toBeNull();
   });
 
   it('a part payment by transfer typed in this box counts after it is recorded (fresh read)', async () => {

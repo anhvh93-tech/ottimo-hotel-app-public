@@ -1535,13 +1535,11 @@ export function createReservationMock(ctx: Ctx) {
           return validation([{ field: 'payment.amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
         if (body.payment?.method === 'card_pos' && /\d{12,}/.test(body.payment.posAuthCode ?? ''))
           return validation([{ field: 'payment.posAuthCode', code: 'CARD_NUMBER_DETECTED' }]);
-        // V5-18: a receipt typed here waits for reconciliation like `recordPayment` (transfer, VietQR; SAL any method).
+        // V5-18: a receipt typed here waits for reconciliation as on the server (`deposits.service.ts` `desk = !own(c)`,
+        // `reconciliationFor`): a caller with no FD+ role → always; an FD+ caller → transfer and VietQR only.
+        // Mock limit: this receipt is not a row of `st.payments`, so reconciling it in the mock never lowers the number.
         const method = body.payment?.method ?? '';
-        if (
-          g.roles.some((x) => SALES.includes(x)) ||
-          method === 'bank_transfer' ||
-          method === 'vietqr'
-        )
+        if (!has(g.roles, FD_PLUS) || method === 'bank_transfer' || method === 'vietqr')
           r.manualDepositUnverifiedVnd = (r.manualDepositUnverifiedVnd ?? 0) + amount;
         const need = r.depositRequiredVnd ?? 0;
         if (r.depositPaidVnd + amount < need) {

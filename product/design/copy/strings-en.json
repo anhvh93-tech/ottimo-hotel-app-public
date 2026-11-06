@@ -3406,7 +3406,7 @@
   "deposit.received_at_help": "When the money arrived or the guest paid. You can enter an earlier time, not a later one. A hold with no deposit can only be confirmed if the money arrived before its deadline.",
   "deposit.accept_shortfall": "Accept the short deposit (collect the rest at check-in)",
   "deposit.accept_shortfall_reason": "Reason for accepting the short deposit",
-  "deposit.accept_shortfall_unverified": "Of the deposit received, {amount} isn't matched to the bank statement yet. Check the money is in OTTIMO's account before you accept.",
+  "deposit.accept_shortfall_unverified": "Of the deposit received, {amount} is still awaiting reconciliation. Before you accept, check it's on the bank statement, or that cash collected by sales or an agent has been handed in.",
   "hold.paid_overdue_banner": "Hold deadline passed at {time}. {paid} of {required} received, so the booking isn't cancelled and the room stays held. Collect the rest, ask a manager to accept the short deposit, or cancel and refund. Deadline to decide: {cutoff} on {date}.",
   "error.HOLD_EXPIRED_PAID": "The hold passed its deadline at {time}, but {paid} has been received, so it isn't cancelled and the room stays held. Handle it on this booking: collect the rest, accept the short deposit, or cancel and refund.",
   "rsv.hold_paid_keep": "{paid} of {required} received. If the deadline passes before the rest is paid, the booking isn't cancelled and the room stays held – collect the rest or ask a manager to accept the short deposit.",

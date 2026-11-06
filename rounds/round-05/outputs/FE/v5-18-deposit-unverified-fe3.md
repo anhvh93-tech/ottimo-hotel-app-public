@@ -36,3 +36,12 @@ UXD sửa chữ thì chỉ sửa dòng này trong `gen_strings.py`. Mã không �
 ## 4. Giả định
 - Dòng này hiện mỗi khi quản lý tích "Chấp nhận cọc thiếu", trước hoặc sau hạn giữ chỗ. Plan ghi "sau hạn", nhưng rủi ro chấp nhận tiền chưa thấy trên sao kê là như nhau ở hai lúc. Hộp cũng hiện ô này ở cả hai lúc (BUG-R3-043).
 - Số không gồm khoản đang gõ trong hộp mà chưa ghi. Khoản đó được tính sau khi ghi (A-13).
+
+## 5. Phản hồi & sửa (sau review ARC, UXD 07/11)
+- FB-R5-UXD-FE-141-01 (Major, điều kiện gộp): đổi sang chữ chốt ở copy-v1.0.5 bản 2.3 mục 9.14 (a), bỏ "NHÁP" ở ghi chú. Test dòng 100 dò `/còn chờ đối soát/`, nên ca "0 thì không nói gì" lại kiểm được.
+
+  | Khóa | VI | EN |
+  |---|---|---|
+  | `deposit.accept_shortfall_unverified` | Trong số cọc đã nhận, {amount} còn chờ đối soát. Trước khi chấp nhận, kiểm khoản này đã có trong sao kê, hoặc tiền mặt sale, CTV thu đã nộp quầy. | Of the deposit received, {amount} is still awaiting reconciliation. Before you accept, check it's on the bank statement, or that cash collected by sales or an agent has been handed in. |
+
+- FB-R5-ARC-FE-141-01 (Minor): mock B4 xét vai như máy chủ (`desk = !own(c)`, `reconciliationFor`): người không có vai FD+ thì luôn chờ đối soát; người FD+ chỉ khi chuyển khoản hoặc VietQR. Thêm chú thích: biên nhận B4 của mock không nằm trong `st.payments`, nên đối soát trong mock không làm số giảm.
