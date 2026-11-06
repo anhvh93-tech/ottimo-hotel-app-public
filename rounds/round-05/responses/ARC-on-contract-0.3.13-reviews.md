@@ -153,3 +153,20 @@ Chi tiết ở contract 1.29 (đổi người chốt) và danh sách 0.3.14 ở 
 | SEC 123-01 | – | Deferred – 0.3.14 (e) | Quá 32 tầng → 422; lỗi băm ở guard → 403, không 5xx |
 | T58-9, DOM FE-125-01, ARC FE-128-02 | – | Deferred – 0.3.14 (f), (g), (h) | "lần lượt"; câu `checkoutTimeNoteRequired`; `action` giữ tham số lặp |
 
+## 11. Bổ sung 1i – BE review 1g (`BE-on-contract-0313-addendum-1g.md`), BE-H và DOM review 1h
+
+Chi tiết ở contract 1.30. Chỉ mô tả, không đổi schema.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-BE-ARC-C0313-31 | Minor | Done – phương án B | Ô mã giống số thẻ báo trước; #148 không đổi mã, thêm ca (iv) |
+| FB-R5-BE-ARC-C0313-32 | Minor | Done (chữ) – BE-D2 thêm ca SAL `confirmDeposit` 409 và ca (iv) ở #148 | SR-PAY-10 bản 07/11; ca HTTP từng đường; `GroupDepositInput` R3; câu "từ chối trường lạ" sửa |
+| FB-R5-BE-ARC-C0313-33 | Suggestion | Deferred – 0.3.14 (i) | `DEFAULT NULL`, DROP + cấp quyền lại |
+| FB-R5-BE-ARC-1H-01 | Suggestion | Done (ghi ngay ở 1i) | Đơn `checked_out` chỉ nhận người chốt |
+| FB-R5-BE-ARC-1H-02 | Suggestion | Done | Luật đạt của B18; `recognized_at` = lúc sửa |
+| FB-R5-DOM-ARC-1H-01 | Minor | Done (chữ) – OPS làm ở runbook | Hai danh sách từ `reservation_change`, chạy sau khi `r5-h1c` lên; repo chỉ ghi 0 / > 0 |
+| FB-R5-DOM-ARC-1H-02 | Minor | Không thuộc ARC – BA, PO | Sổ tay và release notes cùng tag có `r5-h1c` |
+| FB-R5-DOM-ARC-1H-03 | Minor | Deferred v1.3 (US-089) | v1.0.5 giữ 409 |
+| FB-R5-DOM-ARC-1H-04 | Suggestion | Đồng ý hướng – BE-H quyết làm trong `r5-h1c` hay v1.0.6 | Không đổi chữ hợp đồng |
+| FB-R5-DOM-ARC-1H-05 | Suggestion | Ghi ở `updateReservation` (nên có) – FE-A, UXD | Không đổi hợp đồng |
+
