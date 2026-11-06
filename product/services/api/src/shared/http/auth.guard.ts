@@ -14,6 +14,11 @@
  * - Roles: user_property_role of that property (non-revoked), cached ≤ 60 s per roles_version (SR-AZ-08).
  * - No role at the property → 404 NOT_FOUND (no existence leak, architecture 6). Role not in x-roles →
  *   403 FORBIDDEN_ACTION + audit_event access.denied (US-002 AC2).
+ * - x-write-roles (OpenAPI 0.3.13 bổ sung 1 (a), contract 1.16; SEC FB-R5-SEC-ARC-02): a role allowed by x-roles that
+ *   sends a body field none of its roles may send (write-roles.ts) is refused the same way – part of the role
+ *   decision, so it comes after the Idempotency-Key lookup (ADR-009 replay) and BEFORE any body check or price
+ *   calculation of the handler. The 403 body carries no extension field (no min/max/dates/errors); the
+ *   access.denied entry names the fields (`reason = WRITE_ROLES`, `after.fields`).
  */
 import { createHash } from 'node:crypto';
 import {
@@ -46,6 +51,7 @@ import {
 } from './guest-session';
 import { OPERATION_KEY, PUBLIC_ROUTE_KEY, operationMeta } from './operation';
 import { parseEntityTag } from './precondition';
+import { deniedWriteFields } from './write-roles';
 
 export const AUTH_OPTIONS = Symbol('AUTH_OPTIONS');
 
@@ -115,6 +121,11 @@ export interface RequestAuth {
   guest?: GuestPrincipal;
   /** Role decision; enforced by the guard, or by UnitOfWork after the idempotent replay lookup. */
   allowed: boolean;
+  /**
+   * x-write-roles: body fields the caller's roles may not send (non-empty ⇒ `allowed` is false). Kept so the
+   * deferred decision (UnitOfWork after the replay lookup) writes the same access.denied as the guard.
+   */
+  deniedFields?: string[];
   /** Set once the role decision has been enforced (403 thrown or passed). */
   enforced: boolean;
   /** Version from `If-Match: "<n>"` (operations that declare If-Match; absent for dryRun). */
@@ -331,15 +342,21 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const ifMatchVersion = this.checkPreconditionHeaders(req, operation);
 
     // any_staff = any authenticated staff member (e.g. getMe), even before a property is chosen.
-    const allowed =
+    const roleAllowed =
       operation.roles.includes('any_staff') ||
       principal.roles.some((r) => operation.roles.includes(r));
+    // x-write-roles: only for a role x-roles lets in (a forbidden role is already a 403 for the operation itself).
+    const deniedFields = roleAllowed
+      ? deniedWriteFields(operation.writeRoles, principal.roles, req.body)
+      : [];
+    const allowed = roleAllowed && deniedFields.length === 0;
     req.ottimoAuth = {
       operationId,
       operation,
       principal,
       allowed,
       enforced: false,
+      ...(deniedFields.length > 0 ? { deniedFields } : {}),
       ...(ifMatchVersion !== undefined ? { ifMatchVersion } : {}),
     };
     // SEC-BE-33 / ARC-BE-S3-04: a dry run never goes through the unit of work (nothing stored, nothing to
@@ -391,15 +408,22 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     auth.enforced = true;
     if (auth.allowed || !auth.principal) return;
     const p = auth.principal;
+    const fields = auth.deniedFields ?? [];
     await this.audit.recordDenied(tenantOf(p), {
       action: 'access.denied',
       entityType: 'operation',
       entityId: auth.operationId,
+      ...(fields.length > 0 ? { reason: 'WRITE_ROLES' } : {}),
       requestId: req.id,
       sessionId: p.sessionId,
       ...(p.trustedDeviceId ? { trustedDeviceId: p.trustedDeviceId } : {}),
-      after: { operationId: auth.operationId, roles: p.roles },
+      after: {
+        operationId: auth.operationId,
+        roles: p.roles,
+        ...(fields.length > 0 ? { fields } : {}),
+      },
     });
+    // No extension field on this 403 (contract 1.16): the caller learns nothing about bounds or other checks.
     throw problem('FORBIDDEN_ACTION');
   }
 
