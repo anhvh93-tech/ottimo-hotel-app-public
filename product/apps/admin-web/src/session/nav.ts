@@ -193,6 +193,18 @@ export const NAV: NavItem[] = [
     ready: true,
   },
   {
+    // V5-58 (BUG-R3-021 Desk part; rbac S36 note 47): OWN/MGR enter and change it (A101 `setPropertyWifi`),
+    // FDL/FD only read it to tell guests – S24 (rule settings) stays closed to FD.
+    id: 'wifi',
+    path: '/settings/wifi',
+    icon: 'wifi',
+    label: 'nav.wifi',
+    screen: 'S36',
+    section: 'admin',
+    roles: DESK,
+    ready: true,
+  },
+  {
     id: 'users',
     path: '/settings/users',
     icon: 'user',

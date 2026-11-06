@@ -522,3 +522,8 @@ body:has(.app-mnav) .toasts {
   flex-wrap: nowrap;
   white-space: nowrap;
 }
+/* v1.0.5 V5-58 (Desk Wi-Fi, BUG-R3-021): the Wi-Fi password box is a plain text input (never `type="password"`,
+   so the browser does not offer the Desk sign-in password there); "Ẩn" only hides the characters on screen. */
+.input.wifi-masked {
+  -webkit-text-security: disc;
+}

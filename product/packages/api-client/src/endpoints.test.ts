@@ -483,3 +483,32 @@ describe('v1.0.3 endpoints (OpenAPI 0.3.10, BUG-R3-032)', () => {
     });
   });
 });
+
+describe('V5-58 property Wi-Fi (OpenAPI 0.3.13)', () => {
+  it('getPropertyWifi / setPropertyWifi hit one path; the PUT carries ssid + password only, no If-Match', async () => {
+    const { api, call } = setup();
+    await api.getPropertyWifi({ propertyId: 'p' });
+    expect(call(0)[0]).toBe('http://x/v1/properties/p/wifi');
+    expect(call(0)[1].method).toBe('GET');
+    await api.setPropertyWifi({ propertyId: 'p' }, { ssid: 'OTTIMO Guest', password: '' });
+    const [url, init] = call(1);
+    expect(url).toBe('http://x/v1/properties/p/wifi');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual({ ssid: 'OTTIMO Guest', password: '' });
+    expect(init.headers).not.toHaveProperty('If-Match');
+  });
+
+  it('listPropertyWifiChanges reads the config log filtered on property.wifi_changed', async () => {
+    const { api, call } = setup();
+    await api.listPropertyWifiChanges({ propertyId: 'p' }, '2026-08-08', '2026-11-07');
+    const url = new URL(call()[0]);
+    expect(url.pathname).toBe('/v1/properties/p/audit-events');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      category: 'config',
+      action: 'property.wifi_changed',
+      from: '2026-08-08',
+      to: '2026-11-07',
+      limit: '5',
+    });
+  });
+});

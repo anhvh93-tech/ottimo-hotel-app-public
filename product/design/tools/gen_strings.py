@@ -4132,6 +4132,47 @@ g("v1.0.4 P4-42 privacy-2026-10-v2", [
 ])
 
 
+# ---------- v1.0.5 Desk Wi-Fi – FE-2 (V5-58, BUG-R3-021 phần Desk), chờ UXD duyệt ----------
+_W = "v1.0.5 – V5-58 (S36 Wi-Fi cơ sở). FE-2 viết theo content guide, chờ UXD duyệt (FB-R5-DOM-UXD-120-03; hợp đồng 0.3.13 bổ sung 1)"
+g("v1.0.5 Desk Wi-Fi – FE-2: ô nhập tên mạng + mật khẩu Wi-Fi của cơ sở (OWN, MGR sửa; FDL, FD đọc), bước xem lại, dòng nhật ký property.wifi_changed. Chờ UXD duyệt", [
+    ("nav.wifi", "Wi-Fi cơ sở", "Property Wi-Fi", None, _W + ". Mục nav nhóm Quản trị, dưới nav.params"),
+    ("wifi.subtitle", "Một mạng chung cho cả cơ sở. Khách thấy trên trang khách từ ngày nhận phòng.", "One shared network for the whole property. Guests see it on their stay page from arrival day.", None, _W + ". Phụ đề Topbar"),
+    ("wifi.error_title", "Chưa tải được Wi-Fi", "Couldn't load the Wi-Fi", None, _W + ". ErrorBlock khi GET lỗi"),
+    ("wifi.current_title", "Wi-Fi đang dùng", "Wi-Fi in use", None, _W + ". Tiêu đề thẻ"),
+    ("wifi.ssid", "Tên mạng", "Network name", None, _W + ". Nhãn ô và dòng dl; giá trị JetBrains Mono"),
+    ("wifi.password", "Mật khẩu Wi-Fi", "Wi-Fi password", None, _W + ". Luôn ghi 'Wi-Fi' để không lẫn mật khẩu đăng nhập Desk"),
+    ("wifi.open_network", "Mạng mở, không có mật khẩu", "Open network, no password", None, _W + ". DOM FB-R5-DOM-UXD-120-03 ý 1: mật khẩu rỗng – ở thẻ và ở bước xem lại"),
+    ("wifi.none", "Chưa nhập Wi-Fi. Trang khách đang mời khách hỏi lễ tân tên mạng và mật khẩu.", "Wi-Fi isn't entered yet. The stay page asks guests to get the network name and password from reception.", None, _W + ". configured=false; khớp gw.wifi_ask_desk"),
+    ("wifi.none_ask", "Báo chủ đầu tư hoặc quản lý nhập Wi-Fi.", "Ask the owner or manager to enter the Wi-Fi.", None, _W + ". Nối sau wifi.none, chỉ FDL/FD"),
+    ("wifi.read_help", "Đọc cho khách đúng từng ký tự. Chỉ chủ đầu tư và quản lý sửa được.", "Read it to guests exactly, character by character. Only the owner and manager can change it.", None, _W + ". Chú thích dưới thẻ cho FDL/FD"),
+    ("wifi.change_help", "Đổi mật khẩu trên bộ phát trước, rồi lưu ở đây ngay sau đó. Lưu xong, báo lễ tân để báo khách đang ở.", "Change the password on the router first, then save it here straight away. Then tell the receptionists so they can let in-house guests know.", None, _W + ". Chú thích dưới thẻ cho OWN/MGR; mẫu tin báo khách: CPY 12d71871"),
+    ("wifi.enter", "Nhập Wi-Fi", "Enter Wi-Fi", None, _W + ". Nút khi chưa có Wi-Fi"),
+    ("wifi.edit", "Sửa Wi-Fi", "Edit Wi-Fi", None, _W + ". Nút khi đã có Wi-Fi"),
+    ("wifi.form_title", "Nhập tên mạng và mật khẩu Wi-Fi", "Enter the Wi-Fi network name and password", None, _W + ". Tiêu đề hộp thoại bước 1"),
+    ("wifi.form_lead", "Gõ cả hai ô đúng như trên bộ phát: chữ hoa, chữ thường và khoảng trắng đều tính.", "Type both exactly as on the router: capitals, small letters and spaces all count.", None, _W + ". Câu dẫn bước 1; mật khẩu không bị cắt khoảng trắng"),
+    ("wifi.ssid_help", "Tối đa {max} ký tự không dấu; chữ có dấu tính 2–3 ký tự. Không ghi số căn hay tên đăng nhập của nhân viên.", "Up to {max} plain characters; an accented letter counts as 2–3. No room number and no staff sign-in name.", None, _W + ". {max}=32 (byte UTF-8)"),
+    ("wifi.password_help", "{min}–{max} ký tự: chữ không dấu, số, dấu câu, khoảng trắng. Để trống nếu bộ phát để mạng mở.", "{min}–{max} characters: plain letters, digits, punctuation, spaces. Leave it empty if the router has an open network.", None, _W + ". {min}=8, {max}=63 (ASCII in được)"),
+    ("wifi.review", "Xem lại", "Review", None, _W + ". Nút sang bước xem lại"),
+    ("wifi.review_title", "Kiểm lại Wi-Fi trước khi lưu", "Check the Wi-Fi before saving", None, _W + ". Tiêu đề hộp thoại bước 2"),
+    ("wifi.review_lead", "Khách sẽ thấy trên trang khách:", "Guests will see this on their stay page:", None, _W + ". Câu dẫn trên dl bước 2"),
+    ("wifi.review_open_note", "Chỉ chọn khi bộ phát cũng để mạng mở.", "Only choose this if the router also has an open network.", None, _W + ". Alert warn ở bước 2 khi mật khẩu rỗng (DOM 120-03 ý 1)"),
+    ("wifi.review_applies", "Lưu xong là áp cho mọi khách đang ở, ở lần mở trang khách sau.", "Once saved, it applies to every in-house guest the next time they open their stay page.", None, _W + ". Chú thích bước 2"),
+    ("wifi.save", "Lưu Wi-Fi", "Save Wi-Fi", None, _W + ". Nút lưu ở bước 2"),
+    ("wifi.saved", "Đã lưu Wi-Fi. Trang khách hiện giá trị mới ở lần mở sau.", "Wi-Fi saved. Stay pages show it the next time they open.", None, _W + ". Toast sau khi lưu"),
+    ("wifi.err_ssid_required", "Nhập tên mạng.", "Enter the network name.", None, _W + ". Lỗi ô tên mạng: rỗng sau khi bỏ khoảng trắng hai đầu"),
+    ("wifi.err_ssid_long", "Tên mạng quá dài: tối đa {max} ký tự không dấu (chữ có dấu tính 2–3). Bớt chữ hoặc bỏ dấu.", "The network name is too long: up to {max} plain characters (an accented letter counts as 2–3). Shorten it or drop the accents.", None, _W + ". 422 VALUE_OUT_OF_RANGE ssid (max ở gốc body = 32); cũng cho ký tự điều khiển"),
+    ("wifi.err_ssid_not_allowed", "Tên mạng không được có số căn hay tên đăng nhập của nhân viên. Đặt tên khác.", "The network name can't contain a room number or a staff sign-in name. Choose another name.", None, _W + ". 422 NOT_ALLOWED ssid"),
+    ("wifi.err_password_range", "Mật khẩu Wi-Fi cần {min}–{max} ký tự: chữ không dấu, số, dấu câu hoặc khoảng trắng. Để trống nếu mạng mở.", "The Wi-Fi password needs {min}–{max} characters: plain letters, digits, punctuation or spaces. Leave it empty for an open network.", None, _W + ". 422 VALUE_OUT_OF_RANGE password (máy chủ không gửi min/max – Desk truyền 8, 63)"),
+    ("wifi.err_password_login", "Mật khẩu Wi-Fi không được trùng mật khẩu đăng nhập Desk của bạn. Chọn mật khẩu khác.", "The Wi-Fi password can't be the same as your Desk sign-in password. Choose a different one.", None, _W + ". 422 NOT_ALLOWED password (SR-RL-15)"),
+    ("wifi.log_title", "Lần lưu gần đây", "Recent saves", None, _W + ". Thẻ nhật ký, chỉ OWN/MGR"),
+    ("wifi.log_empty", "Chưa có lần lưu nào trong {days} ngày qua.", "No saves in the last {days} days.", None, _W + ". {days}=92 (giới hạn listAuditEvents)"),
+    ("wifi.log_first", "Nhập Wi-Fi lần đầu: {to}", "Wi-Fi entered for the first time: {to}", None, _W + ". before.ssid null; {to} JetBrains Mono"),
+    ("wifi.log_ssid", "Đổi tên mạng: {from} → {to}", "Network name changed: {from} → {to}", None, _W + ". {from}, {to} JetBrains Mono"),
+    ("wifi.log_password", "Đổi mật khẩu Wi-Fi", "Wi-Fi password changed", None, _W + ". after.passwordChanged; không bao giờ hiện mật khẩu"),
+    ("wifi.log_unchanged", "Lưu lại Wi-Fi, không đổi", "Wi-Fi saved again, no change", None, _W + ". DOM FB-R5-DOM-UXD-120-03 ý 2"),
+])
+
+
 # ---------- v1.0.4 booking – FE-B (PR #70 / v104/fe-hold-typed-rate-lock), UXD 04/11 ----------
 g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026", [
     ("booking.rates_cleared_channel", "Đã xóa giá đã gõ vì đổi kênh.", "Typed rates were cleared because the channel changed.", None, "v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa"),
