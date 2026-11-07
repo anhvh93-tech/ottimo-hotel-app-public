@@ -203,12 +203,14 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
       ? { requestedRoomGroupId: d.requestedGroup.id, requestedRoomGroupCode: d.requestedGroup.code }
       : {}),
     progress: progress(row, d.iso),
+    // A `no_show` has no `cancellation` (its status_before_cancel is `confirmed`, never shown here).
     ...(row.status === 'cancelled' && row.cancelled_at
       ? {
           cancellation: {
             cancelledAt: d.iso(row.cancelled_at),
             ...(row.cancel_reason_code ? { reasonCode: row.cancel_reason_code } : {}),
             ...(row.cancel_note ? { note: row.cancel_note } : {}),
+            ...cancelledFrom(row),
           },
         }
       : {}),
@@ -224,6 +226,18 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
     allowedActions: d.actions,
     version: row.version,
   };
+}
+
+/**
+ * 0.3.13 bổ sung 1j (DOM FB-R5-DOM-ARC-148-02, ARC review #148 mục 5): the booking's status just before it was
+ * cancelled, read from `reservation.status_before_cancel` (DB CHECK: `hold` | `confirmed` on a cancelled row). The
+ * Desk picks the receipt `type` on a closed booking from it (5B-1: `hold` → `deposit`, else `charge`), the same column
+ * `afterClosureType` reads on the server. FD+ only: the role serializer drops it for SAL/CTV (x-visible-to). Any
+ * other stored value → the key is absent, never null.
+ */
+function cancelledFrom(row: ReservationRow): { cancelledFrom?: 'hold' | 'confirmed' } {
+  const s = row.status_before_cancel;
+  return s === 'hold' || s === 'confirmed' ? { cancelledFrom: s } : {};
 }
 
 function leaseEnd(row: ReservationRow): { leaseEndDate?: LocalDate } {
