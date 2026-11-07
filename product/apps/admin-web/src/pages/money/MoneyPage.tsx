@@ -169,7 +169,10 @@ const ACTION_KEY: Record<string, string> = {
   'attention_event.resolved': 'mlog.a_money_not_found',
 };
 
-function AuditAction({ e }: { e: AuditEvent }) {
+/** Display names of the property's people by user id (`closer-candidates`, kind all), for rows that keep only ids. */
+type PeopleNames = { byId: ReadonlyMap<string, string>; loading: boolean };
+
+function AuditAction({ e, names }: { e: AuditEvent; names: PeopleNames }) {
   const { t, money } = useI18n();
   const before = (e.before ?? {}) as Record<string, unknown>;
   const after = (e.after ?? {}) as Record<string, unknown>;
@@ -191,15 +194,24 @@ function AuditAction({ e }: { e: AuditEvent }) {
       </>
     );
   }
-  if (e.action === 'reservation.closer_changed')
+  if (e.action === 'reservation.closer_changed') {
+    // FB-R5-DOM-FE-155-04: the server writes the closer's user id (`before.closerUserId` / `after.closerUserId`;
+    // `before` null when there was none, both empty on rows written before #154), never a name. Named from the
+    // people list; an id not in it (locked, left) → "Someone not on the list", as the "Người làm" filter; no id → "—".
+    const who = (v: unknown) => {
+      const id = typeof v === 'string' ? v : '';
+      if (!id) return '—';
+      return names.byId.get(id) ?? (names.loading ? t('common.loading') : t('mlog.who_unlisted'));
+    };
     return (
       <>
         {t('mlog.a_closer_changed', {
-          from: String(before.closer ?? ''),
-          to: String(after.closer ?? ''),
+          from: who(before.closerUserId),
+          to: who(after.closerUserId),
         })}
       </>
     );
+  }
   // FB-R5-UXD-FE-111-02 (UXD 9.11): "Không thấy tiền về cho đơn đã hủy" names one kind of item – an item of another
   // kind in the money log reads as an unknown action, never as that sentence.
   if (e.action === 'attention_event.resolved' && after.kind !== 'deposit_after_cancel')
@@ -309,11 +321,18 @@ function MoneyLog() {
       setMoreBusy(false);
     }
   };
-  // People for the filter: active staff of the property (FD+ may read it – `closer-candidates`, kind staff).
+  // Active people of the property (FD+ may read it – `closer-candidates`, kind all). The "Người làm" filter (MGR/OWN)
+  // lists the staff; the "Đổi người chốt" rows name staff and CTVs alike – a CTV is often the closer, and FD/FDL see
+  // their own such rows too (FB-R5-DOM-FE-155-04).
   const people = useResource(
-    async () => (mgr ? (await api.listCloserCandidates({ propertyId }, 'staff')).data.data : []),
-    [propertyId, mgr],
+    async () => (await api.listCloserCandidates({ propertyId }, 'all')).data.data,
+    [propertyId],
   );
+  const staff = (people.state.data ?? []).filter((c) => c.kind === 'staff');
+  const names: PeopleNames = {
+    byId: new Map((people.state.data ?? []).map((c) => [c.userId, c.displayName])),
+    loading: people.state.status === 'loading',
+  };
   const toggleReductions = (on: boolean) => {
     setReductions(on);
     // the last 7 calendar days, today included (the server's own default range)
@@ -368,12 +387,12 @@ function MoneyLog() {
                 onChange={(e) => setActor(e.target.value)}
               >
                 <option value="">{t('mlog.all_people')}</option>
-                {(people.state.data ?? []).map((c) => (
+                {staff.map((c) => (
                   <option key={c.userId} value={c.userId}>
                     {c.displayName}
                   </option>
                 ))}
-                {actor && !(people.state.data ?? []).some((c) => c.userId === actor) ? (
+                {actor && !staff.some((c) => c.userId === actor) ? (
                   // the person of a "Cần chú ý" link who is not in the list (left since): still the filter on screen,
                   // named as such (FB-R5-UXD-FE-PR128-01); while the list loads, "Đang tải…" – by the state, so a
                   // list that failed never says "loading" for ever (FB-R5-ARC-FE-140-03)
@@ -431,7 +450,7 @@ function MoneyLog() {
                   <td className="num">{dateTime(e.occurredAt)}</td>
                   <td>{e.actorName}</td>
                   <td>
-                    <AuditAction e={e} />
+                    <AuditAction e={e} names={names} />
                   </td>
                   <td className="mono">{e.entityCode}</td>
                   <td className="num">

@@ -7,6 +7,8 @@ import type { AttentionItem, Role, Room } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
 import { businessDayLocal, todayLocal } from '../app/dates';
 import { currentSegment } from '../app/reservations';
+import { overdueNights, overdueRefusal } from './overdue';
+import { containsCardNumber } from './replyNote';
 import type { MockFolioPort, MockReservation, MockServiceLine } from './reservations';
 import { MOCK_PASSWORD, type MockUser } from './seed';
 
@@ -708,8 +710,9 @@ export function createStayMock(ctx: Ctx) {
         action: 'reservation.closer_changed',
         entityType: 'reservation',
         entityCode: sal.code,
-        before: { closer: 'Sơn' },
-        after: { closer: 'Mai' },
+        // like the server (0.3.13 bổ sung 1h): user ids, never names – Sơn (sale) → Mai (CTV)
+        before: { closerUserId: uid(7) },
+        after: { closerUserId: uid(8) },
         reason: 'Khách do CTV giới thiệu',
       },
       {
@@ -1130,7 +1133,7 @@ export function createStayMock(ctx: Ctx) {
     if (typeof sentAt === 'string' && sentAt) iso = sentAt;
     else {
       const t = time && /^\d{2}:\d{2}$/.test(time) ? time : (r.agreedCheckoutTime ?? '12:00');
-      const dep = r.departureDate;
+      const dep = overdueOf(r)?.departureDate ?? r.departureDate;
       const cands = [at(dep, t)];
       if (t < '06:00') cands.push(at(addDays(dep, 1), t));
       if (postMidnightWindow(r) && t >= '06:00') cands.unshift(at(addDays(dep, -1), t));
@@ -1154,6 +1157,27 @@ export function createStayMock(ctx: Ctx) {
    */
   const postMidnightWindow = (r: MockReservation) =>
     today() === r.departureDate && nowHHmm() < '06:00';
+  /**
+   * V5-15 (server `overdueStay`, checkout.service): an in-house PRIMARY stay whose business day is after its effective
+   * departure (child extensions included, BR-422) → that departure and `nightsNotBilled`; else null.
+   */
+  function overdueOf(r: MockReservation): { departureDate: string; nights: number } | null {
+    if (r.status !== 'in_house' || r.parentReservationId) return null;
+    const departureDate = rsv()
+      .state.reservations.filter(
+        (o) => o.parentReservationId === r.id && ['confirmed', 'in_house'].includes(o.status),
+      )
+      .reduce((a, o) => (o.departureDate > a ? o.departureDate : a), r.departureDate);
+    const nights = overdueNights(businessDayLocal(), departureDate);
+    return nights > 0 ? { departureDate, nights } : null;
+  }
+  /** V5-15 role gate (403 before the body): OWN; MGR while ≤ 1 night; FDL/FD never. */
+  function overdueGate(r: MockReservation, roles: Role[]) {
+    const od = overdueOf(r);
+    if (!od) return { od: null, denied: null };
+    const no = overdueRefusal(roles, od.nights);
+    return { od, denied: no ? problem(403, 'FORBIDDEN_ACTION', no.extras) : null };
+  }
   /**
    * The server's `postMidnight` (checkout-at.ts): the departure INSTANT is in the post-midnight window (calendar date =
    * departure, before the rollover) or on the evening before (only resolved while the clock is in that window). The
@@ -3071,6 +3095,7 @@ export function createStayMock(ctx: Ctx) {
       if (tt.balanceDueVnd > 0) blockers.push('balance_due');
       if (tt.unhandledCreditVnd > 0) blockers.push('credit_balance');
       const extraRate = extraNightRate(r);
+      const od = overdueOf(r);
       // Like getCheckoutSummary: the surcharge AT THIS TIME (G-10) and, when a late charge is already on the
       // folio (B15), the recalculation old → new (B18 reverses a lower amount, a higher one needs the decision).
       const live = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
@@ -3101,8 +3126,11 @@ export function createStayMock(ctx: Ctx) {
         postMidnightWindow: postMidnightAt(r, time, at.checkoutAt),
         // V5-10: the instant every figure here is priced at, and what B18 will say about it.
         checkoutAt: at.checkoutAt,
-        checkoutTimeNoteRequired: at.noteRequired,
+        // V5-15: an overdue stay takes `overdueReason` instead of the note.
+        checkoutTimeNoteRequired: od ? false : at.noteRequired,
         checkoutAtAfterNow: at.afterNow,
+        overdue: !!od,
+        ...(od ? { nightsNotBilled: od.nights } : {}),
         unhandledCreditVnd: tt.unhandledCreditVnd,
         // V5-13 (0.3.13): the summary is FD+ only – always sent, `[]` when nothing is pending.
         openRefunds: tt.openRefunds,
@@ -3129,15 +3157,57 @@ export function createStayMock(ctx: Ctx) {
         if (replay) return replay;
         if (r.status !== 'in_house')
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
+        // V5-15 (H-01…H-04): the overdue role gate before the body – FD/FDL never get a 422.
+        const { od, denied } = overdueGate(r, g.roles);
+        if (denied) return denied;
         const body = (await request.json()) as Body;
         // V5-10: `checkoutAt` (the summary's) is used as is – its clock time drives the tiers below.
         const time =
           typeof body.checkoutAt === 'string'
             ? body.checkoutAt.slice(11, 16)
             : String(body.checkoutTime ?? '12:00');
-        const timeErr = timeCheck(time, body.checkoutTimeNote, 'checkoutTime', 'checkoutTimeNote');
-        if (timeErr) return timeErr;
         const s = lateSurcharge(r, time, { sentAt: body.checkoutAt });
+        if (od) {
+          // Contract 1.4 / 1.18: `checkoutAt` on the departure (or its post-midnight hours), `overdueReason` 3–500
+          // (D12c, no card number), never a night added (extend first – B13), no time note.
+          const errs: Array<{ field: string; code: string }> = [];
+          const sentAt = typeof body.checkoutAt === 'string' ? body.checkoutAt : '';
+          if (!sentAt) errs.push({ field: 'checkoutAt', code: 'REQUIRED' });
+          else if (
+            Number.isNaN(Date.parse(sentAt)) ||
+            ![od.departureDate, addDays(od.departureDate, 1)].includes(sentAt.slice(0, 10))
+          )
+            errs.push({ field: 'checkoutAt', code: 'DATE_INVALID' });
+          const why = String(body.overdueReason ?? '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (why.length < 3) errs.push({ field: 'overdueReason', code: 'REASON_REQUIRED' });
+          else if (why.length > 500) errs.push({ field: 'overdueReason', code: 'TOO_LONG' });
+          // V-09 like the server (`containsCardNumber`, ARC FB-R5-ARC-FE-145-01): a 13–19 digit run passing Luhn – never
+          // every digit of the sentence joined (times and dates of the reason are not a card).
+          else if (containsCardNumber(why))
+            errs.push({ field: 'overdueReason', code: 'CARD_NUMBER_DETECTED' });
+          if (body.lateFeeInsteadOfNight !== undefined && body.lateFeeInsteadOfNight !== null)
+            errs.push({ field: 'lateFeeInsteadOfNight', code: 'NOT_ALLOWED' });
+          if (body.extraNight !== undefined && body.extraNight !== null)
+            errs.push({ field: 'extraNight', code: 'NOT_ALLOWED' });
+          if (sentAt && s.treatAsExtension)
+            errs.push({ field: 'checkoutAt', code: 'LATE_CHECKOUT_AFTER_LIMIT' });
+          // `Fields.done()` (FB-R5-SEC-FE-145-02): a card number is its own problem code, with only that field.
+          const card = errs.find((e) => e.code === 'CARD_NUMBER_DETECTED');
+          if (card) return problem(422, 'CARD_NUMBER_DETECTED', { errors: [card] });
+          if (errs.length) return validation(errs);
+        } else {
+          if (body.overdueReason !== undefined && body.overdueReason !== null)
+            return validation([{ field: 'overdueReason', code: 'NOT_ALLOWED' }]);
+          const timeErr = timeCheck(
+            time,
+            body.checkoutTimeNote,
+            'checkoutTime',
+            'checkoutTimeNote',
+          );
+          if (timeErr) return timeErr;
+        }
         const extraNight = body.extraNight as { rateVnd?: number } | undefined;
         // BR-416-06 (0.3.7 add. 4): the night of departure is sold → a late fee of one night, confirmed at the
         // desk by an OWN/MGR (password), instead of the extra night.
@@ -3470,8 +3540,18 @@ export function createStayMock(ctx: Ctx) {
             amountVnd: tt.balanceDueVnd,
             dueDate: String(debt.dueDate),
           });
+        if (od)
+          audit(g, 'reservation.checked_out', r.code, {
+            overdue: {
+              departureDate: od.departureDate,
+              checkoutAt: String(body.checkoutAt),
+              reason: String(body.overdueReason).trim(),
+              nightsNotBilled: od.nights,
+            },
+          });
         r.status = 'checked_out';
-        r.actualCheckoutAt = nowIso();
+        // V5-15: the time the guest left (the recorder's), not the click.
+        r.actualCheckoutAt = od ? new Date(String(body.checkoutAt)).toISOString() : nowIso();
         const f = folioOf(r);
         f.status = 'settled';
         f.settledAt = nowIso();
@@ -3825,6 +3905,14 @@ export function createStayMock(ctx: Ctx) {
       const f = folioOf(r);
       const { key, replay } = rsv().idem(request, `vietqr:${f.id}`);
       if (replay) return replay;
+      // V5-48 (0.3.13 add. 1): a closed booking → 409 + `reservationStatus`, every purpose and role (OWN included,
+      // `overBalanceReason` too), after 403/404 and before every other check; no QR is made. `currentState` is the
+      // booking's here too (PR #105 `assertBookingOpen`).
+      if (r.status === 'cancelled' || r.status === 'no_show')
+        return problem(409, 'INVALID_TRANSITION', {
+          currentState: r.status,
+          reservationStatus: r.status,
+        });
       if (st.paymentNotConfigured) return problem(409, 'PAYMENT_NOT_CONFIGURED');
       const body = (await request.json()) as Body;
       const amount = Number(body.amountVnd);
@@ -3838,6 +3926,23 @@ export function createStayMock(ctx: Ctx) {
         typeof body.checkoutAt === 'string'
           ? String(body.checkoutAt).slice(11, 16)
           : (r.agreedCheckoutTime ?? '12:00');
+      // V5-15 (H-03): an overdue stay – B18's roles and night cap, `checkoutAt` required, no added night / late fee.
+      if (body.purpose === 'check_out' && !hold) {
+        const { od, denied } = overdueGate(r, g.roles);
+        if (denied) return denied;
+        if (od) {
+          const errs: Array<{ field: string; code: string }> = [];
+          if (typeof body.checkoutAt !== 'string')
+            errs.push({ field: 'checkoutAt', code: 'REQUIRED' });
+          if (body.extraNightRateVnd !== undefined)
+            errs.push({ field: 'extraNightRateVnd', code: 'NOT_ALLOWED' });
+          if (body.lateFeeAsNight === true)
+            errs.push({ field: 'lateFeeAsNight', code: 'NOT_ALLOWED' });
+          if (errs.length) return validation(errs);
+          if (lateSurcharge(r, outTime, { sentAt: body.checkoutAt }).treatAsExtension)
+            return validation([{ field: 'checkoutAt', code: 'LATE_CHECKOUT_AFTER_LIMIT' }]);
+        }
+      }
       // 0.3.13 bổ sung 1 (C0313-01): a check-out QR later than now + tolerance is refused, nothing written.
       if (
         body.purpose === 'check_out' &&
@@ -3927,6 +4032,14 @@ export function createStayMock(ctx: Ctx) {
         if (isResponse(g)) return g;
         const p = st.payments.find((x) => x.id === params.paymentId);
         if (!p) return problem(404, 'NOT_FOUND');
+        // V5-48 (0.3.13 add. 1): the folio's booking is closed → 409 with the BOOKING's `reservationStatus` beside the
+        // payment's `currentState`, every role, before every check of the payment; nothing is written.
+        const owner = rsv().state.reservations.find((x) => x.folioId === p.folioId);
+        if (owner && (owner.status === 'cancelled' || owner.status === 'no_show'))
+          return problem(409, 'INVALID_TRANSITION', {
+            currentState: p.status,
+            reservationStatus: owner.status,
+          });
         if (p.status !== 'pending')
           return problem(409, 'INVALID_TRANSITION', { currentState: p.status });
         const body = (await request.json()) as Body;

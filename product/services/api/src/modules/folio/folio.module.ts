@@ -115,6 +115,9 @@ export class FolioModule implements OnModuleInit, OnApplicationBootstrap {
     );
     // 0.3.7 D1: ApprovalRequest.effectiveAmountVnd + current FOC line (same plan as the write).
     this.approvals.provideFocView((tx, rows) => this.folios.focViews(tx, rows));
+    this.approvals.provideRefundDuplicates((tx, rows) =>
+      this.folios.refundDuplicateCodes(tx, rows),
+    );
     // BR-433 (e) / ADD3-01: ONE routing for every refund request (A32 makers never approve; owner when due).
     // Same wiring as the worker's J15 (public/worker-jobs.ts, BUG-R3-037).
     provideFolioRefundRouting(this.approvals, this.folios);

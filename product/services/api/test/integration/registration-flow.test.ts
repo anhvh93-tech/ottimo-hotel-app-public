@@ -1793,4 +1793,54 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     expect(await store.get(before[1]!.blob_key)).toBeNull();
     expect(await store.get(before[0]!.blob_key)).not.toBeNull();
   });
+
+  // SEC FB-R5-SEC-BE-154-01: the semantic idempotency digest of `addGuestDocument` walks `data` with canonicalJson. A
+  // `data` nested 10.000 levels (an unknown key validateDocumentInput never reads) once gave a RangeError → 500.
+  it('SEC 154-01: addGuestDocument with `data` nested 10.000 levels → 422, no document, no image stored', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
+    const reg = await registrationOf(reservationId);
+    const counts = () =>
+      db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{ docs: number; images: number }>(
+              `SELECT (SELECT count(*)::int FROM guest_document WHERE registration_id = $1) AS docs,
+                      (SELECT count(*)::int FROM document_image i JOIN guest_document d ON d.id = i.guest_document_id
+                        WHERE d.registration_id = $1) AS images`,
+              [reg.id],
+            )
+          ).rows[0]!,
+      );
+    const before = await counts();
+    // Sent as text: the test's own JSON.stringify of such a value would overflow first.
+    const deep = JSON.stringify(an).replace(
+      /}$/,
+      `,"x":${'['.repeat(10_000)}1${']'.repeat(10_000)}}`,
+    );
+    const r = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'POST',
+      `${P(t)}/registrations/${reg.id}/documents`,
+      {
+        multipart: [
+          { name: 'data', value: deep, contentType: 'application/json' },
+          {
+            name: 'image',
+            value: await sampleJpeg(),
+            filename: 'scan.jpg',
+            contentType: 'image/jpeg',
+          },
+        ],
+      },
+    );
+    expect(r.statusCode, r.body).toBe(422);
+    expect(r.json()).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      detail: 'Request body nested too deep',
+    });
+    expect(await counts()).toEqual(before);
+  });
 });

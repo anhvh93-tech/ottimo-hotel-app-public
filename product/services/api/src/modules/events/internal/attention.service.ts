@@ -12,11 +12,15 @@
  * - resolve: only an open event item the caller can see (else 404 – no existence leak); items closed by the
  *   system only (ATTENTION_SYSTEM_CLOSED) → 409 INVALID_TRANSITION; `note` V-08/V-09, required for a critical
  *   item (EP01 3.2 – channel_sync_error, security_alert). Who/when is kept on the row (resolved_by/at).
+ * - 0.3.13 bổ sung 1f (5B-1 S8, SEC ARC-20): `deposit_after_cancel` closed by hand = "Không thấy tiền" – the note is
+ *   required (3–500) and the money audit `attention_event.resolved` records who and when, `after = {kind,
+ *   afterClosure}` only (no free text – the note stays on the row), so the weekly filter `afterClosureOnly` shows it.
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import { optionalText, requireReason } from '../../../shared/validation';
+import { AuditService } from '../../audit/public/audit.service';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
 import {
@@ -59,6 +63,7 @@ export class AttentionService {
     @Inject(EventsService) private readonly events: EventsService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
     @Inject(ParameterService) private readonly params: ParameterService,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   /** Items the caller (`roles` at the property) may see, sorted (EP01 3.2). */
@@ -99,7 +104,14 @@ export class AttentionService {
   /** resolveAttentionEvent – in the caller's write transaction (UnitOfWork). */
   async resolve(
     tx: Tx,
-    input: { eventId: string; roles: readonly string[]; userId: string; note: unknown; now: Date },
+    input: {
+      eventId: string;
+      roles: readonly string[];
+      userId: string;
+      note: unknown;
+      now: Date;
+      requestId?: string;
+    },
   ): Promise<void> {
     const { rows } = await tx.query<{
       id: string;
@@ -107,8 +119,9 @@ export class AttentionService {
       severity: AttentionItem['severity'];
       details: Record<string, string | number> | null;
       resolved_at: Date | null;
+      ref_code: string | null;
     }>(
-      'SELECT id, kind, severity, details, resolved_at FROM attention_event WHERE id = $1 FOR UPDATE',
+      `SELECT id, kind, severity, details, resolved_at, ref_code FROM attention_event WHERE id = $1 FOR UPDATE`,
       [input.eventId],
     );
     const row = rows[0];
@@ -126,8 +139,11 @@ export class AttentionService {
         detail: 'closed by the system when the underlying case is handled',
       });
     }
+    // 5B-1 S8: "Không thấy tiền" on a `deposit_after_cancel` item always says why (a real transfer is never closed
+    // silently).
+    const moneyNotFound = row.kind === 'deposit_after_cancel';
     const note =
-      row.severity === 'critical'
+      row.severity === 'critical' || moneyNotFound
         ? requireReason('note', input.note)
         : input.note === undefined || input.note === null
           ? null
@@ -137,6 +153,17 @@ export class AttentionService {
         WHERE id = $1 AND resolved_at IS NULL`,
       [row.id, input.now, input.userId, note],
     );
+    if (moneyNotFound) {
+      // SEC ARC-20: who (actor of the transaction) and when (Clock); the booking code as entity code; no note.
+      await this.audit.recordMoney(tx, {
+        action: 'attention_event.resolved',
+        entityType: 'attention_event',
+        entityId: row.id,
+        ...(row.ref_code ? { entityCode: row.ref_code } : {}),
+        after: { kind: row.kind, afterClosure: true },
+        ...(input.requestId ? { requestId: input.requestId } : {}),
+      });
+    }
     await this.events.publish(tx, 'attention.changed', row.id, { roles: FD_PLUS });
   }
 

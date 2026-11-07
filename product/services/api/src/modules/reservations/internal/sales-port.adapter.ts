@@ -193,6 +193,7 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
         holdCreatedAt: r.hold_created_at,
         holdExpiresAt: r.hold_expires_at,
         depositRequiredVnd: r.deposit_required_vnd,
+        statusBeforeCancel: r.status_before_cancel,
       };
     } catch (err) {
       if (err instanceof Error && 'code' in err && (err as { code: string }).code === 'NOT_FOUND')

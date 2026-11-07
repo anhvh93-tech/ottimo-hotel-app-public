@@ -6,7 +6,7 @@ import { api } from '../../app/api';
 import { notifyChanged } from '../../app/live';
 import { parseVnd } from '../../app/money';
 import { fieldErrors, fieldPairKey } from '../../app/problem';
-import { rsvErrorText } from '../../app/reservations';
+import { closedBookingPaymentText, rsvErrorText } from '../../app/reservations';
 import { isRetryable, useWrite, type WriteOptions } from '../../app/useWrite';
 import { useOptionalSession } from '../../session/SessionProvider';
 
@@ -37,12 +37,18 @@ export function useProblemRoles(): { manager: boolean } {
   return { manager: roles.some((r) => r === 'owner' || r === 'manager') };
 }
 
+const FD_PLUS_ROLES: readonly string[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
+
 export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
   const { t, locale } = useI18n();
   const { manager } = useProblemRoles();
   const write = useWrite(writeOptions);
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
+  // V5-48 (UXD 9.1a): SAL/CTV get their own closed-booking sentence (pass the money to the front desk).
+  // Optional session: the hook is also rendered alone in tests (C0313-25) – no session, no role, nothing else changes.
+  const roles = useOptionalSession()?.roles ?? [];
+  const salesOnly = !roles.some((r) => FD_PLUS_ROLES.includes(r));
 
   async function submit<T>(fn: (idempotencyKey: string) => Promise<T>): Promise<T | undefined> {
     if (write.busy) return undefined;
@@ -63,6 +69,8 @@ export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
 
   const text = (e: unknown = error, extra: Record<string, unknown> = {}) => {
     if (!e) return '';
+    const closed = closedBookingPaymentText(t, e, salesOnly);
+    if (closed) return closed;
     // UXD copy-v1.0.5 9.8 (C0313-25): a 422 CARD_NUMBER_DETECTED that only points at reference fields is a field
     // error like any other – its sentence sits under the field, never the note sentence `error.CARD_NUMBER_DETECTED`.
     const fieldOnly =
