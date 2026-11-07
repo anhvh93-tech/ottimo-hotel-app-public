@@ -5,7 +5,7 @@
 // Dev/test only – never bundled (main.tsx imports mocks dynamically).
 import type { AttentionItem, Role, Room } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
-import { businessDayLocal, todayLocal } from '../app/dates';
+import { businessDayLocal, onBusinessDay, todayLocal } from '../app/dates';
 import { currentSegment } from '../app/reservations';
 import { overdueNights, overdueRefusal } from './overdue';
 import { containsCardNumber } from './replyNote';
@@ -69,7 +69,21 @@ const LATE_FEE_FOC_LIMIT_MGR = 1_000_000;
 const LEAD_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead'];
 const FD_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 const SALES: Role[] = ['sales_staff', 'collaborator'];
+/** BR-438 (server folio/public/line-reduction.ts `A30_CATEGORIES`): the categories an A30 line is posted in. */
+const A30_LINE_CATEGORIES = ['cleaning', 'laundry', 'penalty', 'damage', 'fnb', 'service_fee'];
+/** US-177 AC10 (server folio/public/line-labels.ts): FOC reasons never printed on the guest's bill. */
+const GUEST_HIDDEN_REASONS = ['entered_in_error'];
+/** BR-438: night-derived lines are outside the rule (A31 floor–ceiling). */
+const BR438_NIGHT_LINES = ['room', 'extra_person', 'room_change_difference'];
 const has = (roles: Role[], set: Role[]) => roles.some((r) => set.includes(r));
+/** A line as the API sends it: the mock-only BR-438 facts stay in the mock (`FolioLine` has no source / root). */
+const wireLine = (l: MockLine): MockLine => {
+  const out = { ...l };
+  delete out.source;
+  delete out.postedByUserId;
+  delete out.root;
+  return out;
+};
 const uid = (n: number) => `0192a1b0-0000-7000-8000-${String(n).padStart(12, '0')}`;
 const round1000 = (v: number) => Math.round(v / 1000) * 1000;
 const addDays = (date: string, n: number) => {
@@ -98,6 +112,18 @@ export interface MockLine {
   approvalRequestId?: string;
   postedAt: string;
   postedBy?: string;
+  /**
+   * Mock only (not in `FolioLine`): `folio_line.source` – `manual` for an A30 line (addFolioLine), `minibar_check` for
+   * a minibar count; absent = a Desk / system flow or a fixture. With `postedByUserId` it drives BR-438 below.
+   */
+  source?: string;
+  /** Mock only: the user who posted the line (BR-438 "do chính người đó ghi"). */
+  postedByUserId?: string;
+  /**
+   * Mock only: the ROOT line of an adjustFolioLine chain (BR-438 – a replacement carries who typed the first line,
+   * how and when). Absent = this line is its own root.
+   */
+  root?: { source?: string; postedByUserId?: string; postedAt: string; category: string };
   /** Minibar M-1 (0.3.7 add. 4): the cabinet (room) a minibar line was counted in; absent = the room assigned now. */
   cabinetRoomId?: string;
   /** Minibar M-1 (BUG-R2-144): the refill period of that cabinet the line was counted in (absent = 0). */
@@ -951,7 +977,7 @@ export function createStayMock(ctx: Ctx) {
       status: f.status,
       billNo: f.billNo,
       reservationIds: [r.id],
-      lines: f.lines.filter((l) => l.lineState !== 'rejected'),
+      lines: f.lines.filter((l) => l.lineState !== 'rejected').map(wireLine),
       payments: st.payments.filter((p) => p.folioId === f.id).map(paymentView),
       totals: {
         roomVnd: tt.roomVnd,
@@ -3037,6 +3063,9 @@ export function createStayMock(ctx: Ctx) {
               chargeCode: l.itemId,
               cabinetRoomId: cab.roomId,
               minibarPeriod: cab.period,
+              // BR-438 (1)(a): a count line is typed by hand by the person who counted.
+              source: 'minibar_check',
+              postedByUserId: g.user.id,
             },
             g.user.displayName,
           );
@@ -3120,7 +3149,7 @@ export function createStayMock(ctx: Ctx) {
         lateSurchargeRecalc: liveLate(r).length
           ? { oldVnd: live, newVnd, newTierPct: s.treatAsExtension ? 0 : s.tierPct }
           : undefined,
-        lines: f.lines.filter((l) => l.lineState !== 'rejected'),
+        lines: f.lines.filter((l) => l.lineState !== 'rejected').map(wireLine),
         totalVnd: tt.totalVnd,
         paidVnd: tt.paidVnd,
         balanceDueVnd: tt.balanceDueVnd,
@@ -3620,6 +3649,9 @@ export function createStayMock(ctx: Ctx) {
           amountVnd: round1000(unit * qty),
           description: `${item?.code ?? body.description} x${qty}`,
           chargeCode: item?.code === 'CARD_LOST' ? 'key_card_fee' : item?.code,
+          // BR-438 (1)(a): an A30 line is typed by hand by the caller.
+          source: 'manual',
+          postedByUserId: g.user.id,
           // fnb / service: free text; damage: catalogue item name (BE `catalogName`).
           labelParams:
             item?.category === 'damage'
@@ -3666,6 +3698,34 @@ export function createStayMock(ctx: Ctx) {
         body.newUnitPriceVnd !== undefined ? Number(body.newUnitPriceVnd) : l.unitPriceVnd;
       // N-7 (FB-R2-SEC-BE-81): a settled folio of a booking that still owes takes no cut – every role.
       const after = body.voidLine === true ? 0 : round1000(unit * qty);
+      // BR-438 (V5-16; contract 0.3.13 1.20, server folio/public/line-reduction.ts): FD/FDL reduce a non-night line
+      // directly only when its ROOT line was typed by hand (A30 / minibar count) by the caller in the current business
+      // day – otherwise 403 + `requiredFlow: foc_request`, nothing written. OWN/MGR as before. Checked after A32 above.
+      const root = l.root ?? {
+        source: l.source,
+        postedByUserId: l.postedByUserId,
+        postedAt: l.postedAt,
+        category: l.category,
+      };
+      const typedByHand =
+        (root.source === 'manual' && A30_LINE_CATEGORIES.includes(root.category)) ||
+        (root.source === 'minibar_check' && root.category === 'minibar');
+      if (
+        !has(g.roles, OWN_MGR) &&
+        has(g.roles, ['front_desk', 'front_desk_lead']) &&
+        !BR438_NIGHT_LINES.includes(l.category) &&
+        after < l.amountVnd &&
+        !(
+          typedByHand &&
+          root.postedByUserId === g.user.id &&
+          onBusinessDay(root.postedAt, businessDayLocal())
+        )
+      )
+        return problem(403, 'FORBIDDEN_ACTION', {
+          detail:
+            'a front desk reduces only a line it typed by hand in the current business day – request a FOC (BR-438)',
+          requiredFlow: 'foc_request',
+        });
       if (f.status === 'settled' && totals(r).balanceDueVnd > 0 && after < l.amountVnd)
         return problem(409, 'FOLIO_LOCKED', {
           detail: 'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
@@ -3710,6 +3770,8 @@ export function createStayMock(ctx: Ctx) {
             serviceDate: l.serviceDate,
             chargeCode: l.chargeCode,
             cabinetRoomId: l.cabinetRoomId,
+            // BR-438: "của mình" and "cùng ngày" are judged on the root line of the chain.
+            root,
           },
           g.user.displayName,
         );
@@ -4200,7 +4262,15 @@ export function createStayMock(ctx: Ctx) {
         departureDate: r.departureDate,
         lines: f.lines
           .filter((l) => l.lineState === 'posted')
-          .map((l) => {
+          .map(wireLine)
+          .map((line) => {
+            // US-177 AC10 (server line-labels `guestFacing`): the bill the guest reads never names the reason
+            // "Ghi nhầm" – the line reads "Miễn phí" only.
+            const l = { ...line };
+            if (l.labelParams && GUEST_HIDDEN_REASONS.includes(String(l.labelParams.reason))) {
+              l.labelParams = { ...l.labelParams };
+              delete l.labelParams.reason;
+            }
             const p = l.labelParams;
             if (!p || !(['room', 'from', 'to'] as const).some((k) => k in p)) return l;
             const named = (v: string | number | undefined) =>

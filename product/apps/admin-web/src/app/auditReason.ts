@@ -39,6 +39,8 @@ const CODE_KEYS: Record<string, string> = {
   service_recovery: 'foc.r_recovery',
   long_stay_guest: 'foc.r_long',
   debt_write_off: 'foc.r_debt_write_off',
+  // V5-16 (US-177 AC8): "Ghi nhầm" – the money log names it like the folio and Cần duyệt.
+  entered_in_error: 'foc.r_entered_in_error',
   // SEC BE-80: `approval.applied_capped` – part of the debt was collected while the write-off waited.
   debt_collected_before_approval: 'foc.r_debt_write_off',
   // v1.0.4 BUG-R4-026: refund of what the guest overpaid (B18, manual request, A32, closing a credit, and the

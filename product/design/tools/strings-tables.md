@@ -3352,6 +3352,16 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `debt.write_off_pending` | Đã gửi yêu cầu xóa công nợ {amount} của {code} – chờ chủ đầu tư duyệt. | Write-off request of {amount} for {code} sent – awaiting the owner's approval. | ⟨chừa chỗ⟩ | MGR vượt giá 1 đêm (BR-433) |
 | `foc.r_debt_write_off` | Xóa công nợ | Debt written off | ⟨chừa chỗ⟩ | Lý do FOC debt_write_off – dòng folio, nhật ký tiền |
 
+#### v1.0.5 V5-16 – FE: hộp Điều chỉnh báo luật BR-438, 403 requiredFlow = foc_request → Gửi miễn có duyệt (form miễn phí điền sẵn), lý do Ghi nhầm. Chữ UXD copy-v1.0.5 mục 9.5, nguyên văn
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `folio.adjust_reduce_rule` | Lễ tân tự giảm hoặc bỏ được dòng chính mình nhập tay trong ngày nghiệp vụ hôm nay. Dòng khác cần Gửi miễn có duyệt. | Front desk staff can lower or cancel only the lines they entered by hand themselves on today's business day. Any other line needs a waiver request with approval. | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.5. Câu phụ trong hộp Điều chỉnh, dưới ô Bỏ cả dòng. Chỉ FD, FDL. Luôn hiện, không tùy dòng |
+| `error.reduce_needs_foc` | Chưa ghi điều chỉnh. Dòng này không phải dòng bạn tự nhập tay hôm nay: dòng của người khác, dòng Desk tự ghi, hoặc dòng ngày trước. Bấm Gửi miễn có duyệt để người có quyền duyệt xem. | Adjustment not recorded. This isn't a line you entered by hand today: it was entered by someone else, added by Desk, or entered on an earlier day. Select Request a waiver (needs approval) so an approver can review it. | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.5. 403 có requiredFlow = foc_request ở adjustFolioLine. FE đọc requiredFlow trước, rồi mới tới câu chung error.FORBIDDEN_ACTION. Khung cảnh báo trong hộp, giữ số đã gõ |
+| `folio.foc_request_btn` | Gửi miễn có duyệt | Request a waiver (needs approval) | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.5. Nút trong khung error.reduce_needs_foc. Mở form miễn phí của dòng đó, ô Số tiền điền sẵn phần định giảm (số cũ − số mới, bỏ dòng = cả dòng, không quá foc.max). EN theo ci.ask_foc |
+| `foc.reduce_note` | Số tiền đã điền phần bạn định giảm. Chọn lý do (dòng ghi sai: Ghi nhầm) rồi Gửi duyệt. | The amount is filled in with what you meant to take off. Choose a reason (for a line entered wrongly: Entered in error), then send it for approval. | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.5. Dòng đầu form miễn phí khi mở từ nút folio.foc_request_btn. Mở form theo lối thường thì không hiện |
+| `foc.r_entered_in_error` | Ghi nhầm | Entered in error | ⟨chừa chỗ⟩ | UXD copy-v1.0.5 9.5. Lý do FOC entered_in_error (US-177 AC8): nút chọn lý do, cột Lý do, Cần duyệt, báo cáo FOC. Bill khách không in lý do này (AC10 – máy chủ bỏ ở getBill) |
+
 #### R2 Sprint 4 – FE-A đợt 24: vượt số khách sau khi nhập giấy tờ (BUG-R2-205), folio đổi giữa chừng (N-6), yêu cầu tự đóng khi nợ đã thu (BE-80) (UXD duyệt 18/10 – s4-UXD-brand: "Bỏ" như party.remove, "công nợ", "tự đóng"; sửa 6, thêm approval.applied_capped theo BE-B mục 25)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |

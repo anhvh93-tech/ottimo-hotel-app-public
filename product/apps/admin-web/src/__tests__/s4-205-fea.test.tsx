@@ -109,6 +109,9 @@ describe('N-6 – 412 ở hộp ghi tiền: tải lại folio, giữ hộp', () 
       amountVnd: 75_000,
       lineState: 'posted',
       postedAt: new Date().toISOString(),
+      // V5-16 (BR-438): typed by hand (A30) by the front desk who lowers it below, today – a direct reduction.
+      source: 'manual',
+      postedByUserId: userId('qa.fd'),
     });
     let folioReads = 0;
     const onRead = ({ request }: { request: Request }) => {

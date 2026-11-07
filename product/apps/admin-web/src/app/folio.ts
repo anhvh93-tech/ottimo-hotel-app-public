@@ -16,6 +16,9 @@ export const FOC_REASON: Record<string, string> = {
   other: 'foc.r_other',
   // ARC 16.27: a debt written off after check-out (FOC on the settled folio).
   debt_write_off: 'foc.r_debt_write_off',
+  // V5-16 (US-177 AC8, contract 0.3.13 1.20): a waiver of a line the front desk may not reduce itself. The Desk names
+  // it; the guest's bill does not (AC10 – `getBill` sends no reason for it).
+  entered_in_error: 'foc.r_entered_in_error',
 };
 
 /** Approval request type → label (Cần duyệt, nhật ký tiền `approval.approved`). */

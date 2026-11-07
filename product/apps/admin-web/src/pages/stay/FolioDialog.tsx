@@ -21,6 +21,8 @@ import { FOC_CATEGORIES, FocRequestDialog, FocStateChip, canAskFoc } from './foc
 
 const OWN_MGR = ['owner', 'manager'];
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
+/** BR-438: the roles whose reductions the server limits – front desk without OWN/MGR (server `limitedByBr438`). */
+const FRONT_DESK = ['front_desk_lead', 'front_desk'];
 /** Lines born from the stay nights: a price only (S4-35 – `StayNightPricingPort.setNightRate`). */
 const NIGHT = ['room', 'extra_person'];
 /** System lines that are corrected elsewhere (FOC flow, cancellation), never adjusted here. */
@@ -40,6 +42,10 @@ const METHOD_KEY: Record<string, string> = {
  *   Night lines (`room`, `extra_person`) take a new price only – the night's price before the BR-107 step.
  * - "Đảo giao dịch" a payment recorded by mistake: manager/owner only (A34), reason required; the
  *   reversal is a new transaction, the original stays (409 INVALID_TRANSITION / 422 said in place – B-10).
+ * - V5-16 (BR-438, US-177 AC2; contract 0.3.13 1.20; UXD copy-v1.0.5 9.5): a front desk reduces directly only the lines
+ *   it typed by hand itself in today's business day. The Desk cannot tell beforehand (`FolioLine` has no source, business
+ *   date or root line until 0.3.14), so the box keeps its inputs and says the rule; a 403 `requiredFlow: foc_request`
+ *   says why nothing was written and offers "Gửi miễn có duyệt" – the waiver form of that line, its amount filled in.
  */
 export function FolioDialog({
   reservation: r,
@@ -68,7 +74,8 @@ export function FolioDialog({
   const canAdjust = !locked && (settled ? mgr : fd);
   const [adjusting, setAdjusting] = useState<FolioLine | null>(null);
   const [reversing, setReversing] = useState<Payment | null>(null);
-  const [asking, setAsking] = useState<FolioLine | null>(null);
+  // V5-16: `reductionVnd` when the form opens from "Gửi miễn có duyệt" of the adjust box (amount filled in).
+  const [asking, setAsking] = useState<{ line: FolioLine; reductionVnd?: number } | null>(null);
   // FB-R2-ARC-FE-S4-01 (N-7): "Xóa công nợ" opened from the adjust box after the server refused a cut.
   const [writingOff, setWritingOff] = useState(false);
 
@@ -180,7 +187,7 @@ export function FolioDialog({
                       ) : null}
                       {/* S4-25 (US-007 AC1, AC6): FOC / special discount on a charge of an open folio. */}
                       {!settled && fd && canAskFoc(f.lines, l) ? (
-                        <Button size="sm" variant="ghost" onClick={() => setAsking(l)}>
+                        <Button size="sm" variant="ghost" onClick={() => setAsking({ line: l })}>
                           {t('foc.open_form')}
                         </Button>
                       ) : null}
@@ -254,6 +261,11 @@ export function FolioDialog({
             setAdjusting(null);
             setWritingOff(true);
           }}
+          canAskFoc={f.status === 'open' && fd && canAskFoc(f.lines, adjusting)}
+          onAskFoc={(reductionVnd) => {
+            setAsking({ line: adjusting, reductionVnd });
+            setAdjusting(null);
+          }}
         />
       ) : null}
       {writingOff ? (
@@ -269,8 +281,9 @@ export function FolioDialog({
       {asking && f ? (
         <FocRequestDialog
           folioId={f.id}
-          line={asking}
+          line={asking.line}
           lines={f.lines}
+          reductionVnd={asking.reductionVnd}
           onClose={() => setAsking(null)}
           onDone={() => {
             setAsking(null);
@@ -303,6 +316,8 @@ function AdjustLineDialog({
   onLocked,
   canWriteOff,
   onWriteOff,
+  canAskFoc: mayAskFoc,
+  onAskFoc,
 }: {
   folio: Folio;
   line: FolioLine;
@@ -317,10 +332,18 @@ function AdjustLineDialog({
   canWriteOff: boolean;
   /** Close this box and open "Xóa công nợ". */
   onWriteOff: () => void;
+  /** V5-16: a waiver can be asked on this line (open folio, FD+, room left on the line – `canAskFoc`). */
+  canAskFoc: boolean;
+  /** V5-16: close this box and open the waiver form of the line with what was meant to be taken off. */
+  onAskFoc: (reductionVnd: number) => void;
 }) {
   const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
+  const { roles } = useSession();
   const toast = useToast();
+  // BR-438 (UXD 9.5 `folio.adjust_reduce_rule`): FD, FDL only – a manager or owner reduces as before.
+  const limited =
+    !roles.some((x) => OWN_MGR.includes(x)) && roles.some((x) => FRONT_DESK.includes(x));
   const act = useSubmit({ bound: ['newQuantity', 'newUnitPriceVnd', 'reason'] });
   const night = NIGHT.includes(l.category);
   const [qty, setQty] = useState(String(l.quantity));
@@ -390,10 +413,20 @@ function AdjustLineDialog({
     isApiError(act.error) &&
     (f.status !== 'settled' || !reduces || !debtRule);
   const lockedNow = act.code === 'FOLIO_LOCKED' && f.status === 'settled' && !windowOver;
+  // V5-16 (contract 0.3.13 1.20): `requiredFlow` is read before the general 403 sentence (UXD 9.5). A 403 without it
+  // (e.g. a settled folio, A32) keeps the general sentence and offers no waiver.
+  const needsFoc =
+    act.code === 'FORBIDDEN_ACTION' &&
+    isApiError(act.error) &&
+    act.error.problem.requiredFlow === 'foc_request';
+  // What the refused save meant to take off (old − new; a void = the whole line) – kept from that save, so the waiver
+  // form gets the amount the server refused even if a box was touched since.
+  const [refusedCutVnd, setRefusedCutVnd] = useState(0);
 
   const save = async () => {
     setTouched(true);
     if (!changed || !qtyOk || !priceOk || reason.trim().length < 3) return;
+    setRefusedCutVnd(Math.max(0, Math.abs(l.amountVnd) - newAmount));
     const out = await act.submit((idem) =>
       api.adjustFolioLine(
         { propertyId, folioId: f.id },
@@ -453,6 +486,19 @@ function AdjustLineDialog({
     >
       {stale ? (
         <Alert tone="warn">{t('folio.changed_reload')}</Alert>
+      ) : needsFoc ? (
+        <Alert
+          tone="warn"
+          actions={
+            mayAskFoc && refusedCutVnd > 0 ? (
+              <Button size="sm" onClick={() => onAskFoc(refusedCutVnd)}>
+                {t('folio.foc_request_btn')}
+              </Button>
+            ) : undefined
+          }
+        >
+          {t('error.reduce_needs_foc')}
+        </Alert>
       ) : lockedNow ? (
         <Alert
           tone="warn"
@@ -512,6 +558,7 @@ function AdjustLineDialog({
           {t('folio.adjust_void')}
         </Checkbox>
       ) : null}
+      {!night && limited ? <p className="li-s">{t('folio.adjust_reduce_rule')}</p> : null}
       <Field label={t('folio.adjust_reason')} required error={reasonError}>
         {(fp) => (
           <input

@@ -1106,6 +1106,9 @@ describe('S4-27 Điều chỉnh dòng folio & đảo giao dịch thu (US-006 AC1
       amountVnd: 75_000,
       lineState: 'posted',
       postedAt: new Date().toISOString(),
+      // V5-16 (BR-438): typed by hand (A30) by the front desk who lowers it below, today – a direct reduction.
+      source: 'manual',
+      postedByUserId: mockControl.db.users.find((u) => u.username === 'qa.fd')!.id,
     });
     return { r, folio };
   }
