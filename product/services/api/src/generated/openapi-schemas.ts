@@ -979,6 +979,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
               cancelledAt: { s: { k: 'ref', name: 'Instant' } },
               reasonCode: { s: { k: 'ref', name: 'CancelReasonCode' } },
               note: { s: { k: 'scalar' } },
+              cancelledFrom: {
+                s: { k: 'scalar' },
+                v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+              },
             },
             open: false,
           },
@@ -4309,6 +4313,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                 cancelledAt: { s: { k: 'ref', name: 'Instant' } },
                 reasonCode: { s: { k: 'ref', name: 'CancelReasonCode' } },
                 note: { s: { k: 'scalar' } },
+                cancelledFrom: {
+                  s: { k: 'scalar' },
+                  v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                },
               },
               open: false,
             },
