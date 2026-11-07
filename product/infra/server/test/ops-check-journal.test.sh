@@ -170,7 +170,7 @@ printf 'APP_ENV=production\nALERT_WEBHOOK_URL=\nHEARTBEAT_URL=\n' > "$T/home/.en
 
 # Wiring and bundle
 ocs="$src/bin/ops-check.sh"
-if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* sshkeys journal\)' "$ocs" && grep -q '^    journal) check_journal' "$ocs"; then ok "17 journal in the full run"; else ko "17 journal missing from the full run"; fi
+if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* sshkeys journal( [a-z0-9_]+)*\)' "$ocs" && grep -q '^    journal) check_journal' "$ocs"; then ok "17 journal in the full run"; else ko "17 journal missing from the full run"; fi
 prod="$infra/docker-compose.prod.yml" edge="$infra/edge/docker-compose.edge.yml"
 nocomment() { grep -Ev '^[[:space:]]*#' "$1"; }
 if [ "$(grep -c '^    driver: journald$' "$prod")" = 1 ] && ! nocomment "$prod" | grep -Eq 'driver: local|max-size|max-file'; then

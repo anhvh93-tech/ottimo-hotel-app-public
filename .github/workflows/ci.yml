@@ -260,6 +260,7 @@ jobs:
             product/infra/server/test/ops-check-price.test.sh product/infra/server/test/publish-privacy-notice.test.sh \
             product/infra/server/test/pull-backups.test.sh product/infra/server/test/backup-schedule.test.sh \
             product/infra/server/test/ops-check-journal.test.sh product/infra/server/test/postgres-log-terse.test.sh \
+            product/infra/server/test/offsite-drive.test.sh \
             product/infra/ci/check-confidential-paths.sh product/infra/ci/test-confidential-paths.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
@@ -326,6 +327,15 @@ jobs:
           rsync --version | sed -n 1p
           bash product/infra/server/test/pull-backups.test.sh | tee "$RUNNER_TEMP/pull-backups.out"
           grep -q '^== [0-9]* passed, 0 failed$' "$RUNNER_TEMP/pull-backups.out"
+
+      # INV 07/11/2026: off-site copy on the company Google Drive (push-backups-drive.sh, drive.file token, Apps Script
+      # mover). Server side never deletes/moves/syncs on Drive, token file rules, pinned rclone, ops-check offsite,
+      # units; mover decisions + 35-day retention of Kho + 36 h watchdog in Node. Red when skipped.
+      - name: Drive off-site copy (append-only server side, token file rules, ops-check offsite, Apps Script mover)
+        run: |
+          bash product/infra/server/test/offsite-drive.test.sh | tee "$RUNNER_TEMP/offsite-drive.out"
+          grep -q '^== [0-9]* passed, 0 failed$' "$RUNNER_TEMP/offsite-drive.out"
+          node --test product/infra/drive/test/backup-mover.test.mjs
 
       # V5-62 (ARC OR-M2 (a), SEC SR-BAK-01/03): two backups a day 12 h apart, retention by age – no file but
       # purge-journal outlives 35 days even with two runs missed; ops-check backup limit 14 h. Red when skipped.
