@@ -98,6 +98,7 @@ Không ESC.
 ## 6. Giả định
 
 - `los_discount` trên production vẫn là `[]` (BR-107 v0.5.0). Chủ đầu tư bật lại thì thẻ 169-01 lên trước.
+  - **Sửa 07/11 (DOM):** giả định này sai – production còn giảm theo số đêm (decision-log 06/11, từ điển tham số mục lệch sổ tay, B3 chưa làm). Phán lại, câu mới cho thẻ 169-02 và mức mới của 169-01: `rounds/round-05/reviews/DOM-on-arc-card-169-03.md`. Kết luận DUYỆT #169 giữ.
 - PR head vẫn là `d8712188` lúc gộp. Nếu UXD chỉ đổi nhãn (ví dụ thêm "(dự tính)"), DOM không cần xem lại.
 - DOM không chạy test. Phần máy chủ (`retierStay`, trần thu) DOM đọc mã trên `main`.
 
