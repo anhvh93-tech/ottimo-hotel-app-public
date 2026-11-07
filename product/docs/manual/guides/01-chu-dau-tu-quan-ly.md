@@ -548,6 +548,37 @@ Tháng lịch cuối của HĐ = tháng chứa ngày kết thúc HĐ (HĐ kết 
 
 **Giới hạn tới v1.0.3 với đơn HĐ (sửa ở v1.0.4):** Desk dời **Ngày ra (theo HĐ)** khi gia hạn và không giữ ngày kết thúc HĐ (lễ tân ghi ngày này vào bảng kỳ thu và sổ giao ca trước khi gia hạn); khách rời trong phần gia hạn vẫn thấy khung "Trả trước hạn hợp đồng thuê tháng"; nhật ký đơn HĐ có thể ghi "BR-428 notice …" – bỏ qua, xem nhánh và người quyết trong sổ giao ca. **Từ v1.0.4** (khi chủ đầu tư báo v1.0.4 đã lên): Desk giữ ngày kết thúc HĐ khi gia hạn; **Trả sớm** chỉ hiện khung HĐ khi khách rời trước ngày kết thúc HĐ; nhật ký ghi "BR-313 lease early end – deposit per lease". Lễ tân không cần ghi ngày này vào sổ giao ca trước khi gia hạn; bảng kỳ thu vẫn giữ cột ngày kết thúc HĐ.
 
+### 7.4 Trả phòng đơn quá ngày đi (từ v1.0.5)
+
+Áp dụng khi anh/chị báo v1.0.5 đã lên. Lễ tân không trả phòng được đơn quá ngày đi. **Quản lý** trả phòng đơn quá 1 đêm; **từ 2 đêm chỉ chủ đầu tư**. Desk không thu đêm khách không ở; khách ở thêm thì **Gia hạn** trước.
+1. Kiểm căn hoặc hỏi buồng phòng: khách còn ở hay đã đi. Khách đã đi: nhắc quầy xóa mã cửa.
+2. **Trả phòng** → ghi **giờ khách rời căn** và **Lý do quá ngày đi** (nút gợi ý, rồi ghi cách biết giờ). Không ghi họ tên, số giấy tờ của khách.
+3. Giờ ghi: có bằng chứng thì giờ đó. Không có bằng chứng: 12:00, hoặc giờ thấy căn trống nếu sớm hơn, không phụ thu. **Đơn có giờ hẹn trả muộn mà không có bằng chứng:** giữ giờ hẹn và phụ thu đã hẹn; có bằng chứng khách đi sớm hơn thì ghi giờ đó, Desk tự giảm phụ thu. Chỉ ghi giờ muộn hơn (phụ thu tăng) khi có bằng chứng khách còn ở. Phụ thu chưa thu mà khách đã đi: ghi công nợ ở bước Bill.
+4. **Khách rời căn lúc 00:00–05:59 của ngày đi mà sau 06:00 hôm sau mới ghi** (tới v1.0.6): gõ **06:00**, ghi giờ thật vào lý do, kiểm hộp xác nhận ghi đúng ngày đi, **không gia hạn**. Số tiền như khi ghi đúng giờ; chỉ giờ trên đăng ký lưu trú lệch, cùng ngày.
+5. Chi tiết từng bước: `02` mục 11.1, khối **Từ v1.0.5 – Trả phòng đơn quá ngày đi**.
+<!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): DOM rules-v1.0.5.md 15.3 ý 2a, 6; DOM-on-fe-pr-145.md mục 3.3, 4; hợp đồng 0.3.13 mục 1.18; Desk #145. BA gộp vào bản kế tiếp, giữ số bản. -->
+
+### 7.5 Sửa người chốt (từ v1.0.5)
+
+Áp dụng khi anh/chị báo v1.0.5 đã lên **và** Desk có ô người chốt trên khung đơn. Desk chưa có ô (v1.0.4; v1.0.5 nếu bản chưa có ô): người chốt chỉ chọn được lúc tạo đơn; chọn nhầm thì lễ tân báo quản lý, anh/chị chi hoa hồng cho người đúng ở kỳ chi, ngoài Desk, như hiện nay.
+
+| Đơn | Ai sửa người chốt |
+|---|---|
+| Giữ chỗ | Lễ tân trở lên |
+| Đã xác nhận, khách chưa nhận phòng | Quản lý, chủ đầu tư. Lý do không bắt buộc |
+| Khách đã nhận phòng (đang ở, đã trả phòng) | **Chỉ chủ đầu tư**, phải ghi lý do |
+
+- Sửa người chốt sau khi khách nhận phòng: chỉ anh/chị sửa được, phải ghi lý do. Desk chuyển hoa hồng sang người mới ngay.
+- Quản lý: khách đã nhận phòng thì không sửa người chốt. Báo chủ đầu tư, kèm lý do.
+- Lý do: lễ tân và lễ tân trưởng đọc được trong lịch sử đơn. Không ghi họ tên, số giấy tờ, số thẻ của khách; không ghi tỷ lệ hay số tiền hoa hồng. Ví dụ: "Lúc tạo đơn chọn nhầm người chốt".
+- Dòng của người mới mang ngày đạt: ngày anh/chị sửa, hoặc ngày khoản còn chờ được xác nhận. Dòng đó vào kỳ chi kế tiếp.
+- Người chốt cũ còn khoản tiền mặt hoặc chuyển khoản chưa đối soát thì hoa hồng của người mới chờ tới khi khoản đó được xác nhận.
+- Anh/chị đã chi hoa hồng đơn đó cho người cũ: vẫn sửa trên Desk để đơn đúng người, rồi trừ phần đã chi ở kỳ chi sau của người cũ.
+- Sửa người chốt chỉ chuyển hoa hồng khách ngắn ngày. HĐ thuê tháng: người hưởng theo HĐ lúc ký.
+- Desk chưa có màn hoa hồng cho chủ đầu tư, quản lý: anh/chị chi theo sổ chi của mình. **Nhật ký tiền** có dòng **Đổi người chốt** (ai đổi, lúc nào).
+- **Ngay sau ngày lên v1.0.5**, đội gửi anh/chị qua kênh riêng số đơn đã đổi người chốt sau khi khách nhận phòng và số đơn có dòng hoa hồng ghi cho người khác người chốt. Có đơn thì đội xin anh/chị đồng ý riêng, rồi gửi thêm danh sách mã đơn, tên nhân viên (không tên khách, không số tiền) và việc cần làm cho từng dòng: đơn khách đang ở xử lý trước giờ trả phòng, đơn khác trước kỳ chi 01/12. Không sửa dữ liệu bằng cách nào khác ngoài Desk.
+<!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): DOM FB-R5-DOM-ARC-1H-02 (DOM-on-contract-addendum-1h.md) chỉnh theo FB-R5-DOM-BE-154-04 (b), (c) (DOM-on-be-h-pr-154.md): bỏ câu tạm "Trước khi sửa, mở Nhật ký tiền → Chờ đối soát…" vì #154 có 1H-04; "mang ngày sửa" thành "ngày đạt". DOM 155-02 đính chính: Desk không có màn hoa hồng cho OWN/MGR. Máy chủ #154 (fe70d0c0), #157 (157c4f40); hợp đồng 1h, 1i. Truy vấn K14 (OPS #155, hợp đồng 1.30) chạy sau Release; bảng việc DOM-on-ops-pr-155-k14.md mục 2 (ORC gửi kèm). Ô sửa trên Desk: plan R5 4a T22; thiếu thì chỉ giữ câu đầu mục. BA gộp vào bản kế tiếp, giữ số bản; sổ tay sale 05: dòng Hoa hồng dự kiến chuyển theo người mới (BA). -->
+
 ---
 
 ## 8. Nhật ký tiền, đối soát và hoàn tiền
@@ -604,6 +635,14 @@ Tháng lịch cuối của HĐ = tháng chứa ngày kết thúc HĐ (HĐ kết 
 **Chi hoàn tiền mặt (sau khi đã duyệt):** **Chi hoàn tiền mặt** → **Ảnh chứng từ** (biên nhận có chữ ký khách) → xác nhận. Ghi sổ giao ca: giờ, số tiền, mã đơn, chữ ký.
 
 [ẢNH: C1-20-Hoàn tiền]
+
+**Từ v1.0.5 – yêu cầu hoàn "Tiền về sau khi hủy"** (lý do **Tiền về sau khi hủy**: Desk tự tạo khi lễ tân ghi tiền khách chuyển về cho đơn đã hủy hoặc không đến, cho phần vượt số đơn còn nợ):
+- Quản lý, chủ đầu tư duyệt yêu cầu "Tiền về sau khi hủy" **sau khi** khoản thu đã đối soát. Chi vốn phải chờ đối soát, nên duyệt sau không làm chậm thêm. Lúc duyệt, người duyệt thấy luôn kết quả đối soát và nhãn **Có thể trùng**. Có nhãn thì kiểm sao kê: một dòng sao kê chỉ khớp một khoản thu.
+- Nơi nhận cố định: chuyển khoản về đúng tài khoản khách đã chuyển. Không chi tiền mặt, không đổi nơi nhận, không hỏi số tài khoản của khách.
+- Đơn có khoản "Tiền về sau khi hủy" chưa đảo: mọi yêu cầu hoàn của đơn chi bằng chuyển khoản về tài khoản đã chuyển, không chi tiền mặt, kể cả yêu cầu được tạo lại (tới v1.0.6).
+- **Đơn đã hủy có khoản tiền về sau khi hủy: không duyệt yêu cầu hoàn có nơi nhận tiền mặt** (lời dặn SEC, tới v1.0.6).
+- Chủ đầu tư thấy tiền về cho đơn đã hủy: gửi ảnh cho lễ tân ghi, không tự ghi. Người ghi không duyệt được yêu cầu hoàn, nên khi không có quản lý đang làm thì yêu cầu sẽ kẹt.
+<!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): câu 1, 3, 5 là DOM FB-R5-DOM-BA-148-04 ý 1, 2, 3 (rounds/round-05/reviews/DOM-on-be-d2-pr-148.md); câu 4 nguyên văn SEC FB-R5-SEC-BE-148-02 (rounds/round-05/reviews/SEC-on-be-d2-pr-148.md, PO chọn chỗ đặt như PO-B002-05; cũng ở release notes v1.0.5 Giới hạn đã biết). Câu 2 theo UXD copy-v1.0.5 9.1 refund.after_cancel_destination. Máy chủ #148 (0b615843). Gỡ câu 3, 4 khi DOM 148-03, SEC 148-02 lên (v1.0.6). Không đổi quy tắc tách nhiệm ở mục 4. BA gộp vào bản kế tiếp, giữ số bản. -->
 
 ### 8.4 Hoàn cọc cho khách giữ chỗ quá hạn (tới v1.0.3)
 
