@@ -2059,6 +2059,8 @@
   "recon.commission_note": "The recorder's commission only counts once this payment is reconciled.",
   "mlog.a_shortfall_accepted": "Short deposit accepted · {amount} short",
   "mlog.a_closer_changed": "Closer changed: {from} → {to}",
+  "mlog.a_closer_changed_legacy": "Closer changed (older record, no names)",
+  "mlog.closer_inactive": "Inactive account",
   "mlog.a_staff_payment": "Sales/agent recorded a payment · awaiting reconciliation",
   "error.ONLINE_CHECKIN_CLOSED": "Online check-in is closed – the front desk already has your documents or you've checked in. Need help? Call the front desk.",
   "field.FILE_TYPE": "Only JPG, PNG or WebP photos.",

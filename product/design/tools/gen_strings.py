@@ -2208,6 +2208,8 @@ g("R2 Sprint 3 – rà hi-fi H13–H18 theo OpenAPI 0.3.5, BR v0.3.2, quyết đ
     # H17 nhật ký tiền
     ("mlog.a_shortfall_accepted", "Chấp nhận cọc thiếu · còn thiếu {amount}", "Short deposit accepted · {amount} short", None, "confirmDeposit.acceptShortfallReason MGR+ (0.3.6 nhóm B, DOM D-9)"),
     ("mlog.a_closer_changed", "Đổi người chốt: {from} → {to}", "Closer changed: {from} → {to}", None, "reservation.closer_changed (SEC-BE-26)"),
+    ("mlog.a_closer_changed_legacy", "Đổi người chốt (bản ghi cũ, không có tên)", "Closer changed (older record, no names)", None, "v1.0.5 – DOM 155-04 (UXD copy-v1.0.5 v2.6 9.18). Thay cả dòng mlog.a_closer_changed khi after không có khóa closerUserId (bản ghi trước #154). before.closerUserId rỗng từ #154 vẫn dùng a_closer_changed, {from} = \"—\""),
+    ("mlog.closer_inactive", "Tài khoản hiện không hoạt động", "Inactive account", None, "v1.0.5 – DOM 155-04 (UXD copy-v1.0.5 v2.6 9.18). Giá trị {from}/{to} của mlog.a_closer_changed khi id không có trong danh sách người chốt đã tải xong. Ô Người làm vẫn dùng mlog.who_unlisted. Không nêu trạng thái khóa (D27)"),
     ("mlog.a_staff_payment", "Sale/CTV ghi nhận thu · chờ đối soát", "Sales/agent recorded a payment · awaiting reconciliation", None, "payment.recorded khi recordedByRole = sales_staff/collaborator (BR-527) – s3-UXD bỏ 'cọc · tiền mặt' cứng"),
     # H18 check-in online
     ("error.ONLINE_CHECKIN_CLOSED", "Thủ tục online đã đóng – lễ tân đã nhận giấy tờ hoặc bạn đã nhận phòng. Cần hỗ trợ, gọi lễ tân.", "Online check-in is closed – the front desk already has your documents or you've checked in. Need help? Call the front desk.", None, "409 (0.3.3 E06-06) – hiện trạng thái 18.5"),

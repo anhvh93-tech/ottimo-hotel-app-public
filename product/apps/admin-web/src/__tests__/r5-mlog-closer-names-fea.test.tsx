@@ -2,7 +2,9 @@
 // (`reservation.closer_changed`: `before.closerUserId`, `after.closerUserId`; contract 0.3.13 bổ sung 1h), never a
 // name, and nothing at all on rows written before #154. The Desk used to read a `closer` key the server never writes,
 // so both names were blank. Names now come from the people list the page loads (`closer-candidates`, kind all): staff
-// and CTVs; an id not in it (locked, left) → "Someone not on the list"; no id → "—". Mock data only.
+// and CTVs. UXD copy-v1.0.5 9.18 (PR 159b): an id not in the loaded list → "Inactive account" (`mlog.closer_inactive`);
+// a row before #154 (no `closerUserId` in `after`) → one line `mlog.a_closer_changed_legacy`; no id → "—". While the
+// list loads → "Loading…" (ARC FE-159-01); the list failed → "Couldn't load data" (DOM FE-159-01). Mock data only.
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -52,7 +54,7 @@ function actionOf(code: string) {
 }
 
 describe('Nhật ký tiền – "Đổi người chốt" names the closers from closerUserId (FB-R5-DOM-FE-155-04)', () => {
-  it('MGR: staff and CTV by name; a locked account → "Someone not on the list"; no closer before / a row before #154 → "—"', async () => {
+  it('MGR: staff and CTV by name; a locked account → "Inactive account"; no closer before → "—"; a row before #154 → the older-record line', async () => {
     const quan = { id: QUAN, name: 'Quân · Quản lý' };
     mockControl.stay.audit.unshift(
       closerChanged('OTM-C01', quan, { closerUserId: SON }, { closerUserId: MAI }),
@@ -63,9 +65,10 @@ describe('Nhật ký tiền – "Đổi người chốt" names the closers from 
     renderApp('/audit', 'qa.mgr');
     await screen.findByRole('table', { name: tv('moneylog.title') });
     await waitFor(() => expect(actionOf('OTM-C01')).toBe(said('Sơn', 'Mai')));
-    expect(actionOf('OTM-C02')).toBe(said(tv('mlog.who_unlisted'), 'Lan'));
+    expect(actionOf('OTM-C02')).toBe(said(tv('mlog.closer_inactive'), 'Lan'));
     expect(actionOf('OTM-C03')).toBe(said('—', 'Sơn'));
-    expect(actionOf('OTM-C04')).toBe(said('—', '—'));
+    // UXD 9.18: the whole row, never "— → —"
+    expect(actionOf('OTM-C04')).toBe(tv('mlog.a_closer_changed_legacy'));
     // never an id on screen
     expect(screen.queryByText(new RegExp(SON))).toBeNull();
     // the "Người làm" filter still lists the staff only – the CTV names a row, she is not an option
@@ -89,7 +92,7 @@ describe('Nhật ký tiền – "Đổi người chốt" names the closers from 
     expect(screen.queryByLabelText(tv('mlog.who'))).toBeNull();
   });
 
-  it('the list cannot be read → "Someone not on the list" for each id, never "Loading…" for ever; no id stays "—"', async () => {
+  it('DOM FE-159-01: the list cannot be read → "Couldn\'t load data" for each id, never "inactive" nor "Loading…" for ever; no id stays "—"', async () => {
     mockControl.stay.audit.unshift(
       closerChanged(
         'OTM-C06',
@@ -108,7 +111,42 @@ describe('Nhật ký tiền – "Đổi người chốt" names the closers from 
     );
     renderApp('/audit', 'qa.mgr');
     await screen.findByRole('table', { name: tv('moneylog.title') });
-    await waitFor(() => expect(actionOf('OTM-C06')).toBe(said('—', tv('mlog.who_unlisted'))));
+    await waitFor(() =>
+      expect(actionOf('OTM-C06')).toBe(said('—', tv('common.error_generic_title'))),
+    );
     expect(actionOf('OTM-C06')).not.toContain(tv('common.loading'));
+    expect(actionOf('OTM-C06')).not.toContain(tv('mlog.closer_inactive'));
+  });
+
+  it('ARC FE-159-01: while the list loads the row says "Loading…" – never "inactive" for people who are in it – then the names', async () => {
+    mockControl.stay.audit.unshift(
+      closerChanged(
+        'OTM-C07',
+        { id: QUAN, name: 'Quân · Quản lý' },
+        { closerUserId: SON },
+        { closerUserId: MAI },
+      ),
+    );
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    server.use(
+      http.get('*/v1/properties/:propertyId/closer-candidates', async () => {
+        await gate;
+        return HttpResponse.json({
+          data: [
+            { userId: SON, displayName: 'Sơn', kind: 'staff' },
+            { userId: MAI, displayName: 'Mai', kind: 'agent' },
+          ],
+        });
+      }),
+    );
+    renderApp('/audit', 'qa.mgr');
+    await screen.findByRole('table', { name: tv('moneylog.title') });
+    await waitFor(() => expect(actionOf('OTM-C07')).not.toBeNull());
+    expect(actionOf('OTM-C07')).toBe(said(tv('common.loading'), tv('common.loading')));
+    open();
+    await waitFor(() => expect(actionOf('OTM-C07')).toBe(said('Sơn', 'Mai')));
   });
 });
