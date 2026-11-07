@@ -4,7 +4,15 @@ OPS · 06/11/2026 · V5-64 (OR-M4). **Chỉ viết, chưa diễn tập.** Diễn
 r1 (06/11): sửa theo ARC `rounds/round-05/reviews/ARC-on-ops-prs-92-93-95.md` (FB-R5-ARC-OPS-02 ý 3, 03, 04) và SEC `SEC-on-ops-prs-92-93-95.md` (FB-R5-SEC-OPS-95-03, 95-07): DNS trước deploy, cột "Ai gõ", lệnh KEK và `id_hash_key`, lỗi `pg_restore` vào tệp root, so host key ngoài băng, khôi phục `privacy-notice.log`, `ops-check` bằng `systemd-run`, sự cố dữ liệu SR-INC-01.
 r2 (06/11): sửa theo SEC FB-R5-SEC-OPS-95-09 (a)–(g), 95-10 (b) và ARC FB-R5-ARC-OPS-10 ý 2: tên tạm `ottimo-moi` thay IP trong mọi lệnh, quét host key một lần vào tệp, INV điền các khóa có địa chỉ email, vòng đời tệp khóa `age` trên Mac, bí mật tích hợp mới khi nghi bị chiếm quyền, câu đồng ý riêng cho production và staging, lệnh khôi phục kho tệp (bước 12), danh sách người đọc log đặt ở bước 7.
 
-**Dùng khi:** VPS mất hẳn, gồm hỏng đĩa, hãng khóa tài khoản, hoặc bị chiếm quyền rồi bị xóa. Khi DB hỏng mà máy còn, dùng bản sao lưu trên máy (README `infra/server` mục 7), không dùng runbook này.
+**Dùng khi:**
+- VPS mất hẳn, gồm hỏng đĩa, hãng khóa tài khoản, hoặc bị chiếm quyền rồi bị xóa;
+- **nghi bị chiếm quyền mà máy còn chạy**: runbook sự cố dữ liệu khách (`runbook-su-co-du-lieu-khach.md`) mục 5, nhánh B mức Cao (FB-R5-OPS-SEC-V574-04). Làm cả khối "Nghi bị chiếm quyền" dưới đây, và với máy cũ:
+  - **Tắt** bằng console của nhà cung cấp khi OWN quyết, theo đề nghị của SEC. Không đăng nhập máy cũ để "dọn" hay kiểm. Trước khi tắt, SEC có thể xin một bản chụp journal chỉ đọc làm dấu vết (SEC nói lúc có sự cố).
+  - **Không xóa, không cài lại, không hủy thuê** tới khi SEC (và luật sư, nếu đang hỏi) cho. Máy cũ còn dữ liệu khách và khóa cũ: chỉ để tắt.
+  - Xong thì hủy thuê, ghi decision-log (ngày, ai cho, không IP).
+  - Hai máy cùng tồn tại trong lúc dựng lại: tiền thuê máy thứ hai OWN quyết. Vượt ngân sách đã duyệt thì OPS tạo ESC.
+
+Khi DB hỏng mà máy còn và không nghi bị chiếm quyền, dùng bản sao lưu trên máy (README `infra/server` mục 7), không dùng runbook này.
 
 **Ai gõ (SEC FB-R5-SEC-OPS-95-03):**
 - **INV** (hoặc OPS là người thật, trên máy của mình) gõ mọi bước chạm khóa riêng `age`, KEK, `id_hash_key`, luồng dump đã giải mã (có toàn bộ dữ liệu khách) hay địa chỉ email: tên tạm (mục 1.0), các khóa email của `.env` (bước 7, mục 1.8), bước 9, 11, 12, 13 và phần giải mã `counts` ở bước 16. **Agent (ORC) không chạy, không xem màn hình** các bước này: mọi thứ hiện trên màn hình của agent nằm trong bản ghi phiên.
