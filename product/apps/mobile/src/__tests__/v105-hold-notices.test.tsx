@@ -3,6 +3,7 @@
 // "Thông báo mới – xem chi tiết trên OTTIMO Desk". refType `reservation`: booking code as the reference line,
 // tapping opens no screen (a Desk topic).
 import { loadLocale, translate } from '@ottimo/i18n';
+import { ICONS, type IconName } from '@ottimo/ui';
 import { screen, within } from '@testing-library/react';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +15,12 @@ import { setOnline, start, tv } from './helpers';
 
 const HOLD_KINDS = ['hold_expired', 'hold_overdue_with_deposit', 'hold_overdue_cap'] as const;
 const key = (k: string) => `staff.notif.k.${k}`;
+/** Markup of a design-system icon as the DOM serialises it inside an <svg>. */
+const svgOf = (name: IconName) => {
+  const box = document.createElement('div');
+  box.innerHTML = `<svg>${ICONS[name]}</svg>`;
+  return box.firstElementChild!.innerHTML;
+};
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -81,6 +88,13 @@ describe('V5-1B – front desk lead opens the inbox', () => {
     const hashBefore = window.location.hash;
     const row = expired.closest('button')!;
     expect(within(row).getByText('OTM-00903')).toBeInTheDocument();
+    // FB-R5-ARC-MOB-117-01 (UXD copy 9.10): expired = x like a cancelled task, overdue = clock; no › (no screen).
+    const overdue = screen
+      .getByText(tv('staff.notif.k.hold_overdue_with_deposit'))
+      .closest('button')!;
+    expect(row.querySelectorAll('svg')).toHaveLength(1);
+    expect(row.querySelector('svg')!.innerHTML).toBe(svgOf('x'));
+    expect(overdue.querySelector('svg')!.innerHTML).toBe(svgOf('clock'));
     await user.click(row);
     expect(window.location.hash).toBe(hashBefore);
   });

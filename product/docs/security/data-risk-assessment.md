@@ -257,6 +257,7 @@ Mức rủi ro: Critical / High / Medium / Low (đánh giá khi sản phẩm v�
 | Q9 | Có cần chỉ định bộ phận/nhân sự bảo vệ dữ liệu cá nhân không | Luật 91 |
 | Q10 | Quy định nội bộ về nhóm chat, điện thoại cá nhân của nhân viên chứa ảnh giấy tờ (F07) | INV ban hành |
 | Q11 | **Lưu ý sức khỏe của khách** (dị ứng, bệnh cần lưu ý khi phục vụ, ăn kiêng vì lý do sức khỏe/tôn giáo) trong D12 – ghi chú/tag/"lưu ý phục vụ" (decision-log DOM/BA D12): (a) có phải dữ liệu cá nhân nhạy cảm theo Luật 91/2025 không; (b) cần **đồng ý riêng, rõ ràng** dạng nào (bằng văn bản/tích chọn trong app, tại quầy có được không); (c) thời hạn lưu (đề xuất theo T05/T06, xóa khi rút đồng ý); (d) nhân viên buồng phòng/F&B được thấy tới mức nào. **PO gom vào ESC-001.** Trong lúc chờ: chỉ cho chọn từ danh mục "lưu ý phục vụ" không nêu bệnh (ví dụ "không dùng đậu phộng"), cảnh báo không ghi bệnh vào ghi chú tự do (F04, SR-INP-05) | D12, F04, P05 |
+| Q12 | **Sự cố dữ liệu khách** (ND 13 Đ.23; Luật 91/2025), cho runbook `product/docs/runbook-su-co-du-lieu-khach.md`: (a) ngưỡng phải báo cơ quan chức năng – gửi nhầm link check-in online, người ngoài thấy tên gọi, mã đơn, ngày ở, căn của **một** khách, link đã thu hồi: có phải báo không; link chưa được mở thì sao; (b) 72 giờ tính từ lúc xảy ra hay lúc phát hiện; (c) cơ quan nhận, mẫu, kênh gửi; (d) khi nào phải báo chủ thể dữ liệu; (e) biên bản sự cố cần nội dung gì, lưu bao lâu. Trong lúc chờ: runbook dùng cách tính chặt nhất (từ lúc xảy ra), mức Vừa hỏi luật sư mỗi ca, mức Cao mặc định báo | SR-INC-01, 6.4 |
 
 ---
 
@@ -286,5 +287,6 @@ Mức rủi ro: Critical / High / Medium / Low (đánh giá khi sản phẩm v�
 
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 07/11/2026 | 5 – Sản xuất (V5-74) | Thêm Q12 (sự cố dữ liệu khách: ngưỡng báo, mốc 72 giờ, cơ quan và mẫu, báo chủ thể, biên bản) cho ESC-001, dùng ở runbook sự cố dữ liệu khách | SEC |
 | 15/10/2026 | 1 – Bước 4 | Sửa câu chữ "xóa bằng hủy khóa" (mục 7, mục 13): hết đọc được trong hệ thống ngay, hết khỏi backup sau ≤ 35 ngày; F05 mã sinh nhật `ddmm` + ≥ 3 số; thêm Q11 (lưu ý sức khỏe D12) cho ESC-001 | SEC |
 | 15/10/2026 | 1 – Đợt 1 | Bản đầu (Phần 1) | SEC |
