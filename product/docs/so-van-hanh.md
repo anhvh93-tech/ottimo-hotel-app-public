@@ -58,6 +58,7 @@ Làm tới khi v1.0.5 có lịch kéo tự động (mục 2.2). Đội và độ
   - Không duyệt phát hành nào (email "Review deployments") tới khi đội bảo mật báo.
   - Đội có thể đề nghị tạm tắt máy chủ. Khi đó Desk ngừng, quầy làm theo mục 3.2 với sổ giấy. Anh/chị quyết.
   - Nếu xác nhận dữ liệu khách bị lộ, có thể phải báo cơ quan chức năng trong 72 giờ. Đội và luật sư chuẩn bị, anh/chị quyết.
+  - Các bước đầy đủ và ai quyết: runbook sự cố dữ liệu khách `product/docs/runbook-su-co-du-lieu-khach.md` mục 5.
 - Lượt kéo lỗi mạng hoặc kết nối (**mã 2**): đội báo anh/chị trong ngày, kéo lại vào lần anh/chị cho phép kế tiếp. Không để quá 2 ngày.
 - Mã kiểm tra một bản trên Mac không khớp (**mã 1**): đội xử lý, báo anh/chị trong ngày. Kéo lại không tự sửa được lỗi này.
 - Máy chủ hỏng hẳn thì chỉ còn bản trên Mac để dựng lại (mục 2.1a).
@@ -230,6 +231,8 @@ Không chắc: coi là P0.
 ### 3.4 Đội xử lý P0 thế nào
 
 Nghi máy chủ bị xâm nhập ("server copy changed", mục 1.1a): **không** làm bước 2–5 dưới đây. Làm theo mục 1.1a, chờ đội bảo mật báo.
+
+Mọi sự cố dữ liệu khách (gửi nhầm link check-in online, nghi máy chủ bị xâm nhập, ca khác ở dòng "Nghi bị xâm nhập hoặc lộ dữ liệu khách" mục 3.1): đội làm theo runbook sự cố dữ liệu khách `product/docs/runbook-su-co-du-lieu-khach.md`. Anh/chị cùng đội bảo mật quyết có phải báo cơ quan chức năng trong 72 giờ không.
 
 1. Điều phối viên ghi phiếu phản hồi và gửi anh/chị một bảng ngắn: "hiểu thế này, mức P0 – đúng không".
 2. Lỗi do bản vừa phát hành: đội đề xuất **quay lui về bản trước** trong vài phút. Dữ liệu giữ nguyên. Đội chỉ làm khi anh/chị đồng ý trong chat.
@@ -420,6 +423,7 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | Việc chờ anh/chị quyết | `02-escalations/escalations-index.md` |
 | Phản hồi anh/chị đã gửi | `04-investor-feedback/` |
 | Sổ vận hành này | `product/docs/so-van-hanh.md` |
+| Sự cố dữ liệu khách: ai làm gì, ai quyết, báo trong 72 giờ | `product/docs/runbook-su-co-du-lieu-khach.md` |
 | Tài liệu máy chủ (cho đội) | `product/infra/server/README.md` |
 
 ### 7.5 Đang chạy ngày 06/11/2026
@@ -452,3 +456,4 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | 06/11/2026 | 1.4 | BA | Round 5 – Phản hồi & sửa (SEC FB-R5-SEC-BA-05, chữ ở mục 2a của review; OPS `c224f0e8`, V5-62). Lượt sao lưu thứ hai lúc **15:00** (production 03:00 + 15:00): mục 2.1a, 2.2, 5.4. Mục 2.1a dòng "Máy chủ mất hẳn" có con số: hiện nay khoảng 64 giờ; từ v1.0.5 khoảng 60 giờ nếu kéo tay, khoảng 36 giờ nếu Mac tự kéo hằng ngày. Mục 5.4: câu xác nhận nêu cả hai kịch bản |
 | 06/11/2026 | 1.5 | BA | Round 5 – Phản hồi & sửa (BUG-R5-001, BUG-R5-003; OPS PR #93, `hosting-plan.md` mục 7 dòng RPO / RTO). **Áp dụng ngay, tới khi v1.0.5 lên:** mục 4.1 khung "Lỗi đang sửa – hai tham số" (không bấm **Lưu thay đổi** ở `weekend_nights`, `min_stay`; buộc phải đổi thì nhắn đội trước, **Hiệu lực từ** từ ngày mai để còn **Hủy lịch**; lỡ lưu thì báo đội, coi là P0) và câu "Trừ…" ở danh sách tự làm; mục 3.1 ví dụ P0 "mọi báo giá trên Desk báo lỗi"; mục 3.2 dòng "Lỡ bấm Lưu thay đổi…". Mục 4.1 ví dụ cặp tham số: "mức tăng cuối tuần với đêm tính là cuối tuần" thay "cuối tuần với ở tối thiểu" (theo từ điển 1.2: `weekend_nights` không ảnh hưởng ở tối thiểu). Mục 2.1a, 5.4: con số "máy chủ mất hẳn" theo cùng một cách – mức tối đa, kèm mức thường khi kéo lúc khoảng 19:00: hiện nay tới 72 giờ (thường khoảng 64 giờ); từ v1.0.5 kéo tay tới 60 giờ (thường khoảng 52 giờ); Mac tự kéo hằng ngày tới khoảng 36 giờ |
 | 07/11/2026 | 1.6 | BA | Round 5 – Phản hồi & sửa (V5-40, V5-71; SEC `rounds/round-05/reviews/SEC-on-be-pr-100-d1.md` mục 7, ARC `ARC-on-be-pr-100-d1.md` mục 2). Mục 1.5: trước ngày lên v1.0.5 mọi lễ tân trưởng đã bật 2 bước; đổi vai chỉ trên Desk, đội sửa vai thẳng trong cơ sở dữ liệu thì phải đăng xuất người đó và tăng `roles_version` như Desk. Mục 6: không tắt 2 bước của lễ tân trưởng |
+| 07/11/2026 | sau 1.7, chưa đánh số | SEC | Round 5 – Sản xuất (V5-74). Mục 1.1a (gạch mã 3), 3.4 (câu đầu mục), 7.4: trỏ về runbook sự cố dữ liệu khách `product/docs/runbook-su-co-du-lieu-khach.md` (SR-INC-01). Không đổi cách làm nào. BA đánh số ở lần sửa tới |

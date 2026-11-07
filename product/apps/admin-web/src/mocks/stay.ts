@@ -710,8 +710,9 @@ export function createStayMock(ctx: Ctx) {
         action: 'reservation.closer_changed',
         entityType: 'reservation',
         entityCode: sal.code,
-        before: { closer: 'Sơn' },
-        after: { closer: 'Mai' },
+        // like the server (0.3.13 bổ sung 1h): user ids, never names – Sơn (sale) → Mai (CTV)
+        before: { closerUserId: uid(7) },
+        after: { closerUserId: uid(8) },
         reason: 'Khách do CTV giới thiệu',
       },
       {

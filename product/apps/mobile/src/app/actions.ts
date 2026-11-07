@@ -3,12 +3,13 @@
 import { useI18n } from '@ottimo/i18n';
 import { useCallback } from 'react';
 import { useQueue } from '../queue/QueueProvider';
-import { ATT_REF, type NewQueueItem, type QueuedRequest } from '../queue/queue';
+import { ATT_REF, waitingRoomEvent, type NewQueueItem, type QueuedRequest } from '../queue/queue';
 import {
   newIdempotencyKey,
   queuedOps,
   type HkTask,
   type InspectionInput,
+  type RoomEvent,
   type RoomStatusCode,
   type RoomStatusEntry,
   type StaffRequest,
@@ -31,6 +32,30 @@ function queued(req: StaffRequest): QueuedRequest {
 
 export type RefuseReason = 'dnd' | 'guest_refused' | 'other';
 
+/**
+ * SM-03 manual room steps (R1, R2/R3, R8 – server `allowedEvents`): the action's name, the state the room shows
+ * while it waits (optimistic, EP07-08 8.3) and the 409 `currentState` that means "someone already did it".
+ */
+const ROOM_STEP: Record<
+  RoomEvent,
+  {
+    actionKey: string;
+    target: (occupied: boolean) => RoomStatusCode;
+    targets: readonly RoomStatusCode[];
+  }
+> = {
+  start_cleaning: { actionKey: 'hk.action.start_cleaning', target: () => 'CL', targets: ['CL'] },
+  finish_cleaning: {
+    actionKey: 'hk.action.finish_cleaning',
+    target: (occupied) => (occupied ? 'OC' : 'VC'),
+    targets: ['VC', 'OC', 'VI'],
+  },
+  // v1.0.5 V5-15 (contract 0.3.13 1.4): R8 OC → OD; the server adds the stay-over cleaning task (R8a). A 409
+  // with `currentState` OD = the desk or another HK pressed it first → "Đã áp dụng"; any other state goes to
+  // "Cần xem lại" with that state (T15-8).
+  needs_cleaning: { actionKey: 'hk.action.needs_cleaning', target: () => 'OD', targets: ['OD'] },
+};
+
 export interface IncidentInput {
   roomId: string;
   roomNo: string;
@@ -51,13 +76,18 @@ export function useHkActions(session: StaffSession) {
   const roomStatus = useCallback(
     async (
       room: Pick<RoomStatusEntry, 'roomId' | 'roomNo' | 'roomName'>,
-      event: 'start_cleaning' | 'finish_cleaning',
+      event: RoomEvent,
       from: RoomStatusCode,
       task?: Pick<HkTask, 'id'>,
       occupied?: boolean,
     ) => {
+      // V5-15 "không trùng lệnh": a second tap on the same step before the screen has re-drawn (double tap,
+      // slow phone) is the same action – keep the one already waiting (its toast, its Idempotency-Key).
+      const same = waitingRoomEvent(q.queue.items(), room.roomId, event, from);
+      if (same) return same;
       const now = Date.now();
-      const target: RoomStatusCode = event === 'start_cleaning' ? 'CL' : occupied ? 'OC' : 'VC';
+      const step = ROOM_STEP[event];
+      const target = step.target(Boolean(occupied));
       const label = roomLabel(asRoom(room), 'staff');
       const item: NewQueueItem = {
         id: newIdempotencyKey(),
@@ -74,10 +104,9 @@ export function useHkActions(session: StaffSession) {
         roomId: room.roomId,
         roomNo: room.roomNo,
         roomName: room.roomName,
-        actionKey:
-          event === 'start_cleaning' ? 'hk.action.start_cleaning' : 'hk.action.finish_cleaning',
+        actionKey: step.actionKey,
         // Someone else already did it (two HK on one room, EP07-08 8.4) → "Đã áp dụng".
-        targets: event === 'start_cleaning' ? ['CL'] : ['VC', 'OC', 'VI'],
+        targets: [...step.targets],
         // "Dọn xong" also closes the room's first open cleaning task on the server (US-053 AC2).
         optimistic: {
           roomStatus: target,
