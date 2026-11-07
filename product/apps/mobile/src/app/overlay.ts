@@ -45,6 +45,8 @@ export function eventsFor(
   queued: boolean,
 ) {
   if (!queued) return serverEvents;
+  // V5-15: "Báo cần dọn" waiting (OC → OD) – the person may go on with "Bắt đầu dọn" (R1 from OD), sent after it.
+  if (status === 'OD') return ['start_cleaning'] as RoomStatusEntry['allowedEvents'];
   if (status === 'CL') return ['finish_cleaning'] as RoomStatusEntry['allowedEvents'];
   if (status === 'VC') return ['inspect'] as RoomStatusEntry['allowedEvents'];
   return [] as RoomStatusEntry['allowedEvents'];

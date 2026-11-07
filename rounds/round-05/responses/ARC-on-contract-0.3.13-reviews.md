@@ -185,10 +185,29 @@ Chi tiết ở contract 1.31 và danh sách 0.3.14 (k)–(z) ở 1.26.
 | FB-R5-SEC-ARC-1I-02 | Minor | Done (1j, một dòng ở 1.30) – OPS #155 | Khối K14 đã ghim |
 | FB-R5-SEC-ARC-1I-01, FB-R5-BE-ARC-1I-02 | Suggestion | Deferred – 0.3.14 (k) | Thứ tự lỗi đầy đủ |
 | FB-R5-BE-ARC-1I-01 | Minor | Deferred – 0.3.14 (l) | `checked_out`: 409 |
-| FB-R5-SEC-ARC-1I-03 | Suggestion | Deferred – 0.3.14 (m) – UXD, FE-A | Câu nhắc dưới ô lý do |
+| FB-R5-SEC-ARC-1I-03 | Suggestion | UXD Done; FE cùng PR Desk đổi người chốt (#162); ARC Deferred – 0.3.14 (m) (SEC 158-03) | Câu nhắc dưới ô lý do |
 | FB-R5-BE-ARC-C0313-35, 36, 37 | Suggestion | Deferred – 0.3.14 (o), (p), (q) | – |
 | ARC #154 mục 9 (DOM 154-01, 154-03; SEC 154-01) | – | Deferred – 0.3.14 (k), (r), (s), (t) | (s) mã ở #157 |
 | ARC #148 mục 7 (148-02, 148-04; SEC 148-02, DOM 148-03) | – | Deferred – 0.3.14 (u)–(x) | (x) thiết kế 5B-2 |
 | DOM 148-05, ARC-DOM 148-05 | Suggestion | Deferred – 0.3.14 (y), chờ DOM/PO | – |
 | FB-R5-DOM-ARC-155-05 | Suggestion | Deferred – 0.3.14 (z), chỉ khi K14 > 0 | Đổi schema nếu làm |
 
+## 13. Sau review #158 (1j), #159, #164 và PR-M – commit tài liệu trên `main`
+
+Chỉ `contract-0.3.13.md` (danh sách 0.3.14 ở 1.26 và một dòng ở 1.30) và tệp này. Không đổi `openapi.yaml`, không đổi mã. DOM 158-01 là của BA (`state-machines.md` B19), không theo dõi ở đây.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-SEC-ARC-158-01 | Minor | Done (#158 @ `9d0b3c62`) | Hai gạch K14 ở 1.30 |
+| FB-R5-SEC-ARC-158-02 | Suggestion | Deferred – 0.3.14 (k), chữ đã sửa trong danh sách | 428 → 422 thân → 404 → 412 → 409 trạng thái → 403 → 422 cần đơn → 409 hoa hồng; QA thêm ca `If-Match` cũ + uuid sai dạng |
+| FB-R5-SEC-ARC-158-03 | Suggestion | Done (tình trạng (m) và dòng 1I-03 ở mục 12) | UXD xong; FE gắn ở #162; ARC còn một câu |
+| FB-R5-SEC-ARC-158-04 | Suggestion | Deferred – 0.3.14 (x) – BE 5B-2 (test); BA, PO (chốt tay trước tag v1.0.5) | P1 và S2 sau B12 |
+| FB-R5-SEC-ARC-158-05 | Suggestion | Deferred – 0.3.14 (z), SEC xem, 4 điều kiện | Chỉ OWN, `reason`, audit không số tiền, thứ tự (k) |
+| FB-R5-SEC-ARC-158-06 | Suggestion | Deferred – 0.3.14 (aa), DOM quyết, v1.0.6 | `card_pos` không tự đóng báo |
+| FB-R5-DOM-ARC-158-02 | Suggestion | Deferred – 0.3.14 (z) | 409 `payable`/`paid` giữ; `void` giữ `recognized_at`; dòng mới lấy lúc sửa |
+| FB-R5-DOM-ARC-158-03 | Suggestion | Deferred – 0.3.14 (y)(1) | Phạm vi, mã trên cờ, khoản thường, dấu lưu lúc ghi |
+| FB-R5-DOM-ARC-158-04 | Suggestion | Deferred – 0.3.14 (y)(3), cùng (aa) | Câu nền `createDepositNotice` |
+| FB-R5-BE-ARC-158-01 | Suggestion | Done (1.30, dòng C0313-31) – 0.3.14 (ab) | 3 trong 5 đường cần kiểm sớm để (iv) xanh |
+| PR-M (BE-H, 1.22) | – | Phán quyết: (A) khớp 1.22 – 0.3.14 (ac) | Chỗ ghi `instalment_no` chờ `lease_contract` (v1.3) |
+| FB-R5-DOM-ARC-164-01 | Suggestion | Deferred – 0.3.14 (z), chỉ khi ý (2) được làm | `after.closerUserId: null` rõ ràng |
+| ARC review #159 (S27) | – | Deferred – 0.3.14 (ad); BA chú thích 37, D27 | Mô tả `listCloserCandidates` |
