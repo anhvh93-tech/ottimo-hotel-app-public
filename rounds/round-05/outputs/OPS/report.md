@@ -164,7 +164,7 @@ Nguồn: thẻ FB-R4-PO-UXD-IDS2-02 (`rounds/round-04/reviews/PO-on-v104-id-shee
 - Trang được đọc đúng như guest-web hiển thị: thứ tự `NOTICE_PARAGRAPHS`, luật ngôn ngữ pháp lý `legalLocale`. Chân tờ `vN` phải là version có chữ trên trang (`NOTICE_TEXT_VERSIONS`).
 - Lệch thì thoát 1, in chữ trang, chữ tờ và phần khác nhau dạng `[-chữ trang-] {+chữ tờ+}`. Ký tự không thấy được hiện dạng `<U+00A0>`.
 - `build_print_sheets.py` dừng trước khi ghi tệp nếu Markdown Tờ 4 lệch trang. Hàm tách đoạn được tách ra thành `notice_parts` để bộ dựng và bộ so dùng chung. HTML dựng ra không đổi byte nào: đã so 6 cách dựng `notice_sheet` trước và sau khi sửa.
-- 23 ca kiểm, ở `product/design/tools/tests/test_check_print_notice.py`.
+- 25 ca kiểm, ở `product/design/tools/tests/test_check_print_notice.py` (2 ca thêm cho SEC 165-01: tập tờ Tờ 4 ghi cứng `EXPECTED_NOTICE_JOBS`, JOBS đổi thì thoát 2).
 - CI job `build-test`: 2 bước ngay sau `Copy is generated`, chạy cả khi bước trước đỏ (`!cancelled()`).
 - Thêm dòng sự cố ở `dev-setup.md` mục 8. CODEOWNERS: thêm 2 dòng SEC.
 

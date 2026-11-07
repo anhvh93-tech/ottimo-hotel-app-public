@@ -271,8 +271,24 @@ def html_sheets(path):
     return p.sheets
 
 
+# FB-R5-SEC-OPS-165-01: tập lần in Tờ 4 ghi cứng ở đây (tệp SEC duyệt). build_print_sheets.JOBS không thuộc SEC: bỏ một
+# lần in khỏi JOBS không được tắt phần so HTML mà không ai thấy. Đổi tập này thì sửa cả hai tệp (SEC duyệt).
+EXPECTED_NOTICE_JOBS = {
+    "to-4-your-id-details-a5": ("4",),
+    "to-4-your-id-details-a4-2-ban": ("4", "4"),
+    "to-4-your-id-details-a4": ("4",),
+    "to-4-your-id-details-a4-ru": ("4ru",),
+}
+
+
 def notice_jobs():
-    return [j for j in bps.JOBS if any(k.startswith("4") for k in j["sheets"])]
+    jobs = [j for j in bps.JOBS if any(k.startswith("4") for k in j["sheets"])]
+    got = {j["file"]: tuple(j["sheets"]) for j in jobs}
+    if got != EXPECTED_NOTICE_JOBS:
+        raise SourceError("Danh sách tờ Your ID details đổi: build_print_sheets.JOBS có %s, bộ so cần %s. Sửa cả "
+                          "product/design/tools/check_print_notice.py (EXPECTED_NOTICE_JOBS, SEC duyệt)."
+                          % (sorted(got.items()), sorted(EXPECTED_NOTICE_JOBS.items())))
+    return jobs
 
 
 def html_copies(print_dir=DEFAULT_PRINT):

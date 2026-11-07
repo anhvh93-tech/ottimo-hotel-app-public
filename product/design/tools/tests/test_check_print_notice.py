@@ -218,6 +218,30 @@ class CheckPrintNotice(unittest.TestCase):
         problems, _ = self.f.run()
         self.assertOnly(problems, "TỆP LẠ  ", "to-4-your-id-details-v1.html", count=1)
 
+    def test_notice_jobs_removed_from_builder_exits_2(self):
+        # SEC 165-01: bỏ các lần in Tờ 4 khỏi JOBS (tệp không thuộc SEC) và để thư mục HTML trống: vẫn đỏ.
+        saved = list(bps.JOBS)
+        try:
+            bps.JOBS[:] = [j for j in saved if not any(k.startswith("4") for k in j["sheets"])]
+            for p in self.f.print_dir.glob("*.html"):
+                p.unlink()
+            code, out = self.f.main()
+        finally:
+            bps.JOBS[:] = saved
+        self.assertEqual(code, 2, out)
+        self.assertIn("EXPECTED_NOTICE_JOBS", out)
+
+    def test_notice_job_sheet_count_changed_exits_2(self):
+        saved = [dict(j) for j in bps.JOBS]
+        try:
+            for j in bps.JOBS:
+                if j["file"] == "to-4-your-id-details-a4-2-ban":
+                    j["sheets"] = ["4"]
+            code, out = self.f.main()
+        finally:
+            bps.JOBS[:] = saved
+        self.assertEqual(code, 2, out)
+
     def test_unreadable_declaration_exits_2(self):
         self.f.replace(self.f.config, "export const NOTICE_PARAGRAPHS =", "export const NOTICE_KEYS =")
         code, out = self.f.main()
