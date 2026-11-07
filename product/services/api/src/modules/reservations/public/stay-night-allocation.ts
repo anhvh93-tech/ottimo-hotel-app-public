@@ -4,7 +4,7 @@
  * `stay_night` rows (state, dates, room, revenue) stay owned by the reservations module; this service only
  * sets the allocations the money side computes:
  *   agent/staff commission (BR-903), channel fee (BR-901), approved discount (BR-434 → discount_vnd,
- *   room_revenue_vnd = gross − discount, 100 % → is_complimentary).
+ *   room_revenue_vnd = gross − discount; is_complimentary = room_revenue_vnd = 0 – V5-17, BR-904 v0.5.5).
  * Written by BE-B (Sprint 2 fix) in reservations/public; provided globally by FolioModule until BE-A moves the
  * registration into ReservationsModule (no behaviour change).
  */
@@ -70,15 +70,15 @@ export class StayNightAllocationService {
 
   /**
    * S4-02 (BE-B): the discount of a night = what the FOC / special discounts apply on its room line NOW (the
-   * folio's FOC key sync is the source – BR-434 v0.3.5/v0.3.6). Clamped to [0, gross]; 100 % → complimentary.
+   * folio's FOC key sync is the source – BR-434 v0.3.5/v0.3.6). Clamped to [0, gross]; complimentary = the room
+   * money left is 0 (V5-17: 100 % of the line; a 0 ₫ night stays complimentary, a partial one is a sold night).
    */
   async setDiscount(tx: Tx, stayNightId: string, discountVnd: number): Promise<void> {
     await tx.query(
       `UPDATE stay_night
           SET discount_vnd = GREATEST(0, LEAST(room_revenue_gross_vnd, $2::bigint)),
               room_revenue_vnd = room_revenue_gross_vnd - GREATEST(0, LEAST(room_revenue_gross_vnd, $2::bigint)),
-              is_complimentary = CASE WHEN room_revenue_gross_vnd = 0 THEN is_complimentary
-                ELSE GREATEST(0, LEAST(room_revenue_gross_vnd, $2::bigint)) >= room_revenue_gross_vnd END,
+              is_complimentary = (room_revenue_gross_vnd - GREATEST(0, LEAST(room_revenue_gross_vnd, $2::bigint)) = 0),
               updated_at = $3
         WHERE id = $1
           AND (discount_vnd <> GREATEST(0, LEAST(room_revenue_gross_vnd, $2::bigint))
@@ -89,7 +89,7 @@ export class StayNightAllocationService {
 
   /**
    * Approved discount / FOC on a night (`deltaVnd` > 0), or its reversal (`deltaVnd` < 0). Clamped to
-   * [0, gross]; 100 % discount → complimentary night (DATA Q-05).
+   * [0, gross]; complimentary = the room money left is 0 (DATA Q-05, V5-17).
    */
   async addDiscount(tx: Tx, stayNightId: string, deltaVnd: number): Promise<void> {
     await tx.query(
@@ -97,8 +97,8 @@ export class StayNightAllocationService {
           SET discount_vnd = GREATEST(0, LEAST(room_revenue_gross_vnd, discount_vnd + $2)),
               room_revenue_vnd = room_revenue_gross_vnd
                                  - GREATEST(0, LEAST(room_revenue_gross_vnd, discount_vnd + $2)),
-              is_complimentary = CASE WHEN room_revenue_gross_vnd = 0 THEN is_complimentary
-                ELSE GREATEST(0, LEAST(room_revenue_gross_vnd, discount_vnd + $2)) >= room_revenue_gross_vnd END,
+              is_complimentary = (room_revenue_gross_vnd
+                                  - GREATEST(0, LEAST(room_revenue_gross_vnd, discount_vnd + $2)) = 0),
               updated_at = $3
         WHERE id = $1`,
       [stayNightId, deltaVnd, this.clock.now()],

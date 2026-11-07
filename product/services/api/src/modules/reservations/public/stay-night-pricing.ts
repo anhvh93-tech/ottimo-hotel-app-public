@@ -210,7 +210,8 @@ export class StayNightPricingPort {
       : price;
     await tx.query(
       `UPDATE stay_night SET calendar_rate_vnd = $2::bigint, room_revenue_gross_vnd = $3::bigint,
-              room_revenue_vnd = $3::bigint - discount_vnd, updated_at = $4
+              room_revenue_vnd = $3::bigint - discount_vnd, is_complimentary = ($3::bigint - discount_vnd = 0),
+              updated_at = $4
         WHERE id = $1`,
       [night.id, tiered ? price : night.calendar, gross, now],
     );
