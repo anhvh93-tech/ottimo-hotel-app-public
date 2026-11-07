@@ -25,6 +25,7 @@
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.2**: mục 9.13 mới, chữ Desk cho V5-11 (Trả sớm trong 00:00–05:59; hợp đồng 0.3.13 mục 1.21, DOM `rules-v1.0.5.md` mục 2, BE PR #114) theo việc ORC giao cho làn FE-A V5-11: câu cho hai 409 `INVALID_TRANSITION` (`minNewDepartureDate`, `useCheckout`) và dòng ngày ghi phí giữ lại. 4 khóa mới, UXD đã áp trên `main` cùng commit này. Kèm một chỗ FE phải sửa để chữ đúng ở bước ③ (`canCheckOut`). Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.3**: mục 9.14 mới, theo review FE-3 Desk #134, #137, #141 (`rounds/round-05/reviews/UXD-on-fe3-prs-134-137-141.md`). Gồm: chữ chốt V5-18 `deposit.accept_shortfall_unverified` (thay nháp FE-3); khóa mới `folio.open_refunds_may_decrease` thay câu của hàng chờ duyệt dưới tổng chờ hoàn, kèm điều kiện hiện (V5-13); sửa `error.closed_booking_payment_sales`; B4 nhập tay trên đơn đã đóng dùng câu 9.1a (V5-48). FE-3 áp trong PR. UXD không áp trên `main`, để không đụng `gen_strings.py` của 3 PR đang mở. Ghi chú ở 9.1a, 9.12. Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.4**: mục 9.15 mới, chữ chốt hộp Trả phòng quá ngày đi (V5-15 Desk, FE-A2 PR #145 @ `011d44e7`) theo review `rounds/round-05/reviews/UXD-on-fe-prs-145-146.md`. Gồm: 10 khóa FE-A2 viết nháp (8 giữ, 2 sửa chữ, 1 sửa EN); 2 khóa chỉ dẫn gọi ai đã chốt ở review #125; 4 khóa mới theo DOM `DOM-on-fe-pr-145.md` (145-01 dòng nhắc khi có giờ hẹn, 145-02 giờ trước mốc đổi ngày theo ARC 3.4, 145-03 nhắc Gia hạn, 145-04 cách biết giờ); 1 khóa để sẵn cho v1.0.6 (145-05). FE-A2 áp trong #145. UXD không áp trên `main`. Cùng mục 0, 6, 8.
+- Sửa: UXD · Round 5 – Phản hồi & sửa · 07/11/2026 · **Bản 2.5**: mục 9.1 viết lại theo #148 đã gộp (DOM `DOM-on-be-d2-pr-148.md`: 148-01 Major, 148-06, 148-07, 148-08). Quẹt thẻ chỉ khi đơn còn phải thu (N > 0), tối đa N; yêu cầu hoàn = max(0, số ghi − N), không còn "hoàn đủ" ở mọi ca; 9 khóa mới, 6 khóa sửa chữ. Mục 9.16 mới: ô Người chốt đổi theo mốc trên Desk (DOM 154-03, SEC 1I-03, luật #154), 7 khóa. Mục 9.17 mới: danh sách để sẵn cho v1.0.6 (SEC 145-01, UXD 145-04, 145-06, DOM 145-05), chưa đếm. `content-guide.md` v0.4.7: thêm 17 khóa 9.9, 9.15 đã có trên `main` (#145). Khóa 9.1, 9.16 chưa có trong `gen_strings.py`; FE-A thêm khi làm PR Desk. Cùng mục 0, 6, 8.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -57,7 +58,7 @@
 | V5-22 Hộp Đặt phòng mới | 2 | 6 | 0 | **8** | |
 | V5-23 Chữ sai sự thật | 48 | 19 | 2 | **69** | Gồm 25 khóa EN thêm U+2011. 3 khóa ở mục 4.19 là phát hiện thêm, PO quyết. Bản 1.1 thêm 6 khóa: `gw.req.clean_makeup_free` và `gw.req.clean_second_fee` (4.20 a, bắt buộc), `gw.lang_auto_sr` (4.6), 3 khóa ở 4.21 (nên có). Bản 1.2: 4.14 còn 3 khóa (2 sửa, 1 mới) thay cho 6 mới và 2 xóa; thêm `bill.line.late_fee_after_limit` (4.8) |
 | V5-24 Tiếng Nga | 8 | 0 | 0 | **8** | Bản 1.1 thêm `gw.req.clean_long_fee`. `sale.quote_text`, `msg.booking_confirmed`, `msg.deposit_received`, `msg.hot_water_issue` đổi thêm cột VI và/hoặc EN, vẫn đếm một lần ở đây. Kèm yêu cầu font (mục 5.2) |
-| V5-5B Tiền về sau khi hủy (bản 1.4, 1.5, mục 9.1) | 0 | 26 | 0 | **26** | Ngoài Gói 2. Đi cùng 5B-1. Bản 1.4: 13 khóa. Bản 1.5: thêm 13 (gồm `audit.reason.payment_after_cancel`, trước là khóa có điều kiện). 3 khóa để sẵn cho 5B-2, chưa đếm |
+| V5-5B Tiền về sau khi hủy (bản 1.4, 1.5, 2.5, mục 9.1) | 0 | 35 | 0 | **35** | Ngoài Gói 2. Đi cùng 5B-1. Bản 1.4: 13 khóa. Bản 1.5: thêm 13 (gồm `audit.reason.payment_after_cancel`, trước là khóa có điều kiện). Bản 2.5: thêm 9 theo #148; 6 khóa sửa chữ vẫn đếm "Mới" vì chưa có trong `gen_strings.py`. 3 khóa để sẵn cho 5B-2, chưa đếm |
 | V5-48 Thu tiền trên đơn đã đóng (bản 1.5, mục 9.1a) | 0 | 3 | 0 | **3** | Ngoài Gói 2. Bắt buộc v1.0.5 (ARC 1.21 mục 2) |
 | V5-25 Lưu tham số có cấu trúc (bản 1.4–1.6, mục 9.2, 9.4, 9.6) | 0 | 19 | 0 | **19** | Ngoài Gói 2. Đi cùng PR #96 (V5-25). Bản 1.4: 3 khóa `min_stay`. Bản 1.5: 5 khóa câu chung ở 9.4. Bản 1.6: 3 khóa `REQUIRED` ở 9.4, 8 khóa "tham số sai dạng" ở 9.6 (mã chờ ARC) |
 | V5-16 Lễ tân sửa giảm dòng (bản 1.5, mục 9.5) | 0 | 7 | 0 | **7** | Ngoài Gói 2. Đi cùng US-177 (PR-B2). 2 khóa đóng ca để sẵn, chưa đếm |
@@ -71,7 +72,8 @@
 | V5-11 Trả sớm trong 00:00–05:59 (bản 2.2, mục 9.13) | 0 | 4 | 0 | **4** | Ngoài Gói 2. Đi cùng FE-A V5-11 (cùng tag với #114). Đã áp trên `main`. Thêm ghi chú cho 4 khóa có sẵn, không đếm |
 | V5-18, V5-13, V5-48 sau review FE-3 (bản 2.3, mục 9.14) | 1 | 2 | 0 | **3** | Ngoài Gói 2. `deposit.accept_shortfall_unverified` (FE-3 thêm ở #141, UXD chốt chữ) và `folio.open_refunds_may_decrease`: điều kiện gộp #141, #134. `error.closed_booking_payment_sales` (sửa): cùng PR sau #137, trước tag v1.0.5. FE-3 áp trong PR |
 | V5-15 hộp Trả phòng quá ngày đi, Desk (bản 2.4, mục 9.15) | 0 | 16 | 0 | **16** | Ngoài Gói 2. Đi cùng #145. 10 khóa FE-A2 (UXD chốt), 2 khóa `checkout.overdue_need_*` (chốt ở `UXD-on-fe-prs-125-128.md` mục 3, nay đếm ở đây), 4 khóa mới. `checkout.overdue_told_guest` để sẵn cho v1.0.6, chưa đếm |
-| **Tổng** | **82** | **168** | **9** | **259** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243. Bản 2.4: 259 |
+| Desk đổi người chốt theo mốc (bản 2.5, mục 9.16) | 0 | 7 | 0 | **7** | Ngoài Gói 2. Đi cùng PR Desk đổi người chốt (FE-A; DOM 154-03, SEC 1I-03). Dùng lại 5 khóa có sẵn. Mục 9.17 (v1.0.6) chưa đếm |
+| **Tổng** | **82** | **184** | **9** | **275** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243. Bản 2.4: 259. Bản 2.5: 275 |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
@@ -89,6 +91,9 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Mục 9.13 (bản 2.2):** `err.min_date`, `use_min_date`, `use_checkout` và chỗ sửa `canCheckOut` bắt buộc, lên cùng FE-A V5-11 (cùng tag với #114, DOM review #114 mục 4). Thiếu thì lễ tân ca đêm chỉ thấy câu chung `INVALID_TRANSITION`. `fee_business_date` nên có cùng lượt, không kịp thì v1.0.6, không chặn QC. FE trễ cả làn thì release notes ghi dòng (b) của DOM.
 - **Mục 9.14 (bản 2.3):** bắt buộc. (a) là điều kiện gộp #141 (FB-R5-UXD-FE-141-01), (b) là điều kiện gộp #134 (FB-R5-UXD-FE-134-01). (c) lên cùng PR sau #137 (FB-R5-UXD-FE-137-01), trước tag v1.0.5. Phần (b) chỉ hiện câu theo `awaitingDecision` chờ hợp đồng 0.3.14, không chặn QC.
 - **Mục 9.15 (bản 2.4):** bảng A bắt buộc, điều kiện gộp #145 (FB-R5-UXD-FE-145-01, gồm DOM 145-01). `checkout.overdue_time_early` (DOM 145-02) vào #145 theo ARC 3.4; không kịp thì #145 vẫn gộp được và release notes v1.0.5 ghi dòng ARC 3.3. Bảng B: `checkout.overdue_extend_hint` nên có cùng lượt (FB-R5-UXD-FE-145-02), không kịp thì v1.0.6 và sổ tay BA; `checkout.overdue_reason_evidence` tùy FE-A2, không thì v1.0.6. `checkout.overdue_told_guest`: v1.0.6. Không chặn QC ngoài bảng A.
+- **Mục 9.1 (bản 2.5):** chữ bản 2.5 bắt buộc trước khi nút "Ghi tiền về sau khi hủy" lên Desk (DOM 148-01 Major). Chữ bản 1.4, 1.5 không được dùng nữa: lễ tân làm theo sẽ thu phí hủy trên đơn mới và hứa "hoàn đủ" với khách. `error.DUPLICATE_BANK_REFERENCE_no_code` (148-06) lên cùng ô `bankReference` đầu tiên mà sale, CTV dùng được. `error.refund_no_transfer_left` (148-07) lên khi BE trả dấu hiệu riêng; chưa có thì v1.0.6, không chặn QC. `today.money_after_cancel_not_found_note` (148-08): nên có cùng 5B-1.
+- **Mục 9.16 (bản 2.5):** theo lịch PR Desk đổi người chốt (FE-A). Khi PR lên thì cả 7 khóa bắt buộc: dòng help là điều kiện SEC 1I-03, hai dòng chỉ đọc là điều kiện DOM 154-03.
+- **Mục 9.17:** v1.0.6, chưa đếm.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -713,17 +718,25 @@ Ghi chú: trong bảng, `\|` là dấu "hoặc" của regex, viết thoát để
 
 Chữ Desk nội bộ (VI, EN). Không có chữ cho khách, không cần CPY. Mã lỗi, tên `extras` và tên mã lý do do ARC chốt; bảng dưới gọi theo nghĩa, FE nối với mã ARC chốt.
 
-### 9.1 Ghi tiền về cho đơn đã hủy (V5-5B, 5B-1; DOM 11.4)
+### 9.1 Ghi tiền về cho đơn đã hủy (V5-5B, 5B-1; DOM 11.4) – viết lại ở bản 2.5 theo #148
+
+**Bản 2.5 (07/11, sau khi #148 gộp; DOM FB-R5-DOM-UXD-148-01 Major, 148-06, 148-07, 148-08).** Chữ bản 1.4, 1.5 viết theo 11.4 bản đầu, khi số đơn còn phải thu luôn bằng 0. #148 làm theo ARC FB-R5-ARC-BE-105-03:
+- **N** = số đơn còn phải thu (`getFolio.balanceDueVnd`; máy chủ đọc lại sau khóa folio). N > 0 khi đơn còn phí hủy hoặc phí không đến, thường là đơn OTA trả tại chỗ;
+- quẹt thẻ (`card_pos`) chỉ khi N > 0, tối đa N. Cần mã chuẩn chi, không cần ảnh. Tiền mặt, `ota_collect` không bao giờ nhận;
+- yêu cầu hoàn tự tạo = max(0, số ghi − N), nơi nhận cố định `original_method`. Số ghi ≤ N thì không có yêu cầu hoàn; quẹt thẻ không bao giờ sinh hoàn.
+
+Vì vậy hộp chọn câu theo N. Desk đọc N khi mở hộp và đọc lại sau mỗi lỗi 422. Các khóa dưới đây đều chưa có trong `gen_strings.py` (FE-A thêm khi làm PR Desk 5B-1), nên đổi chữ không làm đổi số khóa.
+
 
 Ca: khách chuyển tiền vào tài khoản OTTIMO sau khi đơn đã hủy hoặc đã đánh dấu không đến, ví dụ chuyển theo mã QR cũ. Luật DOM:
 - chỉ FD+ ghi;
-- chỉ chuyển khoản, VietQR;
-- ảnh chứng từ và ghi chú bắt buộc. Ảnh là thông báo tiền vào tài khoản OTTIMO do chủ đầu tư hoặc quản lý gửi; không dùng ảnh chụp, SMS khách gửi hay ảnh sale, CTV chuyển tiếp;
+- chuyển khoản, VietQR; **quẹt thẻ chỉ khi N > 0, tối đa N** (bản 2.5). Không nhận tiền mặt, `ota_collect`;
+- chuyển khoản, VietQR: ảnh chứng từ bắt buộc; quẹt thẻ: mã chuẩn chi bắt buộc, không có ô ảnh (bản 2.5; ARC 105-03 ý 4, máy chủ #148 không bắt ảnh cho thẻ; Desk không đặt ô ảnh cho thẻ để tránh ảnh chụp mặt thẻ). Ghi chú: Desk luôn bắt buộc. Ảnh là thông báo tiền vào tài khoản OTTIMO do chủ đầu tư hoặc quản lý gửi; không dùng ảnh chụp, SMS khách gửi hay ảnh sale, CTV chuyển tiếp;
 - khoản thu luôn chờ đối soát;
-- trong cùng giao dịch tạo yêu cầu hoàn đủ số, không phí, mã `payment_after_cancel`. Người ghi không tự duyệt, không chi;
+- trong cùng giao dịch tạo yêu cầu hoàn **max(0, số ghi − N)**, không phí, mã `payment_after_cancel` (bản 2.5). N = 0 thì hoàn đủ; số ghi ≤ N thì không có yêu cầu hoàn. Người ghi không tự duyệt, không chi;
 - nơi nhận hoàn cố định `original_method`: chuyển khoản về đúng tài khoản khách đã chuyển. Không chi tiền mặt, không đổi nơi nhận;
 - "Có thể trùng" (`possibleDuplicateCodes`) ở màn duyệt hoàn và màn đối soát: khoản chuyển khoản, VietQR khác, chưa đảo, cùng số tiền, Giờ nhận tiền cách ≤ 24 giờ, ở đơn khác. Chỉ hiện mã đơn, không chặn;
-- mã giao dịch ngân hàng (`bankReference`) tùy chọn. Có mã mà trùng một khoản thu chưa đảo của cơ sở thì 409 `DUPLICATE_BANK_REFERENCE`.
+- mã giao dịch ngân hàng (`bankReference`) tùy chọn, chỉ cho chuyển khoản, VietQR. Có mã mà trùng một khoản thu chưa đảo của cơ sở thì 409 `DUPLICATE_BANK_REFERENCE`. Chỉ FD+ nhận kèm `duplicateReservationCode`; sale, CTV nhận 409 không có mã đơn (SEC ARC-21).
 
 Một khoản tiền chỉ ghi một lần, nên hộp phải nói rõ hai điều: khách muốn đặt lại thì không ghi ở đây; và trước khi ghi, tìm đơn mới của khách.
 
@@ -731,39 +744,49 @@ Dùng lại, không đổi chữ:
 - `pay.bank_transfer`, `pay.vietqr` (hai lựa chọn duy nhất của ô cách thanh toán);
 - `deposit.received_at` (Giờ nhận tiền);
 - `pay.pending_reconcile` (Chờ đối soát);
+- `pay.card` (Thẻ (máy POS tại quầy)), `co.pos_code` (Mã chuẩn chi trên phiếu POS), `co.pos_no_card` (Không nhập số thẻ…): lựa chọn và ô mã khi N > 0 (bản 2.5);
 - `today.money_after_cancel` (dòng Cần chú ý "Tiền về cho đơn đã hủy {code}").
 
 | Khóa | Kiểu | VI | EN | Khi nào |
 |---|---|---|---|---|
 | `drawer.action.money_after_cancel` | Mới | Ghi tiền về sau khi hủy | Record money received after cancellation | Nút trên khung đơn `cancelled`, `no_show`. Chỉ FD+, không hiện cho sale, CTV |
 | `rsv.after_cancel.title` | Mới | Ghi tiền về cho đơn đã hủy {code} | Record money for cancelled booking {code} | Tiêu đề hộp |
-| `rsv.after_cancel.intro` | Mới | Ghi khoản này sẽ tạo yêu cầu hoàn đủ số tiền, không phí. Khách muốn đặt lại: không ghi ở đây. Tạo giữ chỗ mới, xác nhận cọc trên đơn mới, ghi chú giờ tiền về và mã đơn {code}. | Recording this creates a refund request for the full amount, with no fee. If the guest wants to book again, don't record it here. Create a new hold, confirm the deposit on the new booking, and note the time received and booking {code}. | Khung cảnh báo đầu hộp, luôn hiện. Câu đầu theo chữ DOM 11.4 mục 3 |
-| `rsv.after_cancel.find_new` | Mới (1.5) | Trước khi ghi: tìm đơn mới của khách theo tên hoặc số điện thoại. Đơn mới đã xác nhận cọc bằng khoản này thì không ghi ở đây. | Before recording, search for a new booking for this guest by name or phone number. If a new booking already used this money as its deposit, don't record it here. | Dòng thứ hai của khung cảnh báo, ngay dưới `rsv.after_cancel.intro`, luôn hiện (DOM 11.4 mục 3b) |
-| `rsv.after_cancel.methods_hint` | Mới | Chỉ ghi tiền đã vào tài khoản OTTIMO: chuyển khoản hoặc VietQR. Khách đưa tiền mặt hay quẹt thẻ: tạo đơn mới và thu trên đơn mới. | Only money already in OTTIMO's account: bank transfer or VietQR. Cash or card at the desk: create a new booking and take the payment there. | Dòng phụ dưới ô cách thanh toán |
-| `rsv.after_cancel.proof` | Mới (sửa ở 1.5) | Ảnh chứng từ tiền vào tài khoản OTTIMO (bắt buộc) | Proof of the payment into OTTIMO's account (required) | Nhãn ô ảnh (`deposit_receipt`) |
-| `rsv.after_cancel.proof_help` | Mới (1.5) | Ảnh chủ đầu tư hoặc quản lý gửi, thấy số tiền, giờ và nội dung chuyển khoản. Không dùng ảnh chụp hay SMS khách gửi, cũng không dùng ảnh sale, CTV chuyển tiếp. | A photo sent by the owner or a manager, showing the amount, time and transfer reference. Don't use a screenshot or text message from the guest, or one forwarded by sales or an agent. | Dòng phụ dưới ô ảnh |
+| `rsv.after_cancel.intro` | Mới, **sửa ở 2.5** | Đơn không còn nợ nên khoản ghi ở đây được hoàn đủ, không phí. | Nothing is owed on this booking, so the amount recorded here is refunded in full, with no fee. | Dòng 1 khung cảnh báo đầu hộp, khi N = 0. Bản 2.5: câu "Khách muốn đặt lại…" tách sang `rsv.after_cancel.rebook` |
+| `rsv.after_cancel.intro_due` | **Mới (2.5)** | Đơn còn phải thu {due}. Khoản ghi ở đây trả phần này trước; phần vượt {due} được hoàn, không phí. | {due} is still owed on this booking. The amount recorded here pays that first; anything above {due} is refunded, with no fee. | Dòng 1 khung, thay `intro` khi N > 0. `{due}` = `money(N)` |
+| `rsv.after_cancel.rebook` | **Mới (2.5)**, tách từ `intro` | Khách muốn đặt lại: không ghi ở đây. Tạo giữ chỗ mới, xác nhận cọc trên đơn mới, ghi chú giờ tiền về và mã đơn {code}. | If the guest wants to book again, don't record it here. Create a new hold, confirm the deposit on the new booking, and note the time received and booking {code}. | Dòng 2 khung, luôn hiện. Chữ giữ nguyên từ `intro` bản 1.4 (DOM 148-01: giữ câu này) |
+| `rsv.after_cancel.find_new` | Mới (1.5) | Trước khi ghi: tìm đơn mới của khách theo tên hoặc số điện thoại. Đơn mới đã xác nhận cọc bằng khoản này thì không ghi ở đây. | Before recording, search for a new booking for this guest by name or phone number. If a new booking already used this money as its deposit, don't record it here. | Dòng 3 khung, luôn hiện (DOM 11.4 mục 3b) |
+| `rsv.after_cancel.methods_hint` | Mới | Chỉ ghi tiền đã vào tài khoản OTTIMO: chuyển khoản hoặc VietQR. Khách đưa tiền mặt hay quẹt thẻ: tạo đơn mới và thu trên đơn mới. | Only money already in OTTIMO's account: bank transfer or VietQR. Cash or card at the desk: create a new booking and take the payment there. | Dòng phụ dưới ô cách thanh toán, khi N = 0. Ô chỉ có `pay.bank_transfer`, `pay.vietqr`. Chữ giữ nguyên: N = 0 thì không còn phí để thu, nên vế "tạo đơn mới" chỉ áp cho tiền của lần ở mới. DOM 148-01 gợi ý bỏ vế này; UXD giữ để lễ tân biết làm gì khi khách đưa tiền mặt |
+| `rsv.after_cancel.methods_hint_due` | **Mới (2.5)** | Chuyển khoản, VietQR: tiền đã vào tài khoản OTTIMO. Quẹt thẻ: chỉ để thu phí còn nợ, tối đa {due}. Tiền mặt: không ghi ở đây – mời khách quẹt thẻ hoặc chuyển khoản. | Bank transfer or VietQR: money already in OTTIMO's account. Card: only for the fee still owed, up to {due}. Cash can't be recorded here – ask the guest to pay by card or transfer. | Thay `methods_hint` khi N > 0. Ô có thêm `pay.card`; chọn thẻ thì Desk điền sẵn số tiền = N (ARC 105-03 ý 8) |
+| `rsv.after_cancel.proof` | Mới (sửa ở 1.5) | Ảnh chứng từ tiền vào tài khoản OTTIMO (bắt buộc) | Proof of the payment into OTTIMO's account (required) | Nhãn ô ảnh (`deposit_receipt`), chỉ khi chọn chuyển khoản, VietQR. Bản 2.5: chọn thẻ thì ẩn ô ảnh, hiện ô `co.pos_code` (bắt buộc) với dòng phụ `co.pos_no_card`. Không có ô ảnh cho thẻ để tránh ảnh chụp mặt thẻ (ARC 105-03 ý 4) |
+| `rsv.after_cancel.proof_help` | Mới (1.5) | Ảnh chủ đầu tư hoặc quản lý gửi, thấy số tiền, giờ và nội dung chuyển khoản. Không dùng ảnh chụp hay SMS khách gửi, cũng không dùng ảnh sale, CTV chuyển tiếp. | A photo sent by the owner or a manager, showing the amount, time and transfer reference. Don't use a screenshot or text message from the guest, or one forwarded by sales or an agent. | Dòng phụ dưới ô ảnh (chỉ chuyển khoản, VietQR) |
 | `pay.bank_reference_optional` | Mới (1.5) | Mã giao dịch ngân hàng (nếu ảnh có) | Bank transaction reference (if shown in the photo) | Ô tùy chọn khi ghi chuyển khoản, VietQR. Mọi hộp ghi thu, không riêng đơn đã đóng |
 | `pay.bank_reference_help` | Mới (1.5) | Không bắt buộc. Gõ đúng mã trên ảnh; Desk báo nếu mã này đã được ghi ở đơn khác. | Optional. Type the reference exactly as shown; Desk tells you if it was already recorded on another booking. | Dòng phụ dưới ô trên |
-| `rsv.after_cancel.note_hint` | Mới (sửa ở 1.5) | Ví dụ: tiền về 14:05 06/11 theo mã {code}. Không ghi tên khách, tên người chuyển hay số tài khoản. | For example: received 14:05 06/11 with reference {code}. Don't write the guest's name, the sender's name or any account number. | Chữ gợi ý ô Ghi chú (bắt buộc) |
-| `rsv.after_cancel.submit` | Mới | Ghi khoản thu và tạo yêu cầu hoàn | Record payment and create refund request | Nút chính |
-| `rsv.after_cancel.done` | Mới | Đã ghi {amount} cho đơn {code}, chờ đối soát. Yêu cầu hoàn {amount} đã tạo – cần quản lý duyệt. Bạn là người ghi nên không tự duyệt. | {amount} recorded for booking {code}, awaiting reconciliation. A refund request for {amount} was created – a manager must approve it. You recorded it, so you can't approve it yourself. | Thông báo sau khi ghi |
-| `field_error.after_cancel_method` | Mới | Đơn đã hủy chỉ ghi được chuyển khoản hoặc VietQR. Tiền mặt, thẻ: tạo đơn mới và thu trên đơn mới. | A cancelled booking only takes bank transfer or VietQR. For cash or card, create a new booking and take the payment there. | 422 `VALIDATION_FAILED` (`method`, `NOT_IN_LIST`) |
-| `field_error.after_cancel_proof` | Mới (sửa ở 1.5) | Cần ảnh chứng từ tiền vào tài khoản OTTIMO trước khi ghi. | Attach proof of the payment into OTTIMO's account first. | 422 `REQUIRED` (`attachmentId`) |
+| `rsv.after_cancel.note_hint` | Mới (sửa ở 1.5) | Ví dụ: tiền về 14:05 06/11 theo mã {code}. Không ghi tên khách, tên người chuyển hay số tài khoản. | For example: received 14:05 06/11 with reference {code}. Don't write the guest's name, the sender's name or any account number. | Chữ gợi ý ô Ghi chú (bắt buộc), khi chọn chuyển khoản, VietQR |
+| `rsv.after_cancel.note_hint_card` | **Mới (2.5)** | Ví dụ: thu phí còn nợ bằng thẻ lúc 14:05 06/11. Không ghi tên khách hay số thẻ. | For example: fee still owed taken by card at 14:05 06/11. Don't write the guest's name or the card number. | Chữ gợi ý ô Ghi chú khi chọn thẻ. Ô vẫn bắt buộc |
+| `rsv.after_cancel.submit` | Mới, **sửa ở 2.5** | Ghi khoản thu | Record payment | Nút chính. Bản 2.5: bỏ "và tạo yêu cầu hoàn", vì số ghi ≤ N thì không có yêu cầu hoàn |
+| `rsv.after_cancel.done` | Mới, **sửa ở 2.5** | Đã ghi {amount} cho đơn {code}, chờ đối soát. Yêu cầu hoàn {refund} đã tạo – cần quản lý duyệt. Bạn là người ghi nên không tự duyệt. | {amount} recorded for booking {code}, awaiting reconciliation. A refund request for {refund} was created – a manager must approve it. You recorded it, so you can't approve it yourself. | Sau khi ghi, khi có yêu cầu hoàn (số ghi > N). `openRefunds` là tổng theo mã, không theo yêu cầu, nên `{refund}` = phần tăng của `openVnd` nhóm `payment_after_cancel`: số khi đọc lại folio sau khi ghi trừ số lúc mở hộp. Từ 0.3.14: số của yêu cầu theo `Payment.refundRequestId`. Không lấy `{amount}` làm số hoàn |
+| `rsv.after_cancel.done_fee` | **Mới (2.5)** | Đã ghi {amount} vào phí còn nợ của đơn {code}, chờ đối soát. Không có yêu cầu hoàn. | {amount} recorded against the fee still owed on booking {code}, awaiting reconciliation. No refund request was created. | Sau khi ghi, khi số ghi ≤ N (gồm mọi lần quẹt thẻ) |
+| `field_error.after_cancel_method` | Mới, **sửa ở 2.5** | Đơn này không còn nợ nên chỉ ghi được chuyển khoản hoặc VietQR. Khách trả tiền mặt hay quẹt thẻ cho lần ở mới: tạo đơn mới và thu trên đơn mới. | Nothing is owed on this booking, so only a bank transfer or VietQR can be recorded. For cash or card for a new stay, create a new booking and take the payment there. | 422 `VALIDATION_FAILED` (`method`, `NOT_IN_LIST`) và N đọc lại = 0. Gồm ca chọn thẻ khi người khác vừa thu đủ phí |
+| `field_error.after_cancel_method_due` | **Mới (2.5)** | Đơn đã đóng không nhận tiền mặt. Thu phí còn nợ bằng quẹt thẻ (tối đa {due}), chuyển khoản hoặc VietQR. | A closed booking doesn't take cash. Collect the fee still owed by card (up to {due}), bank transfer or VietQR. | 422 (`method`, `NOT_IN_LIST`) và N đọc lại > 0. Dự phòng: ô cách thanh toán không có tiền mặt |
+| `field_error.after_cancel_card_max` | **Mới (2.5)** | Quẹt thẻ tối đa {max}, là số đơn còn phải thu. | Card payments here are capped at {max}, the amount still owed. | 422 (`amountVnd`, `AMOUNT_EXCEEDS_BALANCE`), `{max}` = `money(max)` của lỗi. Dưới ô số tiền. Desk không tự sửa số |
+| `field_error.after_cancel_proof` | Mới (sửa ở 1.5) | Cần ảnh chứng từ tiền vào tài khoản OTTIMO trước khi ghi. | Attach proof of the payment into OTTIMO's account first. | 422 `REQUIRED` (`attachmentId`), chỉ chuyển khoản, VietQR |
 | `field_error.after_cancel_proof_from_notice` | Mới (1.5) | Ảnh này đã gửi kèm báo chuyển cọc của sale, CTV, nên không dùng làm chứng từ. Dùng ảnh chủ đầu tư hoặc quản lý gửi. | This photo came with a sales or agent deposit report, so it can't be used as proof. Use a photo sent by the owner or a manager. | 422 `NOT_IN_LIST` (`attachmentId`) |
-| `error.DUPLICATE_BANK_REFERENCE` | Mới (1.5) | Mã giao dịch này đã ghi ở đơn {code}. Không ghi lại. Báo quản lý kiểm sao kê. | This transaction reference is already recorded on booking {code}. Don't record it again. Ask a manager to check the statement. | 409, `{code}` = `duplicateReservationCode`. Mọi hộp ghi thu có `bankReference`. Không ghi gì |
+| `error.DUPLICATE_BANK_REFERENCE` | Mới (1.5) | Mã giao dịch này đã ghi ở đơn {code}. Không ghi lại. Báo quản lý kiểm sao kê. | This transaction reference is already recorded on booking {code}. Don't record it again. Ask a manager to check the statement. | 409 **có** `duplicateReservationCode` (chỉ FD+), `{code}` = trường đó. Mọi hộp ghi thu có `bankReference`. Không ghi gì |
+| `error.DUPLICATE_BANK_REFERENCE_no_code` | **Mới (2.5)**, DOM 148-06 | Mã giao dịch này đã được ghi ở một khoản thu khác. Không ghi lại. Báo lễ tân kiểm. | This transaction reference is already recorded on another payment. Don't record it again. Ask the front desk to check. | 409 **không có** `duplicateReservationCode` (sale, CTV – SEC ARC-21), ví dụ Xác nhận cọc của sale. Desk chọn câu theo có hay không có trường này, không để `{code}` trống |
 | `today.money_after_cancel_not_found` | Mới (EN sửa ở 2.1) | Không thấy tiền | Money not received | Nút ở dòng Cần chú ý `deposit_after_cancel`, FD+. Đóng dòng khi chưa thấy tiền về. EN theo `co.recon_missing` (mục 9.11) |
-| `today.money_after_cancel_not_found_note` | Mới | Ghi chú (bắt buộc): đã kiểm ở đâu, lúc nào. | Note (required): where and when you checked. | Ô ghi chú của nút trên |
+| `today.money_after_cancel_not_found_note` | Mới, **sửa ở 2.5** (DOM 148-08) | Ghi chú (bắt buộc): đã kiểm ở đâu, lúc nào. Tiền đã ghi trước lúc báo: ghi mã phiếu thu. | Note (required): where and when you checked. If the money was recorded before the report, give the receipt code. | Ô ghi chú của nút trên. Vế sau cho ca tiền đã ghi trước khi sale báo (DOM 148 mục 1.4): một nút, một loại audit |
 | `rsv.notice.after_cancel_sent` | Mới | Đã báo lễ tân. Đơn đã hủy nên lễ tân kiểm tiền về rồi xử lý. | The front desk has been told. The booking is cancelled, so they'll check the money and handle it. | Sale, CTV bấm Báo đã chuyển cọc trên đơn đã đóng (thay 409; mã trả về ARC chốt) |
 
-**Yêu cầu hoàn tự tạo (bản 1.5).** ARC chốt mã mới `payment_after_cancel`, không dùng lại `overpayment`. Yêu cầu đứng tên người ghi; người ghi không duyệt, không chi. Nơi nhận cố định `original_method`: `setRefundDestination` và `executeCashRefund` trên yêu cầu này trả 409. FE ẩn nút **Nhập nơi nhận hoàn** và lối chi tiền mặt; câu lỗi dưới chỉ để dự phòng.
+**Yêu cầu hoàn tự tạo (bản 1.5; số hoàn sửa ở 2.5).** ARC chốt mã mới `payment_after_cancel`, không dùng lại `overpayment`. Chỉ có khi số ghi > N; số hoàn = số ghi − N. Yêu cầu đứng tên người ghi; người ghi không duyệt, không chi. Nơi nhận cố định `original_method`: `setRefundDestination` và `executeCashRefund` trên yêu cầu này trả 409. FE ẩn nút **Nhập nơi nhận hoàn** và lối chi tiền mặt; câu lỗi dưới chỉ để dự phòng.
 
 | Khóa | Kiểu | VI | EN | Khi nào |
 |---|---|---|---|---|
 | `audit.reason.payment_after_cancel` | Mới (1.5) | Tiền về sau khi hủy | Money received after cancellation | Nhãn `reasonCode = payment_after_cancel` ở cột Lý do, Cần duyệt, Hoàn tiền, như `audit.reason.overpayment` |
-| `refund.after_cancel_note` | Mới (1.5) | Khách chuyển tiền sau khi đơn đã đóng. Hoàn đủ, không phí. Chỉ chi khi khoản thu đã đối soát. | The guest paid after the booking was closed. Refund in full, with no fee. Pay out only after the payment is reconciled. | Dòng giải thích ở chi tiết yêu cầu (Cần duyệt, Hoàn tiền) |
+| `refund.after_cancel_note` | Mới (1.5), **sửa ở 2.5** | Khách chuyển tiền sau khi đơn đã đóng. Số hoàn là phần vượt số đơn còn nợ lúc ghi (thường là cả khoản), không phí. Chỉ chi khi khoản thu đã đối soát. | The guest paid after the booking was closed. The refund is the part above what the booking still owed when it was recorded (usually all of it), with no fee. Pay out only after the payment is reconciled. | Dòng giải thích ở chi tiết yêu cầu (Cần duyệt, Hoàn tiền). Bản 2.5: bỏ "Hoàn đủ" |
 | `refund.after_cancel_destination` | Mới (1.5) | Nơi nhận cố định: chuyển khoản về đúng tài khoản khách đã chuyển. Không chi tiền mặt, không đổi nơi nhận, kể cả khi khách đứng ở quầy. Không hỏi số tài khoản của khách. | Fixed destination: a bank transfer back to the account the guest paid from. No cash, no change of destination, even if the guest is at the desk. Don't ask for the guest's account number. | Thay khối nơi nhận ở chi tiết yêu cầu này. Thay chữ `refund.method.original_method` ("Cùng cách khách đã trả") ở yêu cầu này |
 | `refund.after_cancel_guest_line` | Mới (1.5) | Nói với khách: "Tiền hoàn sẽ về đúng tài khoản anh/chị đã chuyển." | Tell the guest: "The refund will be sent back to the account you paid from." | Dòng phụ dưới `refund.after_cancel_destination`. Câu trong ngoặc là câu nói với khách theo DOM 11.4 mục 3 |
 | `error.refund_destination_fixed` | Mới (1.5) | Yêu cầu hoàn này chỉ chi bằng chuyển khoản về đúng tài khoản khách đã chuyển. Không đổi nơi nhận, không chi tiền mặt. | This refund can only be paid by bank transfer back to the account the guest paid from. The destination can't be changed and it can't be paid in cash. | 409 khi gọi `setRefundDestination` hoặc `executeCashRefund` trên yêu cầu `payment_after_cancel` |
+| `error.refund_no_transfer_left` | **Mới (2.5)**, DOM 148-07 | Không còn khoản chuyển khoản nào trên đơn để hoàn về. Không chi tiền mặt. Báo chủ đầu tư. | There's no bank transfer left on this booking to refund to. Don't pay in cash. Tell the owner. | 409 của `executeRefund` trên yêu cầu nơi nhận cố định, khi folio không còn khoản chuyển khoản, VietQR chưa đảo (DOM 148 mục 4.2). Hiện khi BE trả dấu hiệu riêng theo 148-07 (ARC chốt `detail` hay `extras.reason`). Chưa có dấu hiệu thì Desk giữ câu chung. Không hiện nút chi tiền mặt |
 
 **"Có thể trùng" (bản 1.5; bắt buộc khi 5B-1 lên).** Hiện ở màn duyệt hoàn (Cần duyệt, Hoàn tiền) và màn đối soát, khi `possibleDuplicateCodes` không rỗng. Chỉ hiện mã đơn. Không chặn nút: khách có thể chuyển thật hai lần cùng số.
 
@@ -1391,6 +1414,56 @@ Ký hiệu: **D** = ngày đi hiệu lực (`stayDeparture`, đã tính gia hạ
 
 **(d) Theo DS hiện có.** Dòng `help` chữ Stone Grey, `.err` của Field, `Alert info` (màu `--info` chỉ trong Alert, DS 2.4). Không thêm màu, không thêm cỡ chữ.
 
+### 9.16 Ô Người chốt trên khung đơn: đổi theo mốc (Desk, FE-A; DOM 154-03, SEC 1I-03) – bản 2.5
+
+Chữ Desk nội bộ (VI, EN). Không có chữ cho khách, không cần CPY. Lên cùng PR Desk đổi người chốt của FE-A (chưa mở). Luật máy chủ đã có trên `main` (#154; hợp đồng 0.3.13 bổ sung 1h, 1i, mô tả `updateReservation`):
+- giữ chỗ: FD+ đổi được. Desk không hiện ô lý do;
+- ngoài giữ chỗ, chưa nhận phòng (ví dụ `confirmed`): MGR+ đổi được, lý do không bắt buộc (DOM 1H-05). FD, FDL gửi → 403 `FORBIDDEN_ACTION` kèm `access.denied` (`CLOSER_CHANGE_BEFORE_CHECKIN`);
+- sau nhận phòng (`in_house`, `checked_out`): chỉ OWN, `closerChangeReason` bắt buộc, 3–500 ký tự. MGR, FDL, FD gửi → 403 (`CLOSER_CHANGE_AFTER_CHECKIN`);
+- chỉ gửi `closerChangeReason` khi `closerUserId` đổi. Gửi mà người chốt không đổi → 422 `NOT_ALLOWED`;
+- lý do lưu ở cột `reason` của audit `reservation.closer_changed`. FD, FDL đọc được trong Lịch sử đơn (`getReservationHistory`, SEC 1I-03).
+
+Cách hiện:
+- vai sửa được: ô chọn như lúc tạo đơn, nhãn `bk.closer_sales` (sale nội bộ) hoặc `bk.closer` (CTV). Ô lý do chỉ hiện sau khi chọn người khác, và chỉ ở đơn ngoài giữ chỗ. Chọn lại người cũ thì ô lý do ẩn và không gửi;
+- vai không sửa được ở mốc này: tên người chốt ở dạng chữ, không có ô chọn, không có nút. Dưới tên có một dòng `help` (`readonly_manager` hoặc `readonly_owner`). Không hiện nút cho vai sẽ bị 403, để lễ tân làm đúng việc không sinh `access.denied` (DOM 154-03);
+- sale, CTV: không có dòng chỉ đọc. Đổi người chốt không phải việc của họ.
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `rsv.closer.reason` | Mới | Lý do đổi người chốt | Reason for the change | Nhãn ô lý do, ngay dưới ô người chốt. OWN sau nhận phòng: bắt buộc (dấu * của Field). Trước nhận phòng: thêm `common.optional` |
+| `rsv.closer.reason_help` | Mới (SEC 1I-03) | Lễ tân và lễ tân trưởng đọc được lý do này trong lịch sử đơn. Không ghi họ tên, số giấy tờ, số thẻ của khách, cũng không ghi tỷ lệ hay số tiền hoa hồng. | Front desk staff can read this reason in the booking history. Don't write the guest's name, ID or card numbers, or any commission rate or amount. | `help` dưới ô lý do, luôn hiện khi ô hiện, kể cả khi có lỗi (như 9.9). Nối vào `aria-describedby` |
+| `rsv.closer.reason_hint` | Mới | Ví dụ: lúc tạo đơn chọn nhầm người chốt. | For example: the wrong person was picked when the booking was created. | Chữ gợi ý (placeholder) ô lý do |
+| `rsv.closer.readonly_manager` | Mới (DOM 154-03) | Cần đổi người chốt? Báo quản lý trước khi khách nhận phòng. Sau đó chỉ chủ đầu tư đổi được. | Need to change who closed this booking? Tell a manager before the guest checks in. After that, only the owner can change it. | Dòng dưới tên người chốt cho FD, FDL, ở đơn ngoài giữ chỗ, chưa nhận phòng |
+| `rsv.closer.readonly_owner` | Mới (DOM 154-03) | Khách đã nhận phòng nên chỉ chủ đầu tư đổi được người chốt. Cần đổi thì báo chủ đầu tư. | The guest has checked in, so only the owner can change who closed this booking. Tell the owner if it needs changing. | Dòng dưới tên người chốt cho MGR, FDL, FD, ở đơn `in_house`, `checked_out` |
+| `error.closer_change_forbidden` | Mới | Đơn vừa đổi trạng thái nên bạn không đổi được người chốt nữa. Desk đã tải lại đơn. | The booking's status just changed, so you can no longer change who closed it. Desk has reloaded the booking. | 403 `FORBIDDEN_ACTION` khi thân PATCH có `closerUserId`, ví dụ khách vừa nhận phòng ở máy khác. FE tải lại đơn rồi mới hiện câu; sau đó ô thành chỉ đọc, kèm dòng `readonly_*` |
+| `field_error.reason_card_number` | Mới | Lý do có dãy số giống số thẻ thanh toán. Xóa dãy số đó – OTTIMO không lưu số thẻ. | The reason contains what looks like a card number. Remove it – OTTIMO doesn't store card numbers. | Dưới ô lý do, 422 `CARD_NUMBER_DETECTED` có `errors[].field = closerChangeReason` (V-09). Khung lỗi không hiện `error.CARD_NUMBER_DETECTED` ("Ô ghi chú…"). Dùng lại cho ô lý do khác ở v1.0.6 (9.17) |
+
+Dùng lại, không đổi chữ:
+- `field_error.reason_required` (Ghi lý do (ít nhất 3 ký tự).): 422 `REASON_REQUIRED` ở `closerChangeReason`;
+- `field_error.too_long` (Tối đa {max} ký tự.), `{max}` = 500: 422 `TOO_LONG`;
+- `field_error.not_in_list` (Chọn một giá trị trong danh sách.): 422 `NOT_IN_LIST` ở `closerUserId` (người vừa bị tắt, hoặc sai kênh). FE tải lại danh sách người chốt;
+- `common.optional` (Không bắt buộc);
+- `mlog.a_closer_changed` (Đổi người chốt: {from} → {to}): dòng Lịch sử đơn, đã có.
+
+Không viết câu riêng:
+- 422 `NOT_ALLOWED` ở `closerChangeReason`: Desk không gửi lý do khi người chốt không đổi, nên đây là lỗi FE. Để câu chung;
+- 409 hoa hồng `payable`, `paid`: v1.0.5 chưa có luồng chi, nên không xảy ra (hợp đồng 1h). Viết câu khi có luồng chi (DOM 1H-03, US-089 v1.3).
+
+**Vì sao viết vậy.**
+- Help nói ai đọc được trước, rồi mới nói không ghi gì. Người gõ là chủ đầu tư hoặc quản lý. Họ cần biết lễ tân cũng đọc, để không ghi tỷ lệ hay số hoa hồng khi giải thích. Thêm "số thẻ" theo hướng SEC 145-01, để hai ô lý do mới nói cùng một ý.
+- Hai dòng chỉ đọc tách theo mốc, không gộp thành một câu hai vế như ví dụ của DOM. Mỗi vai thấy đúng người cần báo. Câu cho FD, FDL vẫn có vế "Sau đó…", vì đơn nào rồi cũng qua nhận phòng.
+- EN dùng "who closed this booking", theo nhãn "Closed by" đang có. "Closer" chỉ dùng trong nhật ký.
+- Theo DS hiện có: `help` chữ Stone Grey, `.err` của Field. Không thêm màu, không thêm cỡ chữ.
+
+### 9.17 Để sẵn cho v1.0.6 (chưa đếm, chưa áp)
+
+| Nguồn | Chỗ | Việc ở v1.0.6 | Ghi chú |
+|---|---|---|---|
+| SEC FB-R5-SEC-FE-145-01 (Suggestion) | `checkout.overdue_reason_help` | Nháp VI: "Lý do lưu vào nhật ký thay đổi. Không ghi họ tên, số giấy tờ, số thẻ hay thông tin sức khỏe của khách, cũng không chép nguyên tin nhắn của khách." EN: "The reason is kept in the change log. Don't write the guest's name, ID or card numbers or health information, and don't paste the guest's messages." | Thêm "số thẻ" (SEC) và vế "không chép nguyên tin nhắn" (ghi chú SEC: tin nhắn hay có số điện thoại). Cùng lượt: 422 `CARD_NUMBER_DETECTED` ở `overdueReason` hiện `field_error.reason_card_number` (9.16) dưới ô, thay câu "Ô ghi chú…" |
+| UXD FB-R5-UXD-FE-145-04 (Suggestion) | hộp xác nhận Hoàn tất, dòng `checkout.overdue_effect` | Tách thành đoạn riêng đứng đầu thân hộp, chữ đậm 600 (Be Vietnam Pro, Ink) | Không đổi chữ, không thêm màu |
+| UXD FB-R5-UXD-FE-145-06 (Suggestion) | `Seg` (gói `product/packages/ui`), nhóm nút gợi ý lý do ở bước ② | Dưới 520 px, khi `Seg` xuống hàng: mỗi nút `min-height: 40px`, rộng trọn hàng | UXD ghi vào DS ở lượt DS sau, FE làm |
+| DOM FB-R5-DOM-FE-145-05 (Suggestion) | ô đánh dấu `ci.told_guest` ở bước ②, đơn quá ngày đi có phụ thu | Dùng nhãn `checkout.overdue_told_guest` (9.15 bảng C): "Tôi sẽ nhắn khách khoản phụ thu này cùng bill" | Vẫn bắt buộc chọn, không có "bỏ qua" (BR-414). BA thêm vào sổ tay: gửi bill qua Zalo hoặc tin nhắn OTA ngay sau khi ghi |
+
 ---
 
 ## 6. Yêu cầu cho FE, BE (gom theo tệp)
@@ -1447,7 +1520,14 @@ Ký hiệu: **D** = ngày đi hiệu lực (`stayDeparture`, đã tính gia hạ
 | FE-A2 (#145) | `design/tools/gen_strings.py` (+ sinh lại, gộp `main` trước), `pages/stay/CheckOutPage.tsx`, `pages/stay/overdue.tsx` | Bản 2.4, bảng A: sửa `overdue_time_help`, `overdue_after_limit`, EN `no_notice`; thêm `overdue_time_help_agreed`, chọn theo `agreedCheckoutTime`; bỏ `co.time_from_late` trên nhánh quá ngày đi; `after_limit` chỉ khi ngày `checkoutAt` = D; ghi chú khóa "UXD duyệt 07/11". Điều kiện gộp #145 (FB-R5-UXD-FE-145-01) | 9.15 bảng A |
 | FE-A2 (#145, cùng lượt nếu kịp) | `gen_strings.py`, `CheckOutPage.tsx`, `ReservationDrawer.tsx`, test | Bản 2.4, bảng B: `overdue_time_early` theo điều kiện ARC 3.4 (thay `after_limit` ở lỗi ô giờ và `overdueWhy`); `overdue_extend_hint` sau `overdue_need_*` khi có `extend_stay` (FB-R5-UXD-FE-145-02); `overdue_reason_evidence` và con trỏ cuối ô (tùy) | 9.15 bảng B |
 | BA | sổ tay Desk v1.0.5 | Bản 2.4: nếu #145 gộp chưa có `overdue_time_early` hoặc `overdue_extend_hint`, đưa ý của hai câu vào sổ tay (cùng dòng release notes ARC 3.3) | 9.15 (b), (c) |
-| UXD | `design/content-guide.md` | Bản 2.4: sau khi #145 gộp, thêm các khóa 9.15 vào mục 8 | 9.15 |
+| UXD | `design/content-guide.md` | Bản 2.4: sau khi #145 gộp, thêm các khóa 9.15 vào mục 8. **Đã làm** ở bản 2.5 (v0.4.7) | 9.15 |
+| FE-A (PR Desk 5B-1) | `design/tools/gen_strings.py` (+ sinh lại), hộp Ghi tiền về sau khi hủy (tệp FE chọn), `app/problem.ts` | Bản 2.5: đọc N = `getFolio.balanceDueVnd` khi mở hộp và sau mỗi lỗi 422, chọn câu theo N: `intro`/`intro_due`, `methods_hint`/`methods_hint_due`, `after_cancel_method`/`after_cancel_method_due`. `rebook`, `find_new` luôn hiện. Quẹt thẻ chỉ khi N > 0, điền sẵn số = N. Chọn thẻ: ẩn ô ảnh và ô `bankReference`, hiện `co.pos_code` (bắt buộc) + `co.pos_no_card`, chữ gợi ý `note_hint_card`. 422 `AMOUNT_EXCEEDS_BALANCE` → `after_cancel_card_max` với `{max}` của lỗi. Ghi xong: `openVnd` nhóm `payment_after_cancel` tăng → `done` với `{refund}` = phần tăng; không tăng → `done_fee`. Nút "Ghi khoản thu". `type` theo ARC 148-02. Điều kiện trước khi nút lên (DOM 148-01) | 9.1 |
+| FE-A | `app/problem.ts` (409 `DUPLICATE_BANK_REFERENCE`), mọi hộp có ô `bankReference` | Bản 2.5: có `duplicateReservationCode` → `error.DUPLICATE_BANK_REFERENCE`; không có (sale, CTV) → `error.DUPLICATE_BANK_REFERENCE_no_code`. Không để `{code}` trống (DOM 148-06) | 9.1 |
+| BE + ARC | `refunds.service.ts` `executeRefund` (nhánh nơi nhận cố định), `openapi.yaml` 0.3.14 | Bản 2.5: dấu hiệu riêng cho ca "nơi nhận cố định, folio không còn khoản chuyển khoản, VietQR chưa đảo" (`detail` hoặc `extras.reason`, ARC chốt). Bỏ chữ "use executeCashRefund" ở nhánh này (DOM 148-07). FE-A hiện `error.refund_no_transfer_left`, không hiện lối chi tiền mặt | 9.1 |
+| FE-A | "Cần chú ý", hộp "Không thấy tiền" | Bản 2.5: chữ mới `today.money_after_cancel_not_found_note` (DOM 148-08). Thêm khóa khi làm 5B-1 | 9.1 |
+| BA | sổ tay lễ tân (`product/docs/manual/guides/02-le-tan.md`) | Bản 2.5: mục tiền về sau khi hủy dùng đúng tên nút và câu hộp 9.1 bản 2.5; thêm ý 4 của DOM 148-04 (phí hủy, phí không đến: quẹt thẻ trên chính đơn đã đóng, tối đa số còn phải thu). Lên cùng PR Desk 5B-1 | 9.1 |
+| FE-A (PR Desk đổi người chốt) | khung đơn, ô Người chốt (`bk.closer_sales`, `bk.closer`), `design/tools/gen_strings.py` | Bản 2.5: sửa được theo mốc (giữ chỗ FD+; ngoài giữ chỗ, chưa nhận phòng MGR+; sau nhận phòng chỉ OWN). Vai không sửa được thấy tên chỉ đọc kèm `rsv.closer.readonly_manager` hoặc `readonly_owner`, không có nút. Ô lý do chỉ hiện khi đổi người, ngoài giữ chỗ: bắt buộc cho OWN sau nhận phòng, "Không bắt buộc" trước đó; `reason_help` luôn hiện. Chỉ gửi `closerChangeReason` khi `closerUserId` đổi. 403 → tải lại đơn rồi hiện `error.closer_change_forbidden`. 422 `CARD_NUMBER_DETECTED` ở ô lý do → `field_error.reason_card_number` (DOM 154-03, SEC 1I-03) | 9.16 |
+| UXD | `design/content-guide.md` | Bản 2.5: thêm khóa 9.1 (bản 2.5) và 9.16 vào mục 8 sau khi FE-A áp | 9.1, 9.16 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
 - lưu lại đúng giá trị đề xuất của từ điển sẽ bị 422, kèm câu "Chọn một trong: 1, 2, 3, 4, 5, 6, 7";
@@ -1491,7 +1571,7 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - ParamDialog: thử 6 dạng lỗi `PARAM_OUT_OF_RANGE`, JSON thiếu ngoặc kép, giờ sai dạng. Không còn `{min}`, `{max}` lộ ra; không còn "danh sách" ở ô không có danh sách.
 - Đặt phòng mới, kênh OTA để trống giá: không có "0 đ". Trực tiếp gõ dưới sàn: câu có số sàn, trần thật.
 - Desk EN ở khung 362 px (PWA) và 1440 px: các cụm U+2011 không gãy dòng.
-- Bản 1.4, mục 9.1 (khi 5B-1 lên staging): lễ tân mở đơn đã hủy → nút "Ghi tiền về sau khi hủy" có, sale và CTV không thấy nút. Hộp chỉ có Chuyển khoản, VietQR. Khung cảnh báo đầu hộp luôn hiện. Thiếu ảnh hoặc chọn tiền mặt thì hiện đúng câu 9.1. Ghi xong hiện câu `rsv.after_cancel.done` có số tiền và mã đơn.
+- Bản 1.4, mục 9.1 (khi 5B-1 lên staging): lễ tân mở đơn đã hủy → nút "Ghi tiền về sau khi hủy" có, sale và CTV không thấy nút. Hộp chỉ có Chuyển khoản, VietQR (bản 2.5: khi N = 0; N > 0 xem dòng bản 2.5). Khung cảnh báo đầu hộp luôn hiện. Thiếu ảnh hoặc chọn tiền mặt thì hiện đúng câu 9.1. Ghi xong hiện câu `rsv.after_cancel.done` có số tiền và mã đơn.
 - Bản 1.5, mục 9.1 (ca QA (h), (i) của DOM 11.4): yêu cầu hoàn tự tạo hiện "Tiền về sau khi hủy", khối nơi nhận cố định, không có nút Nhập nơi nhận hoàn, không có lối chi tiền mặt. Cùng 400.000 ở đơn cũ và đơn mới, cách 2 giờ: chip "Có thể trùng" ở màn duyệt hoàn và màn đối soát, câu chỉ hiện mã đơn. Gõ lại một mã giao dịch đã ghi: câu `error.DUPLICATE_BANK_REFERENCE` có mã đơn kia, không có khoản thu mới.
 - Bản 1.5, mục 9.1a (khi V5-48 lên staging): lễ tân bấm Xác nhận cọc hoặc tạo VietQR trên đơn đã hủy (mở ở tab cũ) → câu 9.1a có "Đã hủy", không phải câu "tải lại". Sale tạo VietQR trên đơn đã hủy → câu `_sales`. Đơn Không đến → "Không đến".
 - Bản 1.5, mục 9.4 (khi PR #96 lên staging): `los_discount` có `pct` 120 ở luật thứ hai → "Chỗ cần sửa: mục 2, pct. Giá trị phải từ 0 đến 100. …"; `lease_terms` 13 kỳ → câu cả giá trị có "(12)"; `weekend_uplift_channels` = "web" → "Chọn một trong: all, direct, agent, ota". Không còn `{where}`, `{detail}`, `{key}` lộ ra; chỉ số đếm từ 1.
@@ -1537,3 +1617,17 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
 - Bản 2.4, mục 9.15 bảng B, cùng đơn (ngày đi D), gõ 03:00 (mock tái hiện V515-01) → "Desk hiểu 03:00 là rạng sáng <D+1>. Khách đi lúc 03:00 ngày <D>: ghi 06:00, …". Không có câu "quá mốc trả muộn". Lặp lại với đơn đã gia hạn mà vẫn quá ngày đi: <D> là ngày đi sau gia hạn. Sau khi v1.0.6 lên staging: cùng thao tác → không có câu này.
 - Bản 2.4, mục 9.15 bảng B, lễ tân (FD, FDL), đơn quá ngày đi 1 đêm → màn chỉ dẫn và ngăn đơn: câu "cần quản lý hoặc chủ đầu tư trả phòng." rồi "Trước khi gọi, kiểm căn: …". Nút Gia hạn còn bấm được. EN ở 390 px: hai câu không tràn khung ngăn đơn.
 - Bản 2.4: `grep` trên `strings-en.json`: không còn "without telling us"; `strings-vi.json` không còn "Không có bằng chứng giờ:".
+- Bản 2.5, mục 9.1 (khi PR Desk 5B-1 lên staging; ca ARC 105-03 t1–t7, số thử):
+  - đơn OTA trả tại chỗ, hủy có phạt 500.000 (N = 500.000): khung có "Đơn còn phải thu 500.000 đ…"; ô cách thanh toán có Quẹt thẻ. Chọn thẻ → số điền sẵn 500.000, không có ô ảnh, không có ô mã giao dịch, có ô mã chuẩn chi. Ghi → câu `done_fee`, không có yêu cầu hoàn mới;
+  - cùng đơn, thẻ 500.001 → dưới ô số tiền "Quẹt thẻ tối đa 500.000 đ, là số đơn còn phải thu.", không có khoản thu mới;
+  - cùng đơn, chuyển khoản 800.000 → câu `done` có "Yêu cầu hoàn 300.000 đ", không phải 800.000;
+  - đơn N = 0: khung "Đơn không còn nợ…"; ô cách thanh toán chỉ có Chuyển khoản, VietQR; nút chính "Ghi khoản thu";
+  - vai sale gõ lại một mã giao dịch đã ghi → câu `DUPLICATE_BANK_REFERENCE_no_code`, không có "đơn " với chỗ trống;
+  - `grep` trên `strings-vi.json`: không còn "yêu cầu hoàn đủ số tiền", "Ghi khoản thu và tạo yêu cầu hoàn"; `strings-en.json` không còn "Record payment and create refund request".
+- Bản 2.5, mục 9.16 (khi PR Desk đổi người chốt lên staging):
+  - lễ tân mở đơn đã xác nhận → tên người chốt chỉ đọc, dòng "Cần đổi người chốt? Báo quản lý…", không có ô chọn. Không có dòng `access.denied` mới;
+  - quản lý, cùng đơn → đổi được; ô lý do có "Không bắt buộc" và dòng help;
+  - quản lý mở đơn đang ở → dòng "Khách đã nhận phòng nên chỉ chủ đầu tư…";
+  - chủ đầu tư đổi người chốt đơn đang ở, để trống lý do → "Ghi lý do (ít nhất 3 ký tự)."; dòng help vẫn hiện. Gõ số thẻ thử công khai `4111 1111 1111 1111` → `field_error.reason_card_number` dưới ô, khung lỗi không có "Ô ghi chú";
+  - lễ tân mở Lịch sử đơn → thấy lý do, đúng như dòng help nói;
+  - Desk EN ở 390 px: hai dòng chỉ đọc và dòng help không tràn khung, không cắt chữ.
