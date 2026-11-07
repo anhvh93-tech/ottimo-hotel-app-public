@@ -26,6 +26,7 @@
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.3**: mục 9.14 mới, theo review FE-3 Desk #134, #137, #141 (`rounds/round-05/reviews/UXD-on-fe3-prs-134-137-141.md`). Gồm: chữ chốt V5-18 `deposit.accept_shortfall_unverified` (thay nháp FE-3); khóa mới `folio.open_refunds_may_decrease` thay câu của hàng chờ duyệt dưới tổng chờ hoàn, kèm điều kiện hiện (V5-13); sửa `error.closed_booking_payment_sales`; B4 nhập tay trên đơn đã đóng dùng câu 9.1a (V5-48). FE-3 áp trong PR. UXD không áp trên `main`, để không đụng `gen_strings.py` của 3 PR đang mở. Ghi chú ở 9.1a, 9.12. Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.4**: mục 9.15 mới, chữ chốt hộp Trả phòng quá ngày đi (V5-15 Desk, FE-A2 PR #145 @ `011d44e7`) theo review `rounds/round-05/reviews/UXD-on-fe-prs-145-146.md`. Gồm: 10 khóa FE-A2 viết nháp (8 giữ, 2 sửa chữ, 1 sửa EN); 2 khóa chỉ dẫn gọi ai đã chốt ở review #125; 4 khóa mới theo DOM `DOM-on-fe-pr-145.md` (145-01 dòng nhắc khi có giờ hẹn, 145-02 giờ trước mốc đổi ngày theo ARC 3.4, 145-03 nhắc Gia hạn, 145-04 cách biết giờ); 1 khóa để sẵn cho v1.0.6 (145-05). FE-A2 áp trong #145. UXD không áp trên `main`. Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 07/11/2026 · **Bản 2.5**: mục 9.1 viết lại theo #148 đã gộp (DOM `DOM-on-be-d2-pr-148.md`: 148-01 Major, 148-06, 148-07, 148-08). Quẹt thẻ chỉ khi đơn còn phải thu (N > 0), tối đa N; yêu cầu hoàn = max(0, số ghi − N), không còn "hoàn đủ" ở mọi ca; 9 khóa mới, 6 khóa sửa chữ. Mục 9.16 mới: ô Người chốt đổi theo mốc trên Desk (DOM 154-03, SEC 1I-03, luật #154), 7 khóa. Mục 9.17 mới: danh sách để sẵn cho v1.0.6 (SEC 145-01, UXD 145-04, 145-06, DOM 145-05), chưa đếm. `content-guide.md` v0.4.7: thêm 17 khóa 9.9, 9.15 đã có trên `main` (#145). Khóa 9.1, 9.16 chưa có trong `gen_strings.py`; FE-A thêm khi làm PR Desk. Cùng mục 0, 6, 8.
+- Sửa: UXD · Round 5 – Phản hồi & sửa · 07/11/2026 · **Bản 2.6**: mục 9.18 mới, 2 khóa cho dòng "Đổi người chốt" ở Nhật ký tiền (DOM FB-R5-DOM-FE-155-04, FE-A2 PR #159): bản ghi cũ không có tên, và người chốt có tài khoản không còn trong danh sách. FE-A2 áp ở PR sau #159. Cùng mục 0, 6, 8, 9.17.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -73,7 +74,8 @@
 | V5-18, V5-13, V5-48 sau review FE-3 (bản 2.3, mục 9.14) | 1 | 2 | 0 | **3** | Ngoài Gói 2. `deposit.accept_shortfall_unverified` (FE-3 thêm ở #141, UXD chốt chữ) và `folio.open_refunds_may_decrease`: điều kiện gộp #141, #134. `error.closed_booking_payment_sales` (sửa): cùng PR sau #137, trước tag v1.0.5. FE-3 áp trong PR |
 | V5-15 hộp Trả phòng quá ngày đi, Desk (bản 2.4, mục 9.15) | 0 | 16 | 0 | **16** | Ngoài Gói 2. Đi cùng #145. 10 khóa FE-A2 (UXD chốt), 2 khóa `checkout.overdue_need_*` (chốt ở `UXD-on-fe-prs-125-128.md` mục 3, nay đếm ở đây), 4 khóa mới. `checkout.overdue_told_guest` để sẵn cho v1.0.6, chưa đếm |
 | Desk đổi người chốt theo mốc (bản 2.5, mục 9.16) | 0 | 7 | 0 | **7** | Ngoài Gói 2. Đi cùng PR Desk đổi người chốt (FE-A; DOM 154-03, SEC 1I-03). Dùng lại 5 khóa có sẵn. Mục 9.17 (v1.0.6) chưa đếm |
-| **Tổng** | **82** | **184** | **9** | **275** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243. Bản 2.4: 259. Bản 2.5: 275 |
+| Nhật ký tiền, dòng Đổi người chốt (bản 2.6, mục 9.18) | 0 | 2 | 0 | **2** | Ngoài Gói 2. Đi cùng PR FE-A2 sau #159 (DOM 155-04) |
+| **Tổng** | **82** | **186** | **9** | **277** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243. Bản 2.4: 259. Bản 2.5: 275. Bản 2.6: 277 |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
@@ -94,6 +96,7 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Mục 9.1 (bản 2.5):** chữ bản 2.5 bắt buộc trước khi nút "Ghi tiền về sau khi hủy" lên Desk (DOM 148-01 Major). Chữ bản 1.4, 1.5 không được dùng nữa: lễ tân làm theo sẽ thu phí hủy trên đơn mới và hứa "hoàn đủ" với khách. `error.DUPLICATE_BANK_REFERENCE_no_code` (148-06) lên cùng ô `bankReference` đầu tiên mà sale, CTV dùng được. `error.refund_no_transfer_left` (148-07) lên khi BE trả dấu hiệu riêng; chưa có thì v1.0.6, không chặn QC. `today.money_after_cancel_not_found_note` (148-08): nên có cùng 5B-1.
 - **Mục 9.16 (bản 2.5):** theo lịch PR Desk đổi người chốt (FE-A). Khi PR lên thì cả 7 khóa bắt buộc: dòng help là điều kiện SEC 1I-03, hai dòng chỉ đọc là điều kiện DOM 154-03.
 - **Mục 9.17:** v1.0.6, chưa đếm.
+- **Mục 9.18 (bản 2.6):** nên có, cùng tag với #159 nếu kịp. Không kịp thì v1.0.6: dòng vẫn đúng nghĩa với "—" và `mlog.who_unlisted` (#159), chỉ khó đọc hơn. Không chặn QC.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -1462,7 +1465,24 @@ Không viết câu riêng:
 | SEC FB-R5-SEC-FE-145-01 (Suggestion) | `checkout.overdue_reason_help` | Nháp VI: "Lý do lưu vào nhật ký thay đổi. Không ghi họ tên, số giấy tờ, số thẻ hay thông tin sức khỏe của khách, cũng không chép nguyên tin nhắn của khách." EN: "The reason is kept in the change log. Don't write the guest's name, ID or card numbers or health information, and don't paste the guest's messages." | Thêm "số thẻ" (SEC) và vế "không chép nguyên tin nhắn" (ghi chú SEC: tin nhắn hay có số điện thoại). Cùng lượt: 422 `CARD_NUMBER_DETECTED` ở `overdueReason` hiện `field_error.reason_card_number` (9.16) dưới ô, thay câu "Ô ghi chú…" |
 | UXD FB-R5-UXD-FE-145-04 (Suggestion) | hộp xác nhận Hoàn tất, dòng `checkout.overdue_effect` | Tách thành đoạn riêng đứng đầu thân hộp, chữ đậm 600 (Be Vietnam Pro, Ink) | Không đổi chữ, không thêm màu |
 | UXD FB-R5-UXD-FE-145-06 (Suggestion) | `Seg` (gói `product/packages/ui`), nhóm nút gợi ý lý do ở bước ② | Dưới 520 px, khi `Seg` xuống hàng: mỗi nút `min-height: 40px`, rộng trọn hàng | UXD ghi vào DS ở lượt DS sau, FE làm |
+| UXD (theo DOM 155-04) | dòng "Đổi người chốt", Nhật ký tiền | Với OWN: lấy tên người chốt đã khóa từ `listUsers` (chỉ OWN gọi), hiện "{name} (hiện không hoạt động)". Chủ đầu tư kiểm được người cũ mà không cần mở màn Người dùng | Cần SEC đồng ý và một khóa mới. FD, FDL, MGR giữ `mlog.closer_inactive` |
 | DOM FB-R5-DOM-FE-145-05 (Suggestion) | ô đánh dấu `ci.told_guest` ở bước ②, đơn quá ngày đi có phụ thu | Dùng nhãn `checkout.overdue_told_guest` (9.15 bảng C): "Tôi sẽ nhắn khách khoản phụ thu này cùng bill" | Vẫn bắt buộc chọn, không có "bỏ qua" (BR-414). BA thêm vào sổ tay: gửi bill qua Zalo hoặc tin nhắn OTA ngay sau khi ghi |
+
+### 9.18 Nhật ký tiền: dòng "Đổi người chốt" khi không có tên (DOM 155-04, FE-A2 #159) – bản 2.6
+
+Chữ Desk nội bộ (VI, EN). Không có chữ cho khách. #159 sửa dòng `mlog.a_closer_changed` ("Đổi người chốt: {from} → {to}"): đọc `before.closerUserId`, `after.closerUserId`, đổi ra tên bằng `listCloserCandidates` (`kind=all`). Danh sách này chỉ có người `active` còn vai ở cơ sở. Hai ca chưa có chữ riêng; #159 tạm dùng "—" và `mlog.who_unlisted`.
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `mlog.a_closer_changed_legacy` | Mới (DOM 155-04) | Đổi người chốt (bản ghi cũ, không có tên) | Closer changed (older record, no names) | Dòng `reservation.closer_changed` mà `after` **không có khóa** `closerUserId`: bản ghi trước #154. Thay cả dòng `mlog.a_closer_changed`, không hiện "— → —". Bản ghi từ #154 mà `before.closerUserId` rỗng (ghi người chốt lần đầu) không dùng khóa này: vẫn `a_closer_changed`, `{from}` = "—" như #159 |
+| `mlog.closer_inactive` | Mới (DOM 155-04) | Tài khoản hiện không hoạt động | Inactive account | Giá trị `{from}` hoặc `{to}` khi id không có trong danh sách người chốt đã tải xong. Thay `mlog.who_unlisted` ở dòng này. Ô lọc Người làm vẫn dùng `mlog.who_unlisted`. Đang tải: `common.loading`; tải lỗi: như #159 |
+
+Ví dụ: "Đổi người chốt: Sơn → Tài khoản hiện không hoạt động" / "Closer changed: Sơn → Inactive account".
+
+**Vì sao viết vậy.**
+- Không ghi "trước v1.0.5" như nháp DOM. Desk chưa có chuỗi nào nêu số phiên bản, và lễ tân không cần biết số này. Cột thời gian của dòng đã cho biết lúc nào. Từ #154 mọi bản ghi đều có tên, nên "bản ghi cũ" chỉ còn trỏ tới các bản ghi trước đó. Release notes v1.0.5 có thể ghi một dòng (mục 6, PO).
+- Không ghi "đã khóa" như ý DOM. Desk không biết vì sao id vắng: danh sách chỉ trả người `active`, nên vắng có thể là đã khóa, tạm khóa vì sai mật khẩu, đã tắt, hoặc đã gỡ khỏi cơ sở. Danh sách cố ý không trả trạng thái khóa (mô tả `listCloserCandidates`). Trạng thái khóa là dữ liệu bảo mật tài khoản (D27). "Hiện không hoạt động" đúng cho mọi ca. Câu này không nói thêm điều gì ngoài việc người đó vắng trong ô chọn người chốt, và "hiện" nói đúng là tên được đọc lúc xem, không phải lúc ghi.
+- "Tài khoản", không ghi "nhân viên": người chốt có thể là CTV.
 
 ---
 
@@ -1527,7 +1547,9 @@ Không viết câu riêng:
 | FE-A | "Cần chú ý", hộp "Không thấy tiền" | Bản 2.5: chữ mới `today.money_after_cancel_not_found_note` (DOM 148-08). Thêm khóa khi làm 5B-1 | 9.1 |
 | BA | sổ tay lễ tân (`product/docs/manual/guides/02-le-tan.md`) | Bản 2.5: mục tiền về sau khi hủy dùng đúng tên nút và câu hộp 9.1 bản 2.5; thêm ý 4 của DOM 148-04 (phí hủy, phí không đến: quẹt thẻ trên chính đơn đã đóng, tối đa số còn phải thu). Lên cùng PR Desk 5B-1 | 9.1 |
 | FE-A (PR Desk đổi người chốt) | khung đơn, ô Người chốt (`bk.closer_sales`, `bk.closer`), `design/tools/gen_strings.py` | Bản 2.5: sửa được theo mốc (giữ chỗ FD+; ngoài giữ chỗ, chưa nhận phòng MGR+; sau nhận phòng chỉ OWN). Vai không sửa được thấy tên chỉ đọc kèm `rsv.closer.readonly_manager` hoặc `readonly_owner`, không có nút. Ô lý do chỉ hiện khi đổi người, ngoài giữ chỗ: bắt buộc cho OWN sau nhận phòng, "Không bắt buộc" trước đó; `reason_help` luôn hiện. Chỉ gửi `closerChangeReason` khi `closerUserId` đổi. 403 → tải lại đơn rồi hiện `error.closer_change_forbidden`. 422 `CARD_NUMBER_DETECTED` ở ô lý do → `field_error.reason_card_number` (DOM 154-03, SEC 1I-03) | 9.16 |
-| UXD | `design/content-guide.md` | Bản 2.5: thêm khóa 9.1 (bản 2.5) và 9.16 vào mục 8 sau khi FE-A áp | 9.1, 9.16 |
+| UXD | `design/content-guide.md` | Bản 2.5: thêm khóa 9.1 (bản 2.5) và 9.16 vào mục 8 sau khi FE-A áp. Bản 2.6: cùng với 2 khóa 9.18 | 9.1, 9.16, 9.18 |
+| FE-A2 (PR sau #159) | `pages/money/MoneyPage.tsx` (`AuditAction`, nhánh `reservation.closer_changed`), `design/tools/gen_strings.py`, `r5-mlog-closer-names-fea.test.tsx` | Bản 2.6: `after` không có khóa `closerUserId` → cả dòng `mlog.a_closer_changed_legacy`; id không có trong danh sách đã tải → `mlog.closer_inactive` thay `mlog.who_unlisted`. `before.closerUserId` rỗng ở bản ghi mới giữ "—". Ô lọc Người làm không đổi. Test: ca bản ghi cũ, ca id vắng | 9.18 |
+| PO | release notes v1.0.5 (nếu có dòng Nhật ký tiền) | Bản 2.6: "Các lần đổi người chốt trước bản này hiện 'bản ghi cũ, không có tên'." (tùy PO) | 9.18 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
 - lưu lại đúng giá trị đề xuất của từ điển sẽ bị 422, kèm câu "Chọn một trong: 1, 2, 3, 4, 5, 6, 7";
@@ -1631,3 +1653,8 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
   - chủ đầu tư đổi người chốt đơn đang ở, để trống lý do → "Ghi lý do (ít nhất 3 ký tự)."; dòng help vẫn hiện. Gõ số thẻ thử công khai `4111 1111 1111 1111` → `field_error.reason_card_number` dưới ô, khung lỗi không có "Ô ghi chú";
   - lễ tân mở Lịch sử đơn → thấy lý do, đúng như dòng help nói;
   - Desk EN ở 390 px: hai dòng chỉ đọc và dòng help không tràn khung, không cắt chữ.
+- Bản 2.6, mục 9.18 (mock hoặc staging, vai quản lý, rồi lễ tân):
+  - bản ghi `reservation.closer_changed` có `before`, `after` rỗng → "Đổi người chốt (bản ghi cũ, không có tên)", không có "→";
+  - bản ghi có `closerUserId` của người đã khóa → "Đổi người chốt: Sơn → Tài khoản hiện không hoạt động". Ô lọc Người làm vẫn có lựa chọn "Người không còn trong danh sách";
+  - ghi người chốt lần đầu → "Đổi người chốt: — → Mai";
+  - Desk EN: "Closer changed (older record, no names)", "Closer changed: Sơn → Inactive account".
