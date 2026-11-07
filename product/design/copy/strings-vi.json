@@ -263,6 +263,7 @@
   "bill.night_line": "Tiền phòng đêm {date}",
   "bill.foc_line": "Miễn phí · {reason}",
   "bill.total": "Tổng cộng",
+  "bill.total_estimate": "Tổng cộng (dự tính)",
   "bill.deposit": "Đã cọc / đã thu",
   "bill.balance": "Còn phải thu",
   "bill.vat_note": "Giá đã gồm thuế GTGT",

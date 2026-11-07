@@ -959,6 +959,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // BR-416-06: the late fee (less the waiver sent with it) is posted by B18 too – money taken for it before is
   // not a credit to hand back.
   const lateFeeNet = lateFeeMode ? Math.max(0, (lateFeeAsNight ?? 0) - lfFocShown) : 0;
+  // BUG-R4-052 (V5-12): "Tổng cộng" of the bill step = the rows of the folio table below, summed – the lines already
+  // posted (`totalVnd`) plus what B18 is about to post and the table already shows: the extra night at the rate in the
+  // box, the late surcharge change at this time, the one-night late fee less the waiver sent with it. Never the server's
+  // due: that one may step the nights (BR-107), takes the payments off and stops at 0.
+  const billTotalVnd = (s?.totalVnd ?? 0) + extraNightVnd + lateDelta + lateFeeNet;
+  // FB-R5-UXD-FE-169-01 (copy 9.19): "Tổng cộng (dự tính)" while the table shows a row B18 has not posted yet – the
+  // same conditions that draw those rows (never billTotalVnd ≠ totalVnd: two rows may cancel out).
+  const billHasUnposted = extraNightVnd > 0 || lateDelta !== 0 || lateFeeMode;
   const credit =
     balance > 0
       ? 0
@@ -2040,7 +2048,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         ) : null}
         <section className="card stack">
           <p className="kv-big num">
-            {t('bill.total')}: {money(s?.totalVnd ?? 0)}
+            {t(billHasUnposted ? 'bill.total_estimate' : 'bill.total')}: {money(billTotalVnd)}
           </p>
           {staged ? (
             // BUG-R3-017: collected, written with "Hoàn tất"; "Bỏ" if it was a mistake or the due changed.
