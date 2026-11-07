@@ -520,7 +520,9 @@ export class ReservationsService {
     ctx: BookingContext,
     body: Record<string, unknown>,
   ): Promise<{ row: ReservationRow }> {
-    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone.
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone. Equivalent today
+    // (mutants M34 / ARC A16: parseInitialPayment already answers it first) – kept so one rule runs on all 5 paths
+    // (ARC review #148, 2.1).
     assertBankReferenceNotCardFirst(body, 'initialPayment');
     const f = new Fields(body);
     const roomId = f.uuid('roomId', true);
