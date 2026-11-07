@@ -913,4 +913,58 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     );
     expect(log.after).toMatchObject({ recordedByRole: 'owner', ownSelfApprovedAndPaid: true });
   }, 120_000);
+
+  it('FB-R5-SEC-BE-148-03 – S2 with an OWN recorder: the 5B-1 request in its name; the OWN approves neither it nor the one MGR2 asks again (origin), and never pays it in cash', async () => {
+    await x.at('2026-11-29T10:00:00+07:00');
+    const owner = x.t.users.owner!.id;
+    const b = await otaCancelled('201');
+    const res = await transfer(b, 900_000, 'owner');
+    expect(res.statusCode, res.body).toBe(201);
+    const [first] = await refundsOf(b);
+    expect(first).toMatchObject({
+      requested_by: owner,
+      origin_actor_ids: [owner],
+      amount_vnd: 400_000,
+      reason_code: 'payment_after_cancel',
+    });
+    const self = await decide(first.id, 'approve', 'owner');
+    expect(self.statusCode, self.body).toBe(403);
+    expect(self.json().code).toBe('SELF_APPROVAL_FORBIDDEN');
+    expect((await decide(first.id, 'reject', 'mgr')).statusCode).toBe(200);
+    const again = await x.c.mgr2!.send('POST', x.url(`/folios/${b.folioId}/refund-requests`), {
+      amountVnd: 400_000,
+      reason: 'Hoàn tiền về sau khi hủy',
+    });
+    expect(again.statusCode, again.body).toBe(201);
+    const id = again.json().id as string;
+    const [row] = await x.q(`SELECT origin_actor_ids FROM approval_request WHERE id = $1`, [id]);
+    expect(row.origin_actor_ids).toContain(owner);
+    const ownApprove = await decide(id, 'approve', 'owner');
+    expect(ownApprove.statusCode, ownApprove.body).toBe(403);
+    expect(ownApprove.json().code).toBe('SELF_APPROVAL_FORBIDDEN');
+    // The request asked again takes a cash destination (S3 does not follow it yet – SEC 148-02, v1.0.6). The OWN
+    // transfer exception never covers cash: an origin actor never pays it.
+    const dest = await x.c.fd!.send('PUT', x.url(`/approval-requests/${id}/refund-destination`), {
+      method: 'cash',
+    });
+    expect(dest.statusCode, dest.body).toBe(200);
+    expect((await decide(id, 'approve', 'mgr')).statusCode).toBe(200);
+    const cash = await x.c.owner!.send(
+      'POST',
+      x.url(`/approval-requests/${id}/actions/execute-cash-refund`),
+      {
+        amountVnd: 400_000,
+        paidAt: '2026-11-29T10:00:00+07:00',
+        attachmentId: await upload('owner', b.id, 'refund_proof'),
+      },
+    );
+    expect(cash.statusCode, cash.body).toBe(403);
+    expect(cash.json().code).toBe('SELF_REFUND_FORBIDDEN');
+    expect(
+      Number(
+        (await x.q(`SELECT refunded_vnd FROM approval_request WHERE id = $1`, [id]))[0]
+          .refunded_vnd,
+      ),
+    ).toBe(0);
+  }, 120_000);
 });
