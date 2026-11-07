@@ -12,7 +12,12 @@ import type { Tx } from '../../../db/database';
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { CANCEL_REASON_CODES, type CancelReasonCode } from '../../../db/schema';
 import { ProblemError, problem } from '../../../shared/problem';
-import { assertNoCardNumber, containsCardNumber } from '../../../shared/validation';
+import {
+  assertBankReferenceNotCardFirst,
+  assertNoCardNumber,
+  containsCardNumber,
+  readBankReference,
+} from '../../../shared/validation';
 import { type LocalDate, type LocalTime, addDays, atLocal, localDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
@@ -208,6 +213,14 @@ function errorCode(err: unknown): string {
 
 /** Input limit of a manual long stay (BA EP02 4 – data-entry guard, not a business rule). */
 const MANUAL_LONG_STAY_MAX_DAYS = 731;
+
+/**
+ * `ProblemError.options.auditReason` of the 403 "closer change after check-in by someone other than the owner"
+ * (contract 0.3.13 bổ sung 1h, BR-903 (3)) – the controller writes it as the ONE `access.denied.reason`.
+ */
+export const CLOSER_CHANGE_AFTER_CHECKIN = 'CLOSER_CHANGE_AFTER_CHECKIN';
+/** The same for the 403 "closer change after confirmation, before check-in, below MGR" (SEC FB-R5-SEC-ARC-1H-03). */
+export const CLOSER_CHANGE_BEFORE_CHECKIN = 'CLOSER_CHANGE_BEFORE_CHECKIN';
 
 /** A night price of an in-house stay being re-tiered (B13, B9a – BR-107 D-8). */
 export interface StayNightPrice {
@@ -515,6 +528,8 @@ export class ReservationsService {
     ctx: BookingContext,
     body: Record<string, unknown>,
   ): Promise<{ row: ReservationRow }> {
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone.
+    assertBankReferenceNotCardFirst(body, 'initialPayment');
     const f = new Fields(body);
     const roomId = f.uuid('roomId', true);
     const channelId = f.uuid('channelId', true);
@@ -1366,7 +1381,19 @@ export class ReservationsService {
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.assertVersion(row, expectedVersion);
-    if (!['hold', 'confirmed', 'in_house'].includes(row.status)) throw this.invalid(row);
+    // 0.3.13 bổ sung 1h: "đổi người chốt" = a value other than the stored one, a first closer included.
+    const closerChange = closerUserId !== undefined && closerUserId !== row.closer_user_id;
+    // BR-903 (3): "after check-in" = the booking has a real check-in (`in_house`, `checked_out`).
+    const checkedIn =
+      row.actual_checkin_at !== null || row.status === 'in_house' || row.status === 'checked_out';
+    // 1h: on a checked-out booking the owner's closer correction is the only PATCH (no other field).
+    const closerOnly = Object.keys(body).every(
+      (k) => k === 'closerUserId' || k === 'closerChangeReason',
+    );
+    const editable =
+      ['hold', 'confirmed', 'in_house'].includes(row.status) ||
+      (row.status === 'checked_out' && closerChange && closerOnly);
+    if (!editable) throw this.invalid(row);
     if (returned === true) {
       if (!hasAny(ctx.actor.roles, FD_PLUS)) throw problem('FORBIDDEN_ACTION');
       await this.hooks.roomReturn(tx, {
@@ -1419,14 +1446,35 @@ export class ReservationsService {
       if (!kind) f.add('closerUserId', 'NOT_IN_LIST');
       else this.checkCloserForChannel(f, row.channel_group, row.direct_source, closerUserId, kind);
     }
-    // The closer drives the commission: after confirmation only MGR+ may change it (EP02 5.4).
-    if (
-      closerUserId &&
-      closerUserId !== row.closer_user_id &&
-      row.status !== 'hold' &&
-      !hasAny(ctx.actor.roles, MGR_PLUS)
-    ) {
-      throw problem('FORBIDDEN_ACTION', { detail: 'closer change after confirmation needs MGR+' });
+    // The closer drives the commission (contract 0.3.13 bổ sung 1h; EP02 5.4, BR-903 (3)), checked under the booking
+    // lock and before the 422s of the body and the 409 of a commission in a pay-out (SEC FB-R5-SEC-ARC-1H-03: 403 →
+    // 422 → 409): after confirmation only MGR+ may change it; after check-in only the owner. Every such 403 writes ONE
+    // access.denied (the controller, after the rollback), never the reason the caller typed.
+    if (closerChange && row.status !== 'hold') {
+      if (checkedIn) {
+        if (!hasAny(ctx.actor.roles, ['owner'])) {
+          throw problem('FORBIDDEN_ACTION', {
+            detail: 'closer change after check-in needs OWN',
+            auditReason: CLOSER_CHANGE_AFTER_CHECKIN,
+          });
+        }
+      } else if (!hasAny(ctx.actor.roles, MGR_PLUS)) {
+        throw problem('FORBIDDEN_ACTION', {
+          detail: 'closer change after confirmation needs MGR+',
+          auditReason: CLOSER_CHANGE_BEFORE_CHECKIN,
+        });
+      }
+    }
+    // 1h `closerChangeReason` (3–500, V-08, V-09): required for the owner's correction after check-in, optional
+    // before (kept in the audit); sent without a closer change → NOT_ALLOWED.
+    let closerReason: string | undefined;
+    if (!closerChange) {
+      if (f.present('closerChangeReason')) f.add('closerChangeReason', 'NOT_ALLOWED');
+    } else {
+      closerReason = f.text('closerChangeReason', 500, {
+        required: checkedIn && row.status !== 'hold',
+        min: 3,
+      });
     }
     const next = {
       adults: adults ?? row.adults,
@@ -1565,7 +1613,9 @@ export class ReservationsService {
       );
     }
     if (closerUserId && closerUserId !== row.closer_user_id) {
-      // SEC-BE-26: the closer decides who earns the commission – a money event.
+      // SEC-BE-26: the closer decides who earns the commission – a money event. The reason (free text, cleaned by
+      // V-08 / V-09) goes to the audit `reason` column like every other booking action – never into `after`
+      // (SEC FB-R5-SEC-ARC-1H-01: the `reservation` allowlist holds facts only).
       await this.audit.recordMoney(tx, {
         action: 'reservation.closer_changed',
         entityType: 'reservation',
@@ -1573,6 +1623,7 @@ export class ReservationsService {
         entityCode: row.code,
         before: { closerUserId: row.closer_user_id },
         after: { closerUserId },
+        ...(closerReason ? { reason: closerReason } : {}),
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       });
     }
@@ -1629,6 +1680,18 @@ export class ReservationsService {
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
     const after = await loadReservation(tx, row.id, ctx.actor);
+    if (closerChange && after.status !== 'hold') {
+      // 1h (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02): the commission follows the closer in THIS transaction –
+      // before the folio resync below, so a combined edit voids the earlier closer's row once, with this reason.
+      await this.money.closerChanged(
+        tx,
+        after,
+        await this.confirmedStay(tx, after),
+        ctx.actor.userId,
+        checkedIn ? 'closer_corrected' : 'closer_changed',
+        ctx.requestId,
+      );
+    }
     if (repriced) {
       await this.syncKit(tx, ctx, after, seg.room_id, seg.base_occupancy);
       if (after.status !== 'hold') {
@@ -1960,6 +2023,10 @@ export class ReservationsService {
     if (o.attachmentId !== undefined && o.attachmentId !== null) {
       pf.add('attachmentId', 'NOT_ALLOWED');
     }
+    // 0.3.13 bổ sung 1 (PR-B3, FB-R5-ARC-BE-119-01): `ReservationCreate.payment` is a PaymentCreate – the same reader as
+    // every other path (pattern, the reference card rule – thrown, method); duplicates are checked by recordManual.
+    const reference = readBankReference('initialPayment.bankReference', o.bankReference, o.method);
+    if (reference.error) pf.add('bankReference', reference.error);
     for (const e of pf.errors) f.add(`initialPayment.${e.field}`, e.code);
     if (pf.errors.length) return undefined;
     return {
@@ -1969,6 +2036,7 @@ export class ReservationsService {
       ...(typeof o.receivedAt === 'string' ? { receivedAt: o.receivedAt } : {}),
       ...(posAuthCode ? { posAuthCode } : {}),
       ...(note ? { note } : {}),
+      ...(reference.value ? { bankReference: reference.value } : {}),
     };
   }
 

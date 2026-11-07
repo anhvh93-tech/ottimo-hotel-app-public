@@ -25,6 +25,7 @@ import copyEn from '../../../../design/copy/strings-en.json';
 import copyRu from '../../../../design/copy/strings-ru.json';
 import copyVi from '../../../../design/copy/strings-vi.json';
 import { businessDayLocal, todayLocal } from '../app/dates';
+import { canCheckOutOverdue, overdueNights } from './overdue';
 import type { MockGuest, MockUser } from './seed';
 
 type Guard = { user: MockUser; roles: Role[] } | Response;
@@ -866,6 +867,7 @@ export function createReservationMock(ctx: Ctx) {
       action: string;
       requiresApproval?: boolean;
       requiresTrustedDevice?: boolean;
+      overdue?: boolean;
     }> = [];
     const add = (event: string, transition: string, action: string, extra = {}) =>
       out.push({ event, transition, action, ...extra });
@@ -896,7 +898,13 @@ export function createReservationMock(ctx: Ctx) {
       add('extend_stay', 'B13', 'extend');
       add('set_late_checkout', 'B15', 'late-checkout');
       add('change_room', 'B14', 'change-room');
-      if (r.departureDate <= today()) add('check_out', 'B18', 'check-out');
+      // V5-15 (0.3.13 bổ sung 1): a primary stay past its effective departure (business day) – B18 only for the
+      // roles of that path (OWN; MGR while ≤ 1 night not billed), flagged `overdue`; FDL/FD get no action.
+      const late = r.parentReservationId ? 0 : overdueNights(bizToday(), stayDeparture(r));
+      if (late > 0) {
+        if (canCheckOutOverdue(roles, late))
+          add('check_out', 'B18', 'check-out', { overdue: true });
+      } else if (r.departureDate <= today()) add('check_out', 'B18', 'check-out');
       // 0.3.9 B16 (A17, FD+; bổ sung 1 mục 10.1): the primary booking, while max(today, arrival + 1) <
       // stayDepartureDate (the whole stay, child extensions included – BR-422). Like the real server (QA PR #22,
       // BUG-R4-014) a long stay gets it too: the Desk shows BR-313 instead of BR-428 for it.

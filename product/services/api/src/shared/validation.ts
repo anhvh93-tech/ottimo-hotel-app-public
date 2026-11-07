@@ -7,7 +7,8 @@
  *   half of `shared/sensitive-number.ts` OR the original rule (13–19 digits, one space/dash allowed between, Luhn)
  * - V-09 for a bank transfer REFERENCE field (C0313-25, SEC-responses 4.1 option (a); FB-R5-SEC-BE-119-01, ARC-BE-119-03):
  *   a value that STARTS with a card number, alone or followed by expiry / CVV groups → 422 CARD_NUMBER_DETECTED
- *   (`isCardNumberReference`); free text keeps the rule above
+ *   (`isCardNumberReference`); free text keeps the rule above. `PaymentCreate.bankReference` of every path is read by
+ *   `readBankReference` (pattern, card rule, method – PR-B3)
  * - dryRun flag (OpenAPI "dryRun"): computes consequences without writing – used by irreversible actions
  *   to show the confirmation dialog content (US-135 AC1).
  */
@@ -109,6 +110,59 @@ export function assertNotCardNumberReference(
     throw problem('CARD_NUMBER_DETECTED', {
       errors: [{ field, code: 'CARD_NUMBER_DETECTED' }],
     });
+  }
+}
+
+/** OpenAPI `bankReference` pattern (`PaymentCreate`, `executeRefund`), applied after trimming. */
+export const BANK_REFERENCE_PATTERN = /^[A-Za-z0-9./_-]{1,64}$/;
+/** The methods whose receipt may carry a bank transaction code (`PaymentCreate.bankReference`). */
+export const BANK_REFERENCE_METHODS: readonly string[] = ['bank_transfer', 'vietqr'];
+
+/**
+ * `PaymentCreate.bankReference` (0.3.13 bổ sung 1 mục 1.21 ý 3 + 1e + 1f; FB-R5-ARC-BE-119-01, FB-R5-SEC-BE-119-02) –
+ * the ONE reader of every PaymentCreate path (recordPayment, confirmDeposit, createReservation.initialPayment, checkIn,
+ * checkOut.finalPayment), so the paths cannot drift. `field` is the full error field (prefix included):
+ * - absent, null or blank → no code;
+ * - not a string, or outside `^[A-Za-z0-9./_-]{1,64}$` after trimming → `VALIDATION_FAILED`;
+ * - a card number (the reference rule, `isCardNumberReference` – never the free-text V-09) → THROWN 422
+ *   CARD_NUMBER_DETECTED, the value never repeated (checked before the method, like `posAuthCode`);
+ * - a method other than `bank_transfer` / `vietqr` → `NOT_ALLOWED`.
+ * Returns the trimmed value; `recordManual` upper-cases it (ARC-15) and checks it again before the INSERT.
+ */
+export function readBankReference(
+  field: string,
+  raw: unknown,
+  method: unknown,
+): { value: string | null; error: 'VALIDATION_FAILED' | 'NOT_ALLOWED' | null } {
+  if (raw === undefined || raw === null) return { value: null, error: null };
+  if (typeof raw !== 'string') return { value: null, error: 'VALIDATION_FAILED' };
+  const value = raw.trim();
+  if (!value) return { value: null, error: null };
+  if (!BANK_REFERENCE_PATTERN.test(value)) return { value: null, error: 'VALIDATION_FAILED' };
+  assertNotCardNumberReference(field, value);
+  if (typeof method !== 'string' || !BANK_REFERENCE_METHODS.includes(method)) {
+    return { value: null, error: 'NOT_ALLOWED' };
+  }
+  return { value, error: null };
+}
+
+/**
+ * 0.3.13 bổ sung 1i (BE C0313-31, option B): a `bankReference` that passes its own type and pattern but looks like a
+ * card number answers 422 CARD_NUMBER_DETECTED ALONE – before the errors of every other field (the request schema's
+ * types included) and before its own `NOT_ALLOWED`, as `posAuthCode` (BUG-R2-043) and `executeRefund` (#119). Each
+ * PaymentCreate reader calls this on the raw body before reading anything else; the full reading (pattern, method)
+ * stays `readBankReference`. `at` = the body key holding the PaymentCreate (`payment`, `initialPayment`,
+ * `finalPayment`), null = the body itself (`recordPayment`).
+ */
+export function assertBankReferenceNotCardFirst(body: unknown, at: string | null): void {
+  const record = (v: unknown): v is Record<string, unknown> =>
+    typeof v === 'object' && v !== null && !Array.isArray(v);
+  const holder = at === null ? body : record(body) ? body[at] : undefined;
+  const raw = record(holder) ? holder.bankReference : undefined;
+  if (typeof raw !== 'string') return;
+  const value = raw.trim();
+  if (value && BANK_REFERENCE_PATTERN.test(value)) {
+    assertNotCardNumberReference(at === null ? 'bankReference' : `${at}.bankReference`, value);
   }
 }
 

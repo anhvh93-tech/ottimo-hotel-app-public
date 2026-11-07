@@ -397,7 +397,15 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const url = req.url;
     const q = url.indexOf('?');
     const path = q < 0 ? url : url.slice(0, q);
-    const hash = requestHash(req.method, path, body);
+    let hash: string;
+    try {
+      hash = requestHash(req.method, path, body);
+    } catch {
+      // SEC FB-R5-SEC-BE-123-01: a body requestHash refuses (nested deeper than MAX_BODY_DEPTH – 422 at the unit of
+      // work) is no replay of a stored request: no lookup, the role decision stands – 403 + access.denied, never a
+      // 5xx from the guard.
+      return false;
+    }
     return this.db.withContext(
       tenantOf(p),
       async (tx) => {

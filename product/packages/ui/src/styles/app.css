@@ -383,6 +383,11 @@ body:has(.app-mnav) .toasts {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* FB-R5-UXD-FE-130-04: no one-word last line under a field or in an alert (browsers without it ignore it). */
+.field .err > span,
+.alert .txt {
+  text-wrap: pretty;
+}
 @media (max-width: 520px) {
   .topbar {
     flex-wrap: wrap;
@@ -542,7 +547,8 @@ body:has(.app-mnav) .toasts {
  * FB-R5-UXD-FE-PR125-04, PR140-01/02 (Desk H15 Nhận phòng, H16 Trả phòng – `.desk-foot` only, never the guest web):
  * under 600 px the reason a button is locked (`.li-s` between "Quay lại" and the main button) takes a row of its own
  * above the two buttons (it was squeezed into a ~40 px column at 390 px). From 600 px the footer stays one row, the
- * main button on the right.
+ * main button on the right. PR140-05: when the footer wraps (Minibar: 3 buttons), the main button stays at the right
+ * edge of its row (DS C1), never alone on the left.
  */
 @media (max-width: 599px) {
   .wiz-foot.desk-foot {
@@ -551,5 +557,8 @@ body:has(.app-mnav) .toasts {
   .wiz-foot.desk-foot > .li-s {
     flex: 1 0 100%;
     order: -1;
+  }
+  .wiz-foot.desk-foot > .btn.pri {
+    margin-left: auto;
   }
 }
