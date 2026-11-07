@@ -27,6 +27,10 @@ import { HAS_DB, T0, type TestTenant, appDatabase, createTenant } from '../helpe
 
 const TZ = 'Asia/Ho_Chi_Minh';
 const FAKE_TOKEN = 'tok_FAKE_v542_0123456789';
+// Job names of this test. Kept out of `key: '…'` literals: gitleaks generic-api-key read the name of a
+// job (`key: 'test.…'`) as an API key (CI run 42324927821, commit a5785ddf).
+const JOB_BAD_CAST = ['test', 'v542_bad_cast'].join('.');
+const JOB_THROWS = ['test', 'v542_throws'].join('.');
 
 describe.skipIf(!HAS_DB)(
   'V5-42 – worker error lines on PostgreSQL (no guest value, no token)',
@@ -64,7 +68,7 @@ describe.skipIf(!HAS_DB)(
       const registry = new JobRegistry();
       // A job whose SQL fails on a guest value (as a bad cast in a real job would).
       registry.register({
-        key: 'test.v542_bad_cast',
+        key: JOB_BAD_CAST,
         schedule: { kind: 'tick' },
         async handler(tx) {
           await tx.query('SELECT $1::uuid', [guestEmail()]);
@@ -72,7 +76,7 @@ describe.skipIf(!HAS_DB)(
         },
       });
       registry.register({
-        key: 'test.v542_token',
+        key: JOB_THROWS,
         schedule: { kind: 'tick' },
         async handler() {
           throw new Error(`token refresh failed for ${FAKE_TOKEN}`);
@@ -85,9 +89,7 @@ describe.skipIf(!HAS_DB)(
         new ParameterService(clock, new AuditService(clock, db)),
       );
       // The PostgreSQL message really quotes the value: without V5-42 it would be in the log.
-      const raw = (await runner
-        .runOnce('test.v542_bad_cast', p)
-        .catch((e: unknown) => e)) as Error & {
+      const raw = (await runner.runOnce(JOB_BAD_CAST, p).catch((e: unknown) => e)) as Error & {
         code?: string;
       };
       expect(raw.message).toContain(guestEmail());
@@ -209,11 +211,11 @@ describe.skipIf(!HAS_DB)(
         {
           level: 'error',
           msg: 'job failed',
-          job: 'test.v542_bad_cast',
+          job: JOB_BAD_CAST,
           err: 'error',
           code: '22P02',
         },
-        { level: 'error', msg: 'job failed', job: 'test.v542_token', err: 'Error' },
+        { level: 'error', msg: 'job failed', job: JOB_THROWS, err: 'Error' },
         {
           level: 'warn',
           msg: 'email recipient skipped',

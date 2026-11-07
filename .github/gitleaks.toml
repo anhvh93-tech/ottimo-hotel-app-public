@@ -63,4 +63,11 @@ commits = [
   # other four files of the commit are clean (07/11/2026). Commit-scoped on purpose, never a UUID pattern.
   # Convention from here on: tests name such constants IDEMPOTENCY_ID (or build them with randomUUID()), not KEY.
   'ae4a835873c7de09be46975f9683a3f80fa9aee0',
+  # BE V5-42 on r5-v5-42 (PR #170, CI run 42324927821): line 67 of
+  # product/services/api/test/integration/v5-42-worker-error-log.test.ts, `key: 'test.…'`, is the name of a test job
+  # registered in JobRegistry (the job runner's key field), not a credential; it is accepted by nothing. The field
+  # name `key` next to the job name trips generic-api-key. It was the only finding of the full-history scan. The next
+  # commit on the branch moves job names into JOB_* constants built at run time, so the line no longer exists there.
+  # Commit-scoped on purpose, never a pattern. Needs SEC review (allowlist change).
+  'a5785ddf7b4f662eba5f8165aabac9c484f20ef5',
 ]
