@@ -709,12 +709,16 @@ export class RefundsService {
   /**
    * PO 17/10: an OWN paying a transfer refund they requested, approved or routed takes the self path – the
    * controller asks for the step-up window first (401 REAUTH_REQUIRED). Read-only, before the unit of work.
+   * FB-R5-SEC-BE-148-01: so does an OWN who is only among its origin actors (`origin_actor_ids` – e.g. the recorder of
+   * a receipt after closure whose 5B-1 request was rejected and asked again by someone else): the OWN transfer
+   * exception of `payOut` lets them pay, so the two compensating controls of PO 17/10 (step-up, money-log flag) apply.
    */
   async isOwnSelfPayout(tx: Tx, approvalId: string, userId: string): Promise<boolean> {
     const { rows } = await tx.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM approval_request
         WHERE id = $1 AND type = 'refund'
-          AND (requested_by = $2 OR approver_id = $2 OR refund_destination_set_by = $2)`,
+          AND (requested_by = $2 OR approver_id = $2 OR refund_destination_set_by = $2
+            OR $2::uuid = ANY(origin_actor_ids))`,
       [approvalId, userId],
     );
     return (rows[0]?.n ?? 0) > 0;
@@ -799,9 +803,12 @@ export class RefundsService {
     ) {
       throw problem('SELF_REFUND_FORBIDDEN');
     }
+    // FB-R5-SEC-BE-148-01: an OWN among the origin actors pays through the same self path (flag; step-up checked by
+    // the controller through isOwnSelfPayout) as one who requested, approved or routed it.
     const ownSelf =
       ownerTransfer &&
-      [row.requested_by, row.approver_id, row.refund_destination_set_by].includes(actor.userId);
+      ([row.requested_by, row.approver_id, row.refund_destination_set_by].includes(actor.userId) ||
+        (row.origin_actor_ids ?? []).includes(actor.userId));
     if (!lockedFolio || lockedFolio.status === 'closed') throw folioLocked('closed');
     const now = this.clock.now();
     if (

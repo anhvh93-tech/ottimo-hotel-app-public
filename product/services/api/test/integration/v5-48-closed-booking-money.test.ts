@@ -5,7 +5,7 @@
  * the 409); BE C0313-22 ý 1 + 3 with SEC-responses 1.1–1.3:
  * - (h1) FD, FDL, MGR, OWN on `cancelled` (`hold_expired` and `found_other`) and `no_show`: cash, ota_collect → 422
  *   `method` NOT_IN_LIST; card_pos on a folio that owes nothing (N = 0) → the same 422 (PR-B3, FB-R5-ARC-BE-105-03 –
- *   card_pos while N > 0 is covered by v5-5b1-after-closure.test.ts); a transfer without image → 422 `attachmentId`
+ *   card_pos while N > 0 is covered by pr-b3-after-closure.test.ts); a transfer without image → 422 `attachmentId`
  *   REQUIRED; the image of a sale's "khách đã chuyển" notice → 422 NOT_IN_LIST; nothing written (no payment, no
  *   audit, folio version, image). 5B-1 `type`: `deposit` on a booking cancelled while a hold, `charge` otherwise;
  * - (h2) a transfer / VietQR with its image → 201 `pending` for every desk role, OWN included; the audit row READ

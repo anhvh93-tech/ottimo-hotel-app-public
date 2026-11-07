@@ -292,6 +292,10 @@ export class PaymentService {
       if (!BANK_REFERENCE_METHODS.includes(p.method)) throw refused('NOT_ALLOWED');
       // Before the document number (ARC-15): the advisory lock is the first lock two receipts with one code meet, so
       // the second waits on it (not on the PT- counter) and then sees the first one's row.
+      // FB-R5-ARC-BE-148-04 – lock order L1/L3 → `bank-ref` advisory lock → `doc_sequence`: a transaction recording a
+      // receipt with a `bankReference` records it BEFORE it allocates any other `payment` number. Otherwise two of
+      // them racing on one code deadlock → 40P01 → 409 CONCURRENT_UPDATE (`concurrencyProblem`) – never a receipt
+      // written twice. No v1.0.5 path allocates first (ARC review #148, 2.4).
       await this.assertBankReferenceFree(tx, bankReference, role);
     }
     const code = await this.docNumbers.allocate(tx, 'payment');

@@ -22,7 +22,18 @@
  * - "Không thấy tiền" (S8, ARC-20): note required; money audit `attention_event.resolved` READ BACK from `audit_event`
  *   with `after = {kind, afterClosure}` only, and through `listAuditEvents?afterClosureOnly=true` with no `category`
  *   (the call of the OWN weekly screen);
- * - FB-R5-SEC-BE-127-02: the refund `accountHolder` goes through the shared invisible-character filter.
+ * - FB-R5-SEC-BE-127-02: the refund `accountHolder` goes through the shared invisible-character filter;
+ * - PR-B3b (follow-up of the #148 reviews):
+ *   - FB-R5-ARC-BE-148-01 P1 (DOM 11.4 3b): the after-closure transfer reversed → its 5B-1 request `superseded`, no new
+ *     request, the "Cần chú ý" credit item closed; P2: whoever recorded money BEFORE the closure is never an origin
+ *     actor (MGR approves the 5B-1 request);
+ *   - FB-R5-SEC-BE-148-01: an OWN only among the origin actors pays a transfer refund inside the step-up window only
+ *     (401 REAUTH_REQUIRED without it), flagged `ownSelfApprovedAndPaid` in the money log;
+ *   - FB-R5-SEC-BE-148-03: S2 with an OWN recorder (never approves, never pays cash);
+ *   - FB-R5-ARC-BE-148-03: the edges of "Có thể trùng" (same booking, card / cash, receipts before the closure on the
+ *     refund request, 25 h apart) and a second receipt after closure that leaves a handled notice alone.
+ *   A case that records money and then closes the booking MOVES THE CLOCK between the two: `AFTER_CLOSURE_SQL` compares
+ *   `created_at >= cancelled_at`, so a receipt and a cancellation at the same fake instant count as "after closure".
  * Fake clock and FAKE data only (fixture guest, @example.test-free, card numbers are the public test numbers).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -50,8 +61,8 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
 
   type B = { id: string; code: string; folioId: string };
   let seq = 0;
-  /** OTA "pay at hotel" booking (Booking.com channel), cancelled by the OTA with its fee → the fee is due (N). */
-  const otaCancelled = async (room: string, penalty = PENALTY): Promise<B> => {
+  /** OTA "pay at hotel" booking (Booking.com channel), still open. */
+  const otaBooking = async (room: string): Promise<B> => {
     const res = await x.c.fd!.send('POST', x.url('/reservations'), {
       roomId: x.ids.rooms[room],
       channelId: x.ids.channels.booking,
@@ -65,13 +76,22 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     });
     expect(res.statusCode, res.body).toBe(201);
     const b = res.json();
+    return { id: b.id, code: b.code, folioId: b.folioId };
+  };
+  /** Cancelled by the OTA with its fee → the fee is due, less what the folio already took. */
+  const otaCancel = async (b: B, penalty = PENALTY) => {
     const cancel = await x.act(b.id, 'cancel', {
       reasonCode: 'ota_cancelled',
       otaPenaltyVnd: penalty,
     });
     expect(cancel.statusCode, cancel.body).toBe(200);
+  };
+  /** OTA "pay at hotel" booking cancelled by the OTA with its fee at once → the fee is due (N). */
+  const otaCancelled = async (room: string, penalty = PENALTY): Promise<B> => {
+    const b = await otaBooking(room);
+    await otaCancel(b, penalty);
     expect((await x.folio(b.folioId)).totals.balanceDueVnd).toBe(penalty);
-    return { id: b.id, code: b.code, folioId: b.folioId };
+    return b;
   };
   const direct = async (room: string, arrival: string, departure: string): Promise<B> => {
     const body = {
@@ -221,6 +241,7 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
   let d1: B; // open booking with a transfer of the same amount as o2 ("Có thể trùng")
   let hS: B; // a sale's hold, expired → notice → receipt closes the item
   let hS2: B; // a sale's hold, expired → notice → "Không thấy tiền"
+  let hSReceipt: string; // the receipt that handled hS's notice (DOM 11.4 mục 5)
 
   it('setup: OTA pay-at-hotel bookings cancelled with a 500.000 fee (N = 500.000), two sale holds expired by J1', async () => {
     await x.at('2026-11-20T10:00:00+07:00');
@@ -576,6 +597,7 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     const res = await transfer(hS, 300_000, 'fd', 'deposit', { bankReference: 'rf-prb3-0001' });
     expect(res.statusCode, res.body).toBe(201);
     expect(res.json().bankReference).toBe('RF-PRB3-0001');
+    hSReceipt = res.json().id;
     expect(
       (
         await x.q(
@@ -756,4 +778,265 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     expect(view.statusCode, view.body).toBe(200);
     expect(view.json().accountHolder).toBe('NGUYEN VAN A');
   }, 60_000);
+
+  const transferReceipt = async (b: B) =>
+    (
+      await x.q(
+        `SELECT id, version FROM payment
+          WHERE folio_id = $1 AND method = 'bank_transfer' AND type <> 'refund' AND reversal_of_id IS NULL
+          ORDER BY created_at DESC LIMIT 1`,
+        [b.folioId],
+      )
+    )[0] as { id: string; version: number };
+  const reconcile = async (b: B, who = 'mgr') => {
+    const p = await transferReceipt(b);
+    const res = await x.c[who]!.send(
+      'POST',
+      x.url(`/payments/${p.id}/actions/reconcile`),
+      { result: 'reconciled' },
+      { 'if-match': `"${p.version}"` },
+    );
+    expect(res.statusCode, res.body).toBe(200);
+  };
+
+  it('FB-R5-ARC-BE-148-01 P1 (DOM 11.4 3b) – the after-closure transfer reversed: its 5B-1 request superseded, no new request, the credit item closed', async () => {
+    await x.at('2026-11-28T09:00:00+07:00');
+    const b = await otaCancelled('101');
+    const res = await transfer(b, 800_000);
+    expect(res.statusCode, res.body).toBe(201);
+    const [r] = await refundsOf(b);
+    expect(r).toMatchObject({
+      status: 'pending',
+      reason_code: 'payment_after_cancel',
+      amount_vnd: 300_000,
+    });
+    const credit = `closed_reservation_credit:${b.id}`;
+    expect(
+      (await x.q(`SELECT resolved_at FROM attention_event WHERE dedupe_key = $1`, [credit]))[0]
+        .resolved_at,
+    ).toBeNull();
+    const rev = await x.reverse(res.json().id, 'Ghi nhầm đơn')();
+    expect(rev.statusCode, rev.body).toBe(200);
+    const after = await x.q(
+      `SELECT id, status, auto_cancel_reason FROM approval_request
+        WHERE type = 'refund' AND target_id = $1 ORDER BY created_at, id`,
+      [b.id],
+    );
+    expect(after).toEqual([{ id: r.id, status: 'cancelled', auto_cancel_reason: 'superseded' }]);
+    expect(
+      (await x.q(`SELECT resolved_at FROM attention_event WHERE dedupe_key = $1`, [credit]))[0]
+        .resolved_at,
+    ).not.toBeNull();
+    expect((await x.folio(b.folioId)).totals.balanceDueVnd).toBe(PENALTY);
+  }, 60_000);
+
+  it('FB-R5-ARC-BE-148-01 P2 – whoever recorded money BEFORE the closure is never an origin actor: the 5B-1 request has only the after-closure recorder, MGR approves it', async () => {
+    await x.at('2026-11-28T10:00:00+07:00');
+    const b = await otaBooking('102');
+    const before = await card(b, 100_000, 'mgr', { note: 'Khách trả trước một phần' });
+    expect(before.statusCode, before.body).toBe(201);
+    expect(before.json().afterClosure).not.toBe(true);
+    // The clock moves between the receipt and the cancellation (AFTER_CLOSURE_SQL compares with >=).
+    await x.at('2026-11-28T10:05:00+07:00');
+    await otaCancel(b);
+    const n = (await x.folio(b.folioId)).totals.balanceDueVnd as number;
+    expect(n).toBe(PENALTY - 100_000);
+    const late = await transfer(b, n + 200_000);
+    expect(late.statusCode, late.body).toBe(201);
+    const [r] = await refundsOf(b);
+    expect(r).toMatchObject({
+      reason_code: 'payment_after_cancel',
+      requested_by: x.t.users.fd!.id,
+      origin_actor_ids: [x.t.users.fd!.id],
+      amount_vnd: 200_000,
+    });
+    const ok = await decide(r.id, 'approve', 'mgr');
+    expect(ok.statusCode, ok.body).toBe(200);
+  }, 60_000);
+
+  it('FB-R5-SEC-BE-148-01 – an OWN only among the origin actors (5B-1 request rejected, asked again by MGR2) pays the transfer only inside the step-up window, flagged ownSelfApprovedAndPaid', async () => {
+    await x.at('2026-11-28T11:00:00+07:00');
+    const b = await otaCancelled('103');
+    const res = await transfer(b, 900_000, 'owner');
+    expect(res.statusCode, res.body).toBe(201);
+    const [first] = await refundsOf(b);
+    expect(first).toMatchObject({
+      requested_by: x.t.users.owner!.id,
+      origin_actor_ids: [x.t.users.owner!.id],
+      amount_vnd: 400_000,
+    });
+    expect((await decide(first.id, 'reject', 'mgr')).statusCode).toBe(200);
+    const again = await x.c.mgr2!.send('POST', x.url(`/folios/${b.folioId}/refund-requests`), {
+      amountVnd: 400_000,
+      reason: 'Hoàn tiền về sau khi hủy',
+    });
+    expect(again.statusCode, again.body).toBe(201);
+    const id = again.json().id as string;
+    const [row] = await x.q(
+      `SELECT requested_by, approver_id, refund_destination_set_by, origin_actor_ids FROM approval_request
+        WHERE id = $1`,
+      [id],
+    );
+    expect(row.requested_by).toBe(x.t.users.mgr2!.id);
+    expect(row.origin_actor_ids).toContain(x.t.users.owner!.id);
+    const dest = await x.c.fd!.send('PUT', x.url(`/approval-requests/${id}/refund-destination`), {
+      method: 'original_method',
+    });
+    expect(dest.statusCode, dest.body).toBe(200);
+    expect((await decide(id, 'approve', 'mgr')).statusCode).toBe(200);
+    await reconcile(b);
+    // The OWN is neither the requester, the approver nor the destination setter – only an origin actor.
+    const [decided] = await x.q(
+      `SELECT requested_by, approver_id, refund_destination_set_by FROM approval_request WHERE id = $1`,
+      [id],
+    );
+    expect(Object.values(decided)).not.toContain(x.t.users.owner!.id);
+    const proof = await upload('owner', b.id, 'refund_proof');
+    const pay = () =>
+      x.c.owner!.send('POST', x.url(`/approval-requests/${id}/actions/execute-refund`), {
+        amountVnd: 400_000,
+        paidAt: '2026-11-28T11:00:00+07:00',
+        bankReference: 'RF-PRB3B-0001',
+        attachmentId: proof,
+      });
+    const noStep = await pay();
+    expect(noStep.statusCode, noStep.body).toBe(401);
+    expect(noStep.json().code).toBe('REAUTH_REQUIRED');
+    expect(
+      Number(
+        (await x.q(`SELECT refunded_vnd FROM approval_request WHERE id = $1`, [id]))[0]
+          .refunded_vnd,
+      ),
+    ).toBe(0);
+    const step = await x.c.owner!.send('POST', '/v1/me/step-up', { password: TEST_PASSWORD });
+    expect(step.statusCode, step.body).toBe(200);
+    const paid = await pay();
+    expect(paid.statusCode, paid.body).toBe(201);
+    const [log] = await x.q(
+      `SELECT after FROM audit_event WHERE action = 'refund.paid' AND entity_id = $1`,
+      [paid.json().id],
+    );
+    expect(log.after).toMatchObject({ recordedByRole: 'owner', ownSelfApprovedAndPaid: true });
+  }, 120_000);
+
+  it('FB-R5-SEC-BE-148-03 – S2 with an OWN recorder: the 5B-1 request in its name; the OWN approves neither it nor the one MGR2 asks again (origin), and never pays it in cash', async () => {
+    await x.at('2026-11-29T10:00:00+07:00');
+    const owner = x.t.users.owner!.id;
+    const b = await otaCancelled('201');
+    const res = await transfer(b, 900_000, 'owner');
+    expect(res.statusCode, res.body).toBe(201);
+    const [first] = await refundsOf(b);
+    expect(first).toMatchObject({
+      requested_by: owner,
+      origin_actor_ids: [owner],
+      amount_vnd: 400_000,
+      reason_code: 'payment_after_cancel',
+    });
+    const self = await decide(first.id, 'approve', 'owner');
+    expect(self.statusCode, self.body).toBe(403);
+    expect(self.json().code).toBe('SELF_APPROVAL_FORBIDDEN');
+    expect((await decide(first.id, 'reject', 'mgr')).statusCode).toBe(200);
+    const again = await x.c.mgr2!.send('POST', x.url(`/folios/${b.folioId}/refund-requests`), {
+      amountVnd: 400_000,
+      reason: 'Hoàn tiền về sau khi hủy',
+    });
+    expect(again.statusCode, again.body).toBe(201);
+    const id = again.json().id as string;
+    const [row] = await x.q(`SELECT origin_actor_ids FROM approval_request WHERE id = $1`, [id]);
+    expect(row.origin_actor_ids).toContain(owner);
+    const ownApprove = await decide(id, 'approve', 'owner');
+    expect(ownApprove.statusCode, ownApprove.body).toBe(403);
+    expect(ownApprove.json().code).toBe('SELF_APPROVAL_FORBIDDEN');
+    // The request asked again takes a cash destination (S3 does not follow it yet – SEC 148-02, v1.0.6). The OWN
+    // transfer exception never covers cash: an origin actor never pays it.
+    const dest = await x.c.fd!.send('PUT', x.url(`/approval-requests/${id}/refund-destination`), {
+      method: 'cash',
+    });
+    expect(dest.statusCode, dest.body).toBe(200);
+    expect((await decide(id, 'approve', 'mgr')).statusCode).toBe(200);
+    const cash = await x.c.owner!.send(
+      'POST',
+      x.url(`/approval-requests/${id}/actions/execute-cash-refund`),
+      {
+        amountVnd: 400_000,
+        paidAt: '2026-11-29T10:00:00+07:00',
+        attachmentId: await upload('owner', b.id, 'refund_proof'),
+      },
+    );
+    expect(cash.statusCode, cash.body).toBe(403);
+    expect(cash.json().code).toBe('SELF_REFUND_FORBIDDEN');
+    expect(
+      Number(
+        (await x.q(`SELECT refunded_vnd FROM approval_request WHERE id = $1`, [id]))[0]
+          .refunded_vnd,
+      ),
+    ).toBe(0);
+  }, 120_000);
+
+  it('FB-R5-ARC-BE-148-03 – the edges of "Có thể trùng" (same booking, card / cash, receipts before the closure, 25 h apart) and a second receipt after closure never re-handles a notice', async () => {
+    await x.at('2026-11-30T09:00:00+07:00');
+    const dupOf = async (b: B, id: string) => (await paymentOnFolio(b, id))?.possibleDuplicateCodes;
+    const e1 = await direct('401', '2026-12-14', '2026-12-16');
+    const e2 = await direct('402', '2026-12-14', '2026-12-16');
+    /** One call after the other (never in parallel – the folio lock), each → 201; the receipt ids. */
+    const ids = async (
+      ...calls: Array<() => Promise<{ statusCode: number; body: string; json(): any }>>
+    ) => {
+      const out: string[] = [];
+      for (const call of calls) {
+        const done = await call();
+        expect(done.statusCode, done.body).toBe(201);
+        out.push(done.json().id as string);
+      }
+      return out;
+    };
+    // (A7) two transfers of the same amount on the SAME booking → no flag (DOM 148-05 may change this rule).
+    const [s1, s2] = await ids(
+      () => transfer(e1, 333_000),
+      () => transfer(e1, 333_000),
+    );
+    expect(await dupOf(e1, s1!)).toBeUndefined();
+    expect(await dupOf(e1, s2!)).toBeUndefined();
+    // (A19) a card slip or cash of the same amount on another booking is never a duplicate, and gets no flag.
+    const [tr, cd] = await ids(
+      () => transfer(e2, 444_000),
+      () => card(e1, 444_000, 'fd', { note: NOTE }),
+      () => record(e1, { type: 'charge', method: 'cash', amountVnd: 444_000, note: NOTE }),
+    );
+    expect(await dupOf(e2, tr!)).toBeUndefined();
+    expect(await dupOf(e1, cd!)).toBeUndefined();
+    // Control: a transfer of that amount on a third booking is.
+    expect((await transfer(d1, 444_000)).statusCode).toBe(201);
+    expect(await dupOf(e2, tr!)).toEqual([d1.code]);
+    expect(await dupOf(e1, cd!)).toBeUndefined();
+    // (A9) the refund request of a booking whose only suspect receipt was recorded BEFORE the closure → no flag.
+    const z = await otaBooking('202');
+    const [zr] = await ids(() => transfer(z, 250_000));
+    expect((await transfer(e2, 250_000)).statusCode).toBe(201);
+    expect(await dupOf(z, zr!)).toEqual([e2.code]);
+    await x.at('2026-11-30T09:05:00+07:00');
+    await otaCancel(z, 100_000);
+    const [zReq] = await refundsOf(z);
+    expect(zReq).toMatchObject({ amount_vnd: 150_000, status: 'pending' });
+    const zApproval = await approvalOf(zReq.id, 'mgr');
+    expect(zApproval).toBeDefined();
+    expect(zApproval.possibleDuplicateCodes).toBeUndefined();
+    // (A5) a second receipt after closure on hS never re-handles its notice (handled by the first one).
+    expect((await transfer(hS, 100_000, 'fd', 'deposit')).statusCode).toBe(201);
+    expect(
+      await x.q(`SELECT status, handled_payment_id FROM deposit_notice WHERE reservation_id = $1`, [
+        hS.id,
+      ]),
+    ).toEqual([{ status: 'handled', handled_payment_id: hSReceipt }]);
+    // (A8) 25 hours apart → no flag; the two of the same hour flag each other.
+    const [early] = await ids(() => transfer(e1, 555_000));
+    await x.at('2026-12-01T10:05:00+07:00');
+    const [lateE2, lateD1] = await ids(
+      () => transfer(e2, 555_000),
+      () => transfer(d1, 555_000),
+    );
+    expect(await dupOf(e1, early!)).toBeUndefined();
+    expect(await dupOf(e2, lateE2!)).toEqual([d1.code]);
+    expect(await dupOf(d1, lateD1!)).toEqual([e2.code]);
+  }, 180_000);
 });
