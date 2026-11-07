@@ -25,7 +25,11 @@ export function BankReferenceField({
 }) {
   const { t } = useI18n();
   return (
-    <Field label={t('pay.bank_reference_optional')} help={t('pay.bank_reference_help')} error={error}>
+    <Field
+      label={t('pay.bank_reference_optional')}
+      help={t('pay.bank_reference_help')}
+      error={error}
+    >
       {(p) => (
         <input
           {...p}

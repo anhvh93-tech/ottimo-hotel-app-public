@@ -357,7 +357,8 @@ export function createDashboardMock(ctx: Ctx) {
       )
         return problem(409, 'INVALID_TRANSITION');
       const note = (body.note ?? '').trim();
-      if (open.severity === 'critical' && note.length < 3)
+      // 0.3.13 addendum 1g (SEC S8): "Không thấy tiền" on `deposit_after_cancel` needs a note too.
+      if ((open.severity === 'critical' || open.kind === 'deposit_after_cancel') && note.length < 3)
         return problem(422, 'VALIDATION_FAILED', {
           errors: [{ field: 'note', code: 'REASON_REQUIRED' }],
         });

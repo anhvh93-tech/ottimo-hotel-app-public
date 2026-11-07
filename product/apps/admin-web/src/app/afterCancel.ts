@@ -16,18 +16,15 @@ export const isClosedBooking = (status: Reservation['status'] | undefined) =>
 /** Reason code of the refund request the server creates with such a receipt (copy 9.1, 9.12). */
 export const PAYMENT_AFTER_CANCEL = 'payment_after_cancel';
 
-export type CancelledFrom = 'hold' | 'confirmed';
+export type CancelledFrom = NonNullable<NonNullable<Reservation['cancellation']>['cancelledFrom']>;
 
 /**
- * Contract 0.3.13 addendum 1j (#158): `Reservation.cancellation.cancelledFrom` – the state right before the cancel,
- * FD+ only, absent on a `no_show` booking. Typed here until the api-client is generated from a contract that has it.
+ * Contract 0.3.13 addendum 1j (#158, BE #163): `Reservation.cancellation.cancelledFrom` – the state right before the
+ * cancel, FD+ only (absent for SAL/CTV, never null), only on a `cancelled` booking (a `no_show` one has no
+ * `cancellation`).
  */
-type CancellationWithFrom = NonNullable<Reservation['cancellation']> & {
-  cancelledFrom?: CancelledFrom;
-};
-
 export function cancelledFromOf(r: Reservation): CancelledFrom | undefined {
-  const from = (r.cancellation as CancellationWithFrom | undefined)?.cancelledFrom;
+  const from = r.cancellation?.cancelledFrom;
   return from === 'hold' || from === 'confirmed' ? from : undefined;
 }
 

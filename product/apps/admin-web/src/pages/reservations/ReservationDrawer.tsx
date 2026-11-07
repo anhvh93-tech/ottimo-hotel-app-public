@@ -26,6 +26,8 @@ import { useNow } from '../../hooks/useNow';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { isClosedBooking } from '../../app/afterCancel';
+import { AfterCancelDialog } from './AfterCancelDialog';
 import { GuestLinkPanel } from './GuestLinkPanel';
 import {
   AssignRoomDialog,
@@ -76,6 +78,7 @@ type Open =
   | 'write_off'
   | 'folio'
   | 'bill'
+  | 'after_cancel'
   | null;
 
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
@@ -322,9 +325,17 @@ export function ReservationDrawer({
       {allowed.has('extend_hold') ? (
         <Button onClick={() => setOpen('extend')}>{t('drawer.action.extend_hold')}</Button>
       ) : null}
-      {ctv && r.status === 'hold' ? (
+      {(ctv && r.status === 'hold') || (sales && isClosedBooking(r.status)) ? (
+        // 5B-1 (0.3.13 addendum 1, DOM 11.4 mục 5): on a closed booking a sale or a CTV still reports the money – the
+        // server answers 202 and opens "Cần chú ý" `deposit_after_cancel` for the desk; it never records a receipt.
         <Button variant="pri" onClick={() => setOpen('notice')}>
           {t('drawer.action.deposit_notice')}
+        </Button>
+      ) : null}
+      {fd && isClosedBooking(r.status) && r.folioId ? (
+        // V5-5B 5B-1 (UXD 9.1 v2.5): money that reached OTTIMO's account after the booking was closed – FD+ only.
+        <Button variant="pri" onClick={() => setOpen('after_cancel')}>
+          {t('drawer.action.money_after_cancel')}
         </Button>
       ) : null}
       {canConfirmDeposit ? (
@@ -822,6 +833,7 @@ export function ReservationDrawer({
         />
       ) : null}
       {base && open === 'deposit' ? <DepositDialog {...base} /> : null}
+      {base && open === 'after_cancel' ? <AfterCancelDialog {...base} /> : null}
       {base && open === 'extend' ? <ExtendHoldDialog {...base} rules={rules} /> : null}
       {base && (open === 'move' || open === 'postpone') ? (
         <MoveDialog {...base} rooms={catalog.rooms} ota={ota} postpone={open === 'postpone'} />

@@ -107,8 +107,7 @@ export function AfterCancelDialog(props: DialogBase) {
 
   const value = amountOf(amount);
   const receivedIso = receivedTouched ? fromLocalInput(receivedAt) : null;
-  const receivedBad =
-    receivedTouched && (!receivedIso || Date.parse(receivedIso) > Date.now());
+  const receivedBad = receivedTouched && (!receivedIso || Date.parse(receivedIso) > Date.now());
   const noteShort = note.trim().length < 3;
 
   const fe = isApiError(act.error) ? act.error.fieldErrors : [];
@@ -297,12 +296,7 @@ export function AfterCancelDialog(props: DialogBase) {
             )}
           </Field>
           {card ? (
-            <Field
-              label={t('co.pos_code')}
-              help={t('co.pos_no_card')}
-              error={posError}
-              required
-            >
+            <Field label={t('co.pos_code')} help={t('co.pos_no_card')} error={posError} required>
               {(p) => (
                 <input
                   {...p}

@@ -32,6 +32,7 @@ import { onBusinessDay, timeHHmm } from '../../app/dates';
 import { useToast } from '../../app/toast';
 import { lineLabel, signed } from '../../app/folio';
 import { Page, Topbar } from '../../components/AppShell';
+import { bankReferenceOf } from '../../components/BankReferenceField';
 import { DeviceBlocked, ErrorBlock, LoadingBlock } from '../../components/states';
 import { OccupancyField, type Occupancy } from '../../components/OccupancyField';
 import { useDebounced } from '../../hooks/useDebounced';
@@ -205,6 +206,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       'documentBlockOverride.reason',
       'payment.posAuthCode',
       'payment.note',
+      'payment.bankReference',
     ],
     labels: {
       addPriorNight: t('checkin.prior_night_submit'),
@@ -417,6 +419,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
               amountVnd: payCheck.amountVnd,
               note: pay.method === 'bank_transfer' ? pay.note.trim() || undefined : undefined,
               posAuthCode: pay.method === 'card_pos' ? pay.pos.trim() : undefined,
+              bankReference:
+                pay.method === 'bank_transfer' ? bankReferenceOf(pay.bankRef ?? '') : undefined,
             }
           : undefined,
     };

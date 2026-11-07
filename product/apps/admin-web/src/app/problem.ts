@@ -101,7 +101,8 @@ export function problemView(t: T, error: unknown, locale: 'vi' | 'en' = 'vi'): P
   // copy-v1.0.5 9.1 (DOM 148-06, SEC ARC-21): the other booking's code is in the 409 only for FD+ – without it the
   // sentence names no booking.
   if (code === 'DUPLICATE_BANK_REFERENCE') {
-    const other = (error.problem as { duplicateReservationCode?: unknown }).duplicateReservationCode;
+    const other = (error.problem as { duplicateReservationCode?: unknown })
+      .duplicateReservationCode;
     return typeof other === 'string' && other
       ? { text: t('error.DUPLICATE_BANK_REFERENCE', { code: other }) }
       : { text: t('error.DUPLICATE_BANK_REFERENCE_no_code') };
