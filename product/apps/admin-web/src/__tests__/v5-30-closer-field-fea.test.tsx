@@ -9,10 +9,11 @@
 //   422 → the field sentences (`reason_required`, `too_long` {max} 500, `not_in_list`, `reason_card_number`).
 // No commission figures and no real guest data here: the booking is a seed booking, the people are the QA accounts.
 import type { ReservationPatch, ReservationStatus } from '@ottimo/api-client';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api } from '../app/api';
+import { api, setCsrfToken } from '../app/api';
 import { mockControl } from '../mocks/handlers';
+import { PROPERTY_ID } from '../mocks/seed';
 import { renderApp, tv } from '../test/render';
 
 const GUEST = 'Nguyễn Văn An';
@@ -26,6 +27,11 @@ function at(status: ReservationStatus) {
   const r = booking();
   r.directSource = 'sales_staff';
   r.closerUserId = userId('qa.sal');
+  return milestone(r, status);
+}
+
+/** A mock booking moved to the given milestone (hold window, real check-in time). */
+function milestone<R extends ReturnType<typeof booking>>(r: R, status: ReservationStatus) {
   r.status = status;
   if (status === 'hold')
     r.hold = {
@@ -181,6 +187,66 @@ describe('V5-30 – who sees what, by role × milestone (copy 9.16, DOM 154-03)'
     ).toEqual(['Mai']);
     expect(candidates).toHaveBeenCalled();
   });
+
+  it.each([
+    ['cancelled', 'qa.owner'],
+    ['cancelled', 'qa.fd'],
+    ['no_show', 'qa.owner'],
+    ['no_show', 'qa.fd'],
+  ] as Array<[ReservationStatus, string]>)(
+    '%s · %s → the name only: no select, no help line, no button (DOM 162-04, G6)',
+    async (status, username) => {
+      at(status);
+      const spy = patchSpy();
+      const { d } = await openAs(username);
+      const dt = await within(d).findByText(LABEL, { selector: 'dt' });
+      await waitFor(() => expect(dt.nextElementSibling).toHaveTextContent(/^Sơn$/));
+      expect(dt.nextElementSibling!.querySelector('.li-s')).toBeNull();
+      expect(within(d).queryByText(tv('rsv.closer.readonly_manager'))).toBeNull();
+      expect(within(d).queryByText(tv('rsv.closer.readonly_owner'))).toBeNull();
+      expect(within(d).queryByRole('combobox', { name: LABEL })).toBeNull();
+      expect(within(d).queryByRole('button', { name: tv('common.save') })).toBeNull();
+      expect(spy).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('V5-30 – SAL/CTV never ask for the closer list nor send a closer (SEC 162-02)', () => {
+  const STATUSES: ReservationStatus[] = ['hold', 'confirmed', 'in_house', 'checked_out'];
+  const cells = STATUSES.flatMap((status) =>
+    (['qa.sal', 'qa.ctv1'] as const).map((username) => [username, status] as const),
+  );
+
+  it.each(cells)(
+    '%s · %s: no listCloserCandidates, no updateReservation',
+    async (username, status) => {
+      // SAL: the "Sale nội bộ" booking Sơn closed; CTV: their own CTV booking.
+      const guest = username === 'qa.sal' ? GUEST : 'Lê Minh';
+      if (username === 'qa.sal') at(status);
+      else
+        milestone(
+          mockControl.rsv.reservations.find((r) => r.guestName === guest)!,
+          status,
+        );
+      const list = vi.spyOn(api, 'listCloserCandidates');
+      const patch = patchSpy();
+      const channels = vi.spyOn(api, 'listChannels');
+      renderApp(
+        `/reservations/${mockControl.rsv.reservations.find((r) => r.guestName === guest)!.id}`,
+        username,
+      );
+      const d = await screen.findByRole('dialog', { name: guest });
+      await within(d).findByText(tv('booking.field.room'), { selector: 'dt' });
+      // Wait until the channel list is in: the field could only ask for the people after that.
+      await waitFor(() => expect(channels).toHaveBeenCalled());
+      await act(async () => {
+        await Promise.allSettled(channels.mock.results.map((x) => x.value));
+      });
+      expect(within(d).queryByRole('combobox')).toBeNull();
+      expect(list).not.toHaveBeenCalled();
+      expect(patch).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('V5-30 – what the Desk sends (contract 1i, BE 1H-01)', () => {
@@ -510,5 +576,68 @@ describe('V5-30 – answers from the server (412 → 409 → 403 → 422, SEC 15
     expect(spy).toHaveBeenCalledTimes(2);
     expect(spy.mock.calls[0]![2]).toBe(bumped - 1);
     expect(spy.mock.calls[1]![2]).toBe(bumped);
+  });
+});
+
+describe('V5-30 – the mock answers in the server order (ARC 162-03)', () => {
+  const where = () => ({ propertyId: PROPERTY_ID, reservationId: booking().id });
+  const as = (username: string) => {
+    mockControl.signInAs(username);
+    setCsrfToken(mockControl.db.csrf);
+  };
+
+  it('FD changes the closer of a cancelled booking → 409 INVALID_TRANSITION, not 403', async () => {
+    const r = at('cancelled');
+    as('qa.fd');
+    await expect(
+      api.updateReservation(where(), { closerUserId: userId('qa.fdl') }, r.version),
+    ).rejects.toMatchObject({ status: 409, code: 'INVALID_TRANSITION' });
+  });
+
+  it('FD on a confirmed booking with a 1-character reason → 403 FORBIDDEN_ACTION, not 422', async () => {
+    const r = at('confirmed');
+    as('qa.fd');
+    await expect(
+      api.updateReservation(
+        where(),
+        { closerUserId: userId('qa.fdl'), closerChangeReason: 'x' },
+        r.version,
+      ),
+    ).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN_ACTION' });
+  });
+
+  it('a card number in the reason → 422 CARD_NUMBER_DETECTED with that error only (Fields.done)', async () => {
+    const r = at('in_house');
+    as('qa.owner');
+    const err = await api
+      .updateReservation(
+        where(),
+        { closerUserId: userId('qa.fd'), closerChangeReason: 'Thẻ 4111 1111 1111 1111' },
+        r.version,
+      )
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ status: 422, code: 'CARD_NUMBER_DETECTED' });
+    expect((err as { fieldErrors: unknown[] }).fieldErrors).toEqual([
+      expect.objectContaining({ field: 'closerChangeReason', code: 'CARD_NUMBER_DETECTED' }),
+    ]);
+  });
+
+  it('the kind of closer follows the channel GROUP, not the channel code', async () => {
+    // A CTV-group hold whose channel code is not "agent" (real data may differ from the seed): a staff closer is
+    // refused (422 NOT_IN_LIST), the agent is taken.
+    const r = mockControl.rsv.reservations.find((x) => x.guestName === 'Lê Minh')!;
+    expect(mockControl.rsv.channels.find((c) => c.id === r.channelId)!.channelGroup).toBe('agent');
+    r.channelCode = 'ctv-partner';
+    r.closerUserId = undefined;
+    as('qa.fd');
+    const R = { propertyId: PROPERTY_ID, reservationId: r.id };
+    await expect(
+      api.updateReservation(R, { closerUserId: userId('qa.fdl') }, r.version),
+    ).rejects.toMatchObject({
+      status: 422,
+      fieldErrors: [expect.objectContaining({ field: 'closerUserId', code: 'NOT_IN_LIST' })],
+    });
+    const ok = await api.updateReservation(R, { closerUserId: userId('qa.ctv1') }, r.version);
+    expect(ok.data.closerUserId).toBe(userId('qa.ctv1'));
   });
 });

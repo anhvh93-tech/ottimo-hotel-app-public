@@ -3,7 +3,7 @@
 // audit (money), registration (EP06 – C3 on trusted devices only). BE-A/B/C build the real API in
 // parallel; this file follows the spec order of checks so the UI can be built and tested now.
 // Dev/test only – never bundled (main.tsx imports mocks dynamically).
-import type { AttentionItem, Role, Room } from '@ottimo/api-client';
+import type { AttentionItem, Channel, Role, Room } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
 import { businessDayLocal, todayLocal } from '../app/dates';
 import { currentSegment } from '../app/reservations';
@@ -17,6 +17,8 @@ type Body = Record<string, unknown>;
 interface RsvApi {
   state: {
     reservations: MockReservation[];
+    /** The EP02 channels (V5-30: the closer's kind follows the channel group, like the server). */
+    channels: Channel[];
     idempotency: Map<string, { status: number; body: unknown }>;
   };
   view: (r: MockReservation, user: MockUser, roles: Role[]) => unknown;
@@ -2062,8 +2064,8 @@ export function createStayMock(ctx: Ctx) {
       if (isResponse(x)) return x;
       const { g, r } = x;
       const body = (await request.json()) as Body;
-      // 0.3.13 bổ sung 1h/1i (BE-H #154/#157): the closer by milestone, in the server's order – 409 (status) → 403
-      // → 422 (closer, reason). "Change" = another value than the stored one, a first closer included.
+      // 0.3.13 bổ sung 1h/1i (BE-H #154/#157): the closer by milestone, in the server's order – 412 (`withRes`) → 409
+      // (status) → 403 → 422 (closer, reason). "Change" = another value than the stored one, a first closer included.
       const closerUserId = typeof body.closerUserId === 'string' ? body.closerUserId : undefined;
       const closerChange = closerUserId !== undefined && closerUserId !== r.closerUserId;
       const checkedIn =
@@ -2091,10 +2093,12 @@ export function createStayMock(ctx: Ctx) {
               )
             ? 'staff'
             : null;
+        // `checkCloserForChannel`: by the booking's channel GROUP, not its code (ARC 162-03).
+        const group = rsv().state.channels.find((c) => c.id === r.channelId)?.channelGroup;
         const need =
-          r.channelCode === 'agent'
+          group === 'agent'
             ? 'agent'
-            : r.channelCode === 'direct' && r.directSource === 'sales_staff'
+            : group === 'direct' && r.directSource === 'sales_staff'
               ? 'staff'
               : null;
         if (!kind || (need && kind !== need))
@@ -2114,6 +2118,9 @@ export function createStayMock(ctx: Ctx) {
         closerErrors.push({ field: 'closerChangeReason', code: 'TOO_LONG' });
       else if (containsCardNumber(reasonText))
         closerErrors.push({ field: 'closerChangeReason', code: 'CARD_NUMBER_DETECTED' });
+      // `Fields.done()`: a card number is answered on its own, as the top-level code (ARC 162-03).
+      const cardErrors = closerErrors.filter((e) => e.code === 'CARD_NUMBER_DETECTED');
+      if (cardErrors.length) return problem(422, 'CARD_NUMBER_DETECTED', { errors: cardErrors });
       if (closerErrors.length) return validation(closerErrors);
       // 0.3.6 add. 4 (DOM OTA rule, BR-110/307): guest count of an OTA booking before check-in needs
       // its source; `ota_modification` (+ extranet ref) moves `otaGuestCount`, `guest_direct` keeps it
