@@ -120,7 +120,7 @@ export async function syncLeaseNights(
            stay_date, night_state, room_revenue_gross_vnd, discount_vnd, room_revenue_vnd, sold_at,
            is_complimentary, rate_source, channel_id, stay_type, created_at, updated_at, calendar_rate_vnd,
            reference_rate_vnd)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'sold', $8, 0, $8, $9, false, $10, $11, 'long', $9, $9, NULL, $8)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'sold', $8, 0, $8, $9, $8::bigint = 0, $10, $11, 'long', $9, $9, NULL, $8)`,
         [
           uuidv7(),
           tx.ctx.organizationId,
@@ -146,6 +146,7 @@ export async function syncLeaseNights(
     ) {
       await tx.query(
         `UPDATE stay_night SET room_revenue_gross_vnd = $2::bigint, room_revenue_vnd = $2::bigint - discount_vnd,
+                is_complimentary = ($2::bigint - discount_vnd = 0),
                 reference_rate_vnd = $2::bigint, room_id = $3, reservation_segment_id = $4, updated_at = $5
           WHERE id = $1`,
         [n.id, w.amountVnd, seg?.room_id ?? null, seg?.id ?? null, now],

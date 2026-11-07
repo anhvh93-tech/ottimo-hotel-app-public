@@ -813,7 +813,8 @@ export class ReservationsService {
         party.children6to11,
         party.childrenUnder6,
         etaTime ?? null,
-        group === 'internal' || (priced !== null && priced.totalRoomVnd === 0),
+        // V5-17 (BR-904 v0.5.5): the stay's room money is 0, not the channel (the nights' trigger keeps it after).
+        priced !== null && priced.totalRoomVnd === 0,
         depositRequired,
         priced?.totalRoomVnd ?? 0,
         JSON.stringify(snapshot),
@@ -891,7 +892,6 @@ export class ReservationsService {
           channelId: ch.id,
           stayType: 'short',
           state: 'sold',
-          isComplimentary: group === 'internal',
           now: ctx.now,
         },
         priced.nights,
@@ -1138,7 +1138,6 @@ export class ReservationsService {
         channelId: ch.id,
         stayType: 'short',
         state: 'hold',
-        isComplimentary: false,
         now: ctx.now,
       },
       result.nights,
@@ -2324,7 +2323,6 @@ export class ReservationsService {
         channelId,
         stayType: 'short',
         state: 'sold',
-        isComplimentary: false,
         now: ctx.now,
       },
       input.nights.map((n) => ({
@@ -2818,6 +2816,7 @@ export class ReservationsService {
         // BR-433 (d) v0.4.1: a system re-price moves the reference rate; a typed night (A31 / agreed at booking –
         // snapshot `manual`) keeps the reference it had (a hand edit never raises the limit basis).
         `UPDATE stay_night SET room_revenue_gross_vnd = $3::bigint, room_revenue_vnd = $3::bigint - discount_vnd,
+                is_complimentary = ($3::bigint - discount_vnd = 0),
                 calendar_rate_vnd = $4::bigint, updated_at = $5,
                 reference_rate_vnd = CASE WHEN $6::boolean THEN reference_rate_vnd ELSE $3::bigint END
           WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'
@@ -2834,7 +2833,6 @@ export class ReservationsService {
         channelId: row.channel_id,
         stayType: row.stay_type,
         state: 'sold',
-        isComplimentary: row.is_complimentary,
         now: ctx.now,
       },
       input.added.map((x) => ({
@@ -3890,7 +3888,6 @@ export class ReservationsService {
           channelId: row.channel_id,
           stayType: row.stay_type,
           state: 'sold',
-          isComplimentary: row.is_complimentary,
           now: ctx.now,
         },
         added.map((n) => ({
@@ -3905,6 +3902,7 @@ export class ReservationsService {
       await tx.query(
         `UPDATE stay_night SET room_id = $3, reservation_segment_id = $4,
                 room_revenue_gross_vnd = $5::bigint, room_revenue_vnd = $5::bigint - discount_vnd,
+                is_complimentary = ($5::bigint - discount_vnd = 0),
                 calendar_rate_vnd = $6::bigint,
                 extra_person_fee_vnd = CASE WHEN $10::boolean THEN $7::bigint ELSE extra_person_fee_vnd END,
                 extra_person_count = CASE WHEN $10::boolean THEN $8::smallint ELSE extra_person_count END,
@@ -3983,6 +3981,7 @@ export class ReservationsService {
       await tx.query(
         `UPDATE stay_night SET reservation_segment_id = COALESCE($3::uuid, reservation_segment_id), room_id = $4,
                 room_revenue_gross_vnd = $5::bigint, room_revenue_vnd = $5::bigint - discount_vnd,
+                is_complimentary = ($5::bigint - discount_vnd = 0),
                 calendar_rate_vnd = $6::bigint,
                 extra_person_fee_vnd = CASE WHEN $10::boolean THEN $7::bigint ELSE extra_person_fee_vnd END,
                 extra_person_count = CASE WHEN $10::boolean THEN $8::smallint ELSE extra_person_count END,

@@ -505,6 +505,13 @@
       "when": 1792782179681,
       "tag": "0095_privacy_notice_append_only_whole_row",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1792782181681,
+      "tag": "0097_complimentary_follows_revenue",
+      "breakpoints": true
     }
   ]
 }

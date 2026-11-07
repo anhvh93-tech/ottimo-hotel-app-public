@@ -100,6 +100,7 @@ export const reservation = pgTable(
     children611: smallint('children_6_11').notNull().default(0),
     childrenUnder6: smallint('children_under_6').notNull().default(0),
     etaTime: time('eta_time'),
+    // V5-17 (BR-904 v0.5.5): the stay's room money is 0 – reservation_is_complimentary() of migration 0097.
     isComplimentary: boolean('is_complimentary').notNull().default(false),
     conflictState: text('conflict_state').notNull().default('none'),
     // DOM D-1 / 0.3.5 A-20: OTA booking taken above the room's max occupancy (BR-312 (1)) – separate from
@@ -524,6 +525,7 @@ export const stayNight = pgTable(
     voidReason: text('void_reason'),
     prevState: text('prev_state'),
     vatRatePct: numeric('vat_rate_pct'),
+    // V5-17 (BR-904 v0.5.5): = (room_revenue_vnd = 0), every channel – held by the triggers of migration 0097.
     isComplimentary: boolean('is_complimentary').notNull().default(false),
     rateSource: text('rate_source').notNull(),
     channelId: uuid('channel_id').notNull(),
@@ -584,6 +586,8 @@ export const stayNight = pgTable(
     index('stay_night_void_idx')
       .on(t.propertyId, t.stayDate)
       .where(sql`${t.nightState} = 'void'`),
+    // V5-17 (0097): every night of a booking, void ones too – the booking flag reads them on each night write.
+    index('stay_night_reservation_idx').on(t.reservationId),
   ],
 );
 

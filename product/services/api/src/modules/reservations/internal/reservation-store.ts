@@ -209,13 +209,14 @@ export interface NightWrite {
   channelId: string;
   stayType: 'short' | 'long';
   state: 'hold' | 'sold';
-  isComplimentary: boolean;
   now: Date;
 }
 
 /**
  * stay_night rows for priced nights (erd 8): `hold` for B1, `sold` (+ sold_at) for B2/B4/B12. A system price path:
  * the night's price is its reference rate too (BR-433 (d) v0.4.1 – `reference_rate_vnd`).
+ * V5-17 (BR-904 v0.5.5): `is_complimentary` = the night's room money is 0, whatever the channel (an "Internal with a
+ * charge" night is a sold night with money); migration 0097's trigger holds the same rule.
  */
 export async function insertNights(tx: Tx, w: NightWrite, nights: readonly PricedNight[]) {
   for (const n of nights) {
@@ -236,7 +237,7 @@ export async function insertNights(tx: Tx, w: NightWrite, nights: readonly Price
         w.state,
         n.amountVnd,
         w.state === 'sold' ? w.now : null,
-        w.isComplimentary || n.amountVnd === 0,
+        n.amountVnd === 0,
         w.channelId,
         w.stayType,
         w.now,
