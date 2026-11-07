@@ -58,3 +58,15 @@ Chép nguyên từ UXD `copy-v1.0.5.md` 9.3, không tự viết. Sửa 1, thêm 
 - DOM: hai biên và ví dụ 8.500.000.
 - QA: T10 (plan 4a). Khi #121 lên staging, thử đổi giá thật một căn rồi đổi lại.
 - Sổ tay (BA): bỏ câu tạm "Đổi giá xong, mở báo giá thử 1 đêm…" khi PR này lên cùng tag với #121.
+
+## 8. Phản hồi & sửa (07/11)
+- Gộp `origin/main` (merge, không rebase). `handlers.ts`: giữ `REQUIRED` của #121, đổi mã giá ≤ 0 thành `VALUE_OUT_OF_RANGE` (thẻ ARC FB-R5-ARC-BE-C1-01). `strings.js` sinh lại bằng `gen_strings.py`.
+- **UXD FB-R5-UXD-FE-138-01 (Major), Done:** `.toasts` cách mỗi bên 16 px, nên ở 390 px toast rộng 358 px. Từng toast giữ chiều rộng tối đa của DS và nằm giữa; ở 1440 px không đổi. Dải chứa toast không nhận click (`pointer-events: none`), từng toast thì nhận. Khi màn ≤ 760 px, nút đóng có kích thước 44×44.
+- **ARC FB-R5-ARC-BE-C1-01 (Minor), Done:** thêm 2 ca test.
+  - (m5) Máy chủ chỉ trả `FUTURE_RESERVATIONS_KEEP_ROOM` → toast thường, không có dòng cảnh báo.
+  - (m7) Rê chuột vào rồi ra khỏi vùng toast, sau đó 10 giây trôi qua → toast thường mất, toast cảnh báo vẫn còn.
+- **DOM FB-R5-DOM-FE-138-01 (Minor), Done:** `perDayOfMonthly` đổi từ làm tròn gần nhất sang làm tròn **lên** bội 1.000 (`Math.ceil`). Kết quả: 8.500.000 → 284.000, 11.500.000 → 384.000, 9.000.000 → 300.000. Hàm chỉ dùng ở câu `rooms.night_low`. Thêm 3 ca test: 8.500.000/283.000, 11.500.000/383.000, 9.000.000/299.000. Ca cũ 8.000.000 → 267.000 không đổi.
+- Kiểm tra:
+  - `prettier`, `eslint`, `tsc`: sạch.
+  - Vitest: `v5-5c` và `rooms`: 27/27.
+  - Toàn bộ admin-web, máy tải ~70: 4 tệp đỏ vì quá 15 giây (`quotes`, `s4-38`, `s4-feb-desk`, `v5-14`), các tệp này không đụng mã của PR. Diff `handlers.ts` so với `main` chỉ có 2 dòng mã lỗi. CI là tín hiệu chính.

@@ -132,6 +132,8 @@ export class ApprovalsController {
         const { tz } = await this.approvals.context(tx);
         // 0.3.7 D1: effectiveAmountVnd / current FOC line – one folio computation per folio of the page.
         const views = await this.approvals.focViews(tx, paged.data);
+        // 0.3.13 bổ sung 1 (5B-1, SEC S4): "Có thể trùng" of the refund rows – one query for the page.
+        const duplicates = await this.approvals.duplicateCodes(tx, paged.data);
         const data = paged.data.map((r) =>
           toApprovalDto(
             r,
@@ -140,6 +142,7 @@ export class ApprovalsController {
             r.approver_name,
             remainingMonthlyVnd,
             views.get(r.id),
+            duplicates.get(r.id),
           ),
         );
         return { data, page: paged.page };

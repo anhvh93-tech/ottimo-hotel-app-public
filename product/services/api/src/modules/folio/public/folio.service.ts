@@ -42,12 +42,17 @@ import { DocNumberService } from '../../platform/public/doc-number.service';
 import { divideRoundVnd } from '../../platform/public/money';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { applyPct } from '../../reservations/public/pricing';
-import type { FolioStaySync, VoidStayInput } from '../../reservations/public/folio-sync-port';
+import type {
+  CommissionVoidReason,
+  FolioStaySync,
+  VoidStayInput,
+} from '../../reservations/public/folio-sync-port';
 import type { ConfirmedStay } from '../../reservations/public/sales-port';
 import { StayNightAllocationService } from '../../reservations/public/stay-night-allocation';
 import { allocate } from './allocate';
 import { shortStayCommissionRate } from './commission-rate';
 import { lineLabel } from './line-labels';
+import { folioLocked, lockReasonOfStatus } from './folio-locked';
 import {
   type ReductionRequest,
   allocateKey,
@@ -286,12 +291,27 @@ export interface PaymentRowLite {
   shift_id: string | null;
   /** 0.3.13 bổ sung 1 (V5-48): computed at read by PAYMENT_COLUMNS (`AFTER_CLOSURE_SQL`) – display only. */
   after_closure?: boolean;
+  /** 0.3.13 bổ sung 1 (5B-1, SEC S4): bank transaction code (receipts: stored upper-case; refund pay-outs as typed). */
+  bank_reference?: string | null;
+  /** 0.3.13 bổ sung 1 (5B-1, SEC S4 minimum): computed at read by PAYMENT_COLUMNS (`POSSIBLE_DUPLICATES_SQL`). */
+  possible_duplicate_codes?: string[] | null;
   received_amount_vnd: number | null;
   provider: string | null;
   version: number;
   /** 0065 (DOM (f)): purpose of a VietQR and the inputs of its cap. */
   qr_purpose?: string | null;
   qr_context?: Record<string, unknown> | null;
+}
+
+/**
+ * 0.3.13 V5-13 (ARC A1 (b)) – OpenAPI `OpenRefund`: what the open refund requests of the stay still have to pay back,
+ * by `ApprovalRequest.reasonCode` (bổ sung 1, BE C0313-14: every refund reason – today `early_departure`,
+ * `overpayment`, `overbooking_relocated`, the typed codes of A32, and `payment_after_cancel` from 5B-1). Amounts only:
+ * no request code, requester or destination.
+ */
+export interface OpenRefundByReason {
+  reasonCode: string;
+  openVnd: number;
 }
 
 export interface FolioTotals {
@@ -312,6 +332,8 @@ export interface FolioTotals {
   unhandledCreditVnd: number;
   /** 0.3.6 bổ sung 2 (DOM BE-13): OTA collected beyond the OTA-covered charges. */
   otaExcessVnd: number;
+  /** 0.3.13 V5-13: Σ openVnd = the open refund requests deducted in `unhandledCreditVnd` (FD+ – x-visible-to). */
+  openRefunds: OpenRefundByReason[];
 }
 
 /**
@@ -335,6 +357,8 @@ export interface FolioBalance {
   rawCreditVnd: number;
   /** Σ (amount − refunded) of the refund requests still open (pending / escalated / approved not fully paid). */
   openRefundVnd: number;
+  /** 0.3.13 V5-13: the same requests by reason (`CheckoutSummary.openRefunds`); Σ openVnd = openRefundVnd. */
+  openRefunds: OpenRefundByReason[];
   /** Part of the overpayment that may be PAID OUT: only receipts reconciled or needing none (cash, POS). */
   payableCreditVnd: number;
   /** rawCreditVnd − payableCreditVnd: overpayment backed by receipts not reconciled yet. */
@@ -471,16 +495,17 @@ export function moneyPosition(
 }
 
 /**
- * OpenAPI `Folio.totals` (see moneyPosition). `openRefundVnd` = open refund requests of the folio's bookings
- * (FolioService.openRefundVnd) → `unhandledCreditVnd` (E15-05).
+ * OpenAPI `Folio.totals` (see moneyPosition). `openRefunds` = open refund requests of the folio's bookings by reason
+ * (FolioService.openRefundsByReason) → `unhandledCreditVnd` (E15-05) and `totals.openRefunds` (0.3.13 V5-13).
  */
 export function computeTotals(
   lines: ReadonlyArray<
     TotalsLine & Pick<FolioLineRow, 'category' | 'revenue_group' | 'amount_vnd' | 'line_state'>
   >,
   payments: ReadonlyArray<TotalsPayment>,
-  openRefundVnd = 0,
+  openRefunds: ReadonlyArray<OpenRefundByReason> = [],
 ): FolioTotals {
+  const openRefundVnd = sumOpenRefunds(openRefunds);
   let roomVnd = 0;
   let otherVnd = 0;
   let focVnd = 0;
@@ -504,7 +529,13 @@ export function computeTotals(
     creditVnd: m.creditVnd,
     unhandledCreditVnd: Math.max(0, m.creditVnd - openRefundVnd),
     otaExcessVnd: m.otaExcessVnd,
+    openRefunds: openRefunds.map((r) => ({ reasonCode: r.reasonCode, openVnd: r.openVnd })),
   };
+}
+
+/** Σ openVnd of `openRefundsByReason` – the deduction of `unhandledCreditVnd`. */
+export function sumOpenRefunds(openRefunds: ReadonlyArray<OpenRefundByReason>): number {
+  return openRefunds.reduce((s, r) => s + r.openVnd, 0);
 }
 
 /** Refunded amount (positive) of the succeeded refund rows (Bill.refundedVnd). */
@@ -530,13 +561,31 @@ const AFTER_CLOSURE_SQL = `(p.type IN ('deposit', 'charge') AND p.reversal_of_id
          OR (rac.status = 'no_show' AND rac.no_show_marked_at IS NOT NULL
              AND p.created_at >= rac.no_show_marked_at))))`;
 
+/**
+ * 0.3.13 bổ sung 1 (5B-1, SEC S4 minimum – "Có thể trùng", DOM 11.4 3a; `recordPayment` (B)): for a transfer / VietQR
+ * receipt `p` (succeeded, not a reversal row), the booking codes of the OTHER transfer / VietQR receipts of the property
+ * that are still `succeeded` (not reversed), of the same amount, received within 24 hours of it, on another booking.
+ * A warning only (a guest may really pay twice); codes only, never a name. Computed at read – no column.
+ */
+const POSSIBLE_DUPLICATES_SQL = `(CASE WHEN p.method IN ('bank_transfer', 'vietqr') AND p.type IN ('deposit', 'charge')
+    AND p.reversal_of_id IS NULL AND p.status = 'succeeded' AND p.received_at IS NOT NULL
+  THEN ARRAY(SELECT DISTINCT rdup.code FROM payment dup JOIN reservation rdup ON rdup.id = dup.reservation_id
+     WHERE dup.property_id = p.property_id AND dup.id <> p.id
+       AND dup.method IN ('bank_transfer', 'vietqr') AND dup.type IN ('deposit', 'charge')
+       AND dup.reversal_of_id IS NULL AND dup.status = 'succeeded'
+       AND dup.amount_vnd = p.amount_vnd
+       AND dup.received_at BETWEEN p.received_at - interval '24 hours' AND p.received_at + interval '24 hours'
+       AND dup.reservation_id IS DISTINCT FROM p.reservation_id
+     ORDER BY rdup.code)
+  END)`;
+
 export const PAYMENT_COLUMNS = `p.id, p.code, p.type, p.method, p.amount_vnd, p.status, p.received_at, p.recorded_by,
   ur.display_name AS recorded_by_name, p.recorded_by_role, p.reconciliation, p.reconciled_at, p.reconciled_by,
   uq.display_name AS reconciled_by_name, p.reconciliation_note, p.self_reconciled, p.payer_name, p.card_brand,
   p.card_last4, p.reversal_of_id, p.expires_at, p.method_detail, p.note, p.attachment_id, p.confirmed_at,
   p.confirmed_by, uc.display_name AS confirmed_by_name, p.reservation_id, p.approval_request_id, p.shift_id,
-  p.received_amount_vnd, p.provider, p.version, p.qr_purpose, p.qr_context,
-  ${AFTER_CLOSURE_SQL} AS after_closure`;
+  p.received_amount_vnd, p.provider, p.version, p.qr_purpose, p.qr_context, p.bank_reference,
+  ${AFTER_CLOSURE_SQL} AS after_closure, ${POSSIBLE_DUPLICATES_SQL} AS possible_duplicate_codes`;
 export const PAYMENT_JOINS = `LEFT JOIN app_user ur ON ur.id = p.recorded_by
   LEFT JOIN app_user uc ON uc.id = p.confirmed_by LEFT JOIN app_user uq ON uq.id = p.reconciled_by`;
 
@@ -843,7 +892,7 @@ export class FolioService implements FolioStaySync {
     return computeTotals(
       lines,
       await this.payments(tx, folioId),
-      await this.openRefundVnd(tx, folioId, lines),
+      await this.openRefundsByReason(tx, folioId, lines),
     );
   }
 
@@ -897,7 +946,12 @@ export class FolioService implements FolioStaySync {
     ) {
       return { ...folio, postCheckout: true };
     }
-    throw problem('FOLIO_LOCKED');
+    // V5-44: a settled folio is refused for its window only when the caller takes post-checkout charges.
+    throw folioLocked(
+      folio.status === 'settled' && opts.allowPostCheckout
+        ? 'post_checkout_window_over'
+        : lockReasonOfStatus(folio.status),
+    );
   }
 
   /**
@@ -1013,7 +1067,7 @@ export class FolioService implements FolioStaySync {
     const folio = await this.lock(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
     if (folio.status !== 'open' && !(opts.allowSettled && folio.status === 'settled')) {
-      throw problem('FOLIO_LOCKED');
+      throw folioLocked(lockReasonOfStatus(folio.status));
     }
     const { rows: liveRows } = await tx.query<LiveLine & { reservation_id: string | null }>(
       `SELECT l.id, l.category, l.revenue_group, l.description, l.quantity, l.unit_price_vnd, l.amount_vnd,
@@ -1069,7 +1123,8 @@ export class FolioService implements FolioStaySync {
     const payments = await this.payments(tx, folioId);
     const lines = await this.lines(tx, folioId);
     const m = moneyPosition(lines, payments);
-    const openRefundVnd = await this.openRefundVnd(tx, folioId, lines);
+    const openRefunds = await this.openRefundsByReason(tx, folioId, lines);
+    const openRefundVnd = sumOpenRefunds(openRefunds);
     const unhandled = Math.max(0, m.creditVnd - openRefundVnd);
     return {
       totalVnd: m.totalVnd,
@@ -1080,6 +1135,7 @@ export class FolioService implements FolioStaySync {
       unhandledCreditVnd: unhandled,
       rawCreditVnd: m.creditVnd,
       openRefundVnd,
+      openRefunds,
       payableCreditVnd: m.payableCreditVnd,
       unreconciledVnd: m.creditVnd - m.payableCreditVnd,
       unsettledPaymentIds: m.unsettledPaymentIds,
@@ -1091,24 +1147,41 @@ export class FolioService implements FolioStaySync {
   /**
    * Σ (amount − refunded) of the refund requests of the folio's bookings that are still open (pending,
    * escalated, approved not fully paid). The refund columns are written by payments (ARC B-4).
+   * 0.3.13 V5-13: the sum of `openRefundsByReason` – one query, so `unhandledCreditVnd` and `openRefunds` never differ.
    */
   async openRefundVnd(
     tx: Tx,
     folioId: string,
     lines?: ReadonlyArray<Pick<FolioLineRow, 'reservation_id'>>,
   ): Promise<number> {
+    return sumOpenRefunds(await this.openRefundsByReason(tx, folioId, lines));
+  }
+
+  /**
+   * 0.3.13 V5-13 (ARC A1 (b); bổ sung 1, BE C0313-14) – the open refund requests of the folio's bookings (primary +
+   * child bookings of its lines), by reason: Σ (amount − refunded) per `reason_code`, groups > 0 only, whoever asked
+   * (not the scope of listApprovalRequests – amounts by reason only). Read by `Folio.totals.openRefunds`,
+   * `CheckoutSummary.openRefunds` and `openRefundVnd` (→ `unhandledCreditVnd`).
+   */
+  async openRefundsByReason(
+    tx: Tx,
+    folioId: string,
+    lines?: ReadonlyArray<Pick<FolioLineRow, 'reservation_id'>>,
+  ): Promise<OpenRefundByReason[]> {
     const folio = await this.get(tx, folioId);
-    if (!folio) return 0;
+    if (!folio) return [];
     const ids = new Set<string>([folio.primary_reservation_id]);
     for (const l of lines ?? (await this.lines(tx, folioId)))
       if (l.reservation_id) ids.add(l.reservation_id);
-    const { rows } = await tx.query<{ total: string | number }>(
-      `SELECT COALESCE(SUM(amount_vnd - refunded_vnd), 0) AS total FROM approval_request
+    const { rows } = await tx.query<{ reason_code: string; open: string | number }>(
+      `SELECT reason_code, SUM(amount_vnd - refunded_vnd) AS open FROM approval_request
         WHERE type = 'refund' AND target_type = 'reservation' AND target_id = ANY($1::uuid[])
-          AND status IN ('pending', 'escalated', 'approved')`,
+          AND status IN ('pending', 'escalated', 'approved')
+        GROUP BY reason_code HAVING SUM(amount_vnd - refunded_vnd) > 0
+        ORDER BY reason_code`,
       [[...ids]],
     );
-    return Number(rows[0]?.total ?? 0);
+    return rows.map((r) => ({ reasonCode: r.reason_code, openVnd: Number(r.open) }));
   }
 
   /** The open refund requests behind openRefundVnd, oldest first (DOM-S4-14). */
@@ -1488,19 +1561,37 @@ export class FolioService implements FolioStaySync {
   /**
    * SM-11 `projected → earned` (BR-903 + BR-527, DOM S3-3 / BE-15): a short-stay commission is earned when
    * ALL hold – the booking is `checked_out`, its folio owes nothing, and no receipt recorded by the payee on
-   * the folio is still `pending`/`disputed`. Called at the LAST of those events: B18 (reservation hook),
+   * the folio is still `pending`/`disputed`. "The payee" = any payee of a commission row of the booking, also an
+   * earlier closer whose row was voided (DOM FB-R5-DOM-ARC-1H-04, contract 0.3.13 bổ sung 1h): a transfer the old
+   * closer recorded and nobody reconciled yet holds the new closer's row too. Called at the LAST of those events: B18 (reservation hook),
    * reconciliation / cash handover, a receipt after checkout (debt). The caller passes the booking status.
    * "After the check-out" (a receipt still unconfirmed holds the commission) = after the folio was `settled` by B18
    * (`folio.settled_at`, ARC 3.1 / DOM PR99-01) – not the guest's departure time (`actual_checkout_at`).
+   *
+   * FB-R5-DOM-BE-101-01 (Major; ARC FB-R5-ARC-BE-H1-03 (1)): with `stay` (the sold nights, StayPort / sales port
+   * `confirmedStay`), a booking confirmed while its payee had no rate gets its row FIRST (`ensureCommission`, the rate
+   * in force today when no row pinned one) – check-in and check-out do not resync, so without this a sale / CTV would
+   * never be paid and nobody would see it. Without `stay` (worker composition) nothing is created, as before.
    */
   async tryEarnCommissions(
     tx: Tx,
-    stay: { reservationId: string; reservationCode: string; status: string },
+    stay: {
+      reservationId: string;
+      reservationCode: string;
+      status: string;
+      stay?: ConfirmedStay | null;
+    },
     requestId?: string,
   ): Promise<number> {
     if (stay.status !== 'checked_out') return 0;
     const folio = await this.folioOfReservation(tx, stay.reservationId);
     if (!folio) return 0;
+    if (stay.stay) {
+      await this.ensureCommission(tx, stay.stay, {
+        userId: tx.ctx.userId ?? null,
+        ...(requestId ? { requestId } : {}),
+      });
+    }
     const m = moneyPosition(await this.lines(tx, folio.id), await this.payments(tx, folio.id));
     if (m.balanceDueVnd > 0) return 0;
     // DOM 18/10 (BR-525 / BR-903, ARC 16.26): money received AFTER the check-out (a debt collected, a post-checkout
@@ -1523,8 +1614,10 @@ export class FolioService implements FolioStaySync {
         WHERE c.reservation_id = $1 AND c.status = 'projected'
           AND NOT EXISTS (
             SELECT 1 FROM payment p
-             WHERE p.folio_id = $2 AND p.recorded_by = c.payee_user_id AND p.status = 'succeeded'
-               AND p.reversal_of_id IS NULL AND p.reconciliation IN ('pending', 'disputed'))
+             WHERE p.folio_id = $2 AND p.status = 'succeeded'
+               AND p.reversal_of_id IS NULL AND p.reconciliation IN ('pending', 'disputed')
+               AND p.recorded_by IN (
+                 SELECT v.payee_user_id FROM commission v WHERE v.reservation_id = c.reservation_id))
         FOR UPDATE OF c`,
       [stay.reservationId, folio.id],
     );
@@ -1630,6 +1723,145 @@ export class FolioService implements FolioStaySync {
     await this.syncStay(tx, stay, actor, 'resynced');
   }
 
+  /**
+   * FOLIO_STAY_SYNC.ensureCommission – FB-R5-DOM-BE-101-01 (ARC FB-R5-ARC-BE-H1-03 (1)): the commission sync alone
+   * (see the port), for a short stay with a closer and sold nights. Skipped (ARC FB-R5-ARC-BE-131-02 (3), DOM
+   * FB-R5-DOM-BE-131-01) only when the booking already has its commission: a row `earned` / `payable` / `paid`, or a
+   * `projected` row of THE CURRENT closer – so a run after "earned" never adds a second row. Otherwise (no row, or a
+   * `projected` row of an earlier closer – a closer changed before the PATCH synced it) the sync runs: the old row is
+   * voided (`closer_changed`) and the current closer's row created at the pinned rate. Folio lines and the folio itself are not read
+   * for writing: it runs on a settled folio at B18 and after (the caller holds the folio – L3 – when it runs inside
+   * tryEarnCommissions). Returns the amount of the row created (0 = none, e.g. still `rate_missing`).
+   */
+  async ensureCommission(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+  ): Promise<number> {
+    if (!stay.closerUserId || stay.stayType !== 'short' || stay.nights.length === 0) return 0;
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM commission
+        WHERE reservation_id = $1
+          AND (status IN ('earned', 'payable', 'paid') OR (status = 'projected' AND payee_user_id = $2))`,
+      [stay.reservationId, stay.closerUserId],
+    );
+    if ((rows[0]?.n ?? 0) > 0) return 0;
+    const now = this.clock.now();
+    const today = localDate(now, await this.timezone(tx));
+    // A `projected` row still live here belongs to an earlier closer → voided as `closer_changed`.
+    return this.syncCommission(
+      tx,
+      await this.netNights(tx, stay),
+      today,
+      now,
+      actor.requestId,
+      'closer_changed',
+    );
+  }
+
+  /**
+   * FOLIO_STAY_SYNC.syncCommissionOnly – contract 0.3.13 bổ sung 1h (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02
+   * (1)–(2)): the closer of a booking changed (PATCH `closerUserId`) → the commission follows in the SAME transaction.
+   * - A row `payable` / `paid` (already in a pay-out) → 409 `INVALID_TRANSITION` (`currentState`), nothing written:
+   *   the owner adjusts it at pay-out.
+   * - The earlier closer's live rows go `void` with `voidReason` (`closer_changed` before check-in, `closer_corrected`
+   *   when OWN corrects it after check-in): `projected` rows through syncCommission, an `earned` row here.
+   * - The new closer's row is created at the booking's pinned rate (the snapshot, else the first row of the payee type
+   *   – #131: a change of person never changes the rate), `projected`; on a `checked_out` booking it is then earned
+   *   by the same rule as B18 (tryEarnCommissions: folio owes nothing, no receipt of the payee – nor of an earlier
+   *   closer, DOM FB-R5-DOM-ARC-1H-04 – pending).
+   * Lock order: the caller holds the booking (L1) and the folio (L3); the commission rows are locked FOR UPDATE here,
+   * as at B18. Returns the amount of the live row (0 = none, e.g. `rate_missing` or a long stay).
+   */
+  async syncCommissionOnly(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+    opts: { voidReason: CommissionVoidReason; reservationStatus: string },
+  ): Promise<number> {
+    const { rows: settled } = await tx.query<{
+      id: string;
+      status: 'earned' | 'payable' | 'paid';
+      payee_user_id: string;
+      amount_vnd: number;
+    }>(
+      `SELECT id, status, payee_user_id, amount_vnd FROM commission
+        WHERE reservation_id = $1 AND status IN ('earned', 'payable', 'paid')
+        ORDER BY created_at, id FOR UPDATE`,
+      [stay.reservationId],
+    );
+    const inPayout = settled.find((c) => c.status !== 'earned');
+    if (inPayout) {
+      throw problem('INVALID_TRANSITION', {
+        detail: 'the commission of this booking is already in a pay-out',
+        extras: { currentState: inPayout.status },
+      });
+    }
+    const now = this.clock.now();
+    // The new closer already holds the earned commission (a booking whose closer changed before this fix, set back):
+    // it stays; nothing else of theirs is created.
+    const kept = settled.find((c) => c.payee_user_id === stay.closerUserId);
+    for (const c of settled) {
+      if (c === kept) continue;
+      // DOM FB-R5-DOM-BE-154-01 (ARC chose): the voided `earned` row keeps its `recognized_at` (the B18 date), as
+      // voidCommissions (B10/B11) does – the owner needs that date to take it back in a later pay-out (BR-212).
+      await tx.query(
+        `UPDATE commission SET status = 'void', void_reason = $3, updated_at = $2, version = version + 1
+          WHERE id = $1`,
+        [c.id, now, opts.voidReason],
+      );
+      await this.audit.recordMoney(tx, {
+        action: 'commission.voided',
+        entityType: 'commission',
+        entityId: c.id,
+        entityCode: stay.reservationCode,
+        before: { status: 'earned', amountVnd: c.amount_vnd },
+        after: { status: 'void', voidReason: opts.voidReason },
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
+    if (kept) return kept.amount_vnd;
+    const today = localDate(now, await this.timezone(tx));
+    const amount = await this.syncCommission(
+      tx,
+      await this.netNights(tx, stay),
+      today,
+      now,
+      actor.requestId,
+      opts.voidReason,
+    );
+    if (opts.reservationStatus === 'checked_out') {
+      await this.tryEarnCommissions(
+        tx,
+        {
+          reservationId: stay.reservationId,
+          reservationCode: stay.reservationCode,
+          status: 'checked_out',
+        },
+        actor.requestId,
+      );
+    }
+    return amount;
+  }
+
+  /**
+   * S4-03 (BUG-R2-055): the stay with each night's NET room revenue (gross − what is applied on the night now, never
+   * negative) – the base of the commission and of the channel fee, never the values read before a sync.
+   */
+  private async netNights(tx: Tx, stay: ConfirmedStay): Promise<ConfirmedStay> {
+    const nets = await this.nights.revenueOf(
+      tx,
+      stay.nights.map((n) => n.stayNightId),
+    );
+    return {
+      ...stay,
+      nights: stay.nights.map((n) => ({
+        ...n,
+        roomRevenueVnd: Math.max(0, nets.get(n.stayNightId)?.netVnd ?? n.roomRevenueVnd),
+      })),
+    };
+  }
+
   /** B5/B6/B10/B11/relocation: live commissions of the booking → void (SM-11). */
   async onReservationVoided(
     tx: Tx,
@@ -1662,7 +1894,7 @@ export class FolioService implements FolioStaySync {
     }
     const folio = await this.lock(tx, input.folioId);
     if (!folio) throw new Error(`folio ${input.folioId} not visible for ${input.reservationCode}`);
-    if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
+    if (folio.status !== 'open') throw folioLocked(lockReasonOfStatus(folio.status));
     const now = this.clock.now();
     const nightIds = new Set(input.voidedStayNightIds);
     const voidedDates = new Set(
@@ -1729,6 +1961,9 @@ export class FolioService implements FolioStaySync {
     }
     let feeVnd = 0;
     if (retained > 0) {
+      // V5-11 (BUG-R3-036, oracles BR-309-27, BR-311-04): dated the business date of the cancel / no-show –
+      // 01:30 on the 22nd is still the 21st (BR-010). The caller's business date, never the calendar date.
+      if (!input.businessDate) throw new Error('voidStay: retainedVnd > 0 without businessDate');
       const category =
         input.retainedKind ?? (input.reason === 'no_show' ? 'no_show_fee' : 'cancellation_fee');
       await this.insertLine(tx, {
@@ -1739,7 +1974,7 @@ export class FolioService implements FolioStaySync {
         quantity: 1,
         unitPriceVnd: retained,
         amountVnd: retained,
-        serviceDate: localDate(now, await this.timezone(tx)),
+        serviceDate: input.businessDate,
         stayNightId: null,
         source: 'system',
         postedBy: who.userId,
@@ -1960,7 +2195,7 @@ export class FolioService implements FolioStaySync {
   ): Promise<SyncResult> {
     const folio = await this.lock(tx, stay.folioId);
     if (!folio) throw new Error(`folio ${stay.folioId} not visible for ${stay.reservationCode}`);
-    if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
+    if (folio.status !== 'open') throw folioLocked(lockReasonOfStatus(folio.status));
     const now = this.clock.now();
     const tz = await this.timezone(tx);
     const today = localDate(now, tz);
@@ -2099,17 +2334,7 @@ export class FolioService implements FolioStaySync {
 
     // S4-03 (BUG-R2-055): commission and channel fee on the nights AFTER the reductions moved (net = gross −
     // what is applied on the night now, never negative) – not on the values read before the sync.
-    const nets = await this.nights.revenueOf(
-      tx,
-      stay.nights.map((n) => n.stayNightId),
-    );
-    const netStay: ConfirmedStay = {
-      ...stay,
-      nights: stay.nights.map((n) => ({
-        ...n,
-        roomRevenueVnd: Math.max(0, nets.get(n.stayNightId)?.netVnd ?? n.roomRevenueVnd),
-      })),
-    };
+    const netStay = await this.netNights(tx, stay);
     result.commissionVnd = await this.syncCommission(tx, netStay, today, now, who.requestId);
     await this.syncChannelFee(tx, netStay, today, now, who.requestId);
     await this.syncOtaCollect(tx, folio.id, stay.reservationId, stay.paymentModel ?? null, {
@@ -3148,7 +3373,17 @@ export class FolioService implements FolioStaySync {
       `SELECT DISTINCT actor_id FROM folio_settled_reduction WHERE folio_id = $1 AND actor_role <> 'owner'`,
       [folioId],
     );
-    const originActorIds = [...new Set([...carried, ...makers.map((m) => m.actor_id)])];
+    // 0.3.13 bổ sung 1 (5B-1, SEC S2): whoever recorded a receipt on the folio after its booking was closed never
+    // decides (nor pays – RefundsService.payOut) a refund of that folio – also one asked again by someone else after
+    // the 5B-1 request was rejected. The receipt row is the record (as folio_settled_reduction is for A32).
+    const { rows: late } = await tx.query<{ recorded_by: string }>(
+      `SELECT DISTINCT p.recorded_by FROM payment p
+        WHERE p.folio_id = $1 AND p.recorded_by IS NOT NULL AND ${AFTER_CLOSURE_SQL}`,
+      [folioId],
+    );
+    const originActorIds = [
+      ...new Set([...carried, ...makers.map((m) => m.actor_id), ...late.map((l) => l.recorded_by)]),
+    ];
     if (input.source === 'a32') {
       const basis = await this.limitBasisVnd(tx, folioId, null);
       const total = (await this.a32RefundTotalVnd(tx, folioId)) + input.amountVnd;
@@ -3205,6 +3440,33 @@ export class FolioService implements FolioStaySync {
       'superseded',
     );
     return true;
+  }
+
+  /**
+   * 0.3.13 bổ sung 1 (5B-1, SEC S4 minimum; `ApprovalRequest.possibleDuplicateCodes`, read time): for each `refund`
+   * request of `rows` targeting a booking, the "Có thể trùng" codes of the transfer / VietQR receipts recorded on that
+   * booking's folio after it was closed (the receipts a 5B-1 request – or its `superseded` replacement – pays back).
+   * Ids absent from the map = nothing suspected. Provided to ApprovalService (provideRefundDuplicates).
+   */
+  async refundDuplicateCodes(
+    tx: Tx,
+    rows: ReadonlyArray<Pick<ApprovalRow, 'id' | 'type' | 'target_type' | 'target_id'>>,
+  ): Promise<ReadonlyMap<string, string[]>> {
+    const ids = rows
+      .filter((r) => r.type === 'refund' && r.target_type === 'reservation' && r.target_id)
+      .map((r) => r.id);
+    if (ids.length === 0) return new Map();
+    const { rows: found } = await tx.query<{ id: string; codes: string[] | null }>(
+      `SELECT a.id, ARRAY(SELECT DISTINCT c FROM payment p, unnest(${POSSIBLE_DUPLICATES_SQL}) AS c
+                           WHERE p.folio_id = ra.folio_id AND ${AFTER_CLOSURE_SQL}
+                           ORDER BY c) AS codes
+         FROM approval_request a JOIN reservation ra ON ra.id = a.target_id
+        WHERE a.id = ANY($1::uuid[])`,
+      [ids],
+    );
+    const out = new Map<string, string[]>();
+    for (const f of found) if (f.codes && f.codes.length > 0) out.set(f.id, f.codes);
+    return out;
   }
 
   /** ADD3-01: did `userId` (below the owner) make an A32 reduction after check-out on the target's folio? */
@@ -3357,12 +3619,11 @@ export class FolioService implements FolioStaySync {
     return [...ids];
   }
 
-  /** "Cần chú ý" closed_reservation_credit of the stay (one per booking – dedupeKey). */
-  private async openCreditAttention(
-    tx: Tx,
-    reservationId: string,
-    reservationCode: string,
-  ): Promise<void> {
+  /**
+   * "Cần chú ý" closed_reservation_credit of the stay (one per booking – dedupeKey). Public for 5B-1: a receipt after
+   * closure that leaves money to pay back opens it like a cancellation does (RefundsService.createAfterClosureRefund).
+   */
+  async openCreditAttention(tx: Tx, reservationId: string, reservationCode: string): Promise<void> {
     if (!this.events) return;
     await this.events.openAttention(tx, {
       kind: 'closed_reservation_credit',
@@ -3994,6 +4255,7 @@ export class FolioService implements FolioStaySync {
     today: LocalDate,
     now: Date,
     requestId?: string,
+    voidReason: CommissionVoidReason = 'resync',
   ): Promise<number> {
     let desired: { payee: PayeeType; ratePct: number; base: number; amount: number } | null = null;
     if (stay.closerUserId && stay.stayType === 'short' && stay.nights.length > 0) {
@@ -4007,6 +4269,11 @@ export class FolioService implements FolioStaySync {
       // (`rate_missing`) → no commission row – never 0, never a number from code; the next sync after OWN typed
       // the rate creates it. Long stays never reach here (their commission is `long_stay_commission`, PR-M).
       let ratePct: number | null = stay.commissionRatePctSnapshot ?? null;
+      // FB-R5-DOM-BE-101-01 (2), ARC FB-R5-ARC-BE-H1-03 (2) – BR-903 (5) one rate per booking: without a snapshot, the
+      // rate of the FIRST commission row of the booking for this payee type (any status) is kept – a table changed
+      // later never re-prices the booking. Pinned on the folio side (the row), never written back into the
+      // reservation's price snapshot (reservations owns it).
+      if (payee && ratePct === null) ratePct = await this.pinnedCommissionRate(tx, stay, payee);
       if (payee && ratePct === null) {
         const rate = await shortStayCommissionRate(this.params, tx, payee, today);
         ratePct = rate.status === 'computed' ? rate.ratePct : null;
@@ -4039,9 +4306,9 @@ export class FolioService implements FolioStaySync {
     for (const c of liveRows) {
       if (c === current) continue;
       await tx.query(
-        `UPDATE commission SET status = 'void', void_reason = 'resync', updated_at = $2, version = version + 1
+        `UPDATE commission SET status = 'void', void_reason = $3, updated_at = $2, version = version + 1
           WHERE id = $1`,
-        [c.id, now],
+        [c.id, now, voidReason],
       );
       await this.audit.recordMoney(tx, {
         action: 'commission.voided',
@@ -4049,7 +4316,7 @@ export class FolioService implements FolioStaySync {
         entityId: c.id,
         entityCode: stay.reservationCode,
         before: { status: 'projected', amountVnd: c.amount_vnd },
-        after: { status: 'void', voidReason: 'resync' },
+        after: { status: 'void', voidReason },
         ...(requestId ? { requestId } : {}),
       });
     }
@@ -4112,6 +4379,21 @@ export class FolioService implements FolioStaySync {
       );
     }
     return current?.amount_vnd ?? 0;
+  }
+
+  /** The rate of the first commission row of the booking for `payee` (ORDER BY created_at, id), null when none. */
+  private async pinnedCommissionRate(
+    tx: Tx,
+    stay: ConfirmedStay,
+    payee: PayeeType,
+  ): Promise<number | null> {
+    const { rows } = await tx.query<{ rate: string }>(
+      `SELECT rate_pct_snapshot::text AS rate FROM commission
+        WHERE reservation_id = $1 AND payee_type = $2
+        ORDER BY created_at, id LIMIT 1`,
+      [stay.reservationId, payee],
+    );
+    return rows[0] ? Number(rows[0].rate) : null;
   }
 
   /** BR-901 / DATA FB-01: OTA channel fee (reported or estimated), money audit, allocated over the nights. */

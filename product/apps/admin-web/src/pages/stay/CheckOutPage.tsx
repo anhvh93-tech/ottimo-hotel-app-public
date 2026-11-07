@@ -61,6 +61,17 @@ import {
   surchargeFocMissing,
   type SurchargeFoc,
 } from './foc';
+import {
+  OVERDUE_REASONS,
+  canExtendStay,
+  localDayTime,
+  overdueCheckOutAllowed,
+  overdueDenial,
+  overdueEarlyAt,
+  overdueGuidanceText,
+  overdueNeedText,
+  type OverdueReasonPick,
+} from './overdue';
 
 const OWN_MGR = ['owner', 'manager'];
 /**
@@ -163,10 +174,11 @@ export function minibarPrefill(std: MinibarStandard | undefined): Record<string,
  * are shown in place; a credit balance needs a handling choice (`overpaymentHandling`, G-15).
  */
 export function CheckOutPage({ reservationId }: { reservationId: string }) {
-  const { t, vnd, money, date } = useI18n();
+  const { t, vnd, money, date, locale } = useI18n();
   const propertyId = usePropertyId();
   const { roles, property } = useSession();
-  // BUG-R4-050: the instant of the typed time on the business-day axis B18 reads it on (`checkoutInstant`).
+  // BUG-R4-050: the instant of the typed time on the business-day axis B18 reads it on (`checkoutInstant`) – only for a
+  // server that does not return `CheckoutSummary.checkoutAt` yet (≤ 0.3.12); V5-10 forwards the server's instant.
   const rollover = property?.businessDayRollover ?? DEFAULT_ROLLOVER;
   // R3-Q39 #10, #11 (BR-010): the BUSINESS day – at 02:40 the stay is still in last night's room, and the
   // debt due date counts from the business day of the write (BR-525 (i) v0.4.0).
@@ -189,12 +201,20 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const hereRoomId = here?.roomId ?? undefined;
   const [step, setStep] = useState(0);
   const [time, setTime] = useState('');
+  /** DOM rules-v1.0.5 15.2: the desk changed the time the page filled in (the desk's clock, KB7). */
+  const [timeTouched, setTimeTouched] = useState(false);
   const qTime = useDebounced(time, 300);
+  // V5-10 (0.3.13 1.1 ý 3, 1.19 ý 4): each read keeps the time it asked for – QR and B18 forward the `checkoutAt` of
+  // a read WITH the time on screen only (DOM rules-v1.0.5 15.2: the read without a time is the agreed or standard
+  // time, never the guest's).
   const sum = useResource(
-    async () => (await api.getCheckoutSummary(R, qTime || undefined)).data,
+    async () => ({
+      summary: (await api.getCheckoutSummary(R, qTime || undefined)).data,
+      askedTime: qTime,
+    }),
     [propertyId, reservationId, qTime],
   );
-  const s = sum.state.data;
+  const s = sum.state.data?.summary;
   // 0.3.7 bổ sung 4 (minibar M-1, BR-703-01): one cabinet per (stay, room) – after B14 the old room's cabinet is
   // counted too (`CheckoutSummary.minibarUncheckedRooms`); `undefined` = the room assigned now.
   const [cabinet, setCabinet] = useState<string | undefined>(undefined);
@@ -364,6 +384,22 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const noteRef = useRef<HTMLInputElement>(null);
   /** The late surcharge was just written (B15): step 3 opens once the folio and booking are read again. */
   const [toBill, setToBill] = useState(false);
+  // V5-15 (DOM 7.1 ý 1): `overdueReason` of an overdue stay – typed, or filled by one of the 3 suggestions.
+  const [reason, setReason] = useState('');
+  const [reasonPick, setReasonPick] = useState<OverdueReasonPick | ''>('');
+  const reasonRef = useRef<HTMLInputElement>(null);
+  const [focusReason, setFocusReason] = useState(false);
+  /** V5-15: B18 answered 403 on the overdue path – whom to call, from that answer (`requiredRole`, `nightsNotBilled`). */
+  const [overdueDenied, setOverdueDenied] = useState<{
+    nights: number;
+    requiredRole?: string;
+  } | null>(null);
+  // FB-R5-UXD-FE-145-03 (copy 9.14 (c)): the guidance replacing the steps after that 403 takes the focus once – never
+  // left on `body` once the confirmation box closes.
+  const deniedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (overdueDenied) deniedRef.current?.focus();
+  }, [overdueDenied]);
 
   useEffect(() => {
     // E03-07: the guest leaves now – never a future time, never the standard time by default. KB7 (UXR 17/10):
@@ -371,7 +407,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     // lost. "Now" = the desk's clock (trusted device; on the desk-clock stack the browser runs on the stack's
     // virtual clock) – the API has no clock field; B18 re-checks the time against its own clock (E03-07).
     // Post-midnight window (0.3.6 add. 2): also now, early in the departure day.
-    if (s && !time) setTime(timeHHmm(new Date()));
+    // V5-15 (DOM 15.3): an overdue stay left on an earlier day – "now" means nothing there. The first read (no time)
+    // gives the agreed late time or the standard one: with no proof of the time, that is what is recorded, no surcharge.
+    if (s && !time)
+      setTime(
+        s.overdue
+          ? s.checkoutTime || s.standardCheckoutTime || rules.checkoutTime
+          : timeHHmm(new Date()),
+      );
     // first summary only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s?.checkoutTime]);
@@ -381,21 +424,50 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     setToBill(false);
     setStep(2);
   }, [toBill, sum.state.status, res.state.status]);
+  // FB-R5-ARC-FE-125-02: B18 refused the instant (`checkoutAt`, e.g. a read from before 06:00 kept past it) – the
+  // summary is read again and "Tiếp tục" waits for that read, so the next B18 never sends the refused value again.
+  const [atRecheck, setAtRecheck] = useState(false);
   // "Tiếp tục" pressed while the summary is still priced for another time (typed < 300 ms ago): the click is
   // kept and carried out once the server amount for the typed time is on screen – never lost, never stale.
-  const priced = !time || (s?.checkoutTime ?? '').slice(0, 5) === time;
+  const timedSummary = !!s && !!time && sum.state.data?.askedTime === time;
+  const priced = !time || timedSummary;
+  const atRechecking = atRecheck && sum.state.status === 'loading';
+  useEffect(() => {
+    if (atRecheck && sum.state.status !== 'loading') setAtRecheck(false);
+  }, [atRecheck, sum.state.status]);
+  /**
+   * V5-10 (0.3.13 1.1 ý 3, 1.19; T10-6): the ONE instant of this check-out – the server's `checkoutAt` of the last
+   * summary read with the time on screen, sent as is to the check-out VietQR (and its due probe) and to B18. No read
+   * with that time yet → nothing (the QR and B18 wait, like "Tiếp tục"). The desk never puts a date to the time itself,
+   * except for a server without the field (≤ 0.3.12).
+   */
+  const checkoutAt =
+    timedSummary && r
+      ? (s.checkoutAt ??
+        checkoutInstant(time, today, r.stayDepartureDate ?? r.departureDate, rollover))
+      : undefined;
+  // 0.3.13 bổ sung 1 (C0313-01): that instant is later than the server's clock + tolerance – B18 and the check-out QR
+  // would answer 422 TIME_AFTER_ACTION: said under the time box, "Tiếp tục", the QR and "Hoàn tất" are off.
+  const timeAfterNow = timedSummary && s.checkoutAtAfterNow === true;
   const [wantBill, setWantBill] = useState(false);
   const goBillRef = useRef<() => void>(() => undefined);
   useEffect(() => {
-    if (!wantBill || !priced) return;
+    if (!wantBill || !priced || atRechecking) return;
     setWantBill(false);
     goBillRef.current();
-  }, [wantBill, priced]);
+  }, [wantBill, priced, atRechecking]);
   useEffect(() => {
     if (!focusNote || step !== 1) return;
     noteRef.current?.focus();
     setFocusNote(false);
   }, [focusNote, step]);
+  useEffect(() => {
+    if (!focusReason || step !== 1) return;
+    const el = reasonRef.current;
+    el?.focus();
+    el?.setSelectionRange(el.value.length, el.value.length);
+    setFocusReason(false);
+  }, [focusReason, step]);
 
   // SEC FB-R2-SEC-FE-08: the manager's password lives only while the confirmation box is open with the same
   // figures – leaving the bill step, the box closing, or the fee / waiver changing clears it.
@@ -403,14 +475,18 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const lfModeNow: LateFeeMode = deskConfirm ? lfMode : 'review';
   // ESC-031 / SEC 8.6: switching to "Ghi phụ thu – quản lý xem lại" also drops a password typed in the old panel.
   const lfShownKey =
-    step === 2 && s?.extraNightRequired && s.extraNightAvailable === false
+    step === 2 && s?.extraNightRequired && !s.overdue && s.extraNightAvailable === false
       ? `${lfModeNow}|${s.lateFeeAsNightVnd ?? ''}|${lfFoc.on ? lfFocAmount || 'all' : ''}`
       : '';
   useEffect(() => {
     setLfSecret('');
   }, [lfShownKey]);
+  // V5-15: an overdue stay never takes the one-night fee (contract 1.4) – no 2FA read for it.
   const lfOffered =
-    !!s?.extraNightRequired && s.extraNightAvailable === false && (s.lateFeeAsNightVnd ?? 0) > 0;
+    !!s?.extraNightRequired &&
+    !s.overdue &&
+    s.extraNightAvailable === false &&
+    (s.lateFeeAsNightVnd ?? 0) > 0;
   useEffect(() => {
     if (!lfOffered) return;
     let stale = false;
@@ -463,7 +539,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   useEffect(() => {
     if (sum.state.status !== 'ready' || sum.state.loadedAt === seenRead.current) return;
     seenRead.current = sum.state.loadedAt;
-    const due = sum.state.data.minibarUncheckedRooms ?? [];
+    const due = sum.state.data.summary.minibarUncheckedRooms ?? [];
     const release = [...doneCabinets.keys()].filter((id) => due.some((c) => c.roomId === id));
     if (release.length) {
       const kept = new Map([...doneRef.current].filter(([id]) => !release.includes(id)));
@@ -493,7 +569,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const typedRate =
     s?.extraNightRequired && s.extraNightAvailable !== false ? amountOf(extraRate) : 0;
   const rateTyped = typedRate > 0 && typedRate !== (s?.extraNightDefaultRateVnd ?? 0);
-  const typedKey = rateTyped && r ? `${time}|${typedRate}` : '';
+  const typedKey =
+    rateTyped && r && checkoutAt && !timeAfterNow ? `${checkoutAt}|${typedRate}` : '';
   const debTypedKey = useDebounced(typedKey, 300);
   const [typedDue, setTypedDue] = useState<{ key: string; due?: number; failed?: boolean } | null>(
     null,
@@ -501,19 +578,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   useEffect(() => {
     if (!debTypedKey || debTypedKey !== typedKey || !r) return;
     let stale = false;
-    const [hhmm, rate] = debTypedKey.split('|') as [string, string];
+    const [at, rate] = debTypedKey.split('|') as [string, string];
     api
       .createVietQr(
         { propertyId, folioId: r.folioId },
         {
           amountVnd: DUE_PROBE_VND,
           purpose: 'check_out',
-          checkoutAt: checkoutInstant(
-            hhmm,
-            today,
-            r.stayDepartureDate ?? r.departureDate,
-            rollover,
-          ),
+          checkoutAt: at,
           extraNightRateVnd: Number(rate),
         },
         newIdempotencyKey(),
@@ -537,7 +609,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       stale = true;
     };
     // `s` – a payment recorded or a line written changes what is due at that rate.
-  }, [debTypedKey, typedKey, r, propertyId, s, today, rollover]);
+  }, [debTypedKey, typedKey, r, propertyId, s]);
 
   if (!r && res.state.status === 'error')
     return (
@@ -645,6 +717,64 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       </>
     );
   }
+  // V5-15 (0.3.13 bổ sung 1): past the effective departure the server decides – the summary says the stay is overdue
+  // (`overdue`, `nightsNotBilled`), the booking whether THIS caller may record it (`allowedActions` check_out
+  // `overdue`). Until the summary is in, nothing is counted or written.
+  const pastDeparture = !done && r.status === 'in_house' && today > stayDeparture;
+  const overdue = s?.overdue === true;
+  const nightsNotBilled = s?.nightsNotBilled ?? 1;
+  if (pastDeparture && !s) {
+    return (
+      <>
+        <Topbar title={t('checkout.title', { room, guest })} sub={<Code>{r.code}</Code>} />
+        <Page>
+          {sum.state.status === 'error' ? (
+            <ErrorBlock
+              titleKey="co.error_title"
+              error={sum.state.error}
+              onRetry={sum.reload}
+              autoRetrySeconds={sum.state.autoRetrySeconds}
+            />
+          ) : (
+            <LoadingBlock />
+          )}
+        </Page>
+      </>
+    );
+  }
+  // DOM 15.7: FD/FDL (and a manager past 1 night) are told whom to call – no steps, nothing written.
+  if (
+    !done &&
+    r.status === 'in_house' &&
+    overdue &&
+    (overdueDenied || !overdueCheckOutAllowed(r))
+  ) {
+    return (
+      <>
+        <Topbar title={t('checkout.title', { room, guest })} sub={<Code>{r.code}</Code>} />
+        <Page>
+          <section className="card stack">
+            <div tabIndex={-1} ref={deniedRef}>
+              <Alert tone="info" title={t('checkout.overdue_title')}>
+                {overdueGuidanceText(
+                  t,
+                  overdueDenied
+                    ? overdueNeedText(t, overdueDenied.nights, overdueDenied.requiredRole)
+                    : overdueNeedText(t, nightsNotBilled),
+                  canExtendStay(r),
+                )}
+              </Alert>
+            </div>
+            <div className="row wrap">
+              <Link className="btn pri" to={`/reservations/${reservationId}`}>
+                {t('ci.back_to_booking')}
+              </Link>
+            </div>
+          </section>
+        </Page>
+      </>
+    );
+  }
   const items = std.state.data?.items ?? [];
   const chargeable = items.some((i) => !i.isFree);
   const minibarTotal = items.reduce(
@@ -660,7 +790,21 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     .find((x) => x !== undefined);
   const minibarMax = badIdx !== undefined ? (items[Number(badIdx)]?.standardQty ?? '') : '';
   const lines: FolioLine[] = s?.lines ?? [];
-  const extraNightNeeded = !!s?.extraNightRequired;
+  // V5-15 (contract 1.4): B18 of an overdue stay never adds a night – a time after the last tier is refused; a night
+  // the guest stayed goes through Gia hạn (B13) first.
+  const overdueAfterLimit = overdue && !!s?.extraNightRequired;
+  // DOM 145-02 / ARC 3.4: the server's `checkoutAt` fell on a later day than the effective departure (a time before the
+  // rollover, v1.0.5 – V515-01): say how Desk read it, never "extend first" (that night was not stayed). Server-day only.
+  const overdueEarly = overdueEarlyAt(overdueAfterLimit, s?.checkoutAt, stayDeparture);
+  const overdueLimitText = overdueEarly
+    ? t('checkout.overdue_time_early', {
+        time: overdueEarly.time,
+        next: date(overdueEarly.day),
+        date: date(stayDeparture),
+        rollover,
+      })
+    : t('checkout.overdue_after_limit');
+  const extraNightNeeded = !overdue && !!s?.extraNightRequired;
   const extraUnavailable = extraNightNeeded && s?.extraNightAvailable === false;
   // E05-11: the extra night is posted inside the check-out transaction, so the summary does not
   // include it yet – balance/credit shown here are what B18 will see after that night.
@@ -691,6 +835,27 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const lateRaise = lateNew > lateOld;
   const lateDelta = lateNew - lateOld;
   const lateTier = s?.lateSurchargeRecalc?.newTierPct ?? s?.lateCheckoutSurcharge?.tierPct ?? 0;
+  // DOM rules-v1.0.5 15.1–15.2 (review #106 2.1): the fee follows the time the guest LEFT. The page fills in the desk's
+  // clock (KB7) – left as it is, a guest who handed the key in at 11:40 is charged at the click (12:10). While the time
+  // is still the one filled in and it costs the guest something, the box stands out for the desk to check.
+  const timePrefilled = !!time && !timeTouched;
+  // V5-15: on an overdue stay the page fills in the agreed / standard time (DOM 15.3), never the desk's clock.
+  const timePrefilledCharged = !overdue && timePrefilled && (lateNew > 0 || extraNightNeeded);
+  const reasonShort = overdue && reason.trim().length < 3;
+  // V5-15: what holds "Tiếp tục" and "Hoàn tất" on an overdue stay first – the time the guest left (required: B18 needs
+  // `checkoutAt`), within the departure day's last tier, and the reason.
+  const overdueWhy = !overdue
+    ? null
+    : !time
+      ? t('error.field_named', {
+          label: t('checkout.departure_time'),
+          message: t('common.required'),
+        })
+      : overdueAfterLimit
+        ? overdueLimitText
+        : reasonShort
+          ? t('field_error.reason_required')
+          : null;
   // 0.3.6 add. 2: only credit not yet covered by a refund request needs a decision.
   const credit0 = s?.unhandledCreditVnd ?? s?.creditVnd ?? 0;
   // S4-47 / ARC 0.3.7 bổ sung 4: what B18 leaves due at this time is the SERVER's figure (late charge
@@ -776,10 +941,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       ? // the FOC asked in this B18 call is not known to the summary (like H13 – BR-402): taken off here.
         Math.max(0, (s?.amountDueAtCheckoutVnd ?? 0) - (lfFocBody?.amountVnd ?? 0))
       : Math.max(0, s?.balanceDueVnd ?? 0)
-    : ((rateTyped ? typedDueNow?.due : undefined) ??
-      s?.amountDueAtCheckoutVnd ??
-      s?.balanceDueVnd ??
-      0);
+    : // V5-15: no night is added on an overdue stay – its due after the last tier (locked) is the folio's
+      overdueAfterLimit
+      ? Math.max(0, s?.balanceDueVnd ?? 0)
+      : ((rateTyped ? typedDueNow?.due : undefined) ??
+        s?.amountDueAtCheckoutVnd ??
+        s?.balanceDueVnd ??
+        0);
   // BUG-R3-017: cash / POS card taken on this step for money B18 itself posts (one-night late fee, extra night) – more
   // than the folio owes now, so `recordPayment` would refuse it – goes with "Hoàn tất" as `finalPayment` (capped by the
   // server at what is due after those lines). Valid only while it is not above what is due now (the time, the fee or
@@ -942,7 +1110,11 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           };
     const body: CheckOutBody = {
       checkoutTime: time || s?.checkoutTime || rules.checkoutTime,
-      checkoutTimeNote: timeNote.trim() || undefined,
+      // V5-10: the instant the bill and the QR were priced at (T10-6) – the server uses it as is.
+      checkoutAt,
+      // V5-15: an overdue stay takes `overdueReason` instead of the note (`checkoutTimeNoteRequired` = false).
+      checkoutTimeNote: overdue ? undefined : timeNote.trim() || undefined,
+      overdueReason: overdue ? reason.trim() : undefined,
       applyLateSurcharge: lateRaise && lateTold,
       expectedSurchargeVnd: lateRaise && lateTold ? lateNew : undefined,
       // E05-11: after the last late tier the check-out itself adds one night at this rate.
@@ -978,6 +1150,26 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     if (!out) {
       sum.reload();
       const e = caught.error;
+      // V5-15 (H-01…H-04): the overdue path refused for this account – whom to call, from the 403 itself (a manager
+      // past 1 night gets `requiredRole: owner`); the booking is read again (its actions changed).
+      const denied = overdue ? overdueDenial(e, nightsNotBilled) : null;
+      if (denied) {
+        setOverdueDenied(denied);
+        res.reload();
+        return;
+      }
+      // V5-15: the reason is fixed on step 2, where it is typed (card number, too short) – or the stay is no longer
+      // overdue (422 NOT_ALLOWED: extended meanwhile): read again, the next "Hoàn tất" is a new command.
+      if (
+        isApiError(e) &&
+        e.fieldErrors.some((fe) => fe.field.replace(/^body\./, '') === 'overdueReason')
+      ) {
+        if (e.fieldErrors.some((fe) => fe.code === 'NOT_ALLOWED')) {
+          act.renewKey();
+          res.reload();
+        } else setFocusReason(true);
+        setStep(1);
+      }
       // BUG-R4-045: a cabinet is still to count – back to step 1 with it once the summary just asked for is in.
       if (isApiError(e) && e.code === 'MINIBAR_NOT_CHECKED') setMinibarResync(true);
       // BUG-R3-024: 409 INVALID_TRANSITION – e.g. the stay was extended meanwhile: the booking is read again, and a
@@ -1000,6 +1192,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           setNoteAsked(true);
           setFocusNote(true);
         }
+        // FB-R5-ARC-FE-125-02: the summary is being read again above (`sum.reload()`) – wait for its new instant
+        if (e.fieldErrors.some((fe) => fe.field.replace(/^body\./, '') === 'checkoutAt'))
+          setAtRecheck(true);
         setStep(1);
       }
       return;
@@ -1016,18 +1211,26 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // KB7 (1): a higher late surcharge is written to the folio (B15 at the actual time, the amount the desk saw
   // and told the guest – BR-414) before the bill step, so step 3 collects it with everything else.
   // S4-48 / BUG-R2-088: the reason says what to do (tick the box), not the box's own label.
-  const lateWhy = extraRangeError
-    ? extraRangeError
-    : dueComputing
-      ? t('checkout.due_computing')
-      : lateRaise && !lateTold
-        ? t('co.go_bill_needs_told')
-        : lateRaise
-          ? surchargeFocMissing(t, lateFoc)
-          : null;
+  const usualLateWhy = timeAfterNow
+    ? t('field.TIME_AFTER_ACTION')
+    : // FB-R5-UXD-FE-PR125-02: the server already said B18 will ask for the note – no going on with it empty
+      // (else the desk collects the money, then "Hoàn tất" sends them back to this step).
+      // FB-R5-UXD-FE-PR125-05: the server takes a note of 3–300 characters (`checkoutTimeNote`, min 3).
+      timedSummary && s.checkoutTimeNoteRequired && timeNote.trim().length < 3
+      ? t('field.TIME_NOTE_REQUIRED')
+      : extraRangeError
+        ? extraRangeError
+        : dueComputing
+          ? t('checkout.due_computing')
+          : lateRaise && !lateTold
+            ? t('co.go_bill_needs_told')
+            : lateRaise
+              ? surchargeFocMissing(t, lateFoc)
+              : null;
+  const lateWhy = (!timeAfterNow && overdueWhy) || usualLateWhy;
   const goBill = async () => {
     if (toBill || lateAct.busy) return;
-    if (!priced) {
+    if (!priced || atRechecking) {
       setWantBill(true);
       return;
     }
@@ -1068,6 +1271,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   goBillRef.current = () => void goBill();
   const changeTime = (v: string) => {
     setTime(v);
+    setTimeTouched(true);
     setLateTold(false);
     // KB7 (4): the red "earlier than the click" line was about the old time – a new time clears it (B18 checks
     // again on "Hoàn tất").
@@ -1491,29 +1695,110 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       </section>
     );
   } else if (step === 1) {
+    // FB-R5-ARC-FE-125-02: B18's error on the instant (`checkoutAt`) is shown here too – the desk was sent back to
+    // this box with nothing under it.
+    // V5-15: on an overdue stay "after the limit" means "extend first" – never the extra-night rate of the usual path.
+    const overdueLimitError =
+      overdue &&
+      isApiError(act.error) &&
+      act.error.fieldErrors.some(
+        (fe) =>
+          fe.field.replace(/^body\./, '') === 'checkoutAt' &&
+          fe.code === 'LATE_CHECKOUT_AFTER_LIMIT',
+      );
+    const timeError =
+      overdueLimitError || overdueAfterLimit
+        ? overdueLimitText
+        : (act.fields.checkoutAt ??
+          act.fields.checkoutTime ??
+          (timeAfterNow ? t('field.TIME_AFTER_ACTION') : undefined) ??
+          (overdue && !time ? t('common.required') : undefined));
+    // FB-R5-UXD-FE-PR125-01: the brown ring is only a second sign – the sentence says the time was filled in by Desk and
+    // costs the guest money (DOM 15.1: key returned 11:40, clicked 12:10). PR125-03: an error is the only thing shown.
+    const prefilledHint = timePrefilledCharged && !timeError;
+    // DOM 15.3 (+ ý 2a, FB-R5-DOM-FE-145-01; copy 9.15 bảng A): on an overdue stay ONE sentence – the day the time is on
+    // and what to enter with no proof: the agreed late time and its charge when there is one (never the standard time,
+    // and no separate `co.time_from_late`), else the standard time.
+    const timeHelp = overdue
+      ? r.agreedCheckoutTime
+        ? t('checkout.overdue_time_help_agreed', {
+            date: date(stayDeparture),
+            time: r.agreedCheckoutTime,
+          })
+        : t('checkout.overdue_time_help', {
+            date: date(stayDeparture),
+            time: s?.standardCheckoutTime ?? rules.checkoutTime,
+          })
+      : [
+          r.agreedCheckoutTime ? t('co.time_from_late', { time: r.agreedCheckoutTime }) : '',
+          prefilledHint ? t('checkout.time_prefilled_help') : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
     body = (
       <section className="card stack">
         <Field
           label={t('checkout.departure_time')}
-          help={
-            r.agreedCheckoutTime
-              ? t('co.time_from_late', { time: r.agreedCheckoutTime })
-              : undefined
-          }
-          error={act.fields.checkoutTime}
+          required={overdue}
+          help={timeHelp || undefined}
+          error={timeError}
         >
           {(p) => (
             <input
               {...p}
               type="time"
-              className="input"
+              className={`input${prefilledHint ? ' is-prefilled' : ''}`}
+              data-prefilled={(!overdue && timePrefilled) || undefined}
               value={time}
               onChange={(e) => changeTime(e.target.value)}
             />
           )}
         </Field>
+        {overdue ? (
+          // V5-15 (DOM 7.1 ý 1): the reason, typed or from 3 suggestions; SEC 2.5 – the D12c line is always shown, after
+          // the line asking how the time is known (DOM 145-04, copy 9.15 bảng B) – one help line, errors or not.
+          <Field
+            label={t('checkout.overdue_reason_label')}
+            required
+            help={`${t('checkout.overdue_reason_evidence')} ${t('checkout.overdue_reason_help')}`}
+            error={act.fields.overdueReason}
+          >
+            {(p) => (
+              <div className="stack tight">
+                <Seg<OverdueReasonPick | ''>
+                  label={t('checkout.overdue_reason_pick')}
+                  options={OVERDUE_REASONS.map((o) => ({ value: o.value, label: t(o.key) }))}
+                  value={reasonPick}
+                  onChange={(v) => {
+                    setReasonPick(v);
+                    const o = OVERDUE_REASONS.find((x) => x.value === v);
+                    setReason(o?.fills ? t(o.key) : '');
+                    if (act.fields.overdueReason) act.reset();
+                    // "Khác" empties the box; the other two leave the cursor after the filled text (UXD 145-05).
+                    if (o) setFocusReason(true);
+                  }}
+                />
+                <input
+                  {...p}
+                  ref={reasonRef}
+                  className="input"
+                  maxLength={500}
+                  value={reason}
+                  onChange={(e) => {
+                    setReason(e.target.value);
+                    if (act.fields.overdueReason) act.reset();
+                  }}
+                />
+              </div>
+            )}
+          </Field>
+        ) : null}
         {s?.postMidnightWindow ? <Alert tone="info">{t('checkout.post_midnight')}</Alert> : null}
-        {noteAsked || act.fields.checkoutTimeNote || timeNote ? (
+        {/* V5-10: the server says B18 will ask for the note (`checkoutTimeNoteRequired`) – the box is there first. */}
+        {noteAsked ||
+        act.fields.checkoutTimeNote ||
+        timeNote ||
+        (timedSummary && s.checkoutTimeNoteRequired) ? (
           <Field
             label={t('checkout.time_note')}
             help={t('stay.time_note_help')}
@@ -1586,7 +1871,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           )
         ) : null}
         <div aria-live="polite">
-          {extraNightNeeded ? null : lateAmount > 0 ? (
+          {extraNightNeeded || overdueAfterLimit ? null : lateAmount > 0 ? (
             <p>
               <b>
                 {t('checkout.late_fee', {
@@ -1622,7 +1907,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         ) : null}
         {lateAct.view()}
         {/* The amount and its tick are on this step now (KB7) – the "use Trả muộn" hint only before any fee. */}
-        {!r.agreedCheckoutTime && lateNew === 0 ? (
+        {!overdue && !r.agreedCheckoutTime && lateNew === 0 ? (
           // S4-48: the standard check-out time comes from BookingRules (BR-401), not a fixed 12:00.
           <p className="li-s">{t('co.late_switch_hint_time', { time: rules.checkoutTime })}</p>
         ) : null}
@@ -1790,7 +2075,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 reservation={r}
                 balanceVnd={balance}
                 checkout={{
-                  checkoutAt: checkoutInstant(time, today, stayDeparture, rollover),
+                  checkoutAt,
+                  // 0.3.13 bổ sung 1: the QR would be refused (TIME_AFTER_ACTION) – off, the reason is by "Hoàn tất".
+                  qrOff: timeAfterNow,
                   // ARC 16.18: the same rule as B18 – only a rate the desk changed.
                   extraNightRateVnd:
                     extraNightNeeded && !extraUnavailable && extraEdited
@@ -1970,8 +2257,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   }
 
   // FE-S3-04: say why "Hoàn tất" is locked (first missing thing).
-  const whyLocked =
-    extraUnavailable && !lateFeeMode && !lateFeeFree
+  const usualWhyLocked = timeAfterNow
+    ? t('field.TIME_AFTER_ACTION')
+    : extraUnavailable && !lateFeeMode && !lateFeeFree
       ? t('checkout.extra_night_unavailable')
       : !lfReady
         ? lfReview
@@ -1986,6 +2274,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               : staged && !stagedOk
                 ? t('co.pay_at_complete_needs')
                 : null;
+  const whyLocked = (!timeAfterNow && overdueWhy) || usualWhyLocked;
   // UXD P432-02: with a refund pending from Trả sớm, "Đã thu {all received}" next to it reads as what the stay cost –
   // the plain label then (button and confirmation alike); so too when that list could not be read (U5: a refund may
   // be pending). A debt keeps its own label.
@@ -2005,6 +2294,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             {t('co.offline', { time: since ? timeHHmm(since) : '' })}
           </Alert>
         ) : null}
+        {overdue && !done ? (
+          // V5-15: said on every step – the minibar counted now counts too (DOM 15.4 ý 7).
+          <Alert tone="info" title={t('checkout.overdue_title')}>
+            {t('checkout.overdue_body', {
+              date: date(stayDeparture),
+              nights: t(`common.nights_${pluralForm(locale, nightsNotBilled)}`, {
+                n: nightsNotBilled,
+              }),
+            })}
+          </Alert>
+        ) : null}
         {done ? null : steps}
         <div className="cols-2">
           <div className="stack">
@@ -2014,7 +2314,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           <div className="stack">{summaryCard}</div>
         </div>
         {done ? null : (
-          <div className="wiz-foot">
+          <div className="wiz-foot desk-foot">
             {step === 0 ? (
               <Link className="btn ghost" to={`/reservations/${reservationId}`}>
                 {t('ci.back_to_booking')}
@@ -2119,6 +2419,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           onConfirm={() => void complete()}
         >
           <ul className="list-plain li-s">
+            {overdue && checkoutAt ? (
+              <li>
+                {t('checkout.overdue_effect', {
+                  time: localDayTime(checkoutAt).time,
+                  date: date(localDayTime(checkoutAt).day),
+                })}
+              </li>
+            ) : null}
             <li>{t('co.effect_bill')}</li>
             <li>{t('co.effect_door', { room })}</li>
             {r.extraGuestCount ? <li>{t('co.effect_kit_note')}</li> : null}

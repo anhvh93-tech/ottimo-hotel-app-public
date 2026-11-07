@@ -118,6 +118,7 @@ describe('folio totals (erd 4.6: computed, never stored)', () => {
       creditVnd: 0,
       unhandledCreditVnd: 0,
       otaExcessVnd: 0,
+      openRefunds: [],
     });
   });
 

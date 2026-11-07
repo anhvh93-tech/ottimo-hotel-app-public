@@ -5,6 +5,7 @@
  * in its own business transaction.
  */
 import { Global, Module } from '@nestjs/common';
+import './audit-entities';
 import { AttentionService } from './internal/attention.service';
 import { EventsController } from './internal/events.controller';
 import { SseHub } from './internal/sse-hub';

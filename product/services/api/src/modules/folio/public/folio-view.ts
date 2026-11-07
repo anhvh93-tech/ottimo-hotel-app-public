@@ -8,6 +8,7 @@ import {
   type FolioLineRow,
   type FolioRow,
   type PaymentRowLite,
+  type OpenRefundByReason,
   computeTotals,
 } from './folio.service';
 
@@ -89,6 +90,13 @@ export function paymentDto(
       p.method === 'vietqr' && p.status === 'pending' ? extra.amountDueNowVnd : undefined,
     // 0.3.13 bổ sung 1 (V5-48, SEC S6 display): absent = a usual receipt (or a booking restored since).
     afterClosure: p.after_closure === true ? true : undefined,
+    // 0.3.13 bổ sung 1 (5B-1, SEC S4; FD+ only – x-visible-to): the bank's transaction code, and "Có thể trùng"
+    // (absent = nothing suspected).
+    bankReference: p.bank_reference ?? undefined,
+    possibleDuplicateCodes:
+      p.possible_duplicate_codes && p.possible_duplicate_codes.length > 0
+        ? p.possible_duplicate_codes
+        : undefined,
     version: p.version,
   });
 }
@@ -100,7 +108,8 @@ export function folioDto(
   tz: string,
   invoice: Record<string, unknown> | null = null,
   labels: LabelContext = {},
-  openRefundVnd = 0,
+  /** 0.3.13 V5-13: FolioService.openRefundsByReason → `totals.openRefunds` and `unhandledCreditVnd`. */
+  openRefunds: ReadonlyArray<OpenRefundByReason> = [],
   /** 0.3.7 bổ sung 4 (DOM (f)): Payment.amountDueNowVnd of the pending VietQR payments (id → amount). */
   dueNow: ReadonlyMap<string, number> = new Map(),
 ): Record<string, unknown> {
@@ -124,7 +133,7 @@ export function folioDto(
         ...(dueNow.has(p.id) ? { amountDueNowVnd: dueNow.get(p.id) as number } : {}),
       }),
     ),
-    totals: computeTotals(lines, payments, openRefundVnd),
+    totals: computeTotals(lines, payments, openRefunds),
     ...(invoice ? { invoiceRequest: invoice } : {}),
     pendingApprovals: lines.filter((l) => l.line_state === 'pending_approval').length,
     version: folio.version,

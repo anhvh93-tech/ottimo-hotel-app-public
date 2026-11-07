@@ -26,6 +26,17 @@
  *   (c) ARC 16.27 (2) / BR-525 (DOM 18/10): a FOC with reason `debt_write_off` (writing a debt off after check-out)
  *       is NOT a free service to a staying guest – it is left out of (a) (its line, and the reversal of it) and
  *       of (b). The FOC report shows it apart (BE-B / DATA – not this module).
+ *   (d) BR-438 (4)(iii), contract 0.3.13 1.20 (V5-16): per FD/FDL (role at the time), the direct reductions of a
+ *       non-night line in the period, from the `folio_line.adjusted` audit (after.amountVnd < before.amountVnd).
+ *       Above the SAME `foc_alert_count_per_approver` → one line per person: params {check: line_reduction_count,
+ *       count, max}, no name – `link` = /audit?reductionsOnly=true&month=YYYY-MM&actorUserId=<id>. Such a correction
+ *       is not a FOC: it is outside (a) and (b). Counted by audit/public/line-reductions (ARC FB-R5-ARC-BE-B2-01): the
+ *       SAME clauses as listAuditEvents `reductionsOnly`, but NOT the same window (ARC FB-R5-ARC-BE-110-01): the count
+ *       runs over the business month (from the rollover, 06:00, of day 1 to now) and keeps only rows whose
+ *       `before.actorRole` is FD/FDL; the list behind `month=` runs over calendar days (00:00 of day 1) and filters on
+ *       `actorUserId` only. They differ for reductions made 00:00–05:59 on day 1, for rows written before v1.0.5 (no
+ *       actorRole – listed, not counted) and for a person whose role changed within the month. This module does not
+ *       read `audit_event` itself (not in REPORTING_READ_TABLES).
  */
 import type { Tx } from '../../../db/database';
 import { type LocalTime, atLocal } from '../../../shared/time';
@@ -34,6 +45,8 @@ import type {
   AttentionSource,
   AttentionSourceContext,
 } from '../../events/public/events.service';
+import { countLineReductionsByActor } from '../../audit/public/line-reductions';
+import { FRONT_DESK_ROLES } from '../../folio/public/line-reduction';
 
 const VIP_TAGS = new Set(['vip', 'khach quen', 'returning', 'regular']);
 
@@ -183,6 +196,30 @@ export const focThreshold: AttentionSource = async (tx: Tx, ctx: AttentionSource
         count: r.n,
         link: `/approvals?type=foc&month=${month}&approverId=${r.approver_id}`,
         params: { check: 'foc_count_per_approver', count: r.n, max: countLimit },
+      });
+    }
+    // (d) BR-438 (4)(iii) (contract 0.3.13 1.20): per FD/FDL (role at the time), the direct reductions of a
+    // non-night line in the business month, same threshold – through the audit gateway (ARC FB-R5-ARC-BE-B2-01).
+    // Business month here, calendar days in the list behind the link: see (d) above (ARC FB-R5-ARC-BE-110-01).
+    const propertyId = tx.ctx.propertyId;
+    const cut = propertyId
+      ? await countLineReductionsByActor(tx, {
+          propertyId,
+          from: atLocal(monthStart, rollover, ctx.tz),
+          to: ctx.now,
+          actorRoles: FRONT_DESK_ROLES,
+          above: countLimit,
+        })
+      : [];
+    for (const r of cut) {
+      if (!focCountAlert(r.n, countLimit)) continue;
+      items.push({
+        kind: 'foc_threshold',
+        source: 'computed',
+        severity: 'warning',
+        count: r.n,
+        link: `/audit?reductionsOnly=true&month=${month}&actorUserId=${r.actorUserId}`,
+        params: { check: 'line_reduction_count', count: r.n, max: countLimit },
       });
     }
   }

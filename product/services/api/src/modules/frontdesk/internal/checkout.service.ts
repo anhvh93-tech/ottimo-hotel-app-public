@@ -35,6 +35,7 @@ import type { Tx } from '../../../db/database';
 import { dayClock, isCheckoutDay } from '../../../shared/business-day';
 import { problem } from '../../../shared/problem';
 import { type LocalDate, type LocalTime, addDays } from '../../../shared/time';
+import { assertBankReferenceNotCardFirst } from '../../../shared/validation';
 import { actorRoleOf } from '../../audit/public/actor-role';
 import { AuditService } from '../../audit/public/audit.service';
 import { folioLineDto } from '../../folio/public/folio-view';
@@ -722,7 +723,8 @@ export class CheckoutService {
    * V5-10 (OpenAPI 0.3.13 `checkOut` "Quy đổi giờ trả"; BE C0313-01, 07, 08): the ONE departure instant of the stay for
    * `getCheckoutSummary`, `createVietQr purpose=check_out` (cap and `amountDueNow`) and B18 – `checkoutAt` as sent
    * (checked: 422 DATE_INVALID on another day), else `checkoutTime` ?? agreed late time ?? `checkout_time` resolved
-   * against the server clock (see checkout-at.ts).
+   * against the server clock (see checkout-at.ts). Never before the actual check-in (SEC A1A-01): a sent instant →
+   * DATE_INVALID on `checkoutAt`; a typed time with no candidate at or after it → DATE_INVALID on `checkoutTime`.
    */
   private async resolveCheckoutAt(
     tx: Tx,
@@ -744,12 +746,12 @@ export class CheckoutService {
       toleranceMinutes: await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes'),
       sent: q.checkoutAt,
       time,
+      typed: q.checkoutTime !== undefined,
       checkedInAt: row.actual_checkin_at,
     });
     if (!resolved) {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'checkoutAt', code: 'DATE_INVALID' }],
-      });
+      const field = !q.checkoutAt && q.checkoutTime !== undefined ? 'checkoutTime' : 'checkoutAt';
+      throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'DATE_INVALID' }] });
     }
     return resolved;
   }
@@ -1145,6 +1147,8 @@ export class CheckoutService {
       balanceDueVnd: balance.balanceDueVnd,
       creditVnd: balance.rawCreditVnd,
       unhandledCreditVnd: balance.unhandledCreditVnd,
+      // 0.3.13 V5-13: the open refund requests of the stay by reason, whoever asked (FD+ – x-visible-to).
+      openRefunds: balance.openRefunds,
       ...(old.lines.length > 0
         ? {
             lateSurchargeRecalc: {
@@ -1449,7 +1453,9 @@ export class CheckoutService {
               quantity: 1,
               unitPriceVnd: unhandled,
               amountVnd: unhandled,
-              serviceDate: d.stay.departureDate,
+              // V5-11 (DOM rules v1.0.5 2.1 (5), BUG-R3-036): a retained line is dated the business date of the
+              // action – the departure on the day, its eve from 00:00 to the rollover (BR-010).
+              serviceDate: ctx.today,
               source: 'checkout',
               reason: over.reason,
             },
@@ -1544,9 +1550,16 @@ export class CheckoutService {
     // BR-012 (5), 0.3.7 D1: the bill keeps the room names it had when settled (folio.settled_room_names).
     await snapshotSettledRoomNames(tx, folioId);
     // SM-11 / DOM S3-3 (FB-R2-DOM-BE-15): checked out + folio owes nothing → commissions may be earned now.
+    // FB-R5-DOM-BE-101-01 (ARC H1-03): the sold nights go with it – a booking confirmed while its payee had no rate
+    // gets its commission row here (B9 / B18 never resync), at the rate in force today.
     await this.s.folios.tryEarnCommissions(
       tx,
-      { reservationId: row.id, reservationCode: row.code, status: 'checked_out' },
+      {
+        reservationId: row.id,
+        reservationCode: row.code,
+        status: 'checked_out',
+        stay: await this.s.stay.confirmedStay(tx, row),
+      },
       ctx.requestId,
     );
     await this.audit.record(tx, {
@@ -1930,6 +1943,8 @@ export class CheckoutService {
     ctx: BookingContext,
     overdue: OverdueStay | null = null,
   ): CheckoutInput {
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone.
+    assertBankReferenceNotCardFirst(body, 'finalPayment');
     const checkoutTime = f.time('checkoutTime');
     const sent = (k: string) => body[k] !== undefined && body[k] !== null;
     let checkoutAt: Date | undefined;
@@ -2166,6 +2181,8 @@ export class CheckoutService {
       posAuthCode: str('posAuthCode'),
       note: str('note'),
       attachmentId: str('attachmentId'),
+      // PR-B3 (FB-R5-ARC-BE-119-01): read by checkPaymentShape (`finalPayment.` prefix) – a non-string is refused there.
+      bankReference: p.bankReference as string | null | undefined,
     };
     // BUG-R2-165: the receipt's own body checks (PaymentPort, the same function `recordInTx` runs at write) with
     // the rest of the body; the method's channel (`ota_collect`) needs the booking – checked at write.

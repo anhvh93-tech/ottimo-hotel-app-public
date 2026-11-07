@@ -5,7 +5,7 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
-import { problem } from '../../../shared/problem';
+import { ProblemError, problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
 import type {
   AmountDueQuery,
@@ -166,6 +166,17 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
     return readOwnership(tx, reservationId);
   }
 
+  /** FB-R5-DOM-BE-101-01: the sold nights of the booking as the folio wants them (no actor scope – see the port). */
+  async confirmedStayOf(tx: Tx, reservationId: string): Promise<ConfirmedStay | null> {
+    try {
+      const row = await loadReservation(tx, reservationId, SYSTEM_ACTOR);
+      return await this.reservations.confirmedStay(tx, row);
+    } catch (e) {
+      if (e instanceof ProblemError && e.code === 'NOT_FOUND') return null;
+      throw e;
+    }
+  }
+
   async lockForDeposit(tx: Tx, reservationId: string): Promise<DepositTarget | null> {
     const ctx = await this.ctx(tx);
     try {
@@ -182,6 +193,7 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
         holdCreatedAt: r.hold_created_at,
         holdExpiresAt: r.hold_expires_at,
         depositRequiredVnd: r.deposit_required_vnd,
+        statusBeforeCancel: r.status_before_cancel,
       };
     } catch (err) {
       if (err instanceof Error && 'code' in err && (err as { code: string }).code === 'NOT_FOUND')

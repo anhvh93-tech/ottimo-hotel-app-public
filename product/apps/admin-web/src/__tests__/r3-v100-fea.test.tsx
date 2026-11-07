@@ -165,6 +165,9 @@ describe('BUG-R3-022 – Thêm phát sinh after check-out while the server takes
 
 describe('BUG-R3-023 – Đổi phòng lists room groups by name, not L12 / N / NPLUS', () => {
   it('every option shows the group name from listRoomGroups', async () => {
+    // V5-50: the list keeps VI / VC rooms only – make every other room ready so the free ones are listed.
+    for (const r of mockControl.db.rooms)
+      if (r.roomNo !== '402') mockControl.stay.roomStatus[r.roomNo] = 'VI';
     const kim = res('Kim Seo-yeon');
     const { user } = renderApp(`/reservations/${kim.id}`, 'qa.fd');
     const d = await screen.findByRole('dialog', { name: 'Kim Seo-yeon' });

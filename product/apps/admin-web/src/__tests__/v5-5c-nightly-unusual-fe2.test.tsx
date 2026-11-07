@@ -91,11 +91,11 @@ describe('V5-5C ngăn kéo căn – hai biên trước khi gửi', () => {
     expect(screen.queryByText(tv('rooms.warn.nightly_price_unusual'))).toBeNull();
   });
 
-  it('thấp: 280.000 × 30 < 8.500.000 → câu biên dưới ({perDay} = 283.000); 1 đồng trên biên dưới thì không báo', async () => {
+  it('thấp: 280.000 × 30 < 8.500.000 → câu biên dưới ({perDay} = 284.000, làm tròn lên); đúng biên thì không báo', async () => {
     const { user } = renderApp('/settings/rooms', 'qa.owner');
     const dlg = await openRoom(user, '101');
     await typePrices(user, dlg, '8500000', '280000');
-    expect(within(dlg).getByText(tv('rooms.night_low', { perDay: '283.000' }))).toBeInTheDocument();
+    expect(within(dlg).getByText(tv('rooms.night_low', { perDay: '284.000' }))).toBeInTheDocument();
     expect(within(dlg).queryByText(HIGH)).toBeNull();
     expect(
       within(dlg).getByRole('button', { name: tv('rooms.save_unusual_price') }),
@@ -104,6 +104,19 @@ describe('V5-5C ngăn kéo căn – hai biên trước khi gửi', () => {
     await typePrices(user, dlg, '8400000', '280000');
     expect(within(dlg).queryByText(LOW_STEM, { exact: false })).toBeNull();
     expect(within(dlg).getByRole('button', { name: tv('common.save') })).toBeInTheDocument();
+  });
+
+  // DOM FB-R5-DOM-FE-138-01: {perDay} rounds UP to 1.000, so the sentence never names the flagged price itself
+  // (8.500.000 ÷ 30 = 283.333 → 284.000, not 283.000; 11.500.000 → 384.000; 9.000.000 divides → 300.000).
+  it.each([
+    ['8500000', '283000', '284.000'],
+    ['11500000', '383000', '384.000'],
+    ['9000000', '299000', '300.000'],
+  ])('tháng %s, đêm %s → câu ghi "thấp hơn … (%s đ)"', async (monthly, nightly, perDay) => {
+    const { user } = renderApp('/settings/rooms', 'qa.owner');
+    const dlg = await openRoom(user, '101');
+    await typePrices(user, dlg, monthly, nightly);
+    expect(within(dlg).getByText(tv('rooms.night_low', { perDay }))).toBeInTheDocument();
   });
 
   it('giá cũ vốn khác thường, chỉ sửa tên căn → khung vẫn hiện, nút vẫn là "Lưu"', async () => {
@@ -148,6 +161,35 @@ describe('V5-5C sau khi lưu – warnings[] của máy chủ', () => {
     await user.click(within(dlg).getByRole('button', { name: tv('common.save') }));
     expect(await screen.findByText(tv('rooms.warn.nightly_price_unusual'))).toBeInTheDocument();
     expect(screen.getByText(tv('rooms.saved', { room: '101' }))).toBeInTheDocument();
+  });
+
+  it('ARC 138-01 (a): chỉ FUTURE_RESERVATIONS_KEEP_ROOM (ngừng bán, không đổi giá) → toast thường, không có dòng giá đêm', async () => {
+    server.use(
+      http.patch('*/v1/properties/:pid/rooms/:rid', async ({ request, params }) => {
+        const room = mockControl.db.rooms.find((r) => r.id === params.rid)!;
+        const body = (await request.json()) as { isSellable?: boolean };
+        return HttpResponse.json(
+          {
+            ...room,
+            ...body,
+            version: room.version + 1,
+            warnings: [{ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count: 2 }],
+          },
+          { headers: { etag: `"${room.version + 1}"` } },
+        );
+      }),
+    );
+    const { user } = renderApp('/settings/rooms', 'qa.owner');
+    const dlg = await openRoom(user, '101');
+    const name = within(dlg).getByLabelText(/^Tên căn/);
+    await user.clear(name);
+    await user.type(name, 'The Oak');
+    await user.click(within(dlg).getByRole('button', { name: tv('common.save') }));
+    const saved = await screen.findByText(tv('rooms.saved', { room: '101' }), {
+      selector: '.toast span',
+    });
+    expect(saved.closest('.toast')).not.toHaveClass('toast-warn');
+    expect(screen.queryByText(tv('rooms.warn.nightly_price_unusual'))).toBeNull();
   });
 
   it('ARC FB-R5-ARC-BE-C1-01: mock trả VALUE_OUT_OF_RANGE cho giá ≤ 0 (như máy chủ, T1A-3)', async () => {
@@ -221,5 +263,26 @@ describe('V5-5C toast có dòng cảnh báo', () => {
     expect(within(warn).getByText('Saved with check')).toBeInTheDocument();
     fireEvent.click(within(warn).getByRole('button', { name: tv('common.close') }));
     expect(screen.queryByText('Check this')).toBeNull();
+  });
+
+  it('ARC 138-01 (b): rê chuột vào rồi ra vùng toast – toast thường hẹn giờ lại và tắt, toast cảnh báo vẫn ở', () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <I18nProvider>
+        <ToastProvider>
+          <Caller />
+        </ToastProvider>
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'plain' }));
+    fireEvent.click(screen.getByRole('button', { name: 'warn' }));
+    const stack = container.querySelector('.toasts') as HTMLElement;
+    fireEvent.mouseEnter(stack);
+    fireEvent.mouseLeave(stack);
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.queryByText('Plain saved')).toBeNull();
+    expect(screen.getByText('Check this')).toBeInTheDocument();
   });
 });

@@ -12,11 +12,31 @@
  *                (reverse lines of nights no longer sold or whose price changed – BR-107 re-tiering, D-8 –,
  *                post lines for sold nights without a live line, re-post extra-person lines for the new guest
  *                count, reverse a previous `no_show_fee` on B12, re-project commission on the snapshot %).
+ * - ensureCommission() FB-R5-DOM-BE-101-01 (Major; ARC FB-R5-ARC-BE-H1-03 (1)): the commission sync ALONE (no folio
+ *                line, no folio lock, the folio may be settled) for a short stay with a closer that has no commission
+ *                row in a live status yet (a booking confirmed while its payee had no rate – `rate_missing`). Same rate
+ *                order as resyncStay (snapshot, then the first row of the payee type, then the table in force today).
+ *                Still no rate → still no row. Run again → no change. Folio's `tryEarnCommissions` runs it before
+ *                deciding "earned" (B18, reconciliation, a debt paid or written off); a later job or PR-M may call it
+ *                for confirmed bookings once OWN typed the table (DOM 101-01 (3) – never from `setParameter`).
+ *                ARC FB-R5-ARC-BE-131-02 (3): skipped only when the booking has an `earned`/`payable`/`paid` row or a
+ *                `projected` row of the CURRENT closer; a `projected` row of an earlier closer is voided and replaced.
+ * - syncCommissionOnly() contract 0.3.13 bổ sung 1h (DOM FB-R5-DOM-BE-131-01, ARC FB-R5-ARC-BE-131-02 (1)–(2)): PATCH
+ *                changed the closer → the commission alone follows in the same transaction: the earlier closer's
+ *                live row → `void` (`voidReason`), the new closer's row at the booking's pinned rate (`earned` on a
+ *                checked-out booking by the B18 rule). A row `payable` / `paid` → 409 INVALID_TRANSITION.
  */
 import type { Tx } from '../../../db/database';
+import type { LocalDate } from '../../../shared/time';
 import type { ConfirmedStay } from './sales-port';
 
 export const FOLIO_STAY_SYNC = Symbol('FOLIO_STAY_SYNC');
+
+/**
+ * `commission.void_reason` written by a sync (SM-11): `resync` – nights / price / people changed; `closer_changed` – the
+ * closer changed before check-in (MGR+); `closer_corrected` – OWN corrected the closer after check-in (BR-903 (3)).
+ */
+export type CommissionVoidReason = 'resync' | 'closer_changed' | 'closer_corrected';
 
 export interface VoidStayInput {
   reservationId: string;
@@ -27,6 +47,13 @@ export interface VoidStayInput {
   /** Deposit kept by OTTIMO (BR-309 cancellation fee / BR-311 no-show); 0 = nothing. */
   retainedVnd: number;
   retainedKind: 'cancellation_fee' | 'no_show_fee' | null;
+  /**
+   * V5-11 (DOM rules v1.0.5 2.1 (5), BUG-R3-036; oracles BR-309-27, BR-311-04): the business date of the action
+   * (BR-010) – the service date of the retained line, not the calendar date (00:00 to the rollover belongs to the
+   * day before). Always passed (ARC FB-R5-ARC-BE-114-02: a caller that forgets it fails `tsc`, not a cancellation with
+   * a retained fee at run time); read when `retainedVnd` > 0.
+   */
+  businessDate: LocalDate;
   /**
    * 0.3.6 bổ sung 4 (BR-310/901): the OTA's actual channel fee on the cancellation penalty
    * (`cancelReservation.otaPenaltyChannelFeeVnd`); absent → the channel rate snapshot × base.
@@ -50,4 +77,17 @@ export interface FolioStaySync {
     stay: ConfirmedStay,
     actor: { userId: string | null; requestId?: string },
   ): Promise<void>;
+  /** Returns the amount of the row created (0 = nothing done). */
+  ensureCommission(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+  ): Promise<number>;
+  /** Returns the amount of the live row after the sync (0 = none). The caller holds the booking and the folio. */
+  syncCommissionOnly(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+    opts: { voidReason: CommissionVoidReason; reservationStatus: string },
+  ): Promise<number>;
 }

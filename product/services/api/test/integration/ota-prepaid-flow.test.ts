@@ -357,7 +357,7 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
     expect(out.statusCode, out.body).toBe(200);
     expect(await refunds()).toHaveLength(1);
   });
-  it('Re-verification 17/10: B16 on an OTA booking, MGR edits the OTA-kept fee, FD voids it – the OTA receipt follows every edit; B18 200', async () => {
+  it('Re-verification 17/10: B16 on an OTA booking, MGR edits the OTA-kept fee, FD may not void it (BR-438), MGR does – the OTA receipt follows every edit; B18 200', async () => {
     await at('2026-11-24T15:00:00+07:00');
     await vacant('402');
     const o = await ota('402', '2026-11-24', '2026-11-27', 2_700_000);
@@ -406,7 +406,8 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
     expect(mgrEdit.statusCode, mgrEdit.body).toBe(201);
     expect(await collected()).toBe(nights + 600_000);
     expect((await folio(o)).totals).toMatchObject({ balanceDueVnd: 0, otaExcessVnd: 0 });
-    // FD voids the fee line: the receipt drops with it, the bill prints the right "Đã thu qua Agoda".
+    // V5-16 (BR-438 (2), contract 0.3.13 1.20): the fee is a system line – FD may not void it (403 + FOC hint,
+    // nothing written); MGR voids it: the receipt drops with it, the bill prints the right "Đã thu qua Agoda".
     const [fee2] = await live();
     const f2 = await folio(o);
     const fdVoid = await c.fd!.send(
@@ -415,7 +416,17 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
       { voidLine: true, reason: 'OTA không giữ phí' },
       { 'if-match': `"${f2.version}"` },
     );
-    expect(fdVoid.statusCode, fdVoid.body).toBe(201);
+    expect(fdVoid.statusCode, fdVoid.body).toBe(403);
+    expect(fdVoid.json()).toMatchObject({ code: 'FORBIDDEN_ACTION', requiredFlow: 'foc_request' });
+    expect((await folio(o)).version).toBe(f2.version);
+    expect(await collected()).toBe(nights + 600_000);
+    const mgrVoid = await c.mgr!.send(
+      'POST',
+      url(`/folios/${o.folioId}/lines/${fee2!.id}/adjustments`),
+      { voidLine: true, reason: 'OTA không giữ phí' },
+      { 'if-match': `"${f2.version}"` },
+    );
+    expect(mgrVoid.statusCode, mgrVoid.body).toBe(201);
     expect(await collected()).toBe(nights);
     const bill = (await c.fd!.get(url(`/folios/${o.folioId}/bill`))).json();
     expect(bill.otaPrepaidVnd).toBe(nights);

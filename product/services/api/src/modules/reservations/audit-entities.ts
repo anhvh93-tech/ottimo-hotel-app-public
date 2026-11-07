@@ -39,12 +39,9 @@ defineAuditEntity('reservation', [
   'authMethod',
   'approverRole',
   'focVnd',
-  // 0.3.13 (V5-10): `reservation.checked_out` – the departure time recorded, the clock time it was recorded at (E03-07)
-  // and how it was charged; written since 0.3.6 but dropped by this list until now (SR-AUD-03). No guest data.
-  'systemTime',
-  'lateSurchargeVnd',
-  'checkoutMode',
-  'extraNight',
-  'postMidnightWindow',
+  // SEC-BE-26 / contract 0.3.13 bổ sung 1h: `reservation.closer_changed` – who closes the sale (a staff user id, never
+  // a guest). closerUserId was written but dropped until now. The owner's reason for a correction goes to the audit
+  // `reason` column, never as a `reason` key here (SEC FB-R5-SEC-ARC-1H-01).
+  'closerUserId',
 ]);
 defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);

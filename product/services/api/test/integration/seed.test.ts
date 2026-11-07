@@ -54,7 +54,7 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
     expect(r.docSequences.every((d) => d.ok)).toBe(true);
     expect(r.docSequences.map((d) => d.server)).toContain('F26-000001');
     expect(r.skippedBlocks.map((b) => b.block)).not.toContain('rooms'); // rooms loaded since Sprint 1 (BE-B)
-    // BE-B: room catalogue through importRoomCatalog (BR-101 nightly price checked against the fixture).
+    // BE-B: room catalogue through importRoomCatalog – V5-1A: both list prices exactly as in the fixture.
     expect(r.roomGroups).toBe((f.roomGroups as unknown[]).length);
     expect(r.rooms).toBe((f.rooms as unknown[]).length);
 
@@ -72,12 +72,39 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
       const devices = await tx.query<{ device_kind: string }>(
         'SELECT device_kind FROM trusted_device ORDER BY 1',
       );
+      const prices = await tx.query<{
+        roomNo: string;
+        monthlyListPriceVnd: number;
+        nightlyListPriceVnd: number;
+        sellable: boolean;
+      }>(
+        `SELECT r.room_no AS "roomNo", p.monthly_list_price_vnd AS "monthlyListPriceVnd",
+                p.nightly_list_price_vnd AS "nightlyListPriceVnd", r.is_sellable AS sellable
+           FROM room r JOIN room_list_price p ON p.room_id = r.id ORDER BY r.room_no`,
+      );
       return {
         users: users.rows,
         seq: seq.rowCount,
         devices: devices.rows.map((d) => d.device_kind),
+        prices: prices.rows,
       };
     });
+    const fixtureRooms = f.rooms as Array<{
+      roomNo: string;
+      monthlyListPriceVnd: number;
+      nightlyListPriceVnd: number;
+      isSellable?: boolean;
+    }>;
+    expect(rows.prices).toEqual(
+      [...fixtureRooms]
+        .sort((a, b) => a.roomNo.localeCompare(b.roomNo))
+        .map((x) => ({
+          roomNo: x.roomNo,
+          monthlyListPriceVnd: x.monthlyListPriceVnd,
+          nightlyListPriceVnd: x.nightlyListPriceVnd,
+          sellable: x.isSellable ?? true,
+        })),
+    );
     expect(rows.users.find((u) => u.username.startsWith('qa.locked'))?.status).toBe('locked');
     expect(rows.users[0]?.password_hash.startsWith('$argon2id$')).toBe(true);
     expect(await verify(rows.users[0]!.password_hash, password)).toBe(true);

@@ -18,12 +18,15 @@ import type { Tx } from '../../../db/database';
 import { sha256Hex } from '../../../shared/http/auth.guard';
 import type { GuestPrincipal } from '../../../shared/http/guest-session';
 import { type FieldError, problem } from '../../../shared/problem';
+import { looksLikeIdNumber } from '../../../shared/sensitive-number';
 import { type LocalDate, atLocal, businessDate, localDate, toZonedIso } from '../../../shared/time';
-import { containsCardNumber } from '../../../shared/validation';
+import { containsCardNumber, stripControlChars } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { fileRejected, type NormalizedImage } from '../../files/public/image-pipeline';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
+// V5-58: one reading rule with the Desk (getPropertyWifi).
+import { wifiOf } from '../../platform/public/property-wifi';
 import { guestRoomView } from '../../reservations/public/guest-room-view';
 import { setEta } from '../../reservations/public/stay-view';
 import {
@@ -553,13 +556,19 @@ export class GuestPortalService {
       if (typeof body.arrivalNote !== 'string') {
         errors.push({ field: 'arrivalNote', code: 'VALIDATION_FAILED' });
       } else {
-        // Control characters removed (ĐK-2), ≤ 300, V-09 card numbers refused.
-        const note = stripControl(body.arrivalNote).trim();
+        // Control / invisible characters removed (ĐK-2; the one rule of shared/validation.ts – SEC 127-01), ≤ 300,
+        // V-09 card numbers refused.
+        const note = stripControlChars(body.arrivalNote).trim();
         if (note.length > 300) errors.push({ field: 'arrivalNote', code: 'TOO_LONG' });
         else if (containsCardNumber(note)) {
           throw problem('CARD_NUMBER_DETECTED', {
             errors: [{ field: 'arrivalNote', code: 'CARD_NUMBER_DETECTED' }],
           });
+        } else if (looksLikeIdNumber(note)) {
+          // 0.3.12 (i) / V5-46 (FB-R5-SEC-BE-V546-01, PR24PM-01 guest-portal half, SR-LOG-04): an identity-document
+          // number (ID half of shared/sensitive-number.ts) → 422 `ID_NUMBER_DETECTED`, only `field` + `code`. The
+          // whole write is refused below (no ETA, no step, no audit) – the guest stays on the ETA step.
+          errors.push({ field: 'arrivalNote', code: 'ID_NUMBER_DETECTED' });
         } else {
           set('arrival_note', note === '' ? null : note);
           hasNote = note !== '';
@@ -829,30 +838,4 @@ export class GuestPortalService {
     await this.events?.publish(tx, 'registration.changed', reg.id);
     return this.view(tx, g);
   }
-}
-
-/** Control characters out (ĐK-2: plain text only); tab/newline kept. */
-function stripControl(text: string): string {
-  let out = '';
-  for (const ch of text) {
-    const c = ch.codePointAt(0) ?? 0;
-    if ((c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d) || c === 0x7f) continue;
-    out += ch;
-  }
-  return out;
-}
-
-function wifiOf(
-  raw: Record<string, unknown> | null,
-  locale: string,
-): { ssid: string; password: string } | null {
-  if (!raw) return null;
-  const pick = (o: unknown) =>
-    o && typeof o === 'object' && typeof (o as { ssid?: unknown }).ssid === 'string'
-      ? {
-          ssid: (o as { ssid: string }).ssid,
-          password: String((o as { password?: unknown }).password ?? ''),
-        }
-      : null;
-  return pick(raw) ?? pick(raw[locale]) ?? pick(raw.vi);
 }

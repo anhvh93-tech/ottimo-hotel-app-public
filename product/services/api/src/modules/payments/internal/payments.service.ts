@@ -36,6 +36,7 @@ import {
   PAYMENT_JOINS,
   type PaymentRowLite,
 } from '../../folio/public/folio.service';
+import { folioLocked } from '../../folio/public/folio-locked';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import {
@@ -66,12 +67,33 @@ import {
   parseInstant,
   primaryRole,
 } from '../public/payment.service';
+import { RefundsService } from './refunds.service';
 import { buildVietQrPayload, transferContentOf } from './vietqr';
 
 const SALES_ROLES = ['sales_staff', 'collaborator'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** 0.3.13 bổ sung 1 (V5-48, DOM 11.4 2(b)): the only ways money is taken on a closed booking – both reconciled. */
 const AFTER_CLOSURE_METHODS: readonly string[] = ['bank_transfer', 'vietqr'];
+
+/**
+ * 5B-1 (`recordPayment` (B), DOM 11.4 2 (f)): the receipt type on a closed booking – `deposit` when it was cancelled
+ * while still a hold (5B-2 confirms the deposit with this very receipt), `charge` for any other booking (a confirmed
+ * one cancelled, a no-show: `status_before_cancel` = `confirmed`).
+ */
+export function afterClosureType(
+  statusBeforeCancel: string | null | undefined,
+): 'deposit' | 'charge' {
+  return statusBeforeCancel === 'hold' ? 'deposit' : 'charge';
+}
+
+/**
+ * FB-R5-ARC-BE-105-03 step 6 (5B-1): the refund made with a receipt on a closed booking = what it brought above N,
+ * the amount the folio still owed when it was written (`dueBeforeVnd`, read under L3). 0 → no request. `card_pos`
+ * never gets here with more than N (steps 2–3).
+ */
+export function afterClosureRefundVnd(amountVnd: number, dueBeforeVnd: number): number {
+  return Math.max(0, amountVnd - Math.max(0, dueBeforeVnd));
+}
 
 /**
  * 0.3.13 bổ sung 1 (V5-48, SEC B002-01): `confirmPaymentReceived` / `createVietQr` on a `cancelled`/`no_show` booking
@@ -184,6 +206,7 @@ export class PaymentsService {
     @Inject(DocNumberService) private readonly docNumbers: DocNumberService,
     @Inject(ATTACHMENT_USAGE) private readonly attachments: AttachmentUsage,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
+    @Inject(RefundsService) private readonly refunds: RefundsService,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
@@ -223,6 +246,8 @@ export class PaymentsService {
     depositRequiredVnd?: number;
     /** Only with `lock` (lockForDeposit): the hold deadline (FB-R4-SEC-BE-HOLDS-01). */
     holdExpiresAt?: Date | null;
+    /** Only with `lock` (lockForDeposit): the status a closed booking had before (5B-1 `type` rule). */
+    statusBeforeCancel?: string | null;
   }> {
     const port = this.port();
     const r = opts.lock
@@ -242,6 +267,10 @@ export class PaymentsService {
         : {}),
       ...('holdExpiresAt' in r && (r.holdExpiresAt === null || r.holdExpiresAt instanceof Date)
         ? { holdExpiresAt: r.holdExpiresAt }
+        : {}),
+      ...('statusBeforeCancel' in r &&
+      (r.statusBeforeCancel === null || typeof r.statusBeforeCancel === 'string')
+        ? { statusBeforeCancel: r.statusBeforeCancel }
         : {}),
     };
   }
@@ -371,15 +400,28 @@ export class PaymentsService {
    * the booking lock (`scopedReservation(..., { lock: true })`), so a J1 cancellation racing the request is seen.
    * - SAL: blocked as before (422 AMOUNT_EXCEEDS_BALANCE, `max` 0 – a closed booking owes a sale nothing), CTV has no
    *   role; FD+ only below.
-   * - `method` other than bank_transfer / vietqr → 422 `method` NOT_IN_LIST (cash is refused by the API: a guest at the
-   *   desk pays on a new booking); no `attachmentId` → 422 `attachmentId` REQUIRED; an image already attached to a
-   *   "khách đã chuyển" notice (`createDepositNotice`) → 422 `attachmentId` NOT_IN_LIST (SEC S7). Then the usual
-   *   receipt rules (`recordInTx`: image of this booking, one image one receipt, `receivedAt` window, note ≥ 3 for an
-   *   overpayment).
+   * - `method` other than bank_transfer / vietqr / card_pos → 422 `method` NOT_IN_LIST (cash and `ota_collect` are
+   *   refused by the API: a guest at the desk pays on a new booking); a transfer / VietQR without `attachmentId` → 422
+   *   `attachmentId` REQUIRED; an image a sale or a CTV uploaded (`attachment.uploaded_by_role` – sent with a "khách đã
+   *   chuyển" notice, replaced on it, or never sent: FB-R5-SEC-BE-105-01) or an image on a notice
+   *   (`createDepositNotice`) → 422 `attachmentId` NOT_IN_LIST (SEC S7; DOM 11.4 2 (c): the proof is OTTIMO's bank
+   *   notice, never a forwarded image). Then the usual receipt rules (`recordInTx`: image of this booking, one image
+   *   one receipt, `receivedAt` window, note ≥ 3 for an overpayment).
+   * - FB-R5-ARC-BE-105-03 (answer to DOM FB-R5-DOM-ARC-105-01 – an OTA pay-at-hotel booking cancelled / no-show with a
+   *   fee): `card_pos` only while N > 0, N = the folio's `balanceDueVnd` read by `recordInTx` right after L3;
+   *   `amountVnd` > N → 422 AMOUNT_EXCEEDS_BALANCE (`max` = N), N = 0 → 422 `method` NOT_IN_LIST. `posAuthCode`
+   *   required (as every card receipt), no image required (SEC 07/11 – an image is still taken and checked if sent,
+   *   the rule on a sale's image included).
    * - always `reconciliation = pending`; audit `payment.recorded` + `afterClosure: true`, `reservationStatus`.
+   * - 5B-1 (`recordPayment` (B); SEC S2, S3; DOM 11.4 mục 2 (f), 3, 5), same transaction:
+   *   - `type` = `deposit` for a booking cancelled while a hold, `charge` otherwise – the other one → 422 `type`
+   *     NOT_ALLOWED (checked with the rules above);
+   *   - a refund request `payment_after_cancel` of max(0, amountVnd − N) (0 → none), requested by the recorder, who is
+   *     also in its `origin_actor_ids` (S2), destination fixed by the server to `original_method` (S3 –
+   *     RefundsService.createAfterClosureRefund);
+   *   - the open "khách đã chuyển" notices of the booking become `handled` by this receipt and the "Cần chú ý"
+   *     `deposit_after_cancel` item closes (DOM 11.4 mục 5: closed by a receipt recorded after the notice).
    * - any refusal writes nothing (no payment, no audit, folio version unchanged, image not bound).
-   * 5B-1 (PR-B3) extends THIS function – automatic refund request, fixed destination, `type` rule, "có thể trùng" –
-   * and never loosens it.
    */
   private async recordAfterClosure(
     tx: Tx,
@@ -387,7 +429,7 @@ export class PaymentsService {
     folioId: string,
     raw: PaymentCreateInput,
     at: {
-      r: { id: string; code: string };
+      r: { id: string; code: string; statusBeforeCancel?: string | null };
       meta: { created_at: Date };
       closed: ClosedReservationStatus;
     },
@@ -399,31 +441,70 @@ export class PaymentsService {
       });
     }
     const errors: FieldError[] = [];
-    if (!AFTER_CLOSURE_METHODS.includes(raw.method)) {
+    // FB-R5-ARC-BE-105-03 step 2: a card slip is checked against N once the folio is locked (recordInTx).
+    const card = raw.method === 'card_pos';
+    if (!AFTER_CLOSURE_METHODS.includes(raw.method) && !card) {
       errors.push({ field: 'method', code: 'NOT_IN_LIST' });
     }
+    // 5B-1 `type` rule (a value outside deposit/charge keeps the usual NOT_IN_LIST of checkPaymentShape).
+    if (
+      (raw.type === 'deposit' || raw.type === 'charge') &&
+      raw.type !== afterClosureType(at.r.statusBeforeCancel)
+    ) {
+      errors.push({ field: 'type', code: 'NOT_ALLOWED' });
+    }
     const attachmentId = typeof raw.attachmentId === 'string' ? raw.attachmentId.trim() : '';
-    if (!attachmentId) errors.push({ field: 'attachmentId', code: 'REQUIRED' });
+    if (!attachmentId && !card) errors.push({ field: 'attachmentId', code: 'REQUIRED' });
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
-    // SEC S7: the image a sale/CTV sent with "khách đã chuyển" is the guest's word, not the bank's – never the proof.
+    // SEC S7 + FB-R5-SEC-BE-105-01: an image a sale/CTV uploaded is the guest's word passed on, not the bank's –
+    // never the proof, whether it sits on a "khách đã chuyển" notice, was replaced there or was never sent. The
+    // uploader role is read through the files port (ARC FB-R5-ARC-BE-139-01); the notice is this module's table and
+    // stays a rule of its own (SEC 6: a desk + sale person's upload is labelled desk – only the notice catches the
+    // image that person sent with "khách đã chuyển").
     if (UUID.test(attachmentId)) {
       const { rows } = await tx.query(
         'SELECT 1 FROM deposit_notice WHERE attachment_id = $1 LIMIT 1',
         [attachmentId],
       );
-      if (rows[0]) {
+      if (rows[0] || (await this.attachments.uploadedBySales(tx, attachmentId))) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'attachmentId', code: 'NOT_IN_LIST' }],
         });
       }
     }
-    const row = await this.payments.recordInTx(tx, actor, folioId, raw, {
+    const { row, dueBeforeVnd } = await this.payments.recordInTxWithDue(tx, actor, folioId, raw, {
       reservationId: at.r.id,
       reservationCode: at.r.code,
       channelGroup: null,
       reservationCreatedAt: at.meta.created_at,
-      afterClosure: { reservationStatus: at.closed },
+      afterClosure: { reservationStatus: at.closed, ...(card ? { capToDue: true } : {}) },
     });
+    // 5B-1: the money above N goes back to the account it came from (card_pos: always 0 – capped at N above).
+    const refundVnd = afterClosureRefundVnd(raw.amountVnd, dueBeforeVnd);
+    if (refundVnd > 0) {
+      await this.refunds.createAfterClosureRefund(tx, actor, {
+        reservationId: at.r.id,
+        reservationCode: at.r.code,
+        amountVnd: refundVnd,
+        receipt: { code: row.code, method: row.method },
+      });
+    }
+    // DOM 11.4 mục 5: the notice is answered by this receipt; its "Cần chú ý" item closes (who recorded = who handled).
+    const now = this.clock.now();
+    await tx.query(
+      `UPDATE deposit_notice SET status = 'handled', handled_payment_id = $3, updated_at = $2,
+          version = version + 1
+        WHERE reservation_id = $1 AND status = 'open'`,
+      [at.r.id, now, row.id],
+    );
+    if (this.events) {
+      await this.events.resolveAttention(
+        tx,
+        `deposit_after_cancel:${at.r.id}`,
+        now,
+        `receipt ${row.code} recorded after closure (5B-1)`,
+      );
+    }
     await this.changed(tx, row, at.r.id);
     return row;
   }
@@ -922,14 +1003,20 @@ export class PaymentsService {
     return out;
   }
 
-  /** BE-15 / DOM S3-3: try SM-11 `earned` after money moved on a booking (see FolioService). */
+  /**
+   * BE-15 / DOM S3-3: try SM-11 `earned` after money moved on a booking (see FolioService). FB-R5-DOM-BE-101-01: a
+   * checked-out stay hands its sold nights over, so a booking confirmed without a rate gets its commission row
+   * before the "earned" check (a debt paid, a transfer reconciled after OWN typed the table).
+   */
   private async tryEarn(tx: Tx, reservationId: string | null, requestId?: string): Promise<void> {
     if (!reservationId) return;
     const own = await this.port().ownership(tx, reservationId);
     if (!own) return;
+    const stay =
+      own.status === 'checked_out' ? await this.port().confirmedStayOf(tx, own.id) : null;
     await this.folios.tryEarnCommissions(
       tx,
-      { reservationId: own.id, reservationCode: own.code, status: own.status },
+      { reservationId: own.id, reservationCode: own.code, status: own.status, stay },
       requestId,
     );
   }
@@ -1115,7 +1202,7 @@ export class PaymentsService {
     }
     const folio = await this.folios.lock(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
-    if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    if (folio.status === 'closed') throw folioLocked('closed');
     const now = this.clock.now();
     const tz = await this.folios.timezone(tx);
     const rollover = await this.rollover(tx, tz, now);

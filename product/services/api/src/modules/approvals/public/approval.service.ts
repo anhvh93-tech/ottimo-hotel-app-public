@@ -63,6 +63,13 @@ import {
  */
 export const DEBT_WRITE_OFF = 'debt_write_off';
 
+/**
+ * Contract 0.3.13 1.20 (V5-16, BR-438 (2), DOM 3.1 (2)): "Ghi nhầm" – a waiver of a line the front desk may not reduce
+ * itself (another person's line, a system line, an earlier business day). The FOC report shows it apart; the bill
+ * printed for the guest shows only "Miễn phí" (US-177 AC10 – line-labels `guestFacing`). No DB CHECK (text column).
+ */
+export const ENTERED_IN_ERROR = 'entered_in_error';
+
 /** Reason codes of BR-432 (FocRequestInput.reasonCode). Other request types pass their own code. */
 export const FOC_REASON_CODES = [
   'regular_vip',
@@ -73,6 +80,7 @@ export const FOC_REASON_CODES = [
   // ARC 16.27 (2), R7LOCK-02 (DOM 18/10, BR-525): writing a debt off after check-out – FolioFocService only
   // accepts it on a settled / closed folio with an open debt (OWN/MGR, `kind = foc`, note).
   DEBT_WRITE_OFF,
+  ENTERED_IN_ERROR,
 ] as const;
 
 export interface Actor {
@@ -236,6 +244,15 @@ export type FocViewProvider = (
 ) => Promise<ReadonlyMap<string, FocView>>;
 
 /**
+ * 0.3.13 bổ sung 1 (5B-1, SEC S4 minimum; SEC ARC-16 FD+ only): the folio module computes, at read time, the "Có thể
+ * trùng" booking codes of `refund` requests (FolioService.refundDuplicateCodes). Ids absent = nothing suspected.
+ */
+export type RefundDuplicatesProvider = (
+  tx: Tx,
+  rows: readonly ApprovalRow[],
+) => Promise<ReadonlyMap<string, string[]>>;
+
+/**
  * BR-433 (e) v0.4.3 / ARC-SEC ADD3-01: the folio module routes EVERY `refund` request at submission – the lowest role
  * that may decide it and everyone who may never approve it (people who made an A32 reduction on the folio after
  * check-out below the owner). Called by `submit` under the caller's folio lock.
@@ -282,6 +299,7 @@ export interface ApprovalDto {
   type: ApprovalType;
   status: ApprovalStatus;
   reservationCode?: string;
+  possibleDuplicateCodes?: string[];
   folioLineId?: string;
   amountVnd: number;
   reasonCode: string;
@@ -348,6 +366,7 @@ export class ApprovalService {
   /** Hooks registered without types (older form – they filter by type themselves); not counted as declared. */
   private readonly untypedPreLocks: PreLockHook[] = [];
   private focView: FocViewProvider | null = null;
+  private refundDuplicates: RefundDuplicatesProvider | null = null;
   private refundRouting: RefundRouting | null = null;
   private refundMaker: RefundMakerCheck | null = null;
   private refundApprovalCheck: RefundApprovalCheck | null = null;
@@ -404,6 +423,21 @@ export class ApprovalService {
   /** OpenAPI 0.3.7 D1: the folio module provides effectiveAmountVnd / the current FOC line (FocView). */
   provideFocView(provider: FocViewProvider): void {
     this.focView = provider;
+  }
+
+  /** 0.3.13 bổ sung 1 (5B-1): the folio module provides `ApprovalRequest.possibleDuplicateCodes`. */
+  provideRefundDuplicates(provider: RefundDuplicatesProvider): void {
+    this.refundDuplicates = provider;
+  }
+
+  /** "Có thể trùng" of the `refund` rows of a page (one query for the page). */
+  async duplicateCodes(
+    tx: Tx,
+    rows: readonly ApprovalRow[],
+  ): Promise<ReadonlyMap<string, string[]>> {
+    const refunds = rows.filter((r) => r.type === 'refund');
+    if (!this.refundDuplicates || refunds.length === 0) return new Map();
+    return this.refundDuplicates(tx, refunds);
   }
 
   /** BR-433 (e) / ADD3-01: the folio module routes every refund request (RefundRouting). */
@@ -1320,6 +1354,7 @@ export class ApprovalService {
       approver = row.approver_id ? (byId.get(row.approver_id) ?? null) : null;
     }
     const views = await this.focViews(tx, [row]);
+    const duplicates = await this.duplicateCodes(tx, [row]);
     return toApprovalDto(
       row,
       tz,
@@ -1327,6 +1362,7 @@ export class ApprovalService {
       approver ?? null,
       remainingMonthlyVnd,
       views.get(row.id),
+      duplicates.get(row.id),
     );
   }
 
@@ -1582,6 +1618,8 @@ export function toApprovalDto(
   approverName: string | null,
   remainingMonthlyVnd: number | null,
   focView?: FocView,
+  /** 0.3.13 bổ sung 1 (5B-1): "Có thể trùng" codes of a `refund` (ApprovalService.duplicateCodes). */
+  possibleDuplicateCodes?: readonly string[],
 ): ApprovalDto {
   const focType = row.type === 'foc' || row.type === 'special_discount';
   // 0.3.7 D1: the CURRENT FOC line of the request (follows the re-posted line); before the folio module answers,
@@ -1592,6 +1630,10 @@ export function toApprovalDto(
     type: row.type,
     status: row.status,
     ...(row.target_code ? { reservationCode: row.target_code } : {}),
+    // SEC S4 minimum – FD+ only (x-visible-to, SEC ARC-16): absent = nothing suspected.
+    ...(row.type === 'refund' && possibleDuplicateCodes && possibleDuplicateCodes.length > 0
+      ? { possibleDuplicateCodes: [...possibleDuplicateCodes] }
+      : {}),
     ...(lineId ? { folioLineId: lineId } : {}),
     amountVnd: row.amount_vnd,
     reasonCode: row.reason_code,

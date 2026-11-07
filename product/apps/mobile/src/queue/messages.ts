@@ -39,7 +39,10 @@ export function rejectionText(item: QueueItem, t: T): RejectionText {
     };
   }
   if (code === 'PERFORMED_AT_OUT_OF_RANGE') {
-    // Room / task actions can be sent again with the time of a new tap ("Gửi lại" – P-01, P-08).
+    // Room / task actions can be sent again with the time of a new tap ("Gửi lại" – P-01, P-08). "Báo cần dọn" is
+    // not work that is "done": the person checks the room still needs cleaning (FB-R5-UXD-MOB-PR97-02).
+    if (item.actionKey === 'hk.action.needs_cleaning')
+      return { title, body: t('hk.queue.r.time_report', { time }) };
     return item.kind === 'room_status' || item.kind === 'hk_task'
       ? { title, body: t('hk.queue.r.time', { time }) }
       : { title, body: t('hk.queue.too_old', { time }) };

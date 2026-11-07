@@ -34,7 +34,17 @@ import {
   type MockUser,
 } from './seed';
 
-const MFA_ROLES: Role[] = ['owner', 'manager'];
+/**
+ * Roles that make 2FA mandatory – server `identity/public/mfa-roles.ts` MFA_REQUIRED_ROLES. v1.0.5 V5-40 (PR #100):
+ * `front_desk_lead` joins owner/manager (getMy2fa.required, Me.mfaRequiredButMissing, the restricted enrolment-only
+ * session under MFA_ENFORCED, no disableMy2fa).
+ */
+const MFA_ROLES: Role[] = ['owner', 'manager', 'front_desk_lead'];
+/**
+ * owner/manager only, NOT the 2FA list: `Me.securityEmailMissing` (me.service `privileged`) and the S2 step-up on
+ * setUserRoles (users.controller S2_ROLES) did not change with V5-40.
+ */
+const PRIVILEGED_ROLES: Role[] = ['owner', 'manager'];
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 /** 10 recovery codes × 16 Crockford base32 chars (SEC 06.12) – raw, the Desk shows 4-4-4-4. */
 function recoveryCodes(): string[] {
@@ -363,7 +373,7 @@ function toMe(u: MockUser): Me {
     ...mfaView(u),
     // 0.3.10: own address in full; the reminder only for owner/manager without one.
     email: u.email ?? null,
-    securityEmailMissing: !u.email && mfaRequired(u),
+    securityEmailMissing: !u.email && u.roles.some((r) => PRIVILEGED_ROLES.includes(r.role)),
   };
 }
 
@@ -913,8 +923,10 @@ export const handlers = [
       // ARC FB-R5-ARC-BE-C1-01: a price ≤ 0 is VALUE_OUT_OF_RANGE like the server (zod `money` min 1, T1A-3).
       if (!(Number(lp.monthlyListPriceVnd) > 0))
         errors.push({ field: 'listPrice.monthlyListPriceVnd', code: 'VALUE_OUT_OF_RANGE' });
-      // platform.controller: nightlyListPriceVnd is optional, but when sent it is an integer ≥ 1.
-      if (lp.nightlyListPriceVnd !== undefined && !(Number(lp.nightlyListPriceVnd) > 0))
+      // OpenAPI 0.3.13 (V5-1A): nightlyListPriceVnd is required like the monthly price – missing → REQUIRED.
+      if (lp.nightlyListPriceVnd === undefined)
+        errors.push({ field: 'listPrice.nightlyListPriceVnd', code: 'REQUIRED' });
+      else if (!(Number(lp.nightlyListPriceVnd) > 0))
         errors.push({ field: 'listPrice.nightlyListPriceVnd', code: 'VALUE_OUT_OF_RANGE' });
       // R3-Q39 #8: like rooms.service – the bound is the BUSINESS day (ctx.today, BR-010).
       if (String(lp.effectiveFrom) < businessDayLocal())
@@ -961,12 +973,8 @@ export const handlers = [
     }
     if (body.listPrice && String(body.listPrice.effectiveFrom) <= businessDayLocal()) {
       const m = Number(body.listPrice.monthlyListPriceVnd);
-      // FB-INV-005: the nightly price sent is stored as is (rooms.service). The ÷ 12 branch only mirrors
-      // the server's fallback for callers that omit it (removed in v1.0.1) – the Desk always sends it.
-      const n =
-        body.listPrice.nightlyListPriceVnd !== undefined
-          ? Number(body.listPrice.nightlyListPriceVnd)
-          : Math.round(m / 12 / 1000) * 1000;
+      // FB-INV-005, V5-1A: both prices are required and stored as sent (rooms.service) – no ÷ 12 fallback.
+      const n = Number(body.listPrice.nightlyListPriceVnd);
       room.currentListPrice = {
         effectiveFrom: String(body.listPrice.effectiveFrom),
         monthlyListPriceVnd: m,
@@ -1316,7 +1324,7 @@ export const handlers = [
     const had = new Set(u.roles.map((r) => `${r.propertyId}:${r.role}`));
     const escalates = roles.some(
       (r) =>
-        MFA_ROLES.includes(r.role) &&
+        PRIVILEGED_ROLES.includes(r.role) &&
         !had.has(`${r.propertyId}:${r.role}`) &&
         !(r.role === 'manager' && had.has(`${r.propertyId}:owner`)),
     );

@@ -105,6 +105,24 @@ export function waitingActions(items: readonly QueueItem[]): QueueItem[] {
   return items.filter((i) => i.state === 'pending' && i.kind !== 'attachment');
 }
 
+/**
+ * The room step (`transitionRoomStatus` event from a state) already on this phone and not refused – in its undo
+ * window or waiting for the network. A second tap on the same step is the same action, never a second command
+ * (V5-15 "không trùng lệnh"); after "Hoàn tác" or a refusal the step can be tapped again.
+ */
+export function waitingRoomEvent(
+  items: readonly QueueItem[],
+  roomId: string,
+  event: string,
+  expectedFrom: string,
+): QueueItem | undefined {
+  return items.find((i) => {
+    if (i.kind !== 'room_status' || i.state === 'rejected' || i.roomId !== roomId) return false;
+    const body = i.request.body as { event?: unknown; expectedFrom?: unknown } | undefined;
+    return body?.event === event && body?.expectedFrom === expectedFrom;
+  });
+}
+
 type Outcome =
   | { kind: 'done'; data: unknown }
   | { kind: 'applied' }

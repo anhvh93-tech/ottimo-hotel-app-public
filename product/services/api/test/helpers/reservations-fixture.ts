@@ -9,7 +9,6 @@ import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
 import type { Database } from '../../src/db/database';
 import { importChannels } from '../../src/modules/platform/public/channels';
-import { divideRoundVnd } from '../../src/modules/platform/public/money';
 import { T0, type TestTenant, setParam } from './tenant';
 
 interface DsE {
@@ -27,6 +26,8 @@ interface DsE {
     roomNo: string;
     group: string;
     monthlyListPriceVnd: number;
+    /** V5-1A: given with the monthly price, never derived from it (BR-101 (1), (5)). */
+    nightlyListPriceVnd: number;
     baseOccupancy: number;
     maxOccupancy: number;
   }>;
@@ -57,10 +58,12 @@ export async function seedBooking(
   db: Database,
   t: TestTenant,
   i = 0,
-  opts: { otaBaseRate?: boolean } = {},
+  /** `skipParams`: DS-E keys left out (V5-30 / DOM 101-01: a property where OWN has not typed the table yet). */
+  opts: { otaBaseRate?: boolean; skipParams?: readonly string[] } = {},
 ): Promise<BookingIds> {
   for (const p of DS_E.parameters) {
     if (p.param === 'ota_base_rate' && opts.otaBaseRate === false) continue;
+    if (opts.skipParams?.includes(p.param)) continue;
     await setParam(db, t, p.param, p.value, '2026-10-01', i);
   }
   // ARC s2-contract 8.1 (migration 0018) – until QA's DS-E carries them.
@@ -130,7 +133,7 @@ export async function seedBooking(
           t.propertyIds[i],
           id,
           r.monthlyListPriceVnd,
-          divideRoundVnd(r.monthlyListPriceVnd, 12, 1000),
+          r.nightlyListPriceVnd,
           T0,
         ],
       );
