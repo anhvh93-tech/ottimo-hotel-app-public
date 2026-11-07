@@ -20,6 +20,7 @@ Mỗi tờ là một khung cố định đúng khổ giấy (mm). Khi đo, Chrom
 cỡ chữ lớn nhất còn vừa, rồi in PDF và đếm số trang. Tràn hoặc PDF nhiều hơn 1 trang: thoát mã 1.
 
 Không sửa tệp nguồn. Chữ giữ nguyên văn của PO; bộ dựng chỉ chọn khổ, cỡ chữ, chỗ đặt.
+Tờ 4 / Tờ 4ru: trước khi dựng, so chữ với trang khách (check_print_notice.py, V5-47). Lệch thì dừng, không ghi tệp.
 Font tờ "Your ID details": nhúng base64 (woff2 của @fontsource) để in ở quầy khi mất mạng vẫn đúng font.
 Tìm tệp font ở --font-dir, rồi product/apps/landing-web/node_modules/@fontsource, product/node_modules/@fontsource,
 product/node_modules/.pnpm/@fontsource+<tên>@*/. Tờ EN/VI thiếu font thì dùng Google Fonts (báo lại); tờ EN/RU
@@ -237,11 +238,11 @@ def staff_sheet(sid, sheet, meta):
     )
 
 
-def notice_sheet(sheet, size="a5"):
-    """Tờ 4: nhãn OTTIMO · tiêu đề · dòng phụ · EN · nét Oak · VI · chân trang. size: "a5", "a4" hoặc "a4-ru".
+def notice_parts(sheet):
+    """Tách chữ Tờ 4 / Tờ 4ru: nhãn, tiêu đề, dòng phụ, các đoạn EN, các đoạn sau "---" (VI hoặc RU), chân tờ.
 
-    "a4-ru" (Tờ 4ru): phần sau "---" là RU; hai cột EN trái – RU phải, mỗi hàng một cặp đoạn cùng nghĩa."""
-    spec = {"a4": NOTICE_A4, "a4-ru": NOTICE_A4_RU}.get(size, SPEC["4"])
+    Mỗi đoạn là chữ Markdown, chưa dựng HTML. check_print_notice.py (V5-47) dùng đúng hàm này để so chữ tờ in
+    với trang khách, nên bộ dựng và bộ so luôn tách đoạn giống nhau."""
     paras, cur = [], []
     for line in sheet["lines"] + [""]:
         s = line.strip()
@@ -267,6 +268,17 @@ def notice_sheet(sheet, size="a5"):
     foot = paras.pop() if paras and "ID notice" in paras[-1] else ""
     cut = paras.index("---") if "---" in paras else len(paras)
     en, vi = paras[:cut], [p for p in paras[cut + 1:] if p != "---"]
+    return {"label": label, "title": title, "sub": sub, "first": en, "second": vi, "foot": foot}
+
+
+def notice_sheet(sheet, size="a5"):
+    """Tờ 4: nhãn OTTIMO · tiêu đề · dòng phụ · EN · nét Oak · VI · chân trang. size: "a5", "a4" hoặc "a4-ru".
+
+    "a4-ru" (Tờ 4ru): phần sau "---" là RU; hai cột EN trái – RU phải, mỗi hàng một cặp đoạn cùng nghĩa."""
+    spec = {"a4": NOTICE_A4, "a4-ru": NOTICE_A4_RU}.get(size, SPEC["4"])
+    parts = notice_parts(sheet)
+    label, title, sub, foot = parts["label"], parts["title"], parts["sub"], parts["foot"]
+    en, vi = parts["first"], parts["second"]
     fl, _, fr = foot.rpartition(" · ")
     if size == "a4-ru":
         if len(en) != len(vi):
@@ -540,6 +552,15 @@ def build(md_path, out_dir, only=None, font_dir=None):
     missing = sorted({k for j in jobs for k in j["sheets"] if k not in sheets})
     if missing:
         raise SystemExit("Thiếu phần '## Tờ %s' trong %s" % (", ".join(missing), md_path))
+    if any(k.startswith("4") for j in jobs for k in j["sheets"]):
+        # V5-47 (FB-R4-PO-UXD-IDS2-02, FB-R4-SEC-UXD-IDS2-01): chữ Tờ 4 / Tờ 4ru phải đúng chữ trang khách
+        # (design/copy/strings-*.json). Lệch thì dừng trước khi ghi tệp nào. CI so cả HTML đã dựng (check_print_notice.py).
+        from check_print_notice import check_markdown  # noqa: E402
+
+        problems = check_markdown(md_path, sheets)
+        if problems:
+            raise SystemExit("\n".join(problems) + "\nChữ Tờ 4 lệch trang khách: không dựng tờ in. Sửa cho khớp rồi "
+                             "chạy lại (python3 -I product/design/tools/check_print_notice.py để xem lại).")
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
     for job in jobs:
