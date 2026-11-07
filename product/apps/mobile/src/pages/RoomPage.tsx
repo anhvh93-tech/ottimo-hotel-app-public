@@ -84,6 +84,12 @@ export function RoomPage({
 
   const finish = () => act.roomStatus(room, 'finish_cleaning', eff.value, cleanTask, occupied);
   const start = () => act.roomStatus(room, 'start_cleaning', eff.value, cleanTask);
+  // V5-15 (R8): guest staying, room already cleaned (OC) → "Báo cần dọn" puts it back to OD; the server adds the
+  // stay-over cleaning task. Queued like the other steps (10 s undo, offline queue, one command per tap).
+  // FB-R5-UXD-MOB-PR97-01: an exception, not the next cleaning step – a secondary button in the body, never the
+  // footer slot (it would land where "Dọn xong" was just tapped). Same weight as the Desk button (#102).
+  const needsCleaning = () => act.roomStatus(room, 'needs_cleaning', eff.value);
+  const canReportCleaning = writable && events.includes('needs_cleaning');
 
   let main: JSX.Element | null = null;
   if (writable && events.includes('start_cleaning')) {
@@ -165,7 +171,7 @@ export function RoomPage({
         )}
 
         {/* No empty bordered card when there is nothing to say (seen on room 101, S4 UXD screenshots). */}
-        {arrival || startedNote || finishHelp ? (
+        {arrival || startedNote || finishHelp || canReportCleaning ? (
           <div className="card hk-info">
             {arrival ? <p className="m-0">{arrival}</p> : null}
             {startedNote ? (
@@ -176,9 +182,17 @@ export function RoomPage({
                 {occupied ? t('hk.finish_help_occupied') : t('hk.finish_help_vacant')}
               </p>
             ) : null}
+            {/* PR97-03: what the button does, before anyone taps it to find out. */}
+            {canReportCleaning ? <p className="m-0 li-s">{t('hk.needs_cleaning_help')}</p> : null}
           </div>
         ) : null}
 
+        {canReportCleaning ? (
+          <button type="button" className="btn xl block" onClick={() => void needsCleaning()}>
+            <Icon name="broom" />
+            <span>{t('hk.action.needs_cleaning')}</span>
+          </button>
+        ) : null}
         <a className="btn xl block" href={href({ name: 'report', roomId })}>
           <Icon name="alert" />
           <span>{t('hk.report_this_room')}</span>

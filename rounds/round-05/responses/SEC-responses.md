@@ -506,3 +506,104 @@ Phần Google Workspace còn khôi phục được 25 ngày sau "Delete forever"
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | **SEC – trả lời 2 câu BA về dòng BA-08 (f332f503)** (rounds/round-05/responses/SEC-responses.md mục 6.6.1). (1) Sửa: lỡ tải về hoặc máy tự lưu ảnh giấy tờ trên máy của cơ sở, chưa mở hay gửi sang đâu, là **ca giữa**: xóa ở Tải về và Thùng rác (Đã xóa gần đây), tắt lại tự lưu, ghi sổ giao ca một dòng không mã đơn, không tên khách, báo chủ đầu tư trước khi hết ca, không gọi trong 1 giờ; chủ đầu tư kiểm bản sao lưu trên mây (iCloud Ảnh, Google Photos, Google Drive) và xóa. Vẫn gọi trong 1 giờ khi ảnh bị chụp màn hình, chuyển tiếp, mở hay gửi sang app khác, tải lên đâu (kể cả Desk), không xóa được, nằm trên máy cá nhân, mất máy, xóa không thành, tài khoản dùng chung với người ngoài. (2) Xác nhận: thư báo có ảnh hoặc có nội dung tin mà OTA hay Zalo gửi về email cơ sở là bản sao xóa được như 6.5.3: xóa cả trong Thùng rác, không mở tệp đính kèm, ca thường. Thư về hộp thư của chủ đầu tư thì chủ đầu tư tự xóa. | SEC |`
+
+---
+
+## 7. DOM review V5-74 – runbook sự cố dữ liệu khách (07/11)
+
+Thẻ từ `rounds/round-05/reviews/DOM-on-sec-v5-74.md` (`fc4c2b08`), sửa ở `product/docs/runbook-su-co-du-lieu-khach.md` bản 1.1. Thẻ BA, OPS chưa tới.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-DOM-SEC-V574-01 (Major) | Done – phương án (a) | Mức Thấp cần **cả hai**: link chưa mở và tin gửi kèm chỉ có link. Tin có tên, ngày ở hay căn thì là Vừa, dù link chưa mở. Chưa biết tin kèm gì thì coi như có tên. Mẫu dòng (mục 6) có ô "tin: chỉ link / có tên / có ngày ở / có căn", chỉ ghi loại, không chép nội dung. `guides/02` 17.3 bước 5 và `guides/01` 14.1 ghi thêm ô này, vì chỉ quầy biết tin kèm gì. **(b) SEC khuyến nghị làm thêm, không chặn:** câu gửi link chỉ chào chung, không tên, ngày ở, căn. Đây là tối thiểu dữ liệu từ gốc. CPY viết theo giọng OTTIMO, BA đưa vào `guides/02` 17.3 bước 3. Khi đó runbook vẫn đúng, ô "tin" sẽ là "chỉ link" |
+| FB-R5-DOM-SEC-V574-02 (Minor) | Done | Ghi lạ: hỏi lại khách giờ đến và yêu cầu khi gửi link mới, không cần kể chuyện gửi nhầm; sửa giờ đến; yêu cầu khách không gửi thì hủy hoặc từ chối, không tính phí; khách đến làm giấy tờ tại quầy như khách không check-in online (thay "đối chiếu bản gốc"). Người nhận nhầm là khách đơn khác: gửi link của chính đơn họ, một câu xin lỗi ngắn, không nói gì về đơn kia. **SEC xác nhận đây không phải "báo người nhận nhầm"**: việc đó phục vụ đơn của chính họ và không đưa thêm dữ liệu nào của khách kia. Ảnh họ tải lên đơn sai: không Gắn người, quản lý Xóa ảnh |
+| FB-R5-DOM-SEC-V574-03 (Suggestion) | Done | Báo OWN = nhắn thẳng tới liên hệ OWN đã lưu trên điện thoại cơ sở, đúng dòng mẫu, nhắn ngay, muộn nhất trong ngày, sau 22:00 vẫn nhắn; có ghi lạ thì gọi ngay. Không chụp màn hình hội thoại gửi nhầm |
+| FB-R5-DOM-SEC-V574-04 (Suggestion) | Done | Câu dưới bảng mục 1: Xóa ảnh chỉ quản lý, chủ đầu tư (A74); người trực chỉ có vai lễ tân thì không Gắn người, ghi sổ, báo OWN ngay, OWN hoặc quản lý xóa |
+| Đề xuất mẫu dòng của DOM (mục 3 review) | Done | Thêm ngày gửi nhầm, tin kèm gì, ghi lạ, ảnh đã xóa. Nhánh B thêm ngày lượt kéo |
+
+Ngoài runbook, SEC sửa tối thiểu `guides/02` 17.3 bước 5 và `guides/01` 14.1 cho quầy và chủ đầu tư làm cùng một cách (ghi "chưa đánh số bản" ở lịch sử tệp). Còn cho vai khác, ORC giao:
+- BA: chép cùng ý sang sổ tay 2.9 bước 6, đánh số bản bộ hướng dẫn;
+- PO: Tờ 1, dòng "Gửi nhầm người", thêm "tin kèm gì" vào dòng sổ giao ca và "nhắn chủ đầu tư" (tờ in, INV in lại khi PO sửa);
+- CPY + BA: phương án (b) của V574-01, nếu ORC xếp.
+
+**Tổng: 4 thẻ, 4 Done, 0 Rejected, 0 Deferred, 0 Escalated.** Không ESC.
+
+---
+
+## 8. OPS và BA review V5-74 – runbook bản 1.2 (07/11)
+
+Thẻ từ `rounds/round-05/reviews/OPS-on-sec-v5-74.md` (bản 1.0 @ `2f732f58`) và `rounds/round-05/reviews/BA-on-sec-v5-74.md` (bản 1.1 @ `3174ce65`). Sửa ở `product/docs/runbook-su-co-du-lieu-khach.md` bản 1.2.
+
+Bối cảnh: INV quyết 07/11 chuyển bản sao lưu lên Google Drive công ty (OPS làm PR riêng, SEC review sau). Nhánh B bản 1.2 vì vậy viết theo **"bản ngoài máy"**: bản nằm ngoài máy chủ mà máy chủ không ghi đè, không xóa được. Hôm nay là Mac; khi chuyển Drive thì các bước giữ nguyên. Điều kiện "máy chủ không ghi đè, không xóa được bản đã có" là điều SEC sẽ kiểm ở PR Drive: nếu máy chủ tự đẩy lên Drive bằng khóa nằm trên máy chủ, máy bị chiếm sửa được cả bản trên Drive, và cách phát hiện mã 3 (kéo, so tên trùng) không còn.
+
+### 8.1 Thẻ OPS
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-OPS-SEC-V574-01 (Major) | Done | Mục 5 bước 3: băm tin được là `.sha256` **ngoài máy**. (1) lấy bản máy chủ của đúng tệp bị báo bằng khóa kéo chỉ đọc vào thư mục mới, trống, ngoài thư mục sao lưu, không đăng nhập; (2) tính băm ở máy ngoài, so với `.sha256` ngoài máy; (3) ba ca kết luận theo đúng đề xuất OPS; (4) để nguyên thư mục tạm cho SEC. Chữ cho README: mục 8.3 |
+| FB-R5-OPS-SEC-V574-02 (Minor) | Done | Bước 2: không chạy lại `pull-backups.sh`, kể cả lịch V5-60 hay lịch đồng bộ Drive (tắt lịch trước); lý do: mỗi lượt kéo thêm từ máy bị nghi và xóa bản ngoài máy quá 35 ngày; tệp của lượt mã 3 không dùng để dựng lại. Lệnh tắt lịch: OPS thêm vào README khi V5-60 xong, báo SEC để trỏ |
+| FB-R5-OPS-SEC-V574-03 (Minor) | Done (phần SEC) | Runbook trỏ tới cách xử lý mã 1 ở README (`quarantine/`, không xóa); SEC quyết khi xóa `quarantine/` (SR-BAK-03). OPS viết cách xử lý vào README (mục 8.3, ý 3) |
+| FB-R5-OPS-SEC-V574-04 (Minor) | Done (phần SEC) | Runbook giữ câu trỏ, thêm "(ca máy còn chạy và việc với máy cũ: tắt, giữ, hủy thuê – OPS ghi ở đó)". SEC đồng ý nội dung OPS đề xuất cho `runbook-vps-moi.md` "Dùng khi": tắt máy cũ bằng console nhà cung cấp khi OWN quyết theo đề nghị SEC; **không xóa, không hủy thuê** tới khi SEC (và luật sư, nếu đang hỏi) cho; tiền thuê máy thứ hai OWN quyết, vượt ngân sách thì OPS tạo ESC |
+| FB-R5-OPS-SEC-V574-05 (Suggestion) | Done | Bước 4: `.last_pull` chỉ cho biết tệp bị sửa sau giờ đó, không cho biết lúc bị vào; SEC chọn theo dấu hiệu khác, không chắc thì lùi thêm một bản. Bản chụp journal chỉ đọc trước khi tắt máy cũ: SEC sẽ xin ở lúc có sự cố, ghi trong khối máy cũ của OPS |
+| Việc phụ: đếm lượt mở link đã thu hồi (OPS mục 3) | Ghi nhận | SEC đồng ý hình dạng (khuôn K14, `audit_event guest_session.opened` trước `revoked_at`, đầu ra chỉ nhãn và số). **SEC quyết: không đếm số `ip_hmac` khác nhau** ở lượt đầu: con số đó không đổi mức sự cố (link có mở là Vừa), mà lại đưa định danh bí danh vào phép đếm. Xét lại nếu luật sư cần tách "một người hay nhiều người". Bước 4 nhánh A ghi "OPS đang làm khối chạy, SEC ghim"; khi có khối, SEC trỏ tên khối |
+
+### 8.2 Thẻ BA
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-BA-SEC-V574-01 (Major) | Done (phần SEC) | Mục 4 bước 1 dán nguyên văn câu DOM (`DOM-on-ba-card-v574-01.md` mục 1), mục 2 và dòng mẫu mục 6 theo DOM. Xem mục 8.5. Đóng khi BA chép 17.3 bước 5 và PO sửa Tờ 1 |
+| FB-R5-BA-SEC-V574-02 (Minor) | Done | Mục 2 bước 2 tách thành bảng "ai chặn gì": quầy A114, A112; OWN A100, A115, A110 (`guides/01` mục 1.9), không duyệt phát hành, tắt máy chủ; OPS khi OWN đồng ý. Mục 1 dòng người trực: "**Thu hồi link** khách"; dòng OWN thêm khóa tài khoản, thu hồi phiên và thiết bị |
+| FB-R5-BA-SEC-V574-03 (Minor) | Done | Một câu ở mục 1 (dưới bảng), mục 2 bước 4, mục 3 dòng Vừa: "OWN quyết; SEC đề xuất; luật sư xác nhận". Mục 1 bỏ "(cùng SEC)". Mẫu decision-log mục 6: cột người quyết `OWN`, câu quyết có "SEC đề xuất <báo/không báo>" |
+| FB-R5-BA-SEC-V574-04 (Minor) | Done | Mục 2 "Khi chưa ai trả lời", ghi `[GIẢ ĐỊNH – chờ INV xác nhận]`, ESC-001 / Q12. Vừa mà luật sư im tới giờ 48: làm như Cao (SEC soạn bản báo bằng số đếm, OWN quyết gửi trước giờ 72; không gửi thì ghi lý do). OWN im: ORC nhắc ở giờ 24 và 48 kèm đề xuất và bản soạn sẵn; giờ 48 vẫn im thì ghi decision-log "chưa có quyết định của OWN"; đội không gửi thay |
+| FB-R5-BA-SEC-V574-05 (Minor) | Done | Dòng 3: "Quầy làm theo `guides/02` mục 17.3 bước 5 và Tờ 1 (cùng nội dung mục 4 bước 1–2). Runbook này không phát cho quầy." |
+| FB-R5-BA-SEC-V574-06 (Suggestion) | Chờ BA | SEC không sửa gì. Mục 6 thêm câu "đổi mẫu nhánh A thì SEC báo BA chép lại". SEC xác nhận khi BA chép xong ở S6 (17.3 bước 5, sổ tay 2.9 bước 6) |
+| FB-R5-BA-SEC-V574-07 (Suggestion) | Done | "Dùng khi" thành bốn gạch. Mục 5 bước 4: "SEC + OPS, khi OWN đồng ý trong chat". "Mã 3 che mã 1" → "Mã 3 được báo thay cho mã 1, nên có thể có cả dòng `checksum mismatch` trong cùng lượt" |
+| FB-R5-BA-SEC-V574-08 (Suggestion) | Done (phần SEC) | Đầu runbook ghi rõ ba mặc định pháp lý tạm là `[GIẢ ĐỊNH – chờ INV xác nhận]`, ESC-001 / Q12. ORC ghi dòng decision-log ở mục 8.6 và nêu trong round-summary |
+
+**Tổng mục 8.1–8.2: 13 thẻ (OPS 5, BA 8) + việc phụ. 10 Done, 3 Done phần SEC chờ vai khác (OPS-03, OPS-04 chờ OPS sửa README và runbook VPS mới; BA-01 chờ BA, PO chép), BA-06 chờ BA; 0 Rejected, 0 Deferred, 0 Escalated.** Không ESC mới.
+
+### 8.3 Chữ cần đổi ở `product/infra/server/README.md` (OPS sửa, cùng lượt thẻ 01)
+
+Dòng "Bản sao lưu ngoài máy". SEC không sửa tệp của OPS; chữ dưới để hai nơi dùng chung một ý.
+
+1. **Thay** câu "Nếu cùng tệp đó còn báo `checksum mismatch` thì có thể bản trên Mac mới là bản hỏng: so tay với `.sha256` trên máy chủ trước khi kết luận." **bằng:**
+   > Nếu cùng tệp đó còn báo `checksum mismatch` thì có thể bản trên Mac mới là bản hỏng. Không so với `.sha256` trên máy chủ (máy bị nghi sửa được cả hai tệp), không đăng nhập máy chủ: kéo bản máy chủ của đúng tệp bị báo bằng khóa kéo chỉ đọc vào một thư mục mới, trống, ngoài thư mục sao lưu (lệnh dưới), tính băm trên Mac, so với `.sha256` **trên Mac**. Kết luận theo runbook sự cố dữ liệu khách mục 5 bước 3. Để nguyên thư mục tạm cho SEC, không chép vào thư mục sao lưu.
+2. **Thêm** dòng lệnh cho bước kéo (OPS soạn), với các ràng buộc:
+   - cùng khóa, cùng `known_hosts`, cùng lệnh `rsync` của script, chỉ `--include` đúng tên tệp bị báo (cả `.age` lẫn `.age.sha256` nếu cả hai bị báo), `--exclude '*'`;
+   - thư mục đích tạo bằng `mktemp -d`, nằm ngoài thư mục sao lưu;
+   - **chỉ in** mã thoát của `rsync` và 8 ký tự đầu của: băm tệp vừa kéo, nội dung `.sha256` ngoài máy, (nếu có) `.sha256` vừa kéo. Không in IP, không in đường dẫn có tên người;
+   - tên máy dùng tên trong `~/.ssh/config`, không gõ IP vào lệnh (như `runbook-vps-moi.md` mục 1.0).
+3. **Thêm** cách xử lý mã 1:
+   > Mã 1 (checksum cục bộ sai): không xóa tệp. Chuyển tệp hỏng và `.sha256` của nó vào thư mục con `quarantine/` (cùng thư mục sao lưu, script không đụng tới), rồi kéo lại: lượt kéo lấy bản máy chủ cho tên đó và kiểm băm. SEC quyết khi xóa `quarantine/` (SR-BAK-03). Mã 1 cùng lúc với mã 3: làm theo runbook sự cố dữ liệu khách mục 5 trước, không kéo lại.
+4. **Thêm** sau "rồi thoát 3 → …": "Không chạy lại script, kể cả lịch tự động, tới khi SEC báo: mỗi lượt kéo thêm từ máy chủ và xóa bản trên Mac quá 35 ngày (runbook sự cố dữ liệu khách mục 5 bước 2)."
+5. Khi chuyển sang Google Drive công ty: giữ cả bốn ý, đổi "trên Mac" thành nơi mới, **chỉ khi** máy chủ không ghi đè, không xóa được bản đã có ở đó (SEC kiểm ở PR Drive).
+
+### 8.4 Tờ 1 (PO `a38bfcdc`) so với runbook
+
+Dòng "Gửi nhầm người" (`product/docs/staff-one-pager.md` dòng 50) **khớp** runbook 1.1 và 1.2 ở mọi việc của quầy: **Thu hồi link** ngay, tạo link mới; sổ giao ca có mã đơn, ngày giờ gửi, **tin kèm gì** (chỉ loại), giờ thu hồi, kênh; không ghi tên khách, tên hay số người nhận nhầm; không chụp hội thoại; nhắn thẳng chủ đầu tư đúng dòng đó trong ngày; ghi lạ thì không dùng giấy tờ, gọi ngay. Bản 1.2 không đổi việc nào của quầy ngoài BA-01.
+- Tờ 1 không có ba ô "đã tạo link mới, ghi lạ, ảnh đã xóa" của mẫu mục 6: SEC chấp nhận, vì Tờ 1 giới hạn chữ (plan R5 quyết định 21), ba ô đó không đổi mức sự cố, và 17.3 bước 5 có đủ mẫu (BA S6).
+- **Còn một việc cho PO (BA-01):** thay vế "tạo link mới cho đúng khách" bằng câu ngắn DOM đã chốt (`DOM-on-ba-card-v574-01.md` mục 3). SEC đồng ý câu đó cho Tờ 1, kể cả khi phải bỏ câu cuối "Không sửa liên hệ…" vì không vừa 8,25 pt. Tới lúc in lại, Tờ 1 bản 07/11 vẫn dùng được: chữ "cho đúng khách" không bảo quầy gửi lại vào liên hệ đã sai.
+
+### 8.5 FB-R5-BA-SEC-V574-01 (Major) – liên hệ trên đơn sai
+
+DOM chốt câu ở `rounds/round-05/reviews/DOM-on-ba-card-v574-01.md` (`cd7ad531`). SEC dán **nguyên văn** mục 1 vào runbook 1.2 mục 4 bước 1, thêm câu cuối gạch 2 của DOM vào bước 2, và dùng dòng mẫu mục 6 của DOM (thêm "liên hệ trên đơn sai: có/không", "link mới: đã tạo / không tạo").
+
+SEC đọc câu DOM về bảo mật: **đồng ý**. Đây là tối thiểu dữ liệu: không gửi thêm gì tới một liên hệ đã biết là sai, kể cả tin xác nhận và nhắc giờ đến. Không sửa liên hệ theo lời người lạ cũng chặn đúng lối giả làm khách để lấy link mới.
+- SEC thêm một nửa câu ở gạch 2: "Không hỏi lại người nhận để kiểm (không nêu tên, ngày ở của khách cho họ xác nhận)". Câu DOM nói người nhận "trả lời sai tên, sai ngày ở": SEC muốn chắc quầy không đọc tên hay ngày ở cho người nhận để hỏi "có đúng anh/chị không". DOM, BA chép cùng ý khi chép 17.3 nếu đồng ý; không cần cho Tờ 1.
+- Mức sự cố không đổi: "liên hệ trên đơn sai" không tự làm mức cao hơn. Ô đó cho SEC biết có cần kiểm thêm các tin đã gửi trước tới liên hệ sai (xác nhận, nhắc giờ) hay không: nếu có, SEC tính các tin đó vào "tin kèm gì".
+
+Việc còn lại: BA chép `DOM-on-ba-card-v574-01.md` mục 2 sang `guides/02` 17.3 bước 5 (và sổ tay 2.9 bước 6); PO sửa Tờ 1 theo mục 3 của DOM.
+
+### 8.6 Câu hỏi UXD: Wi-Fi trùng mật khẩu đăng nhập Desk
+
+**Có, nên nhắc**, một câu, chỉ trong thông báo lỗi 422 `NOT_ALLOWED` của SR-RL-15 (khi phép so thật sự chạy và trùng). Lý do: mật khẩu Wi-Fi được đưa cho khách (thẻ phòng, tin chào, trang khách). Nếu bộ phát **đã** dùng mật khẩu đó, thì mật khẩu Desk của người này coi như đã lộ, dù Desk từ chối lưu.
+- Ý của câu (UXD viết chữ, theo giọng OTTIMO): mật khẩu này đang là mật khẩu đăng nhập Desk của bạn, chọn mật khẩu Wi-Fi khác; nếu bộ phát đang dùng mật khẩu này, đổi mật khẩu Desk ngay, rồi đổi cả mật khẩu bộ phát. Có nút hoặc chỉ đường tới **Đổi mật khẩu** (A112, mọi vai).
+- Không lặp lại mật khẩu, không che một phần. Không nói gì về tài khoản khác (phép so chỉ so với mật khẩu của chính người gọi).
+- Không hiện câu nhắc khi phép so bị bỏ qua (quá 5 lần/24 giờ): lúc đó Desk không biết có trùng hay không.
+- Không bắt buộc đổi, không khóa tài khoản (SR-RL-15 không cộng vào `login_lockout`).
+
+### 8.7 Dòng decision-log (ORC chép)
+
+`| 2026-11-07 | 5 | **SEC – Phản hồi & sửa V5-74: runbook sự cố dữ liệu khách bản 1.2** theo OPS (V574-01 Major, 02–05) và BA (V574-01 Major theo câu DOM DOM-on-ba-card-v574-01.md nguyên văn, 02–05, 07, 08). Nhánh A: nhầm do người gửi thì tạo link mới tới liên hệ trên đơn; liên hệ trên đơn sai hoặc không chắc thì không tạo link mới, không nhắn thêm, khách làm giấy tờ tại quầy, không sửa liên hệ theo lời người khác; SEC thêm "không hỏi lại người nhận để kiểm". Nhánh B: băm tin được là .sha256 ngoài máy, không phải trên máy chủ; lấy bản máy chủ của tệp bị báo bằng khóa kéo chỉ đọc vào thư mục tạm, không đăng nhập; ba ca kết luận; không chạy lại script, tắt lịch; tệp hỏng vào quarantine/; .last_pull không cho biết lúc bị vào. Viết theo "bản ngoài máy" để dùng được khi sao lưu chuyển lên Google Drive công ty, với điều kiện máy chủ không ghi đè, không xóa được bản ở đó (SEC kiểm ở PR Drive). Khoanh vùng tách theo người làm (A100, A110, A115 chỉ OWN); một câu "OWN quyết; SEC đề xuất; luật sư xác nhận"; quầy dùng 02 17.3 và Tờ 1. SEC quyết: đếm lượt mở link đã thu hồi không đếm số ip_hmac khác nhau ở lượt đầu. Chữ README infra/server cho OPS: SEC-responses mục 8.3. Tờ 1 (a38bfcdc) khớp | SEC | rounds/round-05/responses/SEC-responses.md mục 8 |`
+
+`| 2026-11-07 | 5 | [GIẢ ĐỊNH – chờ INV xác nhận] Mặc định pháp lý tạm của runbook sự cố dữ liệu khách (SR-INC-01) tới khi luật sư trả lời Q12 (ESC-001): đồng hồ 72 giờ tính từ giờ xảy ra nếu biết, không thì giờ phát hiện; quyết có báo chậm nhất giờ thứ 48; mức Vừa hỏi luật sư mỗi ca, luật sư chưa trả lời tới giờ 48 thì làm như mức Cao (soạn bản báo, OWN quyết gửi trước giờ 72); mức Cao mặc định chuẩn bị báo; OWN chưa trả lời thì ORC nhắc ở giờ 24 và 48, đội không gửi thay | SEC đề xuất, INV xác nhận | runbook-su-co-du-lieu-khach.md mục 2, 3; BA FB-R5-BA-SEC-V574-04, 08 |`
