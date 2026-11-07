@@ -28,7 +28,10 @@
  *     request, the "Cần chú ý" credit item closed; P2: whoever recorded money BEFORE the closure is never an origin
  *     actor (MGR approves the 5B-1 request);
  *   - FB-R5-SEC-BE-148-01: an OWN only among the origin actors pays a transfer refund inside the step-up window only
- *     (401 REAUTH_REQUIRED without it), flagged `ownSelfApprovedAndPaid` in the money log.
+ *     (401 REAUTH_REQUIRED without it), flagged `ownSelfApprovedAndPaid` in the money log;
+ *   - FB-R5-SEC-BE-148-03: S2 with an OWN recorder (never approves, never pays cash);
+ *   - FB-R5-ARC-BE-148-03: the edges of "Có thể trùng" (same booking, card / cash, receipts before the closure on the
+ *     refund request, 25 h apart) and a second receipt after closure that leaves a handled notice alone.
  *   A case that records money and then closes the booking MOVES THE CLOCK between the two: `AFTER_CLOSURE_SQL` compares
  *   `created_at >= cancelled_at`, so a receipt and a cancellation at the same fake instant count as "after closure".
  * Fake clock and FAKE data only (fixture guest, @example.test-free, card numbers are the public test numbers).
@@ -238,6 +241,7 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
   let d1: B; // open booking with a transfer of the same amount as o2 ("Có thể trùng")
   let hS: B; // a sale's hold, expired → notice → receipt closes the item
   let hS2: B; // a sale's hold, expired → notice → "Không thấy tiền"
+  let hSReceipt: string; // the receipt that handled hS's notice (DOM 11.4 mục 5)
 
   it('setup: OTA pay-at-hotel bookings cancelled with a 500.000 fee (N = 500.000), two sale holds expired by J1', async () => {
     await x.at('2026-11-20T10:00:00+07:00');
@@ -593,6 +597,7 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
     const res = await transfer(hS, 300_000, 'fd', 'deposit', { bankReference: 'rf-prb3-0001' });
     expect(res.statusCode, res.body).toBe(201);
     expect(res.json().bankReference).toBe('RF-PRB3-0001');
+    hSReceipt = res.json().id;
     expect(
       (
         await x.q(
@@ -967,4 +972,71 @@ describe.skipIf(!HAS_DB)('PR-B3 – 5B-1 money after closure (ARC 105-03, SEC S2
       ),
     ).toBe(0);
   }, 120_000);
+
+  it('FB-R5-ARC-BE-148-03 – the edges of "Có thể trùng" (same booking, card / cash, receipts before the closure, 25 h apart) and a second receipt after closure never re-handles a notice', async () => {
+    await x.at('2026-11-30T09:00:00+07:00');
+    const dupOf = async (b: B, id: string) => (await paymentOnFolio(b, id))?.possibleDuplicateCodes;
+    const e1 = await direct('401', '2026-12-14', '2026-12-16');
+    const e2 = await direct('402', '2026-12-14', '2026-12-16');
+    /** One call after the other (never in parallel – the folio lock), each → 201; the receipt ids. */
+    const ids = async (
+      ...calls: Array<() => Promise<{ statusCode: number; body: string; json(): any }>>
+    ) => {
+      const out: string[] = [];
+      for (const call of calls) {
+        const done = await call();
+        expect(done.statusCode, done.body).toBe(201);
+        out.push(done.json().id as string);
+      }
+      return out;
+    };
+    // (A7) two transfers of the same amount on the SAME booking → no flag (DOM 148-05 may change this rule).
+    const [s1, s2] = await ids(
+      () => transfer(e1, 333_000),
+      () => transfer(e1, 333_000),
+    );
+    expect(await dupOf(e1, s1!)).toBeUndefined();
+    expect(await dupOf(e1, s2!)).toBeUndefined();
+    // (A19) a card slip or cash of the same amount on another booking is never a duplicate, and gets no flag.
+    const [tr, cd] = await ids(
+      () => transfer(e2, 444_000),
+      () => card(e1, 444_000, 'fd', { note: NOTE }),
+      () => record(e1, { type: 'charge', method: 'cash', amountVnd: 444_000, note: NOTE }),
+    );
+    expect(await dupOf(e2, tr!)).toBeUndefined();
+    expect(await dupOf(e1, cd!)).toBeUndefined();
+    // Control: a transfer of that amount on a third booking is.
+    expect((await transfer(d1, 444_000)).statusCode).toBe(201);
+    expect(await dupOf(e2, tr!)).toEqual([d1.code]);
+    expect(await dupOf(e1, cd!)).toBeUndefined();
+    // (A9) the refund request of a booking whose only suspect receipt was recorded BEFORE the closure → no flag.
+    const z = await otaBooking('202');
+    const [zr] = await ids(() => transfer(z, 250_000));
+    expect((await transfer(e2, 250_000)).statusCode).toBe(201);
+    expect(await dupOf(z, zr!)).toEqual([e2.code]);
+    await x.at('2026-11-30T09:05:00+07:00');
+    await otaCancel(z, 100_000);
+    const [zReq] = await refundsOf(z);
+    expect(zReq).toMatchObject({ amount_vnd: 150_000, status: 'pending' });
+    const zApproval = await approvalOf(zReq.id, 'mgr');
+    expect(zApproval).toBeDefined();
+    expect(zApproval.possibleDuplicateCodes).toBeUndefined();
+    // (A5) a second receipt after closure on hS never re-handles its notice (handled by the first one).
+    expect((await transfer(hS, 100_000, 'fd', 'deposit')).statusCode).toBe(201);
+    expect(
+      await x.q(`SELECT status, handled_payment_id FROM deposit_notice WHERE reservation_id = $1`, [
+        hS.id,
+      ]),
+    ).toEqual([{ status: 'handled', handled_payment_id: hSReceipt }]);
+    // (A8) 25 hours apart → no flag; the two of the same hour flag each other.
+    const [early] = await ids(() => transfer(e1, 555_000));
+    await x.at('2026-12-01T10:05:00+07:00');
+    const [lateE2, lateD1] = await ids(
+      () => transfer(e2, 555_000),
+      () => transfer(d1, 555_000),
+    );
+    expect(await dupOf(e1, early!)).toBeUndefined();
+    expect(await dupOf(e2, lateE2!)).toEqual([d1.code]);
+    expect(await dupOf(d1, lateD1!)).toEqual([e2.code]);
+  }, 180_000);
 });
