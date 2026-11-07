@@ -1,7 +1,7 @@
 # FE – V5-16 phía Desk: 403 `foc_request` → Gửi miễn có duyệt, lý do Ghi nhầm (US-177 AC2, AC8)
 
 - Round 5 (v1.0.5), bước Sản xuất · FE · 07/11/2026
-- Nhánh `r5-fe-v5-16`, cắt từ `origin/main` @ `78024f17`. Không rebase, không force-push.
+- Nhánh `r5-fe-v5-16`, cắt từ `origin/main` @ `78024f17`, đã merge `origin/main` @ `b67075db`. Không rebase, không force-push.
 - Căn cứ:
   - BR-438, DOM `rules-v1.0.5.md` 3.1, 3.5 (T-16-2, -4, -7, -11), 3.6, 7.2;
   - hợp đồng 0.3.13 mục 1.20 (`Problem.requiredFlow`, `FocRequestInput.reasonCode` `entered_in_error`), `openapi.yaml` `adjustFolioLine`, `requestFoc`;
@@ -54,7 +54,7 @@
 9. Tên lý do trên folio, Cần duyệt, Nhật ký tiền; dòng không có lý do in "Miễn phí".
 10. Bill mock không có lý do Ghi nhầm, folio vẫn có; folio không lộ trường chỉ có ở mock.
 
-Admin-web cả bộ, `tsc` (admin-web, api-client), `eslint`, `prettier --check`: xanh. Số ca: xem PR.
+Sau khi merge `origin/main` @ `b67075db`: admin-web cả bộ 100 tệp, 1112 ca, xanh. `tsc` (admin-web, api-client), `eslint`, `prettier --check`, `gen_strings.py` không đổi gì: xanh. Một lần chạy cả bộ trước merge có `s3-review` FE-S3-04 đỏ do tải máy (hai nút "Hoàn tất trả phòng" lúc chuyển bước); chạy riêng và chạy lại cả bộ đều xanh, không liên quan PR này.
 
 ## 3. Việc cần vai khác (không ESC)
 - **UXD**: xem khung cảnh báo có nút trong hộp Điều chỉnh (hộp `sm`, 390 px) và câu `foc.reduce_note` đầu form. Câu hỏi: có điền sẵn ô Ghi chú của form miễn phí bằng lý do đã gõ ở hộp Điều chỉnh không? Bản này để trống, theo 9.5 chỉ nói Số tiền.
