@@ -36,7 +36,7 @@ Ghi chú gộp: nhánh chưa có `main` mới nhất. PO đã gộp thử với 
 - Vấn đề: OPS dựng thử thì HTML đã commit của Tờ 1 khác bản dựng mới (dòng bản in ở chân tờ, cụm không ngắt ở tên tờ). Bộ so V5-47 chỉ giữ Tờ 4. Tờ 1 không phải văn bản pháp lý nên không thuộc V5-47, nhưng tờ in lệch Markdown vẫn làm lễ tân đọc bản cũ.
 - Vì sao quan trọng: Tờ 1 vừa có câu PO sửa ngày 07/11 (decision-log "PO Tờ 1"). In từ HTML cũ là in câu cũ.
 - Đề xuất sửa: UXD dựng lại Tờ 1 cùng lần dựng sổ tay V5-71, trước QC 19/11. Một bước CI "HTML đã commit = bản dựng lại" cho mọi tờ vào backlog v1.0.6 (cần Onest trên máy CI cho tờ RU).
-- Trạng thái: Open, không chặn #165.
+- Trạng thái: Open, không chặn #165. Cập nhật 07/11 (PO, Phản hồi & sửa theo ORC): PO đã dựng lại Tờ 1 (HTML + PDF, A4 1 trang, 8,25 pt, không tràn) sau khi đổi câu "Gửi nhầm người" theo DOM `DOM-on-ba-card-v574-01.md` mục 3; phần Tờ 1 xong. Còn đề xuất bước CI cho mọi tờ (v1.0.6).
 
 ## 5. Các việc PO được giao kèm lượt này
 

@@ -89,6 +89,7 @@ Hai lỗi này có từ v1.0.0. Không mất tiền, không lộ dữ liệu: m�
   - Hướng dẫn: sổ tay 1.1, `01` 2.1 (việc mỗi tuần).
 - **Trả phòng quá ngày đi:** nếu khách rời căn trong 00:00–05:59 của ngày đi (hoặc của ngày đi mới sau Gia hạn) mà tới sau 06:00 hôm sau mới ghi, Desk hiểu giờ gõ trước 06:00 là rạng sáng hôm sau và nói rõ điều đó ngay dưới ô giờ. Không gia hạn. Gõ 06:00 và ghi giờ thật vào lý do. Số tiền như khi ghi đúng giờ; chỉ giờ trên đăng ký lưu trú lệch, cùng ngày. Sửa ở v1.0.6.
   - Hướng dẫn: `02` 11.1 (khối **Từ v1.0.5 – Trả phòng đơn quá ngày đi**), `01` 7.4, sổ tay 2.14.
+- **Trả phòng có đêm thêm: Tổng cộng ở bước Bill có thể lệch số thu** (tới v1.0.6). Lệch khi đơn đổi bậc giảm theo số đêm, có mã khách quay lại, hoặc khách vượt định mức. Thu theo **Còn phải thu**; phiếu in là số đúng.
 - **Người duyệt hoàn (chủ đầu tư, quản lý): đơn đã hủy có khoản tiền về sau khi hủy** (tới v1.0.6).
   - Đơn đã hủy có khoản tiền về sau khi hủy: không duyệt yêu cầu hoàn có nơi nhận tiền mặt.
   - Mọi yêu cầu hoàn của đơn đó chi bằng chuyển khoản về tài khoản khách đã chuyển, kể cả yêu cầu được tạo lại.
@@ -101,6 +102,7 @@ Hai lỗi này có từ v1.0.0. Không mất tiền, không lộ dữ liệu: m�
 - Minibar: DOM rounds/round-05/responses/DOM-responses.md mục "Rủi ro BA mục 8, ý 1" (7496e5bc), đề xuất (A) 1–3; backlog R5-B-15. Phần chặn không vào v1.0.5. Câu thứ hai của DOM (A) 1 (đếm lại chưa có trong bộ lọc) không ghi ở đây; chỉ thêm khi thiếu #133, tức thiếu phần audit (plan R5 mục 4a T5).
 - Sổ tay 1.1, 01 2.1: BA thêm K-MB theo DOM-responses (việc theo vai). Kiểm trước khi cắt (plan 4a, "Thêm khi cắt").
 - Trả phòng quá ngày đi (PO 07/11 tối): nguyên văn ARC rounds/round-05/reviews/ARC-on-fe-prs-145-146.md mục 8.4 (thay bản 3.3; FB-R5-FE-ARC-V515-01, deferred v1.0.6, hợp đồng 0.3.14). Câu sổ tay: DOM rounds/round-05/reviews/DOM-on-fe-pr-145.md mục 3.3, rules-v1.0.5.md 15.3 ý 2a, ý 6.
+- Tổng cộng ở bước Bill (PO 07/11, Phản hồi & sửa): điều kiện (2) của DOM rounds/round-05/reviews/DOM-on-arc-card-169-03.md mục 3, thêm "mã khách quay lại" theo mục 2 của DOM và ORC 07/11; thẻ FB-R5-ARC-FE-169-03, FB-R5-DOM-FE-169-01 (v1.0.6, extraNightPreview + projectedTotalVnd). Chỉ đúng khi tag có #169; không có #169 thì bỏ dòng này, lời dặn BUG-R4-052 của v1.0.4 vẫn áp.
 - Người duyệt hoàn: câu 1 là nguyên văn SEC FB-R5-SEC-BE-148-02 (rounds/round-05/reviews/SEC-on-be-d2-pr-148.md, PO chọn chỗ đặt như PO-B002-05); câu 2, 3 theo DOM FB-R5-DOM-BA-148-04 ý 2, 1 (rounds/round-05/reviews/DOM-on-be-d2-pr-148.md). Gỡ khi SEC 148-02 và DOM 148-03 lên (v1.0.6).
 - Không có dòng "Sửa người chốt: hoa hồng chưa tự chuyển": #154 (r5-h1c) đã gộp fe70d0c0, cắt từ main là có (plan R5 4a T19). Thiếu ô sửa trên Desk: thêm dòng theo 4a T22.
 - Đối chiếu bảng "Dự kiến có" với main @ 036a7c3d (PO 07/11 tối): cột Việc ghi phần còn lại; câu V5-48 và 5B-1 sửa theo #148 (card_pos khi còn nợ, tối đa số còn nợ; hoàn = phần vượt số còn nợ); câu "Chưa có tỷ lệ hoa hồng" sửa theo ARC-on-be-pr-101-h1.md (Desk chưa có chữ); câu đổi người chốt theo #154 và DOM 154-04. Khi cắt, đổi theo plan R5 4a T1–T25. -->
