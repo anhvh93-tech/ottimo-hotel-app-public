@@ -371,8 +371,9 @@ export function CloserField({
           >
             {write.label(t('common.save'))}
           </Button>
+          {/* UXD 162-02: "Bỏ thay đổi", not "Hủy" – the drawer has "Hủy đơn" / "Hủy giữ chỗ" (copy 9.16 v2.7). */}
           <Button variant="ghost" size="sm" disabled={write.busy} onClick={forget}>
-            {t('common.cancel')}
+            {t('common.unsaved_discard')}
           </Button>
         </div>
       ) : null}

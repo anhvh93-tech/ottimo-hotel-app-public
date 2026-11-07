@@ -257,8 +257,9 @@ describe('V5-30 – what the Desk sends (contract 1i, BE 1H-01)', () => {
     expect(within(d).queryByRole('button', { name: tv('common.save') })).toBeNull();
     await user.selectOptions(box, userId('qa.fd'));
     expect(within(d).getByLabelText(REASON)).toHaveValue('');
-    // "Hủy" puts the stored closer back.
-    await user.click(within(d).getByRole('button', { name: tv('common.cancel') }));
+    // "Bỏ thay đổi" puts the stored closer back (UXD 162-02: never a bare "Hủy" in the booking drawer).
+    expect(within(d).queryByRole('button', { name: tv('common.cancel') })).toBeNull();
+    await user.click(within(d).getByRole('button', { name: tv('common.unsaved_discard') }));
     expect(box.value).toBe(userId('qa.sal'));
     expect(within(d).queryByLabelText(REASON)).toBeNull();
     expect(spy).not.toHaveBeenCalled();
