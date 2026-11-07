@@ -189,6 +189,12 @@ body {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* UXD FB-R5-UXD-FE-136-05: the Wi-Fi name (up to 32 characters) and password must stay inside the card at 390 px
+   and show every space exactly as the Desk saved it (repeated, leading, trailing). The booking code keeps nowrap. */
+.gw-code.gw-wifi-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 /* G2: the greeting is a brand moment (Lora, English everywhere); the support line is Stone, small. */
 .guest-app .gw-hello {
   font-family: var(--serif);
