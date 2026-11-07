@@ -531,14 +531,13 @@ describe('V5-15 – copy 9.15 (UXD-on-fe-prs-145-146; DOM 145-01 … 145-03, ARC
     );
   });
 
-  it('ARC 3.4: an extended stay still overdue – {date} is the departure after Gia hạn, {next} the server day', async () => {
-    at('09:00');
+  /** Phạm Huy due out T−2, extended by B13 for the night T−2 → T−1 (child booking); nobody checked it out on T−1. */
+  function extendedOverdue() {
     const r = huy();
     const T = todayLocal();
     r.departureDate = addDays(T, -2);
     for (const s of r.segments ?? []) s.toDate = r.departureDate;
     mockControl.stay.minibarChecks.set(r.id, []);
-    // B13 extended the stay by the night T−2 → T−1; nobody checked it out on T−1.
     mockControl.rsv.reservations.push({
       ...r,
       id: '0192a1b0-0000-7000-8000-000000095151',
@@ -559,6 +558,12 @@ describe('V5-15 – copy 9.15 (UXD-on-fe-prs-145-146; DOM 145-01 … 145-03, ARC
       allowedActions: [],
       version: 1,
     });
+    return { r, T };
+  }
+
+  it('ARC 3.4: an extended stay still overdue – {date} is the departure after Gia hạn, {next} the server day', async () => {
+    at('09:00');
+    const { T } = extendedOverdue();
     await toTimeStep('qa.mgr');
     fireEvent.change(await timeBox(), { target: { value: '03:00' } });
     const early = tv('checkout.overdue_time_early', {
@@ -569,6 +574,23 @@ describe('V5-15 – copy 9.15 (UXD-on-fe-prs-145-146; DOM 145-01 … 145-03, ARC
     });
     await waitFor(() => expect(goBill()).toHaveAccessibleDescription(early), { timeout: 3000 });
     expect(screen.queryAllByText(tv('checkout.overdue_after_limit'))).toHaveLength(0);
+  });
+
+  it('FB-R5-ARC-FE-145-04: an extended stay still overdue, 18:30 typed → "extend first" (the server day = the departure AFTER Gia hạn, not the first one)', async () => {
+    at('09:00');
+    extendedOverdue();
+    await toTimeStep('qa.mgr');
+    fireEvent.change(await timeBox(), { target: { value: '18:30' } });
+    // on T−1 (the effective departure) after its last tier: a night the guest stayed – extend first, never "enter 06:00"
+    await waitFor(
+      () => expect(goBill()).toHaveAccessibleDescription(tv('checkout.overdue_after_limit')),
+      { timeout: 3000 },
+    );
+    expect(goBill()).toHaveAttribute('aria-disabled', 'true');
+    expect(await timeBox()).toHaveAccessibleDescription(
+      new RegExp(`^${esc(tv('checkout.overdue_after_limit'))}`),
+    );
+    expect(screen.queryByText(/rạng sáng/)).toBeNull();
   });
 
   it('a time after the last tier ON the departure day stays "extend first" (the server day = the departure)', async () => {
