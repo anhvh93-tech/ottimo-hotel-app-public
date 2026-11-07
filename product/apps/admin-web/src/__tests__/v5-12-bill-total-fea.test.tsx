@@ -111,6 +111,28 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
     ).toBeNull();
   });
 
+  it('ESC-031 confirmed at the desk with part of the fee waived (BR-433) → the total takes the waiver off, like the table', async () => {
+    at('20:35');
+    mockControl.db.mfaEnforced = false;
+    const r = res('Phạm Huy');
+    const next = res('Gia đình anh Hưng');
+    next.roomId = r.roomId;
+    next.arrivalDate = r.departureDate;
+    const { user } = await toBill('20:30');
+    await user.click(await screen.findByRole('button', { name: tv('co.late_fee_mode_desk') }));
+    await user.click(await screen.findByRole('switch', { name: tv('co.late_fee_foc') }));
+    await user.click(screen.getByRole('radio', { name: tv('foc.r_regular') }));
+    fireEvent.change(screen.getByLabelText(new RegExp(`^${esc(tv('foc.amount'))}`)), {
+      target: { value: '200.000' },
+    });
+    expect(
+      await screen.findByText(tv('co.late_fee_sum_foc'), { selector: 'td' }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(billTotal()).toBe(`${tv('bill.total')}: ${money(NIGHTS + 708_000 - 200_000)}`),
+    );
+  });
+
   it('a late surcharge agreed earlier (B15, on the folio) that B18 reverses – the guest left at the standard time → the total drops it', async () => {
     at('11:40');
     const r = res('Phạm Huy');
