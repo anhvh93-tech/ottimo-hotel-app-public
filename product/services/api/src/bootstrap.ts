@@ -8,6 +8,7 @@ import { PgClockStore } from './db/clock-store';
 import { Database } from './db/database';
 import { createPool } from './db/pool';
 import { assertProductionClock, assertSafeDbRole } from './db/startup-checks';
+import { errorText } from './shared/log-line';
 
 export interface Runtime {
   env: NodeJS.ProcessEnv;
@@ -41,7 +42,8 @@ export async function createRuntime(
       new PgClockStore(pool, config.databaseUrl, log),
       new SystemClock(),
       1_000,
-      (err) => log(`clock refresh failed: ${err instanceof Error ? err.message : String(err)}`),
+      // Class name + code only (V5-42, SEC S-1): the error comes from the dev_clock query – never its message.
+      (err) => log(`clock refresh failed: ${errorText(err)}`),
     );
     await mutable.start();
     clock = mutable;

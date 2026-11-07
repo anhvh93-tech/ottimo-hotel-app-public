@@ -29,6 +29,7 @@ import type {
 import { isStaffEmailTemplate } from '@ottimo/integrations/notification';
 import type { Clock } from '../clock';
 import { EMAIL_CHANGED_TEMPLATE } from '../shared/email';
+import { safeCode } from '../shared/log-line';
 import type { Database, Tx } from '../db/database';
 import type { PropertyRef } from './job-runner';
 
@@ -351,7 +352,7 @@ export class StaffEmailDispatcher {
           this.log('warn', 'email recipient skipped', {
             outboxId: row.id,
             template: row.template,
-            code: e.providerMessage ?? e.code,
+            code: adapterErrorCode(e),
           });
           continue;
         }
@@ -377,7 +378,7 @@ export class StaffEmailDispatcher {
     const lastError = row.deadReason
       ? row.deadReason
       : outcome?.retryError
-        ? (outcome.retryError.providerMessage ?? outcome.retryError.code)
+        ? adapterErrorCode(outcome.retryError)
         : skipped.length > 0
           ? 'RECIPIENT_SKIPPED'
           : null;
@@ -449,6 +450,16 @@ export function paramsFor(
   const out: Record<string, string> = { ...params, audience };
   if (audience !== 'owner') delete out.staffName;
   return out;
+}
+
+/**
+ * The code logged and stored in `outbox_message.last_error` for an adapter error (V5-42, SEC S-1): its
+ * `providerMessage` (mapSmtpError tag, e.g. `EENVELOPE:550:5.1.1`) or its `code`, and only when it has the shape of
+ * a short code. The contract says providerMessage is PII-free; this does not rely on it – anything else (a duck-typed
+ * error carrying an SMTP reply with the recipient's address) is stored as `UNKNOWN`.
+ */
+export function adapterErrorCode(e: Pick<IntegrationError, 'code' | 'providerMessage'>): string {
+  return safeCode(e.providerMessage) ?? safeCode(e.code) ?? 'UNKNOWN';
 }
 
 function asIntegrationError(err: unknown): IntegrationError {

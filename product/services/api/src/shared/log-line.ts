@@ -18,13 +18,35 @@ export function logLine(level: string, msg: string, extra: Record<string, unknow
   }
 }
 
-/** Error fields safe to log: constructor name and a short code, never the message (SEC S-1). */
+/** A short machine code (SQLSTATE, `ECONNREFUSED`, `EENVELOPE:550:5.1.1`): letters, digits and `_.:-`, ≤ 40. */
+const SAFE_CODE = /^[A-Za-z0-9_.:-]{1,40}$/;
+/** An error class name (`DatabaseError`, `TypeError`): an identifier, ≤ 60. */
+const SAFE_NAME = /^[A-Za-z_$][A-Za-z0-9_$]{0,59}$/;
+
+/**
+ * `value` when it is a short machine code, otherwise undefined. For codes that come from OUTSIDE this codebase
+ * (an adapter's `providerMessage`, a health-check `detail`): only that shape is ever logged or stored, never text.
+ */
+export function safeCode(value: unknown): string | undefined {
+  return typeof value === 'string' && SAFE_CODE.test(value) ? value : undefined;
+}
+
+/**
+ * Error fields safe to log: class name and a short code, never the message (SEC S-1; V5-42, FB-R4-SEC-BE-BED-02/03/05).
+ * A message from PostgreSQL, SMTP or an HTTP library may quote a value (an e-mail address, a name, a token).
+ * The name itself is checked too: a non-identifier name (set by hand on some library errors) logs as `Error`.
+ */
 export function errorTag(err: unknown): { err: string; code?: string } {
-  const name = err instanceof Error ? err.name : 'error';
-  const code = (err as { code?: unknown } | null)?.code;
-  return typeof code === 'string' && /^[A-Za-z0-9_.:-]{1,40}$/.test(code)
-    ? { err: name, code }
-    : { err: name };
+  const raw = err instanceof Error ? err.name : 'error';
+  const name = SAFE_NAME.test(raw) ? raw : 'Error';
+  const code = safeCode((err as { code?: unknown } | null)?.code);
+  return code ? { err: name, code } : { err: name };
+}
+
+/** `errorTag` as plain text, for loggers that take one string (`Name` or `Name (code)`). */
+export function errorText(err: unknown): string {
+  const tag = errorTag(err);
+  return tag.code ? `${tag.err} (${tag.code})` : tag.err;
 }
 
 /**
