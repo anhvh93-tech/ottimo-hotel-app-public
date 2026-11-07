@@ -1803,9 +1803,10 @@ export class FolioService implements FolioStaySync {
     const kept = settled.find((c) => c.payee_user_id === stay.closerUserId);
     for (const c of settled) {
       if (c === kept) continue;
+      // DOM FB-R5-DOM-BE-154-01 (ARC chose): the voided `earned` row keeps its `recognized_at` (the B18 date), as
+      // voidCommissions (B10/B11) does – the owner needs that date to take it back in a later pay-out (BR-212).
       await tx.query(
-        `UPDATE commission SET status = 'void', void_reason = $3, recognized_at = NULL, updated_at = $2,
-                version = version + 1
+        `UPDATE commission SET status = 'void', void_reason = $3, updated_at = $2, version = version + 1
           WHERE id = $1`,
         [c.id, now, opts.voidReason],
       );
