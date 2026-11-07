@@ -395,7 +395,7 @@ Mọi việc v1.0.5 chưa gộp vào `main`. Rủi ro: **Cao** = chưa có PR ho
 
 **Cờ rủi ro cho 13/11 (PO):**
 - Làn FE-A đang giữ Gói 2 phần Desk, V5-12, V5-16 Desk, Desk 5B-1, ô người chốt và Gói 5: quá sức cho 6 ngày. PO đề nghị ORC chia: ô người chốt đã có người làm (nhánh `r5-fe-closer-field`); FE-A2 (rảnh sau #159) nhận V5-12; FE-3 (sau #134, #141, #137, #156) nhận V5-16 Desk; FE-A giữ Desk 5B-1; Gói 2 tách phần Desk (FE-A hoặc FE-2 sau #136, #138) và phần trang khách (FE-B, MOB). ORC chọn người làm.
-- Làn BE: PR-M, V5-17, V5-41, V5-42, V5-45 đều chưa có nhánh. BE-H nhận PR-M ngay sau #157; BE-D2 sau #160 nhận V5-42 hoặc V5-45.
+- Làn BE: PR-M, V5-17, V5-42, V5-45 đều chưa có nhánh (V5-41 đã sang OPS, nhánh `r5-deps`). BE-H nhận PR-M ngay sau #157; BE-D2 sau #160 nhận V5-42 hoặc V5-45.
 - **11/11, ORC + PO rà lại mục này.** Việc bắt buộc nào chưa có PR thì chọn: dời cắt code sang 14/11 (lịch gốc "09–14/11 Sản xuất"), hoặc dời việc đó sang v1.0.6 kèm dòng decision-log (QC điều 1). Không đẩy mốc 20/11. Việc nên có chưa có PR ngày 13/11 tự sang v1.0.6.
 
 ## 5. Rủi ro
