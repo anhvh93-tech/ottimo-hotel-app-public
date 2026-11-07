@@ -9,6 +9,7 @@
 import { Logger } from '@nestjs/common';
 import { JOB_LOCK_TIMEOUT_MS, type JobDefinition } from '../../../jobs/job-runner';
 import type { Database, Tx } from '../../../db/database';
+import { errorText } from '../../../shared/log-line';
 import type { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { SYSTEM_ACTOR } from '../../reservations/public/stay-view';
 import type { FolioService } from './folio.service';
@@ -72,7 +73,8 @@ export function folioCloseJob(
           else if (out === 'waiting_refund') stats.waitingRefund += 1;
         } catch (err) {
           stats.failed += 1;
-          logger.error(`folio ${f.id}: ${err instanceof Error ? err.name : 'error'}`);
+          // Class name + code (SQLSTATE) only, never the message (SEC S-1, V5-42).
+          logger.error(`folio ${f.id}: ${errorText(err)}`);
         }
       }
       return stats;

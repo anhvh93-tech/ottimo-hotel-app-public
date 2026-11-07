@@ -111,12 +111,12 @@ describe('PR24PM-04 – the worker startup failure line', () => {
       code: '22P02',
     });
     expect(line).not.toContain('TEST-VALUE');
-    // worker.ts builds the line from errorTag (any formatting, any variable name – ARC P414-02), and no
-    // `err.message` anywhere in the worker.
-    const worker = readFileSync(join(SRC, 'worker.ts'), 'utf8').replace(
-      /\/\/.*|\/\*[\s\S]*?\*\//g,
-      '',
-    );
+    // The tick builds the line from errorTag (any formatting, any variable name – ARC P414-02), and no
+    // `err.message` anywhere in the worker. V5-42: the tick moved from worker.ts to worker-loop.ts.
+    const worker = ['worker.ts', 'worker-loop.ts']
+      .map((f) => readFileSync(join(SRC, f), 'utf8'))
+      .join('\n')
+      .replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
     expect(worker).toMatch(/'job failed',\s*\{[^}]*\.\.\.errorTag\(\w+\)/);
     expect(worker).not.toMatch(/\.message\b/);
   });

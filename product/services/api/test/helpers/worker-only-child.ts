@@ -11,6 +11,7 @@
  *   build the job list; `"load": "api"` – import what src/main.ts imports (AppModule + feature modules).
  * - `{ "cmd": "run-job", "key", "propertyId", "now" }` – the worker's composition (buildWorkerJobs) and JobRunner on
  *   DATABASE_URL, fixed clock `now`: `runOnce(key)` for that property only (other test files share the database).
+ * - `{ "cmd": "worker-source-files" }` – load what src/worker.ts imports; every src file now loaded (V5-42 guard).
  * - `{ "cmd": "run-chat", "propertyId", "now", "jobs"?, "chatEnv"?, "fakeUrl"? }` – Google Chat: worker composition +
  *   buildWorkerChat (src/worker-chat.ts), jobs then one dispatcher run, posts to a local fake webhook.
  * Prints ONE line `RESULT <json>`; fake data only, no secret in the output.
@@ -66,6 +67,23 @@ async function main(): Promise<unknown> {
       return { registry: auditEntitySnapshot(), moduleFiles: loadedModuleFiles() };
     }
     throw new Error(`unknown load ${cmd.load}`);
+  }
+
+  if (cmd.cmd === 'worker-source-files') {
+    // V5-42: the worker's import graph. src/worker.ts runs main() when loaded, so its own imports are loaded instead
+    // (read from the file – a new import is followed without editing this helper); the file itself is added.
+    const { readFileSync } = load<typeof import('node:fs')>('node:fs');
+    const { join } = load<typeof import('node:path')>('node:path');
+    const srcDir = join(__dirname, '..', '..', 'src');
+    const entry = readFileSync(join(srcDir, 'worker.ts'), 'utf8');
+    for (const m of entry.matchAll(/^import\s[^;]*?from\s+'(\.[^']+)';/gm)) {
+      load(join(srcDir, m[1]!));
+    }
+    const prefix = `${join(__dirname, '..', '..')}/`;
+    const files = Object.keys(require.cache)
+      .filter((f) => f.startsWith(`${srcDir}/`) && f.endsWith('.ts'))
+      .map((f) => f.slice(prefix.length));
+    return { files: [...new Set([...files, 'src/worker.ts'])].sort() };
   }
 
   if (cmd.cmd === 'run-job') {

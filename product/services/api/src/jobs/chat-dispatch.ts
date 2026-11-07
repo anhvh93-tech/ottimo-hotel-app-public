@@ -26,6 +26,7 @@ import type {
   ChatRecheck,
   ChatRenderer,
 } from '../modules/public-site/public/chat-message';
+import { errorTag } from '../shared/log-line';
 import type { PropertyRef } from './job-runner';
 
 export const CHAT_BACKOFF_MINUTES = [1, 5, 15, 60, 180] as const;
@@ -233,9 +234,12 @@ export class ChatDispatcher {
         });
       } catch (err) {
         await tx.query('ROLLBACK TO SAVEPOINT chat_render');
-        // Name only (a DB message may carry values – SEC S-1); retried like a failed post.
-        const name = err instanceof Error ? err.name : 'error';
-        this.log('error', 'chat render failed', { outboxId: r.id, kind: chatKind, err: name });
+        // Name + code only (a DB message may carry values – SEC S-1, V5-42); retried like a failed post.
+        this.log('error', 'chat render failed', {
+          outboxId: r.id,
+          kind: chatKind,
+          ...errorTag(err),
+        });
         out.push({ ...base, decision: { kind: 'retry', code: 'RENDER_FAILED' } });
       }
     }

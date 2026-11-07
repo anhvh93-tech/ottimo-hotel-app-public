@@ -11,7 +11,7 @@
 import { ConfigError } from './config';
 import { StartupCheckError } from './db/startup-checks';
 import { KeyringError } from './modules/crypto/public/keyring-error';
-import { errorTag } from './shared/log-line';
+import { errorText } from './shared/log-line';
 
 export function startupFailureText(err: unknown): string {
   if (!(err instanceof Error)) return 'startup failed';
@@ -22,6 +22,5 @@ export function startupFailureText(err: unknown): string {
   ) {
     return `${err.name}: ${err.message}`;
   }
-  const tag = errorTag(err);
-  return tag.code ? `${tag.err} (${tag.code})` : tag.err;
+  return errorText(err);
 }
