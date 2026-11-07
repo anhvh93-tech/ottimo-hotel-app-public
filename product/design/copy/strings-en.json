@@ -263,6 +263,7 @@
   "bill.night_line": "Room, night of {date}",
   "bill.foc_line": "Complimentary · {reason}",
   "bill.total": "Total",
+  "bill.total_estimate": "Total (estimate)",
   "bill.deposit": "Deposit / paid",
   "bill.balance": "Balance due",
   "bill.vat_note": "Prices include VAT",

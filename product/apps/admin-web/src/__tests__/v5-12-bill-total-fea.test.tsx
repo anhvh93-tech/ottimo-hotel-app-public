@@ -49,7 +49,11 @@ async function toBill(time: string, { rate, told }: { rate?: string; told?: bool
 
 /** "Tổng cộng: …" of the bill card. */
 const billTotal = () =>
-  screen.getByText(new RegExp(`^${esc(tv('bill.total'))}:`)).textContent ?? '';
+  screen.getByText(new RegExp(`^(${esc(tv('bill.total_estimate'))}|${esc(tv('bill.total'))}):`))
+    .textContent ?? '';
+/** UXD 9.19: "(dự tính)" while a row is not posted yet, else "Tổng cộng". */
+const EST = tv('bill.total_estimate');
+const TOT = tv('bill.total');
 
 /** The charge rows of the folio table (not "Đã thu", a payment at "Hoàn tất", nor "Còn phải thu"), summed. */
 function rowsSum() {
@@ -68,7 +72,7 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
     at('19:40');
     await toBill('19:30');
     await waitFor(() =>
-      expect(billTotal()).toBe(`${tv('bill.total')}: ${money(NIGHTS + 708_000)}`),
+      expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000)}`),
     );
     expect(rowsSum()).toBe(NIGHTS + 708_000);
     expect(
@@ -80,7 +84,7 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
     at('19:40');
     await toBill('19:30', { rate: '600.000' });
     await waitFor(() =>
-      expect(billTotal()).toBe(`${tv('bill.total')}: ${money(NIGHTS + 600_000)}`),
+      expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 600_000)}`),
     );
     expect(rowsSum()).toBe(NIGHTS + 600_000);
   });
@@ -89,7 +93,7 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
     at('14:10');
     await toBill('14:00', { told: true });
     await waitFor(() =>
-      expect(billTotal()).toBe(`${tv('bill.total')}: ${money(NIGHTS + 212_000)}`),
+      expect(billTotal()).toBe(`${TOT}: ${money(NIGHTS + 212_000)}`),
     );
     expect(rowsSum()).toBe(NIGHTS + 212_000);
   });
@@ -103,7 +107,7 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
     await toBill('20:30');
     await screen.findByText(tv('co.late_fee_row'));
     await waitFor(() =>
-      expect(billTotal()).toBe(`${tv('bill.total')}: ${money(NIGHTS + 708_000)}`),
+      expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000)}`),
     );
     expect(rowsSum()).toBe(NIGHTS + 708_000);
     expect(
@@ -129,7 +133,7 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
       await screen.findByText(tv('co.late_fee_sum_foc'), { selector: 'td' }),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(billTotal()).toBe(`${tv('bill.total')}: ${money(NIGHTS + 708_000 - 200_000)}`),
+      expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000 - 200_000)}`),
     );
   });
 
@@ -151,14 +155,35 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
     await toBill('11:30');
     await screen.findByText(tv('co.late_row_reversed'));
     // posted 2.672.000, the reversal −212.000 in the table → 2.460.000 (was 2.672.000)
-    await waitFor(() => expect(billTotal()).toBe(`${tv('bill.total')}: ${money(NIGHTS)}`));
+    await waitFor(() => expect(billTotal()).toBe(`${EST}: ${money(NIGHTS)}`));
     expect(rowsSum()).toBe(NIGHTS);
   });
 
   it('at the standard time nothing is added – the total stays the posted lines', async () => {
     at('11:40');
     await toBill('11:30');
-    await waitFor(() => expect(billTotal()).toBe(`${tv('bill.total')}: ${money(NIGHTS)}`));
+    await waitFor(() => expect(billTotal()).toBe(`${TOT}: ${money(NIGHTS)}`));
     expect(rowsSum()).toBe(NIGHTS);
+  });
+  it('ARC 169-04: the guest paid more than the rows → "Tổng cộng" stays the rows, "Còn phải thu" is 0', async () => {
+    at('11:40');
+    const r = res('Phạm Huy');
+    mockControl.stay.payments.push({
+      id: 'p-v5-12-over',
+      code: 'PT-V512',
+      folioId: r.folioId,
+      type: 'charge',
+      method: 'cash',
+      amountVnd: 3_000_000,
+      status: 'succeeded',
+      reconciliation: 'not_required',
+      version: 1,
+    });
+    await toBill('11:30');
+    await waitFor(() => expect(billTotal()).toBe(`${TOT}: ${money(NIGHTS)}`));
+    expect(rowsSum()).toBe(NIGHTS);
+    expect(
+      screen.getByRole('row', { name: new RegExp(`^${tv('checkout.summary.balance')}`) }),
+    ).toHaveTextContent(money(0));
   });
 });

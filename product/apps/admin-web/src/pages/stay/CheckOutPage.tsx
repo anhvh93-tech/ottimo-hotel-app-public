@@ -964,6 +964,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // box, the late surcharge change at this time, the one-night late fee less the waiver sent with it. Never the server's
   // due: that one may step the nights (BR-107), takes the payments off and stops at 0.
   const billTotalVnd = (s?.totalVnd ?? 0) + extraNightVnd + lateDelta + lateFeeNet;
+  // FB-R5-UXD-FE-169-01 (copy 9.19): "Tổng cộng (dự tính)" while the table shows a row B18 has not posted yet – the
+  // same conditions that draw those rows (never billTotalVnd ≠ totalVnd: two rows may cancel out).
+  const billHasUnposted = extraNightVnd > 0 || lateDelta !== 0 || lateFeeMode;
   const credit =
     balance > 0
       ? 0
@@ -2045,7 +2048,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         ) : null}
         <section className="card stack">
           <p className="kv-big num">
-            {t('bill.total')}: {money(billTotalVnd)}
+            {t(billHasUnposted ? 'bill.total_estimate' : 'bill.total')}: {money(billTotalVnd)}
           </p>
           {staged ? (
             // BUG-R3-017: collected, written with "Hoàn tất"; "Bỏ" if it was a mistake or the due changed.
