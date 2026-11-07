@@ -147,6 +147,14 @@ const previewKey = (x: {
   nights: number;
 }) => `${x.channelId ?? ''}|${x.roomId}|${x.arrivalDate}|${x.nights}`;
 
+/**
+ * FB-R4-ARC-FE-PR82-02 (V5-20, copy-v1.0.5 mục 1.6): the stay AND the guests the totals of a preview are for. The
+ * guests stay out of `previewKey` – a guest change must not empty the rate boxes – but the extra-guest fee and the
+ * total change with them, so the total table waits for the preview of the guests on screen.
+ */
+const totalsKey = (stay: string, occ: Occupancy) =>
+  `${stay}|${occ.adults}|${occ.children6to11}|${occ.childrenUnder6}`;
+
 type Translate = ReturnType<typeof useI18n>['t'];
 
 type Money = ReturnType<typeof useI18n>['money'];
@@ -299,6 +307,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const [ratesCleared, setRatesCleared] = useState<{ why: RateDrop; room: string } | null>(null);
   /** BUG-R4-037 (BE 1.8): the stay (`previewKey`) the last preview answered for – priced or failed. */
   const [calcFor, setCalcFor] = useState<string | null>(null);
+  /** FB-R4-ARC-FE-PR82-02: the stay and guests (`totalsKey`) of the last preview that priced them. */
+  const [calcTotalsFor, setCalcTotalsFor] = useState<string | null>(null);
   /**
    * DOM ARC-03: a change that dropped the rates asks the preview again – also for the very stay it priced last (the
    * desk went to OTA and back inside the 300 ms debounce): otherwise the boxes would stay empty with no call coming.
@@ -469,6 +479,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           setCalc(r.data);
           setCalcError(null);
           setCalcFor(previewKey(p));
+          setCalcTotalsFor(totalsKey(previewKey(p), p.occ));
           // V5-14: the typed rates passed – a sentence a refused one left on a box goes.
           if (p.rates) setErrors(withoutRateErrors);
           setForm((f) => {
@@ -576,6 +587,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   // BE 1.8: Trực tiếp / CTV – room, dates or channel changed and the preview of the new stay is not back yet (300 ms
   // debounce + the call): "Tạo đơn" waits (DS busy, like H16 PR #67) – nothing of the previous stay is sent meanwhile.
   const priceWaiting = !!liveKey && calcFor !== liveKey;
+  // FB-R4-ARC-FE-PR82-02: the guests changed and the preview for them is not back yet – the money cells of the total
+  // table show "–" (aria-busy). "Tạo đơn" does not wait for it (UXD copy 1.6): the server prices the guests on save.
+  const totalsWaiting =
+    priceWaiting || (!!liveKey && calcTotalsFor !== totalsKey(liveKey, form.occ));
   const rateList = dates.map((d) => ({
     date: d,
     raw: form.ratesEdited[d] || prefillLive ? (form.rates[d] ?? '') : '',
@@ -606,6 +621,27 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     calc && !ratesTouched
       ? (calc.roomTotalVnd ?? rateList.reduce((s, r) => s + (parseVnd(r.raw) ?? 0), 0))
       : rateList.reduce((s, r) => s + (parseVnd(r.raw) ?? 0), 0);
+
+  /**
+   * FB-R4-ARC-FE-PR82-01: OTA and Nội bộ type every night or none (`body()` sends their rates only when all are
+   * typed). Before, a Nội bộ stay typed in part went through: no rates sent, the server wrote 0 đ for every night and
+   * the typed figures were lost. Nội bộ has its own sentence – empty boxes are its free stay (BR-105 v0.5.8,
+   * FB-R4-DOM-UXD-PR82-01); OTA says the two ways (V5-22, FB-R4-UXD-FE-PR70-03). Also checked before "Tạo đơn ở
+   * căn …", which skips the rest of the form check.
+   */
+  function partialRates(): string | undefined {
+    if (
+      (form.group === 'ota' || form.group === 'internal') &&
+      rateList.some((r) => r.raw) &&
+      rateList.some((r) => !r.raw)
+    )
+      return t(
+        form.group === 'internal'
+          ? 'booking.error.rate_empty_internal'
+          : 'booking.error.rate_partial_ota',
+      );
+    return undefined;
+  }
 
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
@@ -638,28 +674,17 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             : 'booking.error.rate_empty',
         );
     });
-    // FB-R4-ARC-FE-PR82-01: OTA and Nội bộ type every night or none (`body()` sends their rates only when all are
-    // typed). Before, a Nội bộ stay typed in part went through: no rates sent, the server wrote 0 đ for every night
-    // and the typed figures were lost. Nội bộ has its own sentence – empty boxes are its free stay (BR-105 v0.5.8,
-    // FB-R4-DOM-UXD-PR82-01).
-    if (
-      (form.group === 'ota' || form.group === 'internal') &&
-      rateList.some((r) => r.raw) &&
-      rateList.some((r) => !r.raw)
-    )
-      e.rates = t(
-        form.group === 'internal'
-          ? 'booking.error.rate_empty_internal'
-          : 'booking.error.rate_empty',
-      );
+    const partial = partialRates();
+    if (partial) e.rates = partial;
     // BUG-R4-037: Trực tiếp / CTV with a typed rate sends every night – never an empty one as 0 đ (the preview of
-    // this stay not back yet, or a box emptied by hand).
+    // this stay not back yet, or a box emptied by hand). V5-22 (FB-R4-UXD-FE-PR70-03): the sentence names the empty
+    // nights, not "(lớn hơn 0)" – that one stays for a box typed 0.
     if (
       directLike &&
       (ratesTouched || rateList.some((r) => form.ratesEdited[r.date])) &&
       rateList.some((r) => !r.raw)
     )
-      e.rates = t('booking.error.rate_empty');
+      e.rates = t('booking.error.rate_missing');
     if (directLike && !((parseVnd(form.depositAmount) ?? 0) > 0))
       e.deposit = t('field_error.amount_not_positive');
     if (rateWarn && form.rateReason.trim().length < 3)
@@ -837,7 +862,13 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   async function submit(e?: FormEvent, opts: { allowUnassigned?: boolean; roomId?: string } = {}) {
     e?.preventDefault();
     if (busy || !online || priceWaiting) return;
-    const v = opts.roomId ? {} : validate();
+    // "Tạo đơn ở căn …" (opts.roomId) skips the form check, but never drops typed OTA / Nội bộ rates silently.
+    const partial = opts.roomId ? partialRates() : undefined;
+    const v: Record<string, string> = opts.roomId
+      ? partial
+        ? { rates: partial }
+        : {}
+      : validate();
     setErrors(v);
     if (Object.keys(v).length || longStay) return;
     setBusy('create');
@@ -947,14 +978,23 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   // OTA: the amounts the desk typed – a room change does not reprice an OTA booking).
   const picked = useRoom && useRoom === form.roomId ? room : undefined;
   const pickedPriced = !!picked && (!directLike || calc?.roomId === picked.id);
+  // V5-22 (FB-R4-UXD-FE-PR70-04): an OTA booking sends its rates only when every night is typed (`body()`); otherwise
+  // the server prices it from the channel's OTA calendar – a night not typed is that, never "0", and the total line
+  // says so instead of "0 đ". Typed in part: no total (the click says to type every night or none).
+  const otaCalendar =
+    form.group === 'ota' && !rateList.every((r) => r.raw && form.ratesEdited[r.date]);
+  const pickedPartial = picked ? partialRates() : undefined;
   const pickedNights = !picked
     ? []
     : directLike
       ? (calc?.nightlyRates ?? []).map((n) => ({ date: n.date, amountVnd: n.amountVnd }))
-      : rateList.map((r) => ({ date: r.date, amountVnd: parseVnd(r.raw) ?? 0 }));
+      : rateList.map((r) => ({
+          date: r.date,
+          amountVnd: otaCalendar && !r.raw ? undefined : (parseVnd(r.raw) ?? 0),
+        }));
   const pickedTotal = directLike
     ? (calc?.totalVnd ?? 0)
-    : pickedNights.reduce((a, n) => a + n.amountVnd, 0);
+    : pickedNights.reduce((a, n) => a + (n.amountVnd ?? 0), 0);
   const useRoomView = picked ? (
     <Alert
       tone="info"
@@ -966,6 +1006,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           variant="pri"
           busy={busy === 'create'}
           disabled={busy !== null || !pickedPriced}
+          aria-describedby={pickedPartial ? 'bk-use-room-rates-err' : undefined}
           onClick={() => void submit(undefined, { roomId: picked.id })}
         >
           {t('bk.use_room_confirm', { room: picked.roomNo })}
@@ -978,7 +1019,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             {pickedNights.map((n) => (
               <tr key={n.date}>
                 <td>{dayMonth(n.date)}</td>
-                <td className="r num">{vnd(n.amountVnd)}</td>
+                {n.amountVnd === undefined ? (
+                  <td className="r li-s">{t('bk.src_ota_calendar')}</td>
+                ) : (
+                  <td className="r num">{vnd(n.amountVnd)}</td>
+                )}
               </tr>
             ))}
             {directLike && calc?.extraPersonFeeVnd ? (
@@ -987,12 +1032,26 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 <td className="r num">{vnd(calc.extraPersonFeeVnd)}</td>
               </tr>
             ) : null}
-            <tr className="total">
-              <td>{t('bk.total')}</td>
-              <td className="r num">
-                {vnd(pickedTotal)} {t('common.vnd_unit')}
-              </td>
-            </tr>
+            {/* FB-R5-DOM-FE-171-01: OTA / Nội bộ typed in part never shows a total the booking will not have – the
+                sentence of the click sits here, next to the button (it stays under the rate table too) */}
+            {pickedPartial ? (
+              <tr className="sub">
+                <td colSpan={2} className="err" id="bk-use-room-rates-err">
+                  {pickedPartial}
+                </td>
+              </tr>
+            ) : !otaCalendar ? (
+              <tr className="total">
+                <td>{t('bk.total')}</td>
+                <td className="r num">
+                  {vnd(pickedTotal)} {t('common.vnd_unit')}
+                </td>
+              </tr>
+            ) : rateList.every((r) => !r.raw) ? (
+              <tr className="sub">
+                <td colSpan={2}>{t('bk.use_room_ota_calendar')}</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       ) : (
@@ -1092,7 +1151,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         {requestError ? (
           // UXR #9: ROOM_BLOCKED / ROOM_NOT_SELLABLE… need the room and dates of the conflict.
           <Alert tone="bad">
-            {rsvErrorText(t, requestError, { canSeeGuest: true, roomNo: room?.roomNo, locale })}
+            {rsvErrorText(t, requestError, {
+              canSeeGuest: true,
+              roomNo: room?.roomNo,
+              locale,
+              longStayFromNights: rules.longStayFromNights,
+            })}
           </Alert>
         ) : null}
         {conflictView ?? useRoomView}
@@ -1117,7 +1181,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
               </Button>
             }
           >
-            {t('bk.long_body')}
+            {t('bk.long_body', { n: rules.longStayFromNights })}
           </Alert>
         ) : null}
 
@@ -1487,6 +1551,9 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 <tbody>
                   {rateList.map((r, i) => {
                     const err = errors[`nightlyRates[${i}].amountVnd`];
+                    // V5-22 (copy-v1.0.5 mục 3, FB-R4-UXD-FE-PR70-03): the sentence under the table is about the
+                    // empty nights – each empty box is marked (C3 border) and read with it.
+                    const emptyBad = !err && !!errors.rates && !r.raw;
                     return (
                       <tr key={r.date}>
                         <td>{dayMonth(r.date)}</td>
@@ -1495,8 +1562,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                             className="cell-input"
                             inputMode="numeric"
                             aria-label={`${t('rate.pre_tier')} ${dayMonth(r.date)}`}
-                            aria-invalid={err ? true : undefined}
-                            aria-describedby={err ? `bk-rate-err-${i}` : undefined}
+                            aria-invalid={err || emptyBad ? true : undefined}
+                            aria-describedby={
+                              err ? `bk-rate-err-${i}` : emptyBad ? 'bk-rates-err' : undefined
+                            }
                             readOnly={ratesLocked || busy !== null || undefined}
                             value={r.raw}
                             onChange={(e) =>
@@ -1519,12 +1588,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                               also while the preview is on its way) is saved as typed (B1 `edited:true` → `manual`);
                               an empty box (emptied, preview on its way – PR70-02, OTA / Nội bộ not typed) has no
                               source; a box filled by the preview of the stay on screen is the list rate – every
-                              night, no "+15%" by weekday any more (BR-104 v0.5.1, DOM lượt 8 §4.2). */}
+                              night, no "+15%" by weekday any more (BR-104 v0.5.1, DOM lượt 8 §4.2). V5-22
+                              (FB-R4-UXD-FE-PR70-04): an OTA night not typed is priced from the OTA calendar. */}
                           {form.ratesEdited[r.date] && form.rates[r.date]
                             ? t('bk.src_typed')
                             : r.raw && calc
                               ? t('bk.src_list')
-                              : '–'}
+                              : form.group === 'ota'
+                                ? t('bk.src_ota_calendar')
+                                : '–'}
                           {(() => {
                             // DOM S4-38: the stepped price of the night, as the server priced it (untouched).
                             const n = calc?.nightlyRates?.find((x) => x.date === r.date);
@@ -1544,6 +1616,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 </tbody>
               </table>
             </div>
+            {/* V5-22 (FB-R4-UXD-FE-PR70-03): what an empty OTA box means, before the desk types anything */}
+            {form.group === 'ota' ? <span className="help">{t('bk.rate_help_ota')}</span> : null}
             {losShown > 0 ? (
               <span className="help">
                 {ratesLocked
@@ -1554,7 +1628,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
               </span>
             ) : null}
             {errors.rates ? (
-              <div className="err" role="alert">
+              <div className="err" id="bk-rates-err" role="alert">
                 {errors.rates}
               </div>
             ) : null}
@@ -1566,7 +1640,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
               </span>
             ) : null}
             {calcError ? (
-              <span className="help">{rsvErrorText(t, calcError, { roomNo: room?.roomNo })}</span>
+              <span className="help">
+                {rsvErrorText(t, calcError, {
+                  roomNo: room?.roomNo,
+                  longStayFromNights: rules.longStayFromNights,
+                })}
+              </span>
             ) : null}
           </div>
         ) : null}
@@ -1606,11 +1685,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
         {directLike && calc && !longStay ? (
           <>
-            {/* FB-R4-UXD-FE-PR70-02: while the preview of the stay on screen is on its way, no figure of the previous one */}
+            {/* FB-R4-UXD-FE-PR70-02, FB-R4-ARC-FE-PR82-02: while the preview of the stay and guests on screen is on its
+                way, no figure of the previous one */}
             <table
               className="sum"
               aria-label={t('booking.summary.total')}
-              aria-busy={priceWaiting || undefined}
+              aria-busy={totalsWaiting || undefined}
             >
               <tbody>
                 <tr>
@@ -1618,7 +1698,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                     {t('booking.field.nights', { n: nights })}
                     {losShown > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
                   </td>
-                  <td className="r">{priceWaiting ? '–' : vnd(roomTotal)}</td>
+                  <td className="r">{totalsWaiting ? '–' : vnd(roomTotal)}</td>
                 </tr>
                 {priceWaiting ? null : (
                   <tr className="sub">
@@ -1632,7 +1712,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 )}
                 {/* FB-R4-ARC-FE-PR82-04: the extra-guest row belongs to the preview – while the one of the stay on
                     screen is on its way it is hidden, like the BR-107 row (never "0 người vượt định mức") */}
-                {extraFee > 0 && !priceWaiting ? (
+                {extraFee > 0 && !totalsWaiting ? (
                   <tr>
                     <td>{t('occ.fee_line', { n: calc.extraGuestCount ?? extra, nights })}</td>
                     <td className="r">{vnd(extraFee)}</td>
@@ -1641,12 +1721,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 <tr className="total">
                   <td>{t('bk.total')}</td>
                   <td className="r">
-                    {priceWaiting ? '–' : `${vnd(roomTotal + extraFee)} ${t('common.vnd_unit')}`}
+                    {totalsWaiting ? '–' : `${vnd(roomTotal + extraFee)} ${t('common.vnd_unit')}`}
                   </td>
                 </tr>
                 <tr className="sub">
                   <td>{t('bk.deposit_line', { pct: rules.depositPct })}</td>
-                  <td className="r">{priceWaiting ? '–' : vnd(calc.depositVnd ?? 0)}</td>
+                  <td className="r">{totalsWaiting ? '–' : vnd(calc.depositVnd ?? 0)}</td>
                 </tr>
               </tbody>
             </table>

@@ -146,9 +146,10 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
       ) : (
         <>
           <fieldset className="fieldset-plain">
-            {/* DOM S4-38: the night prices are calendar prices; the BR-107 step is in the server total below. */}
+            {/* DOM S4-38: the night prices are calendar prices; any discount is in the server total below (V5-20:
+                the label no longer says "before the length-of-stay discount" – the stay may have none). */}
             <legend className="label-h">
-              {t('extend.nights')} · {t('rate.pre_tier_short')}
+              {t('extend.nights')} · {t('rate.calendar_short')}
             </legend>
             {o.nights.map((x, i) => (
               <label key={x.date} className="check">
@@ -942,7 +943,9 @@ export function ConfirmTimeDialog({ reservation: r, onClose, onDone }: StayDialo
           />
         )}
       </Field>
-      {late ? <Alert tone="info">{t('stay.after_noon_hint')}</Alert> : null}
+      {late ? (
+        <Alert tone="info">{t('stay.after_noon_hint', { time: rules.checkoutTime })}</Alert>
+      ) : null}
       <Field label={t('stay.note')}>
         {(p) => (
           <input

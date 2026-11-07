@@ -155,7 +155,7 @@ describe('H16 Trả phòng 3 bước + bill + VietQR (US-035…039, US-119, US-1
     expect(
       await screen.findByText(
         new RegExp(
-          `^${tv('bill.line.extra_night', { date: '.*' })} · ${tv('rate.pre_tier_short')}$`,
+          `^${tv('bill.line.extra_night', { date: '.*' })} · ${tv('rate.calendar_short')}$`,
         ),
       ),
     ).toBeInTheDocument();

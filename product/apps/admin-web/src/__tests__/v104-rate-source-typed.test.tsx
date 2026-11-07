@@ -193,7 +193,7 @@ describe('UXD-on-v104-src-typed – "Nguồn giá" says what the box holds', () 
     expect(totalFigure(dlg)).not.toHaveTextContent(/^–$/);
   });
 
-  it('Friday and Saturday filled by the preview → "Giá niêm yết (BR-101)", never the "+15%" weekday line', async () => {
+  it('Friday and Saturday filled by the preview → "Giá niêm yết (BR-101)", never a "+15%" weekday line', async () => {
     pinDaytime();
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openTwoNights(user);
@@ -214,17 +214,19 @@ describe('UXD-on-v104-src-typed – "Nguồn giá" says what the box holds', () 
     );
     for (const d of [fri, sat]) {
       expect(sourceOf(dlg, d)).toHaveTextContent(tv('bk.src_list'));
-      expect(sourceOf(dlg, d)).not.toHaveTextContent(tv('bk.src_weekend'));
+      // V5-20: the "+15 %" label (`bk.src_weekend`) is gone from the copy
+      expect(sourceOf(dlg, d)).not.toHaveTextContent(/\+\s?15|thứ Sáu|thứ Bảy/);
     }
   });
 
-  it('OTA: the typed night → "Giá đã gõ", the night not typed → "–"', async () => {
+  // V5-22 (FB-R4-UXD-FE-PR70-04): an OTA night not typed is priced from the OTA calendar – it says so, not "–"
+  it('OTA: the typed night → "Giá đã gõ", the night not typed → "Lịch giá OTA"', async () => {
     pinDaytime();
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openTwoNights(user);
     await user.click(within(dlg).getByRole('button', { name: tv('bk.ch_ota') }));
     await typeRate(user, dlg, today(), '880000');
     expect(sourceOf(dlg, today())).toHaveTextContent(typedLine());
-    expect(sourceOf(dlg, night2())).toHaveTextContent(/^–$/);
+    expect(sourceOf(dlg, night2())).toHaveTextContent(tv('bk.src_ota_calendar'));
   });
 });

@@ -135,6 +135,8 @@
 | `booking.error.phone` | Số điện thoại cần ít nhất 9 chữ số. Ví dụ: 0912 345 678. | Phone number needs at least 9 digits. Example: +84 912 345 678. | ⟨chừa chỗ⟩ |  |
 | `booking.error.dup_guest` | SĐT này đã thuộc hồ sơ {guest}. Dùng hồ sơ đó? | This phone number belongs to {guest}. Use that profile? | ⟨chừa chỗ⟩ |  |
 | `booking.error.rate_empty` | Nhập giá mỗi đêm (lớn hơn 0). | Enter a rate per night (above 0). | ⟨chừa chỗ⟩ |  |
+| `booking.error.rate_partial_ota` | Gõ giá cho mọi đêm, hoặc để trống hết để lấy giá theo lịch OTA. | Enter a rate for every night, or leave them all empty to use the OTA calendar rate. | ⟨chừa chỗ⟩ | v1.0.5 V5-22 (copy-v1.0.5 mục 3; FB-R4-UXD-FE-PR70-03). errors.rates, OTA gõ thiếu đêm (thay booking.error.rate_empty ở ca này) |
+| `booking.error.rate_missing` | Gõ giá cho các đêm còn trống. | Enter a rate for the empty nights. | ⟨chừa chỗ⟩ | v1.0.5 V5-22 (copy-v1.0.5 mục 3; FB-R4-UXD-FE-PR70-03). errors.rates, Trực tiếp/CTV có giá đã gõ mà còn đêm trống (Tạo đơn, Giữ chỗ) |
 | `booking.error.rate_range` | Giá phải từ {min} đến {max} (sàn–trần của nhóm căn). | Rate must be between {min} and {max} (the room group's floor–ceiling). | ⟨chừa chỗ⟩ | BR-105. v1.0.5 V5-22/V5-14 (copy-v1.0.5 mục 3, 9.10; FB-R5-UXD-FE-PR122-01): {min}, {max} qua money(); bỏ {group}. Thiếu min hoặc max → booking.error.rate_out_of_range_dates |
 | `booking.error.rate_out_of_range_dates` | Giá đêm {dates} nằm ngoài khoảng sàn–trần của nhóm căn. Sửa lại giá đêm đó. | The rate for {dates} is outside the room group's floor–ceiling range. Change that night's rate. | ⟨chừa chỗ⟩ | v1.0.5 V5-22 (copy-v1.0.5 mục 3). Dự phòng khi Problem RATE_OUT_OF_RANGE không có min/max. {dates} dạng dd/mm, nối ', ' |
 | `booking.error.server_conflict` | Căn vừa được người khác đặt trong lúc bạn nhập. Thông tin của bạn vẫn còn – chọn căn khác để lưu. | Someone else just booked this room while you were typing. Your details are kept – choose another room to save. | ⟨chừa chỗ⟩ | BR-906 |
@@ -737,7 +739,7 @@
 | `bk.free_ok` | Căn trống cả khoảng ngày | Room is free for all dates | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.guest_help` | Tìm theo tên, SĐT, email, mã KH – hoặc tạo nhanh | Search by name, phone, email, guest ID – or quick-create | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.internal_help` | Phòng dùng nội bộ (nhân viên, kiểm tra), vẫn chiếm phòng. Mặc định không thu tiền: để trống giá. Có thu: nhập giá cho mọi đêm. | Internal use (staff, inspection), still blocks the room. Free by default: leave the rates empty. Charged: enter a rate for every night. | ⟨chừa chỗ⟩ | 09-booking.html. v1.0.4 (FB-R4-DOM-UXD-PR82-01, BR-105 v0.5.8, BR-904 v0.5.5): bỏ 'không tính doanh thu' – Nội bộ có thu vào doanh thu và ADR; cùng cách nói 'mặc định không thu tiền' với sổ tay (BA) |
-| `bk.long_body` | Từ 28 đêm phải làm hợp đồng (BR-108). Ở giai đoạn này, tạo "Đơn dài hạn nhập tay" để giữ phòng; hợp đồng vẫn làm ngoài hệ thống. | From 28 nights a lease is required (BR-108). For now, create a "Manual long-stay booking" to hold the room; the lease is still handled outside the app. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.long_body` | Từ {n} đêm phải làm hợp đồng (BR-108). Tạo "Đơn dài hạn nhập tay" để giữ phòng; hợp đồng làm ngoài Desk. | From {n} nights a lease is required (BR-108). Create a "Manual long-stay booking" to hold the room; the lease is handled outside the Desk. | ⟨chừa chỗ⟩ | 09-booking.html. v1.0.5 V5-20 (copy-v1.0.5 mục 1.1): {n} = rules.longStayFromNights; bỏ "Ở giai đoạn này" |
 | `bk.long_title` | {n} đêm là thuê dài hạn | {n} nights is a long stay | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.los_none` | Giảm theo số đêm (BR-107): không áp dụng | Length-of-stay discount (BR-107): not applicable | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.new_cta` | Đặt phòng mới | New booking | ⟨chừa chỗ⟩ | 02-role-nav.html |
@@ -759,11 +761,12 @@
 | `bk.save_unassigned` | Lưu chưa gán căn | Save without a room | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.source` | Nguồn | Source | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.src_list` | Giá niêm yết (BR-101) | List price (BR-101) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.src_ota_calendar` | Lịch giá OTA | OTA calendar | ⟨chừa chỗ⟩ | v1.0.5 V5-22 (copy-v1.0.5 mục 3; FB-R4-UXD-FE-PR70-04). Cột Nguồn giá H09, đêm OTA chưa gõ; và mỗi đêm của hộp "Đổi sang căn …" khi đơn OTA chưa gõ giá |
+| `bk.rate_help_ota` | Gõ giá từng đêm theo extranet. Để trống mọi đêm thì Desk tính theo lịch giá OTA của kênh. | Enter each night's rate from the extranet. Leave every night empty to use the channel's OTA calendar rate. | ⟨chừa chỗ⟩ | v1.0.5 V5-22 (copy-v1.0.5 mục 3; FB-R4-UXD-FE-PR70-03). .help dưới bảng giá H09, chỉ khi kênh OTA |
 | `bk.src_return` | Khách quay lại | Returning guest | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.src_sales` | Sale nội bộ | Sales staff | ⟨chừa chỗ⟩ | directSource=sales_staff (0.3.1) |
 | `bk.src_walkin` | Khách vãng lai | Walk-in | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.src_web` | Website | Website | ⟨chừa chỗ⟩ | 09-booking.html |
-| `bk.src_weekend` | Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104) | Rate calendar: Friday/Saturday +15% (BR-104) | ⟨chừa chỗ⟩ | 09-booking.html. Không dùng ở Desk từ v1.0.4 (BR-104 v0.5.1: không tăng cuối tuần/lễ; UXD-on-v104-src-typed mục 3). Nếu bật lại mức tăng: nhãn theo nguồn từng đêm của máy chủ, không theo thứ trong tuần |
 | `bk.src_zalo` | Zalo / điện thoại | Zalo / phone | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.to_manual_long` | Tạo đơn dài hạn nhập tay | Create manual long-stay booking | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.total` | Tổng tiền đơn | Booking total | ⟨chừa chỗ⟩ | 09-booking.html |
@@ -844,7 +847,7 @@
 | `field.MAX_OCCUPANCY_RANGE` | Tối đa chỉ được bằng định mức hoặc định mức + 1. | Maximum can only equal the standard occupancy or standard + 1. | ⟨chừa chỗ⟩ | errors[].code – ESC-014 (0.3.1) |
 | `field.OTA_REF_DUPLICATE` | Mã đặt phòng OTA này đã có ở đơn khác. Kiểm tra để tránh nhập trùng. | This OTA booking reference is already on another booking. Check to avoid a duplicate. | ⟨chừa chỗ⟩ | errors[].code (0.3.1) |
 | `field.DIRECT_SOURCE_NOT_ALLOWED` | Chỉ chọn nguồn cho đơn kênh Trực tiếp. | Source applies only to Direct bookings. | ⟨chừa chỗ⟩ | errors[].code (0.3.1) |
-| `field.LONG_STAY_REQUIRES_CONTRACT` | Từ 28 đêm là thuê dài hạn – tạo đơn dài hạn nhập tay. | 28 nights or more is a long stay – create a manual long-stay booking. | ⟨chừa chỗ⟩ | errors[].code – BR-108 (0.3.1) |
+| `field.LONG_STAY_REQUIRES_CONTRACT` | Từ {n} đêm là thuê dài hạn – tạo đơn dài hạn nhập tay. | {n} nights or more is a long stay – create a manual long-stay booking. | ⟨chừa chỗ⟩ | errors[].code – BR-108 (0.3.1). v1.0.5 V5-20 (copy-v1.0.5 mục 1.1): {n} = rules.longStayFromNights (tham số long_stay_required_from_nights), bắt buộc truyền |
 | `field.MIN_STAY_NOT_MET` | Ngày này cần ở tối thiểu {n} đêm. | This date requires a minimum stay of {n} nights. | ⟨chừa chỗ⟩ | errors[].code – BR-113; FDL+ bỏ qua bằng lý do |
 | `field.LAST_OWNER` | Không bỏ được vai chủ đầu tư cuối cùng của cơ sở. | You can't remove the last owner of this property. | ⟨chừa chỗ⟩ | errors[].code – rbac 5.3 (0.3.1) |
 | `error.PARAM_OUT_OF_RANGE` | Giá trị này nằm ngoài khoảng cho phép. Chọn một trong: {allowed}. | This value is outside the allowed range. Choose one of: {allowed}. | ⟨chừa chỗ⟩ | 05-params.html |
@@ -1211,13 +1214,15 @@
 | `sale.hold_next` | Gửi mã QR cho khách. Bạn sẽ được nhắc {hours} giờ trước khi hết hạn. | Send the QR code to the guest. You'll get a reminder {hours} hours before it expires. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.hold_title` | Giữ chỗ | Hold | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.hold_until` | Hết hạn {time} – chưa cọc thì tự hủy, mở bán lại. | Expires {time} – without a deposit it's cancelled and the room goes back on sale. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
-| `sale.los_applied` | Đã giảm {pct}% vì ở từ 7 đêm (BR-107) | {pct}% off applied for 7+ nights (BR-107) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.los_applied` | Đã giảm {pct}% theo số đêm ở (BR-107) | {pct}% length-of-stay discount applied (BR-107) | ⟨chừa chỗ⟩ | 12-sales-quote.html. v1.0.5 V5-20 (copy-v1.0.5 mục 1.2): bỏ số 7 viết cứng; chỉ hiện khi losDiscountPct > 0 |
 | `sale.month_note` | Thuê tháng làm hợp đồng – hiện vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay. | Monthly stays need a lease – still done outside the app; ask the front desk to hold the room with a manual long-stay booking. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.month_option` | So sánh: thuê 1 tháng | Compare: 1-month rental | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.month_total` | Thuê 1 tháng (tiền thuê + phí dịch vụ) | 1-month rental (rent + service fee) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.nights` | Số đêm | Nights | ⟨chừa chỗ⟩ | 12-sales-quote.html |
-| `sale.nights_weekday` | {n} đêm thường × {rate} | {n} weekday nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
-| `sale.nights_weekend` | {n} đêm thứ Sáu, thứ Bảy × {rate} | {n} Friday/Saturday nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.nights_at_rate_one` | {n} đêm × {rate} | {n} night × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html. v1.0.5 V5-20 (copy-v1.0.5 mục 1.4): báo giá gom đêm theo số tiền (amountVnd), không theo thứ; n × rate = cột tổng. Chọn dạng bằng pluralForm(locale, n) |
+| `sale.nights_at_rate_few` | {n} đêm × {rate} | {n} nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html. v1.0.5 V5-20 (copy-v1.0.5 mục 1.4) – dạng few |
+| `sale.nights_at_rate_many` | {n} đêm × {rate} | {n} nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html. v1.0.5 V5-20 (copy-v1.0.5 mục 1.4) – dạng many |
+| `sale.nights_at_rate_other` | {n} đêm × {rate} | {n} nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html. v1.0.5 V5-20 (copy-v1.0.5 mục 1.4) – dạng other |
 | `sale.none_body` | Thử dời 1 ngày: {dates} còn 2 căn. | Try shifting by 1 day: {dates} has 2 rooms. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.none_title` | Hết phòng trong khoảng ngày | No rooms for these dates | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.offline` | Mất kết nối – kết quả có thể đã cũ. Chưa báo giá được. | You're offline – results may be out of date. Quotes can't be made yet. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
@@ -1501,7 +1506,6 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.invoice_r3` | Hóa đơn điện tử phát hành từ Round 3; R2 lưu thông tin để kế toán xuất. | E-invoices are issued from Round 3; R2 stores the details for accounting. | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.invoice_toggle` | Khách lấy hóa đơn công ty | Guest needs a company invoice | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.item` | Món | Item | ⟨chừa chỗ⟩ | 16-check-out.html |
-| `co.late_switch_hint` | Khách trả sau 12:00 mà chưa hẹn: dùng "Trả muộn" ở khung chi tiết đơn để tính và báo khách trước. | Guest leaving after 12:00 without an agreed time: use "Late check-out" in the booking details to calculate and tell them first. | ⟨chừa chỗ⟩ | 16-check-out.html. CŨ – giờ viết cứng; FE đổi sang co.late_switch_hint_time (S4-48) rồi UXD xóa key này |
 | `co.line_late` | Phụ thu trả muộn ({time}) | Late check-out fee ({time}) | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.minibar_not_checked` | Chưa kiểm minibar. Làm bước 1 trước khi hoàn tất. | Minibar not checked. Do step 1 before completing. | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.minibar_skip` | Bỏ qua bước này – sang Phụ phí. | Skip this step – go to Charges. | ⟨chừa chỗ⟩ | 16-check-out.html |
@@ -1591,7 +1595,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `gw.wifi_later` | Hiện ở đây vào ngày nhận phòng ({date}). | Shown here on your arrival day ({date}). | Появится здесь в день заезда ({date}). | 18-guest-checkin.html |
 | `gw.wifi_ask_desk` | Vui lòng hỏi lễ tân tên mạng và mật khẩu. | Please ask reception for the network name and password. | Пожалуйста, узнайте имя сети и пароль у администратора. | BUG-R3-021 (UXD thẻ 16: 'reception' như các chuỗi trang khách khác): từ ngày nhận phòng mà máy chủ chưa có Wi-Fi (wifi null) – không hứa 'hiện vào ngày nhận phòng' nữa |
 | `late.grace_off` | Căn có khách đến hôm nay – không áp ân hạn 12:30. | A guest is arriving in this room today – the 12:30 grace period doesn't apply. | ⟨chừa chỗ⟩ | 15-stay.html |
-| `late.std_zero` | Trả trước 12:00 – không phụ thu | Leaving by 12:00 – no surcharge | ⟨chừa chỗ⟩ | BA spec / hifi.js |
+| `late.std_zero` | Trả trước 12:00 – không phụ thu | Leaving by 12:00 – no surcharge | ⟨chừa chỗ⟩ | BA spec / hifi.js. Chỉ prototype, không dùng ở app – v1.0.5 V5-20 (copy-v1.0.5 mục 1.5) |
 | `mlog.a_adjusted` | Điều chỉnh dòng folio (đảo + dòng mới) | Folio line adjusted (reversal + new line) | ⟨chừa chỗ⟩ | folio_line.adjusted – 17-approvals-moneylog.html (s3-UXD: bỏ ví dụ 'giặt ủi' khỏi chuỗi) |
 | `mlog.a_foc_approved` | Duyệt miễn phí | Waiver approved | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
 | `mlog.a_line_added` | Thêm dòng folio | Folio line added | ⟨chừa chỗ⟩ | folio.line_posted – 17-approvals-moneylog.html (s3-UXD: bỏ ví dụ khỏi chuỗi; mô tả dòng là dữ liệu) |
@@ -1678,7 +1682,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stay.add_charge` | Thêm phát sinh | Add charge | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.add_charge_submit` | Thêm vào folio | Add to folio | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.add_photo` | Thêm ảnh từ buồng phòng | Add photo from housekeeping | ⟨chừa chỗ⟩ | 15-stay.html |
-| `stay.after_noon_hint` | Giờ sau 12:00 là trả muộn – dùng nút Trả muộn để tính phụ thu. | Times after 12:00 are late check-outs – use Late check-out to calculate the fee. | ⟨chừa chỗ⟩ | 15-stay.html |
+| `stay.after_noon_hint` | Giờ sau {time} là trả muộn – dùng nút Trả muộn để tính phụ thu. | Times after {time} are late check-outs – use Late check-out to calculate the fee. | ⟨chừa chỗ⟩ | 15-stay.html. v1.0.5 V5-20 (copy-v1.0.5 mục 1.5): {time} = rules.checkoutTime, bắt buộc truyền |
 | `stay.arrival_toggle` | Căn có khách đến hôm nay (minh họa) | Guest arriving in this room today (demo) | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.card_answered` | Đã trả lời – trả lúc {time} | Replied – leaving at {time} | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.card_call` | Chưa trả lời – gọi xác nhận | No reply – call to confirm | ⟨chừa chỗ⟩ | 15-stay.html |
@@ -1709,7 +1713,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stay.late_door_manual` | R2: kéo dài hiệu lực mã trên app khóa bằng tay. | R2: extend the code's validity in the lock app manually. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.late_help` | Dạng 24 giờ, ví dụ 12:30. | 24-hour format, e.g. 12:30. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.late_to_extend` | Trả sau 18:00 là ở thêm 1 đêm – dùng Gia hạn để khóa đêm trên các kênh. | Leaving after 18:00 means one more night – use Extend so the night is closed on all channels. | ⟨chừa chỗ⟩ | 15-stay.html |
-| `stay.long_hint` | Khách muốn ở thêm hơn 7 đêm hoặc tổng từ 28 đêm: lập báo giá dài hạn (R3). Ở R2 tạo "đơn dài hạn nhập tay". | Guest wants more than 7 extra nights or 28+ nights in total: long-stay quote (R3). In R2 create a "manual long-stay booking". | ⟨chừa chỗ⟩ | 15-stay.html |
+| `stay.long_hint` | Khách muốn ở thêm quá số đêm gia hạn tối đa, hoặc tổng số đêm tới mức phải thuê dài hạn: tạo "Đơn dài hạn nhập tay". | The guest wants more than the maximum extension, or the total reaches the long-stay threshold: create a "Manual long-stay booking". | ⟨chừa chỗ⟩ | 15-stay.html. v1.0.5 V5-20 (copy-v1.0.5 mục 1.1): không có số – cờ exceedsShortStayLimit theo extension_max_nights và long_stay_required_from_nights |
 | `stay.new_room` | Căn mới (đã dọn hoặc đã kiểm) | New room (cleaned or inspected) | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.no_charges_body` | Folio chỉ có tiền phòng. Thêm phát sinh khi khách dùng dịch vụ hoặc có phí phạt. | The folio only has room charges. Add charges when the guest uses services or incurs a fine. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.no_charges_title` | Chưa có phát sinh | No extra charges yet | ⟨chừa chỗ⟩ | 15-stay.html |
@@ -2597,7 +2601,6 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `checkout.extra_night_unavailable` | Căn đã có khách đêm nay nên chưa tính thêm đêm được. Đổi căn cho khách đến hoặc thỏa thuận lại giờ trả. | The room is booked tonight, so an extra night can't be added. Move the arriving guest or agree a different check-out time. | ⟨chừa chỗ⟩ | extraNightAvailable=false |
 | `checkout.post_midnight` | Đang sau nửa đêm của ngày đi – trả phòng bây giờ không phụ thu, không tính thêm đêm. | It's after midnight on the departure day – checking out now has no late fee and no extra night. | ⟨chừa chỗ⟩ | CheckoutSummary.postMidnightWindow (tùy chọn) |
 | `extend.keep_rate` | Giữ giá đơn · {amount}/đêm | Keep booking rate · {amount}/night | ⟨chừa chỗ⟩ | CŨ – nút "Giữ giá đơn" đã bỏ ở H15 (ARC 16.18, FE-A đợt 16). Không dùng; xóa ở v0.5 cùng ca phủ định ở s3-review.test.tsx. Trước đây: ExtensionOptions.currentBookingRateVnd ≠ null |
-| `extend.keep_rate_help` | Đơn đang có giá thỏa thuận khác lịch giá. Bấm để dùng lại giá này cho các đêm thêm – vẫn trong sàn – trần; ngày đặc biệt theo giá ngày đó. | This booking has an agreed rate that differs from the rate calendar. Tap to reuse it for the extra nights – still within floor–ceiling; special dates keep their own rate. | ⟨chừa chỗ⟩ | CŨ – nút "Giữ giá đơn" đã bỏ ở H15 (ARC 16.18, FE-A đợt 16: giá gợi ý của máy chủ đã theo giá thỏa thuận – AN-45). Không dùng; xóa ở v0.5 cùng ca phủ định ở s3-review.test.tsx |
 | `bill.line.room_night` | Tiền phòng đêm {date} | Room, night of {date} | ⟨chừa chỗ⟩ | {date} dd/MM; có {room} → bill.line.room_night_room |
 | `bill.line.room_night_room` | Tiền phòng căn {room} · đêm {date} | Room {room}, night of {date} | ⟨chừa chỗ⟩ |  |
 | `bill.line.extra_night` | Đêm thêm {date} – trả phòng sau mốc trả muộn | Extra night of {date} – check-out after the late check-out limit | ⟨chừa chỗ⟩ | E05-11; có {room} → bill.line.extra_night_room |
@@ -2942,6 +2945,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `bk.use_room_check` | Đổi sang căn {room} – xem giá trước khi tạo đơn | Switching to room {room} – check the price before creating the booking | ⟨chừa chỗ⟩ | H09: sau khi bấm bk.use_room / bk.use_room_orphan – không tạo đơn ngay |
 | `bk.use_room_confirm` | Tạo đơn ở căn {room} | Create the booking in room {room} | ⟨chừa chỗ⟩ | Nút xác nhận một bấm |
 | `bk.use_room_pricing` | Đang tính giá căn {room}… | Pricing room {room}… | ⟨chừa chỗ⟩ | calculateQuote của căn gợi ý đang chạy – nút xác nhận khóa |
+| `bk.use_room_ota_calendar` | Chưa gõ giá: Desk tính theo lịch giá OTA của kênh khi tạo đơn. | No rates entered: the booking uses the channel's OTA calendar rate. | ⟨chừa chỗ⟩ | v1.0.5 V5-22 (copy-v1.0.5 mục 3; FB-R4-UXD-FE-PR70-04). Thay dòng Tổng tiền đơn ở hộp "Đổi sang căn …" khi đơn OTA chưa gõ giá – không bao giờ hiện "0 đ" ở ca này |
 | `folio.open` | Folio & điều chỉnh | Folio & adjustments | ⟨chừa chỗ⟩ | Nút trong drawer đơn (FD+) |
 | `folio.dialog_title` | Folio · {code} | Folio · {code} | ⟨chừa chỗ⟩ |  |
 | `folio.col_line` | Dòng | Line | ⟨chừa chỗ⟩ |  |
@@ -2950,8 +2954,8 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `folio.adjust_title` | Điều chỉnh: {label} | Adjust: {label} | ⟨chừa chỗ⟩ |  |
 | `folio.adjust_qty` | Số lượng mới | New quantity | ⟨chừa chỗ⟩ |  |
 | `folio.adjust_price` | Đơn giá mới | New unit price | ⟨chừa chỗ⟩ |  |
-| `folio.adjust_night_price` | Giá đêm mới (trước giảm theo số đêm) | New night rate (before the length-of-stay discount) | ⟨chừa chỗ⟩ | Dòng room/extra_person – S4-35 |
-| `folio.adjust_night_help` | Giá lịch của đêm; giảm theo số đêm (BR-107) áp trên giá này. Ngoài sàn–trần của nhóm căn thì không lưu được – thấp hơn sàn thì xin giảm giá đặc biệt. | The night's calendar rate; the length-of-stay discount (BR-107) applies on top. Outside the room group's floor–ceiling it can't be saved – below the floor, request a special discount. | ⟨chừa chỗ⟩ | BR-105, BR-429 (g) |
+| `folio.adjust_night_price` | Giá đêm mới | New night rate | ⟨chừa chỗ⟩ | Dòng room/extra_person – S4-35. v1.0.5 V5-20 (copy-v1.0.5 mục 1.2) |
+| `folio.adjust_night_help` | Giá lịch của đêm. Nếu đơn đang được giảm giá, mức giảm áp trên giá này. Ngoài sàn–trần của nhóm căn thì không lưu được; thấp hơn sàn thì xin giảm giá đặc biệt. | The night's calendar rate. If the booking has a discount, it applies on top of this rate. Outside the room group's floor–ceiling it can't be saved; below the floor, request a special discount. | ⟨chừa chỗ⟩ | BR-105, BR-429 (g). v1.0.5 V5-20 (copy-v1.0.5 mục 1.2): đúng khi không có giảm, giảm theo số đêm hay mã khách quay lại |
 | `folio.adjust_void` | Bỏ cả dòng (ghi bút toán đảo, không xóa) | Cancel the whole line (a reversal entry – nothing is deleted) | ⟨chừa chỗ⟩ |  |
 | `folio.adjust_reason` | Lý do điều chỉnh | Reason for the adjustment | ⟨chừa chỗ⟩ |  |
 | `folio.adjust_effect` | Ghi bút toán đảo {old} và dòng mới {new} – dòng cũ vẫn còn trong nhật ký (BR-008). | Records a reversal of {old} and a new line of {new} – the old line stays in the log (BR-008). | ⟨chừa chỗ⟩ |  |
@@ -3177,16 +3181,17 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
-| `rate.pre_tier` | Giá lịch/đêm (trước giảm theo số đêm) | Calendar rate/night (before length-of-stay discount) | ⟨chừa chỗ⟩ | Tiêu đề cột/ô giá đêm lễ tân gõ – H09 đặt phòng (BR-107 v0.3.8: giảm áp trên giá này). UXD: một khái niệm – một tên = "giảm theo số đêm" (như move.discount_los, folio.adjust_night_*); "dài ngày" dễ lẫn với "dài hạn" |
-| `rate.pre_tier_short` | giá lịch, trước giảm theo số đêm | calendar rate, before length-of-stay discount | ⟨chừa chỗ⟩ | Đuôi nhãn: đêm thêm B18, danh sách đêm gia hạn B13, tổng giá lịch khi đã sửa giá |
+| `rate.pre_tier` | Giá đêm | Night rate | ⟨chừa chỗ⟩ | Tiêu đề cột và nhãn ô giá đêm lễ tân gõ – H09 đặt phòng. v1.0.5 V5-20 (copy-v1.0.5 mục 1.2): cột luôn hiện, không nói "trước giảm" (đơn có thể không có mức giảm nào) |
+| `rate.pre_tier_short` | giá lịch, trước giảm theo số đêm | calendar rate, before length-of-stay discount | ⟨chừa chỗ⟩ | Đuôi nhãn tổng giá lịch khi đã sửa giá ở H09. v1.0.5 V5-20 (copy-v1.0.5 mục 1.2): chỉ còn ở BookingDialog, có điều kiện losShown > 0; đêm thêm B18 và danh sách đêm gia hạn B13 dùng rate.calendar_short |
+| `rate.calendar_short` | giá lịch | calendar rate | ⟨chừa chỗ⟩ | v1.0.5 V5-20 (copy-v1.0.5 mục 1.2): đuôi nhãn luôn hiện – đêm thêm B18 (CheckOutPage), danh sách đêm gia hạn B13 (StayDialogs) |
 | `rate.after_tier` | Sau giảm {pct}%: {amount} | After {pct}% off: {amount} | ⟨chừa chỗ⟩ | Giá đêm sau bậc BR-107 do máy chủ tính (calculateQuote) – cạnh ô giá chưa sửa |
 | `rate.tier_note` | Lượt ở {n} đêm được giảm {pct}% theo số đêm (BR-107) trên giá lịch từng đêm. Tiền phòng bên dưới đã giảm. | A {n}-night stay gets a {pct}% length-of-stay discount (BR-107) on each night's calendar rate. The room total below is after the discount. | ⟨chừa chỗ⟩ | H09: giá chưa sửa – tổng của máy chủ |
 | `rate.tier_on_save` | Đã sửa giá: lượt ở {n} đêm vẫn được giảm {pct}% (BR-107) trên giá đã nhập, hệ thống tính khi lưu. Tiền phòng bên dưới là tổng giá lịch. | Rates changed: the {n}-night stay still gets {pct}% off (BR-107) on the rates entered, worked out on save. The room total below is the calendar total. | ⟨chừa chỗ⟩ | H09: đã sửa giá – không tự tính ở máy quầy |
 | `rate.tier_locked` | Lượt ở {n} đêm được giảm {pct}% theo số đêm. Chưa có giá lịch từng đêm nên tạm chưa sửa giá ở đây, để không giảm hai lần. | This {n}-night stay gets a {pct}% length-of-stay discount. Each night's calendar rate isn't available yet, so rates can't be changed here for now – this avoids discounting twice. | ⟨chừa chỗ⟩ | H09: máy chủ cũ thiếu calendarRateVnd – ô giá chỉ đọc (DOM S4-38) |
-| `rate.prior_night_tier` | Đây là giá lịch, trước giảm theo số đêm. Số cần thu ở mục Thu tiền do hệ thống tính, đã gồm giảm nếu có. | This is the calendar rate, before any length-of-stay discount. The amount due under Payment is worked out by the system and includes the discount if any. | ⟨chừa chỗ⟩ | H13 đêm B9a (BR-417-04…06) |
-| `rate.night_now` | Đêm này hiện tính {amount} sau giảm theo số đêm (giá lịch {calendar}). | This night is now {amount} after the length-of-stay discount (calendar rate {calendar}). | ⟨chừa chỗ⟩ | S4-35 sửa giá đêm ở Folio – gợi ý ô giá |
-| `rate.adjust_night_effect` | Ghi bút toán đảo {old} và dòng mới theo giá lịch {new} – giảm theo số đêm áp lại khi lưu. Dòng cũ vẫn còn trong nhật ký (BR-008). | Posts a reversal of {old} and a new line at the calendar rate {new} – the length-of-stay discount is applied again on save. The old line stays in the log (BR-008). | ⟨chừa chỗ⟩ | S4-35: đêm có bậc giảm – không tự tính số sau giảm |
-| `checkout.extra_night_rate_help_tier` | Giá lịch của đêm, trước giảm theo số đêm. Mặc định là giá gợi ý của hệ thống cho đêm này. Số cần thu do hệ thống tính, đã gồm giảm nếu có. | The night's calendar rate, before any length-of-stay discount. Defaults to the system's suggested rate for this night. The amount due is worked out by the system and includes the discount if any. | ⟨chừa chỗ⟩ | H16 bước 2 đêm thêm (BR-416-04/05) – thay checkout.extra_night_rate_help. UXD 18/10: giá mặc định theo bảng BR-417 phụ lục 5A (có thể là giá thỏa thuận hoặc min sau đổi căn) – bỏ "giá Trực tiếp đêm nay"; khoảng sàn–trần nằm ở checkout.extra_night_range nối ngay sau |
+| `rate.prior_night_tier` | Đây là giá lịch của đêm. Số cần thu ở mục Thu tiền do hệ thống tính, đã trừ giảm giá nếu đơn có. | This is the night's calendar rate. The amount due under Payment is worked out by the system, less any discount on the booking. | ⟨chừa chỗ⟩ | H13 đêm B9a (BR-417-04…06). v1.0.5 V5-20 (copy-v1.0.5 mục 1.2) |
+| `rate.night_now` | Đêm này hiện tính {amount}, đã trừ giảm giá của đơn (giá lịch {calendar}). | This night is now {amount} after the booking's discount (calendar rate {calendar}). | ⟨chừa chỗ⟩ | S4-35 sửa giá đêm ở Folio – gợi ý ô giá, khi stepped. v1.0.5 V5-20 (copy-v1.0.5 mục 1.2): chênh có thể do mã khách quay lại |
+| `rate.adjust_night_effect` | Ghi bút toán đảo {old} và dòng mới theo giá lịch {new}; giảm giá của đơn (nếu có) áp lại khi lưu. Dòng cũ vẫn còn trong nhật ký (BR-008). | Posts a reversal of {old} and a new line at the calendar rate {new}; any discount on the booking is applied again on save. The old line stays in the log (BR-008). | ⟨chừa chỗ⟩ | S4-35: đêm có giảm giá – không tự tính số sau giảm. v1.0.5 V5-20 (copy-v1.0.5 mục 1.2) |
+| `checkout.extra_night_rate_help_tier` | Giá lịch của đêm. Mặc định là giá gợi ý của hệ thống cho đêm này. Số cần thu do hệ thống tính, đã trừ giảm giá nếu đơn có. | The night's calendar rate. Defaults to the system's suggested rate for this night. The amount due is worked out by the system, less any discount on the booking. | ⟨chừa chỗ⟩ | H16 bước 2 đêm thêm (BR-416-04/05); khoảng sàn–trần ở checkout.extra_night_range nối ngay sau. v1.0.5 V5-20 (copy-v1.0.5 mục 1.2) |
 | `checkout.due_computing` | Đang tính số cần thu theo giá đêm thêm… | Working out the amount due at this night rate… | ⟨chừa chỗ⟩ | H16: đang hỏi máy chủ số cần thu theo giá gõ (ARC 0.3.7 bổ sung 4) |
 | `checkout.typed_due_failed` | Chưa tính được số cần thu theo giá này. Số bên dưới theo giá gợi ý; hệ thống tính lại khi hoàn tất. | Couldn't work out the amount due at this rate. The figure below uses the suggested rate; the system works it out again when you complete. | ⟨chừa chỗ⟩ | H16: không đọc được trần của máy chủ |
 | `checkin.prior_night_taken` | Đêm {date} căn này đã có khách nên không thêm được đêm trước. Trước 06:00 chưa nhận phòng được – nhận từ 06:00, hoặc đổi sang căn còn trống. | The night of {date} is already booked in this room, so no extra night before can be added. Check-in isn't possible before 06:00 – check in from 06:00, or move to a free room. | ⟨chừa chỗ⟩ | BUG-R2-127 (P1): priorNight.available = false – không gửi addPriorNight, không thu đêm đó; nút Nhận phòng khóa (BR-417, BR-906) |
