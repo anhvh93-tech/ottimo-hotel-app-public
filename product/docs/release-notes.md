@@ -57,6 +57,7 @@ Hai lỗi này có từ v1.0.0. Không mất tiền, không lộ dữ liệu: m�
 3. **Nhập tỷ lệ hoa hồng ngắn ngày theo bảng nội bộ, ngay trên Desk đang chạy**: **Quản trị → Tham số quy tắc**, nhóm **FOC, hoa hồng, phí kênh**, khóa `short_stay_commission_pct`, hai ô sale nội bộ và CTV theo bảng. Không gửi số cho đội. Mỗi ngày chậm là thêm đơn có người chốt mang tỷ lệ cũ (dòng **Hoa hồng và phí dọn thuê tháng** ở trên). Hoa hồng thuê tháng và thưởng quản lý: nhập sau khi bản có phần này lên, trước kỳ chốt 01/12.
 4. Máy hoặc điện thoại ở quầy đăng nhập **app nhân viên** trong ca, để lễ tân thấy tin giữ chỗ tự hủy (dòng **Tin giữ chỗ tự hủy** ở trên). Vẫn rà giữ chỗ theo mã đơn ở Tờ 2a tới khi anh/chị báo hết tạm.
 5. Tới khi bản lên: chi hoàn chuyển khoản bị chặn ở ô mã thì nhập 8 chữ số cuối của mã giao dịch (BUG-R5-006 ở bảng trên).
+6. **In lại Tờ 1 (Quầy lễ tân) bản sửa 07/11/2026 ngay**, không chờ bản lên (`product/docs/print/pdf/to-1-quay-le-tan.pdf`, chân tờ ghi "sửa 07/11/2026"). Gỡ tờ đang dán cùng lúc. Dòng **Gửi nhầm người** nay dặn ghi sổ giao ca tin gửi nhầm kèm gì (chỉ loại, không chép nội dung) và nhắn thẳng anh/chị đúng dòng đó trong ngày; có ghi lạ trên đơn thì gọi anh/chị ngay (runbook sự cố dữ liệu khách mục 4, `02` 17.3 bước 5).
 
 ### Việc anh/chị làm ngày lên v1.0.5
 
