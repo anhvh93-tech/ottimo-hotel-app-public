@@ -71,9 +71,7 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
   it('QA case: after the last tier (19:30) → the extra night at its default rate is in the total; = the rows, = "Còn phải thu" (nothing paid)', async () => {
     at('19:40');
     await toBill('19:30');
-    await waitFor(() =>
-      expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000)}`),
-    );
+    await waitFor(() => expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000)}`));
     expect(rowsSum()).toBe(NIGHTS + 708_000);
     expect(
       screen.getByRole('row', { name: new RegExp(`^${tv('checkout.summary.balance')}`) }),
@@ -83,18 +81,14 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
   it('the desk types another rate for the extra night → the total follows the box (was 792.000 → 692.000 kept the old total)', async () => {
     at('19:40');
     await toBill('19:30', { rate: '600.000' });
-    await waitFor(() =>
-      expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 600_000)}`),
-    );
+    await waitFor(() => expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 600_000)}`));
     expect(rowsSum()).toBe(NIGHTS + 600_000);
   });
 
   it('a late surcharge at the time typed (14:00 · 30%) is in the total', async () => {
     at('14:10');
     await toBill('14:00', { told: true });
-    await waitFor(() =>
-      expect(billTotal()).toBe(`${TOT}: ${money(NIGHTS + 212_000)}`),
-    );
+    await waitFor(() => expect(billTotal()).toBe(`${TOT}: ${money(NIGHTS + 212_000)}`));
     expect(rowsSum()).toBe(NIGHTS + 212_000);
   });
 
@@ -106,9 +100,7 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
     next.arrivalDate = r.departureDate;
     await toBill('20:30');
     await screen.findByText(tv('co.late_fee_row'));
-    await waitFor(() =>
-      expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000)}`),
-    );
+    await waitFor(() => expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000)}`));
     expect(rowsSum()).toBe(NIGHTS + 708_000);
     expect(
       screen.queryByText(new RegExp(`^${tv('bill.line.extra_night', { date: '.*' })}`)),
@@ -132,9 +124,7 @@ describe('V5-12 – "Tổng cộng" of the bill step counts what B18 is about to
     expect(
       await screen.findByText(tv('co.late_fee_sum_foc'), { selector: 'td' }),
     ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000 - 200_000)}`),
-    );
+    await waitFor(() => expect(billTotal()).toBe(`${EST}: ${money(NIGHTS + 708_000 - 200_000)}`));
   });
 
   it('a late surcharge agreed earlier (B15, on the folio) that B18 reverses – the guest left at the standard time → the total drops it', async () => {
