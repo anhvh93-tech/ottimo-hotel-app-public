@@ -472,3 +472,22 @@ Review V5-74 (runbook SR-INC-01 bản 1.1): `rounds/round-05/reviews/BA-on-sec-v
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | BA – lượt 6 Phản hồi & sửa: B19 (state-machines 0.2.9) khoản thu khôi phục tự đóng deposit_after_cancel, không chờ đối soát (DOM 158-01, C0313-38); rbac 0.2.10 ghi chú 37 và D27 thêm tên người chốt ở dòng Đổi người chốt S27 (ARC #159), bảng màn hình không đổi, test SCREENS_BY_ROLE xanh; người chốt từ v1.0.5 ở 02 5.1, 01 7.5, sổ tay 2.5, 1.11 – không giữ khách chờ vì người chốt, đơn sale sai nguồn báo chủ đầu tư (DOM 162-02, 162-03); 159-02 bỏ; sửa tệp BA theo review V5-74 (sổ vận hành 1.8, 01/02 bản 1.17, bộ 1.18, sổ tay 1.20); chờ câu CPY cho 17.3 bước 3 | BA | rounds/round-05/outputs/BA/report.md |`
+
+## 10. Cập nhật 07/11 (lượt 7) – Phản hồi & sửa: Bill có đêm thêm, gửi nhầm khi liên hệ sai, miễn cả đơn, cờ OWN chi
+
+| Thẻ | Trạng thái | Đã làm |
+|---|---|---|
+| DOM `DOM-on-arc-card-169-03.md` điều kiện 1 + FB-R5-DOM-BA-169-02 (+ ý ARC 169-03) | Done | `02` 11.1 bước 4, sổ tay 2.14 bước 4: thu đúng **Còn phải thu**, không lấy Tổng cộng trừ Đã thu; có đêm thêm (từ v1.0.5) Tổng cộng cao hơn khi đổi bậc giảm theo số đêm hoặc có mã khách quay lại, thấp hơn khi vượt định mức (Còn phải thu đã gồm phụ thu người của đêm thêm); phiếu in ghi đủ từng đêm, câu nói với khách EN/VI theo DOM; không sửa giá đêm cho khớp |
+| DOM `DOM-on-ba-card-v574-01.md` (thẻ BA V574-01) | Done phần BA | `02` 17.3 bước 5, sổ tay 2.9 bước 6: nhầm do mình gửi thì tạo link mới 1–1; liên hệ trên đơn sai hoặc không chắc thì không tạo link mới, không nhắn thêm, giấy tờ tại quầy, đơn OTA mời qua hội thoại OTA; không sửa liên hệ theo lời người khác; sổ giao ca thêm "liên hệ trên đơn sai", "link mới: đã tạo / không tạo", dòng mẫu theo runbook 1.2. Còn Tờ 1 (PO) |
+| FB-R5-DOM-BA-172-02 | Done | `01` mục 4 và sổ tay 1.8: miễn cả đơn dùng đơn Nội bộ hoặc FOC từng đêm, không giảm cả nhóm hay cả đơn 100 % |
+| FB-R5-PO-BA-160-01 | Done (DOM xem chữ BR) | BR-522 (2 chỗ), rbac ghi chú 39, A47, mục 5 (A47a), `rbac-matrix.json` ghi chú A47, EP03-05 tách nhiệm hoàn: "OWN tự duyệt và chi" thành cờ "OWN chi theo đường tự chi" (OWN duyệt, đặt nơi nhận, hoặc là người gốc của khoản thu). Không đổi luật, không đổi quyền; bảng màn hình mục 3 không đổi; test `SCREENS_BY_ROLE` 10/10 xanh; `gen_traceability.py --strict` exit 0 |
+
+**Đánh số:** bổ sung cùng ngày vào `01`/`02` bản 1.17, bộ 1.18, sổ tay 1.20 (chưa dựng HTML nên không lấy số mới). `business-rules.md`: mục 18 dòng "Sửa chữ 07/11/2026, chưa đánh số bản" – DOM đánh số. `rbac-matrix.md` 0.2.10 sửa chữ cùng ngày.
+
+**Giả định:** FOC từng đêm trên Desk là yêu cầu giảm giá đặc biệt 100 % trên từng dòng tiền phòng (cách `01` 14.1 đã dùng). Phụ thu người 150.000 đ/người/đêm lấy từ câu DOM (BR-110, giá công khai, không phải số hoa hồng).
+
+**Chuyển vai:** PO – Tờ 1 dòng "Gửi nhầm người" (DOM mục 3) và dòng release notes v1.0.5 "Giới hạn đã biết" (DOM 169-03 điều kiện 2). DOM – xem chữ BR-522, đánh số. UXD – dựng HTML bộ 1.18, sổ tay 1.20 sau lượt này. CPY – rà câu nói với khách ở bước Bill. Khi v1.0.6 có `projectedTotalVnd`, BA bỏ gạch "Có đêm thêm".
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | BA – lượt 7 Phản hồi & sửa (bổ sung cùng ngày vào 01/02 bản 1.17, bộ 1.18, sổ tay 1.20): bước Bill thu đúng Còn phải thu, có đêm thêm thì Tổng cộng có thể cao hơn (đổi bậc giảm, mã khách quay lại) hoặc thấp hơn (vượt định mức), phiếu in là số đúng (DOM 169-03 đk 1, 169-02, ARC 169-03); gửi nhầm link khi liên hệ trên đơn sai: không tạo link mới, giấy tờ tại quầy, không sửa liên hệ theo lời người khác, sổ giao ca thêm hai ô (DOM V574-01, runbook 1.2); miễn cả đơn dùng Nội bộ hoặc FOC từng đêm (DOM 172-02); cờ "OWN chi theo đường tự chi" thay "OWN tự duyệt và chi" ở BR-522, rbac 39/A47/json, EP03-05 (PO 160-01), không đổi luật, test screens xanh | BA | rounds/round-05/outputs/BA/report.md |`
