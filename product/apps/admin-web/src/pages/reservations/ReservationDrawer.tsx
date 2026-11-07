@@ -26,6 +26,7 @@ import { useNow } from '../../hooks/useNow';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { CloserField } from './CloserField';
 import { GuestLinkPanel } from './GuestLinkPanel';
 import {
   AssignRoomDialog,
@@ -237,7 +238,8 @@ export function ReservationDrawer({
   const seg = r ? currentSegment(r.segments, businessDay) : undefined;
   const room = catalog.rooms.find((x) => x.id === seg?.roomId);
   const chName = r ? channelName(catalog.channels, r.channelCode, r.channelId) : '';
-  const ota = catalog.channels.find((c) => c.id === r?.channelId)?.channelGroup === 'ota';
+  const channelGroup = catalog.channels.find((c) => c.id === r?.channelId)?.channelGroup;
+  const ota = channelGroup === 'ota';
   const left = r?.status === 'hold' ? remaining(r.hold?.expiresAt, now) : null;
   // v1.0.4 BUG-R3-042/044 (BR-303 (1), DOM A.6): a hold with money received is NOT cancelled at its deadline – the
   // desk records the rest (or a manager accepts the shortfall) until check-in. A hold with nothing received is
@@ -589,6 +591,19 @@ export function ReservationDrawer({
               {r.otaRef ? ` · ${r.otaRef}` : ''}
             </dd>
           </dl>
+          {/* V5-30 (contract 0.3.13 addendum 1h/1i, #154; UXD copy-v1.0.5 9.16, DOM 154-03, SEC 1I-03): the closer,
+              editable only by the role the server lets change it at this milestone – read-only for the others. */}
+          <CloserField
+            key={r.id}
+            reservation={r}
+            channelGroup={channelGroup}
+            channels={catalog.status}
+            onRetryChannels={catalog.reload}
+            online={online}
+            reload={reloadNow}
+            onBooking={(u) => mutate(() => u)}
+            onTransitionChanged={(status) => setChanged(status)}
+          />
 
           {/* A22a: online check-in link before arrival (FD+). BUG-R3-047: the server issues it for `confirmed` /
               `in_house` only (EP06 8.2) – never offered on a hold. */}

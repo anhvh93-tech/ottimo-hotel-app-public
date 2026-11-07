@@ -131,6 +131,12 @@ const FIELD_PAIR: Array<{ field: RegExp; code: string; key: string }> = [
     code: 'CARD_NUMBER_DETECTED',
     key: 'pay.bank_reference_card_like',
   },
+  // UXD copy-v1.0.5 9.16 (V-09): the closer-change reason says "the reason contains…", not "the note contains…".
+  {
+    field: /(^|\.)closerChangeReason$/,
+    code: 'CARD_NUMBER_DETECTED',
+    key: 'field_error.reason_card_number',
+  },
 ];
 
 /** The pair sentence key for this field error, if any (see `FIELD_PAIR`). */

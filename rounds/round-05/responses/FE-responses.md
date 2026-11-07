@@ -191,3 +191,39 @@ Ghi chú:
 - Không có ESC mới. Chữ, chỗ hiện do UXD chốt; FE không viết lại câu nào.
 - Không có dữ liệu khách thật: test và mock chỉ dùng dữ liệu mẫu ("Phạm Huy", số thẻ thử công khai). Không chụp ảnh mới.
 - FB-R5-UXD-FE-146-01 thuộc PR #146, không phải của FE-A2.
+
+## FE-A – PR #162 (V5-30 Desk: ô Người chốt trên khung đơn theo mốc)
+
+- Round 5, bước Phản hồi & sửa · FE-A · 07/11/2026.
+- Review đã nhận, cả bốn trên `c5cc1f50`:
+  - DOM `rounds/round-05/reviews/DOM-on-fe-pr-162.md` (DUYỆT);
+  - SEC `rounds/round-05/reviews/SEC-on-fe-pr-162.md` (DUYỆT);
+  - UXD `rounds/round-05/reviews/UXD-on-fe-pr-162.md` (DUYỆT CÓ ĐIỀU KIỆN 162-01);
+  - ARC `rounds/round-05/reviews/ARC-on-fe-pr-162.md` (DUYỆT).
+- Bản sửa trên nhánh `r5-fe-closer-field`, mỗi thẻ một commit, rồi gộp `main` @ `d082802f`. Không rebase, không force-push.
+
+| Thẻ | Mức | Trạng thái | Commit | Đã làm |
+|---|---|---|---|---|
+| FB-R5-UXD-FE-162-01 | Minor, điều kiện gộp | **Done** | `ce163b5f` | Lưu xong: toast `common.saved`; focus về ô chọn trong một `useEffect` chạy khi `write.busy` đã tắt (trước đây `focus()` chạy lúc ô còn `disabled`). Chromium thật trên mock: sau khi lưu, `document.activeElement` là ô chọn "Người chốt", không phải `body`. Test: toast nằm trong vùng `aria-live`, focus ở ô chọn |
+| FB-R5-UXD-FE-162-02 | Minor | **Done** | `ab08b858` | Nút phụ `common.unsaved_discard` "Bỏ thay đổi". Test kiểm không còn nút `common.cancel` |
+| FB-R5-UXD-FE-162-03 | Minor | **Open – chờ #164** | – | `mlog.closer_inactive` chưa có trên `main` (#164 vẫn mở lúc gộp `d082802f`). Khi #164 gộp: gộp `main`, đổi `mlog.who_unlisted` → `mlog.closer_inactive` ở tên chỉ đọc và lựa chọn đầu của ô chọn, không thêm khóa lần hai |
+| FB-R5-UXD-FE-162-04 | Suggestion | Để v1.0.6 | – | Theo ORC |
+| FB-R5-UXD-FE-162-05 | Suggestion | Để v1.0.6 | – | Cần khóa mới |
+| FB-R5-DOM-UXD-162-01 (chữ) | Suggestion | **Done** | `4b1f50ec` | `rsv.closer.readonly_manager` theo `copy-v1.0.5.md` bản 2.7 (thêm "hoặc chủ đầu tư" / "or the owner"), sửa ở `gen_strings.py` rồi sinh lại. Script so 9.16: 7/7 khóa khớp từng byte VI, EN |
+| FB-R5-DOM-FE-162-04 | Suggestion | **Done** | `475b985c` | 4 ca OWN, FD × `cancelled`, `no_show`: chỉ tên, không ô chọn, không dòng `li-s`, không nút, không PATCH |
+| FB-R5-SEC-FE-162-01 | Suggestion | **Done** | `837439cd` | Sau 403: ô chỉ đọc (không ô chọn, không nút) khi đơn còn `version` bị từ chối. Đọc lại đơn được, mốc không đổi → `error.FORBIDDEN_ACTION`, không nói "Desk đã tải lại đơn". Đọc lại hỏng → `error.FORBIDDEN_ACTION` kèm nút Tải lại (`common.reload`). Không khóa mới |
+| FB-R5-SEC-FE-162-02 | Suggestion | **Done** | `475b985c` | 8 ca SAL, CTV × `hold`, `confirmed`, `in_house`, `checked_out`: spy `listCloserCandidates`, `updateReservation` không được gọi, chờ cả danh sách kênh tải xong. Đột biến M5 của SEC (SAL/CTV vẫn gọi danh sách) nay đỏ 8/8 |
+| FB-R5-ARC-FE-162-01 | Minor | **Done** | `837439cd` | 412: đọc lại đơn rồi tính lại `closerAccess`. Không còn sửa được → `error.closer_change_forbidden` (đúng nguyên văn: đơn đổi trạng thái, Desk đã tải lại). Đơn ra khỏi trạng thái nhận đổi (hủy, không đến) → `rsv.transition_changed`. Vẫn sửa được → như cũ: câu xung đột, Tải lại, giữ chữ đã gõ. Test 403/409 cũ đổi sang ca thật (tăng `version`); thêm ca 403 cùng `version` (vai vừa bị thu hồi). Probe P1 chạy lại trên Chromium: câu riêng hiện, dòng `readonly_owner`, không câu xung đột |
+| FB-R5-ARC-FE-162-02 | Suggestion | **Done** | `fce8c0da` | Truyền `catalog.status` xuống ô. Đang tải danh sách kênh: chưa vẽ dòng. Tải lỗi: chỉ đọc, `common.error_generic_title` + `common.retry` (gọi `catalog.reload()`), như mẫu lỗi danh sách của 9.16 bản 2.7. Đơn CTV không còn nhãn "Người chốt" kèm mọi người. Ý 2 (`Reservation.channelGroup` ở hợp đồng) là việc PO/ARC v1.0.6 |
+| FB-R5-ARC-FE-162-03 | Suggestion | **Done (a, c, d, 4)**, (b) chờ DOM/PO | `475b985c`, `837439cd` | (a) gọi thẳng API qua mock: FD + đơn hủy → 409, FD + `confirmed` + lý do 1 ký tự → 403. (c) mock tính loại người chốt theo nhóm kênh; ca kênh CTV mã khác. (d) mock trả lỗi số thẻ dạng `Fields.done()` (mã cấp trên `CARD_NUMBER_DETECTED`, chỉ lỗi đó). (4) ghi chú v1.3 ở nhánh 409 của `CloserField`. (b) chưa thêm ca: chờ DOM/PO chốt ẩn hay hiện |
+
+Kiểm sau gộp `main` @ `d082802f`:
+- admin-web **100 tệp / 1156 ca xanh** (tệp V5-30: 56 ca);
+- `tsc` sạch; ESLint 0 lỗi (1 cảnh báo có sẵn ở `public/mockServiceWorker.js`); Prettier sạch;
+- `gen_strings.py` sinh lại không lệch (3529 chuỗi);
+- đột biến FE: 12/12 đỏ (M1–M4 nhánh 412/403, M5 kênh lỗi, M6–M9 thứ tự và dạng lỗi của mock, M10 SAL/CTV gọi danh sách, M11–M12 đơn hủy/không đến).
+
+Ghi chú:
+- Nút của ca đọc lại hỏng dùng `common.reload` "Tải lại" như SEC đề xuất và như nhánh 412, không dùng `common.retry` "Thử lại": nút này đọc lại đơn, không thử lại việc đổi người chốt. UXD xác nhận.
+- Ảnh Chromium chỉ ở scratchpad, không đưa vào kho. Không dữ liệu khách thật, không số hoa hồng.
+- Không ESC mới.
