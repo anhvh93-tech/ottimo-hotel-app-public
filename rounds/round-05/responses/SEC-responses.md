@@ -506,3 +506,24 @@ Phần Google Workspace còn khôi phục được 25 ngày sau "Delete forever"
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | **SEC – trả lời 2 câu BA về dòng BA-08 (f332f503)** (rounds/round-05/responses/SEC-responses.md mục 6.6.1). (1) Sửa: lỡ tải về hoặc máy tự lưu ảnh giấy tờ trên máy của cơ sở, chưa mở hay gửi sang đâu, là **ca giữa**: xóa ở Tải về và Thùng rác (Đã xóa gần đây), tắt lại tự lưu, ghi sổ giao ca một dòng không mã đơn, không tên khách, báo chủ đầu tư trước khi hết ca, không gọi trong 1 giờ; chủ đầu tư kiểm bản sao lưu trên mây (iCloud Ảnh, Google Photos, Google Drive) và xóa. Vẫn gọi trong 1 giờ khi ảnh bị chụp màn hình, chuyển tiếp, mở hay gửi sang app khác, tải lên đâu (kể cả Desk), không xóa được, nằm trên máy cá nhân, mất máy, xóa không thành, tài khoản dùng chung với người ngoài. (2) Xác nhận: thư báo có ảnh hoặc có nội dung tin mà OTA hay Zalo gửi về email cơ sở là bản sao xóa được như 6.5.3: xóa cả trong Thùng rác, không mở tệp đính kèm, ca thường. Thư về hộp thư của chủ đầu tư thì chủ đầu tư tự xóa. | SEC |`
+
+---
+
+## 7. DOM review V5-74 – runbook sự cố dữ liệu khách (07/11)
+
+Thẻ từ `rounds/round-05/reviews/DOM-on-sec-v5-74.md` (`fc4c2b08`), sửa ở `product/docs/runbook-su-co-du-lieu-khach.md` bản 1.1. Thẻ BA, OPS chưa tới.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-DOM-SEC-V574-01 (Major) | Done – phương án (a) | Mức Thấp cần **cả hai**: link chưa mở và tin gửi kèm chỉ có link. Tin có tên, ngày ở hay căn thì là Vừa, dù link chưa mở. Chưa biết tin kèm gì thì coi như có tên. Mẫu dòng (mục 6) có ô "tin: chỉ link / có tên / có ngày ở / có căn", chỉ ghi loại, không chép nội dung. `guides/02` 17.3 bước 5 và `guides/01` 14.1 ghi thêm ô này, vì chỉ quầy biết tin kèm gì. **(b) SEC khuyến nghị làm thêm, không chặn:** câu gửi link chỉ chào chung, không tên, ngày ở, căn. Đây là tối thiểu dữ liệu từ gốc. CPY viết theo giọng OTTIMO, BA đưa vào `guides/02` 17.3 bước 3. Khi đó runbook vẫn đúng, ô "tin" sẽ là "chỉ link" |
+| FB-R5-DOM-SEC-V574-02 (Minor) | Done | Ghi lạ: hỏi lại khách giờ đến và yêu cầu khi gửi link mới, không cần kể chuyện gửi nhầm; sửa giờ đến; yêu cầu khách không gửi thì hủy hoặc từ chối, không tính phí; khách đến làm giấy tờ tại quầy như khách không check-in online (thay "đối chiếu bản gốc"). Người nhận nhầm là khách đơn khác: gửi link của chính đơn họ, một câu xin lỗi ngắn, không nói gì về đơn kia. **SEC xác nhận đây không phải "báo người nhận nhầm"**: việc đó phục vụ đơn của chính họ và không đưa thêm dữ liệu nào của khách kia. Ảnh họ tải lên đơn sai: không Gắn người, quản lý Xóa ảnh |
+| FB-R5-DOM-SEC-V574-03 (Suggestion) | Done | Báo OWN = nhắn thẳng tới liên hệ OWN đã lưu trên điện thoại cơ sở, đúng dòng mẫu, nhắn ngay, muộn nhất trong ngày, sau 22:00 vẫn nhắn; có ghi lạ thì gọi ngay. Không chụp màn hình hội thoại gửi nhầm |
+| FB-R5-DOM-SEC-V574-04 (Suggestion) | Done | Câu dưới bảng mục 1: Xóa ảnh chỉ quản lý, chủ đầu tư (A74); người trực chỉ có vai lễ tân thì không Gắn người, ghi sổ, báo OWN ngay, OWN hoặc quản lý xóa |
+| Đề xuất mẫu dòng của DOM (mục 3 review) | Done | Thêm ngày gửi nhầm, tin kèm gì, ghi lạ, ảnh đã xóa. Nhánh B thêm ngày lượt kéo |
+
+Ngoài runbook, SEC sửa tối thiểu `guides/02` 17.3 bước 5 và `guides/01` 14.1 cho quầy và chủ đầu tư làm cùng một cách (ghi "chưa đánh số bản" ở lịch sử tệp). Còn cho vai khác, ORC giao:
+- BA: chép cùng ý sang sổ tay 2.9 bước 6, đánh số bản bộ hướng dẫn;
+- PO: Tờ 1, dòng "Gửi nhầm người", thêm "tin kèm gì" vào dòng sổ giao ca và "nhắn chủ đầu tư" (tờ in, INV in lại khi PO sửa);
+- CPY + BA: phương án (b) của V574-01, nếu ORC xếp.
+
+**Tổng: 4 thẻ, 4 Done, 0 Rejected, 0 Deferred, 0 Escalated.** Không ESC.
