@@ -1267,7 +1267,9 @@ export interface paths {
      *     B4 thành công (`confirmDeposit`) → báo chuyển `handled`. Đọc lại: `Reservation.depositNotices[]` (`getReservation`) – ảnh xem bằng `getAttachment`.
      *     **0.3.13 bổ sung 1 (V5-5B 5B-1, DOM 11.4 mục 5; QA BUG-R5-002 ca (f))**: đơn `cancelled`/`no_show` (mọi lý do) → **202** như đơn `hold` (thay 409): lưu báo `open` và mở "Cần chú ý"
      *     `deposit_after_cancel` cho FD, FDL, MGR, OWN ("Tiền về cho đơn đã hủy {code}"); không đổi đơn, không ghi tiền. Mục tự đóng khi đơn có khoản thu ghi sau lúc báo (5B-1, 5B-2), hoặc
-     *     FD+ đóng bằng `resolveAttentionEvent` ("Không thấy tiền", ghi chú bắt buộc). Kind đã có trong CHECK DB – không migration. Sale đọc trạng thái đơn ở danh sách của mình.
+     *     FD+ đóng bằng `resolveAttentionEvent` ("Không thấy tiền", ghi chú bắt buộc). **Bổ sung 1j (BE C0313-38, DOM 1.3):** khoản thu ghi **trước** lúc báo không đóng mục của
+     *     báo sau, vì báo có thể nói về một lần chuyển khác; FD+ kiểm rồi đóng tay, ghi mã phiếu thu vào ghi chú. Kind đã có trong CHECK DB – không migration. Sale đọc trạng thái đơn
+     *     ở danh sách của mình.
      *     SEC S7: báo này **không** sinh khoản thu; ảnh gửi kèm không dùng làm chứng từ của khoản thu (`recordPayment` → 422). Audit `deposit_notice.created` thêm `afterClosure: true` (bộ lọc
      *     `afterClosureOnly`); tin đẩy chỉ có mã đơn. **Bổ sung 1e (BE C0313-22)**: allowlist audit `deposit_notice` thêm `afterClosure`; test đọc lại từ `audit_event`.
      */
@@ -2874,7 +2876,8 @@ export interface paths {
      *         Cùng một hàm (`isCardNumberReference`, `shared/validation.ts`) ở `executeRefund` – **bổ sung 1g (BE C0313-29)**: hàm cài ở PR #119 (BUG-R5-006) cho `executeRefund` và mọi
      *         đường `PaymentCreate`; PR-B3 chỉ dùng lại. **Thứ tự lỗi – bổ sung 1i (BE C0313-31, phương án B; thay câu "như `note`" của 1g): ô mã giống số thẻ báo trước.**
      *         `bankReference` qua kiểu và mẫu của chính ô mà giống số thẻ → 422 `CARD_NUMBER_DETECTED` ngay, chỉ lỗi này, trước lỗi của các trường khác và trước `NOT_ALLOWED`
-     *         (phương thức) của chính ô; không ghi gì. Cùng luật với `posAuthCode` (BUG-R2-043: số thẻ trước độ dài) và với mã trên `main` (#119); PR-B3 giữ thứ tự này, không đổi mã.
+     *         (phương thức) của chính ô; không ghi gì. Cùng luật với `posAuthCode` (BUG-R2-043: số thẻ trước độ dài) và với mã trên `main` (#119). ~~PR-B3 giữ thứ tự này, không đổi mã.~~
+     *         **Bổ sung 1j (BE C0313-34):** PR-B3 kiểm sớm trên thân thô ở cả 5 bộ đọc (`assertBankReferenceNotCardFirst`, #148); ARC giữ lời gọi ở cả 5 (review #148 mục 2.1).
      *         `note` giữ thứ tự hiện có của từng đường. `executeRefund` giữ thứ tự của #119: kiểm từ thân lệnh (`paidAt` dạng, `amountVnd`, mẫu `bankReference`) → luật số thẻ →
      *         các kiểm cần dòng yêu cầu (`REQUIRED`, `EVIDENCE_REQUIRED`, hạn `paidAt`). Khai `bankReference` ở các bộ đọc `PaymentCreate` làm ở PR-B3 – trước đó trường chưa tới
      *         được qua HTTP.
@@ -2899,8 +2902,11 @@ export interface paths {
      *         `NOT_ALLOWED`; cả hai không ghi gì.
      *     - **Lỡ ghi hai lần (DOM 3b):** MGR+ đối soát khoản thừa `disputed`, MGR/OWN `reversePayment` → yêu cầu hoàn đi kèm tự `superseded` (refundPlan, kể cả đã duyệt chưa chi). Không đổi hợp đồng.
      *     - **Trần (S5, nên có):** `amountVnd` > tổng tiền phòng của đơn theo giá đã chốt → FD/FDL 422 `AMOUNT_EXCEEDS_BALANCE` (`max`); MGR/OWN ghi được kèm `note`.
-     *     - Mục "Cần chú ý" `deposit_after_cancel` của đơn đóng khi đã hoàn xong (hoặc đã khôi phục **và** khoản thu đã đối soát – 5B-2), hoặc FD+ đóng "Không thấy tiền" (`resolveAttentionEvent`,
-     *       ghi chú bắt buộc, audit người và giờ – S8). Bộ lọc tuần: `listAuditEvents.afterClosureOnly` (S6). Tin đẩy, audit, log chỉ có mã đơn.
+     *     - **Bổ sung 1j (BE C0313-38, DOM `DOM-on-be-d2-pr-148.md` 1.3; thay câu "đóng khi đã hoàn xong…")**: mục "Cần chú ý" `deposit_after_cancel` (mở bởi `createDepositNotice`
+     *       trên đơn đã đóng) tự đóng khi đơn có khoản thu ghi sau lúc đóng đơn, trong lúc mục đang mở. Cùng giao dịch, các báo `open` của đơn thành `handled` (`handled_payment_id`).
+     *       5B-2: khôi phục cũng ghi khoản thu nên mục đóng cùng lúc, không chờ đối soát. Hoặc FD+ đóng bằng "Không thấy tiền" (`resolveAttentionEvent`, ghi chú bắt buộc, audit người và
+     *       giờ – S8). Tiền dư theo mục `closed_reservation_credit` (tự đóng khi chi đủ); đối soát theo `reconcile_overdue`. Bộ lọc tuần: `listAuditEvents.afterClosureOnly` (S6).
+     *       Tin đẩy, audit, log chỉ có mã đơn.
      *     - Khách muốn đặt lại khi 5B-2 chưa có: **không** ghi ở đơn cũ; hộp ghi nhắc tìm đơn mới của khách trước (DOM 3b).
      *     **(C) 5B-2 (khôi phục, v1.0.6 – 0.3.14)**: phác ở `contract-0.3.13.md` mục 1.21. Tên hành động SM-01 B19 (`cancelled → hold`) = `restore_hold`
      *     (`AllowedAction.action`, ARC chốt ở bổ sung 1d); thân lệnh `restoreHold: true` – chỉ có từ 0.3.14, 0.3.13 chưa có trường này.
@@ -6653,6 +6659,15 @@ export interface components {
         cancelledAt?: components['schemas']['Instant'];
         reasonCode?: components['schemas']['CancelReasonCode'];
         note?: string;
+        /**
+         * @description **0.3.13 bổ sung 1j (DOM FB-R5-DOM-ARC-148-02, ARC review #148 mục 5)** – trạng thái của đơn ngay trước khi hủy, đọc từ `reservation.status_before_cancel`
+         *     (cột đã có, không migration). Vắng khi đơn chưa hủy (`cancellation` chỉ có khi `status = cancelled`); đơn `no_show` không có `cancellation`. Chỉ FD+ (serializer bỏ với
+         *     vai khác). Desk dùng để chọn `type` khi ghi khoản thu trên đơn đã đóng (`recordPayment` (B), luật 5B-1): `cancelledFrom = hold` → `deposit`; còn lại (`confirmed`, và
+         *     đơn `no_show`) → `charge`. Gửi sai vẫn bị máy chủ chặn (422 `NOT_ALLOWED` ở `type`). BE-D2 thêm vào `reservation-dto.ts` ở một PR nhỏ sau #148; PR đó gộp **trước**
+         *     PR Desk 5B-1 của FE-A.
+         * @enum {string}
+         */
+        cancelledFrom?: 'hold' | 'confirmed';
       };
       internalNote?: string;
       /** @description Số thẻ phòng đã phát lúc nhận phòng (BR-511) – gợi ý số lượng phí thiếu thẻ khi trả phòng; null trước B9 (0.3.3, E03-04) */
