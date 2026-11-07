@@ -153,3 +153,31 @@ Thẻ trả lời ở `rounds/round-05/responses/OPS-responses.md`.
 - **P2c bước 2** dùng `git -C` vào repo (ARC 129-01). OPS tái hiện lỗi cũ: chạy ngoài repo ra `fatal: not a git repository` rồi `THIEU`. Bản sửa ra `TRUNG`, `CO`, `CO`.
 - **README 11.1:** thêm `granted_by`/`granted_at` khi cấp vai (ARC 129-02); thêm dòng audit tùy ARC xác nhận, và vai DB do ARC + SEC chốt (SEC 129-02).
 - **CODEOWNERS:** thêm 3 dòng SEC: `postgres-log-terse.test.sh` (ARC 126-01), `scripts/*.sh`, `src/admin/` (SEC 126-01).
+
+## 11. Cập nhật 07/11 – PR `r5-deps` (#161): `nodemailer` 10.2.1, `node:22-alpine` Node 22.23.4 (SEC DEPS-01, V5-41)
+Nguồn: `rounds/round-05/reviews/SEC-dependabot-triage-v1.0.5.md` mục 4 (đặc tả), thẻ FB-R5-SEC-OPS-DEPS-01 (Major). Thẻ trả lời ở `rounds/round-05/responses/OPS-responses.md`.
+
+**Phạm vi: đúng 5 tệp** (`git diff --stat origin/main...r5-deps`: 11 thêm, 11 bớt):
+- `product/integrations/package.json`: `nodemailer` 10.0.16 → **10.2.1**, ghim chính xác.
+- `product/pnpm-lock.yaml`: 3 hunk, đúng 4 chỗ của `nodemailer`. Integrity khớp `npm view`. pnpm 9.15.4 (trong container) sinh lại lockfile giống từng byte.
+- `product/infra/docker/Dockerfile.api` (2 `FROM`), `Dockerfile.web` (2), `Dockerfile.landing` (1): `node:22-alpine` `0a7108bf…e402` → `fe4f6d74…9914` (Node 22.23.4, Alpine 3.24.3). Lấy nguyên commit `56c7a0f1` của PR #27, cherry-pick sạch.
+- Không `pnpm.overrides`. Không đổi `.nvmrc`, `engines`, `packageManager`. Không gói nào khác.
+
+**Chọn 10.2.1:** phát hành 22/10 13:46Z, đủ 14 ngày từ 05/11. 10.3.1 (29/10 12:31Z) chỉ đủ tuổi từ 12/11 19:31 giờ VN. PR mở 07/11, dự kiến gộp trước mốc đó. Nếu gộp từ 12/11 19:31 trở đi thì đổi sang 10.3.1 bằng commit mới và chạy lại toàn bộ kiểm.
+
+**Kết quả kiểm** (chi tiết trong mô tả PR #161):
+- `784488b2` (main `3faf6aff` đã merge): **9/9 job CI xanh**. T9 tay xanh hết: 1993 passed, 92 skipped, `0 flaky, 0 masked by retry`.
+- Head `2a45cd8c` (main `8700dd82` đã merge): 8/9 xanh, T9 E2E xanh như trên. `gitleaks` đỏ vì một báo nhầm `generic-api-key` ở commit `a5785ddf` của nhánh BE `r5-v5-42` (#170). Commit này không thuộc PR #161, chưa có trên `main`. Job quét mọi ref (`--all`), nên mọi PR đều đỏ cho tới khi `main` có cách xử lý.
+- Build tại máy ở head: landing xong (10 trang, `check:dist` 14/14), api production xong. `node --version` = `v22.23.4` ở cả stage build landing và image api. OpenSSL 3.5.9. Image api chỉ có một bản `nodemailer@10.2.1`.
+- `pnpm audit`: `main` 15 → nhánh 12, mất đúng 3 advisory `nodemailer`.
+- Ở `7904c51a`, job test đỏ một lần vì test chập chờn của admin-web: `bug-r4-038-fea.test.tsx`, "Unhandled Rejection" `window is not defined` ở `useResource.ts:41` sau khi jsdom đã dọn. Cùng SHA trong T9 thì xanh. Ghi cho FE, không sửa trong PR này.
+
+**Chưa xong:**
+- Chờ `main` xử lý báo nhầm `gitleaks` (BE đã có `cb34efe7` trên nhánh `r5-v5-42`). Sau đó OPS merge `main` vào `r5-deps`, chạy lại 9 job, T9 và build landing, rồi xin gộp.
+- Chờ SEC + ARC review; INT xem phần SMTP.
+- Sau khi gộp (SEC 4.3, checklist trong PR):
+  - CI `push` trên `main` xanh (publish images, deploy staging);
+  - INT chạy `mail-test` qua relay staging;
+  - chỉ còn cảnh báo #3 và #19;
+  - OPS đóng #9, #10, #11 và kiểm #27;
+  - PO thêm dòng Ghi chú kỹ thuật vào release notes v1.0.5.
