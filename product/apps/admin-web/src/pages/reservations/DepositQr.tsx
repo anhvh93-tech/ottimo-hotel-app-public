@@ -3,6 +3,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button } from '@ottimo/ui';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../app/api';
+import { closedReservationStatus } from '../../app/reservations';
 import { VietQrCard } from '../../components/VietQrCard';
 import { usePropertyId } from '../../session/SessionProvider';
 import { useSubmit } from '../stay/common';
@@ -28,17 +29,21 @@ export function pendingDepositQr(payments: Payment[] | undefined, now = Date.now
  * for the missing deposit, content = booking code (server). H12 creates it right after the hold (`auto`);
  * H11 shows the QR already sent to the guest (`pending`) and creates one only on request – a new code
  * expires the one the guest may be paying with. Collaborators never call it (not in `x-roles`).
+ * V5-48 (UXD 9.1a): the booking closed meanwhile → 409 + `reservationStatus`: the closed-booking sentence (by role,
+ * from `useSubmit`), no "Try again" and no "create a new code" – a retry cannot help. `onClosed` tells the box around.
  */
 export function DepositQr({
   reservation: r,
   auto = false,
   pending = null,
   onQr,
+  onClosed,
 }: {
   reservation: Reservation;
   auto?: boolean;
   pending?: Payment | null;
   onQr?: (qr: VietQrResult) => void;
+  onClosed?: (status: 'cancelled' | 'no_show') => void;
 }) {
   const { t, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
@@ -46,6 +51,13 @@ export function DepositQr({
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const started = useRef(false);
   const amount = depositMissing(r);
+  const closed = closedReservationStatus(act.error);
+
+  useEffect(() => {
+    if (closed) onClosed?.(closed);
+    // once per failed create
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act.error]);
 
   const create = async () => {
     if (!(amount > 0)) return;
@@ -75,7 +87,7 @@ export function DepositQr({
   if (qr) return <VietQrCard qr={qr} />;
 
   const failed = act.error ? (
-    act.code === 'PAYMENT_NOT_CONFIGURED' ? (
+    act.code === 'PAYMENT_NOT_CONFIGURED' || closed ? (
       act.view()
     ) : (
       <Alert
@@ -97,6 +109,8 @@ export function DepositQr({
         {t('dep.qr_creating')}
       </p>
     );
+  // The QR "waiting" expired with the booking (server, J1/B5/B10/B11): only the sentence is left.
+  if (closed) return failed;
   if (pending)
     return (
       <div className="stack">

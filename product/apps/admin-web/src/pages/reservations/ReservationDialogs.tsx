@@ -24,6 +24,8 @@ import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import {
   addDays,
+  closedBookingSentence,
+  closedReservationStatus,
   currentSegment,
   currentStateOf,
   dayMonth,
@@ -558,6 +560,11 @@ export function DepositDialog(props: DialogBase) {
   /** The QR payment already marked received (`confirmPaymentReceived`) – a retry only confirms the deposit. */
   const [qrReceived, setQrReceived] = useState<string | null>(null);
   const [qrExpired, setQrExpired] = useState(false);
+  /**
+   * V5-48 (UXD 9.1a): the booking closed under the box (J1 at the deadline, a cancel in another tab) – the server
+   * answered 409 + `reservationStatus`. The 9.1a sentence stays, nothing more is confirmed from this box.
+   */
+  const [closedAs, setClosedAs] = useState<'cancelled' | 'no_show' | null>(null);
   const qrAct = useSubmit();
   /** FE-B – DOM (f): why a QR above the deposit still missing is confirmed (`confirmPaymentReceived.note`). */
   const [qrNote, setQrNote] = useState('');
@@ -601,6 +608,14 @@ export function DepositDialog(props: DialogBase) {
     deskRole && receivedTouched && !viaQr && (!receivedIso || Date.parse(receivedIso) > Date.now());
   const receivedError = receivedBad ? t('field.DATE_INVALID') : act.fields['payment.receivedAt'];
 
+  /** V5-48: lock the box on the 9.1a sentence and let the drawer behind read the closed booking. */
+  const bookingClosed = (status: 'cancelled' | 'no_show') => {
+    setClosedAs(status);
+    setQr(null);
+    setPending(null);
+    void props.reload();
+  };
+
   /**
    * US-120 / SM-12: money in on the QR the guest paid → `confirmPaymentReceived` (pending → succeeded,
    * "chờ đối soát"), then B4 with `existingPaymentId` – never a second payment beside a QR left to expire.
@@ -623,6 +638,13 @@ export function DepositDialog(props: DialogBase) {
           }),
       );
       if (!ok) {
+        // V5-48: `reservationStatus` comes before the payment's `currentState` – a QR "expired" here expired BECAUSE
+        // the booking closed, so the box must not offer to record it as a manual transfer (`dep.qr_expired`).
+        const closed = closedReservationStatus(failed);
+        if (closed) {
+          bookingClosed(closed);
+          return undefined;
+        }
         // FE-B – DOM (f): above what is due now → the note box opens with the server's figure.
         const max = qrOverDue(undefined, failed);
         if (max !== null) setQrOverMax({ paymentId, max });
@@ -656,6 +678,7 @@ export function DepositDialog(props: DialogBase) {
   };
 
   const submit = async () => {
+    if (closedAs) return;
     setTouched(true);
     if ((!(value > 0) && !acceptOnExisting) || qrNoteMissing || shortfallReasonMissing) return;
     if (receivedBad) return;
@@ -718,7 +741,7 @@ export function DepositDialog(props: DialogBase) {
             variant="pri"
             busy={act.busy}
             busyLabel={act.busyLabel}
-            disabled={act.locked}
+            disabled={act.locked || closedAs !== null}
             onClick={() => void submit()}
           >
             {value > 0 && value < missing && !accepting
@@ -739,7 +762,7 @@ export function DepositDialog(props: DialogBase) {
       </div>
       {/* FE-B – BUG-R2-081: what the CTV / sale reported (0.3.7 add. 1 `depositNotices`). */}
       <DepositNotices reservation={r} />
-      {method === 'vietqr' && missing > 0 && !qrReceived ? (
+      {method === 'vietqr' && missing > 0 && !qrReceived && !closedAs ? (
         <div className="mb-12">
           <DepositQr
             reservation={r}
@@ -748,6 +771,7 @@ export function DepositDialog(props: DialogBase) {
               setQr(x);
               setAmount(vnd(x.payment.amountVnd));
             }}
+            onClosed={bookingClosed}
           />
         </div>
       ) : null}
@@ -762,7 +786,12 @@ export function DepositDialog(props: DialogBase) {
           {t('dep.qr_expired')}
         </Alert>
       ) : null}
-      {qrOver !== null ? null : qrAct.view()}
+      {closedAs ? (
+        // V5-48 (UXD 9.1a): never "reload" – what to do with money that may already be in OTTIMO's account.
+        <Alert tone="bad">{closedBookingSentence(t, closedAs, !deskRole)}</Alert>
+      ) : qrOver !== null ? null : (
+        qrAct.view()
+      )}
       {act.errorView({ required: need, paid: paidBefore + value })}
       <div className="g-2">
         <Field

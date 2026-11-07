@@ -88,7 +88,7 @@ Phần việc của quầy đúng quyền. Một người trực giữ nhiều v
   > Trước khi gửi, kiểm liên hệ trên đơn. Nhầm là do liên hệ trên đơn sai, hoặc không chắc liên hệ nào là của khách: **không** gửi link mới. Mời khách làm thủ tục tại quầy khi đến. Ghi vào dòng sổ giao ca "liên hệ trên đơn sai: có/không".
 
   Cách này dùng lại luật đã có ở 17.3 bước 3 ("gửi tới liên hệ trên đơn, hoặc mời làm thủ tục tại quầy"), không thêm luật mới. Sửa liên hệ trên đơn là việc khác, theo luồng hồ sơ khách thường; runbook không cần nói. DOM xác nhận câu, rồi BA chép sang 17.3 bước 5, Tờ 1 và sổ tay ở bản kế tiếp.
-- Trạng thái: Open
+- Trạng thái: Open – DOM xác nhận câu (`DOM-on-ba-card-v574-01.md`, thêm cách nhận ra liên hệ sai, ngừng mọi tin, không sửa liên hệ theo lời người khác); SEC đưa vào runbook 1.2 (`00deb9bc`); BA chép sang `02` 17.3 bước 5 và sổ tay 2.9 bước 6 (lượt 2, 07/11). Còn Tờ 1 (PO). Đóng khi PO xong.
 
 ### FB-R5-BA-SEC-V574-02
 - Mức độ: Minor – SEC.

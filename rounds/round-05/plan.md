@@ -339,7 +339,7 @@ Thêm khi cắt:
 - giả định: push điện thoại vẫn Mock ở v1.0.5 (DOM PO-08 giả định 2). OPS bật push thật thì bỏ vế "Tin không đổ chuông" ở release notes và Tờ 2a;
 - **Giới hạn đã biết** v1.0.5 trỏ về sổ tay 1.1, `01` 2.1 cho K-MB: BA đã thêm K-MB vào hai chỗ này (có trên `main` từ BA lượt 4 `da596507`). Khi cắt chỉ kiểm còn đó; mất thì bỏ dòng "Hướng dẫn" của mục minibar, các bước K-MB trong release notes vẫn đủ để làm.
 
-### 4b. Còn lại tới cắt code 13/11 (PO, 07/11 tối, đối chiếu `main` @ `d32ed9b5`)
+### 4b. Còn lại tới cắt code 13/11 (PO, 07/11 tối, đối chiếu `main` @ `d32ed9b5`; PO 07/11 Review thêm PR #165–#172 theo `main` @ `511d7f23`)
 
 Mọi việc v1.0.5 chưa gộp vào `main`. Rủi ro: **Cao** = chưa có PR hoặc nhánh, khó kịp 13/11; **TB** = có PR hoặc việc nhỏ nhưng còn vướng; **Thấp** = đã duyệt, chỉ chờ gộp. Thứ tự làm do PO xếp: việc bắt buộc trước việc nên có; trong làn FE, Gói 2, V5-12, V5-16 Desk trước Desk 5B-1 và ô người chốt.
 
@@ -354,21 +354,22 @@ Mọi việc v1.0.5 chưa gộp vào `main`. Rủi ro: **Cao** = chưa có PR ho
 
 | Việc | Làn | PR | Vướng / việc kế | Rủi ro 13/11 |
 |---|---|---|---|---|
-| Gói 2: V5-20, V5-21 (gồm câu Desk V5-25), V5-22 phần Desk, V5-23, V5-24 (T20) | FE-A (Desk), FE-B, MOB (trang khách, tiếng Nga), CPY, UXD | chưa | Chữ UXD, CPY đã có; máy chủ đã có. Chưa ai nhận làn | **Cao**: 5 việc, chưa nhánh |
-| V5-12 bước Bill: **Tổng cộng** gồm đêm thêm | FE-A | chưa | – | **Cao** |
-| V5-16 phần Desk: câu 403, nút **Gửi miễn có duyệt**, lý do **Ghi nhầm** (T4; US-177 AC2, Must) | FE-A | chưa | Chữ UXD 9.5 đã có | **Cao** |
+| Gói 2: V5-20, V5-21 (gồm câu Desk V5-25), V5-22 phần Desk, V5-23, V5-24 (T20) | FE-A (Desk), FE-B, MOB (trang khách, tiếng Nga), CPY, UXD | #171 (V5-20 + V5-22 Desk, `e825de5b`); #166 (V5-21 + câu Desk V5-25, `c7ef93b2`). V5-23, V5-24 chưa | #171: chờ UXD (chọn giữa copy 1.2 `rate.pre_tier_short` và dòng grep mục 8), DOM, ARC (mock `RATE_OUT_OF_RANGE`), QA; `gitleaks` đỏ 07/11. #166: xung đột với `main`, chủ PR gộp `main` rồi chạy lại `gen_strings`; chưa có review. V5-23, V5-24 chưa ai nhận | **Cao** (V5-23, V5-24 chưa nhánh); #171, #166 TB |
+| V5-12 bước Bill: **Tổng cộng** gồm đêm thêm | FE-A2 | #169 (`d8712188`) | ARC, DOM, UXD duyệt @ `d8712188`; ARC 169-03 (Minor, v1.0.6) | Thấp |
+| V5-16 phần Desk: câu 403, nút **Gửi miễn có duyệt**, lý do **Ghi nhầm** (T4; US-177 AC2, Must) | FE-A | #168 (`a5285fd1`) | Chờ ARC, SEC, DOM, UXD (ô Ghi chú điền sẵn lý do hay để trống), QA. Khi gộp: PO bỏ câu tạm "Desk chỉ báo lỗi chung" ở Giới hạn đã biết (4a T4), BA sửa sổ tay sang nút **Gửi miễn có duyệt** | TB |
 | V5-13 + V5-44 (a) Desk (T12, T13) | FE-3 | #134 | ARC, UXD duyệt @ `27ec7513`; gỡ xung đột, gộp sau #137 | Thấp |
 | V5-18 Desk (T12) | FE-3 | #141 | ARC, UXD duyệt @ `ff2ad034`; gỡ xung đột, gộp sau #134 | Thấp |
 | V5-15 nút **Báo cần dọn** trên app nhân viên (T2) | MOB | #97 | Đã duyệt; gỡ xung đột tệp chữ, ORC gộp | Thấp |
-| V5-17 cờ `is_complimentary` theo tiền, tính lại dữ liệu, mốc "trước" M4d | DATA + BE | chưa | Có thể cần sửa dữ liệu (ARC, SEC xem) | **Cao** |
+| V5-17 cờ `is_complimentary` theo tiền, tính lại dữ liệu, mốc "trước" M4d | DATA + BE | #172 (`1a848c2a`) | Có migration `0097_complimentary_follows_revenue` (số tạm, ORC xác nhận; V5-45 cũng cần một migration). Chờ ARC (migration, trigger, quay lui), SEC (chỉ in số, M4d chỉ đọc, ghim SHA), DATA (định nghĩa), QA (hồi quy ADR, Occupancy); `gitleaks` đỏ 07/11. Không đổi điều kiện lên production: bản đã có migration, V5-61 chặn cả bản (quyết định 25) | TB |
 | V5-41 `nodemailer` ≥ 10.1.7 (cùng ảnh `node:22-alpine` `fe4f6d7` của #27) | OPS | PR `r5-deps` (đang làm; #9, #10, #11 là bản 10.1.4, không đủ) | SEC `9e33a230`: 10.3.1 nếu gộp từ 12/11 19:31, không thì 10.2.1; 9 việc CI + T9 tay; đóng #9, #10, #11 khi gộp | TB |
-| V5-42 worker không ghi `err.message` | BE-D | chưa | – | TB (việc nhỏ) |
+| V5-42 worker không ghi `err.message` | BE-D | #170 (`a5785ddf`) | Chờ SEC (BED-02, BED-03); không migration, không đổi hợp đồng. `build-test` và `gitleaks` đỏ 07/11, chủ PR xem trước khi xin gộp | TB |
 | V5-45 cho đặt hạn lưu ảnh giấy tờ 90 ngày | BE | chưa | Giới hạn khóa cần migration nhỏ (cùng ĐK-2) | TB |
-| V5-47 tờ in và trang khách tự so chữ khi build | UXD + OPS | chưa | – | TB |
+| V5-47 tờ in và trang khách tự so chữ khi build | UXD + OPS | #165 (`38c9c398`) | **PO ĐẠT** (`PO-on-ops-pr-165.md`; KHỚP 7 tờ × 4 khóa, cả trên gộp thử `main` @ `511d7f23`). Chờ UXD (chữ, bộ dựng), SEC (luật so, CI, CODEOWNERS) cùng SHA; gộp `main` trước khi gộp | Thấp |
 | PR-M: V5-30 phần còn lại + V5-31 (T25) | BE-H | chưa nhánh | Hợp đồng 1.22, 1i có; T6, T19 đạt; DOM gửi chi tiết ngoài repo; review ARC, SEC (1H-02), DOM; quyết định 32 | **Cao**. Không kịp 13/11 thì bản riêng trước 01/12 |
 | V5-74 runbook sự cố dữ liệu khách (tài liệu) | SEC (+ OPS) | chưa | Hạn 14/11 | TB |
 | V5-61 diễn tập khôi phục | OPS + SEC + INV | – | INV 30 phút, tuần 09–13/11. **Chặn production cả bản** (quyết định 25), không chặn cắt code | **Cao** |
 | V5-60 lịch kéo sao lưu tự động | OPS + INV | – | INV đồng ý cài; tới đó ORC kéo tay | Không phải mã |
+| **Việc vận hành song song (INV 07/11, không chặn cắt code):** chuyển bản sao lưu production lên Google Drive công ty; gom dự án (mã trên GitHub + tệp chỉ có trên máy) lên Drive trước khi INV có thể bán laptop | OPS (đang làm) + INV; SEC xem phần khóa | – | Theo decision-log INV 07/11: giữ song song bản trên Mac 2 tuần sau khi Drive chạy ổn và thử khôi phục được, ORC hỏi lại trước khi xóa. Trước khi bán máy: chuyển khóa, bí mật; thu hồi khóa SSH của Mac trên VPS, GitHub; xóa sạch máy. Không gắn tag, không vào QC v1.0.5; OPS xếp sau V5-41 và cùng lúc V5-60, V5-61 (diễn tập nên dùng bản từ đích mới nếu kịp) | Không phải mã |
 | V5-71 sổ tay v1.0.5 | BA | – | Theo các PR Desk; gồm câu PO 07/11 ở `02`, `01`, sổ tay | Làm tiếp sau 13/11, trước QC |
 | V5-72 release notes v1.0.5 | PO | – | Lúc cắt: "Dự kiến có" thành "Có trong bản này" theo 4a | Làm lúc cắt |
 
@@ -381,6 +382,7 @@ Mọi việc v1.0.5 chưa gộp vào `main`. Rủi ro: **Cao** = chưa có PR ho
 | Desk ô đổi người chốt (T22; DOM 154-03, SEC 1I-03) | FE | nhánh `r5-fe-closer-field` (đang làm, chưa PR) | Chữ UXD 9.16 đã có; review ARC, UXD, SEC (1I-03), DOM (154-03) | TB |
 | FE-A2 việc tiếp của #145: ARC 145-04 (test), 145-05, PR150-01, DOM 155-04 (tên người chốt ở **Nhật ký tiền**); chữ UXD 9.18 nếu kịp | FE-A2 | #159 | DOM `836c08e3`, ARC `52805032` duyệt @ `f810e77b`; gộp khi CI xanh. Chữ UXD 9.18 (`mlog.a_closer_changed_legacy`, `mlog.closer_inactive`) ở PR FE-A2 kế tiếp | Thấp |
 | OPS CODEOWNERS dòng `/rounds/*/outputs/OPS/*.sql` (SEC 155-02, Suggestion) | OPS | PR OPS kế tiếp | – | Thấp |
+| Đếm lượt mở link khách đã thu hồi (OPS `OPS-on-sec-v5-74.md` mục 3; SQL chỉ đọc khuôn K14, ~nửa ngày OPS + SEC ghim, không migration) | OPS → SEC | – | **PO xếp v1.0.6** (`PO-on-ops-pr-165.md` mục 5.1): không vào cắt 13/11; runbook V5-74 bước 4 giữ câu "chưa đếm được thì coi như đã mở". Không vào image, nên OPS làm được sớm sau 13/11 khi rảnh | – (v1.0.6) |
 | V5-5C Desk cảnh báo giá đêm cả hai biên (T10) | FE-2 | #138 | Chưa có review | TB |
 | V5-58 ô Wi-Fi trên Desk (T14) | FE-2 | #136 (nháp) | Chưa có review | TB |
 | Chữ "Chưa có tỷ lệ hoa hồng" trên Desk (ca T30-1; ARC `ARC-on-be-pr-101-h1.md` mục tương thích client) | FE-A + UXD | chưa | UXD chưa có khóa. Không chặn: production còn hàng tỷ lệ, câu không hiện. PO đã sửa câu release notes theo `main` | Thấp |
@@ -388,6 +390,8 @@ Mọi việc v1.0.5 chưa gộp vào `main`. Rủi ro: **Cao** = chưa có PR ho
 | V5-5A trang khách mở lại link giữa chừng | MOB/FE-B | chưa | – | Như trên |
 | V5-56 (QA tái hiện), V5-57 (QA kiểm tìm đơn theo tên) | QA (→ FE-A) | – | – | Như trên |
 | V5-66 landing staging, V5-68 báo tin Chat không gửi được, V5-69 nhắc hạn (INV cho ngày) | OPS (+ BE-D) | chưa | – | Như trên |
+
+**PR mới 07/11 (PO ghi vào bảng trên):** #165 V5-47, #166 V5-21/V5-25, #168 V5-16, #169 V5-12, #170 V5-42, #171 V5-20/V5-22, #172 V5-17.
 
 **Đã gộp sau `036a7c3d`:** V5-50 hộp **Đổi phòng** chỉ liệt kê căn VI/VC (#98, `9419fbde`); OPS runbook K14 (T19, #155, `d32ed9b5`; K14 đếm và K14-L r5.1 đã ghim).
 
@@ -557,6 +561,12 @@ Mọi việc v1.0.5 chưa gộp vào `main`. Rủi ro: **Cao** = chưa có PR ho
     - PR-M chưa gộp lúc cắt code: cắt v1.0.5 không có PR-M (4a T25). PR-M lên bản riêng trước 01/12, cũng sau V5-61 và khi chủ đầu tư đồng ý. Tới khi lên: hoa hồng HĐ thuê tháng và thưởng quản lý tính ngoài Desk theo bảng nội bộ (DOM); phí dọn thuê tháng: lễ tân thêm dòng phí phần chênh (V5-31).
     - T19: truy vấn DOM 1H-01 chạy **sau** khi bản có `r5-h1c` lên production, bằng khối ghim K14 (OPS #155), không chạy trước khi cắt. Tag cắt từ `main` có #154, nên không cần dòng "Sửa người chốt" ở **Giới hạn đã biết**.
     - Thêm T20–T25 và mục 4b; xếp thứ tự làm trong làn FE (bắt buộc trước nên có). Không đổi chính sách, không ESC.
+
+33. **Đếm lượt mở link khách đã thu hồi sang v1.0.6; nhãn "OWN tự duyệt và chi" không vào release notes; 4b thêm PR mới và việc Drive của INV** (07/11, PO, Review; ORC giao; `rounds/round-05/reviews/PO-on-ops-pr-165.md` mục 5).
+    - Bộ đếm (OPS `OPS-on-sec-v5-74.md` mục 3): v1.0.6, nên có. Runbook V5-74 đã có câu an toàn; làn OPS và lượt review SEC tới 13/11 dành cho việc bắt buộc. Là SQL chạy tay, không vào image, nên làm sớm được sau 13/11.
+    - SEC #160 (cờ `ownSelfApprovedAndPaid` bật cả khi OWN chỉ là người gốc): Desk không hiện cờ, chủ đầu tư chỉ gặp thêm một lần hỏi mật khẩu ở ca hẹp, theo chiều chặt. Không thêm dòng release notes. Thẻ FB-R5-PO-BA-160-01 sửa câu tài liệu.
+    - Chuyển sao lưu và gom dự án lên Google Drive công ty (INV 07/11): việc vận hành song song, không chặn cắt code, không vào QC v1.0.5.
+    - Không đổi chính sách, không ESC.
 
 ## 7. Tổng hợp xếp loại (đếm từ phụ lục)
 
