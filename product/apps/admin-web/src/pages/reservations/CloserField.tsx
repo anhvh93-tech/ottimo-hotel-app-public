@@ -14,6 +14,7 @@ import { api } from '../../app/api';
 import { notifyChanged } from '../../app/live';
 import { fieldErrors } from '../../app/problem';
 import { currentStateOf, rsvErrorText } from '../../app/reservations';
+import { useToast } from '../../app/toast';
 import { isRetryable, useWrite } from '../../app/useWrite';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 
@@ -131,8 +132,12 @@ export function CloserField({
   const [error, setError] = useState<unknown>(null);
   const [forbidden, setForbidden] = useState(false);
   const write = useWrite();
+  const toast = useToast();
   const selectRef = useRef<HTMLSelectElement>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
+  // UXD 162-01: after a save, focus goes back to the select – once the write is no longer busy (the select is
+  // disabled while it is, and focus() on a disabled control does nothing: focus fell to <body>).
+  const [refocus, setRefocus] = useState(false);
 
   // The stored closer changed (saved here, a reload, another desk): the box follows it and the reason goes.
   useEffect(() => {
@@ -143,6 +148,11 @@ export function CloserField({
   useEffect(() => {
     if (forbidden) noticeRef.current?.focus();
   }, [forbidden]);
+  useEffect(() => {
+    if (!refocus || write.busy) return;
+    setRefocus(false);
+    selectRef.current?.focus();
+  }, [refocus, write.busy]);
 
   if (!shown) return null;
 
@@ -185,7 +195,9 @@ export function CloserField({
       notifyChanged();
       setReason('');
       onSaved(out.data);
-      selectRef.current?.focus();
+      // Changing the closer moves the commission: say it is saved, like every other Desk save (UXD 162-01).
+      toast(t('common.saved'));
+      setRefocus(true);
     } catch (err) {
       if (isRetryable(err)) return; // the retry notice keeps the input and explains
       if (isApiError(err) && err.status === 403 && err.code === 'FORBIDDEN_ACTION') {

@@ -231,6 +231,21 @@ describe('V5-30 – what the Desk sends (contract 1i, BE 1H-01)', () => {
     });
   });
 
+  it('after Save: toast common.saved, focus back on the select once it is enabled (UXD 162-01)', async () => {
+    at('in_house');
+    const { user, d } = await openAs('qa.owner');
+    const box = await closerSelect(d);
+    await user.selectOptions(box, userId('qa.fd'));
+    await user.type(within(d).getByLabelText(REASON), 'Khách do lễ tân chốt');
+    await user.click(within(d).getByRole('button', { name: tv('common.save') }));
+    const toast = await screen.findByText(tv('common.saved'));
+    expect(toast.closest('[aria-live="polite"]')).not.toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(box));
+    expect(box).toBeEnabled();
+    expect(box.value).toBe(userId('qa.fd'));
+    expect(within(d).queryByLabelText(REASON)).toBeNull();
+  });
+
   it('checked_out, OWN: the body holds only closerUserId + closerChangeReason (BE 1H-01) and is accepted', async () => {
     const r = at('checked_out');
     const version = r.version;
