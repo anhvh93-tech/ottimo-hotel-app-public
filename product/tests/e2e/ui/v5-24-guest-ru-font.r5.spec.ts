@@ -2,7 +2,8 @@
 // The CI stack serves guest-web through Caddyfile.dev (no CSP header), so this case adds the exact production policy
 // of guest-web (Caddyfile.prod, worker-src 'none' – the same value infra/caddy/expected-headers.sh pins) to the
 // document response. Then:
-//   - 0 CSP violations for `font-src` (before the fix: 6 per load – the small JetBrains Mono faces were `data:`);
+//   - the CSP header is on the document response, and a canary `data:` font is blocked exactly once (SEC 167-01);
+//   - 0 CSP violations of any directive (before the fix: 6 `font-src` per load – the small faces were `data:`; 167-02);
 //   - every JetBrains Mono face the page asks for loads (Cyrillic, Cyrillic-ext, Vietnamese, Latin; 400 and 500), so
 //     Russian in the code and Wi-Fi boxes is JetBrains Mono, not the fallback font;
 //   - the stay text says "номер", never the banned "апартаменты" (CPY C1);
@@ -103,7 +104,11 @@ test.describe(
 
       // The page opens its own session (guest-open 10/min per IP) – clear the limiter first (CI #112 / #126).
       await resetRateLimits(request, 'V5-24: trang khách tự mở phiên (guest-open 10/phút/IP)');
-      await page.goto(link.url);
+      const nav = await page.goto(link.url);
+      // SEC 167-01: prove the policy reached the page – the header on the document response…
+      expect(nav?.headers()['content-security-policy'], 'production CSP on the guest page').toBe(
+        csp,
+      );
       const checkin = RU['guest.stay.checkin_time']!;
       expect(checkin).toContain('номер');
       await expect(
@@ -143,17 +148,21 @@ test.describe(
       ).toEqual([]);
       expect(Object.values(faces.checks).every(Boolean), JSON.stringify(faces.checks)).toBe(true);
 
-      const violations = await page.evaluate(
-        () => (window as unknown as { __csp: { directive: string; uri: string }[] }).__csp,
+      type Violation = { directive: string; uri: string };
+      const readViolations = () =>
+        page.evaluate(() => (window as unknown as { __csp: Violation[] }).__csp);
+      // Every violation fails the case (SEC 167-02): this is the only CI run of the real guest page under the
+      // production CSP. Check before the canary, so the canary is the only expected one.
+      expect(await readViolations(), 'CSP violations on the guest page').toEqual([]);
+      expect(consoleCsp, 'CSP errors in the console').toEqual([]);
+
+      // SEC 167-01: …and a canary `data:` font is blocked, exactly once – the CSP is enforced, not just sent.
+      await page.evaluate(() =>
+        new FontFace('csp-canary', 'url(data:font/woff2;base64,AAAA)').load().catch(() => null),
       );
-      expect(
-        violations.filter((v) => v.directive === 'font-src'),
-        'CSP font-src violations',
-      ).toEqual([]);
-      expect(consoleCsp.filter((t) => /font/i.test(t))).toEqual([]);
-      const other = violations.filter((v) => v.directive !== 'font-src');
-      if (other.length)
-        info.annotations.push({ type: 'csp-other', description: JSON.stringify(other) });
+      await expect
+        .poll(readViolations, { message: 'canary data: font blocked by font-src' })
+        .toEqual([{ directive: 'font-src', uri: expect.stringMatching(/^data/) }]);
 
       await scan(page, info, 'V5-24-ru-csp');
       await ctx.close();

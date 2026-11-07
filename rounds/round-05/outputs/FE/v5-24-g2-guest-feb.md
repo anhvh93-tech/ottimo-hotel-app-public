@@ -80,3 +80,12 @@ Bước 5 (`phụ thu`) để `it.todo` tới C6 (v1.0.6).
 - Ngoài phạm vi, chuyển UXD: `design/content-guide.md` còn chép chữ cũ (bảng `msg.*`, `guest.stay.checkin_time`, `guest.oci.done_body`, `gw.req.clean_makeup_free`, `gw.lang_auto`), cần dán lại `strings-tables.md`. `design/hifi/23-guest-requests.html` còn câu cũ trong khung mẫu.
 - Ngoài phạm vi, chuyển FE-A và MOB: cùng cách sửa font ở `apps/admin-web` và `apps/mobile` (mục 5.2 ý 2, 4).
 - Ảnh: không chụp, không commit ảnh.
+
+## 5. Phản hồi review #167 (Round 5, Phản hồi & sửa, 07/11)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-SEC-FEB-167-01 | Done | E2E V5-24-1 kiểm header `content-security-policy` trên phản hồi `page.goto` bằng đúng chuỗi của `Caddyfile.prod`, và font mồi `data:` phải ra đúng **một** vi phạm `font-src` (`uri` bắt đầu `data`). Route không khớp thì ca đỏ |
+| FB-R5-SEC-FEB-167-02 | Done | Bỏ annotation `csp-other`: mọi vi phạm CSP (mọi chỉ thị) và mọi dòng CSP ở console làm ca đỏ, kiểm trước font mồi. Probe tĩnh ở máy: 0 vi phạm khác. Nếu CI đỏ ở chỉ thị khác, FE-B gửi SEC trước khi sửa, không nới CSP |
+| FB-R5-SEC-FEB-167-03 | Ghi nhận | Việc FE-A, MOB (admin-web, PWA) |
+| FB-R5-CPY-FE-167-01 | Done | `guest-copy-lint.test.ts` thêm mọi khóa trong `quote-copy.ts` (`sale.quote_nights_*`, `_adults_*`, `_kids_*`, `_under6_*`, `sale.quote_text_extra_guest_*`) và mọi khóa guest-web ship ở họ chung (`common.*`, `error.*`, `field.*`, `shell.skip`, cùng bộ lọc `build/used-keys.ts`). U+FE0F viết `\u{FE0F}`. Bước 1–4 vẫn xanh |
