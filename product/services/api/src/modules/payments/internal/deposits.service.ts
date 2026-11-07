@@ -9,6 +9,8 @@
  *   (AC2 "giao dịch vẫn được ghi, đơn giữ hold").
  * createDepositNotice (SAL/CTV own, A53): "khách đã chuyển cọc" → row + push to FD/FDL and the sale in
  *   charge (outbox, no amount in the payload – C2 stays out of push); FD/SAL confirm with B4.
+ *   0.3.13 bổ sung 1 (5B-1, SEC S7; DOM 11.4 mục 5): on a `cancelled`/`no_show` booking → the same row (202) and the
+ *   "Cần chú ý" `deposit_after_cancel` item for FD+ instead of 409 – no receipt, the booking unchanged.
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
@@ -35,7 +37,12 @@ import {
   type AttachmentUsage,
   anchorPaymentAttachment,
 } from '../public/attachment-usage';
-import { PaymentService, primaryRole, reconciliationFor } from '../public/payment.service';
+import {
+  PaymentService,
+  closedStatusOf,
+  primaryRole,
+  reconciliationFor,
+} from '../public/payment.service';
 
 const FULL_SCOPE = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 /** SEC-BE-28: minimum gap between two pushes of the same open deposit notice. */
@@ -54,6 +61,8 @@ export interface DepositPaymentInput {
   note: string | null;
   /** 0.3.6: receipt image (`uploadAttachment purpose=deposit_receipt`, A-17 lifted). */
   attachmentId?: string | null;
+  /** 0.3.13 bổ sung 1 (PR-B3): bank code, read by `readBankReference` (`payment.` prefix); duplicates in recordManual. */
+  bankReference?: string | null;
 }
 
 function own(c: Caller): boolean {
@@ -233,6 +242,7 @@ export class DepositsService {
         receivedAt,
         posAuthCode: input.payment.posAuthCode,
         note: input.payment.note,
+        bankReference: input.payment.bankReference ?? null,
         recordedBy: c.userId,
         // SEC-BE-22 (1): whatever the method, a receipt recorded by a sale waits for the desk/bank check.
         ...(desk ? {} : { reconciliation: 'pending' as const }),
@@ -413,7 +423,11 @@ export class DepositsService {
         field: 'attachmentId',
       });
     }
-    if (t.status !== 'hold') {
+    // 0.3.13 bổ sung 1 (5B-1, SEC S7; DOM 11.4 mục 5; QA BUG-R5-002 (f)): a closed booking (any reason) takes the
+    // notice too – it opens "Cần chú ý" `deposit_after_cancel` for FD+; it never records money, and its image is
+    // never the proof of a receipt (PaymentsService.recordAfterClosure → 422).
+    const closed = closedStatusOf(t.status);
+    if (t.status !== 'hold' && !closed) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: t.status } });
     }
     const now = this.clock.now();
@@ -457,10 +471,46 @@ export class DepositsService {
       entityType: 'deposit_notice',
       entityId: id,
       entityCode: t.code,
-      after: { amountVnd: input.amountVnd, status: 'open' },
+      // SEC S6/S7 (BE C0313-22): the value at write time that `listAuditEvents.afterClosureOnly` filters on.
+      after: {
+        amountVnd: input.amountVnd,
+        status: 'open',
+        ...(closed ? { afterClosure: true } : {}),
+      },
       ...(requestId ? { requestId } : {}),
     });
+    if (closed) {
+      // One open item per booking (dedupe key) – a repeated notice updates the row above, never a second item.
+      await this.events?.openAttention(tx, {
+        kind: 'deposit_after_cancel',
+        severity: 'warning',
+        dedupeKey: `deposit_after_cancel:${t.id}`,
+        refType: 'reservation',
+        refId: t.id,
+        refCode: t.code,
+        params: { code: t.code },
+        now,
+      });
+    }
     if (prev && now.getTime() - prev.updated_at.getTime() < NOTICE_REPUSH_MS) return;
+    if (closed) {
+      // FD+ hear it ("Tiền về cho đơn đã hủy {code}") – the booking code only (SEC S8 last point); the sale reads the
+      // booking's state in their own list.
+      await notifyStaff(
+        tx,
+        this.events,
+        {
+          kind: 'deposit_after_cancel',
+          roles: [...FULL_SCOPE],
+          excludeUserIds: [c.userId],
+          refType: 'reservation',
+          refId: t.id,
+          refCode: t.code,
+        },
+        now,
+      );
+      return;
+    }
     const { rows: users } = await tx.query<{ user_id: string }>(
       `SELECT DISTINCT upr.user_id FROM user_property_role upr JOIN app_user u ON u.id = upr.user_id
         WHERE upr.property_id = $1 AND upr.revoked_at IS NULL AND u.status = 'active' AND upr.user_id <> $2
