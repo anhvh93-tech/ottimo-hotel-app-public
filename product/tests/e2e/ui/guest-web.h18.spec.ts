@@ -26,7 +26,6 @@ import {
 } from '../support/s3.js';
 import { scan } from './axe.js';
 import { UI } from './helpers.js';
-import { knownBug, precondition } from '../support/known-bugs.js';
 
 const STR = (lang: 'vi' | 'en') =>
   JSON.parse(
@@ -318,21 +317,24 @@ test.describe(
       await page.context().close();
     });
 
-    test('TC-L7-053 (E) US-112/AC2 BUG-R2-218: khách VN (hồ sơ tự nhận `vi` theo quốc tịch), trình duyệt en-US → trang tiếng Việt theo hồ sơ; KHÔNG được ghi "Ngôn ngữ theo trình duyệt của bạn" (ngôn ngữ không lấy từ trình duyệt)', async ({
+    // BUG-R2-218 đóng ở v1.0.5 (V5-23, copy-v1.0.5 4.6, CPY C2): câu không nói nguồn chọn ngôn ngữ nữa. Dòng dưới lời
+    // chào = `gw.lang_auto` ("có thể đổi ở đầu trang"); mô tả của ô chọn ngôn ngữ = `gw.lang_auto_sr` (trạng thái).
+    test('TC-L7-053 (E) US-112/AC2 BUG-R2-218: khách VN (hồ sơ tự nhận `vi` theo quốc tịch), trình duyệt en-US → trang tiếng Việt theo hồ sơ; câu ngôn ngữ chỉ nói "đổi được ở đầu trang", không nói "theo trình duyệt"', async ({
       browser,
       request,
     }) => {
-      knownBug('BUG-R2-218');
-      const { link } = await precondition('đơn khách VN + link', () =>
-        bookingWithLink(request, '103'),
-      );
+      const { link } = await bookingWithLink(request, '103');
       const page = await guestPage(browser, 'en-US');
       await gotoGuest(page, request, link.url);
       await expect(
         page.getByRole('button', { name: VI['guest.cta.checkin_short']! }).first(),
         'hồ sơ vi thắng trình duyệt en-US',
       ).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText(VI['gw.lang_auto']!)).toHaveCount(0);
+      await expect(page.getByText(VI['gw.lang_auto']!, { exact: true })).toBeVisible();
+      await expect(page.getByRole('combobox').first()).toHaveAccessibleDescription(
+        VI['gw.lang_auto_sr']!,
+      );
+      await expect(page.locator('main')).not.toContainText(/trình duyệt|browser/i);
       await page.context().close();
     });
 

@@ -554,7 +554,7 @@
   "guest.late.title": "Arriving late? Self check-in",
   "guest.late.prompt": "Arriving after 22:00? Complete online check-in now to get your door code before you arrive – no need to wait for reception.",
   "guest.late.arrival_hint": "You'll arrive after 22:00: once check-in is done you'll get your door code and can go straight to your room.",
-  "guest.late.done_title": "All set! Your door code is ready",
+  "guest.late.done_title": "All set. Your door code is ready",
   "guest.late.code_valid": "Valid from {from} to {to}",
   "guest.late.code_kept": "The code stays available in this session: reopen this page to see it, even with a weak connection. If you close the browser you'll need to verify again.",
   "guest.late.no_share": "Please don't share a screenshot of this code.",
@@ -2066,7 +2066,7 @@
   "field.TOO_MANY_FILES": "You've reached the photo limit for this person.",
   "gw.req.clean_makeup_free": "Your room hasn't been cleaned today – this clean is free.",
   "gw.req.clean_second_fee": "Your room had a full clean at {time} today. Another full clean costs {amount}.",
-  "gw.req.clean_long_fee": "Your long-stay rent doesn't include cleaning. Each clean costs {amount}.",
+  "gw.req.clean_long_fee": "Cleaning isn't included in long stays. Each clean costs {amount}.",
   "gw.req.clean_what_long": "Includes cleaning, fresh bed linen, bathroom and kitchen.",
   "gw.req.clean_fee_rule": "Not cleaned yet today: free. Already had a full clean and want another: {amount}. Long stays: {amount} each time.",
   "gw.req.towels_free": "Fresh towels and supplies are always free.",
@@ -2791,7 +2791,8 @@
   "staff.notif.new_announce": "New notification",
   "staff.photo_load_error": "Couldn't open photo",
   "staff.block_blocked_body": "Ask the front desk to change the existing block if needed.",
-  "gw.lang_auto": "Language set from your browser – you can change it at the top.",
+  "gw.lang_auto": "You can change the language at the top of the page.",
+  "gw.lang_auto_sr": "Language selected for you",
   "gw.lang_chosen": "Language you chose",
   "ci.pay_received": "Amount received",
   "ci.submit_pay_amount_needed": "Enter the amount received to check in.",
@@ -3532,6 +3533,6 @@
   "msg.checkout_reminder": "Hi {name}, tomorrow {date} is your check-out day (by 12:00). Would you like to stay longer or check out late? Reply here: {link}",
   "msg.bill": "Thank you for staying at OTTIMO, {name}. Folio {bill_no}: {amount}. Details: {link}",
   "msg.utility_bill": "Hi {name}, your utilities bill for {period}: electricity {kwh} kWh, water {m3} m³, total {amount}, due {due}. Meter photos and details: {link}",
-  "msg.house_rules_smoking": "Hi {name}, a friendly reminder: smoking is allowed on the balcony only. Smoking indoors incurs an odour-treatment fee under our house rules. Thank you!",
-  "msg.hot_water_issue": "Hi {name}, we've received your report of no hot water in room {room}. Our technician will be there by {time}. Sorry for the inconvenience!"
+  "msg.house_rules_smoking": "Hi {name}, a reminder from OTTIMO: smoking is allowed on the balcony only. Smoking indoors incurs an odour-treatment fee under our house rules. Thank you.",
+  "msg.hot_water_issue": "Hi {name}, we've received your report of no hot water in room {room}. Our technician will be there by {time}. We're sorry for the inconvenience."
 }

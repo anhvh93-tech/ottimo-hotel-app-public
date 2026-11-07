@@ -48,7 +48,8 @@ export function HomePage({
         <p className="gw-support" lang={support}>
           {translateGuest(support, 'gw.welcome_sub')}
         </p>
-        {/* 0.3.7 bổ sung 1 #12: say once that the language came from the browser/profile and can be changed. */}
+        {/* 0.3.7 bổ sung 1 #12: say once that the language can be changed. v1.0.5 BUG-R2-218: never say where
+            it came from – the guest profile wins over the browser (P-S4-10), so "from your browser" was wrong. */}
         {!localeChosen ? <p className="li-s m-0 mt-4">{t('gw.lang_auto')}</p> : null}
         <p className="li-s">
           <span className="gw-code">{stay.reservationCode}</span>
