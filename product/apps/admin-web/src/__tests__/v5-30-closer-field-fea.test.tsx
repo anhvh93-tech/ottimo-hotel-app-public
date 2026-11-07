@@ -155,6 +155,32 @@ describe('V5-30 – who sees what, by role × milestone (copy 9.16, DOM 154-03)'
       .map((o) => o.textContent);
     expect(names).toEqual(['Mai']);
   });
+
+  it('channel list failed: no guess – read-only "Chưa tải được dữ liệu" + "Thử lại", then the agent select (ARC 162-02)', async () => {
+    const channels = vi.spyOn(api, 'listChannels').mockRejectedValue(new Error('offline'));
+    const candidates = vi.spyOn(api, 'listCloserCandidates');
+    const { user } = renderApp(
+      `/reservations/${mockControl.rsv.reservations.find((r) => r.guestName === 'Lê Minh')!.id}`,
+      'qa.fd',
+    );
+    const d = await screen.findByRole('dialog', { name: 'Lê Minh' });
+    const retry = await within(d).findByRole('button', { name: tv('common.retry') });
+    const dd = retry.closest('dd')!;
+    expect(dd).toHaveTextContent(tv('common.error_generic_title'));
+    // Never the staff choices on a CTV booking.
+    expect(within(d).queryByRole('combobox')).toBeNull();
+    expect(within(d).queryByText('Hạnh')).toBeNull();
+    channels.mockRestore();
+    await user.click(retry);
+    const box = await within(d).findByRole('combobox', { name: tv('bk.closer') });
+    await waitFor(() => expect(box).toBeEnabled());
+    expect(
+      within(box)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Mai']);
+    expect(candidates).toHaveBeenCalled();
+  });
 });
 
 describe('V5-30 – what the Desk sends (contract 1i, BE 1H-01)', () => {

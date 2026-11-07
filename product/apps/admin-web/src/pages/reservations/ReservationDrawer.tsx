@@ -597,6 +597,8 @@ export function ReservationDrawer({
             key={r.id}
             reservation={r}
             channelGroup={channelGroup}
+            channels={catalog.status}
+            onRetryChannels={catalog.reload}
             online={online}
             reload={reloadNow}
             onBooking={(u) => mutate(() => u)}

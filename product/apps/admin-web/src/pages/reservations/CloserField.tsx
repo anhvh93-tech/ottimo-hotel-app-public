@@ -80,6 +80,9 @@ export function closerAccess(
 interface Props {
   reservation: Reservation;
   channelGroup: ChannelGroup | undefined;
+  /** The drawer's channel list (`useCatalog`), where the channel group comes from (ARC 162-02). */
+  channels: 'loading' | 'ready' | 'error';
+  onRetryChannels: () => void;
   online: boolean;
   /** Read the booking again (the drawer keeps it); null when the read failed. */
   reload: () => Promise<Reservation | null>;
@@ -112,6 +115,8 @@ type Refusal = { kind: 'moved' | 'account' | 'unread'; version: number };
 export function CloserField({
   reservation: r,
   channelGroup,
+  channels,
+  onRetryChannels,
   online,
   reload,
   onBooking,
@@ -123,7 +128,11 @@ export function CloserField({
   const access = closerAccess(roles, r);
   const kind = closerKindOf(channelGroup, r.directSource);
   const current = r.closerUserId ?? '';
-  const shown = access.mode !== 'hidden' && (kind !== null || current !== '');
+  // ARC 162-02: the kind (label, choices) comes from the channel group, so nothing is guessed before the channel list
+  // is in – no row while it loads, read-only with "Thử lại" when it failed. Never the staff label and every person on
+  // a CTV booking (the server would answer 422 NOT_IN_LIST).
+  const shown =
+    access.mode !== 'hidden' && channels !== 'loading' && (kind !== null || current !== '');
 
   // Names come from the candidate list (FD+, `kind=all`: active people only – no lock state, D27).
   const [list, setList] = useState<CloserCandidate[] | null>(null);
@@ -347,14 +356,16 @@ export function CloserField({
     </>
   );
 
-  if (access.mode !== 'edit' || refused || (!list && listFailed)) {
+  const failed = channels === 'error' || (!list && listFailed);
+  if (access.mode !== 'edit' || refused || failed) {
     const line = access.mode === 'read' ? access.line : undefined;
+    // A list that failed: `common.error_generic_title` + `common.retry` in the name's place (copy 9.16 v2.7).
     const name = !current
       ? '–'
-      : list
-        ? nameOf(current)
-        : listFailed
-          ? t('common.error_generic_title')
+      : failed
+        ? t('common.error_generic_title')
+        : list
+          ? nameOf(current)
           : t('common.loading');
     return (
       <div className="mt-12">
@@ -363,9 +374,15 @@ export function CloserField({
           <dd>
             {name}
             {line ? <div className="li-s">{t(line)}</div> : null}
-            {listFailed && !list ? (
+            {failed ? (
               <div className="mt-8">
-                <Button size="sm" onClick={() => setListRound((n) => n + 1)}>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (channels === 'error') onRetryChannels();
+                    if (!list && listFailed) setListRound((n) => n + 1);
+                  }}
+                >
                   {t('common.retry')}
                 </Button>
               </div>
