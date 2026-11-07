@@ -3529,7 +3529,7 @@
   "rsv.closer.reason": "Lý do đổi người chốt",
   "rsv.closer.reason_help": "Lễ tân và lễ tân trưởng đọc được lý do này trong lịch sử đơn. Không ghi họ tên, số giấy tờ, số thẻ của khách, cũng không ghi tỷ lệ hay số tiền hoa hồng.",
   "rsv.closer.reason_hint": "Ví dụ: lúc tạo đơn chọn nhầm người chốt.",
-  "rsv.closer.readonly_manager": "Cần đổi người chốt? Báo quản lý trước khi khách nhận phòng. Sau đó chỉ chủ đầu tư đổi được.",
+  "rsv.closer.readonly_manager": "Cần đổi người chốt? Báo quản lý hoặc chủ đầu tư trước khi khách nhận phòng. Sau đó chỉ chủ đầu tư đổi được.",
   "rsv.closer.readonly_owner": "Khách đã nhận phòng nên chỉ chủ đầu tư đổi được người chốt. Cần đổi thì báo chủ đầu tư.",
   "error.closer_change_forbidden": "Đơn vừa đổi trạng thái nên bạn không đổi được người chốt nữa. Desk đã tải lại đơn.",
   "field_error.reason_card_number": "Lý do có dãy số giống số thẻ thanh toán. Xóa dãy số đó – OTTIMO không lưu số thẻ.",

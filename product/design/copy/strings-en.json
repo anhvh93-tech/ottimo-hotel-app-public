@@ -3529,7 +3529,7 @@
   "rsv.closer.reason": "Reason for the change",
   "rsv.closer.reason_help": "Front desk staff can read this reason in the booking history. Don't write the guest's name, ID or card numbers, or any commission rate or amount.",
   "rsv.closer.reason_hint": "For example: the wrong person was picked when the booking was created.",
-  "rsv.closer.readonly_manager": "Need to change who closed this booking? Tell a manager before the guest checks in. After that, only the owner can change it.",
+  "rsv.closer.readonly_manager": "Need to change who closed this booking? Tell a manager or the owner before the guest checks in. After that, only the owner can change it.",
   "rsv.closer.readonly_owner": "The guest has checked in, so only the owner can change who closed this booking. Tell the owner if it needs changing.",
   "error.closer_change_forbidden": "The booking's status just changed, so you can no longer change who closed it. Desk has reloaded the booking.",
   "field_error.reason_card_number": "The reason contains what looks like a card number. Remove it – OTTIMO doesn't store card numbers.",
