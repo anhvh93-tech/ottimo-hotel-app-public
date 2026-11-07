@@ -9,6 +9,7 @@ import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { canCheckOutOverdue, overdueNights } from '../mocks/overdue';
+import { containsCardNumber } from '../mocks/replyNote';
 import { server } from '../mocks/node';
 import { overdueEarlyAt, overdueGuidanceText } from '../pages/stay/overdue';
 import { renderApp, tv } from '../test/render';
@@ -92,6 +93,17 @@ async function completeNow(user: ReturnType<typeof renderApp>['user']) {
   await user.click(done);
   const box = await screen.findByRole('alertdialog');
   return box;
+}
+
+/** Luhn check, written out here so the test does not lean on the mock's own helper. */
+function passesLuhn(digits: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2) d = d * 2 > 9 ? d * 2 - 9 : d * 2;
+    sum += d;
+  }
+  return sum % 10 === 0;
 }
 
 describe('V5-15 mock rules (server overdue-checkout.ts)', () => {
@@ -295,10 +307,16 @@ describe('V5-15 – H16 overdue box (OWN, MGR ≤ 1 night)', () => {
 
   it('the server reads the reason like V-09: times and dates in it are not a card number (ARC 145-01)', async () => {
     at('09:00');
-    const r = overdueStay(1);
+    overdueStay(1);
+    // FB-R5-ARC-FE-145-05: one fixed sentence, whatever the run date. Its digits joined (16) pass Luhn,
+    // so the old mock rule (Luhn on every digit of the reason) would refuse it; no 13–19 digit run does.
+    const why = 'Khách đi 11:40 ngày 05/11/2026, thấy trống 12:45';
+    const joined = why.replace(/\D/g, '');
+    expect(joined).toHaveLength(16);
+    expect(passesLuhn(joined)).toBe(true);
+    expect(containsCardNumber(why)).toBe(false);
     const { user } = await toTimeStep('qa.mgr');
-    // 13+ digits once joined (the old mock rule) – no 13–19 digit run, so no CARD_NUMBER_DETECTED
-    await user.type(reasonBox(), `Khách đi 11:40 ngày ${dmy(r.departureDate)}, thấy trống 12:15`);
+    await user.type(reasonBox(), why);
     const box = await completeNow(user);
     await user.click(within(box).getByRole('button', { name: /hoàn tất$/ }));
     await waitFor(() => expect(huy().status).toBe('checked_out'));
