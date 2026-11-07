@@ -153,3 +153,29 @@ Thẻ trả lời ở `rounds/round-05/responses/OPS-responses.md`.
 - **P2c bước 2** dùng `git -C` vào repo (ARC 129-01). OPS tái hiện lỗi cũ: chạy ngoài repo ra `fatal: not a git repository` rồi `THIEU`. Bản sửa ra `TRUNG`, `CO`, `CO`.
 - **README 11.1:** thêm `granted_by`/`granted_at` khi cấp vai (ARC 129-02); thêm dòng audit tùy ARC xác nhận, và vai DB do ARC + SEC chốt (SEC 129-02).
 - **CODEOWNERS:** thêm 3 dòng SEC: `postgres-log-terse.test.sh` (ARC 126-01), `scripts/*.sh`, `src/admin/` (SEC 126-01).
+
+## 11. V5-47 – tờ in và trang khách tự so chữ khi build (Sản xuất, 07/11)
+Nguồn: thẻ FB-R4-PO-UXD-IDS2-02 (`rounds/round-04/reviews/PO-on-v104-id-sheet-v2.md`) và FB-R4-SEC-UXD-IDS2-01 (`SEC-on-v104-id-sheet-v2.md`). Nhánh `r5-v5-47`, reviewer UXD, SEC, PO.
+
+**Đã làm:**
+- `product/design/tools/check_print_notice.py` (stdlib, `python3 -I`): so 4 khóa `gw.notice_*` của trang khách với Tờ 4 (EN + VI) và Tờ 4ru (EN + RU), ở hai nơi:
+  - Markdown của one-pager;
+  - 4 tệp HTML đã dựng (5 tờ, tính cả 2 bản của tờ A4 cắt đôi).
+- Trang được đọc đúng như guest-web hiển thị: thứ tự `NOTICE_PARAGRAPHS`, luật ngôn ngữ pháp lý `legalLocale`. Chân tờ `vN` phải là version có chữ trên trang (`NOTICE_TEXT_VERSIONS`).
+- Lệch thì thoát 1, in chữ trang, chữ tờ và phần khác nhau dạng `[-chữ trang-] {+chữ tờ+}`. Ký tự không thấy được hiện dạng `<U+00A0>`.
+- `build_print_sheets.py` dừng trước khi ghi tệp nếu Markdown Tờ 4 lệch trang. Hàm tách đoạn được tách ra thành `notice_parts` để bộ dựng và bộ so dùng chung. HTML dựng ra không đổi byte nào: đã so 6 cách dựng `notice_sheet` trước và sau khi sửa.
+- 25 ca kiểm, ở `product/design/tools/tests/test_check_print_notice.py` (2 ca thêm cho SEC 165-01: tập tờ Tờ 4 ghi cứng `EXPECTED_NOTICE_JOBS`, JOBS đổi thì thoát 2).
+- CI job `build-test`: 2 bước ngay sau `Copy is generated`, chạy cả khi bước trước đỏ (`!cancelled()`).
+- Thêm dòng sự cố ở `dev-setup.md` mục 8. CODEOWNERS: thêm 2 dòng SEC.
+
+**Kết quả hôm nay:** KHỚP. 7 tờ × 4 khóa, chân tờ v2 = `privacy-2026-10-v2`. Không có chữ nào lệch, nên không có câu nào cần hỏi UXD.
+
+**Giả định:**
+- Tách `gw.notice_body` thành 2 đoạn là luật đã duyệt (SEC mục 0). Đổi cách tách thì UXD + SEC duyệt, như khi đổi chữ.
+- Chữ **đậm**/*nghiêng* trên tờ không tính là đổi chữ.
+- Khoảng trắng ASCII liền nhau được gộp thành một, như trình duyệt vẫn làm. Ngoài chuyện đó, U+00A0 và mọi ký tự khác phải giống hệt.
+
+**Chưa làm / ngoài phạm vi:**
+- Không so PDF (Chrome in PDF từ HTML).
+- Không so nhãn, tiêu đề, dòng phụ, tháng ở chân tờ, vì các phần này chỉ có trên tờ.
+- Thấy thêm khi dựng thử: HTML Tờ 1 và Tờ 4 đã commit chưa dựng lại sau các lần đổi CSS gần đây (`.snug` ngày 07/11, đường kẻ tờ nhân viên). Chữ Tờ 4 không đổi. Tờ 1 khác dòng bản in ở chân tờ. Việc này của UXD, nêu ở PR.

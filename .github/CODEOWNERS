@@ -87,3 +87,8 @@
 # code is src/admin/ (SEC FB-R5-SEC-OPS-126-01). Not the whole scripts/ folder: the .mjs generators are not SEC paths.
 /product/services/api/scripts/*.sh @anhvh93-tech
 /product/services/api/src/admin/ @anhvh93-tech
+# SEC (+ UXD, OPS owns the code) – V5-47 gate (FB-R4-SEC-UXD-IDS2-01): the printed ID notice (Tờ 4 / Tờ 4ru) must carry
+# the guest page text word for word. An edit to the checker (SPLIT, the normalisation, the guest-web declarations it
+# reads) or to its self-test can let the sheet at the desk and the consent evidence drift apart unseen.
+/product/design/tools/check_print_notice.py @anhvh93-tech
+/product/design/tools/tests/test_check_print_notice.py @anhvh93-tech

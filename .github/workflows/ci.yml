@@ -132,6 +132,25 @@ jobs:
             exit 1
           fi
 
+      # V5-47 (FB-R4-PO-UXD-IDS2-02, FB-R4-SEC-UXD-IDS2-01): the printed "Your ID details" notice (docs/staff-one-pager.md
+      # Tờ 4 / Tờ 4ru and every built docs/print/to-4-*.html) must carry, word for word, the text the guest page shows
+      # (design/copy/strings-*.json, guest-web NOTICE_PARAGRAPHS / legal language rule) and a footer version the page
+      # has text for. Python stdlib only, so both steps also run when an earlier step is red. The self-test proves the
+      # check goes red on a changed word, a dropped U+00A0, a stale HTML sheet or a version bump, and green on a match.
+      - name: Printed ID notice check self-test (red on a changed word, green on a match)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 2
+        run: python3 -I design/tools/tests/test_check_print_notice.py -v
+      - name: Printed ID notice matches the guest page (check_print_notice.py)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 2
+        run: |
+          python3 -I design/tools/check_print_notice.py || {
+            rc=$?
+            echo "::error::printed ID notice (Tờ 4 / Tờ 4ru) differs from the guest page text – see the diff above; UXD + SEC decide which side is right"
+            exit $rc
+          }
+
       # erd 16.6 (b): the Drizzle schema must match the committed migrations. drizzle-kit generate needs no
       # database; if it writes anything (new SQL, snapshot, journal) the schema changed without a migration.
       - name: Schema matches migrations (drizzle-kit generate creates no file)
