@@ -18,6 +18,17 @@ export const FOC_REASONS: Array<{ value: FocRequestInput['reasonCode']; key: str
   { value: 'other', key: 'foc.r_other' },
 ];
 
+/**
+ * V5-16 (US-177 AC8; contract 0.3.13 1.20): the reasons of a waiver on a line already on the folio – BR-432 plus
+ * "Ghi nhầm" (`entered_in_error`), for a line the front desk may not reduce itself (BR-438). Not offered where a
+ * surcharge is written with its waiver (B9 / B15 – `FOC_REASONS`): that line is not entered in error.
+ */
+export const LINE_FOC_REASONS: Array<{ value: FocRequestInput['reasonCode']; key: string }> = [
+  ...FOC_REASONS.filter((o) => o.value !== 'other'),
+  { value: 'entered_in_error', key: 'foc.r_entered_in_error' },
+  ...FOC_REASONS.filter((o) => o.value === 'other'),
+];
+
 /** BR-436 (INV-007): what a front desk may waive itself – a hint only, the server decides (re-auth). */
 export const SELF_APPLY = { perTimeVnd: 100_000, perMonthVnd: 500_000, categories: ['minibar'] };
 
@@ -187,12 +198,19 @@ export function FocRequestDialog({
   folioId,
   line,
   lines,
+  reductionVnd,
   onClose,
   onDone,
 }: {
   folioId: string;
   line: FolioLine;
   lines: FolioLine[];
+  /**
+   * V5-16 (BR-438, UXD copy-v1.0.5 9.5): opened from "Gửi miễn có duyệt" after the server refused a reduction – what
+   * the desk meant to take off (old − new; a void = the whole line). The amount starts there, never above `foc.max`,
+   * and the form says so (`foc.reduce_note`). Absent = the form opened the usual way.
+   */
+  reductionVnd?: number;
   onClose: () => void;
   onDone: (a: ApprovalRequest) => void;
 }) {
@@ -203,7 +221,10 @@ export function FocRequestDialog({
   const ids = useId();
   const max = focHeadroom(lines, line);
   const [kind, setKind] = useState<FocRequestInput['kind']>('foc');
-  const [amount, setAmount] = useState(vnd(max));
+  const fromReduction = reductionVnd !== undefined;
+  const [amount, setAmount] = useState(
+    vnd(fromReduction ? Math.max(0, Math.min(reductionVnd, max)) : max),
+  );
   const [reason, setReason] = useState<FocRequestInput['reasonCode'] | ''>('');
   const [note, setNote] = useState('');
   const [secret, setSecret] = useState('');
@@ -306,6 +327,7 @@ export function FocRequestDialog({
         </>
       }
     >
+      {fromReduction ? <p className="li-s">{t('foc.reduce_note')}</p> : null}
       {room ? (
         <div className="field">
           <span className="label-h" id={`${ids}-k`}>
@@ -337,7 +359,7 @@ export function FocRequestDialog({
             *
           </span>
         </legend>
-        {FOC_REASONS.map((o) => (
+        {LINE_FOC_REASONS.map((o) => (
           <label key={o.value} className="check">
             <input
               type="radio"
