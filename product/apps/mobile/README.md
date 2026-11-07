@@ -58,4 +58,15 @@ kèm mã 2 bước khi đã bật); `Me.mfaEnrollmentRequired` / `403 MFA_ENROLL
 `EnrollOnDeskPage` (bật trên OTTIMO Desk – nút mở `desk.<miền>` khi app chạy ở `staff.<miền>`, rồi đăng xuất / đăng nhập lại). Hàng đợi gặp 403 này thì
 tạm dừng như 401 (không vào "Cần xem lại").
 
+**v1.0.5 (V5-15)** – nút **Báo cần dọn** (UXD bản 1.7 mục 9.7; việc trong plan gọi là "nút Cần dọn") ở màn căn (H20) khi `allowedEvents` của máy chủ có `needs_cleaning` (căn "Khách đang ở – đã dọn",
+R8 OC → OD, máy chủ thêm việc dọn phòng khách đang ở; hợp đồng 0.3.13 mục 1.4, không đổi API). Đi hàng đợi như các bước khác: Hoàn tác
+10 giây, mất mạng thì lưu trên máy rồi tự gửi, một lần bấm = một lệnh (bấm lặp khi màn chưa kịp vẽ lại không tạo lệnh thứ hai,
+`waitingRoomEvent`); 409 `currentState` = OD (lễ tân bấm trước) → "Đã áp dụng", trạng thái khác → "Cần xem lại". Trong lúc chờ gửi, bước kế
+là "Bắt đầu dọn". Vị trí (review Round 5: FB-R5-UXD-MOB-PR97-01, FB-R5-ARC-MOB-97-01): nút phụ trong thân màn, ngay trên "Báo sự cố căn
+này", kèm dòng giải thích `hk.needs_cleaning_help` – không bao giờ ở ô nút chính chân màn. Ô đó dành cho bước kế tiếp của quy trình dọn,
+và một lần chạm thừa ở đó sẽ thành "Bắt đầu dọn" trên căn có khách. Giờ bấm quá xa → câu `hk.queue.r.time_report` (PR97-02). Mock theo
+`housekeeping.service`: phạm vi T = việc của ngày (hạn hôm nay, hoặc còn mở từ hôm trước), không hủy, chưa giao hoặc giao cho người gọi;
+mọi sự kiện ngoài phạm vi → 404; thứ tự 404 → phạm vi → `performedAt` → `expectedFrom` (FB-R5-ARC-MOB-97-02, FB-R5-QA-MOB-97-02). `scenario.allowedEventsOf` ép danh sách sự kiện cho một căn.
+`dropAnswerOf = 'transitionRoomStatus'` (máy chủ đã làm, mất câu trả lời).
+
 Chưa có: minibar khi dọn phòng có khách (H20.4 – chờ BE-D giao US-066), icon PWA (chờ logo SVG – B6), Web Push (R3).
