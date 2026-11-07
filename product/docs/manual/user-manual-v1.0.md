@@ -687,6 +687,35 @@ Ví dụ: căn 203 đêm thường giá 792.000 đ. Khách rời 20:30, đêm đ
 <!-- BUG-R3-022 Closed 28/10 (rc.4, qa3-rc1.md 17.5). Sửa 30/10 theo BA M13-04, M13-05: folio-lines.service.ts chặn folio closed và settled quá post_checkout_window_until với mọi vai; FolioDialog canAdjust = settled ? mgr : fd; AddChargeDialog evidenceRequired, houseRulesMissing. Câu error.FOLIO_LOCKED sai vế sau = BUG-R3-045 (P3, v1.0.3 hoặc v1.0.4). Ca folio `closed` chưa diễn tập trên staging. -->
 - Khách trả phòng sớm: từ v1.0.2 Desk tính và ghi phí, tạo yêu cầu hoàn qua nút **Trả sớm** (mục 2.14a); quản lý không giảm tiền phòng trên folio bằng tay.
 
+**Trả phòng đơn quá ngày đi (từ v1.0.5).**
+Áp dụng khi anh/chị báo v1.0.5 đã lên. Lễ tân không trả phòng được đơn quá ngày đi. **Quản lý** trả phòng đơn quá 1 đêm; **từ 2 đêm chỉ chủ đầu tư**. Desk không thu đêm khách không ở; khách ở thêm thì **Gia hạn** trước.
+1. Kiểm căn hoặc hỏi buồng phòng: khách còn ở hay đã đi. Khách đã đi: nhắc quầy xóa mã cửa.
+2. **Trả phòng** → ghi **giờ khách rời căn** và **Lý do quá ngày đi** (nút gợi ý, rồi ghi cách biết giờ). Không ghi họ tên, số giấy tờ của khách.
+3. Giờ ghi: có bằng chứng thì giờ đó. Không có bằng chứng: 12:00, hoặc giờ thấy căn trống nếu sớm hơn, không phụ thu. **Đơn có giờ hẹn trả muộn mà không có bằng chứng:** giữ giờ hẹn và phụ thu đã hẹn; có bằng chứng khách đi sớm hơn thì ghi giờ đó, Desk tự giảm phụ thu. Chỉ ghi giờ muộn hơn (phụ thu tăng) khi có bằng chứng khách còn ở. Phụ thu chưa thu mà khách đã đi: ghi công nợ ở bước Bill.
+4. **Khách rời căn lúc 00:00–05:59 của ngày đi mà sau 06:00 hôm sau mới ghi** (tới v1.0.6): gõ **06:00**, ghi giờ thật vào lý do, kiểm hộp xác nhận ghi đúng ngày đi, **không gia hạn**. Số tiền như khi ghi đúng giờ; chỉ giờ trên đăng ký lưu trú lệch, cùng ngày.
+5. Chi tiết từng bước: mục 2.14, khối **Từ v1.0.5 – Trả phòng đơn quá ngày đi**.
+<!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): DOM rules-v1.0.5.md 15.3 ý 2a, 6; DOM-on-fe-pr-145.md mục 3.3, 4; hợp đồng 0.3.13 mục 1.18; Desk #145. BA gộp vào bản kế tiếp, giữ số bản. -->
+
+**Sửa người chốt (từ v1.0.5).**
+Áp dụng khi anh/chị báo v1.0.5 đã lên **và** Desk có ô người chốt trên khung đơn. Desk chưa có ô (v1.0.4; v1.0.5 nếu bản chưa có ô): người chốt chỉ chọn được lúc tạo đơn; chọn nhầm thì lễ tân báo quản lý, anh/chị chi hoa hồng cho người đúng ở kỳ chi, ngoài Desk, như hiện nay.
+
+| Đơn | Ai sửa người chốt |
+|---|---|
+| Giữ chỗ | Lễ tân trở lên |
+| Đã xác nhận, khách chưa nhận phòng | Quản lý, chủ đầu tư. Lý do không bắt buộc |
+| Khách đã nhận phòng (đang ở, đã trả phòng) | **Chỉ chủ đầu tư**, phải ghi lý do |
+
+- Sửa người chốt sau khi khách nhận phòng: chỉ anh/chị sửa được, phải ghi lý do. Desk chuyển hoa hồng sang người mới ngay.
+- Quản lý: khách đã nhận phòng thì không sửa người chốt. Báo chủ đầu tư, kèm lý do.
+- Lý do: lễ tân và lễ tân trưởng đọc được trong lịch sử đơn. Không ghi họ tên, số giấy tờ, số thẻ của khách; không ghi tỷ lệ hay số tiền hoa hồng. Ví dụ: "Lúc tạo đơn chọn nhầm người chốt".
+- Dòng của người mới mang ngày đạt: ngày anh/chị sửa, hoặc ngày khoản còn chờ được xác nhận. Dòng đó vào kỳ chi kế tiếp.
+- Người chốt cũ còn khoản tiền mặt hoặc chuyển khoản chưa đối soát thì hoa hồng của người mới chờ tới khi khoản đó được xác nhận.
+- Anh/chị đã chi hoa hồng đơn đó cho người cũ: vẫn sửa trên Desk để đơn đúng người, rồi trừ phần đã chi ở kỳ chi sau của người cũ.
+- Sửa người chốt chỉ chuyển hoa hồng khách ngắn ngày. HĐ thuê tháng: người hưởng theo HĐ lúc ký.
+- Desk chưa có màn hoa hồng cho chủ đầu tư, quản lý: anh/chị chi theo sổ chi của mình. **Nhật ký tiền** có dòng **Đổi người chốt** (ai đổi, lúc nào).
+- **Ngay sau ngày lên v1.0.5**, đội gửi anh/chị qua kênh riêng số đơn đã đổi người chốt sau khi khách nhận phòng và số đơn có dòng hoa hồng ghi cho người khác người chốt. Có đơn thì đội xin anh/chị đồng ý riêng, rồi gửi thêm danh sách mã đơn, tên nhân viên (không tên khách, không số tiền) và việc cần làm cho từng dòng: đơn khách đang ở xử lý trước giờ trả phòng, đơn khác trước kỳ chi 01/12. Không sửa dữ liệu bằng cách nào khác ngoài Desk.
+<!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): DOM FB-R5-DOM-ARC-1H-02 (DOM-on-contract-addendum-1h.md) chỉnh theo FB-R5-DOM-BE-154-04 (b), (c) (DOM-on-be-h-pr-154.md): bỏ câu tạm "Trước khi sửa, mở Nhật ký tiền → Chờ đối soát…" vì #154 có 1H-04; "mang ngày sửa" thành "ngày đạt". DOM 155-02 đính chính: Desk không có màn hoa hồng cho OWN/MGR. Máy chủ #154 (fe70d0c0), #157 (157c4f40); hợp đồng 1h, 1i. Truy vấn K14 (OPS #155, hợp đồng 1.30) chạy sau Release; bảng việc DOM-on-ops-pr-155-k14.md mục 2 (ORC gửi kèm). Ô sửa trên Desk: plan R5 4a T22; thiếu thì chỉ giữ câu đầu mục. BA gộp vào bản kế tiếp, giữ số bản; sổ tay sale 05: dòng Hoa hồng dự kiến chuyển theo người mới (BA). -->
+
 ### 1.12 Nhật ký tiền, đối soát và hoàn tiền
 
 **Quản trị → Nhật ký tiền** có 3 tab:
@@ -718,6 +747,14 @@ Ví dụ: căn 203 đêm thường giá 792.000 đ. Khách rời 20:30, đêm đ
 3. Khi ngân hàng báo thành công: **Ghi đã hoàn chuyển khoản / qua máy POS** → **Mã giao dịch ngân hàng / mã hoàn POS** → **Ảnh chứng từ** → xác nhận.
 
 [ẢNH: C1-20-Hoàn tiền]
+
+**Từ v1.0.5 – yêu cầu hoàn "Tiền về sau khi hủy"** (lý do **Tiền về sau khi hủy**: Desk tự tạo khi lễ tân ghi tiền khách chuyển về cho đơn đã hủy hoặc không đến, cho phần vượt số đơn còn nợ):
+- Quản lý, chủ đầu tư duyệt yêu cầu "Tiền về sau khi hủy" **sau khi** khoản thu đã đối soát. Chi vốn phải chờ đối soát, nên duyệt sau không làm chậm thêm. Lúc duyệt, người duyệt thấy luôn kết quả đối soát và nhãn **Có thể trùng**. Có nhãn thì kiểm sao kê: một dòng sao kê chỉ khớp một khoản thu.
+- Nơi nhận cố định: chuyển khoản về đúng tài khoản khách đã chuyển. Không chi tiền mặt, không đổi nơi nhận, không hỏi số tài khoản của khách.
+- Đơn có khoản "Tiền về sau khi hủy" chưa đảo: mọi yêu cầu hoàn của đơn chi bằng chuyển khoản về tài khoản đã chuyển, không chi tiền mặt, kể cả yêu cầu được tạo lại (tới v1.0.6).
+- **Đơn đã hủy có khoản tiền về sau khi hủy: không duyệt yêu cầu hoàn có nơi nhận tiền mặt** (lời dặn SEC, tới v1.0.6).
+- Chủ đầu tư thấy tiền về cho đơn đã hủy: gửi ảnh cho lễ tân ghi, không tự ghi. Người ghi không duyệt được yêu cầu hoàn, nên khi không có quản lý đang làm thì yêu cầu sẽ kẹt.
+<!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): câu 1, 3, 5 là DOM FB-R5-DOM-BA-148-04 ý 1, 2, 3 (rounds/round-05/reviews/DOM-on-be-d2-pr-148.md); câu 4 nguyên văn SEC FB-R5-SEC-BE-148-02 (rounds/round-05/reviews/SEC-on-be-d2-pr-148.md, PO chọn chỗ đặt như PO-B002-05; cũng ở release notes v1.0.5 Giới hạn đã biết). Câu 2 theo UXD copy-v1.0.5 9.1 refund.after_cancel_destination. Máy chủ #148 (0b615843). Gỡ câu 3, 4 khi DOM 148-03, SEC 148-02 lên (v1.0.6). Không đổi quy tắc tách nhiệm ở mục 4. BA gộp vào bản kế tiếp, giữ số bản. -->
 
 ### 1.13 Báo cáo ở v1.0
 
@@ -951,6 +988,9 @@ Lưu ý:
 4. **Kênh**: **Trực tiếp**, **CTV / môi giới**, **OTA** hoặc **Nội bộ**.
    - Trực tiếp: chọn **Nguồn**: **Zalo / điện thoại**, **Website**, **Khách vãng lai**, **Khách quay lại**, **Sale nội bộ** (chọn **Người chốt**).
    - CTV: chọn **CTV chốt đơn** (bắt buộc).
+   - **Chọn nhầm người chốt** (Sale nội bộ hoặc CTV; **từ v1.0.5**, khi Desk có ô người chốt trên khung đơn): sửa được khi đơn còn là giữ chỗ. Đơn đã xác nhận thì báo quản lý ngay, trước giờ khách nhận phòng. Khách đã nhận phòng thì chỉ chủ đầu tư sửa. Đơn anh/chị không sửa được thì khung đơn hiện tên người chốt và một dòng nói cần báo ai.
+     - Desk chưa có ô này (v1.0.4; v1.0.5 nếu bản chưa có ô): báo quản lý, ghi sổ giao ca mã đơn và tên người chốt đúng. Không ghi tỷ lệ hay số tiền hoa hồng.
+   <!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): câu DOM FB-R5-DOM-BE-154-04 (a), rounds/round-05/reviews/DOM-on-be-h-pr-154.md. Máy chủ #154 (r5-h1c, fe70d0c0): giữ chỗ FD+; đã xác nhận, chưa nhận phòng MGR+; sau nhận phòng chỉ OWN, có lý do. Dòng chỉ đọc theo UXD copy-v1.0.5 9.16 (rsv.closer.readonly_manager, readonly_owner). Ô sửa trên Desk: FE-A, plan R5 4a T22; thiếu thì chỉ giữ gạch "Desk chưa có ô này". BA gộp vào bản kế tiếp, giữ số bản. -->
    - Nội bộ: phòng dùng nội bộ, mặc định không thu tiền, vẫn chiếm phòng. Chỉ tạo khi chủ đầu tư hoặc quản lý đã đồng ý. **Ghi chú nội bộ** ghi người cho, lý do, số đêm miễn phí. Người ở cần ở thêm: tới khi chủ đầu tư báo v1.0.4 đã lên, **không bấm Gia hạn** (Desk tính giá Trực tiếp cho đêm thêm, BUG-R4-038); làm theo mục 2.12 bước 7.
      - **Giá mỗi đêm của đơn Nội bộ** (bước 8): có thu thì gõ giá cho **mọi** đêm; miễn phí cả đơn thì để trống **mọi** ô (đơn 0 đ). Không gõ 0 vào ô: Desk không nhận (từ v1.0.4 Desk báo "Miễn phí: để trống ô. Có thu: nhập giá lớn hơn 0."). Từ v1.0.4, gõ một phần số đêm thì Desk chặn, không tạo đơn, và báo "Đơn Nội bộ: nhập giá cho mọi đêm, hoặc để trống hết nếu miễn phí cả đơn."
      - **Đơn Nội bộ có cả đêm thu và đêm miễn phí:** gõ giá cho mọi đêm, đêm miễn phí gõ cùng giá với đêm có thu. Ghi trong **Ghi chú nội bộ** đêm nào miễn phí, ai cho, và "chờ quản lý sửa 0 đ". Quản lý hoặc chủ đầu tư mở **Folio & điều chỉnh** → dòng tiền phòng của đêm đó → **Điều chỉnh** → **Giá đêm mới (trước giảm theo số đêm)** 0, ghi **Lý do điều chỉnh**. Bỏ qua dòng chữ nhỏ dưới ô giá (nói sàn–trần và xin giảm giá đặc biệt): đêm của đơn Nội bộ không áp sàn–trần, gõ 0 lưu được. Chữ cũ, sửa ở v1.0.5. Làm ngay sau khi tạo đơn, muộn nhất **trước khi nhận phòng**: lúc nhận phòng Desk thu đủ tiền phòng, kể cả đêm chưa về 0. **Không** dùng miễn phí (FOC) hay giảm giá đặc biệt 100 %. Sửa xong, lễ tân kiểm **Folio**: tiền phòng và **Còn phải thu** đúng số.
@@ -1079,6 +1119,8 @@ Mở đơn (từ **Sơ đồ phòng**, **Đơn đặt phòng** hoặc **Hôm nay
    - Bất khả kháng (đèo vào Đà Lạt đóng, chuyến bay hủy do thời tiết, có giấy báo của cơ quan hoặc hãng bay): không hoàn tiền mặt. Quản lý cho **dời ngày** miễn phí trong 3 tháng, áp cả ngày đặc biệt.
    - Đọc số trên hộp **Hủy đơn OTM-… của …?** trước khi bấm **Hủy đơn**. Đổi ý thì bấm **Giữ lại đơn**.
 3. Đơn OTA: nhập **Tiền phạt theo kênh** đúng số kênh báo (0 nếu kênh miễn phạt).
+   - **Phí hủy, phí không đến của đơn OTA khách trả tại chỗ** (từ v1.0.5, khi Desk có nút **Ghi tiền về sau khi hủy**): quẹt thẻ trên chính đơn đã đóng, tối đa số còn phải thu (khối **Từ v1.0.5 – tiền khách chuyển về cho đơn đã hủy** ngay dưới danh sách hủy). Desk chưa có nút này: báo quản lý trước khi hủy.
+   <!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): DOM FB-R5-DOM-BA-148-04 ý 4 (rounds/round-05/reviews/DOM-on-be-d2-pr-148.md). Cách tạm "thu trước, hủy sau" (DOM-on-prs-105-125-128.md 105-01 (d)) chưa vào sổ tay: chờ QA TC-V105-OTA-01 trên staging (rounds/round-05/qa/v1.0.5-test-cases.md mục 6: khác mong đợi thì BA chưa đưa vào). Đạt thì BA thêm vào gạch này, áp tới khi Desk có nút. -->
 4. Có khoản hoàn: Desk tạo yêu cầu hoàn. Người hủy nhập nơi nhận hoàn; **quản lý hoặc chủ đầu tư khác người hủy** duyệt. Tiền mặt: người duyệt chi được. Chuyển khoản: quản lý đã duyệt thì người khác chi; chủ đầu tư được vừa duyệt vừa chi (mục 1.8). Người hủy không tự duyệt, không tự chi được, kể cả có quyền quản lý. Hiện một người trực: chủ đầu tư duyệt và chi.
    - Nhập nơi nhận hoàn trên máy quầy đã cấp quyền: **Nhật ký tiền → Hoàn tiền** → dòng của mã đơn → **Nhập nơi nhận hoàn** → chọn **Cách hoàn** (Desk chọn sẵn **Tiền mặt**; khách nhận lại theo cách đã trả thì bấm **Cùng cách khách đã trả**) → **Lưu**. Dòng đơn ghi "Cách hoàn: …" là xong.
    - Hộp hủy ghi "… – cần quản lý duyệt": ở OTTIMO hiện **chủ đầu tư** duyệt và chi, không đi tìm quản lý.
@@ -1087,6 +1129,15 @@ Mở đơn (từ **Sơ đồ phòng**, **Đơn đặt phòng** hoặc **Hôm nay
 [ẢNH: C2-12-Hủy đơn]
 
 > **Lỗi đang sửa (v1.0.3 hoặc v1.0.4) – lý do Khác (ghi rõ):** ở cả **Hủy giữ chỗ** và **Hủy đơn**, chọn **Khác (ghi rõ)** thì hộp báo "Chưa tính được phí hủy nên chưa hủy được" và khóa nút, kể cả khi đã gõ ghi chú và bấm **Thử lại**. Chọn lý do có sẵn gần nhất (thường là **Khách đổi ý** hoặc **Không liên lạc được**). Điều cần giải thích ghi vào sổ giao ca kèm mã đơn, không ghi tên khách. Nhập nhầm hoặc trùng đơn: chọn **Khách đổi ý**, sổ giao ca ghi "OTM-… nhập nhầm".
+
+**Từ v1.0.5 – tiền khách chuyển về cho đơn đã hủy hoặc không đến** (khi Desk có nút **Ghi tiền về sau khi hủy** trên khung đơn; tới lúc đó làm theo lời dặn BUG-R5-002 ở release notes v1.0.4, Tờ 2a, mục 2.4):
+- Chỉ lễ tân trở lên ghi, theo ảnh tiền vào tài khoản OTTIMO do chủ đầu tư hoặc quản lý gửi. Không dùng ảnh chụp hay SMS khách gửi, cũng không dùng ảnh sale, CTV chuyển tiếp. Chủ đầu tư thấy tiền về cho đơn đã hủy thì gửi ảnh cho lễ tân ghi, không tự ghi: người ghi không duyệt được yêu cầu hoàn, nên khi không có quản lý đang làm thì yêu cầu sẽ kẹt.
+- Khách muốn đặt lại: không ghi ở đây. Tạo giữ chỗ mới, xác nhận cọc trên đơn mới, ghi chú giờ tiền về và mã đơn cũ. Trước khi ghi, tìm đơn mới của khách theo tên hoặc số điện thoại: đơn mới đã xác nhận cọc bằng khoản này thì không ghi.
+- Không nhận tiền mặt. Chuyển khoản, VietQR: cần ảnh chứng từ. Quẹt thẻ: chỉ để thu phí hủy, phí không đến còn nợ, tối đa số còn phải thu, có mã chuẩn chi, không chụp thẻ.
+- Khoản ghi trả phí còn nợ trước. Phần vượt thành yêu cầu hoàn, không phí; đơn không còn nợ thì hoàn đủ. Khoản thu luôn chờ đối soát. Quản lý, chủ đầu tư duyệt yêu cầu hoàn sau khi khoản thu đã đối soát; người ghi không duyệt, không chi.
+- Mọi khoản hoàn của đơn này chi bằng chuyển khoản về đúng tài khoản khách đã chuyển, không chi tiền mặt, kể cả khi khách đứng ở quầy. Không hỏi số tài khoản của khách. Nói với khách: "The refund will be sent back to the account you paid from." / "Tiền hoàn sẽ về đúng tài khoản anh/chị đã chuyển."
+- **Cần chú ý** "Tiền về cho đơn đã hủy …" (sale, CTV báo khách đã chuyển): kiểm tiền về theo mã đơn rồi ghi như trên. Không thấy tiền thì bấm **Không thấy tiền**, ghi chú đã kiểm ở đâu, lúc nào; tiền đã ghi trước lúc báo thì ghi mã phiếu thu.
+<!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): DOM FB-R5-DOM-BA-148-04 ý 1–4 (rounds/round-05/reviews/DOM-on-be-d2-pr-148.md), máy chủ #148 (0b615843): card_pos chỉ khi còn nợ N > 0 và ≤ N, hoàn tự tạo = max(0, số ghi − N), nơi nhận cố định original_method. Tên nút, câu khách, nguồn ảnh theo UXD copy-v1.0.5 9.1 bản 2.5 (48e7baf0). Nút Desk: FE-A, plan R5 4a T21; thiếu thì bỏ khối này khi cắt, giữ lời dặn v1.0.4. Ý 2 áp tới khi DOM 148-03 lên (v1.0.6). BA gộp vào bản kế tiếp (V5-71), giữ số bản; UXD rà chữ. -->
 
 **Khách không đến:**
 1. **18:00** khách chưa đến, chưa báo giờ: gọi hoặc nhắn khách.
@@ -1408,6 +1459,24 @@ Buồng phòng vẫn nạp đủ định mức rồi mới bấm **Làm xong**.
    - Đơn **Nội bộ**: từ v1.0.4 đêm thêm đã 0 đ, không cần xin giảm. Tới v1.0.3, Gia hạn đơn Nội bộ ra giá Trực tiếp (mục 2.12, **Gia hạn** bước 7): báo quản lý trước khi gia hạn.
    - Ví dụ: đơn Trực tiếp 800.000 đ/đêm, ngày đi 23/11, 10:00 ngày 24/11 vẫn **Đang ở**. Gia hạn 1 đêm tới 24/11. Trường hợp (a) thu thêm 800.000 đ; trường hợp (b) thu thêm 0 đ.
 <!-- DOM lượt 8 (BR-421, BR-402 v0.5.7): B18 chỉ chạy đúng ngày đi của đơn. Gia hạn có ở mọi đơn Đang ở: allowed-actions.ts cho extend_stay (B13) không theo ngày, check_out (B18) chỉ khi hôm nay là ngày đi. QA TC-V104-RG-26 (05/11): B18 thẳng ra 409 INVALID_TRANSITION; B13 rồi B18 sau 12:00 đòi quyết phụ thu trả muộn; B18 giờ gõ trước 12:00 kèm checkoutTimeNote ra 200. Giờ muộn hơn lúc bấm: 422 TIME_AFTER_ACTION (checkTypedTime), nên (b) trước 12:00 để giờ Desk điền. v1.0.5 đề xuất Trả phòng theo ngày khách thật sự đi (PO/ARC). -->
+
+**Từ v1.0.5 – Trả phòng đơn quá ngày đi** (khi chủ đầu tư báo v1.0.5 đã lên; thay khối trên):
+1. Lễ tân, lễ tân trưởng không trả phòng được đơn quá ngày đi. Khung đơn và trang **Trả phòng** nói cần ai: "Đơn đã quá ngày đi 1 đêm: cần quản lý hoặc chủ đầu tư trả phòng." Từ 2 đêm: cần chủ đầu tư. Trước khi gọi, kiểm căn: khách còn ở hoặc đã ở thêm đêm thì bấm **Gia hạn** (mục 2.12, **Gia hạn**), không cần chờ. Khách đã đi: **xóa mã cửa** ngay, ghi sổ giao ca. Người trực hiện giữ vai quản lý nên trả phòng được đơn quá 1 đêm bằng quyền đó.
+2. Người trả phòng ghi **giờ khách rời căn** của ngày đi và **Lý do quá ngày đi**: chọn **Khách đi không báo**, **Lễ tân quên bấm Trả phòng** hoặc **Khác (ghi rõ)**, rồi ghi thêm cách biết giờ (ai thấy căn trống, lúc nào, khách có nhắn không). Không ghi họ tên, số giấy tờ của khách. Desk không thu đêm khách không ở.
+3. Giờ ghi:
+   - có bằng chứng giờ (tin nhắn, cuộc gọi, nhân viên thấy khách đi): ghi giờ đó;
+   - không có bằng chứng, đơn không hẹn trả muộn: ghi giờ trả chuẩn 12:00, hoặc giờ thấy căn trống nếu sớm hơn; không phụ thu;
+   - **đơn có giờ hẹn trả muộn, không có bằng chứng:** giữ **giờ hẹn**, phụ thu đã hẹn giữ nguyên. Có bằng chứng khách đi sớm hơn (trả chìa, tin nhắn, buồng phòng thấy căn trống trước giờ hẹn) thì ghi giờ đó; Desk tự giảm phụ thu;
+   - gộp lại: ghi giờ **sớm hơn** trong hai giờ: giờ hẹn (không hẹn thì 12:00) và giờ thấy căn trống;
+   - chỉ ghi giờ **muộn hơn** giờ hẹn hoặc ân hạn (phụ thu tăng) khi có bằng chứng khách còn ở sau giờ đó, ví dụ nhân viên gặp khách trong căn: ghi giờ của bằng chứng muộn nhất;
+   - phụ thu chưa thu mà khách đã đi: quản lý ghi công nợ ở bước Bill. Khách OTA: phụ thu vẫn thu trực tiếp; nhắn bill qua tin nhắn của kênh.
+4. **Khách rời căn lúc 00:00–05:59 của ngày đi** (hoặc của ngày đi mới sau **Gia hạn**) mà sau 06:00 hôm sau mới ghi (tới v1.0.6): Desk hiểu giờ gõ trước 06:00 là rạng sáng **hôm sau** và nói rõ điều đó ngay dưới ô giờ.
+   1. Ô giờ gõ **06:00**. Không gõ 05:59 hay 05:30.
+   2. Ô lý do ghi giờ thật và cách biết, ví dụ "Khách đi 03:00 sáng 10/11, báo qua Zalo lúc 03:05".
+   3. Hộp xác nhận phải ghi "06:00 ngày 10/11", tức ngày đi. Ngày khác thì quay lại.
+   4. **Không gia hạn**: đêm đó khách không ở.
+   - Số tiền như khi ghi đúng giờ; chỉ giờ trên đăng ký lưu trú lệch, cùng ngày.
+<!-- PO 07/11 tối (ORC giao, Round 5 – Phản hồi & sửa): DOM rules-v1.0.5.md 15.3 ý 1, 2, 2a, 3, 6 và DOM-on-fe-pr-145.md mục 3.3 (bốn bước), mục 4 (ý 2a); ARC-on-fe-prs-145-146.md mục 8.4 (dòng release notes). Desk #145 (dda49347): overdue_need_manager/owner, overdue_time_help(_agreed), overdue_time_early, overdue_extend_hint, overdue_reason_evidence (UXD copy-v1.0.5 9.15). Quyền: MGR ≤ 1 đêm, từ 2 đêm chỉ OWN (hợp đồng 0.3.13 mục 1.18). Bước 4 bỏ khi V515-01 sửa (0.3.14, v1.0.6). BA gộp vào bản kế tiếp, giữ số bản. -->
 
 > **Lỗi nhỏ đã biết (v1.0.3 hoặc v1.0.4):** các nút nhanh ở bước **Phụ phí** (giặt ủi, F&B, hút thuốc, mất thẻ) mở hộp nhưng **chưa chọn sẵn khoản**: chọn tay khoản trong ô **Khoản**. Khung đơn đang ở hiện dòng "Còn phải thu" hai lần, cùng một số.
 

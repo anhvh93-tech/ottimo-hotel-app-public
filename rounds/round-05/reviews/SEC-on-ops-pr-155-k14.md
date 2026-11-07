@@ -208,9 +208,10 @@ Rủi ro SEC thấy và cách chặn:
 1. **Chỉ `app_user.display_name`.** Không `username`, `email`, `phone`, id, cột nào của khách, `reason`, `old_value`/`new_value` thô, tỷ lệ, số tiền. Nối `app_user` theo cả `organization_id` của đơn.
 2. **Lọc ký tự trong câu SQL.** Mọi tên in ra đi qua đúng biểu thức này (SEC đã thử trên PostgreSQL 17, UTF8: giữ nguyên chữ tiếng Việt có dấu; thay ESC, BEL, CR, C1, ký tự không rộng, ký tự đảo chiều và `|` bằng `?`; cắt ở 80 ký tự):
    ```sql
-   left(regexp_replace(u.display_name, '[\x01-\x1f\x7f-\x9f­؜᠎​-‏ -‮⁠-⁯﻿￹-￻|]', '?', 'g'), 80)
+   left(regexp_replace(u.display_name, '[\x01-\x1f\x7f-\x9f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb|]', '?', 'g'), 80)
    ```
    OPS có thể gói biểu thức trong một CTE, nhưng không đổi lớp ký tự.
+   Ghi chú 07/11 (`SEC-on-ops-pr-155-k14l-r51.md`): bản đầu của biểu thức trên có ký tự vô hình thật ở chỗ các mã thoát Unicode. Nay đã viết lại bằng mã thoát ASCII, đúng như câu r5.1 của OPS. Lớp ký tự không đổi.
 3. **Hậu tố và giá trị trống.** Người đã thu hồi hết vai ở cơ sở: thêm hậu tố hằng "(đã thu hồi)". Không có người (lần đổi do hệ thống, người chốt trống): in `none`. Không in lý do thu hồi hay ngày thu hồi.
 4. **Câu đếm không đổi.** Tên chỉ có ở K14-L. Câu đếm vẫn không tách theo người (SEC 129).
 5. **Khung chạy giữ nguyên.** Câu mới vẫn: `BEGIN READ ONLY`, dòng gác `k14 list stopped: …`, `ROLLBACK`. Khối `k14-list-run` mới chỉ khác bản @ `2cea3139` ở dòng 3 (SHA của câu). Dòng 5 giống từng byte `v530-run`.

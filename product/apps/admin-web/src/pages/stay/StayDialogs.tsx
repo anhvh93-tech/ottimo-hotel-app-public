@@ -12,6 +12,7 @@ import {
   type LateCheckoutResult,
   type Party,
   type Reservation,
+  type RoomStatusEntry,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
@@ -438,6 +439,11 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
   );
 }
 
+/** B14 target rooms: VI · inspected, ready or VC · cleaned, awaiting inspection (BR-803, ARC 0.3.13 1.12). */
+const READY_FOR_MOVE: readonly RoomStatusEntry['status'][] = ['VI', 'VC'];
+/** Free but not cleaned yet – named when nothing is ready (UXD PR98-01: ask housekeeping to clean one first). */
+const WAITING_FOR_CLEAN: readonly RoomStatusEntry['status'][] = ['VD', 'CL'];
+
 function ChangeRoomForm({
   reservation: r,
   shown,
@@ -471,11 +477,50 @@ function ChangeRoomForm({
       ).data as AvailabilityResult,
     [r.id, today],
   );
-  const options = (avail.state.data?.alternatives ?? []).filter(
-    (x) => x.available && x.roomNo !== roomNo,
+  // V5-50 (BUG-R3-023): only rooms ready for a guest are offered. `searchAvailability` carries no housekeeping
+  // status (ARC 0.3.13 1.12), so the desk also reads `listRoomStatuses` (FD+) and keeps VI / VC – B14 always applies
+  // from the business day, so today's status is the one that counts. The server still answers 409 ROOM_NOT_READY
+  // (BR-803) if a room changes in between. Statuses not loaded → the list stays unfiltered and says so.
+  const statuses = useResource(
+    async () => (await api.listRoomStatuses({ propertyId })).data.data,
+    [propertyId, r.id],
   );
-  // 409 ROOM_UNAVAILABLE (busy before the effective departure) → the server's suggested free room.
-  const suggested = suggestionsOf(act.error).filter((x) => x.roomNo !== roomNo);
+  const unfiltered = !statuses.state.data && statuses.state.status === 'error';
+  const ready = new Set(
+    (statuses.state.data ?? [])
+      .filter((s) => READY_FOR_MOVE.includes(s.status))
+      .map((s) => s.roomId),
+  );
+  const listed = !!avail.state.data && (!!statuses.state.data || unfiltered);
+  const options = (avail.state.data?.alternatives ?? []).filter(
+    (x) => x.available && x.roomNo !== roomNo && (unfiltered || ready.has(x.roomId)),
+  );
+  // FB-R5-UXD-FE-PR98-01: nothing ready, but free rooms only wait for cleaning → name them (ascending).
+  const statusOf = new Map((statuses.state.data ?? []).map((s) => [s.roomId, s.status]));
+  const notCleaned = unfiltered
+    ? []
+    : [
+        ...new Set(
+          (avail.state.data?.alternatives ?? [])
+            .filter((x) => {
+              const st = statusOf.get(x.roomId);
+              return x.available && x.roomNo !== roomNo && !!st && WAITING_FOR_CLEAN.includes(st);
+            })
+            .map((x) => x.roomNo),
+        ),
+      ].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  // 409 ROOM_UNAVAILABLE (busy before the effective departure) → the server's suggested free room. The server picks
+  // it without housekeeping status (`occupancy.suggest`), so it goes through the same ready set as the list
+  // (FB-R5-ARC-FE-98-02) – the sentence under the list says only VI / VC rooms are offered.
+  const suggested = suggestionsOf(act.error).filter(
+    (x) => x.roomNo !== roomNo && (unfiltered || ready.has(x.roomId)),
+  );
+  // FB-R5-ARC-FE-98-02: 409 ROOM_NOT_READY – the picked room got dirty in between (BR-803). Read the statuses again
+  // so it leaves the list; the error stays on screen and the save button needs a room from the new list.
+  const reloadStatuses = statuses.reload;
+  useEffect(() => {
+    if (act.code === 'ROOM_NOT_READY') reloadStatuses();
+  }, [act.error, act.code, reloadStatuses]);
   const target =
     options.find((x) => x.roomId === roomId) ?? suggested.find((x) => x.roomId === roomId);
 
@@ -564,10 +609,16 @@ function ChangeRoomForm({
       </Field>
       <fieldset className="fieldset-plain">
         <legend className="label-h">{t('stay.new_room')}</legend>
-        {!avail.state.data ? <LoadingBlock rows={1} /> : null}
-        {avail.state.data && options.length === 0 ? (
+        {!listed ? <LoadingBlock rows={1} /> : null}
+        {listed && options.length === 0 ? (
           <Alert tone="warn">
-            {t('room_change.no_rooms', { from: date(today), to: date(stayEnd) })}
+            {notCleaned.length
+              ? t('room_change.no_rooms_not_ready', {
+                  from: date(today),
+                  to: date(stayEnd),
+                  rooms: notCleaned.join(', '),
+                })
+              : t('room_change.no_rooms', { from: date(today), to: date(stayEnd) })}
           </Alert>
         ) : null}
         {options.map((x) => (
@@ -584,7 +635,9 @@ function ChangeRoomForm({
             {x.upgrade ? ` · ${t('rsv.upgrade_needs_lead')}` : ''}
           </label>
         ))}
-        <p className="li-s">{t('room_change.ready_only')}</p>
+        <p className="li-s">
+          {t(unfiltered ? 'room_change.ready_unfiltered' : 'room_change.ready_only')}
+        </p>
       </fieldset>
       {preview?.nights.length ? (
         // Every night that moves – the child bookings' nights included (BE-A B14).

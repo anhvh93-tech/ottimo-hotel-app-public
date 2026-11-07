@@ -30,14 +30,29 @@ export function bodyTooDeep(value: unknown, max = MAX_BODY_DEPTH): boolean {
   return false;
 }
 
-/** Stable JSON (sorted keys) so the same logical body always hashes the same. */
+/** The 422 of a value nested deeper than MAX_BODY_DEPTH (SEC 123-01 / 154-01). */
+function tooDeep(): Error {
+  return problem('VALIDATION_FAILED', { detail: 'Request body nested too deep' });
+}
+
+/**
+ * Stable JSON (sorted keys) so the same logical body always hashes the same. SEC FB-R5-SEC-BE-154-01 (ARC chose): the
+ * depth check sits in THIS exported function, so every caller – requestHash, and a direct one like `addGuestDocument`'s
+ * semantic digest of its multipart `data` – gets the 422, never the RangeError (500) of the recursive walk.
+ */
 export function canonicalJson(value: unknown): string {
+  if (bodyTooDeep(value)) throw tooDeep();
+  return canonical(value);
+}
+
+/** The recursive walk – only reached through canonicalJson / requestHash, after the depth check. */
+function canonical(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value ?? null);
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
 }
 
 /** A raw binary body (multipart Buffer, typed array, ArrayBuffer) – never walked key by key. */
@@ -53,11 +68,9 @@ export function requestHash(method: string, path: string, body: unknown): string
     throw problem('VALIDATION_FAILED', { detail: 'Binary request body' });
   }
   // SEC 123-01: a body nested deeper than MAX_BODY_DEPTH → 422 for every caller (UnitOfWork, guest and public units of
-  // work), checked before the recursive walks below.
-  if (bodyTooDeep(body)) {
-    throw problem('VALIDATION_FAILED', { detail: 'Request body nested too deep' });
-  }
+  // work), checked here because withoutSecrets walks the body recursively too – before canonicalJson's own check.
+  if (bodyTooDeep(body)) throw tooDeep();
   return createHash('sha256')
-    .update(`${method.toUpperCase()} ${path}\n${canonicalJson(withoutSecrets(body))}`)
+    .update(`${method.toUpperCase()} ${path}\n${canonical(withoutSecrets(body))}`)
     .digest('hex');
 }
