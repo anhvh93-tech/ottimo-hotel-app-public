@@ -1,7 +1,7 @@
 # FE-A – v1.0.5 V5-30 `r5-fe-closer-field`: ô Người chốt trên khung đơn đổi theo mốc
 
 - Người viết: FE-A | Round 5 – bước **Sản xuất** | 07/11/2026
-- Nhánh: `r5-fe-closer-field` cắt từ `origin/main` @ `036a7c3d`.
+- Nhánh: `r5-fe-closer-field` cắt từ `origin/main` @ `036a7c3d`; đã gộp `main` @ `78024f17` (xung đột chỉ ở tệp chữ: giữ cả nhóm V5-50 của #98 và nhóm V5-30, sinh lại).
 - Căn cứ:
   - hợp đồng 0.3.13 bổ sung 1h/1i, mô tả `updateReservation` và `ReservationPatch.closerChangeReason` (`product/docs/api/openapi.yaml`); luật máy chủ đã có trên `main` (BE-H #154, #157);
   - UXD `copy-v1.0.5.md` mục 9.16 (bản 2.5);
@@ -51,7 +51,7 @@ Dùng lại, không đổi chữ: `bk.closer`, `bk.closer_sales`, `common.option
   - 422: `REASON_REQUIRED`, `TOO_LONG` ("Tối đa 500 ký tự."), `CARD_NUMBER_DETECTED` (với mã gốc `VALIDATION_FAILED` và `CARD_NUMBER_DETECTED`), số thẻ thử qua luật V-09 của mock, `NOT_IN_LIST` (tài khoản vừa bị tắt → câu dưới ô chọn, danh sách đọc lại, người đó không còn trong ô);
   - 409 (đơn vừa hủy) và 412 (giữ chữ, Tải lại, lưu được).
 - Đột biến thử: cho FD/FDL sửa ở `confirmed`, luôn gửi lý do, bỏ lần đọc lại khi 403, bỏ cặp `FIELD_PAIR` → mỗi lần 4 ca đỏ.
-- Toàn bộ vitest admin-web: 98 tệp, 1123 ca xanh. `tsc`, `eslint`, `prettier` sạch.
+- Toàn bộ vitest admin-web: 98 tệp, 1123 ca xanh trên `036a7c3d`; sau khi gộp `main` @ `78024f17`: 99 tệp, 1131 ca xanh. `tsc`, `eslint` (0 lỗi; 1 cảnh báo có sẵn ở `public/mockServiceWorker.js`), `prettier` sạch.
 - Xem bằng mắt trên mock (Vite cổng 5391, đã tắt): 1440 và 390 px, MGR `confirmed` trước/sau khi chọn và sau khi lưu, FD `confirmed` chỉ đọc, OWN `in_house` lỗi lý do. Không tràn ngang ở 390. Chỉ dùng lớp có sẵn (`dl`, `li-s`, `field`, `help`, `err`, `stack`, `row`), không thêm màu, cỡ chữ. Ảnh chưa đưa vào kho (chờ QA kiểm che dữ liệu theo quy định ảnh).
 
 ## 5. Giả định
