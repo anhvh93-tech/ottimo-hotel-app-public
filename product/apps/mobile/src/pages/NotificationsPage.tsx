@@ -17,6 +17,10 @@ const ICON: Partial<Record<StaffNotification['kind'], IconName>> = {
   hk_task_cancelled: 'x',
   guest_request_new: 'chat',
   guest_request_overdue: 'clock',
+  // Hold notices (V5-1B) – UXD copy-v1.0.5 9.10, FB-R5-ARC-MOB-117-01: cancelled = x, overdue = clock.
+  hold_expired: 'x',
+  hold_overdue_with_deposit: 'clock',
+  hold_overdue_cap: 'clock',
 };
 
 /** Where a notification leads (refType + refId); nothing for Desk-only topics. */
