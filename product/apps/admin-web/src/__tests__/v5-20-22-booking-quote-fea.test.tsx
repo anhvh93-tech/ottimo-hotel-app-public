@@ -401,3 +401,69 @@ describe('V5-20 – "after {time}" in Xác nhận giờ trả follows checkout_t
     expect(within(dlg).queryByText(/Trả muộn/)).not.toBeInTheDocument();
   });
 });
+
+describe('FB-R5-DOM-FE-171-01 – "Tạo đơn ở căn …" with OTA / Nội bộ typed in part', () => {
+  /** Room 101 today → +3 is taken tonight (Trần Thu Nga): the 409 offers another room; nothing typed yet. */
+  async function useOtherRoom(user: User, group: 'ota' | 'internal') {
+    const dlg = await openBooking(user);
+    await user.click(
+      within(dlg).getByRole('button', { name: group === 'ota' ? 'OTA' : tv('bk.ch_internal') }),
+    );
+    setDates(dlg, 0, 3);
+    await pickRoom(user, dlg, '101');
+    await user.type(within(dlg).getByRole('combobox', { name: 'Khách đứng tên' }), 'Anna');
+    await user.click(await screen.findByRole('option', { name: /Anna Martin/ }));
+    if (group === 'ota')
+      await user.type(within(dlg).getByLabelText(/Mã đặt phòng OTA/), 'AG-171010');
+    else await user.type(within(dlg).getByLabelText(/^Ghi chú nội bộ/), 'Kiểm tra phòng');
+    await user.click(within(dlg).getByRole('button', { name: tv('booking.create') }));
+    const use = (await within(dlg).findAllByRole('button', { name: /^Dùng căn \d+/ }))[0]!;
+    const no = /^Dùng căn (\d+)/.exec(use.textContent ?? '')![1]!;
+    await user.click(use);
+    const box = (await within(dlg).findByText(tv('bk.use_room_check', { room: no }))).closest(
+      '.alert',
+    ) as HTMLElement;
+    return { dlg, box, no };
+  }
+
+  for (const [group, key] of [
+    ['ota', 'booking.error.rate_partial_ota'],
+    ['internal', 'booking.error.rate_empty_internal'],
+  ] as const) {
+    it(`${group}: 2 of 3 nights typed → no total in the box, the sentence next to the button; the click sends nothing and keeps the figures`, async () => {
+      pinDaytime();
+      const { user } = renderApp('/rack', 'qa.fd');
+      const { dlg, box, no } = await useOtherRoom(user, group);
+      const d0 = todayLocal();
+      const d1 = addDays(d0, 1);
+      await user.type(rateBox(dlg, d0), '300000');
+      await user.type(rateBox(dlg, d1), '300000');
+      const sentence = tv(key);
+      expect(within(box).getByText(sentence)).toBeInTheDocument();
+      expect(within(box).queryByText(tv('bk.total'))).not.toBeInTheDocument();
+      expect(box).not.toHaveTextContent('600.000');
+      const confirm = within(box).getByRole('button', {
+        name: tv('bk.use_room_confirm', { room: no }),
+      });
+      expect(confirm).toHaveAccessibleDescription(sentence);
+
+      const before = mockControl.rsv.reservations.length;
+      let posted = 0;
+      const count = ({ request }: { request: Request }) => {
+        if (request.method === 'POST' && /\/reservations$/.test(new URL(request.url).pathname))
+          posted += 1;
+      };
+      server.events.on('request:start', count);
+      await user.click(confirm);
+      expect(
+        await within(dlg).findByText(sentence, { selector: '#bk-rates-err' }),
+      ).toBeInTheDocument();
+      server.events.removeListener('request:start', count);
+      expect(posted).toBe(0);
+      expect(mockControl.rsv.reservations).toHaveLength(before);
+      expect(rateBox(dlg, d0).value).toMatch(/^300[.,]000$|^300000$/);
+      expect(rateBox(dlg, d1).value).toMatch(/^300[.,]000$|^300000$/);
+      expect(rateBox(dlg, addDays(d0, 2)).value).toBe('');
+    });
+  }
+});

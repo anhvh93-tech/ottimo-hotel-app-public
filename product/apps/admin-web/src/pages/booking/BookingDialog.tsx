@@ -983,6 +983,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   // says so instead of "0 đ". Typed in part: no total (the click says to type every night or none).
   const otaCalendar =
     form.group === 'ota' && !rateList.every((r) => r.raw && form.ratesEdited[r.date]);
+  const pickedPartial = picked ? partialRates() : undefined;
   const pickedNights = !picked
     ? []
     : directLike
@@ -1005,6 +1006,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           variant="pri"
           busy={busy === 'create'}
           disabled={busy !== null || !pickedPriced}
+          aria-describedby={pickedPartial ? 'bk-use-room-rates-err' : undefined}
           onClick={() => void submit(undefined, { roomId: picked.id })}
         >
           {t('bk.use_room_confirm', { room: picked.roomNo })}
@@ -1030,7 +1032,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 <td className="r num">{vnd(calc.extraPersonFeeVnd)}</td>
               </tr>
             ) : null}
-            {!otaCalendar ? (
+            {/* FB-R5-DOM-FE-171-01: OTA / Nội bộ typed in part never shows a total the booking will not have – the
+                sentence of the click sits here, next to the button (it stays under the rate table too) */}
+            {pickedPartial ? (
+              <tr className="sub">
+                <td colSpan={2} className="err" id="bk-use-room-rates-err">
+                  {pickedPartial}
+                </td>
+              </tr>
+            ) : !otaCalendar ? (
               <tr className="total">
                 <td>{t('bk.total')}</td>
                 <td className="r num">
