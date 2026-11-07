@@ -1407,8 +1407,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                     labelKey: 'bill.line.extra_night',
                     labelParams: { date: r.departureDate },
                   } as unknown as FolioLine)}
-                  {/* DOM S4-38: the calendar price; the step BR-107 is in the amount due below. */}
-                  {` · ${t('rate.pre_tier_short')}`}
+                  {/* DOM S4-38: the calendar price; any discount is in the amount due below (V5-20). */}
+                  {` · ${t('rate.calendar_short')}`}
                 </td>
                 <td className="r num">{vnd(extraNightVnd)}</td>
               </tr>

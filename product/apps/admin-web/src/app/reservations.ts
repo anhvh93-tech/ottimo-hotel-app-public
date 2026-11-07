@@ -126,6 +126,11 @@ export interface RsvErrorContext {
   holdPaidVnd?: number;
   /** The hold's deadline (`Reservation.hold.expiresAt`) – the `{time}` of `HOLD_EXPIRED_PAID` when the Problem has no `expiredAt`. */
   holdExpiresAt?: string;
+  /**
+   * V5-20 (copy-v1.0.5 mục 1.1): `rules.longStayFromNights` – the `{n}` of `field.LONG_STAY_REQUIRES_CONTRACT`
+   * (the Problem has no threshold). Every screen that can get the code (quote, new booking) passes it.
+   */
+  longStayFromNights?: number;
 }
 
 /**
@@ -152,8 +157,10 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
     case 'VALIDATION_FAILED': {
       // First field error with the Problem extras as arguments (e.g. HOLD_LIMIT_REACHED {max}).
       const fe = error.fieldErrors[0];
+      const n =
+        fe?.code === 'LONG_STAY_REQUIRES_CONTRACT' ? ctx.longStayFromNights : p.minStayNights;
       return fe
-        ? fieldErrorText(t, fe, { max: String(p.max ?? ''), n: String(p.minStayNights ?? '') })
+        ? fieldErrorText(t, fe, { max: String(p.max ?? ''), n: String(n ?? '') })
         : problemView(t, error).text;
     }
     case 'ROOM_BLOCKED':
