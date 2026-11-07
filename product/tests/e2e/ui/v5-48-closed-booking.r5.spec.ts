@@ -79,7 +79,7 @@ test.describe(
       });
       await create.click();
 
-      const sentence = tf('error.closed_booking_payment_no_5b1', {
+      const sentence = tf('error.closed_booking_payment', {
         status: t('status.booking.cancelled'),
       });
       await expect(box.getByText(sentence)).toBeVisible({ timeout: 10_000 });

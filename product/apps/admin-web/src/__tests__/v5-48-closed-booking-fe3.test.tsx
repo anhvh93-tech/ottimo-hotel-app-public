@@ -21,7 +21,7 @@ const rsvOf = (guest: string) => mockControl.rsv.reservations.find((r) => r.gues
 const qrOf = (folioId: string) =>
   mockControl.stay.payments.find((p) => p.folioId === folioId && p.method === 'vietqr')!;
 const closedFd = (status: 'cancelled' | 'no_show') =>
-  tv('error.closed_booking_payment_no_5b1', { status: tv(`status.booking.${status}`) });
+  tv('error.closed_booking_payment', { status: tv(`status.booking.${status}`) });
 
 const writes: string[] = [];
 const onStart = ({ request }: { request: Request }) => {
@@ -64,16 +64,13 @@ describe('V5-48 – which sentence (UXD 9.1a)', () => {
     ).toBeUndefined();
   });
 
-  it('FD+ before 5B-1 → sheet 2a; with the 5B-1 button → the button; SAL/CTV → tell the front desk', () => {
+  it('FD+ → the 5B-1 button on the booking; SAL/CTV → tell the front desk', () => {
     expect(closedBookingSentence(t, 'cancelled', false)).toBe(closedFd('cancelled'));
-    expect(closedBookingSentence(t, 'no_show', false, true)).toBe(
+    expect(closedBookingSentence(t, 'no_show', false)).toBe(
       tv('error.closed_booking_payment', { status: tv('status.booking.no_show') }),
     );
+    // the sales sentence never points to a button the sale does not have
     expect(closedBookingSentence(t, 'cancelled', true)).toBe(
-      tv('error.closed_booking_payment_sales', { status: tv('status.booking.cancelled') }),
-    );
-    // the sales sentence never points to a button or sheet the sale does not have
-    expect(closedBookingSentence(t, 'cancelled', true, true)).toBe(
       tv('error.closed_booking_payment_sales', { status: tv('status.booking.cancelled') }),
     );
   });
