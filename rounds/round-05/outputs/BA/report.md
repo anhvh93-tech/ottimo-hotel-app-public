@@ -439,3 +439,36 @@ Giả định: câu "báo đội qua điều phối viên… chỉ nói 'sự c�
 Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
 
 `| 2026-11-07 | 5 | BA – lượt 5 phần 2 (SEC 6.6.1 abfaa83b), cùng số bản: dòng khách gửi ảnh giấy tờ ở sổ tay 2.21, 02 16.1 – lỡ tải về hoặc máy tự lưu rồi xóa ngay là ca giữa (sổ giao ca một dòng không mã đơn, báo chủ đầu tư trước khi hết ca), danh sách gọi trong 1 giờ bỏ "lưu, tải về"; thư báo có ảnh về email cơ sở xóa cả Thùng rác; sổ tay 1.16, 01 13 – chủ đầu tư kiểm bản sao trên mây, tự xóa thư báo ở hộp thư của mình | BA | Không ESC; BA report mục 8 lượt 5 phần 2 |`
+
+## 9. Cập nhật 07/11 (lượt 6) – Phản hồi & sửa: người chốt (#159, #162), B19 (#158), sửa tệp BA theo review V5-74
+
+Review V5-74 (runbook SR-INC-01 bản 1.1): `rounds/round-05/reviews/BA-on-sec-v5-74.md` (commit `b55971ac`, cập nhật cho bản 1.1 ở `bf517817`).
+
+**Trả lời thẻ:**
+
+| Thẻ | Trạng thái | Đã làm |
+|---|---|---|
+| FB-R5-DOM-BA-158-01 | Done | `state-machines.md` 0.2.9, B19: khoản thu của lần khôi phục tự đóng `deposit_after_cancel` ngay lúc ghi, cùng giao dịch, không chờ đối soát (C0313-38, hợp đồng 0.3.13 mục 1.31 bổ sung 1j) |
+| ARC review #159 (ghi chú 37, dòng D27) | Done | `rbac-matrix.md` 0.2.10: ghi chú 37 và ô FDL/FD dòng D27 thêm "tên người chốt trên dòng 'Đổi người chốt' ở S27"; không quyền mới, không trường hoa hồng. Bảng màn hình mục 3 không đổi; test `SCREENS_BY_ROLE` 10/10 xanh; `gen_traceability.py --strict` exit 0 |
+| FB-R5-DOM-BA-162-02 | Done | `02` 5.1 (bản 1.17) và sổ tay 2.5: "Không giữ khách chờ vì người chốt" – nhận phòng bình thường, sau đó báo chủ đầu tư, sổ giao ca ghi mã đơn và tên người chốt đúng, không ghi tỷ lệ hay số tiền. Đánh dấu từ v1.0.5, khi Desk có ô Người chốt |
+| FB-R5-DOM-PO-162-03 (phần BA) | Done | `02` 5.1, sổ tay 2.5: đơn của sale tạo nhầm nguồn thì không có ô người chốt, Desk chưa sửa được nguồn – báo chủ đầu tư, ghi mã đơn và tên sale. `01` 7.5 (bản 1.17), sổ tay 1.11: chủ đầu tư sửa người chốt có lý do; đơn sai nguồn trả ngoài Desk như v1.0.4 |
+| FB-R5-DOM-BA-159-02 | Dropped | ORC bỏ thẻ này; không thêm |
+| BA S1–S7 (review V5-74) | Done | Sổ vận hành 1.1a, 3.4; `01` 14.1, 17; `02` 17.3 bước 5 (ba ô sổ giao ca, dòng mẫu mục 6, "chủ đầu tư quyết, đội bảo mật đề xuất, luật sư xác nhận"); sổ tay 2.9 bước 6 chép cùng ý (ORC giao), 5.5 thêm dòng liên hệ |
+
+**Đánh số:** sổ vận hành 1.8 (ghi bù dòng 1.7); `01`, `02` bản 1.17; bộ hướng dẫn 1.18; sổ tay bản nội dung 1.20. Các dòng SEC "chưa đánh số bản" nay ghi "có trong bản …". Lấy số mới vì bộ 1.17 và sổ tay 1.19 đã giao UXD dựng HTML.
+
+**File sửa:** `product/docs/state-machines.md`, `product/docs/rbac-matrix.md`, `product/docs/so-van-hanh.md`, `product/docs/manual/guides/00-index.md`, `product/docs/manual/guides/01-chu-dau-tu-quan-ly.md`, `product/docs/manual/guides/02-le-tan.md`, `product/docs/manual/user-manual-v1.0.md`, tệp này.
+
+**Giả định:**
+- Ngoài phần ORC giao (guides), BA chép hai dòng người chốt sang sổ tay 2.5 và 1.11 để sổ tay và bộ hướng dẫn cùng nội dung.
+- Không có số hoa hồng, dữ liệu khách hay tên nhân viên trong mọi chỗ sửa; ví dụ sổ giao ca dùng `OTM-…`.
+
+**Việc chưa xong / chuyển vai:**
+- **CPY → BA:** câu tin gửi link không tên khách (17.3 bước 3, sổ tay 2.9 bước 3). BA chép khi ORC gửi.
+- **DOM:** xác nhận câu thẻ V574-01 ("không chắc liên hệ thì không gửi link mới, mời làm thủ tục tại quầy"); BA chép sang 17.3, sổ tay; PO Tờ 1.
+- **UXD:** dựng lại HTML bộ hướng dẫn 1.18 và sổ tay 1.20.
+- **PO/BA:** `05-sale-ctv` chưa có dòng nhắc sale chọn nguồn Sale nội bộ; thêm ở lượt sau nếu ORC đồng ý.
+
+Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi):
+
+`| 2026-11-07 | 5 | BA – lượt 6 Phản hồi & sửa: B19 (state-machines 0.2.9) khoản thu khôi phục tự đóng deposit_after_cancel, không chờ đối soát (DOM 158-01, C0313-38); rbac 0.2.10 ghi chú 37 và D27 thêm tên người chốt ở dòng Đổi người chốt S27 (ARC #159), bảng màn hình không đổi, test SCREENS_BY_ROLE xanh; người chốt từ v1.0.5 ở 02 5.1, 01 7.5, sổ tay 2.5, 1.11 – không giữ khách chờ vì người chốt, đơn sale sai nguồn báo chủ đầu tư (DOM 162-02, 162-03); 159-02 bỏ; sửa tệp BA theo review V5-74 (sổ vận hành 1.8, 01/02 bản 1.17, bộ 1.18, sổ tay 1.20); chờ câu CPY cho 17.3 bước 3 | BA | rounds/round-05/outputs/BA/report.md |`
