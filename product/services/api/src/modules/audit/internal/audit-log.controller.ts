@@ -22,6 +22,9 @@
  * - 0.3.13 bổ sung 1 `afterClosureOnly` (V5-48; SEC S6, SEC-responses 1.2): the weekly "Tiền về sau khi đơn đã đóng"
  *   filter – the server pins the action set (AFTER_CLOSURE_ACTIONS) and keeps the rows whose `after.afterClosure` is
  *   true, i.e. the flag written AT WRITE TIME: a booking restored afterwards (B12, 5B-2) never drops a row.
+ * - SEC FB-R5-SEC-BE-131-01 / ARC FB-R5-ARC-BE-131-01: below OWN/MGR the manager-only audit (the commission of a sale /
+ *   CTV: `commission.*` rows, the `commissionVnd` key) is hidden – audit/public/audit-visibility, the same gate as
+ *   getReservationHistory.
  */
 import { Controller, Get, Inject, Query, Req } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -32,6 +35,7 @@ import { Operation } from '../../../shared/http/operation';
 import { decodeCursor, page, parseLimit } from '../../../shared/http/pagination';
 import { problem } from '../../../shared/problem';
 import { addDays, atLocal, localDate, toZonedIso } from '../../../shared/time';
+import { auditVisibleWhere, redactAuditFields } from '../public/audit-visibility';
 import { lineReductionWhere } from '../public/line-reductions';
 
 /** Longest date range of one query (BA EP00 6.2 – performance limit, not a business rule). */
@@ -203,6 +207,8 @@ export class AuditLogController {
         if (!full)
           where.push(`e.actor_user_id = ${ph(p.userId)}`); // x-scope own (AC2)
         else if (actorUserId) where.push(`e.actor_user_id = ${ph(actorUserId)}`);
+        // SEC FB-R5-SEC-BE-131-01 / ARC FB-R5-ARC-BE-131-01: manager-only rows (commission) left out below OWN/MGR.
+        where.push(...auditVisibleWhere('e', ph, p.roles));
         if (category) where.push(`e.category = ${ph(category)}`);
         if (overdue) {
           where.push(
@@ -214,7 +220,8 @@ export class AuditLogController {
         if (actions.length) where.push(`e.action = ANY(${ph(actions)}::text[])`);
         if (removalsOnly || reductionsOnly) {
           // BE C0313-20: pinned whatever the client sent (a `category` / `action` that differs → empty page).
-          // ARC FB-R5-ARC-BE-B2-01: the same clauses as the "Cần chú ý" count (audit/public/line-reductions).
+          // ARC FB-R5-ARC-BE-B2-01: the same clauses as the "Cần chú ý" count (audit/public/line-reductions); the
+          // window here is calendar days, the count's is the business month (ARC FB-R5-ARC-BE-110-01).
           where.push(...lineReductionWhere('e', ph, { removalsOnly, reductionsOnly }));
         }
         if (afterClosureOnly) {
@@ -241,6 +248,9 @@ export class AuditLogController {
           data: paged.data.map((r) => {
             const uuidId = r.entity_id && UUID.test(r.entity_id) ? r.entity_id : null;
             const code = r.entity_code ?? (r.entity_id && !uuidId ? r.entity_id : null);
+            // Manager-only keys (commissionVnd) dropped below OWN/MGR (audit/public/audit-visibility).
+            const before = redactAuditFields(r.entity_type, r.before, p.roles);
+            const after = redactAuditFields(r.entity_type, r.after, p.roles);
             return {
               occurredAt: toZonedIso(r.occurred_at, tz),
               actorType: r.actor_type,
@@ -250,8 +260,8 @@ export class AuditLogController {
               ...(r.entity_type ? { entityType: r.entity_type } : {}),
               ...(uuidId ? { entityId: uuidId } : {}),
               ...(code ? { entityCode: code } : {}),
-              ...(r.before ? { before: r.before } : {}),
-              ...(r.after ? { after: r.after } : {}),
+              ...(before ? { before } : {}),
+              ...(after ? { after } : {}),
               ...(r.reason ? { reason: r.reason } : {}),
             };
           }),

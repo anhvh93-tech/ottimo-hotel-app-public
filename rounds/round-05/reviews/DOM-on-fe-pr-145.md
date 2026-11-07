@@ -273,3 +273,58 @@ Giá đêm cuối 700.000, không có khách đến cùng ngày, trừ khi ghi k
 ## 9. Dòng đề xuất ghi `decision-log.md` (ORC ghi khi commit)
 
 `| 2026-11-07 | 5 | **DOM – review FE PR #145 (V5-15 Desk, Trả phòng quá ngày đi) @ 011d44e7: DUYỆT CÓ ĐIỀU KIỆN** – điều kiện gộp FB-R5-DOM-FE-145-01 (Major): đơn có giờ hẹn trả muộn thì dòng nhắc dưới ô giờ không được bảo ghi giờ chuẩn (luật DOM mới, rules 15.3 ý 2a: không có bằng chứng giờ rời → giữ giờ hẹn, phụ thu B15 đã thỏa thuận giữ nguyên; có bằng chứng đi sớm hơn → giờ đó, tự giảm theo BR-412; ví dụ 700.000 hẹn 17:00: 350.000 / thấy trống 14:00 → 210.000 / nhắn 12:20 → 0), kèm 1 ca vitest; còn lại đạt: người ghi do máy chủ quyết (OWN; MGR ≤ 1 đêm; 403 requiredRole owner), chỉ dẫn gọi ai, 3 lý do, giờ điền sẵn là giờ hẹn hoặc giờ chuẩn, sau mốc cuối khóa và lấy balanceDueVnd, không có lối thêm hay bớt đêm ngoài Gia hạn. **FB-R5-FE-ARC-V515-01 – trả lời nghiệp vụ:** không bắt buộc ở v1.0.5 (cần khách đi 00:00–05:59 ngày đi VÀ cả ngày nghiệp vụ đi không ai bấm; đường thường ghi 03:00 đúng); tới khi sửa thì ghi 06:00 ngày đi, lý do ghi giờ thật, không gia hạn; cách tạm đúng tiền (nightsNotBilled, phụ thu 0, không đêm thêm, ngày khai báo, mốc kiểm căn, hoa hồng như nhau; chỉ lệch giờ đăng ký lưu trú trong cùng ngày); luật cho bản sửa v1.0.6 (ARC chọn cách): trên đơn quá ngày đi, giờ gõ trước mốc đổi ngày là rạng sáng của chính ngày đi, kèm 3 điều kiện (hộp xác nhận ghi ngày, dòng nhắc nói cách đọc giờ, không hiện checkout.post_midnight); thẻ mới 02, 03 Minor, 04, 05 Suggestion; không ESC | DOM | rounds/round-05/reviews/DOM-on-fe-pr-145.md |`
+
+## 10. Delta @ `b834ea56`
+
+- Bước: Review (delta) | Ngày: 07/11/2026
+- Đối tượng: `011d44e7..b834ea56`. Phần sửa nằm ở `c937ffd0`. `c2f883a4` chỉ gộp main @ `c2d5588d` và sinh lại `strings.js`. `b834ea56` chỉ sửa báo cáo FE mục 6.
+- Chữ: UXD `copy-v1.0.5.md` bản 2.4 mục 9.15 (UXD review `rounds/round-05/reviews/UXD-on-fe-prs-145-146.md`). ARC review `rounds/round-05/reviews/ARC-on-fe-prs-145-146.md` mục 3.2–3.3: hoãn V515-01 sang 0.3.14, như mục 3.2 ở trên.
+- Cách kiểm:
+  - cây làm việc tạm ở scratchpad tại `b834ea56`, không commit, không đẩy lên nhánh PR;
+  - chạy `v5-15-overdue-fea.test.tsx`: 21/21 xanh. Cả bộ admin-web: 96 tệp, 1099 ca xanh. Trong đó có tệp dò của DOM, chép 21 ca của PR và thêm 3 ca dò; riêng PR là 95 tệp, 1075 ca;
+  - DOM viết 3 ca dò trên mock (mục 10.2) để xem **số tiền**, không chỉ chữ. Các ca này chỉ có trong thư mục tạm.
+- CI lúc review (`gh pr checks 145`): `format · lint · audit · test · build` và Playwright landing đang chờ, các job khác xanh. ORC xem lại trước khi gộp.
+
+### 10.1 Thẻ của DOM
+
+| Thẻ | Mã ở `c937ffd0` | Kết quả |
+|---|---|---|
+| 145-01 Major (điều kiện gộp) | Có giờ hẹn (`agreedCheckoutTime`): dòng nhắc chỉ còn **một câu**, `checkout.overdue_time_help_agreed`: "Không có bằng chứng thì giữ {giờ hẹn} và phụ thu đã hẹn. Có bằng chứng khách đi sớm hơn (trả chìa, tin nhắn, buồng phòng thấy căn trống) thì ghi giờ đó." Bỏ `co.time_from_late` trên đơn quá ngày đi. Không hẹn: câu chuẩn như cũ | **Done.** Đúng 15.3 ý 2a. Test: hẹn 17:00 → ô 17:00, câu "giữ 17:00", không có "12:00", không có "không phụ thu"; phụ thu 350.000, không có ô tick; đổi 14:00 → `late_recalc` 350.000 → 210.000, không tick, dòng nhắc giữ câu "có hẹn" |
+| 145-02 Minor | `overdue_time_early` thay `overdue_after_limit` dưới ô giờ và ở lý do khóa nút, khi đã quá mốc cuối **và** ngày lịch của `checkoutAt` máy chủ trả ≠ ngày đi hiệu lực. `{rollover}` lấy từ `property.businessDayRollover` | **Done.** Câu nói đủ 3 ý: cách Desk đọc giờ, ghi {rollover} và giờ thật vào lý do, không gia hạn; khách đi rạng sáng hôm sau thì gia hạn. So theo ngày máy chủ trả, không so giờ gõ, nên khi bản sửa v1.0.6 lên, câu này tự tắt mà Desk không phải đổi. Test: 03:00 → câu sớm, không `post_midnight`; 06:00 → B18 với `checkoutAt` ngày đi 06:00, lý do có "03:00", không đơn con gia hạn; lượt đã gia hạn mà vẫn quá ngày đi → `{date}` là ngày đi sau gia hạn; 18:30 ngày đi vẫn là "gia hạn trước" |
+| 145-03 Minor | `overdue_extend_hint` ("Trước khi gọi, kiểm căn: khách còn ở hoặc đã ở thêm đêm thì bấm Gia hạn, không cần chờ.") đặt sau câu gọi ai, ở màn chỉ dẫn và ở ngăn đơn, **chỉ khi** máy chủ mời `extend_stay` | **Done.** Không hứa nút người xem không có. Nút Gia hạn có ở ngăn đơn của FD (test) |
+| 145-04 Suggestion | `overdue_reason_evidence` đặt trước help D12c (một dòng nhắc). Hai gợi ý đầu đặt con trỏ cuối ô | **Done.** Help D12c của SEC vẫn luôn hiện, kể cả sau lỗi |
+| 145-05 Suggestion | Chưa làm, UXD để sẵn khóa cho v1.0.6 | **Deferred** v1.0.6, đúng đề xuất |
+
+### 10.2 Ca dò tiền của DOM trên mock (không commit)
+
+| Ca | Làm | Thấy | Kết quả |
+|---|---|---|---|
+| P1 – cách tạm 06:00 (T-15-28) | MGR, đơn quá 1 đêm, gõ 06:00, gợi ý "Khách đi không báo" + ", khách nhắn đi lúc 03:00 sáng ngày đi", Hoàn tất | Tóm tắt: "Trả đúng giờ" (không phụ thu). Folio trước và sau B18 giống hệt: số dòng tiền phòng không đổi, không có dòng trả muộn, không đơn con. `actualCheckoutAt` = ngày đi 06:00. Thân B18 chỉ có `checkoutTime`, `checkoutAt`, `overdueReason`, `applyLateSurcharge: false` | **Đúng tiền** như mục 3.4 |
+| P2 – T-15-27 | Không hẹn, giá 700.000, gõ 14:00 | Phụ thu 210.000 (30 %). "Tiếp tục" khóa, lý do "Tick 'Tôi đã báo khách khoản phụ thu này' để bật nút Tiếp tục." Tick xong thì mở | **Đúng.** Phụ thu tăng phải chọn ghi (15.4 ý 3, BR-414) |
+| P3 – T-15-26 ghi thật | Hẹn 17:00, dòng 350.000 đã ghi và đã thu, gợi ý "Lễ tân quên bấm", Hoàn tất với giờ điền sẵn | `checkoutAt` ngày đi 17:00. Dòng trả muộn 350.000 vẫn `posted`, không đảo, không thành tiền dư phải hoàn | **Đúng** 15.3 ý 2a |
+
+Ghi chú về mock: `overdueStay()` chỉ dời ngày đi, không bỏ dòng tiền phòng của các đêm cũ, nên folio mock còn một dòng đêm của ngày đi. Đây là dữ liệu mẫu của test, không phải hành vi của Desk. Không ảnh hưởng kết luận, vì DOM so folio trước và sau B18 trên cùng dữ liệu. Không ra thẻ.
+
+### 10.3 Kết luận delta
+
+**#145 @ `b834ea56`: DUYỆT** (thay cho DUYỆT CÓ ĐIỀU KIỆN @ `011d44e7`).
+
+- 145-01 Done, điều kiện gộp đã đạt. 145-02, 145-03, 145-04 Done. 145-05 Deferred v1.0.6.
+- Delta không đổi luật ai được ghi, số đêm, thân B18 hay số tiền nào của máy chủ. Chỉ đổi chữ, chỗ đặt chữ và con trỏ.
+- **Không có thẻ mới, không có ESC.**
+- Việc còn lại:
+  - **ORC:** gộp sau khi CI xanh trên `b834ea56`. Dòng "Giới hạn đã biết" của ARC (`ARC-on-fe-prs-145-146.md` mục 3.3) viết "Desk … báo 'gia hạn trước'". Từ `c937ffd0`, Desk hiện câu sớm (`overdue_time_early`), nên sửa vế đó thành "Desk nói giờ trước 06:00 được hiểu là rạng sáng hôm sau". Phần "không gia hạn, gõ 06:00, ghi giờ thật vào lý do" giữ nguyên.
+  - **ARC, v1.0.6 (0.3.14):** điều kiện 3 ở mục 3.5 (không hiện `checkout.post_midnight` trên đơn quá ngày đi) đi cùng bản sửa máy chủ, như ARC mục 3.2 ý 2 đã ghi. Câu sớm tự tắt, không cần đổi.
+  - **QA:** T-15-26 … T-15-30 (đã vào `rules-v1.0.5.md` 15.6).
+  - **BA:** sổ tay theo mục 3.3 và 15.3 ý 2a.
+- **Luật DOM đã ghi:** `rounds/round-05/outputs/DOM/rules-v1.0.5.md`
+  - mục 15.3 thêm ý 2a (giờ hẹn khi không có bằng chứng) và bảng ví dụ BR-412;
+  - thêm ý 6 (đơn quá ngày đi, khách đi rạng sáng ngày đi);
+  - mục 15.6 thêm T-15-26 … T-15-30;
+  - dòng "Sửa" ở đầu tệp và mục 0.
+
+  Không đổi con số nào của INV. Bảng BR-412 trong `business-rules.md` thêm ví dụ ở bản BR kế tiếp.
+
+### 10.4 Dòng đề xuất ghi `decision-log.md` (ORC ghi khi commit)
+
+`| 2026-11-07 | 5 | **DOM – delta review FE PR #145 (V5-15 Desk, Trả phòng quá ngày đi) @ b834ea56 (011d44e7..b834ea56, sửa ở c937ffd0): DUYỆT** – 145-01 Done (có giờ hẹn: một câu overdue_time_help_agreed, giữ giờ hẹn và phụ thu đã hẹn, có bằng chứng sớm hơn thì ghi giờ đó; bỏ co.time_from_late trên đơn quá ngày đi; test hẹn 17:00 → 350.000 không tick, 14:00 → late_recalc 350.000 → 210.000); 145-02 Done (overdue_time_early khi ngày của checkoutAt máy chủ ≠ ngày đi hiệu lực, tự tắt khi bản sửa v1.0.6 lên; 03:00 → câu sớm, 06:00 → B18 ngày đi 06:00, lý do có 03:00, không đơn con; lượt đã gia hạn vẫn quá ngày đi đúng ngày); 145-03 Done (overdue_extend_hint chỉ khi có extend_stay); 145-04 Done; 145-05 Deferred v1.0.6; DOM dò tiền trên mock: 06:00 không phụ thu, không thêm đêm, folio trước = sau; 14:00 → 210.000 phải tick; hẹn 17:00 ghi thật giữ dòng 350.000; 21/21 và cả bộ admin-web xanh ở cây tạm; không thẻ mới, không ESC; rules-v1.0.5.md 15.3 thêm ý 2a + bảng ví dụ BR-412 và ý 6 (cách tạm V515-01), 15.6 thêm T-15-26…30; ORC sửa vế "báo gia hạn trước" trong dòng Giới hạn đã biết của ARC 3.3; gộp khi CI xanh | DOM | rounds/round-05/reviews/DOM-on-fe-pr-145.md |`

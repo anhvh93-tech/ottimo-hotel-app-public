@@ -321,7 +321,11 @@ describe('Nhật ký tiền – "Xem thêm" (BA: a month from "Cần chú ý" wa
     await waitFor(() => expect(shown()).toBe(100));
     const more = screen.getByRole('button', { name: tv('common.load_more') });
     await user.click(more);
-    expect(await screen.findByRole('alert')).toHaveTextContent(tv('common.error_generic_title'));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(tv('common.error_generic_title'));
+    // FB-R5-UXD-FE-PR140-06: the DS alert (`.alert.bad`: --bad on --bad-bg, icon), not plain text
+    expect(alert).toHaveClass('alert', 'bad');
+    expect(alert.querySelector('svg, .ico')).not.toBeNull();
     expect(shown()).toBe(100);
     await user.click(screen.getByRole('button', { name: tv('common.load_more') }));
     await waitFor(() => expect(shown()).toBeGreaterThan(100));

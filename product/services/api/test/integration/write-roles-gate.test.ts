@@ -437,5 +437,37 @@ describe.skipIf(!HAS_DB)('x-write-roles gate (contract 0.3.13 1.16)', () => {
       );
       await expectFieldDenied(changed, 'saveQuote', 'fdsal3', before);
     });
+
+    // SEC FB-R5-SEC-BE-123-01 (contract 0.3.13 1h (e)): a body nested 10.000 levels with an Idempotency-Key – the
+    // recursive hash once threw a RangeError (500, no access.denied). Denied role: the guard treats it as no replay
+    // → 403 + access.denied; allowed role: the unit of work refuses it → 422. Never a 5xx.
+    it('SEC 123-01: a body nested 10.000 levels + Idempotency-Key → SAL with nightlyRates 403 + access.denied; SAL without the field 422; never 500', async () => {
+      // Sent as text: the test client's own JSON.stringify would overflow first.
+      const withDeep = (body: Record<string, unknown>) =>
+        JSON.stringify(body).replace(/}$/, `,"note":${'['.repeat(10_000)}1${']'.repeat(10_000)}}`);
+      const json = { 'content-type': 'application/json' };
+      const c = Client.of(fa, t, 'sal');
+      const plain = { ...quote(), guestId: guestSal };
+      const quotes = await quoteCount('sal');
+      const before = (await denied('saveQuote', 'sal')).length;
+      const typed = await c.send(
+        'POST',
+        `${P(t)}/quotes`,
+        withDeep({ ...plain, nightlyRates: untouched }),
+        { ...json, 'idempotency-key': randomUUID() },
+      );
+      await expectFieldDenied(typed, 'saveQuote', 'sal', before);
+      const allowed = await c.send('POST', `${P(t)}/quotes`, withDeep(plain), {
+        ...json,
+        'idempotency-key': randomUUID(),
+      });
+      expect(allowed.statusCode, allowed.body).toBe(422);
+      expect(allowed.json()).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        detail: 'Request body nested too deep',
+      });
+      expect((await denied('saveQuote', 'sal')).length).toBe(before + 1);
+      expect(await quoteCount('sal')).toBe(quotes);
+    });
   });
 });

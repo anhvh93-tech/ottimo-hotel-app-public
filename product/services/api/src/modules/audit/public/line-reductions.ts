@@ -1,7 +1,10 @@
 /**
  * BR-438 (4)(ii)–(iii) – "sửa giảm dòng phát sinh" read from the audit log (contract 0.3.13 1.5, 1.20; V5-16; ARC
- * FB-R5-ARC-BE-B2-01): ONE definition for every reader, so the "Cần chú ý" count and the list the manager opens from it
- * can never disagree.
+ * FB-R5-ARC-BE-B2-01): ONE definition of "a reduction" for every reader – the "Cần chú ý" count and the list the
+ * manager opens from it use the same clauses. Their WINDOWS differ (ARC FB-R5-ARC-BE-110-01): the count takes the
+ * business month (from 06:00 of day 1) and the role at the time (`before.actorRole`), the list behind `month=` takes
+ * calendar days and the person only – so they can differ for reductions made 00:00–05:59 on day 1, for rows without
+ * `actorRole` (written before v1.0.5) and for a person whose role changed within the month.
  * - `lineReductionWhere` – the SQL clauses of `listAuditEvents` `removalsOnly` / `reductionsOnly` (this module's
  *   controller) and of the count below: `category = money` + `action = folio_line.adjusted` (index
  *   audit_event_property_category_idx), the night money left out (room, extra_person, room_change_difference – no

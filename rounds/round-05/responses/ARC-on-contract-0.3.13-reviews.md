@@ -139,3 +139,37 @@ Chi tiết ở contract 1.28. Chỉ mô tả và tệp `.md`; không đổi sche
 | FB-R5-BE-ARC-C0313-28 | Minor | Done (chữ) – BE-D ở PR-B3 | `resolveAttentionEvent`: `deposit_after_cancel` bắt `note` 3–500 (`REASON_REQUIRED`), audit `money` `attention_event.resolved` không có `note`; mô tả 422 và trường `note` cập nhật |
 | FB-R5-BE-ARC-C0313-29 | Suggestion | Done (chữ) – BE-D ở PR-B3 | (a) hàm ở #119, PR-B3 dùng lại, `executeRefund` sửa cùng #119; (b) ARC chọn lỗi dạng trước, `CARD_NUMBER_DETECTED` chỉ khi không còn lỗi dạng (như `note`; `executeRefund` đã đúng). `PaymentCreate` làm ở PR-B3 cùng việc khai `bankReference` ở các bộ đọc (ARC 119-01), không mở lại #119. Chữ luật C0313-25 cập nhật theo SR-PAY-10 bản 07/11 (SEC 119-01, ARC 119-03) |
 | FB-R5-BE-ARC-C0313-30 | Suggestion | Done (chữ) | T14-4: "OTA không có `nightlyRates`, hoặc `nightlyRates` đúng dạng" |
+
+## 10. Bổ sung 1h – ARC review BE-H #110/#123/#131 (mục 4, 6) và ARC review #140 mục 7
+
+Chi tiết ở contract 1.29 (đổi người chốt) và danh sách 0.3.14 ở 1.26. Có đổi schema, chỉ thêm (`ReservationPatch.closerChangeReason`, phản hồi 403/409 của `updateReservation`). Không mã lỗi mới, không migration.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-ARC-BE-131-02 (DOM 131-01) | Major | Done (hợp đồng 1h) – BE-H làm ở `r5-h1c`; FE-A ô lý do | Sau nhận phòng chỉ OWN, lý do bắt buộc; hoa hồng đồng bộ cùng giao dịch; 409 khi đã `payable`/`paid` |
+| FB-R5-ARC-BE-131-01 (SEC 131-01) | Major | Done (`architecture.md` 5.1 + câu 0.3.14 (b)) – BE-H làm PR che hoa hồng trước tag | Cổng `audit/public/audit-visibility.ts`, dùng ở `listAuditEvents` và `getReservationHistory` |
+| FB-R5-ARC-BE-110-01 | Minor | Done (câu 0.3.14 (a)) | Khung tháng kinh doanh của số đếm khác ngày lịch của danh sách |
+| #123 – hai thay đổi hành vi, B13 `dates[]` | – | Deferred – 0.3.14 (c), (d) | 403 khi thân phát lại khác; multipart sau khi mất vai → 403; `dates[]` mọi đêm |
+| SEC 123-01 | – | Deferred – 0.3.14 (e) | Quá 32 tầng → 422; lỗi băm ở guard → 403, không 5xx |
+| T58-9, DOM FE-125-01, ARC FE-128-02 | – | Deferred – 0.3.14 (f), (g), (h) | "lần lượt"; câu `checkoutTimeNoteRequired`; `action` giữ tham số lặp |
+
+## 11. Bổ sung 1i – BE review 1g (`BE-on-contract-0313-addendum-1g.md`), BE-H, DOM và SEC review 1h
+
+Chi tiết ở contract 1.30. Chỉ mô tả, không đổi schema.
+
+| ID | Mức | Trạng thái (phần ARC) | Ghi chú |
+|---|---|---|---|
+| FB-R5-BE-ARC-C0313-31 | Minor | Done – phương án B | Ô mã giống số thẻ báo trước; #148 không đổi mã, thêm ca (iv) |
+| FB-R5-BE-ARC-C0313-32 | Minor | Done (chữ) – BE-D2 thêm ca SAL `confirmDeposit` 409 và ca (iv) ở #148 | SR-PAY-10 bản 07/11; ca HTTP từng đường; `GroupDepositInput` R3; câu "từ chối trường lạ" sửa |
+| FB-R5-BE-ARC-C0313-33 | Suggestion | Deferred – 0.3.14 (i) | `DEFAULT NULL`, DROP + cấp quyền lại |
+| FB-R5-BE-ARC-1H-01 | Suggestion | Done (ghi ngay ở 1i) | Đơn `checked_out` chỉ nhận người chốt |
+| FB-R5-BE-ARC-1H-02 | Suggestion | Done | Luật đạt của B18; `recognized_at` = lúc sửa |
+| FB-R5-DOM-ARC-1H-01 | Minor | Done (chữ) – OPS làm ở runbook | Hai danh sách từ `reservation_change`, chạy sau khi `r5-h1c` lên; repo chỉ ghi 0 / > 0 |
+| FB-R5-DOM-ARC-1H-02 | Minor | Không thuộc ARC – BA, PO | Sổ tay và release notes cùng tag có `r5-h1c` |
+| FB-R5-DOM-ARC-1H-03 | Minor | Deferred v1.3 (US-089) | v1.0.5 giữ 409 |
+| FB-R5-DOM-ARC-1H-04 | Suggestion | Đồng ý hướng – BE-H quyết làm trong `r5-h1c` hay v1.0.6 | Không đổi chữ hợp đồng |
+| FB-R5-DOM-ARC-1H-05 | Suggestion | Ghi ở `updateReservation` (nên có) – FE-A, UXD | Không đổi hợp đồng |
+| FB-R5-SEC-ARC-1H-01 | Minor | Done (chữ) – BE-H sửa `r5-h1c` trước khi gộp | Lý do ở cột `reason` của audit; không thêm `reason` vào allowlist `reservation` |
+| FB-R5-SEC-ARC-1H-02 | Minor | Done (chữ, phương án (a)) – BE làm ở PR-M | Không ghi số thưởng vào audit; 0.3.14 (b), `architecture.md` 5.1 |
+| FB-R5-SEC-ARC-1H-03 | Suggestion | Ý 1, 2 Done (chữ) – BE-H ở `r5-h1c`; ý 3 Deferred 0.3.14 (j) – BA | `access.denied` cả hai nhánh 403; thứ tự 403 → 422 → 409 |
+
