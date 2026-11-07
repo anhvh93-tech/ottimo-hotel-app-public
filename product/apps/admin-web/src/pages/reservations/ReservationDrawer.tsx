@@ -51,6 +51,7 @@ import {
 import { BillDialog } from '../stay/CheckOutPage';
 import { EarlyDepartureDialog } from '../stay/EarlyDepartureDialog';
 import { FolioDialog } from '../stay/FolioDialog';
+import { OpenRefundRows } from '../stay/OpenRefundRows';
 
 type Open =
   | 'cancel'
@@ -134,6 +135,8 @@ export function ReservationDrawer({
   // UXR #6: "Đã thu" comes from the folio (`totals.paidVnd`) for every role that sees the balance – it
   // is never "room total − balance" (wrong with a hold, extras, FOC or a refund).
   const [folio, setFolio] = useState<Folio | null>(null);
+  // V5-13 (U4): the folio id whose read failed – the refund pending line then says it could not be read.
+  const [folioUnread, setFolioUnread] = useState<string | null>(null);
   // ARC 16.20 (BUG-R2-101): `balanceDueVnd` absent = nothing posted on the folio yet (a hold) – FD+ still read the
   // folio; other roles see money only where the server gives it.
   const folioId =
@@ -163,13 +166,28 @@ export function ReservationDrawer({
     r?.status === 'hold' && r.depositRequiredVnd !== undefined
       ? Math.max(0, r.depositRequiredVnd - (r.depositPaidVnd ?? 0))
       : undefined;
+  // V5-13 (ARC A1 (b), UXD 9.12 U4): FD+ see under "Còn phải thu" what is still to be handed back to the guest
+  // (`Folio.totals.openRefunds`, every reason, whoever asked it) – one total. SAL/CTV never receive the field: no row.
+  // Absent field or a failed read is said (U5), never shown as "nothing pending" – a failed re-read too (ARC-134-01):
+  // the copy kept from the read before may be out of date, so the failed read wins over it for this row.
+  const refundRow =
+    fd && folioId && (ownFolio || folioUnread === folioId) ? (
+      <OpenRefundRows
+        variant="total"
+        refunds={folioUnread === folioId ? undefined : ownFolio?.totals.openRefunds}
+      />
+    ) : null;
   const rVersion = r?.version;
   useEffect(() => {
     if (!folioId) return;
     let stale = false;
     api.getFolio({ propertyId, folioId }).then(
-      (x) => !stale && setFolio(x.data),
-      () => undefined,
+      (x) => {
+        if (stale) return;
+        setFolio(x.data);
+        setFolioUnread(null);
+      },
+      () => !stale && setFolioUnread(folioId),
     );
     return () => {
       stale = true;
@@ -714,6 +732,7 @@ export function ReservationDrawer({
                           </td>
                         </tr>
                       )}
+                      {refundRow}
                     </>
                   ) : null}
                 </tbody>
@@ -771,6 +790,7 @@ export function ReservationDrawer({
                       {vnd(folio.totals.balanceDueVnd ?? 0)} {t('common.vnd_unit')}
                     </td>
                   </tr>
+                  {refundRow}
                 </tbody>
               </table>
               {refundable > 0 && online ? (

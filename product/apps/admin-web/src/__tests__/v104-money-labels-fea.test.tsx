@@ -58,8 +58,11 @@ describe('BUG-R4-026 – reason codes in words', () => {
       tv('foc.r_regular'),
     );
     expect(requestReasonText(t, { type: 'foc', reasonCode: 'early_departure' })).toBeNull();
-    expect(requestReasonText(t, { type: 'refund', reasonCode: 'something_new' })).toBeNull();
-    expect(requestReasonText(t, { type: 'refund' })).toBeNull();
+    // V5-13 (UXD 9.12): every refund request has a label now – an unknown or missing code is "Hoàn tiền".
+    expect(requestReasonText(t, { type: 'refund', reasonCode: 'something_new' })).toBe(
+      tv('audit.reason.refund_other'),
+    );
+    expect(requestReasonText(t, { type: 'refund' })).toBe(tv('audit.reason.refund_other'));
   });
 
   it('Hoàn tiền: each card names its reason', async () => {
@@ -178,7 +181,7 @@ describe('BUG-R3-045 – a locked folio offers no adjustment', () => {
     return r;
   }
 
-  it('closed folio: the manager sees no "Điều chỉnh", and the FOLIO_LOCKED sentence instead of "chỉ quản lý"', async () => {
+  it('closed folio: the manager sees no "Điều chỉnh", and the closed-folio sentence (V5-44) instead of "chỉ quản lý"', async () => {
     const r = closedFolio();
     const { user } = renderApp(`/reservations/${r.id}`, 'qa.mgr');
     const drawer = await screen.findByRole('dialog', { name: r.guestName });
@@ -186,11 +189,13 @@ describe('BUG-R3-045 – a locked folio offers no adjustment', () => {
     const dlg = await screen.findByRole('dialog', {
       name: tv('folio.dialog_title', { code: r.code }),
     });
-    await waitFor(() => expect(within(dlg).getByText(tv('error.FOLIO_LOCKED'))).toBeVisible());
+    await waitFor(() =>
+      expect(within(dlg).getByText(tv('error.FOLIO_LOCKED_closed'))).toBeVisible(),
+    );
     expect(within(dlg).queryByRole('button', { name: tv('folio.adjust') })).toBeNull();
     expect(within(dlg).queryByText(tv('folio.settled_mgr'))).toBeNull();
   });
-  it('settled folio past its window: 409 FOLIO_LOCKED on a raise → the sentence, then no "Điều chỉnh" for anyone', async () => {
+  it('settled folio past its window, older server (no lockReason): 409 FOLIO_LOCKED on a raise → the general sentence, then no "Điều chỉnh" for anyone', async () => {
     const r = res('Hoàng Long');
     const f = mockControl.stay.folios.get(r.folioId)!;
     f.status = 'settled';
@@ -280,5 +285,25 @@ describe('OpenAPI 0.3.13 bổ sung 1f – money log: `attention_event.resolved` 
     const cell = (await screen.findByText(tv('mlog.a_money_not_found'))).closest('td')!;
     expect(cell.textContent).not.toContain(tv('mlog.a_other'));
     expect(within(cell).queryByText('attention_event.resolved')).toBeNull();
+  });
+
+  it('FB-R5-UXD-FE-111-02: an item of another kind is "Thao tác tiền khác" with the code, never "Không thấy tiền"', async () => {
+    const mgr = mockControl.db.users.find((u) => u.username === 'qa.mgr')!.id;
+    mockControl.stay.audit.unshift({
+      occurredAt: new Date().toISOString(),
+      actorType: 'user',
+      actorName: 'Quân',
+      actorUserId: mgr,
+      category: 'money',
+      entityType: 'attention_event',
+      entityCode: 'R-TEST-2',
+      action: 'attention_event.resolved',
+      after: { kind: 'late_fee_post_review' },
+    });
+    renderApp('/audit', 'qa.mgr');
+    const code = await screen.findByText('attention_event.resolved');
+    const cell = code.closest('td')!;
+    expect(cell.textContent).toContain(tv('mlog.a_other'));
+    expect(screen.queryByText(tv('mlog.a_money_not_found'))).toBeNull();
   });
 });

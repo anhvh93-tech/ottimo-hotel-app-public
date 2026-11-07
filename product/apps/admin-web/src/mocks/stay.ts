@@ -910,14 +910,25 @@ export function createStayMock(ctx: Ctx) {
     const net = totalVnd - paidVnd + refundedVnd;
     const creditVnd = Math.max(0, -net);
     // 0.3.6 add. 2: credit already covered by an open/approved refund request is "handled".
-    const requested = st.approvals
-      .filter(
-        (a) =>
-          a.type === 'refund' &&
-          a.folioId === f.id &&
-          ['pending', 'approved', 'escalated'].includes(a.status),
-      )
-      .reduce((a, x) => a + x.amountVnd - (x.refundedVnd ?? 0), 0);
+    const openReqs = st.approvals.filter(
+      (a) =>
+        a.type === 'refund' &&
+        a.folioId === f.id &&
+        ['pending', 'approved', 'escalated'].includes(a.status),
+    );
+    const requested = openReqs.reduce((a, x) => a + x.amountVnd - (x.refundedVnd ?? 0), 0);
+    // V5-13 (0.3.13, BE `openRefundsByReason`): the same requests – every one on the folio, whoever asked it (not the
+    // `listApprovalRequests` scope) – Σ (asked − paid out) per reason code, groups > 0 only, sorted by code.
+    const byReason = new Map<string, number>();
+    for (const a of openReqs)
+      byReason.set(
+        a.reasonCode,
+        (byReason.get(a.reasonCode) ?? 0) + a.amountVnd - (a.refundedVnd ?? 0),
+      );
+    const openRefunds = [...byReason]
+      .filter(([, v]) => v > 0)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([reasonCode, openVnd]) => ({ reasonCode, openVnd }));
     return {
       roomVnd,
       otherVnd: totalVnd - roomVnd,
@@ -928,6 +939,7 @@ export function createStayMock(ctx: Ctx) {
       balanceDueVnd: Math.max(0, net),
       creditVnd,
       unhandledCreditVnd: Math.max(0, creditVnd - requested),
+      openRefunds,
       refundedVnd,
       pendingApprovals: f.lines.filter((l) => l.lineState === 'pending_approval').length,
     };
@@ -967,6 +979,8 @@ export function createStayMock(ctx: Ctx) {
         balanceDueVnd: tt.balanceDueVnd,
         creditVnd: tt.creditVnd,
         unhandledCreditVnd: tt.unhandledCreditVnd,
+        // V5-13: `x-visible-to` FD+ – SAL/CTV never receive it (BE serializer).
+        ...(has(roles, FD_PLUS) ? { openRefunds: tt.openRefunds } : {}),
         otaExcessVnd: tt.otaExcessVnd,
       },
       pendingApprovals: tt.pendingApprovals,
@@ -3118,6 +3132,8 @@ export function createStayMock(ctx: Ctx) {
         overdue: !!od,
         ...(od ? { nightsNotBilled: od.nights } : {}),
         unhandledCreditVnd: tt.unhandledCreditVnd,
+        // V5-13 (0.3.13): the summary is FD+ only – always sent, `[]` when nothing is pending.
+        openRefunds: tt.openRefunds,
         lateSurchargeRecalc: liveLate(r).length
           ? { oldVnd: live, newVnd, newTierPct: s.treatAsExtension ? 0 : s.tierPct }
           : undefined,
@@ -3583,11 +3599,15 @@ export function createStayMock(ctx: Ctx) {
       const r = rsv().state.reservations.find((x) => x.id === f.reservationId)!;
       // BR-427 (c) (server `lockForPosting({ allowPostCheckout: true })`, BUG-R3-022): `open`, or `settled` inside
       // `post_checkout_window_until` (= settled + post_checkout_charge_hours); `closed` / past the window → 409.
-      if (f.status === 'closed') return problem(409, 'FOLIO_LOCKED');
+      // V5-44 (0.3.13): every 409 FOLIO_LOCKED carries `lockReason` (BE `folioLocked(reason)`).
+      if (f.status === 'closed') return problem(409, 'FOLIO_LOCKED', { lockReason: 'closed' });
       if (f.status === 'settled') {
         const settled = Date.parse(f.settledAt ?? `${r.departureDate}T11:00:00+07:00`);
         if (Date.now() >= settled + POST_CHECKOUT_CHARGE_HOURS * 3_600_000)
-          return problem(409, 'FOLIO_LOCKED', { detail: 'post-checkout window over (BR-427 d)' });
+          return problem(409, 'FOLIO_LOCKED', {
+            lockReason: 'post_checkout_window_over',
+            detail: 'post-checkout window over (BR-427 d)',
+          });
       }
       const body = (await request.json()) as Body;
       const item = CATALOG.find((c) => c.code === body.chargeCode);
@@ -3669,6 +3689,7 @@ export function createStayMock(ctx: Ctx) {
       const after = body.voidLine === true ? 0 : round1000(unit * qty);
       if (f.status === 'settled' && totals(r).balanceDueVnd > 0 && after < l.amountVnd)
         return problem(409, 'FOLIO_LOCKED', {
+          lockReason: 'debt_reduction_requires_write_off',
           detail: 'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
         });
       if (f.status === 'settled' && after < l.amountVnd && !g.roles.includes('owner'))
@@ -3746,7 +3767,10 @@ export function createStayMock(ctx: Ctx) {
       // ARC 16.27 (R7LOCK-02, BR-525): writing a debt off after check-out – the one FOC a settled folio takes.
       if (body.reasonCode === 'debt_write_off') {
         const due = totals(r).balanceDueVnd;
-        if (f.status !== 'settled' || due <= 0) return problem(409, 'FOLIO_LOCKED');
+        if (f.status !== 'settled' || due <= 0)
+          return problem(409, 'FOLIO_LOCKED', {
+            lockReason: f.status === 'closed' ? 'closed' : 'settled',
+          });
         if (!has(g.roles, OWN_MGR)) return problem(403, 'FORBIDDEN_ACTION');
         // R3-Q25 (FB-R2-SEC-BE-82 (b), foc.service): the write-off requester re-authenticates like an approver (S1).
         if (!reauthenticated) return validation([{ field: 'secret', code: 'REQUIRED' }]);
@@ -3841,7 +3865,8 @@ export function createStayMock(ctx: Ctx) {
       // ARC 16.26 (BR-525 G-4): a settled folio takes only debt collection – `charge`, FD+, ≤ what is still due.
       if (f.status === 'settled') {
         const due = totals(r).balanceDueVnd;
-        if (body.type !== 'charge' || due <= 0) return problem(409, 'FOLIO_LOCKED');
+        if (body.type !== 'charge' || due <= 0)
+          return problem(409, 'FOLIO_LOCKED', { lockReason: 'settled' });
         if (!has(g.roles, FD_PLUS)) return problem(403, 'FORBIDDEN_ACTION');
         if (Number(body.amountVnd) > due)
           return problem(422, 'VALIDATION_FAILED', {
@@ -4141,7 +4166,7 @@ export function createStayMock(ctx: Ctx) {
       if (!f) return problem(404, 'NOT_FOUND');
       const r = rsv().state.reservations.find((x) => x.id === f.reservationId)!;
       // 0.3.8 bổ sung 3 (FB-R3-ARC-FUZZ-01): `open` or `settled` (also J15 `waiting_refund`); `closed` → 409.
-      if (f.status === 'closed') return problem(409, 'FOLIO_LOCKED');
+      if (f.status === 'closed') return problem(409, 'FOLIO_LOCKED', { lockReason: 'closed' });
       const body = (await request.json()) as Body;
       if (String(body.reason ?? '').trim().length < 3)
         return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
