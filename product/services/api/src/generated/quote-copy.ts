@@ -2,7 +2,7 @@
 export const QUOTE_COPY = {
   vi: {
     'sale.quote_text':
-      'OTTIMO Boutique Stay – Báo giá {code}\nCăn {room} {room_name}, {from} → {to} ({nights_text}), {guests}.\nTiền phòng: {room_total}{discount_note}.\nCọc giữ phòng: {deposit}. Phần còn lại thanh toán khi nhận phòng.\nBáo giá có hiệu lực đến {expires}.',
+      'OTTIMO Boutique Stay – Báo giá {code}\nPhòng {room} {room_name}, {from} → {to} ({nights_text}), {guests}.\nTiền phòng: {room_total}{discount_note}.\nCọc giữ phòng: {deposit}. Phần còn lại thanh toán khi nhận phòng.\nBáo giá có hiệu lực đến {expires}.',
     'sale.quote_nights_one': '{n} đêm',
     'sale.quote_nights_few': '{n} đêm',
     'sale.quote_nights_many': '{n} đêm',
@@ -54,7 +54,7 @@ export const QUOTE_COPY = {
   },
   ru: {
     'sale.quote_text':
-      'OTTIMO Boutique Stay – предложение {code}\nАпартаменты {room} {room_name}, {from} → {to} ({nights_text}), {guests}.\nСтоимость проживания: {room_total}{discount_note}.\nДепозит для бронирования: {deposit}. Остальное оплачивается при заселении.\nПредложение действительно до {expires}.',
+      'OTTIMO Boutique Stay – предложение {code}\nНомер {room} {room_name}, {from} → {to} ({nights_text}), {guests}.\nСтоимость проживания: {room_total}{discount_note}.\nПредоплата, чтобы закрепить номер: {deposit}. Остальное оплачивается при заселении.\nПредложение действительно до {expires}.',
     'sale.quote_nights_one': '{n} ночь',
     'sale.quote_nights_few': '{n} ночи',
     'sale.quote_nights_many': '{n} ночей',

@@ -49,6 +49,17 @@ function guestStringsOnly(): Plugin {
   };
 }
 
+/**
+ * BUG-R4-017 / V5-24 (copy-v1.0.5 5.2): Vite inlines assets under 4 KB as `data:` URLs, which turned the small
+ * JetBrains Mono faces (Cyrillic-ext 400/500, Vietnamese woff2 400/500) into `data:font/…` – blocked by the CSP
+ * `font-src 'self'` (Caddyfile.prod): 6 console errors per load, and Cyrillic-ext letters in the code and Wi-Fi boxes
+ * fell back to another font. Every self-hosted font stays a file under /assets/; the CSP is not loosened. Other
+ * assets keep Vite's default.
+ */
+function keepFontsAsFiles(file: string): boolean | undefined {
+  return /\.woff2?(\?|$)/i.test(file) ? false : undefined;
+}
+
 // Dev server runs on the host (architecture.md section 17).
 // VITE_API_MODE=mock (default in `pnpm dev`): MSW answers /v1/guest/* from src/mocks (contract 0.3.6).
 // VITE_API_MODE=server (`pnpm dev:server`): /v1 is proxied to the api container (BE-C).
@@ -62,8 +73,12 @@ export default defineConfig({
       '/v1': 'http://localhost:3000',
     },
   },
-  // No public source maps (FB-R2-SEC-FE-02); SOURCEMAP=1 → hidden maps for local debugging only.
-  build: { outDir: OUT_DIR, sourcemap: process.env.SOURCEMAP === '1' ? 'hidden' : false },
+  build: {
+    outDir: OUT_DIR,
+    // No public source maps (FB-R2-SEC-FE-02); SOURCEMAP=1 → hidden maps for local debugging only.
+    sourcemap: process.env.SOURCEMAP === '1' ? 'hidden' : false,
+    assetsInlineLimit: keepFontsAsFiles,
+  },
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],

@@ -61,9 +61,11 @@ function LanguageSelect({
           ))}
         </select>
       </label>
-      {/* Outside the label (not part of the select's name), read as its description (0.3.7 bổ sung 1 #12). */}
+      {/* Outside the label (not part of the select's name), read as its description (0.3.7 bổ sung 1 #12).
+          v1.0.5 BUG-R2-218 (copy-v1.0.5 4.6, FB-R5-CPY-UXD-V105-10): the state, not "change it at the top" –
+          the reader is already on the select. Neither text says where the language came from. */}
       <span className="sr-only" id="gw-lang-state">
-        {chosen ? t('gw.lang_chosen') : t('gw.lang_auto')}
+        {chosen ? t('gw.lang_chosen') : t('gw.lang_auto_sr')}
       </span>
     </>
   );

@@ -28,7 +28,8 @@ describe('tab "Yêu cầu" (US-109, SM-15)', () => {
     expect(tile).toHaveAttribute('aria-pressed', 'true');
     expect(
       screen.getByText(
-        'Căn đã được dọn đầy đủ lúc 10:15 hôm nay. Dọn đầy đủ thêm lần nữa có phí 100.000 đ.',
+        // v1.0.5 V5-23 (copy-v1.0.5 4.20 a): "Phòng", never the internal "Căn" on the guest page
+        'Phòng đã được dọn đầy đủ lúc 10:15 hôm nay. Dọn đầy đủ thêm lần nữa có phí 100.000 đ.',
       ),
     ).toBeInTheDocument();
     const send = screen.getByRole('button', { name: 'Gửi yêu cầu' });
@@ -151,24 +152,25 @@ describe('tab "Thông tin" (US-108) and room name (BR-012)', () => {
 });
 
 describe('English first (P-S4-10, US-112)', () => {
-  it('the server picks the session language from the browser (fr → en) and the page says it can be changed', async () => {
+  it('the server picks the session language (fr browser → en) and the page says it can be changed – not where it came from (BUG-R2-218)', async () => {
     setLanguages(['fr-FR']);
     const { user, unmount } = openLink();
     expect(
       await screen.findByRole('heading', { name: 'Welcome to OTTIMO, Anna.' }),
     ).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('en');
-    // Visible line under the greeting + the select's description (screen readers).
-    expect(
-      screen.getAllByText('Language set from your browser – you can change it at the top.'),
-    ).toHaveLength(2);
-    const select = screen.getByRole('combobox', { name: 'Language' });
-    expect(select).toHaveAccessibleDescription(
-      'Language set from your browser – you can change it at the top.',
+    // v1.0.5 copy 4.6: the visible line under the greeting says it can be changed; the select's description
+    // (screen readers, already on the select) says the state. Neither names the browser – the profile wins.
+    expect(screen.getAllByText('You can change the language at the top of the page.')).toHaveLength(
+      1,
     );
+    const select = screen.getByRole('combobox', { name: 'Language' });
+    expect(select).toHaveAccessibleDescription('Language selected for you');
+    expect(document.body.textContent).not.toMatch(/browser|trình duyệt|браузер/i);
     await user.selectOptions(select, 'vi');
     await waitFor(() => expect(mockControl.state.localeChosen).toBe(true));
-    expect(screen.queryByText(/Ngôn ngữ theo trình duyệt/)).toBeNull();
+    expect(screen.queryByText('Bạn có thể đổi ngôn ngữ ở đầu trang.')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/trình duyệt/);
     expect(screen.getByRole('combobox', { name: 'Ngôn ngữ' })).toHaveAccessibleDescription(
       'Ngôn ngữ bạn đã chọn',
     );
@@ -176,7 +178,7 @@ describe('English first (P-S4-10, US-112)', () => {
     unmount();
     openLink();
     expect(await screen.findByRole('button', { name: 'Lưu trú' })).toBeInTheDocument();
-    expect(screen.queryByText(/Ngôn ngữ theo trình duyệt/)).toBeNull();
+    expect(screen.queryByText('Bạn có thể đổi ngôn ngữ ở đầu trang.')).toBeNull();
   });
 
   it('a Vietnamese browser opens in Vietnamese, a Russian one in Russian', async () => {

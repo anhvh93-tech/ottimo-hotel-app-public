@@ -15,11 +15,10 @@ import { test } from '@playwright/test';
 // BUG-R2-193 đóng 19/10 (MOB: thanh nút H23 ra ngoài vùng cuộn, nằm trên thanh tab – TC-X-087 xanh).
 // BUG-R3-007…010 sửa 24/10 (BE-D, nhánh be-d/r3-us155-bugs – QA xác nhận trên stack US-155): S35 trong Me.screens,
 // công tắc form tắt được ngay trong ngày (kill switch), CCCD/CMND viết cách nhóm bị chặn, FDL đọc được công tắc.
+// BUG-R2-218 sửa 07/11 (FE-B v1.0.5 V5-23, copy-v1.0.5 4.6): guest-web không còn ghi "theo trình duyệt" – TC-L7-053.
 export const OPEN: Readonly<Record<string, string>> = {
   'BUG-R2-217':
     'Cần chú ý "Giữ chỗ {code} hết hạn lúc …" thiếu mã đơn – `hold_expiring` không có `refCode` (BE-A)',
-  'BUG-R2-218':
-    'guest-web ghi "Ngôn ngữ theo trình duyệt của bạn" cả khi ngôn ngữ lấy từ hồ sơ khách (MOB + BE: phiên không cho biết nguồn)',
 };
 
 function fixedByEnv(): Set<string> {
