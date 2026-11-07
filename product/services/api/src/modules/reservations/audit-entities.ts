@@ -39,5 +39,9 @@ defineAuditEntity('reservation', [
   'authMethod',
   'approverRole',
   'focVnd',
+  // SEC-BE-26 / contract 0.3.13 bổ sung 1h: `reservation.closer_changed` – who closes the sale (a staff user id, never
+  // a guest). closerUserId was written but dropped until now. The owner's reason for a correction goes to the audit
+  // `reason` column, never as a `reason` key here (SEC FB-R5-SEC-ARC-1H-01).
+  'closerUserId',
 ]);
 defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);

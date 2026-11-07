@@ -35,7 +35,7 @@ import { Operation } from '../../../shared/http/operation';
 import { decodeCursor, page, parseLimit } from '../../../shared/http/pagination';
 import { problem } from '../../../shared/problem';
 import { addDays, atLocal, localDate, toZonedIso } from '../../../shared/time';
-import { auditVisibleWhere, redactAuditFields } from '../public/audit-visibility';
+import { auditVisibleWhere, redactAuditFields, seesFullAudit } from '../public/audit-visibility';
 import { lineReductionWhere } from '../public/line-reductions';
 
 /** Longest date range of one query (BA EP00 6.2 – performance limit, not a business rule). */
@@ -88,6 +88,8 @@ export const AFTER_CLOSURE_ACTIONS: readonly string[] = [
   'payment.recorded',
   'deposit_notice.created',
   'deposit_notice.updated',
+  // 0.3.13 bổ sung 1f (5B-1 S8, SEC ARC-20): "Không thấy tiền" on a `deposit_after_cancel` item.
+  'attention_event.resolved',
 ];
 
 interface Row {
@@ -160,7 +162,8 @@ export class AuditLogController {
     const afterClosureOnly = boolQuery('afterClosureOnly', afterClosureOnlyRaw);
     const n = parseLimit(limit, 50);
     const c = decodeCursor(cursor, 2);
-    const full = p.roles.includes('owner') || p.roles.includes('manager');
+    // ARC FB-R5-ARC-BE-149-01 (3): one rule for who reads the audit log in full (audit-visibility).
+    const full = seesFullAudit(p.roles);
     const propertyId = p.propertyId;
 
     return this.db.withContext(

@@ -253,6 +253,7 @@ export class EventsController {
         userId: p.userId,
         note: body.note,
         now: this.clock.now(),
+        requestId: req.id,
       });
       return { status: 204, body: null };
     });
