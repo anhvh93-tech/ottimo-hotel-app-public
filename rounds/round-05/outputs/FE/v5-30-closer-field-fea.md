@@ -71,3 +71,12 @@ Dùng lại, không đổi chữ: `bk.closer`, `bk.closer_sales`, `common.option
 
 ## 7. Dòng decision-log đề xuất (ORC ghi)
 `| 2026-11-07 | 5 | FE-A V5-30: ô Người chốt trên khung đơn (ReservationDrawer, không phải BookingDialog – hộp tạo đơn không đổi luật) theo mốc của 0.3.13 1h/1i (#154): hold FD+ không lý do; confirmed MGR+ lý do không bắt buộc, FD/FDL chỉ đọc + readonly_manager; in_house/checked_out chỉ OWN lý do bắt buộc, MGR/FDL/FD chỉ đọc + readonly_owner; SAL/CTV không có dòng. Thân chỉ closerUserId (+ closerChangeReason khi đổi). 403 → tải lại rồi error.closer_change_forbidden. CARD_NUMBER_DETECTED ở closerChangeReason → field_error.reason_card_number qua FIELD_PAIR. Giả định G2–G7 chờ UXD | FE | rounds/round-05/outputs/FE/v5-30-closer-field-fea.md |`
+
+## 8. Phản hồi & sửa (07/11/2026)
+Trả lời từng thẻ ở `rounds/round-05/responses/FE-responses.md`, mục "FE-A – PR #162". Tóm tắt thay đổi so với mục 1–5:
+- G2 đổi: nút phụ `common.unsaved_discard` "Bỏ thay đổi" (UXD 162-02); lưu xong có toast `common.saved` và focus về ô chọn sau khi hết bận (UXD 162-01, điều kiện gộp).
+- G4 chưa đổi: `mlog.closer_inactive` chờ #164 gộp (UXD 162-03).
+- `rsv.closer.readonly_manager` theo bản chữ 2.7 (DOM 162-01).
+- Nhánh lỗi: 412 đọc lại đơn rồi tính lại quyền, nên câu `error.closer_change_forbidden` hiện ở ca thật "khách vừa nhận phòng ở máy khác" (ARC 162-01). 403 giữ ô chỉ đọc tới `version` mới; mốc không đổi hoặc đọc lại hỏng thì hiện `error.FORBIDDEN_ACTION`, không nói "Desk đã tải lại đơn" (SEC 162-01).
+- Danh sách kênh đang tải hoặc lỗi: không đoán loại người chốt (ARC 162-02).
+- Test 35 → 56 ca: SAL/CTV × 4 mốc không gọi danh sách, không PATCH (SEC 162-02); đơn hủy/không đến (DOM 162-04); thứ tự 409 → 403 → 422 và dạng lỗi số thẻ của mock, loại người chốt theo nhóm kênh (ARC 162-03).
