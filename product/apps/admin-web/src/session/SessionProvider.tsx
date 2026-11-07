@@ -218,6 +218,14 @@ export function useSession(): Session {
   return ctx;
 }
 
+/**
+ * The session under SessionProvider, else null – for shared hooks that only tune a sentence by role and are also
+ * rendered alone (e.g. `useSubmit` in a `renderHook` with only I18nProvider).
+ */
+export function useOptionalSession(): Session | null {
+  return useContext(Ctx);
+}
+
 /** Property id for API calls – only used under the authenticated shell, so it is always set. */
 export function usePropertyId(): string {
   const { property } = useSession();

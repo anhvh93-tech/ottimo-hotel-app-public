@@ -28,6 +28,7 @@
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 07/11/2026 · **Bản 2.5**: mục 9.1 viết lại theo #148 đã gộp (DOM `DOM-on-be-d2-pr-148.md`: 148-01 Major, 148-06, 148-07, 148-08). Quẹt thẻ chỉ khi đơn còn phải thu (N > 0), tối đa N; yêu cầu hoàn = max(0, số ghi − N), không còn "hoàn đủ" ở mọi ca; 9 khóa mới, 6 khóa sửa chữ. Mục 9.16 mới: ô Người chốt đổi theo mốc trên Desk (DOM 154-03, SEC 1I-03, luật #154), 7 khóa. Mục 9.17 mới: danh sách để sẵn cho v1.0.6 (SEC 145-01, UXD 145-04, 145-06, DOM 145-05), chưa đếm. `content-guide.md` v0.4.7: thêm 17 khóa 9.9, 9.15 đã có trên `main` (#145). Khóa 9.1, 9.16 chưa có trong `gen_strings.py`; FE-A thêm khi làm PR Desk. Cùng mục 0, 6, 8.
 - Sửa: UXD · Round 5 – Phản hồi & sửa · 07/11/2026 · **Bản 2.6**: mục 9.18 mới, 2 khóa cho dòng "Đổi người chốt" ở Nhật ký tiền (DOM FB-R5-DOM-FE-155-04, FE-A2 PR #159): bản ghi cũ không có tên, và người chốt có tài khoản không còn trong danh sách. FE-A2 áp ở PR sau #159. Cùng mục 0, 6, 8, 9.17.
 - Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.7**: theo review FE #162 (`rounds/round-05/reviews/UXD-on-fe-pr-162.md`) và #164 (`UXD-on-fe-a2-pr-164.md`). Mục 9.16: sửa chữ `rsv.closer.readonly_manager` theo DOM 162-01 (thêm "hoặc chủ đầu tư"); thêm danh sách khóa dùng lại cho nút, câu báo đã lưu, lỗi tải danh sách, người chốt không còn hoạt động. Mục 9.18: lỗi tải danh sách hiện `common.error_generic_title` (DOM 159-01), thay chữ "như #159". Không thêm khóa, số khóa giữ 277. Cùng mục 6, 8.
+- Sửa: UXD · Round 5 – Review · 07/11/2026 · **Bản 2.8**: mục 9.19 mới, 1 khóa `bill.total_estimate` cho thẻ "Tổng cộng" ở bước Bill của H16 Trả phòng khi tổng gồm dòng chưa ghi (V5-12, BUG-R4-052, FE-A2 PR #169 @ `d8712188`; review `rounds/round-05/reviews/UXD-on-fe-a2-pr-169.md`). `bill.total` giữ nguyên cho phiếu in và bản xem trước. Số khóa 278. Cùng mục 0, 6, 8.
 - Phạm vi: V5-20, V5-21 (phần chữ), V5-22 (phần chữ), V5-23, V5-24 của `rounds/round-05/plan.md`.
 - Căn cứ:
   - mã `main` @ `b9f017f7` (06/11). Số dòng ghi trong bảng là vị trí tại commit đó;
@@ -76,7 +77,8 @@
 | V5-15 hộp Trả phòng quá ngày đi, Desk (bản 2.4, mục 9.15) | 0 | 16 | 0 | **16** | Ngoài Gói 2. Đi cùng #145. 10 khóa FE-A2 (UXD chốt), 2 khóa `checkout.overdue_need_*` (chốt ở `UXD-on-fe-prs-125-128.md` mục 3, nay đếm ở đây), 4 khóa mới. `checkout.overdue_told_guest` để sẵn cho v1.0.6, chưa đếm |
 | Desk đổi người chốt theo mốc (bản 2.5, mục 9.16) | 0 | 7 | 0 | **7** | Ngoài Gói 2. Đi cùng PR Desk đổi người chốt (FE-A; DOM 154-03, SEC 1I-03). Dùng lại 5 khóa có sẵn. Mục 9.17 (v1.0.6) chưa đếm |
 | Nhật ký tiền, dòng Đổi người chốt (bản 2.6, mục 9.18) | 0 | 2 | 0 | **2** | Ngoài Gói 2. Đi cùng PR FE-A2 sau #159 (DOM 155-04) |
-| **Tổng** | **82** | **186** | **9** | **277** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243. Bản 2.4: 259. Bản 2.5: 275. Bản 2.6: 277 |
+| Bước Bill, Tổng cộng gồm dòng chưa ghi (bản 2.8, mục 9.19) | 0 | 1 | 0 | **1** | Ngoài Gói 2. Đi cùng FE-A2 #169 (V5-12) |
+| **Tổng** | **82** | **187** | **9** | **278** | Bản 1.0: 143. Bản 1.1: 150. Bản 1.2, 1.3: 146 (Gói 2). Bản 1.4: 162. Bản 1.6: 205. Bản 1.7: 212. Bản 1.8: 213. Bản 1.9: 214. Bản 2.0: 220. Bản 2.1: 236. Bản 2.2: 240. Bản 2.3: 243. Bản 2.4: 259. Bản 2.5: 275. Bản 2.6: 277 Bản 2.8: 278. |
 
 Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Bắt buộc:** mọi khóa, trừ các khóa dưới đây.
@@ -98,6 +100,7 @@ Mức theo PO (plan R5 mục 6, quyết định 15):
 - **Mục 9.16 (bản 2.5):** theo lịch PR Desk đổi người chốt (FE-A). Khi PR lên thì cả 7 khóa bắt buộc: dòng help là điều kiện SEC 1I-03, hai dòng chỉ đọc là điều kiện DOM 154-03.
 - **Mục 9.17:** v1.0.6, chưa đếm.
 - **Mục 9.18 (bản 2.6):** nên có, cùng tag với #159 nếu kịp. Không kịp thì v1.0.6: dòng vẫn đúng nghĩa với "—" và `mlog.who_unlisted` (#159), chỉ khó đọc hơn. Không chặn QC.
+- **Mục 9.19 (bản 2.8):** nên có, cùng #169 hoặc PR ngay sau. Không kịp thì v1.0.6: số vẫn đúng với bảng folio, chỉ không nói tổng còn dự tính. Không chặn QC.
 
 Kết quả CPY duyệt: mục 7. Yêu cầu cho FE, BE: mục 6.
 
@@ -1492,6 +1495,22 @@ Ví dụ: "Đổi người chốt: Sơn → Tài khoản hiện không hoạt đ
 - Không ghi "đã khóa" như ý DOM. Desk không biết vì sao id vắng: danh sách chỉ trả người `active`, nên vắng có thể là đã khóa, tạm khóa vì sai mật khẩu, đã tắt, hoặc đã gỡ khỏi cơ sở. Danh sách cố ý không trả trạng thái khóa (mô tả `listCloserCandidates`). Trạng thái khóa là dữ liệu bảo mật tài khoản (D27). "Hiện không hoạt động" đúng cho mọi ca. Câu này không nói thêm điều gì ngoài việc người đó vắng trong ô chọn người chốt, và "hiện" nói đúng là tên được đọc lúc xem, không phải lúc ghi.
 - "Tài khoản", không ghi "nhân viên": người chốt có thể là CTV.
 
+### 9.19 Bước Bill: "Tổng cộng" gồm dòng chưa ghi (V5-12, BUG-R4-052, FE-A2 #169) – bản 2.8
+
+Chữ Desk nội bộ (VI, EN). Không có chữ cho khách. #169 cho thẻ đầu bước Bill (`CheckOutPage.tsx`, `<p className="kv-big num">`) cộng các dòng B18 **chưa ghi** vào tổng: đêm thêm theo giá đang ở ô, dòng phụ thu trả muộn thêm mới, tính lại hoặc đảo, phụ thu bằng giá 1 đêm (ESC-031) trừ phần miễn. Các dòng đó chỉ ghi khi bấm Hoàn tất, và số cần thu cuối cùng do máy chủ tính (giảm theo số đêm BR-107 có thể đổi đêm thêm). Phiếu xem trước (`getBill`) và phiếu in vẫn là số đã ghi.
+
+| Khóa | Kiểu | VI | EN | Khi nào |
+|---|---|---|---|---|
+| `bill.total_estimate` | Mới | Tổng cộng (dự tính) | Total (estimate) | Nhãn thẻ đầu bước Bill khi bảng folio đang có ít nhất một dòng chưa ghi: đêm thêm, `co.late_row_new`, `co.late_row_change`, `co.late_row_reversed`, `co.late_fee_row`. Cùng điều kiện FE dùng để hiện các dòng đó, không so `billTotalVnd` với `totalVnd` (hai dòng có thể bù nhau). Không có dòng chưa ghi: giữ `bill.total` |
+
+Không đổi: `bill.total` ("Tổng cộng" / "Total") ở phiếu in, bản xem trước, và ở thẻ khi mọi dòng đã ghi (ví dụ phụ thu đã báo khách được ghi trên đường sang bước Bill, BR-414). Dấu ":" sau nhãn giữ như mã đang viết.
+
+**Vì sao viết vậy.**
+- Đổi nhãn, không thêm dòng phụ. Bảng ngay dưới đã ghi "(dự tính)" ở các dòng phụ thu, nên cùng chữ ở nhãn tổng là đủ để lễ tân nối hai chỗ. Một dòng giải thích thêm sẽ nằm sát khối thu tiền, chỗ lễ tân cần đọc số nhanh.
+- "dự tính" vì số này có thể khác số máy chủ tính khi Hoàn tất: đêm thêm hiện giá lịch, trước giảm theo số đêm. Lễ tân gõ số tiền thu theo "Còn phải thu", không theo dòng này.
+- Khóa riêng, không sửa `bill.total`: khóa đó dùng cả ở phiếu in, nơi số luôn là số đã ghi.
+- EN "estimate" theo đúng hậu tố các dòng `co.late_row_*` "(estimate)".
+
 ---
 
 ## 6. Yêu cầu cho FE, BE (gom theo tệp)
@@ -1558,6 +1577,7 @@ Ví dụ: "Đổi người chốt: Sơn → Tài khoản hiện không hoạt đ
 | UXD | `design/content-guide.md` | Bản 2.5: thêm khóa 9.1 (bản 2.5) và 9.16 vào mục 8 sau khi FE-A áp. Bản 2.6: cùng với 2 khóa 9.18 | 9.1, 9.16, 9.18 |
 | FE-A (#162) | `pages/reservations/CloserField.tsx`, `design/tools/gen_strings.py` (nếu áp 162-01 của DOM) | Bản 2.7: toast `common.saved` và focus về ô chọn sau khi lưu (điều kiện gộp, UXD 162-01); nút phụ `common.unsaved_discard` (162-02); `mlog.closer_inactive` thay `mlog.who_unlisted` sau khi #164 gộp (162-03); chữ mới `rsv.closer.readonly_manager` nếu tiện | 9.16 |
 | FE-A2 (PR sau #159) | `pages/money/MoneyPage.tsx` (`AuditAction`, nhánh `reservation.closer_changed`), `design/tools/gen_strings.py`, `r5-mlog-closer-names-fea.test.tsx` | Bản 2.6: `after` không có khóa `closerUserId` → cả dòng `mlog.a_closer_changed_legacy`; id không có trong danh sách đã tải → `mlog.closer_inactive` thay `mlog.who_unlisted`. `before.closerUserId` rỗng ở bản ghi mới giữ "—". Ô lọc Người làm không đổi. Test: ca bản ghi cũ, ca id vắng | 9.18 |
+| FE-A2 (#169) | `pages/stay/CheckOutPage.tsx` (thẻ đầu bước Bill), `design/tools/gen_strings.py`, `v5-12-bill-total-fea.test.tsx` | Bản 2.8: thêm `bill.total_estimate`; nhãn thẻ = `bill.total_estimate` khi có dòng chưa ghi, không thì `bill.total`. Test: ca 19:30 (đêm thêm) có "(dự tính)"; ca phụ thu đã báo khách ghi trước bước Bill và ca trả đúng giờ chuẩn giữ "Tổng cộng" | 9.19 |
 | PO | release notes v1.0.5 (nếu có dòng Nhật ký tiền) | Bản 2.6: "Các lần đổi người chốt trước bản này hiện 'bản ghi cũ, không có tên'." (tùy PO) | 9.18 |
 
 Phát hiện ngoài phạm vi chữ, chuyển BE và QA (không phải ESC): validator `weekend_nights` (`parameter-rules.ts:180–187`) chỉ nhận số 1–7, trong khi giá trị đang chạy và kiểu `Weekday` dùng mã chữ `["FRI","SAT"]` (`production-defaults.ts:200`, `pricing.ts:12`). Hệ quả:
@@ -1668,3 +1688,8 @@ Mọi khóa còn lại là chữ Desk nội bộ, UXD tự quyết theo protocol
   - bản ghi có `closerUserId` của người đã khóa → "Đổi người chốt: Sơn → Tài khoản hiện không hoạt động". Ô lọc Người làm vẫn có lựa chọn "Người không còn trong danh sách";
   - ghi người chốt lần đầu → "Đổi người chốt: — → Mai";
   - Desk EN: "Closer changed (older record, no names)", "Closer changed: Sơn → Inactive account".
+- Bản 2.8, mục 9.19 (mock, lễ tân, Phạm Huy 201):
+  - trả 19:30 → bước Bill "Tổng cộng (dự tính): 3.168.000 đ", bảng có dòng Đêm thêm;
+  - trả 14:00, đã báo khách (phụ thu ghi trên đường sang Bill) → "Tổng cộng: 2.672.000 đ", không có "(dự tính)";
+  - Xem Phiếu thanh toán → vẫn "Tổng cộng", số đã ghi;
+  - Desk EN 390 px: "Total (estimate): 3,168,000 VND" một dòng, không tràn.

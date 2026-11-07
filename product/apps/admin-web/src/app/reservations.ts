@@ -101,6 +101,47 @@ export function suggestionsOf(e: unknown): RoomSuggestion[] {
   return Array.isArray(s) ? s : [];
 }
 
+/**
+ * V5-48 (OpenAPI 0.3.13 add. 1, SEC B002-01): `confirmPaymentReceived` / `createVietQr` on a booking already closed
+ * answer 409 `INVALID_TRANSITION` with `reservationStatus` – the BOOKING's status (`currentState` there is the
+ * payment's). Read before `currentState` (UXD 9.1a). Undefined: another error, or an older server.
+ */
+export function closedReservationStatus(error: unknown): 'cancelled' | 'no_show' | undefined {
+  if (!isApiError(error) || error.code !== 'INVALID_TRANSITION') return undefined;
+  const s = error.problem.reservationStatus;
+  return s === 'cancelled' || s === 'no_show' ? s : undefined;
+}
+
+/**
+ * V5-5B-1 (PR-B3) puts "Ghi tiền về sau khi hủy" on the booking. Until it does, the FD+ sentence of a closed booking
+ * points to sheet 2a (UXD 9.1a `_no_5b1`). The PR that adds the button turns this on and deletes `_no_5b1`.
+ */
+export const AFTER_CLOSURE_RECORDING_ON_DESK = false;
+
+/**
+ * V5-48 (UXD 9.1a): what to tell the person when the booking closed under the deposit / VietQR box – never "reload"
+ * (`rsv.transition_changed`): reloading does not help, they need to know what to do with the money. `salesOnly` =
+ * SAL/CTV with no FD+ role (they pass the money to the front desk). Null: not this error.
+ */
+export function closedBookingPaymentText(t: T, error: unknown, salesOnly: boolean): string | null {
+  const closed = closedReservationStatus(error);
+  return closed ? closedBookingSentence(t, closed, salesOnly) : null;
+}
+
+/** The UXD 9.1a sentence for a booking known to be closed (`status`); see `closedBookingPaymentText`. */
+export function closedBookingSentence(
+  t: T,
+  status: 'cancelled' | 'no_show',
+  salesOnly: boolean,
+  afterClosureButton = AFTER_CLOSURE_RECORDING_ON_DESK,
+): string {
+  const a = { status: t(STATUS_KEY[status]) };
+  if (salesOnly) return t('error.closed_booking_payment_sales', a);
+  return afterClosureButton
+    ? t('error.closed_booking_payment', a)
+    : t('error.closed_booking_payment_no_5b1', a);
+}
+
 /** Night list of a conflict → `from` = first night, `to` = morning after the last night. */
 function rangeOf(c: RoomConflict | undefined) {
   const nights = [...(c?.nights ?? [])].sort();
@@ -109,6 +150,8 @@ function rangeOf(c: RoomConflict | undefined) {
 }
 
 export interface RsvErrorContext {
+  /** V5-48 (UXD 9.1a): SAL/CTV with no FD+ role – the closed-booking sentence for sales (`closedBookingPaymentText`). */
+  salesOnly?: boolean;
   locale?: 'vi' | 'en';
   roomNo?: string;
   /** Current status (for INVALID_TRANSITION – after a reload). */
@@ -175,6 +218,8 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
         paid: vnd(p.depositPaidVnd ?? ctx.paid),
       });
     case 'INVALID_TRANSITION': {
+      const closed = closedBookingPaymentText(t, error, ctx.salesOnly === true);
+      if (closed) return closed;
       const st = (p.currentState as ReservationStatus | undefined) ?? ctx.status;
       return st && STATUS_KEY[st]
         ? t('rsv.transition_changed', { status: t(STATUS_KEY[st]) })
