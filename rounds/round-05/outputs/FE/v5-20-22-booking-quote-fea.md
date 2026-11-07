@@ -83,3 +83,13 @@
 
 ## 6. Việc chưa xong
 - Không có. Chờ review UXD, DOM, ARC (V5-22) và QA trên PR.
+
+## 7. Phản hồi & sửa – FB-R5-DOM-FE-171-01 (Minor, DOM-on-fe-pr-171.md)
+- Hộp "Đổi sang căn …": đơn OTA hoặc Nội bộ gõ giá một phần thì không hiện dòng Tổng. Ở chỗ đó hiện câu của `partialRates()` (`booking.error.rate_partial_ota` hoặc `booking.error.rate_empty_internal`), ngay cạnh nút. Nút "Tạo đơn ở căn …" được đọc kèm câu này (`aria-describedby`). Câu dưới bảng giá vẫn giữ.
+- Thêm 2 ca test trong `v5-20-22-booking-quote-fea.test.tsx`: OTA gõ 2/3 đêm và Nội bộ gõ 2/3 đêm. Kết quả:
+  - hộp không có Tổng và không có "600.000";
+  - câu lỗi hiện trong hộp;
+  - bấm nút thì không có POST `/reservations`, không tạo đơn, câu hiện dưới bảng;
+  - số đã gõ còn nguyên.
+- Sau đó merge main và sinh lại strings (3530 chuỗi).
+- Thẻ 171-02 (v1.0.6, FE/ARC) và 171-03 (UXD) không làm trong lượt này.
