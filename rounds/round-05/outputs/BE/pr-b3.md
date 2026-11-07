@@ -173,7 +173,7 @@ Sửa bằng một hàm `assertBankReferenceNotCardFirst(body, at)` (`shared/val
 
 ARC, SEC, DOM đã duyệt #148 @ `a5911138`; #148 gộp nguyên trạng. Các thẻ còn lại làm ở PR tiếp theo, trước tag v1.0.5.
 
-- Nhánh `r5-b3b`, cắt từ `a5911138`. Sau khi #148, #152, #154 lên `main`, nhánh gộp `origin/main` `dda49347` (merge `f5908503`, không rebase, không xung đột). PR nháp: xem dưới.
+- Nhánh `r5-b3b`, cắt từ `a5911138`. Sau khi #148, #152, #154 lên `main`, nhánh gộp `origin/main` `dda49347` (merge `f5908503`, không rebase, không xung đột). PR nháp **#160** (`r5-b3b` → `main`); người review: SEC, ARC.
 - Mỗi thẻ một commit. SEC 148-01 và ARC 148-01 chung một commit, theo ORC.
 - Không làm (ORC dời v1.0.6):
   - SEC 148-02: luật S3 ở mức folio, làm cùng DOM 148-03;
