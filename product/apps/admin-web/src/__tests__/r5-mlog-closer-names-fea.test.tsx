@@ -61,6 +61,8 @@ describe('Nhật ký tiền – "Đổi người chốt" names the closers from 
       closerChanged('OTM-C02', quan, { closerUserId: LOCKED }, { closerUserId: LAN }),
       closerChanged('OTM-C03', quan, { closerUserId: null }, { closerUserId: SON }),
       closerChanged('OTM-C04', quan, null, null),
+      // `closerUserId` present but empty (a closer taken off, DOM 155-05 (2) if it comes): still the names line
+      closerChanged('OTM-C08', quan, { closerUserId: SON }, { closerUserId: null }),
     );
     renderApp('/audit', 'qa.mgr');
     await screen.findByRole('table', { name: tv('moneylog.title') });
@@ -69,6 +71,8 @@ describe('Nhật ký tiền – "Đổi người chốt" names the closers from 
     expect(actionOf('OTM-C03')).toBe(said('—', 'Sơn'));
     // UXD 9.18: the whole row, never "— → —"
     expect(actionOf('OTM-C04')).toBe(tv('mlog.a_closer_changed_legacy'));
+    // the older-record line only when the key is missing, not when it is empty
+    expect(actionOf('OTM-C08')).toBe(said('Sơn', '—'));
     // never an id on screen
     expect(screen.queryByText(new RegExp(SON))).toBeNull();
     // the "Người làm" filter still lists the staff only – the CTV names a row, she is not an option
