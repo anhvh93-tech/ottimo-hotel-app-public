@@ -285,7 +285,10 @@ export interface PaymentRowLite {
   reservation_id: string | null;
   approval_request_id: string | null;
   shift_id: string | null;
-  /** 0.3.13 bổ sung 1 (V5-48): computed at read by PAYMENT_COLUMNS (`AFTER_CLOSURE_SQL`) – display only. */
+  /**
+   * 0.3.13 bổ sung 1 (V5-48): computed at read by PAYMENT_COLUMNS (`AFTER_CLOSURE_SQL`) – display only. The same SQL
+   * also drives `refundRouting` (ARC 148-02): see `AFTER_CLOSURE_SQL`.
+   */
   after_closure?: boolean;
   /** 0.3.13 bổ sung 1 (5B-1, SEC S4): bank transaction code (receipts: stored upper-case; refund pay-outs as typed). */
   bank_reference?: string | null;
@@ -546,9 +549,15 @@ export function refundedOf(payments: ReadonlyArray<TotalsPayment>): number {
  * 0.3.13 bổ sung 1 (V5-48, BE C0313-22 ý 1, SEC-responses 1.1): `Payment.afterClosure` computed AT READ – a receipt
  * (`deposit`/`charge`, not a reversal row) the SERVER wrote (`created_at`, never the typed `received_at`) once the
  * folio's primary booking was `cancelled` (`cancelled_at`) or `no_show` (`no_show_marked_at`), while it still is.
- * Display only (refund approval screen, money log): a booking restored later (B12, 5B-2) reads `false`. No write-time
- * decision reads it (V5-48 422/409, 5B-1 – they read the booking under its lock), and the weekly filter
- * `listAuditEvents.afterClosureOnly` reads the audit value written at write time instead.
+ * Read for display (refund approval screen, money log) AND by ONE write-time decision (FB-R5-ARC-BE-148-02):
+ * `refundRouting` (5B-1, SEC S2) puts the recorders it finds into `origin_actor_ids` of every new refund request of
+ * the folio, under the caller's L3. The expression follows the booking's CURRENT status: once the booking is restored
+ * (B12 no-show restore; 5B-2 `cancelled → hold`) it reads `false`, so a refund request made by hand after the restore
+ * no longer lists those recorders (a `superseded` replacement keeps them – `carriedOrigin`). Accepted for v1.0.5: FD
+ * never decides a refund, so only an MGR recorder could gain; B12 is MGR+; money is paid out only once reconciled.
+ * 5B-2 (v1.0.6, ARC 0.3.14) replaces this read with a mark stored at write time – put no other write-time decision
+ * on this expression. The other write-time rules (V5-48 422/409, 5B-1 `type` and cap) read the booking under its
+ * lock, and the weekly filter `listAuditEvents.afterClosureOnly` reads the audit value written at write time.
  */
 const AFTER_CLOSURE_SQL = `(p.type IN ('deposit', 'charge') AND p.reversal_of_id IS NULL AND EXISTS (
     SELECT 1 FROM folio fac JOIN reservation rac ON rac.id = fac.primary_reservation_id
@@ -3271,6 +3280,8 @@ export class FolioService implements FolioStaySync {
     // 0.3.13 bổ sung 1 (5B-1, SEC S2): whoever recorded a receipt on the folio after its booking was closed never
     // decides (nor pays – RefundsService.payOut) a refund of that folio – also one asked again by someone else after
     // the 5B-1 request was rejected. The receipt row is the record (as folio_settled_reduction is for A32).
+    // FB-R5-ARC-BE-148-02: AFTER_CLOSURE_SQL follows the booking's current status (a restored booking reads false) –
+    // known limit of v1.0.5, replaced by a write-time mark in 5B-2; see AFTER_CLOSURE_SQL.
     const { rows: late } = await tx.query<{ recorded_by: string }>(
       `SELECT DISTINCT p.recorded_by FROM payment p
         WHERE p.folio_id = $1 AND p.recorded_by IS NOT NULL AND ${AFTER_CLOSURE_SQL}`,
