@@ -231,15 +231,17 @@ export function FilePicker({
   onChange,
   error,
   required,
+  help,
 }: {
   label: ReactNode;
   file: File | null;
   onChange: (f: File | null) => void;
   error?: string;
   required?: boolean;
+  help?: ReactNode;
 }) {
   return (
-    <Field label={label} error={error} required={required}>
+    <Field label={label} error={error} required={required} help={help}>
       {(p) => (
         <div className="row wrap">
           <input
