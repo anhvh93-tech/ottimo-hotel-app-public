@@ -117,6 +117,8 @@ export interface MockFolioPort {
   reverseServiceLines: (r: MockReservation, keep: string[], by: string) => void;
   /** `confirmDeposit.existingPaymentId`: a succeeded deposit payment of this booking's folio. */
   depositPayment: (r: MockReservation, paymentId: string) => boolean;
+  /** 5B-1 (DOM 11.4 mục 5): a "khách đã chuyển" notice on a closed booking opens `deposit_after_cancel` for FD+. */
+  noticeAfterClosure?: (r: MockReservation) => void;
 }
 interface MockBlock {
   id: string;
@@ -987,6 +989,11 @@ export function createReservationMock(ctx: Ctx) {
     // ARC 16.20 (BUG-R2-101): a hold has no posted folio line yet (the room is posted on confirmation) – no
     // `balanceDueVnd`; the desk shows the deposit still due and the room total instead.
     if (r.status === 'hold') delete out.balanceDueVnd;
+    // 0.3.13 addendum 1j: `cancellation.cancelledFrom` is FD+ only – absent (never null) for SAL/CTV.
+    if (out.cancellation && !has(roles, FD_PLUS)) {
+      out.cancellation = { ...out.cancellation };
+      delete out.cancellation.cancelledFrom;
+    }
     if (roles.includes('collaborator') && !has(roles, FD_PLUS)) {
       delete out.nightlyRates;
       delete out.balanceDueVnd;
@@ -1555,7 +1562,9 @@ export function createReservationMock(ctx: Ctx) {
         if (!(body.amountVnd > 0))
           return validation([{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
         // 0.3.7 add. 1: only a booking on hold; at most one open notice – reporting again updates it.
-        if (r.status !== 'hold')
+        // 0.3.13 addendum 1 (5B-1, SEC S7): a closed booking takes it too – 202 and "Cần chú ý" for FD+, no receipt.
+        const closed = r.status === 'cancelled' || r.status === 'no_show';
+        if (r.status !== 'hold' && !closed)
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
         // S4-30: receipt photo (`uploadAttachment purpose=deposit_receipt`) – kept with the notice.
         const now = new Date().toISOString();
@@ -1578,6 +1587,7 @@ export function createReservationMock(ctx: Ctx) {
             updatedAt: now,
             createdByName: g.user.displayName,
           });
+        if (closed) folioPort?.noticeAfterClosure?.(r);
         return new HttpResponse(null, { status: 202 });
       },
     ),
@@ -1639,11 +1649,14 @@ export function createReservationMock(ctx: Ctx) {
       const { key, replay } = idem(request, `cancel:${r.id}`);
       if (replay) return replay;
       folioPort?.reverseServiceLines(r, svc.keepIds, g.user.displayName);
+      // 0.3.13 addendum 1j: the state right before the cancel (`status_before_cancel`).
+      const cancelledFrom = r.status === 'hold' ? 'hold' : 'confirmed';
       r.status = 'cancelled';
       r.cancellation = {
         cancelledAt: new Date().toISOString(),
         reasonCode: body.reasonCode as never,
         note: body.note,
+        cancelledFrom,
       };
       r.version += 1;
       return remember(key, 200, { reservation: view(r, g.user, g.roles), cancellation });

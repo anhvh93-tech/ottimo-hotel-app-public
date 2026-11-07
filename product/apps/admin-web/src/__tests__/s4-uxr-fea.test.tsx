@@ -157,7 +157,13 @@ describe('S4-13 hướng B (ARC 16.23) – H09: mã giao dịch vào ghi chú, �
     await user.clear(received);
     await user.type(received, '1000000');
     expect(within(dlg).getByText(tv('bk.receipt_later_fd'))).toBeInTheDocument();
-    expect(within(dlg).queryByLabelText(/ảnh|Ảnh/)).toBeNull();
+    // No photo upload at B2. V5-51's optional reference field ("…nếu ảnh có") is not an upload.
+    expect(dlg.querySelector('input[type="file"]')).toBeNull();
+    expect(
+      within(dlg)
+        .queryAllByLabelText(/ảnh|Ảnh/)
+        .filter((x) => x !== within(dlg).queryByLabelText(tv('pay.bank_reference_optional'))),
+    ).toEqual([]);
     const txn = within(dlg).getByLabelText(new RegExp(`^${esc(tv('co.txn_ref'))}`));
     expect(txn).toHaveAccessibleDescription(tv('bk.txn_ref_help'));
     await user.type(txn, 'FT26291188');

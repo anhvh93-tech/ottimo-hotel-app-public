@@ -3,6 +3,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, StateView } from '@ottimo/ui';
 import { useEffect, useState } from 'react';
 import { api } from '../../app/api';
+import { isAfterCancelRefund } from '../../app/afterCancel';
 import { listApprovals } from '../../app/approvals';
 import { approvalFacts, useApprovalTargets } from '../../app/approvalTarget';
 import { appliedCappedText, autoCancelText, requestReasonText } from '../../app/auditReason';
@@ -12,6 +13,8 @@ import { timeHHmm } from '../../app/dates';
 import { useStaffRoomLabel } from '../../app/rooms';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
+import { AfterCancelRefundLines } from '../../components/AfterCancelRefundLines';
+import { PossibleDuplicate } from '../../components/PossibleDuplicate';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
@@ -111,7 +114,10 @@ export function ApprovalsPage() {
                       // GN-R4-QA-01 (ARC plan-v1.0.4 6.4): charges posted after the request come off at approval.
                       <div className="li-s">{t('approvals.refund_may_decrease')}</div>
                     ) : null}
-                    {a.refundDestination ? (
+                    {/* 5B-1: money recorded after closure – why, and the destination the server fixed. */}
+                    <AfterCancelRefundLines request={a} />
+                    <PossibleDuplicate codes={a.possibleDuplicateCodes} />
+                    {a.refundDestination && !isAfterCancelRefund(a) ? (
                       <div className="li-s">
                         {t('refund.method_label', {
                           method: methodText(t, a.refundDestination.method ?? ''),

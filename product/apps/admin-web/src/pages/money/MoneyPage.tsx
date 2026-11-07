@@ -28,12 +28,15 @@ import {
   autoCancelCode,
   requestReasonText,
 } from '../../app/auditReason';
+import { isAfterCancelRefund } from '../../app/afterCancel';
 import { listApprovals } from '../../app/approvals';
 import { todayLocal } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
 import { addDays } from '../../app/reservations';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
+import { AfterCancelRefundLines } from '../../components/AfterCancelRefundLines';
+import { PossibleDuplicate } from '../../components/PossibleDuplicate';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
@@ -604,7 +607,11 @@ function Reconcile() {
                       </div>
                     ) : null}
                   </td>
-                  <td className="mono">{p.note ?? '—'}</td>
+                  <td>
+                    {/* V5-51: the bank reference typed with the receipt; older receipts kept it in the note. */}
+                    <span className="mono">{p.bankReference ?? p.note ?? '—'}</span>
+                    <PossibleDuplicate codes={p.possibleDuplicateCodes} />
+                  </td>
                   <td>
                     {isCashHandover(p) ? (
                       <Button
@@ -703,6 +710,17 @@ function Reconcile() {
   );
 }
 
+/**
+ * DOM 148-07 (`executeRefund` on a `payment_after_cancel` request): the fixed destination resolves to no transfer /
+ * VietQR receipt of the folio – the server answers 409 INVALID_TRANSITION with `currentState` = the method found
+ * (`cash`, `ota_collect`), the same answer it gives any destination that resolves to cash.
+ */
+function noTransferLeft(e: unknown): boolean {
+  if (!isApiError(e) || e.code !== 'INVALID_TRANSITION') return false;
+  const state = (e.problem as { currentState?: unknown }).currentState;
+  return state === 'cash' || state === 'ota_collect';
+}
+
 /** Refunds still in play: waiting for a decision, or approved (to pay out, then shown as paid). */
 const REFUND_QUEUE = ['pending', 'escalated', 'approved'] as const;
 
@@ -743,6 +761,8 @@ function Refunds() {
             const left = a.amountVnd - (a.refundedVnd ?? 0);
             const method = a.refundDestination?.method;
             const cash = method === 'cash';
+            // 5B-1 (SEC S3): the server fixed the destination – no "Nhập nơi nhận hoàn", no cash pay-out.
+            const fixed = isAfterCancelRefund(a);
             return (
               <li key={a.id} className="card">
                 {/* FB-R5-UXD-FE-130-01: the text takes the whole row at ≤ 520 px, the state and buttons go under it
@@ -770,13 +790,17 @@ function Refunds() {
                     {a.status === 'pending' || a.status === 'escalated' ? (
                       <div className="li-s">{t('approvals.refund_may_decrease')}</div>
                     ) : null}
+                    <AfterCancelRefundLines request={a} />
+                    <PossibleDuplicate codes={a.possibleDuplicateCodes} />
                     <div className="li-s">
                       {a.refundedVnd ? (
                         <div>{t('refund.paid', { amount: money(a.refundedVnd) })}</div>
                       ) : null}
-                      {method
-                        ? `${t('refund.method_label', { method: methodText(t, method) })}${a.refundDestination?.accountNoLast4 ? ` · ••${a.refundDestination.accountNoLast4}` : ''}`
-                        : '—'}
+                      {fixed
+                        ? null
+                        : method
+                          ? `${t('refund.method_label', { method: methodText(t, method) })}${a.refundDestination?.accountNoLast4 ? ` · ••${a.refundDestination.accountNoLast4}` : ''}`
+                          : '—'}
                     </div>
                   </div>
                   <div className="row wrap req-acts">
@@ -785,10 +809,12 @@ function Refunds() {
                     </Chip>
                     {left > 0 && online ? (
                       <>
-                        <Button size="sm" onClick={() => setDest(a)}>
-                          {t('refund.set_destination')}
-                        </Button>
-                        {a.status === 'approved' && cash ? (
+                        {fixed ? null : (
+                          <Button size="sm" onClick={() => setDest(a)}>
+                            {t('refund.set_destination')}
+                          </Button>
+                        )}
+                        {a.status === 'approved' && cash && !fixed ? (
                           <Button size="sm" variant="pri" onClick={() => setPay(a)}>
                             {t('refund.execute_cash')}
                           </Button>
@@ -957,7 +983,12 @@ function DestinationDialog({
         )
       ) : null}
 
-      {act.view()}
+      {isAfterCancelRefund(a) && act.code === 'INVALID_TRANSITION' ? (
+        // 5B-1 (SEC S3): backup only – the button is hidden for a destination the server fixed.
+        <Alert tone="bad">{t('error.refund_destination_fixed')}</Alert>
+      ) : (
+        act.view()
+      )}
     </Modal>
   );
 }
@@ -981,6 +1012,8 @@ function ExecuteRefundDialog({
   const propertyId = usePropertyId();
   const toast = useToast();
   const cash = a.refundDestination?.method === 'cash';
+  /** 5B-1: back to the account the guest paid from – no account to show, never cash. */
+  const fixed = isAfterCancelRefund(a);
   // The API asks for the proof photo for cash and for a bank transfer (EVIDENCE_REQUIRED – E15-02).
   const proofRequired = cash || a.refundDestination?.method === 'bank_transfer';
   const left = a.amountVnd - (a.refundedVnd ?? 0);
@@ -1069,7 +1102,9 @@ function ExecuteRefundDialog({
       <p>
         {a.reservationCode} · {vnd(left)} {t('common.vnd_unit')}
       </p>
-      {!cash ? (
+      {fixed ? (
+        <AfterCancelRefundLines request={a} destinationOnly />
+      ) : !cash ? (
         full ? (
           <>
             <dl className="dl">
@@ -1125,6 +1160,9 @@ function ExecuteRefundDialog({
         <Alert tone="bad">
           {t(cash ? 'refund.self_execute_forbidden' : 'refund.self_execute_forbidden_transfer')}
         </Alert>
+      ) : fixed && noTransferLeft(act.error) ? (
+        // DOM 148-07: no transfer / VietQR receipt left on the booking to send it back to – never cash.
+        <Alert tone="bad">{t('error.refund_no_transfer_left')}</Alert>
       ) : (
         act.view()
       )}

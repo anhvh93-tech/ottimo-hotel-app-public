@@ -98,6 +98,15 @@ export function problemView(t: T, error: unknown, locale: 'vi' | 'en' = 'vi'): P
   if (code === 'PARAM_OUT_OF_RANGE' && args.allowed === undefined) {
     return { text: t('error.PARAM_OUT_OF_RANGE_MINMAX', args) };
   }
+  // copy-v1.0.5 9.1 (DOM 148-06, SEC ARC-21): the other booking's code is in the 409 only for FD+ – without it the
+  // sentence names no booking.
+  if (code === 'DUPLICATE_BANK_REFERENCE') {
+    const other = (error.problem as { duplicateReservationCode?: unknown })
+      .duplicateReservationCode;
+    return typeof other === 'string' && other
+      ? { text: t('error.DUPLICATE_BANK_REFERENCE', { code: other }) }
+      : { text: t('error.DUPLICATE_BANK_REFERENCE_no_code') };
+  }
   if (code !== 'INTERNAL_ERROR' && error.status < 500 && hasKey(`error.${code}`)) {
     return { text: t(`error.${code}`, args) };
   }

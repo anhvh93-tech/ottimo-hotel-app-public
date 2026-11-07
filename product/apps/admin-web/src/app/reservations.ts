@@ -113,15 +113,10 @@ export function closedReservationStatus(error: unknown): 'cancelled' | 'no_show'
 }
 
 /**
- * V5-5B-1 (PR-B3) puts "Ghi tiền về sau khi hủy" on the booking. Until it does, the FD+ sentence of a closed booking
- * points to sheet 2a (UXD 9.1a `_no_5b1`). The PR that adds the button turns this on and deletes `_no_5b1`.
- */
-export const AFTER_CLOSURE_RECORDING_ON_DESK = false;
-
-/**
  * V5-48 (UXD 9.1a): what to tell the person when the booking closed under the deposit / VietQR box – never "reload"
  * (`rsv.transition_changed`): reloading does not help, they need to know what to do with the money. `salesOnly` =
- * SAL/CTV with no FD+ role (they pass the money to the front desk). Null: not this error.
+ * SAL/CTV with no FD+ role (they pass the money to the front desk); FD+ are pointed to "Ghi tiền về sau khi hủy"
+ * (V5-5B 5B-1, on the booking). Null: not this error.
  */
 export function closedBookingPaymentText(t: T, error: unknown, salesOnly: boolean): string | null {
   const closed = closedReservationStatus(error);
@@ -133,13 +128,9 @@ export function closedBookingSentence(
   t: T,
   status: 'cancelled' | 'no_show',
   salesOnly: boolean,
-  afterClosureButton = AFTER_CLOSURE_RECORDING_ON_DESK,
 ): string {
   const a = { status: t(STATUS_KEY[status]) };
-  if (salesOnly) return t('error.closed_booking_payment_sales', a);
-  return afterClosureButton
-    ? t('error.closed_booking_payment', a)
-    : t('error.closed_booking_payment_no_5b1', a);
+  return t(salesOnly ? 'error.closed_booking_payment_sales' : 'error.closed_booking_payment', a);
 }
 
 /** Night list of a conflict → `from` = first night, `to` = morning after the last night. */
