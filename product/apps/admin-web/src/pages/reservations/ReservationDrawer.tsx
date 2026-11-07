@@ -599,7 +599,7 @@ export function ReservationDrawer({
             channelGroup={channelGroup}
             online={online}
             reload={reloadNow}
-            onSaved={(u) => mutate(() => u)}
+            onBooking={(u) => mutate(() => u)}
             onTransitionChanged={(status) => setChanged(status)}
           />
 

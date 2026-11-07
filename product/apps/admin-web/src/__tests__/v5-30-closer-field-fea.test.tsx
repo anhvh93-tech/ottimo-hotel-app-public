@@ -4,7 +4,8 @@
 // - after the hold, before check-in: MGR+ change it, reason optional; FD/FDL read-only + `rsv.closer.readonly_manager`;
 // - after check-in (`in_house`, `checked_out`): OWN only, reason required; MGR/FDL/FD read-only +
 //   `rsv.closer.readonly_owner`; `checked_out` takes only `closerUserId` + `closerChangeReason`;
-// - `closerChangeReason` only when `closerUserId` changes; 403 → reload, then `error.closer_change_forbidden`;
+// - `closerChangeReason` only when `closerUserId` changes; 412/403 → read again, then `error.closer_change_forbidden`
+//   when the milestone moved (ARC 162-01), `error.FORBIDDEN_ACTION` and read-only otherwise (SEC 162-01);
 //   422 → the field sentences (`reason_required`, `too_long` {max} 500, `not_in_list`, `reason_card_number`).
 // No commission figures and no real guest data here: the booking is a seed booking, the people are the QA accounts.
 import type { ReservationPatch, ReservationStatus } from '@ottimo/api-client';
@@ -281,27 +282,106 @@ describe('V5-30 – what the Desk sends (contract 1i, BE 1H-01)', () => {
   });
 });
 
-describe('V5-30 – answers from the server (403 → 422 → 409)', () => {
-  it('403 FORBIDDEN_ACTION: the booking is read again, then error.closer_change_forbidden; the field turns read-only', async () => {
+describe('V5-30 – answers from the server (412 → 409 → 403 → 422, SEC 158-02)', () => {
+  /** Another desk checks the guest in: the status moves AND the version moves (the server answers 412 first). */
+  const checkInElsewhere = (r: ReturnType<typeof at>) => {
+    r.status = 'in_house';
+    r.actualCheckinAt = new Date().toISOString();
+    r.version += 1;
+  };
+  /** The role of qa.mgr is taken away on the server; the Desk session still says manager. */
+  const demoteManager = () => {
+    const u = mockControl.db.users.find((x) => x.username === 'qa.mgr')!;
+    u.roles = u.roles.map((x) => ({ ...x, role: 'front_desk' as const }));
+  };
+
+  it('412 after a check-in at another desk: read again → error.closer_change_forbidden, read-only + readonly_owner (ARC 162-01)', async () => {
     const r = at('confirmed');
     const spy = patchSpy();
     const read = vi.spyOn(api, 'getReservation');
     const { user, d } = await openAs('qa.mgr');
     await user.selectOptions(await closerSelect(d), userId('qa.fd'));
     await user.type(within(d).getByLabelText(REASON), 'Chọn nhầm');
-    // The guest checks in at another desk (same version on purpose: the PATCH gets past If-Match to the 403).
-    r.status = 'in_house';
-    r.actualCheckinAt = new Date().toISOString();
+    checkInElsewhere(r);
     const readsBefore = read.mock.calls.length;
     await user.click(within(d).getByRole('button', { name: tv('common.save') }));
     const notice = await within(d).findByText(tv('error.closer_change_forbidden'));
-    // Reloaded before the sentence: the read-only line of the new milestone is already there.
+    expect(notice.closest('[role="alert"]')).not.toBeNull();
+    // Read again before the sentence: the read-only line of the new milestone is already there.
     expect(read.mock.calls.length).toBeGreaterThan(readsBefore);
     expect(within(d).getByText(tv('rsv.closer.readonly_owner'))).toBeInTheDocument();
     expect(within(d).queryByRole('combobox', { name: LABEL })).toBeNull();
-    expect(notice.closest('[role="alert"]')).not.toBeNull();
+    expect(within(d).queryByRole('button', { name: tv('common.save') })).toBeNull();
+    // Not the generic conflict sentence any more.
+    expect(within(d).queryByText(tv('error.VERSION_CONFLICT'))).toBeNull();
     expect(spy).toHaveBeenCalledTimes(1);
     expect(booking().closerUserId).toBe(userId('qa.sal'));
+  });
+
+  it('412 after a cancel at another desk: read again → the drawer says the new status (ARC 162-01)', async () => {
+    const r = at('confirmed');
+    const { user, d } = await openAs('qa.mgr');
+    await user.selectOptions(await closerSelect(d), userId('qa.fd'));
+    r.status = 'cancelled';
+    r.version += 1;
+    await user.click(within(d).getByRole('button', { name: tv('common.save') }));
+    expect(
+      await within(d).findByText(
+        tv('rsv.transition_changed', { status: tv('status.booking.cancelled') }),
+      ),
+    ).toBeInTheDocument();
+    expect(within(d).queryByRole('combobox', { name: LABEL })).toBeNull();
+    expect(within(d).queryByText(tv('error.VERSION_CONFLICT'))).toBeNull();
+    expect(within(d).queryByText(tv('error.closer_change_forbidden'))).toBeNull();
+  });
+
+  it('403 on the same booking (the role was just taken away): read again → error.FORBIDDEN_ACTION, read-only, no second PATCH (SEC 162-01)', async () => {
+    at('confirmed');
+    const spy = patchSpy();
+    const { user, d } = await openAs('qa.mgr');
+    await user.selectOptions(await closerSelect(d), userId('qa.fd'));
+    await user.type(within(d).getByLabelText(REASON), 'Chọn nhầm');
+    demoteManager();
+    await user.click(within(d).getByRole('button', { name: tv('common.save') }));
+    const notice = await within(d).findByText(tv('error.FORBIDDEN_ACTION'));
+    expect(notice.closest('[role="alert"]')).not.toBeNull();
+    // The status did not change: never "Đơn vừa đổi trạng thái… Desk đã tải lại đơn".
+    expect(within(d).queryByText(tv('error.closer_change_forbidden'))).toBeNull();
+    // Read-only while the booking keeps this version: the name, no select, no button – nothing to send twice.
+    const dt = within(d).getByText(LABEL, { selector: 'dt' });
+    expect(dt.nextElementSibling).toHaveTextContent(/^Sơn/);
+    expect(within(d).queryByRole('combobox', { name: LABEL })).toBeNull();
+    expect(within(d).queryByRole('button', { name: tv('common.save') })).toBeNull();
+    expect(within(d).queryByRole('button', { name: tv('common.reload') })).toBeNull();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(booking().closerUserId).toBe(userId('qa.sal'));
+  });
+
+  it('403 and the booking cannot be read again: no "Desk đã tải lại đơn", read-only, "Tải lại" reads it (SEC 162-01)', async () => {
+    at('confirmed');
+    const spy = patchSpy();
+    const read = vi.spyOn(api, 'getReservation');
+    const { user, d } = await openAs('qa.mgr');
+    await user.selectOptions(await closerSelect(d), userId('qa.fd'));
+    demoteManager();
+    mockControl.failNext(/\/reservations\/[^/]+:GET$/, 500, { code: 'INTERNAL_ERROR' });
+    await user.click(within(d).getByRole('button', { name: tv('common.save') }));
+    const notice = await within(d).findByText(tv('error.FORBIDDEN_ACTION'));
+    const alert = notice.closest('.alert') as HTMLElement;
+    expect(within(d).queryByText(tv('error.closer_change_forbidden'))).toBeNull();
+    expect(within(d).queryByRole('combobox', { name: LABEL })).toBeNull();
+    expect(within(d).queryByRole('button', { name: tv('common.save') })).toBeNull();
+    // "Tải lại" reads the booking: same version, same milestone → still read-only, the button goes.
+    const readsBefore = read.mock.calls.length;
+    await user.click(within(alert).getByRole('button', { name: tv('common.reload') }));
+    await waitFor(() => expect(read.mock.calls.length).toBeGreaterThan(readsBefore));
+    await waitFor(() =>
+      expect(within(d).queryByRole('button', { name: tv('common.reload') })).toBeNull(),
+    );
+    expect(within(d).getByText(tv('error.FORBIDDEN_ACTION'))).toBeInTheDocument();
+    expect(within(d).queryByText(tv('error.closer_change_forbidden'))).toBeNull();
+    expect(within(d).queryByRole('combobox', { name: LABEL })).toBeNull();
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   const PATCH = /\/reservations\/[^/]+:PATCH$/;
@@ -368,7 +448,7 @@ describe('V5-30 – answers from the server (403 → 422 → 409)', () => {
     expect(booking().closerUserId).toBe(userId('qa.sal'));
   });
 
-  it('409 INVALID_TRANSITION (booking cancelled meanwhile): reload, the drawer says the new status', async () => {
+  it('409 INVALID_TRANSITION at the same version (kept for a status change that does not move it): reload, the drawer says the new status', async () => {
     const r = at('confirmed');
     const { user, d } = await openAs('qa.mgr');
     await user.selectOptions(await closerSelect(d), userId('qa.fd'));
@@ -382,7 +462,7 @@ describe('V5-30 – answers from the server (403 → 422 → 409)', () => {
     expect(within(d).queryByRole('combobox', { name: LABEL })).toBeNull();
   });
 
-  it('412 VERSION_CONFLICT: the input stays, "Tải lại" reads the new version, Save then works', async () => {
+  it('412 VERSION_CONFLICT, still editable (another field changed): the input stays, "Tải lại" reads the new version, Save then works', async () => {
     const r = at('confirmed');
     const spy = patchSpy();
     const { user, d } = await openAs('qa.mgr');

@@ -20,6 +20,8 @@ import { usePropertyId, useSession } from '../../session/SessionProvider';
 
 const FD_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 const MGR_PLUS: Role[] = ['owner', 'manager'];
+/** The statuses whose closer can still change (server `editable`; `checked_out` only with a closer-only body). */
+const CLOSER_STATES: ReservationStatus[] = ['hold', 'confirmed', 'in_house', 'checked_out'];
 /** `ReservationPatch.closerChangeReason`: 3–500 characters (V-08). */
 const REASON_MIN = 3;
 const REASON_MAX = 500;
@@ -63,7 +65,7 @@ export function closerAccess(
 ): CloserAccess {
   if (!roles.some((x) => FD_PLUS.includes(x))) return { mode: 'hidden' };
   if (r.status === 'hold') return { mode: 'edit', reason: 'none' };
-  if (!['confirmed', 'in_house', 'checked_out'].includes(r.status)) return { mode: 'read' };
+  if (!CLOSER_STATES.includes(r.status)) return { mode: 'read' };
   const checkedIn = r.status !== 'confirmed' || !!r.actualCheckinAt;
   if (checkedIn) {
     return roles.includes('owner')
@@ -81,10 +83,24 @@ interface Props {
   online: boolean;
   /** Read the booking again (the drawer keeps it); null when the read failed. */
   reload: () => Promise<Reservation | null>;
-  onSaved: (updated: Reservation) => void;
-  /** 409 INVALID_TRANSITION and the reload worked → the drawer says what changed. */
+  /** The drawer shows this booking: the answer of a save, or the booking read again after a refusal. */
+  onBooking: (booking: Reservation) => void;
+  /** The booking left the statuses that take a closer change (409, or read again after a 412) → the drawer says so. */
   onTransitionChanged: (status: ReservationStatus) => void;
 }
+
+/**
+ * What the Desk says once the server refused the change and the booking was read again (SEC 162-01, ARC 162-01):
+ * - `moved`: the booking changed under us and this role can no longer change the closer → `closer_change_forbidden`.
+ *   A check-in or a cancel at another desk bumps the version, so the server answers 412 – before 409 and 403 (order
+ *   of SEC 158-02) – and the Desk only learns the new milestone by reading the booking again;
+ * - `account`: 403 on the same booking, e.g. the role was just taken away → `error.FORBIDDEN_ACTION`;
+ * - `unread`: 403 and the booking could not be read again → `error.FORBIDDEN_ACTION` with "Tải lại" – never "Desk đã
+ *   tải lại đơn".
+ * The field stays read-only (no select, no button: no second 403, no extra `access.denied`) while the booking keeps
+ * the version the refusal was about.
+ */
+type Refusal = { kind: 'moved' | 'account' | 'unread'; version: number };
 
 /**
  * H11 khung đơn, ô "Người chốt" (UXD copy-v1.0.5 9.16; DOM 154-03; SEC 1I-03). A role that may change the closer at
@@ -98,7 +114,7 @@ export function CloserField({
   channelGroup,
   online,
   reload,
-  onSaved,
+  onBooking,
   onTransitionChanged,
 }: Props) {
   const { t, locale } = useI18n();
@@ -130,7 +146,9 @@ export function CloserField({
   const [reason, setReason] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<unknown>(null);
-  const [forbidden, setForbidden] = useState(false);
+  const [refusal, setRefusal] = useState<Refusal | null>(null);
+  const [reading, setReading] = useState(false);
+  const refused = refusal && refusal.version === r.version ? refusal : null;
   const write = useWrite();
   const toast = useToast();
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -146,8 +164,8 @@ export function CloserField({
     setFields({});
   }, [current]);
   useEffect(() => {
-    if (forbidden) noticeRef.current?.focus();
-  }, [forbidden]);
+    if (refusal) noticeRef.current?.focus();
+  }, [refusal]);
   useEffect(() => {
     if (!refocus || write.busy) return;
     setRefocus(false);
@@ -172,10 +190,10 @@ export function CloserField({
 
   const save = async (e?: FormEvent) => {
     e?.preventDefault();
-    if (!changed || write.busy || access.mode !== 'edit' || !online) return;
+    if (!changed || write.busy || reading || access.mode !== 'edit' || refused || !online) return;
     const text = reason.trim();
     setError(null);
-    setForbidden(false);
+    setRefusal(null);
     // V-08 locally first: required after check-in; before it, empty is fine but a started reason needs 3 characters.
     if (askReason && (reasonRule === 'required' || text !== '') && text.length < REASON_MIN) {
       setFields({ closerChangeReason: t('field_error.reason_required') });
@@ -188,28 +206,29 @@ export function CloserField({
       closerUserId: pick,
       ...(askReason && text ? { closerChangeReason: text } : {}),
     };
+    const sent = r.version;
     try {
       const out = await write.run(() =>
-        api.updateReservation({ propertyId, reservationId: r.id }, body, r.version),
+        api.updateReservation({ propertyId, reservationId: r.id }, body, sent),
       );
       notifyChanged();
       setReason('');
-      onSaved(out.data);
+      onBooking(out.data);
       // Changing the closer moves the commission: say it is saved, like every other Desk save (UXD 162-01).
       toast(t('common.saved'));
       setRefocus(true);
     } catch (err) {
       if (isRetryable(err)) return; // the retry notice keeps the input and explains
-      if (isApiError(err) && err.status === 403 && err.code === 'FORBIDDEN_ACTION') {
-        // The milestone moved under us (e.g. the guest checked in at another desk): read the booking again first,
-        // then say why – the field is then read-only with its `readonly_*` line (copy 9.16).
-        const fresh = await reload();
-        setPick(fresh?.closerUserId ?? current);
-        setReason('');
-        setForbidden(true);
+      if (
+        isApiError(err) &&
+        ((err.status === 403 && err.code === 'FORBIDDEN_ACTION') || err.code === 'VERSION_CONFLICT')
+      ) {
+        await settle(err.status === 403, err, sent);
         return;
       }
       if (isApiError(err) && err.code === 'INVALID_TRANSITION') {
+        // v1.3 (ARC 162-03): a 409 for a commission line already `payable`/`paid` needs its own branch and sentence –
+        // `currentStateOf` would read it as a booking status. v1.0.5 has no payout flow, so it does not happen (9.16).
         const fresh = await reload();
         if (fresh) {
           onTransitionChanged(currentStateOf(err) ?? fresh.status);
@@ -234,15 +253,72 @@ export function CloserField({
     }
   };
 
+  /**
+   * After a 403 or a 412: read the booking again (without the drawer's error state), then say what it means for this
+   * role now (see `Refusal`). A 412 on a booking this role may still change keeps today's answer: the conflict
+   * sentence, "Tải lại", the input kept.
+   */
+  async function settle(forbiddenAnswer: boolean, err: unknown, sent: number) {
+    let fresh: Reservation | null = null;
+    setReading(true);
+    try {
+      fresh = (await api.getReservation({ propertyId, reservationId: r.id })).data;
+    } catch {
+      fresh = null;
+    } finally {
+      setReading(false);
+    }
+    if (!fresh) {
+      if (forbiddenAnswer) {
+        setPick(current);
+        setReason('');
+        setRefusal({ kind: 'unread', version: sent });
+      } else setError(err);
+      return;
+    }
+    if (!CLOSER_STATES.includes(fresh.status)) {
+      onBooking(fresh);
+      onTransitionChanged(fresh.status);
+      return;
+    }
+    const moved = closerAccess(roles, fresh).mode !== 'edit';
+    if (!moved && !forbiddenAnswer) {
+      setError(err);
+      return;
+    }
+    onBooking(fresh);
+    setPick(fresh.closerUserId ?? '');
+    setReason('');
+    setFields({});
+    setRefusal({ kind: moved ? 'moved' : 'account', version: fresh.version });
+  }
+
   const needsReload =
     isApiError(error) &&
     (error.code === 'VERSION_CONFLICT' || error.code === 'PRECONDITION_REQUIRED');
   const notices = (
     <>
-      {forbidden ? (
+      {refused ? (
         <div ref={noticeRef} tabIndex={-1}>
-          <Alert tone="warn" role="alert">
-            {t('error.closer_change_forbidden')}
+          <Alert
+            tone="warn"
+            role="alert"
+            actions={
+              refused.kind === 'unread' ? (
+                <Button
+                  size="sm"
+                  busy={reading}
+                  disabled={!online}
+                  onClick={() => void settle(true, null, r.version)}
+                >
+                  {t('common.reload')}
+                </Button>
+              ) : undefined
+            }
+          >
+            {t(
+              refused.kind === 'moved' ? 'error.closer_change_forbidden' : 'error.FORBIDDEN_ACTION',
+            )}
           </Alert>
         </div>
       ) : null}
@@ -271,7 +347,7 @@ export function CloserField({
     </>
   );
 
-  if (access.mode !== 'edit' || (!list && listFailed)) {
+  if (access.mode !== 'edit' || refused || (!list && listFailed)) {
     const line = access.mode === 'read' ? access.line : undefined;
     const name = !current
       ? '–'
@@ -314,12 +390,12 @@ export function CloserField({
             ref={selectRef}
             className="input"
             value={list ? pick : ''}
-            disabled={!list || !online || write.busy}
+            disabled={!list || !online || write.busy || reading}
             onChange={(e) => {
               setPick(e.target.value);
               setFields({});
               setError(null);
-              setForbidden(false);
+              setRefusal(null);
               if (e.target.value === current) setReason('');
             }}
           >
@@ -379,7 +455,7 @@ export function CloserField({
             size="sm"
             busy={write.busy}
             busyLabel={write.busyLabel}
-            disabled={!online}
+            disabled={!online || reading}
           >
             {write.label(t('common.save'))}
           </Button>
