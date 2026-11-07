@@ -189,6 +189,10 @@ install -d -o root -g root -m 0755 "$OTTIMO_HOME"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$OTTIMO_HOME/state"
 install -d -o root -g "$DEPLOY_USER" -m 0750 "$OTTIMO_HOME/backup"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$BACKUP_DIR"
+# Drive off-site copy (INV 07/11/2026, push-backups-drive.sh): the drive.file OAuth token lives here, outside /opt and
+# /var/backups, written by bin/offsite-authorize.sh (ottimo 0400, INV types it). Directory only – no token, no rclone.
+install -d -o root -g root -m 0755 /etc/ottimo-offsite
+install -d -o root -g "$DEPLOY_USER" -m 0750 "/etc/ottimo-offsite/$stack"
 # Scripts in $OTTIMO_HOME/infra/server/bin resolve their stack from this marker (bin/dc) – the production copy can
 # never act on staging by a forgotten OTTIMO_HOME, and the reverse.
 echo "$env_name" > "$OTTIMO_HOME/.ottimo-home"

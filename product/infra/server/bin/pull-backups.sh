@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# OPTIONAL since 07/11/2026 (INV): the main off-site copy is now the company Google Drive, pushed by the server
+# (push-backups-drive.sh, README infra/server 7.1). This pull stays usable as a second copy – kept in parallel for 2
+# weeks after the Drive copy runs well and a drill restored from Drive; nothing on the Mac is deleted without INV.
 # Off-site copy of the encrypted backups (SR-BAK-04, R3 v1.0) – runs on the OPS/INV machine (macOS or Linux), NOT on
 # the VPS. Pulls with a dedicated key that the server forces to `rrsync -ro /var/backups/<stack>` (bootstrap-vps.sh
 # --backup-pull-key): read-only, that directory only, no shell. The files stay age-encrypted; the private key is not

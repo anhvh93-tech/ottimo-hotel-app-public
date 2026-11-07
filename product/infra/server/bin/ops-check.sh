@@ -3,7 +3,7 @@
 #   ops-check.sh            run every check, alert on failures
 #   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead |
 #                           email_missing | email_changes | email_ascii | email_config | pricelimit | pricegap |
-#                           priceswitch | db_triggers | sshkeys | journal)
+#                           priceswitch | db_triggers | sshkeys | journal | offsite)
 #
 # R4 v1.0.4 (P4-04; SEC FB-R4-SEC-OPS-PR32-S1, ARC FB-R4-ARC-OPS-PR30-09): EVERY database check (j16, email_*,
 # pricegap (static part), priceswitch, db_triggers) runs as the role ottimo_readonly (NOLOGIN, BYPASSRLS, SELECT only – taken at connect with
@@ -116,6 +116,15 @@
 #               SystemMaxUse reached or a log flood (reset state/journald_since after looking); journald wrote
 #               "Suppressed N messages" in the last 24 h (RateLimitBurst reached – lines were dropped). Counts and ages
 #               only. OPS_CHECK_JOURNALCTL / _JOURNAL_DIR / _JOURNAL_OWNER / _GETENT / _GETFACL = stand-ins (tests)
+#   offsite     INV 07/11/2026: the off-site copy on the company Google Drive (bin/push-backups-drive.sh, timer
+#               ottimo-offsite@<stack>, state/offsite/*). Only when OFFSITE_DRIVE_INBOX_FOLDER_ID is set in .env
+#               (otherwise OK "not configured"). FAIL when: no successful push recorded; the last push run failed
+#               (fixed category only); the last successful push is >= OFFSITE_MAX_HOURS (default 36) old; the newest
+#               db dump the mover took to Kho (vault) is >= OFFSITE_MAX_HOURS old or none was taken yet; a backup file
+#               waits > 6 h in Nhận (inbox) – the Apps Script mover (infra/drive/apps-script) stopped or refused it.
+#               Reads state files only: no Drive call, no token needed. The server never sees Kho itself (drive.file);
+#               the Apps Script alerts on its own (e-mail + the Báo động Chat room) when Kho gets no new backup for 36 h
+#               – the path that works when this server is gone.
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p warning: FAIL at level err, WARN at level warning – `-p err` alone hides every WARN);
@@ -176,8 +185,9 @@ HTTP5XX_MAX="${HTTP5XX_MAX:-5}"
 MEM_MIN_AVAIL_PCT="${MEM_MIN_AVAIL_PCT:-10}"
 EMAIL_DEAD_HOURS="${EMAIL_DEAD_HOURS:-24}"
 PRICE_REFUSED_MAX="${PRICE_REFUSED_MAX:-200}"
+OFFSITE_MAX_HOURS="${OFFSITE_MAX_HOURS:-36}"
 for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS HTTP5XX_MAX MEM_MIN_AVAIL_PCT EMAIL_DEAD_HOURS \
-  PRICE_REFUSED_MAX; do
+  PRICE_REFUSED_MAX OFFSITE_MAX_HOURS; do
   [[ "${!v}" =~ ^[0-9]+$ ]] || { echo "$v must be a number" >&2; exit 2; }
 done
 host_name=$(hostname -s 2>/dev/null || echo server)
@@ -298,6 +308,40 @@ check_backup() {
     notify backup FAIL "last successful backup $((age / 3600)) h ago"; return 1
   fi
   notify backup OK "last backup $((age / 3600)) h ago"
+}
+
+check_offsite() {
+  local st="$OTTIMO_HOME/state/offsite" now ok="" fail_t="" fail_c="" newest="" stale="" fails=() keys=() msg rk
+  if [ -z "$(envval OFFSITE_DRIVE_INBOX_FOLDER_ID)" ]; then
+    notify offsite OK "Google Drive copy not configured"; return 0
+  fi
+  now=$(date -u +%s)
+  num() { local v; v=$(head -n 1 "$1" 2>/dev/null | tr -d '\r' || true); [[ "$v" =~ ^[0-9]+$ ]] && echo "$v" || true; }
+  ok=$(num "$st/last_ok"); newest=$(num "$st/vault_newest"); stale=$(num "$st/inbox_stale")
+  if [ -r "$st/last_fail" ]; then
+    read -r fail_t fail_c < "$st/last_fail" || true
+    [[ "$fail_t" =~ ^[0-9]+$ ]] || fail_t=""
+    fail_c=$(printf '%s' "$fail_c" | tr -cd 'A-Za-z0-9 ():._-' | cut -c1-120)
+  fi
+  if [ -z "$ok" ]; then fails+=("no successful push to Google Drive recorded"); keys+=(never)
+  elif [ $((now - ok)) -ge $((OFFSITE_MAX_HOURS * 3600)) ]; then
+    fails+=("last successful push to Google Drive $(((now - ok) / 3600)) h ago"); keys+=(push-old)
+  fi
+  if [ -n "$fail_t" ] && { [ -z "$ok" ] || [ "$fail_t" -gt "$ok" ]; }; then
+    fails+=("last push run failed: ${fail_c:-unknown}"); keys+=(push-failed)
+  fi
+  if [ -n "$ok" ]; then
+    if [ -z "$newest" ] || [ "$newest" -eq 0 ]; then fails+=("no backup taken to the Drive vault (Kho) yet"); keys+=(vault-empty)
+    elif [ $((now - newest)) -ge $((OFFSITE_MAX_HOURS * 3600)) ]; then
+      fails+=("newest backup on Google Drive $(((now - newest) / 3600)) h old"); keys+=(vault-old)
+    fi
+    if [ "${stale:-0}" -gt 0 ]; then
+      fails+=("$stale file(s) waiting > 6 h in the Drive inbox (Nhan) - the Apps Script mover is not moving them"); keys+=(mover)
+    fi
+  fi
+  rk=$(IFS=,; printf '%s' "${keys[*]}")
+  if [ "${#fails[@]}" -gt 0 ]; then msg=$(printf '%s; ' "${fails[@]}"); notify offsite FAIL "${msg%; }" "" "$rk"; return 1; fi
+  notify offsite OK "newest backup on Google Drive $(((now - newest) / 3600)) h old, last push $(((now - ok) / 3600)) h ago"
 }
 
 check_disk() {
@@ -912,7 +956,7 @@ check_journal() {
 
 # Full run (timer): v1.0.3 checks first, then the LP-v2 price checks (merge lp-v2-main, ARC 04/11), then v1.0.4 (P4-04),
 # then v1.0.5 (sshkeys, journal).
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch email_config db_triggers sshkeys journal); full=1; fi
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch email_config db_triggers sshkeys journal offsite); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -936,6 +980,7 @@ for c in "${checks[@]}"; do
     priceswitch) check_priceswitch || ok=0 ;;
     sshkeys) check_sshkeys || ok=0 ;;
     journal) check_journal || ok=0 ;;
+    offsite) check_offsite || ok=0 ;;
     *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
   if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi

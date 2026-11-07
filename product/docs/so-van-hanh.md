@@ -436,6 +436,24 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 
 ---
 
+## Phụ lục S – Sao lưu lên Google Drive công ty: phần kỹ thuật (OPS 07/11/2026, BA chép sang các mục 1.1a, 1.2, 2.1a, 2.2, 5.3, 5.4)
+
+Phụ lục này chỉ ghi phần kỹ thuật, để BA viết lại thành việc của anh/chị. Các mục 1.1a và 2.x ở trên vẫn tả cách cũ (kéo về Mac), tới khi BA sửa. Cách mới **chưa cài**: lượt cài là việc riêng, cần anh/chị đồng ý. Chi tiết: README `infra/server` mục 7.1; hướng dẫn anh/chị `product/docs/huong-dan-inv-sao-luu-google-drive.md`.
+
+- **Ở đâu:** thư mục "OTTIMO App/Sao lưu" trong "Drive của tôi" của tài khoản Workspace công ty mà anh/chị đã chỉ định. Có 2 thư mục con: "Nhận" (máy chủ gửi vào) và "Kho" (bản giữ lại). Không dùng Shared Drive. Không chia sẻ "Sao lưu" cho ai.
+- **Nhịp:** máy chủ sao lưu 03:00 và 15:00 như cũ. Máy chủ **tự gửi** lên Drive lúc 04:00 và 16:00. Apps Script chép sang "Kho" trong giờ kế tiếp. Không cần ai cho phép từng lần, không cần Mac bật.
+- **Mất dữ liệu khi máy chủ mất hẳn:** thường tới khoảng **14 giờ** khi mọi thứ chạy đúng, thay cho 60–72 giờ của cách kéo tay. Phòng Báo động nhận tin khi quá **36 giờ** không có bản mới.
+- **Ai xóa bản cũ:** Apps Script trong Google, mỗi ngày 09:00, theo luật cũ (bản < 7 ngày, bản Chủ nhật < 33 ngày, không bản nào quá 35 ngày). Máy chủ không xóa được bản nào trong "Kho". Anh/chị **không tự xóa** tệp trong "Sao lưu", "Nhận" hay "Kho".
+- **Tin báo:**
+  - Phòng "OTTIMO – Báo động", mục `offsite`: máy chủ gửi lỗi; bản mới nhất trên Drive quá 36 giờ; tệp kẹt trong "Nhận" quá 6 giờ.
+  - Email, và phòng Chat nếu anh/chị đã dán webhook, từ Apps Script: "Kho" quá 36 giờ không có bản mới. Tin này vẫn đến khi máy chủ đã chết.
+  - Email mỗi thứ Hai, kết quả "All fine" hoặc "NOT fine".
+  - Với BA, gợi ý cho 1.2/5.3: nhận "NOT fine" hay tin `offsite` FAIL thì báo đội trong ngày, như sự cố sao lưu hiện nay.
+- **Khóa giải mã sao lưu:** không bao giờ để trên Drive. Để trong trình quản lý mật khẩu, hoặc phong bì riêng (hướng dẫn phần F).
+- **Diễn tập khôi phục:** lấy bản từ "Kho" trên một VPS dùng một lần (ESC-052). Anh/chị cho phép quyền **chỉ xem** trong buổi đó, quyền tự thu hồi khi xong (hướng dẫn phần G). Nhắc 35 ngày giữ nguyên.
+- **Mac:** bản trên Mac và lượt kéo tay giữ song song **2 tuần** sau khi Drive chạy ổn và đã diễn tập từ Drive. Sau đó đội hỏi anh/chị có xóa bản trên Mac không. Không ai xóa trước khi anh/chị quyết. Các câu về Time Machine, lịch Mac tự kéo ở 5.4 thôi áp dụng khi anh/chị đã quyết bỏ Mac.
+- **Nghi máy chủ bị chiếm:** gỡ quyền "OTTIMO server backup" ở trang Bảo mật của tài khoản (hướng dẫn phần H). Bản trong "Kho" không bị ảnh hưởng. Mã 3 "server copy changed" của lượt kéo Mac không còn khi bỏ Mac. Thay vào đó, Apps Script báo `inbox-refused` khi máy chủ gửi tệp sai mã kiểm.
+
 ## Giả định đang dùng – chờ anh/chị xác nhận
 
 | # | Giả định | Nếu anh/chị muốn khác |
@@ -459,3 +477,4 @@ Sau buổi review: đội làm, rồi báo "QC ĐẠT" kèm ghi chú phát hành
 | 07/11/2026 | 1.7 | BA | Round 5 – Phản hồi & sửa (SEC `SEC-responses.md` mục 6.5; DOM `DOM-responses.md` đề xuất minibar (A) 2; PO release notes Giới hạn đã biết `3279a4ec`; DOM `DOM-on-ba-v105-docs.md` thẻ FB-R5-DOM-BA-06, 07). Mục 1.2: đếm kho minibar mỗi tuần (K-MB), phiếu nạp gồm cả dòng không vào tủ. Mục 1.3: kiểm điện thoại cơ sở còn tắt tự lưu ảnh. Mục 4.1 bước 7: đổi giá căn xong báo giá thử 1 đêm từ ngày hiệu lực trở đi. Dòng này ghi bù ngày 07/11 (bản 1.8): bản 1.7 đã có ở dòng **Lập:** từ `d467578b`, `df271ee7`, `da596507` nhưng thiếu dòng ở bảng này |
 | 07/11/2026 | sau 1.7, chưa đánh số; có trong 1.8 | SEC | Round 5 – Sản xuất (V5-74). Mục 1.1a (gạch mã 3), 3.4 (câu đầu mục), 7.4: trỏ về runbook sự cố dữ liệu khách `product/docs/runbook-su-co-du-lieu-khach.md` (SR-INC-01). Không đổi cách làm nào. BA đánh số ở lần sửa tới |
 | 07/11/2026 | 1.8 | BA | Round 5 – Phản hồi & sửa (review `rounds/round-05/reviews/BA-on-sec-v5-74.md` mục 3, S1, S2, S5; runbook sự cố dữ liệu khách bản 1.1 `3174ce65`). Đánh số phần SEC ở dòng trên. Mục 1.1a, gạch mã 3: bản trên Mac đúng mà bản máy chủ khác thì coi như bị xâm nhập (mức Cao), không chờ xác nhận; 72 giờ tính từ giờ lượt kéo; mức Cao mặc định chuẩn bị báo; anh/chị quyết chậm nhất giờ thứ 48 (thay "Nếu xác nhận dữ liệu khách bị lộ…", theo runbook mục 3, mục 5 bước 3). Mục 3.4: gửi nhầm link check-in online không phải P0 (lễ tân nhắn trong ngày, ghi lạ thì gọi ngay, `/feedback` không P0); "anh/chị quyết, đội bảo mật đề xuất, luật sư xác nhận" thay "anh/chị cùng đội bảo mật quyết" (runbook mục 2 bước 4). Ghi bù dòng 1.7 |
+| 07/11/2026 | sau 1.8, chưa đánh số | OPS | Round 5 – Sản xuất (INV 07/11: bản sao ngoài máy lên Google Drive công ty, bỏ Mac). Thêm **Phụ lục S** (chỉ phần kỹ thuật). Không sửa mục nào của BA; BA chép sang 1.1a, 1.2, 2.1a, 2.2, 5.3, 5.4 và đánh số |

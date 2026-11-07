@@ -1,0 +1,25 @@
+# Off-site copy of the encrypted backups of /opt/%i to the company Google Drive (infra/server/bin/push-backups-drive.sh),
+# production: ottimo-offsite@ottimo-prod. Started by ottimo-offsite@.timer, 1 h after each backup. Installed by
+# bootstrap-vps.sh, ENABLED only at the install pass after INV authorised Google (README infra/server 7.1).
+[Unit]
+Description=OTTIMO off-site backup copy of /opt/%i to Google Drive
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ottimo
+Group=ottimo
+Environment=OTTIMO_HOME=/opt/%i
+Environment=BACKUP_DIR=/var/backups/%i
+ExecStart=/opt/%i/infra/server/bin/push-backups-drive.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# Reads the backups and the key, writes only its own state (SEC: a bug here cannot touch the stack or the backups).
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/%i/state
+TimeoutStartSec=3h
