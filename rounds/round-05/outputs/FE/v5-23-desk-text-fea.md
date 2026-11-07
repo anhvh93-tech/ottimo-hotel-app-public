@@ -1,6 +1,6 @@
 # FE-A – V5-23 phía Desk: lượt sửa chữ sai sự thật (Round 5, v1.0.5, bước Sản xuất)
 
-Nhánh `r5-fe-g2-text` (từ `origin/main` 3174ce65). PR thứ hai của Gói 2 Desk; PR thứ nhất là #166 (V5-21 + câu Desk V5-25).
+Nhánh `r5-fe-g2-text` (từ `origin/main` 3174ce65, đã gộp main 511d7f23). PR thứ hai của Gói 2 Desk; PR thứ nhất là #166 (V5-21 + câu Desk V5-25).
 Chữ lấy nguyên văn từ `rounds/round-05/outputs/UXD/copy-v1.0.5.md` mục 4. Một script đọc bảng của từng mục rồi ghi vào `gen_strings.py`, nên không gõ lại chữ. Test so chữ bằng `tv(key)`.
 
 ## Đã làm gì
@@ -60,16 +60,26 @@ Sinh lại chuỗi: `python3 -I design/tools/gen_strings.py` → 3535 chuỗi + 
 - H5. 4.15 áp đúng 25 khóa copy liệt kê, gồm `secmail.lead` (thư) và `staff.notif.sec.*` (app nhân viên). Thư bảo mật gửi đi viết cứng trong `integrations/notification/email-templates.ts`, không đọc `strings-en.json`, nên không đổi ở đây.
 - H6. 4.14: `DepositQr` gọi `onFail(false)` khi bắt đầu mỗi lần tạo mã. Bấm thử lại mà tạo được mã thì hộp xanh quay về `sale.hold_next`.
 
+## Kiểm
+
+- Vitest:
+  - file mới: 19/19;
+  - các file test đã sửa: xanh;
+  - toàn bộ admin-web: kết quả ghi ở PR.
+- `tsc` admin-web, `eslint`, `prettier --check` sạch.
+- Chạy lại `python3 -I design/tools/gen_strings.py` không ra thay đổi (bước CI "Copy is generated").
+- Thử gộp `origin/main` mới nhất sạch; đã gộp main 511d7f23 vào nhánh.
+- Không có dữ liệu khách thật, số hoa hồng, IP hay khóa bí mật. Tên trong test là tên mẫu của mock.
+
 ## Rủi ro / vướng mắc
 
 - Hai spec e2e chỉ đổi tên ô, chưa chạy Playwright ở máy (cần cả stack). CI sẽ chạy.
-- PR này và #166 cùng sửa `app/problem.ts` và `gen_strings.py`. Mỗi PR chèn ở chỗ khác nhau (xem mục Kiểm). Gộp PR nào sau thì sinh lại chuỗi sau khi gộp main.
+- PR này và #166 cùng sửa `app/problem.ts` và `gen_strings.py`, nhưng mỗi PR chèn ở chỗ khác nhau. Thử gộp hai nhánh (merge-tree): chỉ `strings.js` (một dòng, file sinh ra) đụng nhau. PR nào gộp sau thì gộp main rồi chạy lại `gen_strings.py`.
 
 ## Việc chưa xong / không thuộc PR này
 
 - 4.8 BUG-R3-035: 2 khóa `bill.line.late_fee_as_night`, `bill.line.late_fee_after_limit` đi cùng việc của BE-B ở `folio/public/line-labels.ts`. FE không cần sửa mã: `lineLabel` dùng `labelKey` khi khóa có. FE **chưa thêm** 2 khóa này, để tránh trùng dòng với PR của BE-B. Đề xuất: BE-B thêm 2 dòng vào `gen_strings.py` cùng PR, hoặc ORC giao lại FE.
 - 4.5 BUG-R2-100: copy ghi "không đổi chữ", QA xác nhận.
-- 4.6 BUG-R2-218 và 4.20 (a): làn trang khách (#167).
-- 4.20 (b), 4.21 `msg.*`: chữ khách; mục "nên có, không chặn QC", chưa thấy trong #167.
+- 4.6 BUG-R2-218, 4.20 (a)(b), 4.21 `msg.*`: chữ khách, làn trang khách (#167, UXD đã duyệt 07/11).
 - 4.17: việc của BA (V5-71).
-- `design/content-guide.md` còn dòng `fo.tabs.holds` (327) và `bill.line.early_departure_fee_notice` (2797–2798). File của UXD, FE không sửa. Đề xuất UXD dọn cùng lượt đồng bộ content-guide.
+- `design/content-guide.md` (main 511d7f23) còn dòng `fo.tabs.holds` (328) và `bill.line.early_departure_fee_notice` (2823–2824). File của UXD, FE không sửa. Đề xuất UXD dọn cùng lượt đồng bộ content-guide.
