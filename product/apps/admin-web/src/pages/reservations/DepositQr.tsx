@@ -34,11 +34,17 @@ export function DepositQr({
   auto = false,
   pending = null,
   onQr,
+  onFail,
 }: {
   reservation: Reservation;
   auto?: boolean;
   pending?: Payment | null;
   onQr?: (qr: VietQrResult) => void;
+  /**
+   * V5-23 (copy-v1.0.5 4.14): `true` when creating the QR failed (any error, `PAYMENT_NOT_CONFIGURED` included),
+   * `false` when a new attempt starts – the hold box then stops saying "Gửi mã QR cho khách".
+   */
+  onFail?: (failed: boolean) => void;
 }) {
   const { t, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
@@ -49,6 +55,7 @@ export function DepositQr({
 
   const create = async () => {
     if (!(amount > 0)) return;
+    onFail?.(false);
     const out = await act.submit((idem) =>
       api.createVietQr(
         { propertyId, folioId: r.folioId },
@@ -59,6 +66,8 @@ export function DepositQr({
     if (out) {
       setQr(out.data);
       onQr?.(out.data);
+    } else {
+      onFail?.(true);
     }
   };
 

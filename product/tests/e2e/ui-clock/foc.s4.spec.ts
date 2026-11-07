@@ -213,7 +213,8 @@ test.describe(
       await page.getByRole('button', { name: t('rsv.add_person'), exact: true }).click();
       const dlg = page.getByRole('dialog', { name: t('rsv.party') });
       await expect(dlg).toBeVisible();
-      await dlg.getByRole('combobox', { name: t('booking.field.guest') }).fill(g2.fullName);
+      // V5-23 BUG-R2-094: the companion picker is labelled "Người đi cùng" (stay.companion_field).
+      await dlg.getByRole('combobox', { name: t('stay.companion_field') }).fill(g2.fullName);
       await page
         .getByRole('option', { name: new RegExp(`^${esc(g2.fullName)}`) })
         .first()

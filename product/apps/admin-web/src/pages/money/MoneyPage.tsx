@@ -1130,6 +1130,7 @@ function ExecuteRefundDialog({
       )}
       {stepUp ? (
         <StepUpDialog
+          purpose="account"
           onClose={() => setStepUp(false)}
           onDone={() => {
             setStepUp(false);

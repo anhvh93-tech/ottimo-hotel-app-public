@@ -551,7 +551,15 @@ function ContactBlock({ r }: { r: WebsiteBookingRequest }) {
     return (
       <section aria-labelledby={`${ids}-c`}>
         {head}
-        <p className="li-s">{t('webreq.pii_purged', { date: date(r.piiPurgedAt.slice(0, 10)) })}</p>
+        {/* V5-23 BUG-R3-055 (copy-v1.0.5 4.10): erased at the sender's request is not "theo hạn lưu". */}
+        <p className="li-s">
+          {t(
+            r.declineReasonCode === 'erased_on_request' ? 'webreq.pii_erased' : 'webreq.pii_purged',
+            {
+              date: date(r.piiPurgedAt.slice(0, 10)),
+            },
+          )}
+        </p>
       </section>
     );
   if (!r.guestName && !r.phone && !r.email)

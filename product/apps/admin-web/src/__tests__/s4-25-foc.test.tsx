@@ -281,7 +281,9 @@ describe('S4-25 / BUG-R2-093 – thêm người khi đang ở: ghi phụ thu kè
     await user.click(within(d).getByRole('button', { name: tv('rsv.add_person') }));
     const dlg = await screen.findByRole('dialog', { name: tv('rsv.party') });
     const pick = async (q: string, name: RegExp) => {
-      const box = within(dlg).getByRole('combobox', { name: /Khách đứng tên/ });
+      const box = within(dlg).getByRole('combobox', {
+        name: new RegExp(tv('stay.companion_field')),
+      });
       // The picker closes its list 150 ms after a blur – let that timer pass first (as s3-fix9).
       await new Promise((done) => setTimeout(done, 200));
       await user.clear(box);

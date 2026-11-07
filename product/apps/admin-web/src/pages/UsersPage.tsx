@@ -181,7 +181,12 @@ export function UsersPage() {
 
   const fail = (err: unknown) => {
     const fe = fieldErrors(t, err);
-    setError(Object.values(fe)[0] ?? problemView(t, err).text);
+    // copy-v1.0.5 4.12: this page reloads after a 409 INVALID_TRANSITION – the sentence says the list was reloaded.
+    const reloaded = isApiError(err) && err.code === 'INVALID_TRANSITION';
+    setError(
+      Object.values(fe)[0] ??
+        (reloaded ? t('error.INVALID_TRANSITION_generic_reloaded') : problemView(t, err).text),
+    );
     setPending(null);
     // VERSION_CONFLICT: someone changed the person; INVALID_TRANSITION of another action: reload too (the
     // reset-2FA one never comes here – `stale2fa`).

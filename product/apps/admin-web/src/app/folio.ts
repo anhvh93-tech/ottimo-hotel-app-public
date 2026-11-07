@@ -1,5 +1,5 @@
 import type { FolioLine } from '@ottimo/api-client';
-import { formatLocalDate, hasKey, type Args } from '@ottimo/i18n';
+import { formatLocalDate, hasKey, pluralForm, type Args } from '@ottimo/i18n';
 
 type T = (key: string, args?: Args) => string;
 /** ARC "nhãn dòng bill dịch được" (s3-ARC, DOM FE-03): `labelKey` (`bill.line.*`) + `labelParams`. */
@@ -36,10 +36,22 @@ const VARIANT: Record<string, [param: string, key: string]> = {
   'bill.line.room_night': ['room', 'bill.line.room_night_room'],
   'bill.line.extra_night': ['room', 'bill.line.extra_night_room'],
   'bill.line.extra_person': ['count', 'bill.line.extra_person_count'],
-  'bill.line.early_departure_fee': ['noticeDays', 'bill.line.early_departure_fee_notice'],
   'bill.line.foc': ['reason', 'bill.line.foc_reason'],
   'bill.line.discount': ['reason', 'bill.line.discount_reason'],
 };
+
+/**
+ * copy-v1.0.5 4.1 (FB-R4-DOM-UXD-PR89-02): the early-departure fee by its notice days – none (null, empty: the OTA
+ * part) → the plain label; 0 → "báo trong ngày rời"; more → `_notice_one` / `_notice_other`. The VI `_one` and
+ * `_other` read the same, so the English plural rule picks the right key for both bill languages.
+ */
+function earlyDepartureKey(noticeDays: Args[string] | undefined): string {
+  if (noticeDays == null || noticeDays === '') return 'bill.line.early_departure_fee';
+  const n = Number(noticeDays);
+  if (!Number.isFinite(n)) return 'bill.line.early_departure_fee';
+  if (n === 0) return 'bill.line.early_departure_fee_same_day';
+  return `bill.line.early_departure_fee_notice_${pluralForm('en', n)}`;
+}
 
 /**
  * Text of a folio / bill line in the language of `t`: the server label key (closed list, BE
@@ -64,6 +76,10 @@ export function lineLabel(t: T, line: FolioLine): string {
       const reasonKey = FOC_REASON[String(params.reason)];
       if (reasonKey) params.reason = t(reasonKey);
       else delete params.reason;
+    }
+    if (l.labelKey === 'bill.line.early_departure_fee') {
+      const key = earlyDepartureKey(params.noticeDays);
+      return t(hasKey(key) ? key : l.labelKey, params);
     }
     const variant = VARIANT[l.labelKey];
     const key =

@@ -379,7 +379,7 @@ describe('UXD s3 E.1 – bill line labels (closed `bill.line.*`, variants) and n
       t('bill.line.extra_person_count', { date: '20/10', count: 2 }),
     );
     expect(lineLabel(t, line('bill.line.early_departure_fee', { noticeDays: 3 }))).toBe(
-      t('bill.line.early_departure_fee_notice', { noticeDays: 3 }),
+      t('bill.line.early_departure_fee_notice_other', { noticeDays: 3 }),
     );
   });
 

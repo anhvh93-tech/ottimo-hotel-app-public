@@ -88,7 +88,9 @@ describe('Hoàn tiền tách quyền theo phương thức (PO 16/10 – A47a ti�
     await user.click(within(card).getByRole('button', { name: tv('refund.execute_transfer') }));
     const dlg = await screen.findByRole('dialog', { name: tv('refund.execute_transfer') });
     await user.click(within(dlg).getByRole('button', { name: tv('refund.show_account') }));
-    const step = await screen.findByRole('dialog', { name: tv('ci.stepup_title') });
+    // V5-23 BUG-R2-098 (copy-v1.0.5 4.4): the step-up box names the account number, not "giấy tờ".
+    const step = await screen.findByRole('dialog', { name: tv('stepup.title_account') });
+    expect(within(step).getByText(tv('stepup.body_account'))).toBeInTheDocument();
     await user.type(within(step).getByLabelText(/^Mật khẩu của bạn/), MOCK_PASSWORD);
     await user.click(within(step).getByRole('button', { name: tv('ci.stepup_submit') }));
     expect(await within(dlg).findByText('19036666777')).toBeInTheDocument();

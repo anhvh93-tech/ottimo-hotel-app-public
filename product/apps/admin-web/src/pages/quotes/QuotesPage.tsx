@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { useBusinessDay } from '../../app/businessDay';
+import { quoteValidUntil } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
 import { addDays, dayMonth } from '../../app/reservations';
 import { Page, Topbar } from '../../components/AppShell';
@@ -369,7 +370,7 @@ function QuotesList({
   onOpen: (q: Quote, el: HTMLElement) => void;
   onOpenReservation: (id: string, el: HTMLElement) => void;
 }) {
-  const { t, vnd, dateTime } = useI18n();
+  const { t, vnd } = useI18n();
   const propertyId = usePropertyId();
   const catalog = useCatalog(propertyId);
   const { roles } = useSession();
@@ -440,7 +441,8 @@ function QuotesList({
                 ) : q.status === 'expired' ? (
                   <Chip tone="warn">{t('sale.quote_expired')}</Chip>
                 ) : (
-                  <Chip>{t('sale.quote_expires', { time: dateTime(q.expiresAt) })}</Chip>
+                  // V5-23 BUG-R3-028 (e): "Hiệu lực đến 23:59 …", the minute the guest's quote text names.
+                  <Chip>{t('sale.quote_expires', { time: quoteValidUntil(q.expiresAt) })}</Chip>
                 )}
               </td>
             </tr>

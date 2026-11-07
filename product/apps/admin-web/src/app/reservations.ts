@@ -138,6 +138,7 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
   const p = error.problem as Record<string, unknown>;
   const locale = ctx.locale ?? 'vi';
   const vnd = (n: unknown) => formatNumber(locale, Number(n ?? 0));
+  const money = (n: unknown) => t('common.currency_vnd', { amount: vnd(n) });
   const first = conflictsOf(error)[0];
   const room = (p.roomNo as string | undefined) ?? first?.roomNo ?? ctx.roomNo ?? '';
   switch (error.code) {
@@ -163,9 +164,10 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
     case 'CAPACITY_EXCEEDED':
       return t('error.CAPACITY_EXCEEDED', { room, max: String(p.max ?? '') });
     case 'DEPOSIT_INSUFFICIENT':
+      // V5-23 UXD P440-06 (copy-v1.0.5 4.13): money WITH the unit, like every amount inside a sentence.
       return t('error.DEPOSIT_INSUFFICIENT', {
-        required: vnd(p.depositRequiredVnd ?? ctx.required),
-        paid: vnd(p.depositPaidVnd ?? ctx.paid),
+        required: money(p.depositRequiredVnd ?? ctx.required),
+        paid: money(p.depositPaidVnd ?? ctx.paid),
       });
     case 'INVALID_TRANSITION': {
       const st = (p.currentState as ReservationStatus | undefined) ?? ctx.status;

@@ -22,6 +22,24 @@ export function timeHHmm(d: Date, timeZone = 'Asia/Ho_Chi_Minh'): string {
   }).format(d);
 }
 
+/**
+ * V5-23 BUG-R3-028 (e) (copy-v1.0.5 4.7): the last valid minute of a quote, "HH:mm dd/MM/yyyy" – `expiresAt` is
+ * 00:00 of the day after (BR-304), so one minute earlier is the "23:59 …" the guest reads in the quote text
+ * (`quotes.service.ts` `expires`).
+ */
+export function quoteValidUntil(expiresAt: string, timeZone = 'Asia/Ho_Chi_Minh'): string {
+  const ms = Date.parse(expiresAt);
+  if (Number.isNaN(ms)) return expiresAt;
+  const last = new Date(ms - 60_000);
+  const day = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(last);
+  return `${timeHHmm(last, timeZone)} ${day}`;
+}
+
 export function weekdayDate(
   locale: 'vi' | 'en',
   timeZone = 'Asia/Ho_Chi_Minh',

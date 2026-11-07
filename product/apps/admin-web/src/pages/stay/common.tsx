@@ -167,8 +167,18 @@ export function useUnsavedLabels() {
 /**
  * Step-up (SR-C3-09): re-enter the login password before reading C3 data (full document number, portal
  * data, full refund account). The password is sent once and never kept in state after the call.
+ * V5-23 BUG-R2-098 (copy-v1.0.5 4.4): `purpose` picks the title and body – the full refund account number
+ * (`'account'`, MoneyPage) is not "xem giấy tờ"; neither text names a fixed number of minutes (`c3_stepup_minutes`).
  */
-export function StepUpDialog({ onDone, onClose }: { onDone: () => void; onClose: () => void }) {
+export function StepUpDialog({
+  onDone,
+  onClose,
+  purpose = 'id',
+}: {
+  onDone: () => void;
+  onClose: () => void;
+  purpose?: 'id' | 'account';
+}) {
   const { t } = useI18n();
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -194,7 +204,7 @@ export function StepUpDialog({ onDone, onClose }: { onDone: () => void; onClose:
     <Modal
       open
       size="sm"
-      title={t('ci.stepup_title')}
+      title={t(purpose === 'account' ? 'stepup.title_account' : 'ci.stepup_title')}
       onClose={onClose}
       closeLabel={t('common.close')}
       footer={
@@ -206,7 +216,7 @@ export function StepUpDialog({ onDone, onClose }: { onDone: () => void; onClose:
         </>
       }
     >
-      <p className="li-s">{t('ci.stepup_body')}</p>
+      <p className="li-s">{t(purpose === 'account' ? 'stepup.body_account' : 'ci.stepup_body')}</p>
       <Field label={t('ci.stepup_label')} error={error ?? undefined} required>
         {(p) => (
           <input

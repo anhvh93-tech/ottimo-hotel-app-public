@@ -122,7 +122,8 @@ test.describe(
       const dlg = page.getByRole('dialog', { name: t('rsv.party') });
       await expect(dlg).toBeVisible();
       await expect(dlg.getByText(g1.fullName)).toBeVisible({ timeout: 10_000 });
-      await dlg.getByRole('combobox', { name: t('booking.field.guest') }).fill(g2.fullName);
+      // V5-23 BUG-R2-094: the companion picker is labelled "Người đi cùng" (stay.companion_field).
+      await dlg.getByRole('combobox', { name: t('stay.companion_field') }).fill(g2.fullName);
       // CI 39010774166: tên option khách BẮT ĐẦU bằng tên (avatar aria-hidden); "Tạo nhanh khách "<tên>"" cũng chứa
       // tên – neo ^ để không bao giờ bấm nhầm ô tạo nhanh (trước đây nó là option đầu tiên khi tìm kiếm chưa trả lời).
       await page

@@ -5,7 +5,8 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isApiError, newIdempotencyKey } from '@ottimo/api-client';
 import { api } from '../app/api';
-import { todayLocal } from '../app/dates';
+import { timeHHmm, todayLocal } from '../app/dates';
+import { dayMonth } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { MOCK_PASSWORD, PROPERTY_ID } from '../mocks/seed';
@@ -61,7 +62,10 @@ describe('S4-28 VietQR cọc H12/H11 (US-084 AC4, US-120; BUG-R2-062)', () => {
       amountVnd: created.depositRequiredVnd,
     });
     expect(within(hold).getByRole('button', { name: tv('pay.copy_ref') })).toBeInTheDocument();
-    expect(within(hold).getByText(tv('sale.hold_next', { hours: 2 }))).toBeInTheDocument();
+    // V5-23 (copy-v1.0.5 4.14): the server's hold deadline, no "reminder {hours}" any more.
+    const until = new Date(created.hold!.expiresAt!);
+    const time = `${timeHHmm(until)} ${dayMonth(todayLocal('Asia/Ho_Chi_Minh', until))}`;
+    expect(within(hold).getByText(tv('sale.hold_next', { time }))).toBeInTheDocument();
   });
 
   it('H12 collaborator: no createVietQr (not in x-roles) – the copy says to ask the desk', async () => {

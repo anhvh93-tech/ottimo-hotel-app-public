@@ -25,7 +25,8 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     await user.click(within(dlg).getByRole('button', { name: 'Ghi nhận 100.000' }));
     // 0.3.5 A-13: 200 + still on hold → the dialog stays open with the shortfall, next key is new.
     expect(
-      await within(dlg).findByText(/Chưa đủ cọc: cần [\d.]+, đã ghi nhận 100.000/),
+      // V5-23 UXD P440-06 (copy-v1.0.5 4.13): both amounts carry the unit.
+      await within(dlg).findByText(/Chưa đủ cọc: cần [\d.]+ đ, đã ghi nhận 100.000 đ/),
     ).toBeInTheDocument();
     const res = mockControl.rsv.reservations.find((x) => x.code === 'OTM-0146')!;
     expect(res.status).toBe('hold');

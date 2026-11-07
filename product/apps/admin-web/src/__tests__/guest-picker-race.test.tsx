@@ -179,7 +179,7 @@ describe('Người ở – thêm người khi khách đang ở theo ngày nghi�
     const d = await screen.findByRole('dialog', { name: guest });
     await user.click(within(d).getByRole('button', { name: tv('rsv.add_person') }));
     const dlg = await screen.findByRole('dialog', { name: tv('rsv.party') });
-    const box = within(dlg).getByRole('combobox', { name: /Khách đứng tên/ });
+    const box = within(dlg).getByRole('combobox', { name: new RegExp(tv('stay.companion_field')) });
     await user.type(box, 'do mai');
     await user.click(await screen.findByRole('option', { name: /Đỗ Mai Anh/ }));
     return { r, user, dlg };

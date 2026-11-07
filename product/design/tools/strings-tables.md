@@ -101,14 +101,13 @@
 | `fo.rack.view_list` | Xem dạng danh sách | List view | ⟨chừa chỗ⟩ |  |
 | `fo.rack.view_grid` | Xem dạng lưới | Grid view | ⟨chừa chỗ⟩ |  |
 | `fo.rack.empty_title` | Chưa có đơn nào trong 14 ngày này | No bookings in these 14 days | ⟨chừa chỗ⟩ |  |
-| `fo.rack.empty_body` | Cả 10 căn đang trống. Bấm vào một ô trống hoặc nút Đặt phòng mới để bắt đầu. | All 10 rooms are free. Click an empty cell or New booking to start. | ⟨chừa chỗ⟩ |  |
+| `fo.rack.empty_body` | Mọi căn đang trống. Bấm vào một ô trống hoặc nút Đặt phòng mới để bắt đầu. | Every room is free. Click an empty cell or New booking to start. | ⟨chừa chỗ⟩ | v1.0.5 V5-23: chữ mới copy-v1.0.5 4.19 |
 | `fo.rack.error_title` | Chưa tải được sơ đồ phòng | Couldn't load the room rack | ⟨chừa chỗ⟩ |  |
 | `fo.rack.stale` | Dữ liệu lúc {time}. Đang kết nối lại… | Data as of {time}. Reconnecting… | ⟨chừa chỗ⟩ |  |
 | `fo.rack.mismatch` | Căn {room}: buồng ghi "có khách" nhưng không có đơn đang ở. Kiểm tra lại. | Room {room}: marked occupied but no in-house booking. Please check. | ⟨chừa chỗ⟩ | BR-806 |
 | `fo.tabs.arrivals` | Khách đến ({n}) | Arrivals ({n}) | ⟨chừa chỗ⟩ |  |
 | `fo.tabs.departures` | Khách đi ({n}) | Departures ({n}) | ⟨chừa chỗ⟩ |  |
 | `fo.tabs.in_house` | Đang ở ({n}) | In house ({n}) | ⟨chừa chỗ⟩ |  |
-| `fo.tabs.holds` | Giữ chỗ chưa cọc ({n}) | Holds awaiting deposit ({n}) | ⟨chừa chỗ⟩ | BR-404. CŨ từ v1.0.4: khối Hôm nay đổi sang today.holds_waiting (P4-40, v104/fe-holds) – sau khi gộp không còn chỗ dùng trong apps/. Chưa xóa, đợi FE-B rebase và gộp P4-40 (UXD P4-01 lượt 2) |
 | `booking.new.title` | Đặt phòng mới | New booking | ⟨chừa chỗ⟩ |  |
 | `booking.field.room` | Căn | Room | ⟨chừa chỗ⟩ |  |
 | `booking.field.channel` | Kênh | Channel | ⟨chừa chỗ⟩ |  |
@@ -661,7 +660,7 @@
 | `booking.no_email_warn` | Đơn chưa có email – khách cần mã xác minh do lễ tân cấp. | No email on this booking – the guest will need a code from reception. | ⟨chừa chỗ⟩ |  |
 | `booking.close_draft` | Đóng (giữ nháp) | Close (keep draft) | ⟨chừa chỗ⟩ | Thay 'Hủy' ở chân form – FB-R1-UXR-UXD-12 |
 | `desk_code.send_channel` | Gửi mã qua tin nhắn {channel} | Send code by {channel} message | ⟨chừa chỗ⟩ | Chỉ khi owner bật kênh đó trong Tham số › Kênh gửi mã (mặc định tắt) |
-| `desk_code.channel_off` | Gửi qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số › Kênh gửi mã. | Sending by message is off. The owner can turn it on in Settings › Code channels. | ⟨chừa chỗ⟩ |  |
+| `desk_code.channel_off` | Gửi qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số quy tắc › Bảo mật › Kênh được gửi mã cho khách. | Sending by message is off. The owner can turn it on in Rule settings › Security › Channels allowed to send guest codes. | ⟨chừa chỗ⟩ | v1.0.5 V5-23: chữ mới copy-v1.0.5 4.19 |
 | `desk_code.separate` | Mã được gửi thành tin nhắn riêng, không kèm link app khách. | The code is sent as a separate message, without the guest link. | ⟨chừa chỗ⟩ |  |
 | `night.device_note` | Ca đêm làm trên thiết bị của cơ sở đã được cấp quyền (máy quầy hoặc máy tính bảng của OTTIMO), mở trang quản trị – không dùng điện thoại cá nhân. | Night shift works on an approved OTTIMO device (desk computer or OTTIMO tablet) using the admin site – not on personal phones. | ⟨chừa chỗ⟩ | PHÂN XỬ ORC 15/10; SR-DEV-04 giữ nguyên |
 | `night.tasks_title` | Ca đêm · {date} | Night shift · {date} | ⟨chừa chỗ⟩ |  |
@@ -673,7 +672,7 @@
 | `auth.code_label.recovery` | Mã khôi phục (16 ký tự) | Recovery code (16 characters) | ⟨chừa chỗ⟩ | R3 S1 FE-A: OpenAPI 0.3.8 – 16 ký tự base32, hiện 4-4-4-4 (trước: 8). Chờ UXD duyệt |
 | `auth.code_label.pin` | PIN duyệt của bạn (4–6 số) | Your approval PIN (4–6 digits) | ⟨chừa chỗ⟩ |  |
 | `auth.code_label.guest` | Mã cấp cho khách | Code for the guest | ⟨chừa chỗ⟩ |  |
-| `auth.enroll.title` | Bật xác thực 2 bước | Turn on 2-step verification | ⟨chừa chỗ⟩ | SR-AUTH-06 – lần đăng nhập đầu của owner/manager |
+| `auth.enroll.title` | Bật xác thực 2 bước | Turn on 2‑step verification | ⟨chừa chỗ⟩ | SR-AUTH-06 – lần đăng nhập đầu của owner/manager |
 | `auth.enroll.step1` | Cài ứng dụng | Install app | ⟨chừa chỗ⟩ |  |
 | `auth.enroll.step2` | Quét mã | Scan code | ⟨chừa chỗ⟩ |  |
 | `auth.enroll.step3` | Lưu mã khôi phục | Save recovery codes | ⟨chừa chỗ⟩ |  |
@@ -685,7 +684,7 @@
 | `auth.enroll.download` | Tải về (.txt) | Download (.txt) | ⟨chừa chỗ⟩ |  |
 | `auth.enroll.print` | In | Print | ⟨chừa chỗ⟩ |  |
 | `auth.enroll.ack` | Tôi đã lưu 10 mã khôi phục ở nơi an toàn | I've saved my 10 recovery codes somewhere safe | ⟨chừa chỗ⟩ |  |
-| `auth.enroll.done` | Đã bật xác thực 2 bước | 2-step verification is on | ⟨chừa chỗ⟩ |  |
+| `auth.enroll.done` | Đã bật xác thực 2 bước | 2‑step verification is on | ⟨chừa chỗ⟩ |  |
 | `auth.enroll.single_owner` | Bạn đang là chủ đầu tư duy nhất. Nếu mất cả điện thoại lẫn mã khôi phục, cần đội kỹ thuật mở khóa (mất thời gian). Nên chỉ định thêm một người khôi phục. | You're the only owner. If you lose both your phone and recovery codes, the tech team must unlock your account (this takes time). Consider adding a recovery person. | ⟨chừa chỗ⟩ | Câu hỏi 'owner thứ 2' chuyển PO/SEC |
 | `device.check.disk` | Ổ đĩa đã mã hóa | Disk is encrypted | ⟨chừa chỗ⟩ |  |
 | `device.check.lock` | Tự khóa màn hình sau 5 phút | Screen locks after 5 minutes | ⟨chừa chỗ⟩ |  |
@@ -752,7 +751,7 @@
 | `bk.rate_help` | Sửa được trong khoảng {min} – {max} (sàn–trần nhóm, BR-105). | Editable within {min} – {max} (group floor–ceiling, BR-105). | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.rate_source` | Nguồn giá | Rate source | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.reason_ph` | Lý do (bắt buộc) | Reason (required) | ⟨chừa chỗ⟩ | 09-booking.html |
-| `bk.room_help` | (định mức/tối đa) – chỉ hiện căn đang bán và còn trống trong khoảng ngày | (standard/max guests) – only rooms on sale and free for these dates | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.room_help` | (định mức/tối đa). Căn đã có khách trong khoảng ngày sẽ được báo ngay dưới ô, kèm căn còn trống nếu có. | (standard/max guests). If a room is taken for these dates, a note below says so and suggests free rooms if there are any. | ⟨chừa chỗ⟩ | 09-booking.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.7 |
 | `bk.save_unassigned` | Lưu chưa gán căn | Save without a room | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.source` | Nguồn | Source | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.src_list` | Giá niêm yết (BR-101) | List price (BR-101) | ⟨chừa chỗ⟩ | 09-booking.html |
@@ -851,7 +850,7 @@
 | `error.REAUTH_REQUIRED` | Để tiếp tục, nhập lại mật khẩu đăng nhập của bạn. | To continue, re-enter your sign-in password. | ⟨chừa chỗ⟩ | 401 – step-up C3. R2 chỉ mật khẩu; R3 thêm PIN duyệt |
 | `error.GUEST_VERIFICATION_LOCKED` | Đã thử sai quá nhiều lần. Gọi hoặc nhắn lễ tân để nhận mã xác minh mới. | Too many wrong attempts. Call or message the front desk for a new verification code. | ⟨chừa chỗ⟩ | 429 – app khách (SR-GST-08) |
 | `error.GUEST_STAY_ENDED` | Bạn đã trả phòng. Trang này chỉ còn xem phiếu thanh toán. | You've checked out. This page now only shows your bill. | ⟨chừa chỗ⟩ | 403 – app khách (SR-GST-11) |
-| `error.DELIVERY_CHANNEL_DISABLED` | Gửi mã qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số › Kênh gửi mã, hoặc đọc mã cho khách. | Sending codes by message is off. The owner can turn it on in Settings › Code delivery, or read the code to the guest. | ⟨chừa chỗ⟩ | 409 |
+| `error.DELIVERY_CHANNEL_DISABLED` | Gửi mã qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số quy tắc › Bảo mật › Kênh được gửi mã cho khách, hoặc đọc mã cho khách. | Sending codes by message is off. The owner can turn it on in Rule settings › Security › Channels allowed to send guest codes, or read the code to the guest. | ⟨chừa chỗ⟩ | 409. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.19 |
 | `error.PAYLOAD_TOO_LARGE` | Tệp quá lớn (tối đa 10 MB). Chụp lại hoặc chọn ảnh nhỏ hơn. | The file is too large (max 10 MB). Retake or choose a smaller photo. | ⟨chừa chỗ⟩ | 413 |
 | `error.SHIFT_ALREADY_OPEN` | Bạn đang có một ca chưa đóng. Đóng ca đó trước khi mở ca mới. | You already have a shift open. Close it before opening a new one. | ⟨chừa chỗ⟩ | 409 – R3 (US-124) |
 | `error.SHIFT_NOT_OPEN` | Chưa mở ca nên chưa ghi tiền mặt được. Mở ca rồi thử lại. | No shift is open, so cash can't be recorded. Open a shift and try again. | ⟨chừa chỗ⟩ | 409 – R3 (US-124) |
@@ -923,7 +922,7 @@
 | `mfa.nudge_cta` | Bật ngay | Turn on now | ⟨chừa chỗ⟩ | 01-login.html |
 | `mfa.nudge_later` | Để sau | Later | ⟨chừa chỗ⟩ | 01-login.html |
 | `mfa.recovery_after` | Sau khi vào, bạn cần đăng ký lại ứng dụng xác thực. Mã vừa dùng bị hủy. | After signing in, set up your authenticator app again. The code you used is cancelled. | ⟨chừa chỗ⟩ | 01-login.html |
-| `mfa.recovery_help` | Nhập một trong 10 mã khôi phục bạn đã lưu khi bật xác thực 2 bước. | Enter one of the 10 recovery codes you saved when you turned on 2-step verification. | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.recovery_help` | Nhập một trong 10 mã khôi phục bạn đã lưu khi bật xác thực 2 bước. | Enter one of the 10 recovery codes you saved when you turned on 2‑step verification. | ⟨chừa chỗ⟩ | 01-login.html |
 | `mfa.recovery_submit` | Đăng nhập bằng mã khôi phục | Sign in with recovery code | ⟨chừa chỗ⟩ | 01-login.html |
 | `mfa.recovery_title` | Dùng mã khôi phục | Use a recovery code | ⟨chừa chỗ⟩ | 01-login.html |
 
@@ -1205,13 +1204,13 @@
 | `sale.hold_created` | Đã giữ căn {room} – đơn {code} | Room {room} is on hold – booking {code} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.hold_for` | Giữ trong | Hold for | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.hold_locked_past` | Tạo giữ chỗ (ngày đã qua) | Create hold (date has passed) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
-| `sale.hold_next` | Gửi mã QR cho khách. Bạn sẽ được nhắc {hours} giờ trước khi hết hạn. | Send the QR code to the guest. You'll get a reminder {hours} hours before it expires. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.hold_next` | Gửi mã QR cho khách. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Send the QR code to the guest. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | ⟨chừa chỗ⟩ | 12-sales-quote.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.14 |
 | `sale.hold_title` | Giữ chỗ | Hold | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.hold_until` | Hết hạn {time} – chưa cọc thì tự hủy, mở bán lại. | Expires {time} – without a deposit it's cancelled and the room goes back on sale. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.los_applied` | Đã giảm {pct}% vì ở từ 7 đêm (BR-107) | {pct}% off applied for 7+ nights (BR-107) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.month_note` | Thuê tháng làm hợp đồng – hiện vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay. | Monthly stays need a lease – still done outside the app; ask the front desk to hold the room with a manual long-stay booking. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
-| `sale.month_option` | So sánh: thuê 1 tháng | Compare: 1-month rental | ⟨chừa chỗ⟩ | 12-sales-quote.html |
-| `sale.month_total` | Thuê 1 tháng (tiền thuê + phí dịch vụ) | 1-month rental (rent + service fee) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.month_option` | So sánh: thuê 1 tháng | Compare: 1‑month rental | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.month_total` | Thuê 1 tháng (tiền thuê + phí dịch vụ) | 1‑month rental (rent + service fee) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.nights` | Số đêm | Nights | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.nights_weekday` | {n} đêm thường × {rate} | {n} weekday nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.nights_weekend` | {n} đêm thứ Sáu, thứ Bảy × {rate} | {n} Friday/Saturday nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
@@ -1222,7 +1221,7 @@
 | `sale.price_source` | Giá trực tiếp theo lịch giá hôm nay (BR-104). Báo giá giữ giá {days} ngày. | Direct rate from today's rate calendar (BR-104). The quote holds the price for {days} days. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.qr_after` | Mã QR có nội dung là mã đơn, tạo ngay sau khi giữ chỗ. | The QR code uses the booking ID as the transfer note and is created right after the hold. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.quote_active` | Còn hiệu lực | Valid | ⟨chừa chỗ⟩ | 12-sales-quote.html |
-| `sale.quote_expires` | Hết hiệu lực {time} | Expires {time} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.quote_expires` | Hiệu lực đến {time} | Valid until {time} | ⟨chừa chỗ⟩ | 12-sales-quote.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.7 |
 | `sale.quote_title` | Báo giá | Quote | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.requote` | Lập báo giá mới | Make a new quote | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.return_code` | Mã khách quay lại (nếu có) | Returning-guest code (if any) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
@@ -1285,7 +1284,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `shell.offline_desk` | Mất kết nối. Dữ liệu lúc {time} – chỉ xem, chưa tạo hay sửa đơn được. | You're offline. Data as of {time} – view only; bookings can't be created or changed. | ⟨chừa chỗ⟩ | 02-role-nav.html |
 | `shell.offline_readonly` | Mất kết nối. Dữ liệu lúc {time} – chỉ xem, chưa lưu thay đổi được. | You're offline. Data as of {time} – view only; changes can't be saved yet. | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `shell.search_label` | Tìm kiếm | Search | ⟨chừa chỗ⟩ | 02-role-nav.html |
-| `shell.security` | Xác thực 2 bước | 2-step verification | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.security` | Xác thực 2 bước | 2‑step verification | ⟨chừa chỗ⟩ | 02-role-nav.html |
 | `shell.subtitle` | {property} · {date} | {property} · {date} | ⟨chừa chỗ⟩ | 02-role-nav.html |
 
 #### R2 hi-fi – Hôm nay (H03)
@@ -1338,7 +1337,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `users.f_display` | Tên hiển thị | Display name | ⟨chừa chỗ⟩ | 07-users-devices.html |
 | `users.locked` | Đã khóa | Locked | ⟨chừa chỗ⟩ | 07-users-devices.html |
 | `users.more` | Khác… | More… | ⟨chừa chỗ⟩ | 07-users-devices.html |
-| `users.more_help` | "Khác…": Đặt lại mật khẩu (tạo mật khẩu tạm), Khóa tài khoản, Đặt lại xác thực 2 bước. | "More…": Reset password (creates a temporary password), Lock account, Reset 2-step verification. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.more_help` | "Khác…": Đặt lại mật khẩu (tạo mật khẩu tạm), Khóa tài khoản, Đặt lại xác thực 2 bước. | "More…": Reset password (creates a temporary password), Lock account, Reset 2‑step verification. | ⟨chừa chỗ⟩ | 07-users-devices.html |
 | `users.new_cta` | Thêm người dùng | Add user | ⟨chừa chỗ⟩ | 07-users-devices.html |
 | `users.no_2fa` | Chưa bật 2FA | 2FA not on | ⟨chừa chỗ⟩ | 07-users-devices.html |
 | `users.role_desc.collaborator` | Chỉ thấy báo giá, đơn, khách của chính mình; không xác nhận cọc. | Sees only their own quotes, bookings and guests; can't confirm deposits. | ⟨chừa chỗ⟩ | 07-users-devices.html |
@@ -1416,11 +1415,11 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `ci.docs_have` | Giấy tờ | IDs | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.door_done` | Đã tạo mã trên app khóa và giao cho khách | Code created in the lock app and given to the guest | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.door_lock` | Khóa | Lock | ⟨chừa chỗ⟩ | 13-check-in.html |
-| `ci.door_not_stored` | OTTIMO không lưu mã cửa ở R2. Khi trả phòng hoặc đổi phòng, hệ thống tạo việc "Xóa mã trên app khóa". | OTTIMO doesn't store door codes in R2. On check-out or room change, the system creates a "Delete code in lock app" task. | ⟨chừa chỗ⟩ | 13-check-in.html |
+| `ci.door_not_stored` | OTTIMO không lưu mã cửa. Khi trả phòng hoặc đổi phòng, hệ thống tạo việc "Xóa mã trên app khóa". | OTTIMO doesn't store door codes. On check-out or room change, the system creates a "Delete code in lock app" task. | ⟨chừa chỗ⟩ | 13-check-in.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.7 |
 | `ci.door_step1` | Mở app TTLock, tạo mã 6 số ngẫu nhiên cho căn {room} với đúng hiệu lực trên. | Open the TTLock app and create a random 6‑digit code for room {room} with exactly the validity above. | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.door_step2` | Đọc mã cho khách hoặc đưa thẻ (tối đa 2 thẻ). Không gửi mã qua tin nhắn kèm số căn, địa chỉ. | Read the code to the guest or hand over key cards (max 2). Don't message the code together with the room number or address. | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.door_step3` | Khách muốn mã theo ngày sinh: ddmm + 3 số ngẫu nhiên (7 số), không dùng đúng ngày sinh. | Guest wants a birthday code: ddmm + 3 random digits (7 digits), never the plain birthday. | ⟨chừa chỗ⟩ | 13-check-in.html |
-| `ci.door_title` | Mã cửa – nhập tay trên app khóa (R2) | Door code – entered manually in the lock app (R2) | ⟨chừa chỗ⟩ | 13-check-in.html |
+| `ci.door_title` | Mã cửa – nhập tay trên app khóa | Door code – entered manually in the lock app | ⟨chừa chỗ⟩ | 13-check-in.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.7 |
 | `ci.door_valid` | Hiệu lực | Valid | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.door_valid_value` | {from} → {to} | {from} → {to} | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.early_time` | Giờ khách nhận phòng | Guest's check-in time | ⟨chừa chỗ⟩ | 13-check-in.html |
@@ -1457,7 +1456,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `ci.reg_kind` | Khai báo | Registration | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.reg_now` | Khai báo ngay | Register now | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.send_lead` | Gửi lễ tân trưởng xác nhận | Send to senior receptionist | ⟨chừa chỗ⟩ | 13-check-in.html |
-| `ci.stepup_body` | Xem đủ số và ảnh giấy tờ được ghi vào nhật ký truy cập. Nhập lại mật khẩu của bạn – có hiệu lực 15 phút trên máy này. | Viewing full ID numbers and photos is recorded in the access log. Re-enter your password – valid for 15 minutes on this device. | ⟨chừa chỗ⟩ | 13-check-in.html |
+| `ci.stepup_body` | Xem đủ số và ảnh giấy tờ được ghi vào nhật ký truy cập. Nhập lại mật khẩu của bạn. Quyền xem chỉ giữ trong thời gian ngắn trên máy này. | Viewing full ID numbers and photos is recorded in the access log. Re-enter your password. Access lasts only a short time on this device. | ⟨chừa chỗ⟩ | 13-check-in.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.4 |
 | `ci.stepup_label` | Mật khẩu của bạn | Your password | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.stepup_submit` | Xác nhận | Confirm | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.stepup_title` | Xác nhận lại để xem giấy tờ | Confirm again to view IDs | ⟨chừa chỗ⟩ | 13-check-in.html |
@@ -1484,7 +1483,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.debt_mgr` | Quản lý/chủ đầu tư thấy thêm "Ghi công nợ" – bắt buộc hạn thanh toán và lý do. | Managers/owners also see "Record as debt" – due date and reason required. | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.done_tasks` | Phiếu {bill}. Đã tạo việc: dọn căn, bổ sung minibar, xóa mã trên app khóa. | Folio {bill}. Tasks created: clean room, refill minibar, delete code in lock app. | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.effect_bill` | Server cấp số Phiếu thanh toán; sau bước này không sửa folio (chỉ quản lý ghi điều chỉnh). | The server issues the folio number; after this the folio can't be edited (managers can post adjustments). | ⟨chừa chỗ⟩ | 16-check-out.html |
-| `co.effect_door` | Tạo việc "Xóa mã trên app khóa" cho căn {room} (R2 nhập tay). | A "Delete code in lock app" task is created for room {room} (R2 manual). | ⟨chừa chỗ⟩ | 16-check-out.html |
+| `co.effect_door` | Tạo việc "Xóa mã trên app khóa" cho căn {room}. | A "Delete code in lock app" task is created for room {room}. | ⟨chừa chỗ⟩ | 16-check-out.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.7 |
 | `co.effect_kit_note` | Đơn có khách ngủ sofa: thêm việc thu hồi bộ đồ dùng thêm. | Bookings with a guest on the sofa also get an extra-kit pickup task. | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.effect_status` | Đơn chuyển "Đã trả phòng", buồng chuyển "Trống, cần dọn"; có việc dọn và bổ sung minibar. | Booking becomes "Checked out", room becomes "Vacant, dirty"; cleaning and minibar refill tasks are created. | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.error_title` | Chưa tải được dữ liệu trả phòng | Couldn't load check-out data | ⟨chừa chỗ⟩ | 16-check-out.html |
@@ -1495,7 +1494,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.go_extras` | Tiếp tục: Phụ phí | Continue: Charges | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.house_rules_not_sent` | Chưa ghi nhận đã gửi nội quy – cân nhắc trước khi thu phạt | House rules not recorded as sent – think twice before charging a fine | ⟨chừa chỗ⟩ | BA spec / hifi.js |
 | `co.invoice_email` | Email nhận hóa đơn | Email for the invoice | ⟨chừa chỗ⟩ | 16-check-out.html |
-| `co.invoice_r3` | Hóa đơn điện tử phát hành từ Round 3; R2 lưu thông tin để kế toán xuất. | E-invoices are issued from Round 3; R2 stores the details for accounting. | ⟨chừa chỗ⟩ | 16-check-out.html |
+| `co.invoice_r3` | Desk chưa xuất hóa đơn điện tử. Thông tin được lưu để kế toán xuất. | OTTIMO Desk doesn't issue e-invoices yet. The details are saved for accounting to issue. | ⟨chừa chỗ⟩ | 16-check-out.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.7 |
 | `co.invoice_toggle` | Khách lấy hóa đơn công ty | Guest needs a company invoice | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.item` | Món | Item | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.late_switch_hint` | Khách trả sau 12:00 mà chưa hẹn: dùng "Trả muộn" ở khung chi tiết đơn để tính và báo khách trước. | Guest leaving after 12:00 without an agreed time: use "Late check-out" in the booking details to calculate and tell them first. | ⟨chừa chỗ⟩ | 16-check-out.html. CŨ – giờ viết cứng; FE đổi sang co.late_switch_hint_time (S4-48) rồi UXD xóa key này |
@@ -1693,18 +1692,18 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stay.change_effect_reg` | Khai báo lưu trú không phải làm lại – chỉ đổi số căn trong hồ sơ. | Registration doesn't need redoing – only the room number in the record changes. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.change_submit` | Đổi sang căn {room} | Move to room {room} | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.change_title` | Đổi phòng · Căn {room} · {guest} | Change room · Room {room} · {guest} | ⟨chừa chỗ⟩ | 15-stay.html |
-| `stay.charge_default` | Giá mặc định {amount} theo {rule}. Phí phạt không tính vào doanh thu phòng. | Default price {amount} per {rule}. Fines don't count as room revenue. | ⟨chừa chỗ⟩ | 15-stay.html |
+| `stay.charge_default` | Giá mặc định {amount} theo {rule}. | Default price {amount} per {rule}. | ⟨chừa chỗ⟩ | 15-stay.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.3 |
 | `stay.charge_item` | Khoản | Item | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.checkout_std` | {time} (giờ chuẩn, chưa xác nhận) | {time} (standard, not confirmed) | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.checkout_time` | Giờ trả | Check-out time | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.door` | Mã cửa | Door code | ⟨chừa chỗ⟩ | 15-stay.html |
-| `stay.door_manual` | Giao tay trên app khóa – không lưu trong OTTIMO (R2) | Handed over via the lock app – not stored in OTTIMO (R2) | ⟨chừa chỗ⟩ | 15-stay.html |
+| `stay.door_manual` | Giao tay trên app khóa – không lưu trong OTTIMO | Handed over via the lock app – not stored in OTTIMO | ⟨chừa chỗ⟩ | 15-stay.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.7 |
 | `stay.evidence` | Ảnh hoặc ghi chú bằng chứng | Photo or note as evidence | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.extend_door` | Nhớ kéo dài hiệu lực mã cửa trên app khóa tới giờ trả mới. | Remember to extend the door code's validity in the lock app to the new check-out time. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.free_until` | Trống tới {date} | Free until {date} | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.grace_rule` | Ân hạn tới 12:30 chỉ khi căn không có khách đến cùng ngày; mốc 15:00 và 18:00 không dời. | The grace period to 12:30 applies only when no guest arrives in the room the same day; the 15:00 and 18:00 cut-offs don't move. | ⟨chừa chỗ⟩ | 15-stay.html |
-| `stay.late_door_manual` | R2: kéo dài hiệu lực mã trên app khóa bằng tay. | R2: extend the code's validity in the lock app manually. | ⟨chừa chỗ⟩ | 15-stay.html |
-| `stay.late_help` | Dạng 24 giờ, ví dụ 12:30. | 24-hour format, e.g. 12:30. | ⟨chừa chỗ⟩ | 15-stay.html |
+| `stay.late_door_manual` | Kéo dài hiệu lực mã trên app khóa bằng tay. | Extend the code's validity in the lock app manually. | ⟨chừa chỗ⟩ | 15-stay.html. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.7 |
+| `stay.late_help` | Dạng 24 giờ, ví dụ 12:30. | 24‑hour format, e.g. 12:30. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.late_to_extend` | Trả sau 18:00 là ở thêm 1 đêm – dùng Gia hạn để khóa đêm trên các kênh. | Leaving after 18:00 means one more night – use Extend so the night is closed on all channels. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.long_hint` | Khách muốn ở thêm hơn 7 đêm hoặc tổng từ 28 đêm: lập báo giá dài hạn (R3). Ở R2 tạo "đơn dài hạn nhập tay". | Guest wants more than 7 extra nights or 28+ nights in total: long-stay quote (R3). In R2 create a "manual long-stay booking". | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.new_room` | Căn mới (đã dọn hoặc đã kiểm) | New room (cleaned or inspected) | ⟨chừa chỗ⟩ | 15-stay.html |
@@ -1819,7 +1818,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `params.k.vat_rate` | Thuế suất VAT | VAT rate | ⟨chừa chỗ⟩ | Khóa API vat_rate |
 | `params.k.trusted_device_days` | Hạn cấp quyền máy quầy/laptop | Approval period – desk computer/laptop | ⟨chừa chỗ⟩ | Khóa API trusted_device_days |
 | `params.k.trusted_device_mobile_days` | Hạn cấp quyền máy tính bảng | Approval period – tablet | ⟨chừa chỗ⟩ | Khóa API trusted_device_mobile_days |
-| `params.k.c3_stepup_minutes` | Thời gian xem giấy tờ sau khi nhập lại mật khẩu | ID viewing time after re-entering password | ⟨chừa chỗ⟩ | Khóa API c3_stepup_minutes |
+| `params.k.c3_stepup_minutes` | Thời gian xem giấy tờ, số tài khoản sau khi nhập lại mật khẩu | Viewing time for IDs and account numbers after re-entering password | ⟨chừa chỗ⟩ | Khóa API c3_stepup_minutes. v1.0.5 V5-23: chữ mới copy-v1.0.5 4.4 |
 | `params.k.guest_verify_max_attempts` | Số lần khách nhập sai mã tối đa | Maximum wrong code attempts by a guest | ⟨chừa chỗ⟩ | Khóa API guest_verify_max_attempts |
 | `params.k.guest_level2_idle_minutes` | Khách tự thoát sau thời gian không dùng | Guest signed out after inactivity | ⟨chừa chỗ⟩ | Khóa API guest_level2_idle_minutes |
 | `params.k.guest_link_grace_hours` | Link khách còn mở được sau khi trả phòng | Guest link stays open after check-out | ⟨chừa chỗ⟩ | Khóa API guest_link_grace_hours |
@@ -2603,8 +2602,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `bill.line.extra_person_count` | Phụ thu {count} người vượt định mức · đêm {date} | Extra guest charge ×{count}, night of {date} | ⟨chừa chỗ⟩ |  |
 | `bill.line.early_checkin` | Phụ thu nhận sớm (nhận lúc {time}) | Early check-in fee (arrived {time}) | ⟨chừa chỗ⟩ | {pct} có trong labelParams nhưng không in lên phiếu khách |
 | `bill.line.late_checkout` | Phụ thu trả muộn ({time}) | Late check-out fee ({time}) | ⟨chừa chỗ⟩ | Cùng chữ co.line_late |
-| `bill.line.early_departure_fee` | Phí trả phòng sớm | Early departure fee | ⟨chừa chỗ⟩ | có {noticeDays} → bill.line.early_departure_fee_notice |
-| `bill.line.early_departure_fee_notice` | Phí trả phòng sớm (báo trước {noticeDays} ngày) | Early departure fee ({noticeDays} days' notice) | ⟨chừa chỗ⟩ |  |
+| `bill.line.early_departure_fee` | Phí trả phòng sớm | Early departure fee | ⟨chừa chỗ⟩ | noticeDays null hoặc rỗng (OTA) → khóa này; 0 → bill.line.early_departure_fee_same_day; > 0 → bill.line.early_departure_fee_notice_one/_other (copy-v1.0.5 4.1) |
 | `bill.line.overpayment_retained` | Khoản trả thừa khách tự nguyện để lại | Overpayment the guest chose to leave | ⟨chừa chỗ⟩ | deposit_forfeit + charge_code overpayment_retained (DOM S3-4) |
 | `bill.line.room_change` | Chênh lệch đổi phòng căn {from} → {to} | Room change difference, {from} → {to} | ⟨chừa chỗ⟩ |  |
 | `bill.line.minibar` | Minibar – {item} × {qty} | Minibar – {item} × {qty} | ⟨chừa chỗ⟩ | {item} là tên món do server (tiếng Việt) |
@@ -2765,7 +2763,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `dep.qr_expired` | Mã VietQR này đã hết hạn nên không xác nhận theo mã được. Bấm Xác nhận đã nhận cọc lần nữa để ghi như chuyển khoản tay (chờ đối soát). | This VietQR code has expired, so it can't be confirmed against the code. Select Confirm deposit received again to record it as a manual transfer (awaiting reconciliation). | ⟨chừa chỗ⟩ | H11: confirmPaymentReceived 409 INVALID_TRANSITION currentState=expired |
 | `dep.qr_amount_differs` | Số đã nhận khác số trên mã VietQR ({amount}) – khoản này được ghi như chuyển khoản tay, chờ đối soát. | The amount received differs from the VietQR amount ({amount}) – it is recorded as a manual transfer, awaiting reconciliation. | ⟨chừa chỗ⟩ | H11: không xác nhận giao dịch QR, ghi confirmDeposit.payment |
 | `sale.qr_after_ctv` | Sau khi giữ chỗ, nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cọc cho khách – nội dung chuyển khoản là mã đơn. | After the hold, ask the front desk or sales staff to send the guest the deposit VietQR – the transfer reference is the booking ID. | ⟨chừa chỗ⟩ | H12 CTV: createVietQr không có vai collaborator (thay sale.qr_after – BUG-R2-062) |
-| `sale.hold_next_ctv` | Nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cọc cho khách. Bạn sẽ được nhắc {hours} giờ trước khi giữ chỗ hết hạn. | Ask the front desk or sales staff to send the guest the deposit VietQR. You'll get a reminder {hours} hours before the hold expires. | ⟨chừa chỗ⟩ | H12 CTV sau giữ chỗ (thay sale.hold_next) |
+| `sale.hold_next_ctv` | Nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cọc cho khách. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Ask the front desk or sales staff to send the guest the deposit VietQR. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | ⟨chừa chỗ⟩ | H12 CTV sau giữ chỗ (thay sale.hold_next). v1.0.5 V5-23: chữ mới copy-v1.0.5 4.14 |
 | `move.group_guest` | Khách xin đổi – tính giá căn mới | Guest asked – new room's rate | ⟨chừa chỗ⟩ | optgroup lý do: guest_request |
 | `move.group_ottimo` | OTTIMO đổi – giữ giá đã đặt | OTTIMO's decision – booked rate kept | ⟨chừa chỗ⟩ | optgroup: property_fault, overbooking, upgrade, inventory_optimize, force_majeure |
 | `move.group_other` | Khác – giữ giá đã đặt | Other – booked rate kept | ⟨chừa chỗ⟩ | optgroup: other (sang căn đắt hơn chỉ FDL+) |
@@ -3385,19 +3383,19 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `mfa.back_to_password` | Quay lại đăng nhập | Back to sign-in | ⟨chừa chỗ⟩ | Bước 2 – bỏ mfaToken, về bước mật khẩu |
 | `mfa.step_expired` | Bước nhập mã đã hết hạn. Đăng nhập lại bằng mật khẩu. | This sign-in step has expired. Sign in again with your password. | ⟨chừa chỗ⟩ | MFA_INVALID lần thứ 5 hoặc quá 5 phút (OpenAPI 0.3.8 bảng mã lỗi) – client tự về bước 1 |
 | `error.MFA_INVALID` | Mã chưa đúng hoặc đã hết hạn. Nhập mã đang hiện trong ứng dụng. | The code is wrong or has expired. Enter the code the app shows now. | ⟨chừa chỗ⟩ | 401 – loginMfa, mọi nhánh lỗi một câu (SEC 06.20). Không nêu số lần còn lại |
-| `error.MFA_ENROLLMENT_REQUIRED` | Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc. | Your account needs 2-step verification before you continue. | ⟨chừa chỗ⟩ | 403 – phiên hạn chế (SEC 06.4) – Desk chuyển sang màn đăng ký |
+| `error.MFA_ENROLLMENT_REQUIRED` | Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc. | Your account needs 2‑step verification before you continue. | ⟨chừa chỗ⟩ | 403 – phiên hạn chế (SEC 06.4) – Desk chuyển sang màn đăng ký |
 | `mfa.enroll_required` | Vai của bạn bắt buộc bật xác thực 2 bước. Bật xong bạn vào làm việc như thường. | Your role requires 2‑step verification. Once it is on, you can continue as usual. | ⟨chừa chỗ⟩ | Màn đăng ký khi Me.mfaEnrollmentRequired = true (US-143 AC1). v1.0.5 V5-40: không kể tên vai (UXD-on-prs-97-116-117-118-122; copy-v1.0.5 9.10) |
 | `mfa.enroll_password` | Nhập mật khẩu đăng nhập để tạo mã QR. | Enter your sign-in password to create the QR code. | ⟨chừa chỗ⟩ | startMy2faSetup cần currentPassword (SEC 06.7) |
 | `mfa.enroll_start` | Tạo mã QR | Create QR code | ⟨chừa chỗ⟩ | Nút gọi startMy2faSetup |
 | `mfa.qr_label` | Mã QR để thêm OTTIMO vào ứng dụng xác thực | QR code to add OTTIMO to your authenticator app | ⟨chừa chỗ⟩ | aria-label của QR (không đọc khóa) |
 | `mfa.manual_key_label` | Khóa nhập tay | Setup key | ⟨chừa chỗ⟩ | Nhãn trên khóa (JetBrains Mono, nhóm 4 ký tự) |
 | `mfa.qr_expired` | Mã QR đã hết hạn hoặc đã được tạo lại. Tạo mã mới rồi quét lại. | This QR code has expired or was replaced. Create a new one and scan again. | ⟨chừa chỗ⟩ | 409 confirmMy2fa khi không còn bí mật chờ (hạn 10 phút / gọi setup lần nữa) |
-| `mfa.already_on` | Xác thực 2 bước đã bật cho tài khoản này. Nếu chưa lưu mã khôi phục, tạo bộ mã mới. | 2-step verification is already on for this account. If you didn't save your recovery codes, create a new set. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION khi đã bật (mất phản hồi confirm) |
+| `mfa.already_on` | Xác thực 2 bước đã bật cho tài khoản này. Nếu chưa lưu mã khôi phục, tạo bộ mã mới. | 2‑step verification is already on for this account. If you didn't save your recovery codes, create a new set. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION khi đã bật (mất phản hồi confirm) |
 | `mfa.codes_once` | Các mã chỉ hiện một lần. Rời màn này sẽ không xem lại được. | These codes are shown only once. You can't view them again after leaving this screen. | ⟨chừa chỗ⟩ | SEC 06.13 |
 | `mfa.codes_ack_apart` | Tôi đã cất 10 mã này ở nơi an toàn, tách khỏi điện thoại | I've stored these 10 codes somewhere safe, away from my phone | ⟨chừa chỗ⟩ | US-143 AC3 (a) – ô bắt buộc trước Hoàn tất (thay auth.enroll.ack ở R3) |
 | `mfa.finish` | Hoàn tất | Finish | ⟨chừa chỗ⟩ | Nút sau khi tick ô đã cất mã |
 | `mfa.codes_list_label` | 10 mã khôi phục | 10 recovery codes | ⟨chừa chỗ⟩ | aria-label danh sách mã |
-| `mfa.codes_file_title` | OTTIMO – mã khôi phục xác thực 2 bước | OTTIMO – 2-step verification recovery codes | ⟨chừa chỗ⟩ | Dòng đầu tệp .txt / bản in (tạo ở client, SEC 06.13) |
+| `mfa.codes_file_title` | OTTIMO – mã khôi phục xác thực 2 bước | OTTIMO – 2‑step verification recovery codes | ⟨chừa chỗ⟩ | Dòng đầu tệp .txt / bản in (tạo ở client, SEC 06.13) |
 | `mfa.codes_file_note` | Tài khoản {user}. Tạo lúc {time}. Mỗi mã dùng một lần. Cất tách khỏi điện thoại. | Account {user}. Created {time}. Each code works once. Keep them away from your phone. | ⟨chừa chỗ⟩ | Dòng 2 tệp .txt / bản in |
 | `mfa.status_on` | Đang bật từ {date} | On since {date} | ⟨chừa chỗ⟩ | Màn Xác thực 2 bước (SEC 06.35) |
 | `mfa.status_on_nodate` | Đang bật | On | ⟨chừa chỗ⟩ | Khi server chưa trả enrolledAt |
@@ -3405,10 +3403,10 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `mfa.required_note` | Bắt buộc với vai của bạn. | Required for your role. | ⟨chừa chỗ⟩ | Trang Bảo mật tài khoản, khi getMy2fa.required. v1.0.5 V5-40: không kể tên vai (UXD-on-prs-97-116-117-118-122; copy-v1.0.5 9.10) |
 | `mfa.codes_left` | Còn {n} mã khôi phục | {n} recovery codes left | ⟨chừa chỗ⟩ |  |
 | `mfa.codes_low` | Chỉ còn {n} mã khôi phục. Tạo bộ mới để không bị khóa ngoài tài khoản. | Only {n} recovery codes left. Create a new set so you aren't locked out. | ⟨chừa chỗ⟩ | getMy2fa.recoveryCodesRemaining ≤ 3 – SEC 06.15 |
-| `mfa.codes_low_short` | Sắp hết mã khôi phục. Tạo bộ mới ở mục Xác thực 2 bước. | You're running out of recovery codes. Create a new set under 2-step verification. | ⟨chừa chỗ⟩ | Banner đầu trang khi Me.recoveryCodesLow |
+| `mfa.codes_low_short` | Sắp hết mã khôi phục. Tạo bộ mới ở mục Xác thực 2 bước. | You're running out of recovery codes. Create a new set under 2‑step verification. | ⟨chừa chỗ⟩ | Banner đầu trang khi Me.recoveryCodesLow |
 | `mfa.regen` | Tạo bộ mã mới | Create new codes | ⟨chừa chỗ⟩ |  |
 | `mfa.regen_note` | Bộ mã cũ hết hiệu lực ngay khi bộ mới được tạo. | The old set stops working as soon as the new one is created. | ⟨chừa chỗ⟩ |  |
-| `mfa.disable` | Tắt xác thực 2 bước | Turn off 2-step verification | ⟨chừa chỗ⟩ | Chỉ vai không bắt buộc (SEC 06.25) |
+| `mfa.disable` | Tắt xác thực 2 bước | Turn off 2‑step verification | ⟨chừa chỗ⟩ | Chỉ vai không bắt buộc (SEC 06.25) |
 | `mfa.disable_note` | Mọi phiên đăng nhập, kể cả phiên này, sẽ kết thúc. | Every sign-in session, including this one, will end. | ⟨chừa chỗ⟩ |  |
 | `mfa.reenroll_title` | Đăng ký lại trên điện thoại mới | Set up on your new phone | ⟨chừa chỗ⟩ | ARC 0.3.8 bổ sung 1 (12.3) – sau loginMfa bằng mã khôi phục: phiên hạn chế, dùng lại màn đăng ký (US-143 AC3 a). Chữ ORC giao 23/10, chờ UXD |
 | `mfa.reenroll_lead` | Bạn vừa đăng nhập bằng mã khôi phục, mã đó đã hết hiệu lực. Thêm OTTIMO vào ứng dụng xác thực trên điện thoại mới để tiếp tục. Bộ mã khôi phục cũ sẽ được thay bằng bộ mới. | You signed in with a recovery code, and that code no longer works. Add OTTIMO to the authenticator app on your new phone to continue. Your old recovery codes will be replaced with a new set. | ⟨chừa chỗ⟩ | Câu dẫn của màn đăng ký lại (thay mfa.recovery_used_* – bỏ G-FE-A-1) |
@@ -3505,7 +3503,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.late_fee_pr_effect` | Phụ thu trả muộn {amount} được ghi vào folio; quản lý nhận thông báo để xem lại. | The {amount} late check-out fee goes on the folio; the manager is notified to review it. | ⟨chừa chỗ⟩ | Dòng trong hộp xác nhận Hoàn tất (postReview) |
 | `co.late_fee_pr_changed` | Phụ thu vừa được tính lại: {amount}. Chưa ghi gì. Báo khách số mới, thu phần còn thiếu nếu có, rồi hoàn tất lại. | The fee has just been recalculated: {amount}. Nothing was recorded. Tell the guest the new amount, collect any difference, then complete again. | ⟨chừa chỗ⟩ | 409 SURCHARGE_CHANGED (surchargeVnd) – chưa ghi gì, đã tải lại số |
 | `co.late_fee_pr_not_allowed` | Đêm nay căn đã trống lại nên không thu phụ thu bằng giá 1 đêm nữa. Số đã tải lại – xem bước Phụ phí. | The room is free again tonight, so the one-night fee no longer applies. The figures have been reloaded – check the Extras step. | ⟨chừa chỗ⟩ | 422 NOT_ALLOWED ở lateFeeInsteadOfNight (đêm bán được) – về bước 2, tính thêm 1 đêm như thường |
-| `co.late_fee_auth_try_review` | Quản lý đã bật xác thực 2 bước thì chọn "Ghi phụ thu – quản lý xem lại". | If the manager has 2-step verification on, choose "Record fee – manager reviews". | ⟨chừa chỗ⟩ | Thêm sau co.late_fee_auth_failed ở thông báo lỗi (production bật 2FA – đường tại quầy luôn từ chối) |
+| `co.late_fee_auth_try_review` | Quản lý đã bật xác thực 2 bước thì chọn "Ghi phụ thu – quản lý xem lại". | If the manager has 2‑step verification on, choose "Record fee – manager reviews". | ⟨chừa chỗ⟩ | Thêm sau co.late_fee_auth_failed ở thông báo lỗi (production bật 2FA – đường tại quầy luôn từ chối) |
 | `attn.late_fee_post_review` | Phụ thu trả muộn bằng giá 1 đêm chờ xem lại: {n} đơn | One-night late check-out fees to review: {n} | ⟨chừa chỗ⟩ | AttentionItem.kind late_fee_post_review – OWN/MGR (FD không thấy); count > 1 |
 | `attn.late_fee_post_review_one` | Đơn {code}: phụ thu trả muộn bằng giá 1 đêm chờ xem lại | Booking {code}: one-night late check-out fee to review | ⟨chừa chỗ⟩ | count = 1, refCode = mã đơn |
 | `attn.late_fee_post_review_sub` | Xem trên folio trước {time} {date}. Cần miễn hoặc giảm thì dùng Điều chỉnh. | Check the folio by {time} {date}. To waive or reduce it, use Adjust. | ⟨chừa chỗ⟩ | {time} {date} ← dueAt (hết cửa sổ sau trả phòng – post_checkout_charge_hours); Điều chỉnh = folio.adjust (A32) |
@@ -3603,7 +3601,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.error_title` | Chưa tải được yêu cầu từ website | Couldn't load website requests | ⟨chừa chỗ⟩ |  |
 | `webreq.load_more` | Xem thêm | Show more | ⟨chừa chỗ⟩ |  |
 | `webreq.form_off_title` | Form đặt phòng trên website đang tắt | The website booking form is off | ⟨chừa chỗ⟩ |  |
-| `webreq.form_off_body` | Khách bấm Đặt phòng sẽ mở chat Zalo, nên yêu cầu mới chưa vào đây. Yêu cầu đã có vẫn xử lý bình thường. | Guests who tap Book are sent to Zalo chat, so new requests don't arrive here yet. Existing requests can still be handled. | ⟨chừa chỗ⟩ |  |
+| `webreq.form_off_body` | Khách bấm Đặt phòng trên website sẽ thấy lời mời nhắn Zalo hoặc gọi điện, nên yêu cầu mới chưa vào đây. Yêu cầu đã có vẫn xử lý bình thường. | Guests who tap Book on the website are asked to message on Zalo or call instead, so new requests don't arrive here. Existing requests can still be handled. | ⟨chừa chỗ⟩ | v1.0.5 V5-23: chữ mới copy-v1.0.5 4.9 |
 | `webreq.form_off_owner` | Chỉ chủ đầu tư bật được form, khi đã đủ điều kiện pháp lý và bảo mật (US-155 AC4). | Only the owner can turn the form on, once the legal and security conditions are met (US-155 AC4). | ⟨chừa chỗ⟩ |  |
 | `webreq.col.code` | Mã yêu cầu | Request code | ⟨chừa chỗ⟩ |  |
 | `webreq.col.sent` | Gửi lúc | Sent | ⟨chừa chỗ⟩ |  |
@@ -3967,12 +3965,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
-| `users.reset_2fa` | Đặt lại xác thực 2 bước | Reset 2-step verification | ⟨chừa chỗ⟩ | P4-30. Mục menu Khác…, chỉ OWN, chỉ khi người đó đã bật 2 bước (User.mfaEnabled; chưa bật → 409). Không hiện trên hàng của chính mình (422 NOT_ALLOWED) |
-| `users.reset_2fa_title` | Đặt lại xác thực 2 bước cho {name}? | Reset 2-step verification for {name}? | ⟨chừa chỗ⟩ | P4-30 lượt 2 (FB-R4-UXD-FE-P430-01). Tiêu đề hộp Đặt lại 2 bước, dạng câu hỏi như users.reset_pw_title, users.lock_title. {name} = tên hiển thị. Thay chuỗi ghép trong mã "users.reset_2fa – {name}". Nút xác nhận giữ users.reset_2fa |
+| `users.reset_2fa` | Đặt lại xác thực 2 bước | Reset 2‑step verification | ⟨chừa chỗ⟩ | P4-30. Mục menu Khác…, chỉ OWN, chỉ khi người đó đã bật 2 bước (User.mfaEnabled; chưa bật → 409). Không hiện trên hàng của chính mình (422 NOT_ALLOWED) |
+| `users.reset_2fa_title` | Đặt lại xác thực 2 bước cho {name}? | Reset 2‑step verification for {name}? | ⟨chừa chỗ⟩ | P4-30 lượt 2 (FB-R4-UXD-FE-P430-01). Tiêu đề hộp Đặt lại 2 bước, dạng câu hỏi như users.reset_pw_title, users.lock_title. {name} = tên hiển thị. Thay chuỗi ghép trong mã "users.reset_2fa – {name}". Nút xác nhận giữ users.reset_2fa |
 | `users.reset_2fa_confirm` | Người này sẽ bị đăng xuất trên mọi máy và mã khôi phục cũ hết hiệu lực. Ở lần đăng nhập tới, người này thêm lại OTTIMO vào ứng dụng xác thực trên điện thoại. | They will be signed out on every device and their old recovery codes will stop working. At their next sign-in, they will add OTTIMO to the authenticator app on their phone again. | ⟨chừa chỗ⟩ | P4-30. Thân hộp xác nhận (chỉ câu hệ quả, như users.reset_pw_body, users.lock_body), trước ô lý do và bước S2. Tiêu đề: users.reset_2fa_title. Theo resetUser2fa (0.3.8). Lượt 2: bỏ câu hỏi đầu và {name} (FB-R4-UXD-FE-P430-01 – FE vẫn truyền name, thừa tham số không sao); bỏ "điện thoại mới" (đặt lại cả khi xóa nhầm hay đổi ứng dụng), EN thì tương lai – FB-R4-CPY-UXD-P401-01, FB-R4-PO-UXD-P401-05 |
 | `users.reset_2fa_reason` | Lý do đặt lại (ví dụ: mất điện thoại) | Reason for the reset (for example: lost phone) | ⟨chừa chỗ⟩ | P4-30. Nhãn ô reason (bắt buộc 3–300 ký tự) của resetUser2fa. Lỗi dùng field_error.reason_required. ARC 0.3.12 mục 2.5 đồng ý tên |
-| `users.reset_2fa_done` | Đã đặt lại xác thực 2 bước cho {name}. | 2-step verification reset for {name}. | ⟨chừa chỗ⟩ | P4-30. Toast sau 204. Không nói về thư (Desk không biết thư có tới) |
-| `users.reset_2fa_stale` | Đã có người đổi xác thực 2 bước của {name} trước bạn – hiện không còn bật, nên không cần đặt lại. Danh sách đã được tải lại. | Someone changed {name}'s 2-step verification before you – it's now off, so there's nothing to reset. The list has been reloaded. | ⟨chừa chỗ⟩ | v1.0.4 F1 (BA, P3). resetUser2fa 409 INVALID_TRANSITION (người này không còn bật 2 bước – User.mfaEnabled = false, thường do đã có người đặt lại trước). Thay câu của đơn đặt phòng ("Đơn vừa chuyển sang {status}…") đang hiện với {status} không thay. {name} = tên hiển thị, như users.reset_2fa_title. FE-A đóng hộp, tải lại danh sách Người dùng & vai TRƯỚC khi hiện câu (câu nói "đã được tải lại"), hiện bằng Alert info hoặc toast, không phải lỗi đỏ. Không kèm nút common.reload. Chỉ dùng cho resetUser2fa, các 409 khác của Users giữ câu riêng |
+| `users.reset_2fa_done` | Đã đặt lại xác thực 2 bước cho {name}. | 2‑step verification reset for {name}. | ⟨chừa chỗ⟩ | P4-30. Toast sau 204. Không nói về thư (Desk không biết thư có tới) |
+| `users.reset_2fa_stale` | Đã có người đổi xác thực 2 bước của {name} trước bạn – hiện không còn bật, nên không cần đặt lại. Danh sách đã được tải lại. | Someone changed {name}'s 2‑step verification before you – it's now off, so there's nothing to reset. The list has been reloaded. | ⟨chừa chỗ⟩ | v1.0.4 F1 (BA, P3). resetUser2fa 409 INVALID_TRANSITION (người này không còn bật 2 bước – User.mfaEnabled = false, thường do đã có người đặt lại trước). Thay câu của đơn đặt phòng ("Đơn vừa chuyển sang {status}…") đang hiện với {status} không thay. {name} = tên hiển thị, như users.reset_2fa_title. FE-A đóng hộp, tải lại danh sách Người dùng & vai TRƯỚC khi hiện câu (câu nói "đã được tải lại"), hiện bằng Alert info hoặc toast, không phải lỗi đỏ. Không kèm nút common.reload. Chỉ dùng cho resetUser2fa, các 409 khác của Users giữ câu riêng |
 | `reauth.s2_failed_password` | Mật khẩu chưa đúng. Kiểm tra lại rồi thử lại. | That password isn't right. Check it and try again. | ⟨chừa chỗ⟩ | P4-30 BUG-R4-024. 401 REAUTH_FAILED khi hộp S2 chỉ có ô mật khẩu. Hộp có ô mã giữ reauth.s2_failed (luật chọn: content-guide 5.2b). EN "That" như error.REAUTH_FAILED – FB-R4-CPY-UXD-P401-07 |
 | `audit.reason.overpayment` | Hoàn tiền khách trả thừa | Overpayment refund | ⟨chừa chỗ⟩ | P4-41 BUG-R4-026. reasonCode = overpayment ở cột Lý do, Cần duyệt, Hoàn tiền (5 chỗ máy chủ dùng, kể cả yêu cầu thay thế). reasonNote hiện sau nhãn |
 | `audit.reason.early_departure` | Hoàn khi trả sớm | Early departure refund | ⟨chừa chỗ⟩ | P4-41. reasonCode = early_departure trên yêu cầu hoàn B16. Khác mlog.reason.early_departure (lý do dòng folio) |
@@ -4005,7 +4003,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
-| `staff.mfa_enroll_desk` | Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây. | Open OTTIMO Desk on a computer to turn on 2-step verification, then sign in here again. | ⟨chừa chỗ⟩ | BUG-R3-052. 403 MFA_ENROLLMENT_REQUIRED: dòng li-s ngay dưới câu error.MFA_ENROLLMENT_REQUIRED, luôn hiện (kể cả khi không có nút Desk). Chữ MOB, UXD duyệt nguyên văn (UXD-on-v104-p4-50, FB-R4-UXD-MOB-P450-01). Không ghi địa chỉ Desk trong câu (địa chỉ ở nhãn nút) |
+| `staff.mfa_enroll_desk` | Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây. | Open OTTIMO Desk on a computer to turn on 2‑step verification, then sign in here again. | ⟨chừa chỗ⟩ | BUG-R3-052. 403 MFA_ENROLLMENT_REQUIRED: dòng li-s ngay dưới câu error.MFA_ENROLLMENT_REQUIRED, luôn hiện (kể cả khi không có nút Desk). Chữ MOB, UXD duyệt nguyên văn (UXD-on-v104-p4-50, FB-R4-UXD-MOB-P450-01). Không ghi địa chỉ Desk trong câu (địa chỉ ở nhãn nút) |
 | `staff.mfa_network` | Chưa kết nối được tới máy chủ. Mã bạn đã nhập vẫn còn – kiểm tra mạng rồi bấm Thử lại. | Couldn't reach the server. Your code is still here – check the connection, then tap Try again. | ⟨chừa chỗ⟩ | Lỗi mạng ở bước nhập mã 2 bước (loginMfa). Lượt 2: MOB KHÔNG dùng – giữ common.error_network_body (FB-R4-UXD-MOB-P450-04). Chưa xóa vì v104/mob-2fa chưa gộp; xóa ở lượt dọn khóa nếu không ai dùng |
 
 #### v1.0.4 PR24PM-01 – guest-web
@@ -4020,7 +4018,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 |---|---|---|---|---|
 | `shell.account_security` | Bảo mật tài khoản | Account security | ⟨chừa chỗ⟩ | Thay shell.security ở menu người dùng và tiêu đề trang /security: trang nay có cả xác thực 2 bước lẫn email nhận thông báo bảo mật. Khối 2FA giữ tiêu đề shell.security. UXD giữ tên (review v1.0.3, câu 1) |
 | `secmail.title` | Email nhận thông báo bảo mật | Notification email | ⟨chừa chỗ⟩ | Tiêu đề khối trên Bảo mật tài khoản (SecurityPage) UXD FB-R4-UXD-FE-EM-03 |
-| `secmail.lead` | OTTIMO gửi thông báo bảo mật tới địa chỉ này, ví dụ khi xác thực 2 bước của bạn được đặt lại hoặc email này thay đổi. Dùng email riêng của bạn. | OTTIMO sends security notices to this address, for example when your 2-step verification is reset or this email changes. Use your own address. | ⟨chừa chỗ⟩ | Câu dẫn khối. Không nêu tên mẫu thư UXD FB-R4-UXD-FE-EM-01 Chỉ nêu thông báo có thật (mfa_reset*, email_changed). Khi có thư đổi mật khẩu mới thêm "mật khẩu" vào câu. |
+| `secmail.lead` | OTTIMO gửi thông báo bảo mật tới địa chỉ này, ví dụ khi xác thực 2 bước của bạn được đặt lại hoặc email này thay đổi. Dùng email riêng của bạn. | OTTIMO sends security notices to this address, for example when your 2‑step verification is reset or this email changes. Use your own address. | ⟨chừa chỗ⟩ | Câu dẫn khối. Không nêu tên mẫu thư UXD FB-R4-UXD-FE-EM-01 Chỉ nêu thông báo có thật (mfa_reset*, email_changed). Khi có thư đổi mật khẩu mới thêm "mật khẩu" vào câu. |
 | `secmail.current` | Địa chỉ đang dùng | Current address | ⟨chừa chỗ⟩ | Nhãn trên địa chỉ (JetBrains Mono) |
 | `secmail.none` | Chưa có email. | No email yet. | ⟨chừa chỗ⟩ |  |
 | `secmail.missing` | Tài khoản chủ đầu tư và quản lý cần có email nhận thông báo bảo mật. Nhập email riêng của bạn bên dưới. | Owner and manager accounts need a notification email. Enter your own address below. | ⟨chừa chỗ⟩ | Me.securityEmailMissing = true, trên chính khối (banner đầu trang ẩn ở /security) UXD FB-R4-UXD-FE-EM-03 |
@@ -4044,7 +4042,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `field.EMAIL_SHARED_MAILBOX` | Đây là hộp thư chung của cơ sở. Thông báo bảo mật cần tới một email riêng. | This is the property's shared mailbox. Security notices need a personal address. | ⟨chừa chỗ⟩ | 422 errors[].code (0.3.10) – setMyEmail, updateUser.email: trùng địa chỉ EMAIL_FROM UXD FB-R4-UXD-FE-EM-05 |
 | `field.NOT_ALLOWED_FOR_SELF` | Bạn không thể làm việc này cho chính tài khoản của mình tại đây. | You can't do this for your own account here. | ⟨chừa chỗ⟩ | 422 errors[].code (0.3.10 ghi vào bảng mã) – email của mình đổi ở Bảo mật tài khoản UXD FB-R4-UXD-FE-EM-05 |
 | `secmail.nudge` | Tài khoản của bạn chưa có email nhận thông báo bảo mật. Thêm email để được báo khi có thay đổi quan trọng. | Your account has no notification email yet. Add one to receive security notices. | ⟨chừa chỗ⟩ | Banner đầu trang khi Me.securityEmailMissing (chỉ OWN/MGR, phiên đầy đủ). Để sau = mfa.nudge_later (ẩn trong phiên tab) UXD FB-R4-UXD-FE-EM-03 |
-| `secnudge.both` | Tài khoản của bạn chưa bật xác thực 2 bước và chưa có email nhận thông báo bảo mật. Từ khi có dữ liệu khách thật, xác thực 2 bước là bắt buộc. | Your account has no 2-step verification and no notification email yet. Once real guest data is in the app, 2-step verification becomes mandatory. | ⟨chừa chỗ⟩ | Một banner gộp khi Me.mfaRequiredButMissing và Me.securityEmailMissing cùng true (chưa Để sau) – UXD FB-R4-UXD-FE-EM-04 |
+| `secnudge.both` | Tài khoản của bạn chưa bật xác thực 2 bước và chưa có email nhận thông báo bảo mật. Từ khi có dữ liệu khách thật, xác thực 2 bước là bắt buộc. | Your account has no 2‑step verification and no notification email yet. Once real guest data is in the app, 2‑step verification becomes mandatory. | ⟨chừa chỗ⟩ | Một banner gộp khi Me.mfaRequiredButMissing và Me.securityEmailMissing cùng true (chưa Để sau) – UXD FB-R4-UXD-FE-EM-04 |
 | `secnudge.open` | Mở Bảo mật tài khoản | Open Account security | ⟨chừa chỗ⟩ | Nút chính của banner gộp → /security (không neo) – UXD FB-R4-UXD-FE-EM-04 |
 | `secmail.status_set` | Đã có | Set | ⟨chừa chỗ⟩ | Chip ok góc phải tiêu đề khối email (như chip khối 2FA) – UXD FB-R4-UXD-FE-EM-10 |
 | `secmail.status_unset` | Chưa có | Not set | ⟨chừa chỗ⟩ | Chip neutral góc phải tiêu đề khối email – UXD FB-R4-UXD-FE-EM-10 |
@@ -4065,8 +4063,8 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 |---|---|---|---|---|
 | `staff.notif.sec.email_changed_self` | Email nhận thông báo bảo mật của bạn đã thay đổi | Your notification email was changed | ⟨chừa chỗ⟩ | kind account_security_change, refType user, refCode user.email_changed, refId = chính người xem. Không hiện địa chỉ, không hiện mã |
 | `staff.notif.sec.email_changed_other` | Email nhận thông báo bảo mật của một tài khoản khác đã thay đổi | Another account's notification email was changed | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận – có thể là OWN khác, nên không gọi "nhân viên"). Không tên, không địa chỉ – chi tiết xem ở Desk. FB-R4-UXD-MOB-021-01 |
-| `staff.notif.sec.mfa_reset_self` | Xác thực 2 bước của bạn đã được đặt lại | Your 2-step verification was reset | ⟨chừa chỗ⟩ | refCode mfa.reset_by_owner hoặc mfa.reset_by_operator, refId = chính người xem |
-| `staff.notif.sec.mfa_reset_other` | Xác thực 2 bước của một tài khoản khác đã được đặt lại | Another account's 2-step verification was reset | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận). FB-R4-UXD-MOB-021-01 |
+| `staff.notif.sec.mfa_reset_self` | Xác thực 2 bước của bạn đã được đặt lại | Your 2‑step verification was reset | ⟨chừa chỗ⟩ | refCode mfa.reset_by_owner hoặc mfa.reset_by_operator, refId = chính người xem |
+| `staff.notif.sec.mfa_reset_other` | Xác thực 2 bước của một tài khoản khác đã được đặt lại | Another account's 2‑step verification was reset | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận). FB-R4-UXD-MOB-021-01 |
 | `staff.notif.sec.other_self` | Thông báo bảo mật về tài khoản của bạn | Security notice for your account | ⟨chừa chỗ⟩ | Câu chung cho mọi refCode khác của refType user (mfa.disabled, mfa.locked, stepup.s2_failed, mfa.recovery_code_used, mfa.recovery_codes_regenerated, security_alert không có refCode, mã mới chưa có câu) – không hiện mã thô. Danh từ trung tính: đúng cho cả thay đổi lẫn cảnh báo. FB-R4-UXD-MOB-021-02 |
 | `staff.notif.sec.other_other` | Thông báo bảo mật về một tài khoản khác | Security notice for another account | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận). FB-R4-UXD-MOB-021-02 |
 
@@ -4125,6 +4123,26 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `hk.desk.needs_cleaning_toast` | Căn {room} chuyển cần dọn và có việc dọn. | Room {room} needs cleaning and gets a cleaning task. | ⟨chừa chỗ⟩ | Toast sau transitionRoomStatus needs_cleaning 200 (OC → OD; máy chủ tạo việc dọn ở lại nếu căn chưa có). Cùng câu với stay.change_effect_old của UXD. {room} = số căn |
 | `checkin.room_status_stuck_od` | Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Kiểm căn đã trống và nhờ buồng phòng dọn căn này; dọn xong là nhận phòng được. Khách không chờ được thì đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. | Room {room} still shows as occupied, but no stay is in house. Check the room is empty and ask housekeeping to clean it; once it's cleaned, check-in can go ahead. If the guest can't wait, move this booking to a vacant room. No exception applies in this case. | ⟨chừa chỗ⟩ | v1.0.5 V5-15 (FB-R5-UXD-FE-PR102-02; copy-v1.0.5 9.7). Như checkin.room_status_stuck, khi cause = room_status và buồng OD: căn đã ở 'cần dọn', Desk không có nút Báo cần dọn – nhờ buồng phòng dọn. UXD duyệt 06/11 (UXD-on-fe-prs-98-102-107). {room} = số căn |
 | `error.INVALID_TRANSITION_generic_reloaded` | Dữ liệu vừa thay đổi nên thao tác này không còn dùng được. Danh sách đã tải lại. | This just changed, so the action no longer applies. The list has been reloaded. | ⟨chừa chỗ⟩ | Câu UXD copy-v1.0.5 mục 4.12 (UXD-F1-01), nguyên văn. 409 INVALID_TRANSITION ở chỗ tự tải lại: nút Báo cần dọn (trạng thái căn đã đổi – Desk tải lại danh sách căn). Làn Gói 2 không thêm lại khóa này |
+
+#### v1.0.5 V5-23 – FE-A: chữ Desk sai sự thật (phí trả sớm trong ngày, người đi cùng, phí phạt, nhập lại mật khẩu, giờ hẹn trả, báo giá, Nội bộ, 409 chung, hộp xanh giữ chỗ, mục đích email). UXD copy-v1.0.5 mục 4
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `bill.line.early_departure_fee_same_day` | Phí trả phòng sớm (báo trong ngày rời) | Early departure fee (same-day notice) | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.1). |
+| `bill.line.early_departure_fee_notice_one` | Phí trả phòng sớm (báo trước {noticeDays} ngày) | Early departure fee ({noticeDays} day's notice) | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.1). |
+| `bill.line.early_departure_fee_notice_other` | Phí trả phòng sớm (báo trước {noticeDays} ngày) | Early departure fee ({noticeDays} days' notice) | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.1). |
+| `stay.companion_field` | Người đi cùng | Companion | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.2). StayDialogs 1373, thay `booking.field.guest` ở hộp Thêm người đi cùng. Cũng là BUG-R3-028 (b) |
+| `stay.charge_penalty_note` | Phí phạt và tiền bồi thường hư hỏng không tính vào doanh thu phòng. | Fines and damage charges don't count as room revenue. | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.3). |
+| `stepup.title_account` | Xác nhận lại để xem đủ số tài khoản | Confirm again to view the full account number | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.4). |
+| `stepup.body_account` | Xem đủ số tài khoản nhận hoàn tiền được ghi vào nhật ký truy cập. Nhập lại mật khẩu của bạn. Quyền xem chỉ giữ trong thời gian ngắn trên máy này. | Viewing the full refund account number is recorded in the access log. Re-enter your password. Access lasts only a short time on this device. | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.4). |
+| `stay.agreed_time` | Giờ khách hẹn trả phòng | Agreed check-out time | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.7). |
+| `rsv.list_empty_body_sales` | Đơn bạn tạo sẽ hiện ở đây. Tạo đơn từ mục Báo giá & giữ chỗ. | Bookings you create will show here. Create one from Quotes & holds. | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.7). |
+| `webreq.pii_erased` | Thông tin liên hệ đã xóa theo yêu cầu của người gửi ({date}). | Contact details were erased at the sender's request ({date}). | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.10). |
+| `folio.adjust_night_help_internal` | Đêm của đơn Nội bộ: không áp sàn–trần. Miễn phí đêm này thì nhập 0 (quản lý, chủ đầu tư). | Internal stay night: no floor or ceiling. To make this night free, enter 0 (manager or owner). | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.11). Thay `folio.adjust_night_help` khi đêm thuộc đơn kênh Nội bộ. Vẫn ghép `rate.night_now` sau như hiện tại |
+| `folio.adjust_night_empty_internal` | Nhập giá đêm. Miễn phí thì nhập 0. | Enter the night's rate. Enter 0 if it is free. | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.11). Thay `field_error.amount_not_positive` ở ô trống, cùng điều kiện |
+| `error.INVALID_TRANSITION_generic` | Dữ liệu vừa thay đổi nên thao tác này không còn dùng được. Tải lại để xem các nút hiện có. | This just changed, so the action no longer applies. Reload to see what you can do now. | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.12). 409 `INVALID_TRANSITION` không phải của đơn, hoặc không có `status`, ở chỗ **không** tự tải lại |
+| `sale.hold_next_no_qr` | Thu cọc của khách theo hướng dẫn bên dưới. Giữ chỗ hết hạn lúc {time}, chưa cọc thì tự hủy. Bạn tự theo dõi giờ này; khách cần thêm giờ thì bấm Gia hạn giữ chỗ (1 lần) trên đơn trước hạn. | Collect the deposit as shown below. The hold expires at {time} and is cancelled if there's no deposit by then. Keep track of the time; if the guest needs longer, use Extend hold (once) on the booking before it expires. | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.14). Sale nội bộ, `DepositQr` báo lỗi hoặc `PAYMENT_NOT_CONFIGURED` |
+| `users.email_purpose` | Chỉ dùng để gửi thông báo bảo mật cho tài khoản của {name}. | Used only to send security notices for {name}'s account. | ⟨chừa chỗ⟩ | v1.0.5 V5-23 (copy-v1.0.5 4.16). UserEmailDialog 105, thay `secmail.purpose`. `{name}` = `user.displayName` (tên hiển thị của nhân viên, đã có trong tiêu đề hộp) |
 
 #### v1.0.5 V5-50 – FE-A: hộp Đổi phòng chỉ liệt kê căn VI/VC (BUG-R3-023). Chữ UXD v1.0.0 (FB-R3-UXD-FE-A-17), dùng lại cho ca chưa tải được trạng thái buồng; câu mọi căn trống còn bẩn UXD duyệt 06/11 (copy-v1.0.5 9.7)
 

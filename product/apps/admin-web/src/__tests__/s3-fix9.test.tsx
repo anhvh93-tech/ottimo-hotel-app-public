@@ -230,7 +230,9 @@ describe('UXR #7 – thêm người vượt định mức khi khách đang ở',
     await user.click(within(d).getByRole('button', { name: tv('rsv.add_person') }));
     const dlg = await screen.findByRole('dialog', { name: tv('rsv.party') });
     const pick = async (q: string, name: RegExp) => {
-      const box = within(dlg).getByRole('combobox', { name: /Khách đứng tên/ });
+      const box = within(dlg).getByRole('combobox', {
+        name: new RegExp(tv('stay.companion_field')),
+      });
       // The picker closes its list 150 ms after a blur (the click on "Thêm vào đơn") – a person never
       // types that fast; let that timer pass first.
       await new Promise((done) => setTimeout(done, 200));

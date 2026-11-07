@@ -102,7 +102,8 @@ export function UserEmailDialog({
             required
             help={
               <>
-                {t('secmail.purpose')} {t('secmail.field_help')}
+                {/* V5-23 FB-R4-SEC-ARC-EM-13 (copy-v1.0.5 4.16, ND 13): whose account the address is for. */}
+                {t('users.email_purpose', { name: user.displayName })} {t('secmail.field_help')}
               </>
             }
             error={error}

@@ -39,7 +39,8 @@ describe('H05 Tham số quy tắc (US-005)', () => {
     const { user } = renderApp('/settings/parameters', 'qa.owner');
     await user.click(await screen.findByRole('tab', { name: 'Bảo mật' }));
     // FB-R2-UXD-FE-03: human label from params.k.* instead of the technical key.
-    const dlg = await edit(user, 'Thời gian xem giấy tờ sau khi nhập lại mật khẩu');
+    // V5-23 BUG-R2-098 (copy-v1.0.5 4.4): the name covers IDs and account numbers.
+    const dlg = await edit(user, translate('vi', 'params.k.c3_stepup_minutes'));
     const value = within(dlg).getByLabelText(/Giá trị mới/);
     await user.clear(value);
     await user.type(value, '60');

@@ -9,6 +9,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Modal } from '@ottimo/ui';
 import { useEffect, useState } from 'react';
 import { api } from '../../app/api';
+import { useCatalog } from '../../app/catalog';
 import { lineLabel, signed } from '../../app/folio';
 import { parseVnd } from '../../app/money';
 import { useToast } from '../../app/toast';
@@ -54,6 +55,9 @@ export function FolioDialog({
   const { t, vnd, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
+  const catalog = useCatalog(propertyId);
+  // copy-v1.0.5 4.11: a night of an Internal-channel booking has no floor or ceiling and may be 0 (BR-107).
+  const internal = catalog.channels.find((c) => c.id === r.channelId)?.channelGroup === 'internal';
   const F = { propertyId, folioId: r.folioId };
   const folio = useResource(async () => (await api.getFolio(F)).data, [propertyId, r.folioId]);
   const f = folio.state.data;
@@ -242,6 +246,7 @@ export function FolioDialog({
               ? r.nightlyRates?.find((n) => n.date === adjusting.serviceDate)?.calendarRateVnd
               : undefined
           }
+          internal={internal}
           onClose={() => setAdjusting(null)}
           onDone={(next) => {
             setAdjusting(null);
@@ -297,6 +302,7 @@ function AdjustLineDialog({
   folio: f,
   line: l,
   calendarRateVnd,
+  internal = false,
   onClose,
   onDone,
   onStale,
@@ -308,6 +314,8 @@ function AdjustLineDialog({
   line: FolioLine;
   /** DOM S4-38 (BR-107 v0.3.8): the night's calendar price (before the length-of-stay step) – what is typed. */
   calendarRateVnd?: number;
+  /** copy-v1.0.5 4.11: the booking is on the Internal channel – the night box says so (no floor–ceiling, 0 = free). */
+  internal?: boolean;
   onClose: () => void;
   onDone: (next: Folio) => void;
   onStale: () => void;
@@ -493,7 +501,7 @@ function AdjustLineDialog({
         label={night ? t('folio.adjust_night_price') : t('folio.adjust_price')}
         help={
           night
-            ? `${t('folio.adjust_night_help')}${
+            ? `${t(internal ? 'folio.adjust_night_help_internal' : 'folio.adjust_night_help')}${
                 stepped
                   ? ` ${t('rate.night_now', { amount: money(l.amountVnd), calendar: money(basePrice) })}`
                   : ''
@@ -505,7 +513,15 @@ function AdjustLineDialog({
           setPrice(v);
           setPriceEdited(true);
         }}
-        error={!priceOk ? t('field_error.amount_not_positive') : act.fields.newUnitPriceVnd}
+        error={
+          !priceOk
+            ? t(
+                night && internal && price.trim() === ''
+                  ? 'folio.adjust_night_empty_internal'
+                  : 'field_error.amount_not_positive',
+              )
+            : act.fields.newUnitPriceVnd
+        }
       />
       {!night ? (
         <Checkbox checked={voidLine} onChange={setVoidLine}>

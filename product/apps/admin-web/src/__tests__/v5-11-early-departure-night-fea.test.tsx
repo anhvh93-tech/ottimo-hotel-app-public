@@ -136,7 +136,8 @@ async function toStep2(user: User, dlg: HTMLElement) {
     await within(dlg).findByRole('checkbox', { name: tv('early_departure.told_guest') }),
   );
 }
-const generic = () => tv('error.INVALID_TRANSITION', { status: '§' }).split('§')[0]!;
+// copy-v1.0.5 4.12: the generic 409 sentence of `problemView` is `error.INVALID_TRANSITION_generic` (no status).
+const generic = () => tv('error.INVALID_TRANSITION_generic');
 
 describe('V5-11 – minCalendarDay and the 409 hint order', () => {
   it('the floor is max(business day, calendar day) like the server minCalendarDate; W is before the rollover AND business day < calendar day', () => {

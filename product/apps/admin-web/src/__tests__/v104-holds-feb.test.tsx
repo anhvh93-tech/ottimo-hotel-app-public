@@ -199,9 +199,11 @@ describe('BUG-R3-043 – "Chấp nhận cọc thiếu – lý do" (OWN/MGR only)
     const r = rsvOf('Lê Minh');
     r.depositPaidVnd = 100_000;
     const { user, dlg } = await openDeposit('qa.mgr');
+    // V5-23 UXD P440-06 (copy-v1.0.5 4.13): both amounts with the unit.
+    const vnd = (n: number) => tv('common.currency_vnd', { amount: formatNumber('vi', n) });
     const insufficient = tv('error.DEPOSIT_INSUFFICIENT', {
-      required: formatNumber('vi', r.depositRequiredVnd!),
-      paid: formatNumber('vi', 100_000),
+      required: vnd(r.depositRequiredVnd!),
+      paid: vnd(100_000),
     });
     // Before the tick the box is right (record the rest).
     expect(within(dlg).getByText(insufficient)).toBeInTheDocument();

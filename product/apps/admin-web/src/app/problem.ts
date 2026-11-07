@@ -91,6 +91,9 @@ export function problemView(t: T, error: unknown, locale: 'vi' | 'en' = 'vi'): P
   if (error.isNetwork) return { text: t('common.error_network_body') };
   const code = error.code;
   const args = argsFor(error, locale);
+  // copy-v1.0.5 4.12 (UXD-F1-01): `error.INVALID_TRANSITION` names a booking status, which this generic path never
+  // has – bookings say it through `rsvErrorText`. Here the page does not reload by itself: the generic sentence.
+  if (code === 'INVALID_TRANSITION') return { text: t('error.INVALID_TRANSITION_generic') };
   // DS 6.21: the server wrote nothing – never "Máy chủ đang gặp sự cố", no reference on first sight.
   if (code === 'SERVICE_UNAVAILABLE' || code === 'CONCURRENT_UPDATE') {
     return { text: t(`error.${code}`, args) };

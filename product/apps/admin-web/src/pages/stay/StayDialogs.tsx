@@ -809,6 +809,10 @@ export function AddChargeDialog({
             amount: money(item.defaultUnitPriceVnd),
             rule: item.ruleRef ?? item.name,
           })}
+          {/* V5-23 BUG-R2-096 (copy-v1.0.5 4.3, DOM 8.1 G6): the room-revenue note is for fines and damage only. */}
+          {item.category === 'penalty' || item.category === 'damage'
+            ? ` ${t('stay.charge_penalty_note')}`
+            : null}
         </p>
       ) : null}
       <div className="g-2">
@@ -931,7 +935,8 @@ export function ConfirmTimeDialog({ reservation: r, onClose, onDone }: StayDialo
           { value: 'zalo_copy', label: t('stay.ch_zalo') },
         ]}
       />
-      <Field label={t('checkout.departure_time')} error={act.fields.confirmedTime}>
+      {/* V5-23 BUG-R3-028 (c): the time the guest agreed to leave, not the actual departure time. */}
+      <Field label={t('stay.agreed_time')} error={act.fields.confirmedTime}>
         {(p) => (
           <input
             {...p}
@@ -1423,7 +1428,8 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
             />
             {kind === 'companion' ? (
               <GuestPicker
-                label={t('booking.field.guest')}
+                // V5-23 BUG-R2-094 / BUG-R3-028 (b): the person searched here is a companion, not the booker.
+                label={t('stay.companion_field')}
                 required
                 error={act.fields.guestId}
                 onSelect={(g) => setCompanion(g)}

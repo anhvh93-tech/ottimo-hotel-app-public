@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { useBusinessDay } from '../../app/businessDay';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { quoteValidUntil, timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
 import { monoArgs } from '../../app/mono';
 import { isRetryable, useWrite } from '../../app/useWrite';
@@ -76,7 +76,7 @@ export function QuoteDialog({
   onClose: () => void;
   onOpenReservation: (id: string) => void;
 }) {
-  const { t, vnd, dateTime } = useI18n();
+  const { t, vnd } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const rules = useRules(propertyId, roles);
@@ -152,6 +152,8 @@ export function QuoteDialog({
   const [held, setHeld] = useState<Reservation | null>(null);
   /** BUG-R2-216: the VietQR card is on screen (it carries the amount and the transfer content itself). */
   const [holdQr, setHoldQr] = useState(false);
+  // V5-23 (copy-v1.0.5 4.14): the deposit QR could not be created (error, or no receiving account).
+  const [holdQrFailed, setHoldQrFailed] = useState(false);
   const keys = useRef({ save: newIdempotencyKey(), hold: newIdempotencyKey() });
   const mgr = roles.some((r) => r === 'owner' || r === 'manager');
   const [extendReason, setExtendReason] = useState('');
@@ -363,6 +365,12 @@ export function QuoteDialog({
     const at = new Date(Math.min(Date.now() + holdHours * 3_600_000, cap));
     return `${timeHHmm(at)} ${dayMonth(todayLocal('Asia/Ho_Chi_Minh', at))}`;
   })();
+  // copy-v1.0.5 4.14: once the hold exists, its deadline is the one the server wrote (`hold.expiresAt`, the
+  // `hold_latest_time` cap included) – the estimate above only stands in when the answer has no deadline.
+  const heldAt = held?.hold?.expiresAt ? new Date(held.hold.expiresAt) : null;
+  const heldUntil = heldAt
+    ? `${timeHHmm(heldAt)} ${dayMonth(todayLocal('Asia/Ho_Chi_Minh', heldAt))}`
+    : holdUntil;
   const arrivesToday = quoteArrival === today;
 
   const errView =
@@ -733,7 +741,10 @@ export function QuoteDialog({
       ) : null}
       {step === 'send' && saved ? (
         <>
-          <p className="li-s">{t('sale.quote_expires', { time: dateTime(saved.expiresAt) })}</p>
+          {/* V5-23 BUG-R3-028 (e): the last valid minute, as in the text sent to the guest. */}
+          <p className="li-s">
+            {t('sale.quote_expires', { time: quoteValidUntil(saved.expiresAt) })}
+          </p>
           <div className="field mt-12">
             <span className="lbl" id="q-lang">
               {t('sale.text_lang')}
@@ -770,7 +781,16 @@ export function QuoteDialog({
               tone="ok"
               title={t('sale.hold_created', { room: room?.roomNo ?? '', code: held.code })}
             >
-              {t(ctv ? 'sale.hold_next_ctv' : 'sale.hold_next', { hours: rules.holdWarnHours })}
+              {/* V5-23 GN-V104-QR-green-box (copy-v1.0.5 4.14, CPY thẻ 12): the server's hold deadline, no promised
+                  reminder; "Gửi mã QR" only while there is (or will be) a QR. */}
+              {t(
+                ctv
+                  ? 'sale.hold_next_ctv'
+                  : holdQrFailed && !holdQr
+                    ? 'sale.hold_next_no_qr'
+                    : 'sale.hold_next',
+                { time: heldUntil },
+              )}
             </Alert>
             {/* S4-28 (US-084 AC4): deposit BR-305 + VietQR whose transfer content is the booking code.
                 BUG-R2-216: the VietQR card already says the amount and the transfer content – the summary is for
@@ -790,7 +810,12 @@ export function QuoteDialog({
               {ctv ? (
                 <p className="li-s">{t('sale.qr_after_ctv')}</p>
               ) : (
-                <DepositQr reservation={held} auto onQr={() => setHoldQr(true)} />
+                <DepositQr
+                  reservation={held}
+                  auto
+                  onQr={() => setHoldQr(true)}
+                  onFail={setHoldQrFailed}
+                />
               )}
             </div>
             <LangNote locale={guestLocale} block />

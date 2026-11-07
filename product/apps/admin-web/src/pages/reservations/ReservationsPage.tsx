@@ -153,7 +153,8 @@ function ReservationsList({ openId }: { openId: string | null }) {
                 ) : undefined
               }
             >
-              {t('rsv.list_empty_body')}
+              {/* V5-23 BUG-R3-028 (f): sale, CTV have no New booking button – they create from Quotes & holds. */}
+              {t(fd ? 'rsv.list_empty_body' : 'rsv.list_empty_body_sales')}
             </StateView>
           )
         ) : (
