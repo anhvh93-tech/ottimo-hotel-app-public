@@ -2063,6 +2063,8 @@
   "recon.commission_note": "Hoa hồng của người ghi chỉ thành \"đạt\" sau khi khoản này được đối soát.",
   "mlog.a_shortfall_accepted": "Chấp nhận cọc thiếu · còn thiếu {amount}",
   "mlog.a_closer_changed": "Đổi người chốt: {from} → {to}",
+  "mlog.a_closer_changed_legacy": "Đổi người chốt (bản ghi cũ, không có tên)",
+  "mlog.closer_inactive": "Tài khoản hiện không hoạt động",
   "mlog.a_staff_payment": "Sale/CTV ghi nhận thu · chờ đối soát",
   "error.ONLINE_CHECKIN_CLOSED": "Thủ tục online đã đóng – lễ tân đã nhận giấy tờ hoặc bạn đã nhận phòng. Cần hỗ trợ, gọi lễ tân.",
   "field.FILE_TYPE": "Chỉ nhận ảnh JPG, PNG hoặc WebP.",
