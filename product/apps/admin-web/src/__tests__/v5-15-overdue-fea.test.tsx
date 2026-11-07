@@ -9,6 +9,7 @@ import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { canCheckOutOverdue, overdueNights } from '../mocks/overdue';
+import { containsCardNumber } from '../mocks/replyNote';
 import { server } from '../mocks/node';
 import { overdueEarlyAt, overdueGuidanceText } from '../pages/stay/overdue';
 import { renderApp, tv } from '../test/render';
@@ -92,6 +93,17 @@ async function completeNow(user: ReturnType<typeof renderApp>['user']) {
   await user.click(done);
   const box = await screen.findByRole('alertdialog');
   return box;
+}
+
+/** Luhn check, written out here so the test does not lean on the mock's own helper. */
+function passesLuhn(digits: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2) d = d * 2 > 9 ? d * 2 - 9 : d * 2;
+    sum += d;
+  }
+  return sum % 10 === 0;
 }
 
 describe('V5-15 mock rules (server overdue-checkout.ts)', () => {
@@ -295,10 +307,16 @@ describe('V5-15 – H16 overdue box (OWN, MGR ≤ 1 night)', () => {
 
   it('the server reads the reason like V-09: times and dates in it are not a card number (ARC 145-01)', async () => {
     at('09:00');
-    const r = overdueStay(1);
+    overdueStay(1);
+    // FB-R5-ARC-FE-145-05: one fixed sentence, whatever the run date. Its digits joined (16) pass Luhn,
+    // so the old mock rule (Luhn on every digit of the reason) would refuse it; no 13–19 digit run does.
+    const why = 'Khách đi 11:40 ngày 05/11/2026, thấy trống 12:45';
+    const joined = why.replace(/\D/g, '');
+    expect(joined).toHaveLength(16);
+    expect(passesLuhn(joined)).toBe(true);
+    expect(containsCardNumber(why)).toBe(false);
     const { user } = await toTimeStep('qa.mgr');
-    // 13+ digits once joined (the old mock rule) – no 13–19 digit run, so no CARD_NUMBER_DETECTED
-    await user.type(reasonBox(), `Khách đi 11:40 ngày ${dmy(r.departureDate)}, thấy trống 12:15`);
+    await user.type(reasonBox(), why);
     const box = await completeNow(user);
     await user.click(within(box).getByRole('button', { name: /hoàn tất$/ }));
     await waitFor(() => expect(huy().status).toBe('checked_out'));
@@ -531,14 +549,13 @@ describe('V5-15 – copy 9.15 (UXD-on-fe-prs-145-146; DOM 145-01 … 145-03, ARC
     );
   });
 
-  it('ARC 3.4: an extended stay still overdue – {date} is the departure after Gia hạn, {next} the server day', async () => {
-    at('09:00');
+  /** Phạm Huy due out T−2, extended by B13 for the night T−2 → T−1 (child booking); nobody checked it out on T−1. */
+  function extendedOverdue() {
     const r = huy();
     const T = todayLocal();
     r.departureDate = addDays(T, -2);
     for (const s of r.segments ?? []) s.toDate = r.departureDate;
     mockControl.stay.minibarChecks.set(r.id, []);
-    // B13 extended the stay by the night T−2 → T−1; nobody checked it out on T−1.
     mockControl.rsv.reservations.push({
       ...r,
       id: '0192a1b0-0000-7000-8000-000000095151',
@@ -559,6 +576,12 @@ describe('V5-15 – copy 9.15 (UXD-on-fe-prs-145-146; DOM 145-01 … 145-03, ARC
       allowedActions: [],
       version: 1,
     });
+    return { r, T };
+  }
+
+  it('ARC 3.4: an extended stay still overdue – {date} is the departure after Gia hạn, {next} the server day', async () => {
+    at('09:00');
+    const { T } = extendedOverdue();
     await toTimeStep('qa.mgr');
     fireEvent.change(await timeBox(), { target: { value: '03:00' } });
     const early = tv('checkout.overdue_time_early', {
@@ -569,6 +592,23 @@ describe('V5-15 – copy 9.15 (UXD-on-fe-prs-145-146; DOM 145-01 … 145-03, ARC
     });
     await waitFor(() => expect(goBill()).toHaveAccessibleDescription(early), { timeout: 3000 });
     expect(screen.queryAllByText(tv('checkout.overdue_after_limit'))).toHaveLength(0);
+  });
+
+  it('FB-R5-ARC-FE-145-04: an extended stay still overdue, 18:30 typed → "extend first" (the server day = the departure AFTER Gia hạn, not the first one)', async () => {
+    at('09:00');
+    extendedOverdue();
+    await toTimeStep('qa.mgr');
+    fireEvent.change(await timeBox(), { target: { value: '18:30' } });
+    // on T−1 (the effective departure) after its last tier: a night the guest stayed – extend first, never "enter 06:00"
+    await waitFor(
+      () => expect(goBill()).toHaveAccessibleDescription(tv('checkout.overdue_after_limit')),
+      { timeout: 3000 },
+    );
+    expect(goBill()).toHaveAttribute('aria-disabled', 'true');
+    expect(await timeBox()).toHaveAccessibleDescription(
+      new RegExp(`^${esc(tv('checkout.overdue_after_limit'))}`),
+    );
+    expect(screen.queryByText(/rạng sáng/)).toBeNull();
   });
 
   it('a time after the last tier ON the departure day stays "extend first" (the server day = the departure)', async () => {
