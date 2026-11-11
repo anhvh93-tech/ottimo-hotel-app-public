@@ -4,6 +4,7 @@ import { Alert, Button, Chip, Field, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { useToast } from '../../app/toast';
+import { BankReferenceField } from '../../components/BankReferenceField';
 import { VietQrCard, qrOverDue } from '../../components/VietQrCard';
 import { usePropertyId } from '../../session/SessionProvider';
 import { MoneyField, amountOf, useSubmit } from './common';
@@ -17,6 +18,8 @@ export interface InlinePay {
   note: string;
   /** POS approval code only. */
   pos: string;
+  /** V5-51: the optional bank transaction reference of a transfer (`payment.bankReference`). */
+  bankRef?: string;
   /** Cash the guest handed over – typed by the desk (required): the change is computed from it. */
   cash: string;
   /** Transfer / POS: the amount the desk actually received – typed (required), recorded as is. */
@@ -26,6 +29,7 @@ export const emptyInlinePay = (): InlinePay => ({
   method: 'vietqr',
   note: '',
   pos: '',
+  bankRef: '',
   cash: '',
   amount: '',
 });
@@ -370,6 +374,11 @@ export function CheckInPayment({
                       />
                     )}
                   </Field>
+                  <BankReferenceField
+                    value={pay.bankRef ?? ''}
+                    onChange={(v) => set({ bankRef: v })}
+                    error={fields['payment.bankReference']}
+                  />
                   {/* FE-S4-09: the reconciliation sentence only for a hand-recorded transfer. */}
                   <p className="li-s">
                     <Chip tone="warn" icon="hourglass" className="recon">

@@ -168,6 +168,13 @@ const stay = createStayMock({
     );
     if (!open) dashboard.addEvent(item);
   },
+  // 5B-1: a receipt recorded after closure closes `deposit_after_cancel` (BE `resolveAttention`).
+  closeAttention: (kind, reservationId) => {
+    const now = new Date().toISOString();
+    for (const e of dashboard.state.events)
+      if (!e.resolvedAt && e.kind === kind && (e.reservationIds ?? []).includes(reservationId))
+        Object.assign(e, { resolvedAt: now, resolvedNote: '5B-1 receipt' });
+  },
 });
 
 // Sprint 4 FE-B (EP07/EP08/EP14/EP09 Desk): housekeeping, work orders + room blocks, guest requests, minibar.

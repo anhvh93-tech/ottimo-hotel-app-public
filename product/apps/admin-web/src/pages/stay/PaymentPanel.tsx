@@ -4,6 +4,7 @@ import { Alert, Button, Chip, Field, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { useToast } from '../../app/toast';
+import { BankReferenceField, bankReferenceOf } from '../../components/BankReferenceField';
 import { VietQrCard, qrOverDue } from '../../components/VietQrCard';
 import { usePropertyId } from '../../session/SessionProvider';
 import { MoneyField, amountOf, useSubmit } from './common';
@@ -71,6 +72,8 @@ export function PaymentPanel({
   const [cash, setCash] = useState('');
   const [note, setNote] = useState('');
   const [pos, setPos] = useState('');
+  /** V5-51: the optional bank reference of a transfer typed by hand. */
+  const [bankRef, setBankRef] = useState('');
   /** BUG-R3-017: more than the due at check-out typed for a payment written with "Hoàn tất". */
   const [stageError, setStageError] = useState<string | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
@@ -169,6 +172,7 @@ export function PaymentPanel({
           amountVnd: value,
           note: note.trim() || undefined,
           posAuthCode: method === 'card_pos' ? pos.trim() : undefined,
+          bankReference: method === 'bank_transfer' ? bankReferenceOf(bankRef) : undefined,
         },
         idem,
       ),
@@ -177,6 +181,7 @@ export function PaymentPanel({
       toast(t('pay.record', { amount: money(out.data.amountVnd) }));
       setNote('');
       setPos('');
+      setBankRef('');
       setCash('');
       onPaid(out.data);
     }
@@ -324,6 +329,11 @@ export function PaymentPanel({
                   />
                 )}
               </Field>
+              <BankReferenceField
+                value={bankRef}
+                onChange={setBankRef}
+                error={payAct.fields.bankReference}
+              />
               <p className="li-s">
                 <Chip tone="warn" icon="hourglass" className="recon">
                   {t('pay.pending_reconcile')}

@@ -25,8 +25,10 @@ export interface AttentionLine {
   collectDebtId?: string;
   /** `source=event` items closed by hand (`resolveAttentionEvent`) – label key of the button. */
   resolveLabel?: string;
-  /** Note required to close (critical items – EP01 3.2). */
+  /** Note required to close (critical items – EP01 3.2; `deposit_after_cancel` – 0.3.13 addendum 1g, SEC S8). */
   noteRequired: boolean;
+  /** Key of the help line under the note box, when it says more than `attn.resolve_note_help`. */
+  noteHelp?: string;
   ownerOnly: boolean;
   item: AttentionItem;
 }
@@ -94,6 +96,12 @@ const AUTO_CLOSE = new Set([
 ]);
 /** Only the owner closes these (EP01 3.2). */
 const OWNER_CLOSE = new Set(['data_quality', 'security_alert']);
+/**
+ * 5B-1 (0.3.13 addendum 1g, SEC S8; UXD copy-v1.0.5 9.1): "Tiền về cho đơn đã hủy" closes itself when a receipt is
+ * recorded after closure; by hand it is "Không thấy tiền" – FD+ only (`resolveAttentionEvent` x-roles), note required.
+ */
+const FD_PLUS_CLOSE = new Set(['deposit_after_cancel']);
+const FD_PLUS: readonly string[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 
 const str = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const fmt = (ctx: AttentionContext, v: unknown) =>
@@ -289,7 +297,11 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
   }
 
   const event = item.source === 'event' && !!item.eventId && !AUTO_CLOSE.has(item.kind);
-  const mayClose = event && (!OWNER_CLOSE.has(item.kind) || ctx.roles.includes('owner'));
+  const mayClose =
+    event &&
+    (!OWNER_CLOSE.has(item.kind) || ctx.roles.includes('owner')) &&
+    (!FD_PLUS_CLOSE.has(item.kind) || ctx.roles.some((r) => FD_PLUS.includes(r)));
+  const notFound = item.kind === 'deposit_after_cancel';
   return {
     // Stable identity across reads (new-item detection): kind + ids + params (two `foc_threshold` lines –
     // ratio and per approver – differ only by `params.check`).
@@ -313,9 +325,12 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
         ? 'attn.reported_channel'
         : item.kind === 'late_fee_post_review'
           ? 'attn.reviewed'
-          : 'attn.resolve'
+          : notFound
+            ? 'today.money_after_cancel_not_found'
+            : 'attn.resolve'
       : undefined,
-    noteRequired: item.severity === 'critical',
+    noteRequired: item.severity === 'critical' || notFound,
+    noteHelp: notFound ? 'today.money_after_cancel_not_found_note' : undefined,
     ownerOnly: item.kind === 'foc_threshold' || item.kind === 'security_alert',
     item,
   };

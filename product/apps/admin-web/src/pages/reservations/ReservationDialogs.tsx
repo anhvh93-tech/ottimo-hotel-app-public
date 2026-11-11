@@ -41,6 +41,7 @@ import { useToast } from '../../app/toast';
 import { isRetryable, useWrite } from '../../app/useWrite';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
+import { BankReferenceField, bankReferenceOf } from '../../components/BankReferenceField';
 import { qrOverDue } from '../../components/VietQrCard';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { DepositQr, pendingDepositQr } from './DepositQr';
@@ -546,6 +547,8 @@ export function DepositDialog(props: DialogBase) {
   const [amount, setAmount] = useState(missing ? vnd(missing) : '');
   const [method, setMethod] = useState<PaymentMethod>('vietqr');
   const [posCode, setPosCode] = useState('');
+  /** V5-51: the bank reference of a transfer / VietQR typed by hand (not of a pending QR confirmed). */
+  const [bankRef, setBankRef] = useState('');
   const [touched, setTouched] = useState(false);
   const value = parseVnd(amount) ?? 0;
   // BUG-R3-043: a manager accepting the shortfall on the money already received types no new amount.
@@ -703,6 +706,10 @@ export function DepositDialog(props: DialogBase) {
                   amountVnd: value,
                   posAuthCode: method === 'card_pos' ? posCode.trim() || undefined : undefined,
                   receivedAt: receivedIso ?? undefined,
+                  bankReference:
+                    method === 'bank_transfer' || method === 'vietqr'
+                      ? bankReferenceOf(bankRef)
+                      : undefined,
                 },
                 acceptShortfallReason: shortfallReasonValue,
               },
@@ -884,6 +891,13 @@ export function DepositDialog(props: DialogBase) {
             />
           )}
         </Field>
+      ) : null}
+      {(method === 'bank_transfer' || method === 'vietqr') && !viaQr && !acceptOnExisting ? (
+        <BankReferenceField
+          value={bankRef}
+          onChange={setBankRef}
+          error={act.fields['payment.bankReference']}
+        />
       ) : null}
       {shortfallOffered ? (
         <>
@@ -1876,7 +1890,12 @@ export function DepositNoticeDialog(props: Pick<DialogBase, 'reservation' | 'onD
           idem,
         );
       });
-      toast(t('drawer.deposit_notice.sent', { time: timeHHmm(new Date()) }));
+      // 5B-1 (DOM 11.4 mục 5): on a closed booking the desk checks the money and handles it (202, no receipt).
+      toast(
+        r.status === 'cancelled' || r.status === 'no_show'
+          ? t('rsv.notice.after_cancel_sent')
+          : t('drawer.deposit_notice.sent', { time: timeHHmm(new Date()) }),
+      );
       props.onDone();
     } catch (e) {
       if (isRetryable(e)) return;

@@ -10,6 +10,7 @@ import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { lineLabel } from '../../app/folio';
 import { useToast } from '../../app/toast';
+import { BankReferenceField, bankReferenceOf } from '../../components/BankReferenceField';
 import { LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
@@ -61,6 +62,8 @@ export function DebtCollectDialog({
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [pos, setPos] = useState('');
+  /** V5-51: the optional bank reference of a transfer. */
+  const [bankRef, setBankRef] = useState('');
   useEffect(() => {
     if (due > 0) setAmount(vnd(due));
     // the amount still due, once known
@@ -82,6 +85,7 @@ export function DebtCollectDialog({
           amountVnd: value,
           note: note.trim() || undefined,
           posAuthCode: method === 'card_pos' ? pos.trim() : undefined,
+          bankReference: method === 'bank_transfer' ? bankReferenceOf(bankRef) : undefined,
         },
         idem,
       ),
@@ -169,6 +173,13 @@ export function DebtCollectDialog({
               )}
             </Field>
           )}
+          {method === 'bank_transfer' ? (
+            <BankReferenceField
+              value={bankRef}
+              onChange={setBankRef}
+              error={act.fields.bankReference}
+            />
+          ) : null}
         </div>
       )}
     </Modal>

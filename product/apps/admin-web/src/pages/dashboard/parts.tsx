@@ -337,7 +337,7 @@ function ResolveDialog({
       {line.sub ? <p className="li-s">{line.sub}</p> : null}
       <Field
         label={t('attn.resolve_note')}
-        help={t('attn.resolve_note_help')}
+        help={t(line.noteHelp ?? 'attn.resolve_note_help')}
         required={line.noteRequired}
         error={act.fields.note}
       >

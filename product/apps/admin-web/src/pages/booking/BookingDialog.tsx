@@ -23,7 +23,7 @@ import { useBusinessDay, useBusinessDayChange } from '../../app/businessDay';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
 import { parseVnd } from '../../app/money';
-import { fieldErrorText } from '../../app/problem';
+import { fieldErrorText, fieldPairKey } from '../../app/problem';
 import {
   addDays,
   conflictsOf,
@@ -37,6 +37,7 @@ import { useRules } from '../../app/rules';
 import { useToast } from '../../app/toast';
 import { normalizePhone } from '../../app/validation';
 import { monoArgs } from '../../app/mono';
+import { BankReferenceField, bankReferenceOf } from '../../components/BankReferenceField';
 import { GuestPicker } from '../../components/GuestPicker';
 import { OccupancyField, type Occupancy } from '../../components/OccupancyField';
 import { ContactMatches, guestPrefillOf, type WebRequestLink } from '../webreq/ContactMatches';
@@ -110,6 +111,8 @@ interface Form {
   depositMethod: PaymentMethod;
   /** ARC 16.23 (S4-13 B): the bank transaction reference goes with the payment – no receipt photo at B2. */
   depositNote: string;
+  /** V5-51: the optional bank transaction reference of a transfer / VietQR deposit (`initialPayment.bankReference`). */
+  depositBankRef?: string;
   internalNote: string;
   rateReason: string;
   minStayReason: string;
@@ -197,6 +200,9 @@ export function rateRangeErrors(
   }
   return Object.keys(out).length ? out : { rates: rangeSentence(t, money, e.problem, nights) };
 }
+
+/** V5-51: where a 422 on the deposit's bank reference lands (`fieldErrors` key). */
+const BANK_REF_FIELD = 'initialPayment.bankReference';
 
 /** A form's errors without the rate ones (`rates`, `nightlyRates[i].amountVnd`). */
 const withoutRateErrors = (x: Record<string, string>) =>
@@ -716,6 +722,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             method: form.depositMethod,
             amountVnd: parseVnd(form.depositAmount) ?? 0,
             note: form.depositNote.trim() || undefined,
+            bankReference:
+              form.depositMethod === 'bank_transfer' || form.depositMethod === 'vietqr'
+                ? bankReferenceOf(form.depositBankRef ?? '')
+                : undefined,
           }
         : undefined,
       internalNote: form.internalNote.trim() || undefined,
@@ -771,6 +781,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     }
     if (e.code === 'DEPOSIT_INSUFFICIENT') {
       setErrors({ deposit: rsvErrorText(t, e, { locale }) });
+      return;
+    }
+    // UXD copy-v1.0.5 9.8 (C0313-25): a deposit reference refused as a card number – the sentence under the field.
+    const cardRef = e.fieldErrors.find((fe) => fieldPairKey(fe) !== undefined);
+    if (e.code === 'CARD_NUMBER_DETECTED' && cardRef) {
+      setErrors({ [BANK_REF_FIELD]: fieldErrorText(t, cardRef) });
       return;
     }
     // V5-14 / V5-22: a typed rate outside the floor–ceiling (createReservation of a direct/agent booking, saveQuote).
@@ -1718,6 +1734,13 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 />
               )}
             </Field>
+            {form.depositMethod === 'bank_transfer' || form.depositMethod === 'vietqr' ? (
+              <BankReferenceField
+                value={form.depositBankRef ?? ''}
+                onChange={(v) => set({ depositBankRef: v })}
+                error={errors[BANK_REF_FIELD] ?? errors[`body.${BANK_REF_FIELD}`]}
+              />
+            ) : null}
             <p className="li-s">
               {fdDesk ? t('bk.receipt_later_fd') : t('bk.receipt_later_sales')}
             </p>

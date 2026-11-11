@@ -18,6 +18,8 @@ interface RsvApi {
   state: {
     reservations: MockReservation[];
     idempotency: Map<string, { status: number; body: unknown }>;
+    /** "Khách đã chuyển" notices (5B-1: a photo sent with one is never the proof of a receipt). */
+    notices: Array<{ reservationId: string; attachmentId?: string }>;
   };
   view: (r: MockReservation, user: MockUser, roles: Role[]) => unknown;
   find: (
@@ -47,6 +49,8 @@ interface Ctx {
   rsv: () => RsvApi;
   /** ESC-031: opens a stored "Cần chú ý" event (mocks/dashboard.ts `addEvent`) – one per booking and kind. */
   openAttention?: (item: Omit<AttentionItem, 'source' | 'eventId'> & { audience?: Role[] }) => void;
+  /** 5B-1: closes the open stored event of this kind for a booking (a receipt answered it). */
+  closeAttention?: (kind: AttentionItem['kind'], reservationId: string) => void;
 }
 
 const OWN_MGR: Role[] = ['owner', 'manager'];
@@ -130,6 +134,8 @@ export interface MockPayment {
   recordedByRole?: Role;
   reconciledByName?: string;
   note?: string;
+  /** 0.3.13 addendum 1 (V5-51): bank transaction reference, upper-cased like the server. */
+  bankReference?: string;
   attachmentId?: string;
   approvalRequestId?: string;
   /** VietQR only: `purpose` of `createVietQr` + its context (`payment.qr_purpose` / `qr_context`). */
@@ -788,6 +794,8 @@ export function createStayMock(ctx: Ctx) {
       minibarNotToday: new Set<string>(),
       reminders: new Map<string, Array<Record<string, unknown>>>(),
       attachments: new Set<string>(),
+      /** FB-R5-SEC-BE-105-01: photos a sale / CTV uploaded – never the proof of a receipt after closure. */
+      salesAttachments: new Set<string>(),
       stepUpUntil: new Map<string, number>(),
       /** A22a guest links: issued/revoked times per reservation (the token itself is never kept). */
       guestLinks: new Map<string, { issuedAt: string; revokedAt?: string; count: number }>(),
@@ -936,9 +944,32 @@ export function createStayMock(ctx: Ctx) {
     const tt = totals(r);
     r.balanceDueVnd = tt.balanceDueVnd;
   }
+  /**
+   * 5B-1 (SEC S4, read time): other bank_transfer / vietqr receipts of another booking, not reversed, same amount,
+   * `receivedAt` within 24 hours – booking codes only; absent when none.
+   */
+  function duplicateCodesOf(p: MockPayment): string[] | undefined {
+    if (!['bank_transfer', 'vietqr'].includes(p.method) || p.type === 'refund') return undefined;
+    const at = Date.parse(p.receivedAt ?? nowIso());
+    const codes = st.payments
+      .filter(
+        (o) =>
+          o.id !== p.id &&
+          o.folioId !== p.folioId &&
+          o.status === 'succeeded' &&
+          o.type !== 'refund' &&
+          ['bank_transfer', 'vietqr'].includes(o.method) &&
+          o.amountVnd === p.amountVnd &&
+          Math.abs(Date.parse(o.receivedAt ?? nowIso()) - at) <= 86_400_000,
+      )
+      .map((o) => o.reservationCode ?? '')
+      .filter(Boolean);
+    return codes.length ? [...new Set(codes)] : undefined;
+  }
   function paymentView(p: MockPayment) {
     return {
       ...p,
+      possibleDuplicateCodes: duplicateCodesOf(p),
       qrContext: undefined,
       amountDueNowVnd: qrDueNow(p),
       pendingDays: Math.floor((Date.now() - Date.parse(p.receivedAt ?? nowIso())) / 86_400_000),
@@ -1523,6 +1554,10 @@ export function createStayMock(ctx: Ctx) {
       recordedByUserId: g.user.id,
       recordedByRole: staffRole ?? g.roles[0],
       note: body.note as string | undefined,
+      bankReference:
+        typeof body.bankReference === 'string' && body.bankReference.trim()
+          ? body.bankReference.trim().toUpperCase()
+          : undefined,
       attachmentId: body.attachmentId as string | undefined,
       version: 1,
     };
@@ -1550,6 +1585,109 @@ export function createStayMock(ctx: Ctx) {
     if (typeof body.note === 'string' && luhn(body.note.replace(/\D/g, '')))
       errors.push({ field: 'note', code: 'CARD_NUMBER_DETECTED' });
     return errors;
+  }
+
+  /**
+   * 0.3.13 addendum 1 (5B-1, V5-51; SEC ARC-15, ARC-21): `bankReference` – only on bank_transfer / vietqr, the
+   * contract pattern, never a card number (C0313-25), and not already on a receipt of the property that is not
+   * reversed (409 DUPLICATE_BANK_REFERENCE – the other booking's code only for FD+). `field` = where it sits.
+   */
+  function bankReferenceProblem(
+    body: Body,
+    g: { roles: Role[] },
+    field = 'bankReference',
+  ): Response | null {
+    const raw = body.bankReference;
+    if (raw === undefined || raw === null) return null;
+    const ref = String(raw).trim();
+    if (!['bank_transfer', 'vietqr'].includes(String(body.method)))
+      return validation([{ field, code: 'NOT_ALLOWED' }]);
+    if (!/^[A-Za-z0-9./_-]{1,64}$/.test(ref)) return validation([{ field, code: 'PATTERN' }]);
+    const digits = ref.replace(/[./_-]/g, '');
+    if (/^\d{13,19}$/.test(digits) && luhn(digits))
+      return problem(422, 'CARD_NUMBER_DETECTED', {
+        errors: [{ field, code: 'CARD_NUMBER_DETECTED' }],
+      });
+    const same = st.payments.find(
+      (p) =>
+        p.status === 'succeeded' &&
+        p.type !== 'refund' &&
+        (p.bankReference ?? '').toUpperCase() === ref.toUpperCase(),
+    );
+    if (same)
+      return problem(
+        409,
+        'DUPLICATE_BANK_REFERENCE',
+        has(g.roles, FD_PLUS) ? { duplicateReservationCode: same.reservationCode } : {},
+      );
+    return null;
+  }
+
+  /**
+   * 5B-1 `recordPayment` (B) on a `cancelled` / `no_show` booking (BE `PaymentsService.recordAfterClosure`, #148):
+   * FD+ only (SAL: 422 AMOUNT_EXCEEDS_BALANCE max 0); bank_transfer / vietqr with a proof photo the desk uploaded,
+   * card_pos only while N > 0 and up to N; `type` from `cancellation.cancelledFrom`; always pending reconciliation;
+   * a `payment_after_cancel` refund of max(0, amount − N) with the destination fixed to `original_method`; the open
+   * notices are handled and `deposit_after_cancel` closes. Any refusal writes nothing.
+   */
+  function recordAfterClosure(
+    r: MockReservation,
+    body: Body,
+    g: { user: MockUser; roles: Role[] },
+    key: string,
+  ): Response {
+    if (!has(g.roles, FD_PLUS))
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+        max: 0,
+      });
+    const card = body.method === 'card_pos';
+    const errors: Array<{ field: string; code: string }> = [];
+    if (!['bank_transfer', 'vietqr'].includes(String(body.method)) && !card)
+      errors.push({ field: 'method', code: 'NOT_IN_LIST' });
+    const want =
+      r.status === 'cancelled' && r.cancellation?.cancelledFrom === 'hold' ? 'deposit' : 'charge';
+    if ((body.type === 'deposit' || body.type === 'charge') && body.type !== want)
+      errors.push({ field: 'type', code: 'NOT_ALLOWED' });
+    const attachmentId = String(body.attachmentId ?? '').trim();
+    if (!attachmentId && !card) errors.push({ field: 'attachmentId', code: 'REQUIRED' });
+    if (errors.length) return validation(errors);
+    const fromNotice = rsv().state.notices.some((n) => n.attachmentId === attachmentId);
+    if (attachmentId && (fromNotice || st.salesAttachments.has(attachmentId)))
+      return validation([{ field: 'attachmentId', code: 'NOT_IN_LIST' }]);
+    const due = totals(r).balanceDueVnd;
+    const amount = Number(body.amountVnd);
+    if (card && due <= 0) return validation([{ field: 'method', code: 'NOT_IN_LIST' }]);
+    if (card && amount > due)
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+        max: due,
+      });
+    const dup = bankReferenceProblem(body, g);
+    if (dup) return dup;
+    const p = recordPay(r, body, g);
+    p.reconciliation = 'pending';
+    const refund = Math.max(0, amount - due);
+    if (refund > 0) {
+      const now = nowIso();
+      st.approvals.push({
+        id: uid(97_000 + next()),
+        type: 'refund',
+        status: 'pending',
+        reservationCode: r.code,
+        folioId: r.folioId,
+        amountVnd: refund,
+        reasonCode: 'payment_after_cancel',
+        requestedBy: g.user.displayName,
+        requestedByUserId: g.user.id,
+        requestedAt: now,
+        refundDestination: { method: 'original_method', setAt: now },
+        version: 1,
+      });
+    }
+    ctx.closeAttention?.('deposit_after_cancel', r.id);
+    bump(r);
+    return rsv().remember(key, 201, p);
   }
 
   // Shared guard: role → reservation in scope → If-Match on the reservation version.
@@ -1747,6 +1885,15 @@ export function createStayMock(ctx: Ctx) {
     );
   }
   rsv().setFolioPort({
+    noticeAfterClosure: (r) =>
+      ctx.openAttention?.({
+        kind: 'deposit_after_cancel',
+        severity: 'warning',
+        count: 1,
+        reservationIds: [r.id],
+        refCode: r.code,
+        audience: FD_PLUS,
+      }),
     serviceLines: (r) =>
       liveServiceLines(r).map((l): MockServiceLine => ({
         lineId: l.id,
@@ -1849,6 +1996,8 @@ export function createStayMock(ctx: Ctx) {
         // 0.3.7 (BUG-R2-038, BR-402 v0.3.6): `balance_paid` is judged AFTER the early surcharge / B9a
         // night and `payment` – minus the FOC asked on the surcharge; short → 409, nothing written.
         const pay = body.payment as Body | undefined;
+        const payRef = pay ? bankReferenceProblem(pay, g, 'payment.bankReference') : null;
+        if (payRef) return payRef;
         // 0.3.7 bổ sung 1 (ARC): FD asking the lead (room not ready, no approved request) → 202 that writes
         // nothing but the ApprovalRequest; money is collected at the B9 call after approval.
         const asksLead =
@@ -3838,6 +3987,10 @@ export function createStayMock(ctx: Ctx) {
       const key = `pay:${request.headers.get('idempotency-key')}`;
       const hit = rsv().state.idempotency.get(key);
       if (hit) return json(hit.body, hit.status);
+      if (r.status === 'cancelled' || r.status === 'no_show')
+        return recordAfterClosure(r, body, g, key);
+      const refProblem = bankReferenceProblem(body, g);
+      if (refProblem) return refProblem;
       // ARC 16.26 (BR-525 G-4): a settled folio takes only debt collection – `charge`, FD+, ≤ what is still due.
       if (f.status === 'settled') {
         const due = totals(r).balanceDueVnd;
@@ -4272,6 +4425,7 @@ export function createStayMock(ctx: Ctx) {
       if (errors.length) return validation(errors);
       const id = uid(92_000 + next());
       st.attachments.add(id);
+      if (!has(g.roles, FD_PLUS)) st.salesAttachments.add(id);
       return json({ id, purpose, sizeBytes: 1024 }, 201);
     }),
 
@@ -5040,6 +5194,13 @@ export function createStayMock(ctx: Ctx) {
 
   function approvalView(a: MockApproval) {
     const out: Record<string, unknown> = { ...a, version: a.version ?? 1 };
+    // 5B-1 (SEC S4): a refund from a receipt that may be a duplicate (the receipts of its folio).
+    if (a.type === 'refund' && a.folioId) {
+      const codes = st.payments
+        .filter((p) => p.folioId === a.folioId)
+        .flatMap((p) => duplicateCodesOf(p) ?? []);
+      if (codes.length) out.possibleDuplicateCodes = [...new Set(codes)];
+    }
     delete out.requestedByUserId;
     delete out.folioId;
     if (a.refundDestination) {
