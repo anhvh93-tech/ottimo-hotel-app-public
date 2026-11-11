@@ -63,6 +63,6 @@
     "vitest": "^4.1.12"
   },
   "dependencies": {
-    "nodemailer": "10.0.16"
+    "nodemailer": "10.1.4"
   }
 }
