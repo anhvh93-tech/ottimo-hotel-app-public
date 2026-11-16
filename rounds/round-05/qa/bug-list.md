@@ -8,33 +8,41 @@
 - Dữ liệu: chỉ DS-E (tài khoản `qa.*`, khách giả). Không bí mật, không dữ liệu khách thật.
 - Bản production đang chạy: v1.0.4 = `6414be25` (Release 06/11 14:10).
 - 16/11 (QA, v1.0.5 + FB-INV-010 Đợt 1, `rounds/round-05/qa/v1.0.5-fb010-staging.md`): lượt staging **chưa chạy** – job `deploy staging` của CI `43805583212` (`32c9bd2d`) chờ INV duyệt (ESC-052). **0 lỗi mới.** BUG-R5-003, BUG-R5-004 (P1) có bản sửa trên `main` (`e0bdb3b8`, `f2e6733d`), vẫn Open tới khi QA kiểm lại trên staging.
+- 16/11 lượt 2 (QA, Desk staging `sha-32c9bd2def9a`, `v1.0.5-fb010-staging.md` mục L2):
+  - Phần Desk **ĐẠT**, không có P0/P1.
+  - **Đóng** BUG-R5-001, BUG-R5-003, BUG-R5-004.
+  - BUG-R5-006: máy chủ đạt, chờ kiểm câu Desk.
+  - **Mới:** BUG-R5-007 (P2).
+  - BUG-R5-005: chưa chạy (web khách).
+  - BUG-R4-017 (P3, font `data:` bị CSP chặn) vẫn có trên v1.0.5. Bản sửa ở PR #167, chưa gộp.
 
 ## 1. Tổng hợp
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
-| P1 | 2 | 2 (BUG-R5-003, BUG-R5-004) | 0 | 0 |
-| P2 | 3 | 3 (BUG-R5-001, BUG-R5-002, BUG-R5-006) | 0 | 0 |
+| P1 | 2 | 0 | 0 | 2 (BUG-R5-003, BUG-R5-004) |
+| P2 | 4 | 2 (BUG-R5-002, BUG-R5-007) | 1 (BUG-R5-006) | 1 (BUG-R5-001) |
 | P3 | 1 | 0 | 1 (BUG-R5-005) | 0 |
-| **Tổng** | **6** | **5** | **1** | **0** |
+| **Tổng** | **7** | **2** | **2** | **3** |
 
 ## 2. Bảng lỗi
 
 | ID | Mức | Mô tả ngắn | Vai | Trạng thái |
 |---|---|---|---|---|
-| BUG-R5-001 | P2 | Tham số `weekend_nights`: bộ kiểm khi lưu chỉ nhận số 1–7, còn giá trị đang chạy và bộ tính giá dùng `["FRI","SAT"]`. Lưu lại đúng giá trị đang có thì 422; lưu dạng số thì bộ tính giá không còn nhận ra đêm cuối tuần | BE (+ ARC chốt dạng, sửa erd) | Mới |
+| BUG-R5-001 | P2 | Tham số `weekend_nights`: bộ kiểm khi lưu chỉ nhận số 1–7, còn giá trị đang chạy và bộ tính giá dùng `["FRI","SAT"]`. Lưu lại đúng giá trị đang có thì 422; lưu dạng số thì bộ tính giá không còn nhận ra đêm cuối tuần | BE (+ ARC chốt dạng, sửa erd) | Đóng 16/11 (staging v1.0.5) |
 | BUG-R5-002 | P2 | Tiền cọc về cho giữ chỗ đã tự hủy (`hold_expired`): Desk không ghi được khoản thu, không tạo được yêu cầu hoàn, không có mục "Cần chú ý" `deposit_after_cancel` (US-085 AC4). Tiền nằm ngoài Desk | BE (+ FE nút, ARC chốt khôi phục hay đơn mới, SEC xem quyền) | Mới |
-| BUG-R5-003 | P1 | Tham số `min_stay`: bộ kiểm khi lưu cho qua `2` hay `{"nights":2}`, bộ tính giá lại cần danh sách luật. Lưu một giá trị như vậy thì mọi báo giá và đơn trực tiếp mới bị 500 tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (+ ARC ghi `setParameter`) | Mới |
-| BUG-R5-004 | P1 | Tham số `damage_catalog` (bảng giá hư hỏng, BR-512): bộ kiểm khi lưu nhận mọi giá trị JSON. Lưu một bảng có phần tử `null` thì mở folio, in bill, danh mục phí và ghi dòng dịch vụ đều 500, với mọi đơn, tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (V5-25, BE-C, PR xếp chồng trên PR #96) | Mới |
+| BUG-R5-003 | P1 | Tham số `min_stay`: bộ kiểm khi lưu cho qua `2` hay `{"nights":2}`, bộ tính giá lại cần danh sách luật. Lưu một giá trị như vậy thì mọi báo giá và đơn trực tiếp mới bị 500 tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (+ ARC ghi `setParameter`) | Đóng 16/11 (staging v1.0.5; câu Desk → BUG-R5-007) |
+| BUG-R5-004 | P1 | Tham số `damage_catalog` (bảng giá hư hỏng, BR-512): bộ kiểm khi lưu nhận mọi giá trị JSON. Lưu một bảng có phần tử `null` thì mở folio, in bill, danh mục phí và ghi dòng dịch vụ đều 500, với mọi đơn, tới hết ngày nghiệp vụ, không sửa lại được trong ngày | BE (V5-25, BE-C, PR xếp chồng trên PR #96) | Đóng 16/11 (staging v1.0.5; câu Desk → BUG-R5-007) |
 | BUG-R5-005 | P3 | Web khách, tab Yêu cầu: khách gõ một chuỗi giống số thẻ vào lời nhắn. Máy chủ chặn đúng (422, mã cấp trên `CARD_NUMBER_DETECTED`), nhưng trang hiện câu "Hệ thống đang gặp sự cố…" thay cho câu "Vui lòng không ghi số thẻ thanh toán." | FE (FE-B, đã sửa ở PR #107) | Đã sửa, chờ xác nhận trên staging v1.0.5 |
-| BUG-R5-006 | P2 | `executeRefund` (chi hoàn chuyển khoản): luật số thẻ V-09 thử Luhn trên mọi cửa sổ 13–19 chữ số, nên chặn nhầm (422 `CARD_NUMBER_DETECTED`) mã chuyển khoản có phần số dài từ 13 chữ số. Ô này bắt buộc, nên MGR/OWN không ghi được lệnh chi. Mã toàn số 16 chữ số bị chặn khoảng 65 % | BE `r5-v09-reference` + FE `r5-fe-bankref` (SEC đã chọn luật, UXD đã có câu) | Mở, giao BE (v1.0.5) |
+| BUG-R5-006 | P2 | `executeRefund` (chi hoàn chuyển khoản): luật số thẻ V-09 thử Luhn trên mọi cửa sổ 13–19 chữ số, nên chặn nhầm (422 `CARD_NUMBER_DETECTED`) mã chuyển khoản có phần số dài từ 13 chữ số. Ô này bắt buộc, nên MGR/OWN không ghi được lệnh chi. Mã toàn số 16 chữ số bị chặn khoảng 65 % | BE `r5-v09-reference` + FE `r5-fe-bankref` (SEC đã chọn luật, UXD đã có câu) | Đã sửa, chờ QA (máy chủ đạt 16/11; còn câu Desk) |
+| BUG-R5-007 | P2 | Desk, màn Tham số: lưu `min_stay` hay `damage_catalog` sai dạng thì máy chủ trả 422 đúng, nhưng Desk hiện nguyên chữ "Giá trị phải từ {min} đến {max}." (không có số, không nói dạng đúng). Release notes v1.0.5 đang hứa "nói rõ dạng đúng" | FE (V5-21, PR #166) + PO (release notes) | Mới |
 
 ## 3. Chi tiết
 
 ### BUG-R5-001 – `weekend_nights`: bộ kiểm khi lưu và bộ tính giá dùng hai dạng khác nhau
 
-- **Mức:** P2. Trạng thái: **Mới**.
+- **Mức:** P2. Trạng thái: **Đóng 16/11** (QA kiểm lại trên staging v1.0.5, xem Ghi chú test lại).
   - Hiện chưa sai tiền. `weekend_uplift_pct` = 0 từ ngày chuyển S (INV quyết ESC-045 câu 1 = A, decision-log 01/11; BR mục 13 v0.5.1). Tham số này chỉ dùng cho mức tăng cuối tuần (`calendarRate`). Luật ở tối thiểu 2 đêm dùng `min_stay.arrivalWeekdays`, không đọc `weekend_nights`.
   - Vì vậy hiện tại lỗi là: OWN/MGR không lưu lại được tham số. Cách vòng: không sửa tham số này.
   - **Nâng P0** nếu có hai điều cùng lúc: `weekend_uplift_pct` > 0, và `weekend_nights` đã bị lưu dạng số. Khi đó đêm Thứ Sáu, Thứ Bảy không được cộng mức tăng: báo giá, đơn và giá ước tính web đều thấp hơn quy định, không có cảnh báo. Câu lỗi của Desk ở bước 2 dẫn người dùng tới đúng dạng số đó.
@@ -88,7 +96,12 @@
   - Bước 1–3 trên Desk suy ra từ mã `ParamDialog.tsx` và `problem.ts`. QA chưa chạy trên stack có Desk.
 - **Việc cho ORC (chỉ đọc, không chặn):** kiểm giá trị đang hiệu lực trên production còn dạng chữ. Cách đơn giản: INV hoặc MGR mở màn Tham số trên Desk, xem `weekend_nights` (chỉ xem, không bấm Lưu). Nếu ra dạng số thì báo QA: lỗi chuyển sang tình huống nâng P0 ở trên khi `weekend_uplift_pct` > 0.
 - **Ghi chú 06/11 (khi ghi BUG-R5-003):** giá trị lưu với Hiệu lực từ = hôm nay thì **không sửa lại và không hủy được trong ngày**. Ghi đè trả 422, Hủy lịch trả 409; QA đã chạy cục bộ, xem BUG-R5-003. Nếu lỡ lưu dạng số, sớm nhất phải sang ngày nghiệp vụ sau mới sửa được.
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 16/11, QA, staging `sha-32c9bd2def9a` (CI `43805583212`), 16/11 13:35–13:58, `rounds/round-05/qa/v1.0.5-fb010-staging.md` mục L2.3. `qa.mgr`, Hiệu lực từ 01/03/2027, không đụng hôm nay. Kết quả:
+  - `["FRI","SAT"]` (đúng giá trị đang chạy) → 200, Hủy lịch → 204;
+  - `5` → 422 `PARAM_OUT_OF_RANGE`;
+  - `["FRI","XYZ"]` → 422 `value[1] NOT_IN_LIST`, `allowed` = MON…SUN;
+  - `[]` → 422 `REQUIRED`.
+  Đạt, **đóng**. Lịch sử tham số vẫn 1 dòng seed.
 
 ### BUG-R5-002 – Tiền cọc về cho giữ chỗ đã tự hủy: Desk không ghi được khoản thu, không tạo được yêu cầu hoàn
 
@@ -264,7 +277,7 @@
 
 ### BUG-R5-003 – `min_stay`: bộ kiểm khi lưu cho qua dạng số, bộ tính giá ném lỗi, mọi báo giá bị 500
 
-- **Mức:** P1. Trạng thái: **Mới**.
+- **Mức:** P1. Trạng thái: **Đóng 16/11** (QA kiểm lại trên staging v1.0.5; câu báo trên Desk tách sang BUG-R5-007).
   - Hiện chưa xảy ra. ORC kiểm chỉ đọc 06/11: production có `min_stay` = danh sách 2 luật (`arrivalWeekdays ["FRI","SAT"]`, `arrivalOnSpecialDates`, 2 đêm, mọi kênh) từ 28/10, đúng dạng.
   - Chỉ cần MGR hoặc OWN lưu một giá trị mà bộ kiểm cho qua, ví dụ `2`, là thành **sự cố P0**:
     - mọi báo giá (`calculateQuote`, lưu báo giá) trả 500, nên cũng không tạo được giữ chỗ từ báo giá;
@@ -364,11 +377,18 @@
   - Đọc mã: các dòng nêu ở "Chỗ lệch trong mã".
   - Chạy cục bộ 06/11 (QA): bước 1–6 cho kết quả đúng như ghi ở trên. Log `ProblemFilter` có `TypeError: rules is not iterable` ở bước 4 và bước 6 (23:00).
   - Đường giá ước tính web và tạo giữ chỗ từ báo giá suy ra từ mã. QA chưa chạy hai đường này.
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 16/11, QA, staging `sha-32c9bd2def9a` (CI `43805583212`), 16/11 13:35–13:58, `rounds/round-05/qa/v1.0.5-fb010-staging.md` mục L2.3. `qa.mgr` lưu cho 01/03/2027:
+  - `2`, `{"nights":2}`, `"2"` → 422 `PARAM_OUT_OF_RANGE` (`value` `VALIDATION_FAILED`);
+  - `[{"nights":0}]`, `nights` 8 → `value[0].nights` `VALUE_OUT_OF_RANGE`;
+  - `null` → `REQUIRED`; `[null]` → `value[0]` `REQUIRED`;
+  - giá trị đúng → 200, Hủy lịch → 204.
+  - Báo giá và đơn trực tiếp sau đó vẫn chạy (`calculateQuote` 200, `createReservation` 201).
+  - Đường "đọc phòng thủ" (giá trị hỏng đã lưu không làm báo giá lỗi) không tái hiện được trên staging, vì không còn lưu được giá trị hỏng. Phần này dựa UNIT/integration của `e0bdb3b8` (CI xanh trên `32c9bd2d`).
+  - Phần máy chủ đạt, **đóng**. Câu báo trên Desk (V5-21, PR #166 chưa gộp) hiện "Giá trị phải từ {min} đến {max}.": ghi riêng là **BUG-R5-007**.
 
 ### BUG-R5-004 – `damage_catalog`: bộ kiểm khi lưu nhận mọi giá trị, một phần tử `null` làm folio, bill và danh mục phí trả 500
 
-- **Mức:** P1. Trạng thái: **Mới**.
+- **Mức:** P1. Trạng thái: **Đóng 16/11** (QA kiểm lại trên staging v1.0.5; câu báo trên Desk tách sang BUG-R5-007).
   - Theo những gì đội biết, lỗi chưa xảy ra:
     - giá trị đầu của production là bảng 3 món đúng dạng (`production-defaults.ts` 550–559);
     - release notes v1.0.4 dặn không bấm Lưu ở ô này;
@@ -495,7 +515,14 @@
     - Log nằm ở scratchpad của QA, ngoài repo.
   - `adjustFolioLine` và các màn Desk ở mục "Mức" suy ra từ mã. QA chưa chạy hai phần này.
   - Không có dữ liệu khách thật.
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 16/11, QA, staging `sha-32c9bd2def9a` (CI `43805583212`), 16/11 13:35–13:58, `rounds/round-05/qa/v1.0.5-fb010-staging.md` mục L2.3. `qa.mgr` lưu cho 01/03/2027:
+  - `[null]`, bảng 3 món + `null` → 422 `value[i]` `REQUIRED`;
+  - giá âm → `VALUE_OUT_OF_RANGE`; thiếu giá → `REQUIRED`;
+  - giá dạng chuỗi, đối tượng thay danh sách → `VALIDATION_FAILED`;
+  - trùng `code` → `value[1].code` `DUPLICATE`; `null` → `REQUIRED`;
+  - bảng đúng → 200, Hủy lịch → 204.
+  - `getFolio`, `getBill`, `getChargeCatalog`, `addFolioLine` 200/201 suốt lượt.
+  - Phần máy chủ đạt, **đóng**. Câu báo trên Desk: **BUG-R5-007**.
 
 ### BUG-R5-005 – Web khách, tab Yêu cầu: lời nhắn có số thẻ thì trang báo "lỗi máy chủ" thay vì câu hướng dẫn
 
@@ -583,7 +610,7 @@
 
 ### BUG-R5-006 – `executeRefund`: luật số thẻ V-09 chặn nhầm mã chuyển khoản dài, MGR/OWN không ghi được lệnh chi hoàn
 
-- **Mức:** P2. Trạng thái: **Mở, giao BE (v1.0.5).**
+- **Mức:** P2. Trạng thái: **Đã sửa, chờ QA** (16/11: máy chủ đạt trên staging v1.0.5; còn kiểm câu Desk ở ô Mã giao dịch).
   - Đây là sai chức năng trên đường tiền, có cách làm tạm. Không phải lỗi bảo mật (SEC `rounds/round-05/responses/SEC-responses.md` mục 4.4).
   - Không mất tiền, không lộ dữ liệu: lệnh bị chặn thì không ghi gì. Số thẻ thật vẫn bị chặn đúng.
   - Không xếp P1: chỉ chặn một thao tác chi hoàn, không chặn nhận phòng, trả phòng hay thu tiền. Cách làm tạm rẻ, giữ được việc tìm trên sao kê.
@@ -687,4 +714,42 @@
     - Tỉ lệ ngẫu nhiên dùng bộ sinh số có hạt cố định, 20.000 mẫu mỗi độ dài.
   - Câu trên Desk và các bước 1, 4 suy ra từ mã. QA chưa chạy trên Desk hay stack có DB.
   - Mọi mã trong mục này là chuỗi ví dụ hoặc số thẻ thử công khai, không phải mã giao dịch hay số thẻ thật.
+- **Ghi chú test lại:** 16/11, QA, staging `sha-32c9bd2def9a` (CI `43805583212`), 16/11 13:35–13:58, `rounds/round-05/qa/v1.0.5-fb010-staging.md` mục L2.3. Yêu cầu hoàn 100.000 trên OTM-00403, OWN duyệt và chi, có step-up và chứng từ:
+  - `executeRefund`: (a) `4111111111111111`, `4111-1111-1111-1111`, `4111.1111.1111.1111` → 422 `CARD_NUMBER_DETECTED` `field = bankReference`, thân lỗi không có `1111`;
+  - (e) `1234567812345670` → 422;
+  - (c) `2026110700000000` → **201** PT-000513, lệnh chi ghi đúng mã;
+  - `recordPayment` chuyển khoản: (a) → 422; (b) `FT26110700000000` và (c) `26110700000004` → 201.
+  - Máy chủ đạt cả hai đường. Câu Desk ở ô Mã giao dịch (FE #130, có trong bản cắt) chưa kiểm UI.
+  - Trạng thái **Đã sửa, chờ QA**. Đóng khi kiểm xong câu Desk.
+
+### BUG-R5-007 – Desk, màn Tham số: lưu giá trị sai dạng thì câu báo hiện nguyên "{min}" và "{max}"
+
+- **Mức:** P2. Trạng thái: **Mới**.
+  - Máy chủ chặn đúng, không ghi gì, không sai tiền (BUG-R5-003/004 đã đóng).
+  - Nhưng người sửa tham số (OWN/MGR) chỉ thấy "Giá trị phải từ {min} đến {max}.": không có số và không nói dạng đúng. Họ không tự sửa được giá trị và sẽ thử lại hay gọi đội.
+  - Không xếp P1: không chặn luồng nào khác, giá trị đang chạy giữ nguyên. Không xếp P3: release notes v1.0.5 đang hứa ngược lại ("Desk từ chối, nói rõ dạng đúng"), và đây là đường chính để INV chỉnh tham số theo bảng giá 01/11.
+- **Vai chịu trách nhiệm:**
+  - FE: V5-21, PR #166 "FE Gói 2 Desk V5-21 + V5-25 câu Desk (parameters)", còn mở. UXD đã có chữ ở `rounds/round-05/outputs/UXD/copy-v1.0.5.md` mục 2.3: `error.PARAM_OUT_OF_RANGE_SHAPE`, `_MIN`, `_MAX`, `_GROUPS`, `params.err_json`.
+  - PO: sửa dòng "Tham số ở tối thiểu và đêm cuối tuần" trong `product/docs/release-notes.md` (v1.0.5) nếu cắt tag mà không có #166.
+- **Môi trường:**
+  - Desk staging `sha-32c9bd2def9a` (= `main` @ `32c9bd2d`, bản cắt v1.0.5 theo phạm vi A, decision-log 16/11), Chromium headless 1440 × 1000, `qa.mgr`;
+  - 16/11 13:52.
+  - Có từ v1.0.4 với các khóa trả `extras` rỗng (UXD 2.3), nhưng tới v1.0.5 mới là đường chính của `min_stay`, `damage_catalog`, `weekend_nights`. Ở v1.0.4, máy chủ nhận giá trị sai nên không có 422.
+- **Liên quan:** BUG-R5-003, BUG-R5-004 (V5-25); V5-21; plan R5 mục 4a T20 ("câu V5-25 đi trong V5-21", bắt buộc); `apps/admin-web/src/pages/ParamDialog.tsx` dòng 161–162 (`PARAM_OUT_OF_RANGE` → `problemView`); `app/problem.ts` nhánh `PARAM_OUT_OF_RANGE` chỉ có 2 câu.
+- **Tiền điều kiện:** Desk staging v1.0.5; tài khoản `qa.mgr`; không đụng giá trị hôm nay.
+- **Các bước tái hiện:**
+  1. `qa.mgr` mở **Tham số quy tắc**, tìm dòng `min_stay` (BR-113), bấm **Sửa**.
+  2. Ô **Giá trị (JSON)** gõ `2`. Hiệu lực từ 01/03/2027. Lý do "QA kiểm câu báo lỗi". Bấm **Lưu thay đổi**.
+  3. Làm lại với `damage_catalog` (BR-512), giá trị `[null]`.
+- **Kết quả thực tế:**
+  - Cả hai lần, `PUT …/parameters/<key>` → 422 `PARAM_OUT_OF_RANGE`, `errors` có trường và mã, `extras` không có `min`/`max`/`allowed`.
+  - Dưới ô giá trị, Desk hiện "Giá trị phải từ {min} đến {max}." đúng nguyên chữ. Không lưu gì, lịch sử không đổi.
+- **Kết quả mong đợi:**
+  - Theo UXD 2.3: `extras` rỗng → `error.PARAM_OUT_OF_RANGE_SHAPE` ("Giá trị này chưa đúng dạng, hoặc chưa khớp với tham số đi kèm.").
+  - Có `errors[].field` thì chỉ đúng phần tử (ví dụ `value[0]`).
+  - Không bao giờ hiện `{min}`/`{max}` nguyên chữ.
+- **Bằng chứng:**
+  - Ảnh `rounds/round-05/qa/stg-img/bug-r5-007-min-stay-1440.png`. QA đã kiểm che: chỉ có màn Tham số, không có dữ liệu khách.
+  - Phản hồi mạng: 2 × `422 min_stay` / `422 damage_catalog`.
+- **Ca kiểm lại:** 6 dạng `extras` của UXD 2.3 (`{allowed}`, `{min,max}`, `{max}`, `{min}`, `{}`, `{allowed,min,max}`) trên Desk, VI và EN. Riêng `min_stay` = `2`, `damage_catalog` = `[null]`, `weekend_nights` = `["FRI","XYZ"]`.
 - **Ghi chú test lại:** chưa có.
