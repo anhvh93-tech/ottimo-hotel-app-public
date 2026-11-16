@@ -629,6 +629,8 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
       totalVnd: 2_250_000,
       losDiscountPct: 0,
       extraPersonFeeVnd: 0,
+      // FB-INV-010: null for a stay by the night.
+      monthlyVnd: null,
       currency: 'VND',
       computedAt: shown.computedAt,
       priceVersion: expect.stringMatching(/^[0-9a-f]{16}$/),
