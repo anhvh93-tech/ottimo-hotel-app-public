@@ -10,10 +10,17 @@
  * Desk direct quote of the cheapest room of the type. Nothing about bookings, holds or room statuses is an input (SEC SR-PE-04:
  * the estimate never depends on availability); only the OOO blocks of a room take it out of the type (DOM 2).
  *
+ * FB-INV-010 Đợt 1 (INV 16/11 – replaces ESC-043 câu 2): a stay BY THE MONTH (`stayType = long`) now has a number –
+ * the monthly list price (BR-101 (3), VN guest, VAT included – BR-523) of the cheapest participating room of the
+ * type, rounded with the Desk rent unit `rounding.monthly_rent` (BR-005: 1.000), × the months asked for. No
+ * BR-201 term discount, no foreigner +10 % (BR-109), no service fee (BR-204): the web has no nationality and BR-201
+ * does not say it applies to the web (open question for DOM). A by-the-night stay of ≥ `long_stay_required_from_nights`
+ * nights still answers `monthly_offer` (the guest must choose "by the month").
+ *
  * The result is INTERNAL: it carries the "to" total and the room ids with a missing price (for the Desk snapshot
  * and the OWN warning). The public DTO is built from it by an explicit allowlist (public-site), never spread.
  */
-import { divideRoundVnd } from '../../platform/public/money';
+import { divideRoundVnd, roundVnd } from '../../platform/public/money';
 import { type LocalDate, addDays } from '../../../shared/time';
 import {
   type Party,
@@ -32,8 +39,11 @@ export interface PublicRateRoom {
   roomId: string;
   baseOccupancy: number;
   maxOccupancy: number;
-  /** Nightly list prices (room_list_price) ordered by effectiveFrom (BR-101). Monthly prices are never read here. */
-  listPrices: ReadonlyArray<{ effectiveFrom: LocalDate; nightlyVnd: number }>;
+  /**
+   * List prices (room_list_price) ordered by effectiveFrom (BR-101). `monthlyVnd` (FB-INV-010) is read for a stay by
+   * the month only; absent = that row is a gap for a monthly stay.
+   */
+  listPrices: ReadonlyArray<{ effectiveFrom: LocalDate; nightlyVnd: number; monthlyVnd?: number }>;
   /** An OOO block (planned/active) overlaps a night of the stay → the room does not take part (DOM 2). */
   blocked: boolean;
 }
@@ -42,6 +52,8 @@ export interface PublicRateParams {
   pricing: PricingParams;
   /** `web_estimate.open_until` – last night with a confirmed calendar (BR-115 (6)); null = no limit. */
   openUntil: LocalDate | null;
+  /** `rounding.monthly_rent` (BR-005 – 1.000 from the 01/11 price table): the Desk rent unit (FB-INV-010). */
+  monthlyRentUnit: number;
 }
 
 export interface PublicRateRequest {
@@ -55,9 +67,9 @@ export interface PublicRateRequest {
 }
 
 /**
- * `monthly_offer` (ESC-043 câu 2, INV 01/11): a monthly stay – or a short one of ≥ `long_stay_required_from_nights`
- * nights (BR-108; 30 from the 01/11 price table) – never gets a
- * number on the web; the page invites the guest to ask for the special offer / private quote.
+ * `monthly_offer` (ESC-043 câu 2, INV 01/11; narrowed by FB-INV-010 16/11): a by-the-night stay of
+ * ≥ `long_stay_required_from_nights` nights (BR-108; 30 from the 01/11 price table) gets no number – the guest is
+ * invited to choose "by the month". A stay BY THE MONTH is priced (`ok` + `longStay`).
  */
 export type PublicRateStatus =
   'ok' | 'min_stay' | 'over_capacity' | 'not_open' | 'unavailable' | 'monthly_offer';
@@ -79,12 +91,25 @@ export interface ShortStayEstimate {
   lines: Array<{ nights: number; nightlyVnd: number }>;
 }
 
+/** FB-INV-010: a stay by the month (`stayType = long`), list price of the cheapest participating room. */
+export interface LongStayEstimate {
+  /** Months asked for (1–24); null = the guest has not said how long. */
+  months: number | null;
+  /** "From X / month": the lowest monthly list price of the type, rounded `rounding.monthly_rent`. */
+  monthlyFromVnd: number;
+  /** `monthlyFromVnd` × `months`; null when `months` is null. */
+  totalVnd: number | null;
+  /** The highest monthly list price of the type – INTERNAL (Desk snapshot only, like `toTotalVnd`). */
+  monthlyToVnd: number;
+}
+
 export interface PublicRateEstimate {
   status: PublicRateStatus;
   stayKind: 'short' | 'long';
   /** BR-113 minimum when `status = min_stay`. */
   minNights?: number;
   shortStay?: ShortStayEstimate;
+  longStay?: LongStayEstimate;
   /** Short stay ≥ `long_stay_required_from_nights` nights answered as a long stay (BR-108). */
   longStayRequired?: boolean;
   /** Rooms skipped because a night has no list price (BR-115 (6)) – for the OWN warning, never public. */
@@ -108,10 +133,48 @@ export function stayRangeOf(r: PublicRateRequest): { from: LocalDate; to: LocalD
   return { from: r.arrival, to: addMonthsLocal(r.arrival, r.months ?? 1) };
 }
 
-function listOn(room: PublicRateRoom, date: LocalDate): { nightlyVnd: number } | null {
-  let found: { nightlyVnd: number } | null = null;
+function listOn(
+  room: PublicRateRoom,
+  date: LocalDate,
+): { nightlyVnd: number; monthlyVnd?: number } | null {
+  let found: { nightlyVnd: number; monthlyVnd?: number } | null = null;
   for (const p of room.listPrices) if (p.effectiveFrom <= date) found = p;
   return found;
+}
+
+/** The monthly list price of `room` in effect on `date` (BR-101 (3), BR-006); null = none / not positive. */
+export function monthlyListOn(room: PublicRateRoom, date: LocalDate): number | null {
+  const m = listOn(room, date)?.monthlyVnd;
+  return typeof m === 'number' && Number.isSafeInteger(m) && m > 0 ? m : null;
+}
+
+/**
+ * FB-INV-010: "from X / month" of each public type – the lowest monthly list price in effect on `asOf` among the
+ * given rooms of the type, rounded with the Desk rent unit. A type whose rooms all lack a price is left out (never 0
+ * or a guess – BR-115 (6)); the rooms without a price are returned for the OWN warning (SR-PE-12).
+ */
+export function monthlyFromByType(
+  rooms: ReadonlyArray<{ label: string; room: PublicRateRoom }>,
+  asOf: LocalDate,
+  unit: number,
+): { types: Array<{ label: string; monthlyFromVnd: number }>; priceGapRoomIds: string[] } {
+  const best = new Map<string, number>();
+  const gaps: string[] = [];
+  for (const { label, room } of rooms) {
+    const m = monthlyListOn(room, asOf);
+    if (m === null) {
+      gaps.push(room.roomId);
+      continue;
+    }
+    const prev = best.get(label);
+    if (prev === undefined || m < prev) best.set(label, m);
+  }
+  return {
+    types: [...best.entries()]
+      .map(([label, m]) => ({ label, monthlyFromVnd: roundVnd(m, unit) }))
+      .sort((a, b) => a.monthlyFromVnd - b.monthlyFromVnd || a.label.localeCompare(b.label)),
+    priceGapRoomIds: gaps,
+  };
 }
 
 interface RoomShort {
@@ -203,8 +266,34 @@ export function estimatePublicRate(
   const fitting = rooms.filter((x) => x.maxOccupancy >= persons);
   if (fitting.length === 0) return { ...base, status: 'over_capacity' };
 
-  // ESC-043 câu 2 (INV 01/11): no monthly number on the web – the page shows the special-offer invitation.
-  if (long) return { ...base, status: 'monthly_offer' };
+  // By the night over the BR-108 threshold: no number – the guest is invited to choose "by the month".
+  if (long && r.stayType === 'short') return { ...base, status: 'monthly_offer' };
+  // FB-INV-010 (replaces ESC-043 câu 2): by the month → the monthly list price as of the arrival date (the same date
+  // the Desk one-month quote reads – BR-006), the cheapest participating room, × months. No BR-201 term discount.
+  if (long) {
+    const gaps: string[] = [];
+    const prices: number[] = [];
+    for (const room of fitting) {
+      if (room.blocked) continue;
+      const m = monthlyListOn(room, r.arrival);
+      if (m === null) gaps.push(room.roomId);
+      else prices.push(m);
+    }
+    if (prices.length === 0) return { ...base, priceGapRoomIds: gaps, status: 'unavailable' };
+    const monthlyFromVnd = roundVnd(Math.min(...prices), p.monthlyRentUnit);
+    const months = r.months ?? null;
+    return {
+      ...base,
+      priceGapRoomIds: gaps,
+      status: 'ok',
+      longStay: {
+        months,
+        monthlyFromVnd,
+        totalVnd: months === null ? null : monthlyFromVnd * months,
+        monthlyToVnd: roundVnd(Math.max(...prices), p.monthlyRentUnit),
+      },
+    };
+  }
 
   const departure = r.departure as LocalDate;
   const n = nights as number;

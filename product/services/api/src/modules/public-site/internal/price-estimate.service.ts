@@ -16,6 +16,10 @@
  * branch and by the request snapshot alike (ARC FB-R4-ARC-BE-LPV2-03, SEC FB-R4-SEC-BE-02).
  * A room without a list price is skipped and logged ONCE
  * per room and business day for OWN (SR-PE-12) – the public cannot multiply that warning.
+ *
+ * FB-INV-010 Đợt 1 (INV 16/11 – replaces ESC-043 câu 2): `stayType = long` is priced (`longStay`: the monthly list
+ * price of the cheapest room of the type × months, no term discount), and `getPublicMonthlyRates` answers
+ * "from X / month" for every public type in one call – same switches, RAM limits, fresh-computation cap and cache.
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -41,7 +45,7 @@ import {
   tokenMatches,
   verifyEstimateToken,
 } from './estimate-token';
-import { nightsBetween } from './website-request-rules';
+import { nightsBetween, slugOf } from './website-request-rules';
 import { WebsiteRequestsService } from './website-requests.service';
 
 /** SEC SR-PE-03: query of the route at most this many bytes. */
@@ -99,6 +103,50 @@ interface Computed {
   computedAt: Date;
   estimate: PublicRateEstimate;
   priceVersion: string;
+}
+
+interface MonthlyComputed {
+  at: number;
+  /** Business date the answer was computed for (prices in effect on that date). */
+  today: LocalDate;
+  computedAt: Date;
+  types: Array<{ label: string; monthlyFromVnd: number }>;
+}
+
+/** FB-INV-010: `getPublicMonthlyRates` takes no query at all (SR-PE-02 – anything given → 422). */
+export function checkMonthlyRatesQuery(rawQuery: string): void {
+  if (rawQuery === '') return;
+  if (Buffer.byteLength(rawQuery, 'utf8') > ESTIMATE_MAX_QUERY_BYTES) {
+    throw invalid([{ field: 'query', code: 'TOO_LONG' }]);
+  }
+  const errors: FieldError[] = [];
+  for (const [k] of new URLSearchParams(rawQuery)) {
+    errors.push({ field: k.slice(0, 40), code: 'NOT_ALLOWED' });
+  }
+  if (errors.length > 0) throw invalid(errors);
+}
+
+/**
+ * FB-INV-010 – the public answer of `getPublicMonthlyRates`, field by field (OpenAPI PublicMonthlyRates,
+ * additionalProperties: false): slug + public label + "from" amount per type. Never room ids/numbers, a room count,
+ * the highest price, OTA prices, commissions or discounts.
+ */
+export function publicMonthlyRatesDto(c: {
+  types: ReadonlyArray<{ label: string; monthlyFromVnd: number }>;
+  computedAt: string;
+  taxIncluded: boolean;
+}): Record<string, unknown> {
+  return {
+    estimate: true,
+    currency: 'VND',
+    taxIncluded: c.taxIncluded,
+    roomTypes: c.types.map((t) => ({
+      roomType: slugOf(t.label),
+      label: t.label,
+      monthlyFromVnd: t.monthlyFromVnd,
+    })),
+    computedAt: c.computedAt,
+  };
 }
 
 type FieldError = { field: string; code: string };
@@ -201,8 +249,8 @@ export const requestOf = (q: EstimateQuery): PublicRateRequest => ({
 
 /**
  * SR-PE-01: the public answer, field by field (OpenAPI PublicPriceEstimate, additionalProperties: false).
- * `toTotalVnd`, `lines`, `priceGapRoomIds` and the status names never leave. A monthly stay never has a number
- * (`monthly_offer` – ESC-043 câu 2).
+ * `toTotalVnd`, `lines`, `monthlyToVnd`, `priceGapRoomIds` and the status names never leave. A stay by the month has
+ * `longStay` (FB-INV-010); by the night over the BR-108 threshold still `monthly_offer` without a number.
  */
 export function publicEstimateDto(
   q: EstimateQuery,
@@ -217,6 +265,7 @@ export function publicEstimateDto(
   }
   if (e.longStayRequired) notes.push({ code: 'long_stay_required' });
   const s = e.shortStay;
+  const l = e.longStay;
   return {
     estimate: true,
     currency: 'VND',
@@ -250,6 +299,15 @@ export function publicEstimateDto(
           },
         }
       : {}),
+    ...(ok && e.stayKind === 'long' && l
+      ? {
+          longStay: {
+            months: l.months,
+            monthlyFromVnd: l.monthlyFromVnd,
+            totalVnd: l.totalVnd,
+          },
+        }
+      : {}),
     notes,
     computedAt: c.computedAt,
     ...(ok && token ? { estimateToken: token.estimateToken, expiresAt: token.expiresAt } : {}),
@@ -270,6 +328,7 @@ export class PriceEstimateService {
   private readonly limiter: RateLimiter;
   private readonly switches = new Map<string, Switches>();
   private readonly cache = new Map<string, Computed>();
+  private readonly monthlyCache = new Map<string, MonthlyComputed>();
   private readonly warned = new Set<string>();
 
   constructor(
@@ -288,9 +347,11 @@ export class PriceEstimateService {
     if (!propertyId) {
       this.switches.clear();
       this.cache.clear();
+      this.monthlyCache.clear();
       return;
     }
     this.switches.delete(propertyId);
+    this.monthlyCache.delete(propertyId);
     for (const k of [...this.cache.keys()])
       if (k.startsWith(`${propertyId}|`)) this.cache.delete(k);
   }
@@ -479,6 +540,7 @@ export class PriceEstimateService {
       const iat = Math.floor(c.computedAt.getTime() / 1000);
       const exp = iat + ESTIMATE_TOKEN_TTL_SECONDS;
       const s = c.estimate.shortStay;
+      const l = c.estimate.longStay;
       const payload: EstimatePayload = {
         rt: q.roomType,
         st: q.stayType,
@@ -491,6 +553,7 @@ export class PriceEstimateService {
         ...(s
           ? { tot: s.totalVnd, n: s.nights, los: s.losDiscountPct, xp: s.extraPersonFeeVnd }
           : {}),
+        ...(l ? { mo: l.monthlyFromVnd, ...(l.totalVnd !== null ? { tot: l.totalVnd } : {}) } : {}),
         pv: c.priceVersion,
         iat,
         exp,
@@ -505,6 +568,59 @@ export class PriceEstimateService {
       { estimate: c.estimate, computedAt: iso(c.computedAt), taxIncluded: sw.taxIncluded },
       token,
     );
+  }
+
+  /**
+   * GET …/monthly-rates (FB-INV-010) after the controller's RAM limits – the SAME switches (404 when off), the SAME
+   * fresh-computation cap (it counts in the 600/hour of the property) and a 60 s cache per property and business day,
+   * dropped with the estimate caches (`invalidate`).
+   */
+  async publicMonthlyRates(
+    p: ResolvedProperty | null,
+    rawQuery: string,
+  ): Promise<Record<string, unknown>> {
+    if (!p) throw problem('NOT_FOUND');
+    const sw = await this.switchesOf(p);
+    if (!sw.open) throw problem('NOT_FOUND');
+    checkMonthlyRatesQuery(rawQuery);
+    const now = this.clock.now();
+    const today = businessDate(now, p.timezone, sw.rollover);
+    let c = this.monthlyCache.get(p.propertyId);
+    if (
+      !c ||
+      c.today !== today ||
+      now.getTime() - c.at >= ESTIMATE_CACHE_TTL_MS ||
+      now.getTime() < c.at
+    ) {
+      const fresh = `pubest:fresh:${p.propertyId}`;
+      const wait = this.limiter.retryAfter(fresh, ESTIMATE_FRESH_RULE);
+      if (wait > 0) throw problem('SERVICE_UNAVAILABLE', { headers: { 'Retry-After': '60' } });
+      this.limiter.hit(fresh, ESTIMATE_FRESH_RULE);
+      let r: Awaited<ReturnType<PublicRatePort['monthlyFrom']>>;
+      try {
+        r = await this.db.withContext(
+          this.ctxOf(p),
+          async (tx) => {
+            await tx.query(`SET LOCAL statement_timeout = '1s'`);
+            return this.rates.monthlyFrom(tx, today);
+          },
+          { readOnly: true },
+        );
+      } catch (err) {
+        if (err instanceof ProblemError) throw err;
+        this.log.warn(`public monthly rates failed: ${(err as Error).name}`);
+        throw problem('SERVICE_UNAVAILABLE', { headers: { 'Retry-After': '60' } });
+      }
+      if (r.priceGapRoomIds.length > 0) this.warnGaps(p, today, r.priceGapRoomIds);
+      const computedAt = new Date(Math.floor(now.getTime() / 1000) * 1000);
+      c = { at: now.getTime(), today, computedAt, types: r.types };
+      this.monthlyCache.set(p.propertyId, c);
+    }
+    return publicMonthlyRatesDto({
+      types: c.types,
+      computedAt: toZonedIso(c.computedAt, p.timezone),
+      taxIncluded: sw.taxIncluded,
+    });
   }
 
   /**
@@ -539,6 +655,7 @@ export class PriceEstimateService {
       totalVnd: t.tot ?? null,
       losDiscountPct: t.los ?? null,
       extraPersonFeeVnd: t.xp ?? null,
+      monthlyVnd: t.mo ?? null,
       currency: 'VND',
       computedAt: pc.iso(new Date(t.iat * 1000)),
       priceVersion: t.pv,
@@ -558,6 +675,7 @@ export class PriceEstimateService {
       await tx.query(`SELECT set_config('statement_timeout', $1, true)`, [rows[0]?.v ?? '0']);
       await tx.query('RELEASE SAVEPOINT price_estimate');
       const s = x.estimate.shortStay;
+      const l = x.estimate.longStay;
       atSubmit = {
         status: x.estimate.status,
         stayKind: x.estimate.stayKind,
@@ -571,6 +689,14 @@ export class PriceEstimateService {
               losDiscountVnd: s.losDiscountVnd,
               extraPersonFeeVnd: s.extraPersonFeeVnd,
               lines: s.lines,
+            }
+          : {}),
+        ...(l
+          ? {
+              months: l.months,
+              monthlyFromVnd: l.monthlyFromVnd,
+              monthlyToVnd: l.monthlyToVnd,
+              totalVnd: l.totalVnd,
             }
           : {}),
         ...(x.estimate.minNights ? { minNights: x.estimate.minNights } : {}),

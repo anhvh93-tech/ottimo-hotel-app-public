@@ -3820,6 +3820,19 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
             open: false,
           },
         },
+        longStay: {
+          s: {
+            k: 'object',
+            props: {
+              months: { s: { k: 'scalar' } },
+              monthlyFromVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+              totalVnd: {
+                s: { k: 'union', of: [{ k: 'ref', name: 'MoneyVnd' }, { k: 'scalar' }] },
+              },
+            },
+            open: false,
+          },
+        },
         notes: {
           s: {
             k: 'array',
@@ -3853,9 +3866,34 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         extraPersonFeeVnd: {
           s: { k: 'union', of: [{ k: 'ref', name: 'MoneyVnd' }, { k: 'scalar' }] },
         },
+        monthlyVnd: { s: { k: 'union', of: [{ k: 'ref', name: 'MoneyVnd' }, { k: 'scalar' }] } },
         currency: { s: { k: 'scalar' } },
         computedAt: { s: { k: 'ref', name: 'Instant' } },
         priceVersion: { s: { k: 'scalar' } },
+      },
+      open: false,
+    },
+    PublicMonthlyRates: {
+      k: 'object',
+      props: {
+        estimate: { s: { k: 'scalar' } },
+        currency: { s: { k: 'scalar' } },
+        taxIncluded: { s: { k: 'scalar' } },
+        roomTypes: {
+          s: {
+            k: 'array',
+            items: {
+              k: 'object',
+              props: {
+                roomType: { s: { k: 'scalar' } },
+                label: { s: { k: 'scalar' } },
+                monthlyFromVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+              },
+              open: false,
+            },
+          },
+        },
+        computedAt: { s: { k: 'ref', name: 'Instant' } },
       },
       open: false,
     },
@@ -5068,6 +5106,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
     getPublicAvailability: { '200': { k: 'ref', name: 'PublicAvailability' } },
     getPublicOffers: { '200': { k: 'ref', name: 'PublicOffers' } },
     getPublicPriceEstimate: { '200': { k: 'ref', name: 'PublicPriceEstimate' } },
+    getPublicMonthlyRates: { '200': { k: 'ref', name: 'PublicMonthlyRates' } },
     listWebsiteBookingRequests: {
       '200': {
         k: 'object',

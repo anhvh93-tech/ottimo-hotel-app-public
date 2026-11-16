@@ -25,7 +25,7 @@ export interface EstimatePayload {
   ad: number;
   c: number;
   i: number;
-  /** total of the "from" room (short stay) */
+  /** total of the "from" room (short stay; long stay: monthly × months) */
   tot?: number;
   /** nights (short) */
   n?: number;
@@ -33,6 +33,8 @@ export interface EstimatePayload {
   los?: number;
   /** extra-person fee shown */
   xp?: number;
+  /** "from X / month" shown (stay by the month – FB-INV-010); `tot` = X × months when months are known */
+  mo?: number;
   /** priceVersion */
   pv: string;
   /** issued / computed at (unix s) */
@@ -78,6 +80,7 @@ function wellFormed(p: unknown): p is EstimatePayload {
     isInt(o.c) &&
     isInt(o.i) &&
     (o.tot === undefined || isInt(o.tot)) &&
+    (o.mo === undefined || isInt(o.mo)) &&
     typeof o.pv === 'string' &&
     isInt(o.iat) &&
     isInt(o.exp)
