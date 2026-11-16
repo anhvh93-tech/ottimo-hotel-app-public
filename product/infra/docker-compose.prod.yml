@@ -311,8 +311,8 @@ services:
       LANDING_WWW_HOST: ${LANDING_WWW_HOST:-www.landing.invalid}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in /opt/ottimo/.env}
       PROXY_PROTOCOL_ALLOW: ${PROXY_PROTOCOL_ALLOW:-127.0.0.1/32}
-      # US-155 website form + LP-v2 price estimate: on = proxy the three public operations (form-token, booking-requests,
-      # price-estimate – Caddyfile.landing) to api:3000 (only with the stack's api running and LANDING_BASE_URL set);
+      # US-155 website form + LP-v2 price estimate + FB-INV-010 monthly rates: on = proxy the four public operations
+      # (form-token, booking-requests, price-estimate, monthly-rates – Caddyfile.landing) to api:3000 (only with the stack's api running and LANDING_BASE_URL set);
       # default off = every /v1/* is 404 on the landing origin.
       LANDING_PUBLIC_API: ${LANDING_PUBLIC_API:-off}
       LANDING_API_UPSTREAM: api:3000
