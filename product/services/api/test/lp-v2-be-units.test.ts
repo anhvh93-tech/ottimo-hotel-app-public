@@ -981,6 +981,34 @@ describe('getPublicMonthlyRates (FB-INV-010 – replaces ESC-043 câu 2)', () =>
     for (const v of allStrings(dto)) for (const f of FORBIDDEN_VALUES) expect(v, f).not.toBe(f);
   });
 
+  it('FB-R5-ARC-BE-180-03: labels with the same slug are one type (lowest price kept); at most 20 types', () => {
+    const dto = publicMonthlyRatesDto({
+      types: [
+        { label: 'Studio garden', monthlyFromVnd: 9_500_000 },
+        { label: 'Studio Garden', monthlyFromVnd: 9_000_000 },
+        { label: 'Studio  Garden', monthlyFromVnd: 9_000_000 },
+        { label: 'Premium', monthlyFromVnd: 11_500_000 },
+      ],
+      computedAt: 'x',
+      taxIncluded: true,
+    });
+    expect(dto.roomTypes).toEqual([
+      { roomType: 'studio-garden', label: 'Studio  Garden', monthlyFromVnd: 9_000_000 },
+      { roomType: 'premium', label: 'Premium', monthlyFromVnd: 11_500_000 },
+    ]);
+    const many = publicMonthlyRatesDto({
+      types: Array.from({ length: 25 }, (_, i) => ({
+        label: `Type ${String(i).padStart(2, '0')}`,
+        monthlyFromVnd: 8_000_000 + i * 100_000,
+      })),
+      computedAt: 'x',
+      taxIncluded: true,
+    }).roomTypes as Array<{ label: string }>;
+    expect(many).toHaveLength(20);
+    expect(many[0]?.label).toBe('Type 00');
+    expect(many[19]?.label).toBe('Type 19');
+  });
+
   it('no query parameter is accepted (SR-PE-02)', () => {
     expect(() => checkMonthlyRatesQuery('')).not.toThrow();
     for (const q of ['roomType=premium', 'a=1&b=2', 'x'.repeat(300)]) {

@@ -399,7 +399,7 @@ info:
       `Payment.refundRequestId` chưa trả tới 0.3.14; `setPropertyWifi` đếm phép so mật khẩu (5 lần/24 giờ/người); `setParameter` liệt kê 13 khóa có bộ kiểm dạng, mã trường, luật chéo theo khoảng;
       `bankReference` chuẩn hóa, kiểm số thẻ, `duplicateReservationCode` chỉ FD+ (SEC ARC-15); `confirmPaymentReceived`, `createVietQr`: 404 phạm vi trước 409 đơn đã đóng (SEC ARC-17).
       Không đổi schema, không mã lỗi mới, không migration.
-    - **0.3.13 bổ sung 2 (R5 – FB-INV-010 Đợt 1, INV 16/11; BE đề xuất, chờ ARC duyệt)**: landing chỉ bán thuê dài hạn và hiện giá tháng lấy từ Desk – **thay ESC-043 câu 2**
+    - **0.3.13 bổ sung 2 (R5 – FB-INV-010 Đợt 1, INV 16/11; ARC duyệt 16/11 – `rounds/round-05/reviews/ARC-on-be-pr-180.md`)**: landing chỉ bán thuê dài hạn và hiện giá tháng lấy từ Desk – **thay ESC-043 câu 2**
       (web không hiện giá tháng). Chỉ **thêm** (operation, trường tùy chọn ở phản hồi); không bỏ trường, không bỏ giá trị enum, không mã lỗi mới, không migration.
       (a) **Operation mới** `getPublicMonthlyRates` (`GET /v1/public/properties/{propertySlug}/monthly-rates`, tag `public-site`, `x-round: R5`): "From X / month" của **mọi hạng công khai**
       trong một lần gọi – X = giá niêm yết tháng nhỏ nhất (BR-101 (3), giá khách VN, gồm VAT – BR-523) của các căn đang bán thuộc hạng, hiệu lực tại ngày nghiệp vụ, làm tròn
@@ -407,6 +407,9 @@ info:
       (b) `getPublicPriceEstimate` với `stayType = long`: **có số** – `priceAvailable: true` + `PublicPriceEstimate.longStay` (`months`, `monthlyFromVnd`, `totalVnd` = giá tháng × số tháng,
       `null` khi vắng `months`) + `estimateToken`. Không áp giảm theo kỳ hạn BR-201, không +10 % khách NN (BR-109), không phí dịch vụ (BR-204) – câu hỏi DOM. `short` ≥ `long_stay_required_from_nights` đêm
       **giữ** `monthly_offer` (không số). (c) `PublicPriceEstimateRecord.monthlyVnd` (tùy chọn): giá tháng khách đã thấy (token `pe1` thêm khóa `mo`).
+      (d) ARC FB-R5-ARC-BE-180-01: số "From" của `getPublicMonthlyRates` (giá danh mục hôm nay) có thể khác số của form (`getPublicPriceEstimate`, theo ngày đến và đoàn) – khi lệch, trang hiện số của form.
+      (e) Ghi chú phát hành (ARC FB-R5-ARC-BE-180-02): `priceVersion` nay băm thêm giá tháng và `rounding.monthly_rent` → yêu cầu web ngắn ngày gửi trong 24 giờ sau deploy (token phát trước deploy)
+      có thể báo lệch phiên bản giá trên Desk dù số không đổi – bỏ qua nếu số khớp. (f) FB-R5-ARC-BE-180-03: nhãn khác nhau nhưng cùng slug là **một** hạng (giữ giá nhỏ nhất); tối đa 20 hạng.
 
     ## Thay đổi phiên bản 0.3.12-draft (R4 v1.0.4 – gói P4-00; ARC 04/11; chi tiết `rounds/round-04/outputs/ARC/v1.0.4-contract-0.3.12.md`)
     Nền: 0.3.11-draft (`lp-v2-main`). Chỉ **thêm** giá trị enum ở phản hồi, trường chỉ đọc, mã lỗi trên operation đã có và mô tả – **không** operation mới, không đổi `x-roles`.
@@ -10160,7 +10163,8 @@ paths:
         (`active_from` ≤ ngày ≤ `active_to`); X = **giá niêm yết tháng nhỏ nhất** (BR-101 (3) – giá khách VN, đã gồm VAT – BR-523) hiệu lực tại ngày đó (BR-006), làm tròn `rounding.monthly_rent`
         (BR-005, cùng khóa báo giá dài hạn của Desk). **Không** áp giảm kỳ hạn (BR-201), +10 % khách NN (BR-109), phí dịch vụ (BR-204), điện nước (BR-205). **Không** xét đơn, giữ chỗ,
         khối OOO, trạng thái buồng (giá danh mục, không phải phòng trống – lịch trống là Đợt 2). Hạng mà mọi căn thiếu giá tháng **không có** trong danh sách (không bao giờ 0 hay số đoán);
-        căn thiếu giá ghi cảnh báo OWN một lần/căn/ngày. Sắp xếp theo `monthlyFromVnd` tăng dần rồi theo nhãn.
+        căn thiếu giá ghi cảnh báo OWN một lần/căn/ngày. Nhãn khác nhau nhưng cùng slug gom thành một hạng (giữ giá nhỏ nhất). Sắp xếp theo `monthlyFromVnd` tăng dần rồi theo nhãn; tối đa 20.
+        **Số "From" là giá danh mục tại hôm nay** (không xét OOO, sức chứa, ngày đến); số của form (`getPublicPriceEstimate`) theo ngày đến và đoàn của khách – khi hai số lệch, trang hiện số của form (ARC FB-R5-ARC-BE-180-01).
         **Không lộ dữ liệu nội bộ**: danh sách cho phép (`additionalProperties: false`) – không số căn, `roomId`, mã nhóm, số căn của hạng, giá cao nhất, giá OTA nền, hoa hồng, chiết khấu.
         **Thứ tự kiểm và giới hạn = `getPublicPriceEstimate`** (dùng **chung** bucket RAM `pubest:` theo IP 30/10 phút, 200/ngày, 400/ngày/IPv6 /48; cửa sổ chung 10/giây; bulkhead 2;
         trần 600 lần tính mới/giờ/cơ sở): `Sec-Fetch-Site` khác `same-origin` → 403; cơ sở không có / tắt `public_booking_requests_enabled` hoặc `public_show_prices` → 404; có bất kỳ tham số
