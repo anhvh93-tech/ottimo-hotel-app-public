@@ -7,6 +7,7 @@
   - `rounds/round-03/qa/bug-list.md`, `rounds/round-02/qa/bug-list.md`, `rounds/round-01/qa/bug-list.md`.
 - Dữ liệu: chỉ DS-E (tài khoản `qa.*`, khách giả). Không bí mật, không dữ liệu khách thật.
 - Bản production đang chạy: v1.0.4 = `6414be25` (Release 06/11 14:10).
+- 16/11 (QA, v1.0.5 + FB-INV-010 Đợt 1, `rounds/round-05/qa/v1.0.5-fb010-staging.md`): lượt staging **chưa chạy** – job `deploy staging` của CI `43805583212` (`32c9bd2d`) chờ INV duyệt (ESC-052). **0 lỗi mới.** BUG-R5-003, BUG-R5-004 (P1) có bản sửa trên `main` (`e0bdb3b8`, `f2e6733d`), vẫn Open tới khi QA kiểm lại trên staging.
 
 ## 1. Tổng hợp
 
