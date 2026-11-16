@@ -561,9 +561,9 @@ describe('FAQ long-stay policy = site.json longStay', () => {
   const L = site.longStay;
   /** Digits as the page language groups them: 4,000 · 4.000 · 4 000 (any space, U+00A0 or U+202F in ru). */
   const amount = (n: number, lang: Copy['lang']) => {
-    const g = String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u0000');
+    const g = String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '_');
     const sep = lang === 'vi' ? '\\.' : lang === 'ru' ? '[\\s\\u00a0\\u202f]' : ',';
-    return new RegExp(`(?<![\\d.,])${g.replace(/\u0000/g, sep)}(?![\\d.,]\\d)\\s*VND`);
+    return new RegExp(`(?<![\\d.,])${g.replace(/_/g, sep)}(?![\\d.,]\\d)\\s*VND`);
   };
   const policy = (c: Copy) => c.faq.items.find((i) => i.id === 'faq-policy');
   const ONE_MONTH = {

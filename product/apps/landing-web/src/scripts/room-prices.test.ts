@@ -45,7 +45,7 @@ describe('room cards', () => {
     expect(a!.querySelector('data')!.getAttribute('value')).toBe('8500000');
     expect(visible(b!)).toBe('Monthly rate on request');
     expect(visible(c!)).toBe('Monthly rate on request');
-    expect(document.body.textContent).not.toMatch(/\b0 VND/);
+    expect(document.body.textContent).not.toMatch(/\b0\u00a0VND/);
   });
 
   it('taxIncluded false → "Before taxes."', () => {

@@ -297,7 +297,7 @@ export function formatVnd(n: number, lang: Lang): string {
   const num = new Intl.NumberFormat(INTL_LOCALE[lang], { maximumFractionDigits: 0 }).format(
     Math.round(n),
   );
-  return `${num} VND`;
+  return `${num}\u00a0VND`;
 }
 
 /**
