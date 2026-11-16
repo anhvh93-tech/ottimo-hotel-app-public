@@ -363,3 +363,60 @@ INV yêu cầu triển khai trong chat 16/11. ORC giao việc sau khi phát hàn
 5. **`static-site.sh up`**: container healthy, uid 10001, read-only, cap_drop ALL, không cổng, 96 MB, journald, 172.31.3.10. Kiểm bằng `--resolve` về VPS: http apex → `301 https://<apex>/x?a=1`; http www → `301 https://<apex>/x`; tên lạ :80 → 404; tên lạ :443 → đóng kết nối. HTTPS của trang **chưa có chứng chỉ**, đúng dự kiến vì DNS còn trỏ Google: log có `challenge failed`, Caddy tự thử lại. Kiểm lại OTTIMO sau bước này: header vẫn giống hệt.
 - Ghi chú: `ops-check.sh` (staging) báo `FAIL sshkeys` (1/4 dòng khóa của user deploy không phải forced command). Lỗi này có từ trước, không liên quan việc này, chưa sửa: báo ORC.
 - **Còn lại**: INV đổi DNS tại nhà đăng ký, chỉ `@` và `www` (A về VPS, xóa CNAME `www` về Google), giữ MX/TXT. Khi `dig` cả hai tên ra IP VPS: `sudo /opt/ottimo-edge/infra/server/bin/static-site.sh restart`, rồi chạy nghiệm thu 14.3 + danh sách của chủ trang.
+
+## 16. Cập nhật 16/11 tối (17:21–17:30) – Vận hành sau v1.0.5: W1 xong cả hai stack; W6 bước 1–2 DỪNG ở chốt chặn
+
+Căn cứ: giao việc ORC 16/11 (INV đồng ý trong chat "Làm tối nay" cho **W1** và **W6 bước 1–2**; **W0 không làm**); runbook v1.0.5 mục W1, W6, W7; mục 14 ở trên (gói production đã là a9f510f7, bản cũ `/root/ottimo-prod-bundles/infra-20261116-154619`). Không dựng lại container nào, không đụng edge hay `/opt/ottimo-static`, không SQL ghi, không in IP/bí mật.
+
+### 16.1 Đọc hiện trạng (17:21, chỉ đọc)
+- Timer sao lưu đã cài trong `/etc/systemd/system/` vẫn là bản 24/10 (1 lượt/ngày: production 03:00, staging 03:30). Gói của **cả hai stack** (`/opt/ottimo`, `/opt/ottimo-prod`) đã có bản 2 lượt; khác bản đã cài chỉ ở chú thích, `Description` và một dòng `OnCalendar` thêm (đã `diff`). Staging cũng chưa W1, nên làm luôn (runbook: W1 từng stack, staging thuộc Đợt A, rủi ro thấp).
+- Chưa có `/etc/systemd/journald.conf.d/`; `state/journald_since` chưa có ở cả hai stack. `/var/log/journal` = `root:systemd-journal 2755`; journal 461,6 MB.
+- **Phát hiện thêm:** unit `ottimo-ops-check@.service` và `ottimo-ops-check.service` đã cài vẫn là bản cũ (chưa có `SupplementaryGroups=systemd-journal`, W6 bước 3 chưa làm). Vì gói mới đã vào lúc 15:46, mọi lượt `ops-check` **theo timer** của cả hai stack từ đó báo `FAIL journal: journal unreadable (the ops-check unit needs SupplementaryGroups=systemd-journal)` cùng `FAIL sshkeys`, vào phòng Báo động. Lệnh tay W7 (qua `systemd-run` có nhóm) không thấy lỗi này.
+
+### 16.2 W1 – timer sao lưu 2 lượt/ngày: ĐẠT (production + staging)
+
+| Giờ | Stack | Kết quả |
+|---|---|---|
+| 17:22:01 | Production `ottimo-backup@ottimo-prod.timer` | `ONCALENDAR: 2`; lịch `03:00:00` + `15:00:00`; `TIMER SAO LUU TREN MAY: 2`. Lượt bù (Persistent, đã qua 15:00) chạy ngay: `OK: 75 encrypted files in /var/backups/ottimo-prod` lúc 17:22:05. NEXT 03:02 ngày 17/11 |
+| 17:22:21 | Staging `ottimo-backup.timer` | `ONCALENDAR: 2`; lịch `03:30:00` + `15:30:00`; `TIMER SAO LUU TREN MAY: 2`. Lượt bù: `OK: 77 encrypted files in /var/backups/ottimo` lúc 17:22:25 (chạy sau khi lượt production đã `OK`, không chồng). NEXT 03:32 ngày 17/11 |
+
+Từ nay `ops-check backup` không còn FAIL chiều 17/11 (lượt 15:00 nằm trong ngưỡng 14 giờ). Lùi W1 nếu cần: tệp timer cũ ở `/root/ottimo-prod-bundles/infra-20261116-154619/server/systemd/`.
+
+### 16.3 W6 bước 1–2 – DỪNG trước khi cài (lệch runbook, chưa đổi gì)
+Ubuntu (systemd 255.4-1ubuntu8.18) có sẵn drop-in của gói `systemd`: `/usr/lib/systemd/journald.conf.d/syslog.conf` với `ForwardToSyslog=yes`. systemd đọc drop-in của mọi thư mục theo **thứ tự tên tệp**; `50-ottimo.conf` xếp trước `syslog.conf` (`5` < `s`), nên `syslog.conf` đọc sau và **thắng**. Cài `50-ottimo.conf` như runbook thì chốt "bốn dòng `HIEU LUC`" sẽ ra `ForwardToSyslog=yes` → runbook bắt **dừng, báo OPS + SEC** (SEC 95-05 (d)). OPS biết trước nên không cài, không khởi động lại journald, và không ghi `journald_since` (bước 2 là mốc của lúc bước 1 có hiệu lực; ghi khi bước 1 chưa làm là sai mốc).
+
+Hệ quả hiện nay: container cả hai stack đã ghi ra journald (từ deploy v1.0.5) trong khi `ForwardToSyslog=yes` là mặc định, tức log container đang có thêm bản trong `/var/log/syslog` (logrotate của Ubuntu). Đây là đúng việc V5-63/SEC ARC-07 muốn bỏ. Trạng thái này đã có từ trước tối nay, OPS không làm nó tệ thêm.
+
+Đề xuất sửa (OPS, cần SEC review, PR nhỏ, chưa làm):
+- (a, đề xuất) Đổi tên drop-in thành tên xếp sau mọi tệp của nhà phân phối, ví dụ `server/journald/zz-ottimo.conf`, sửa `bootstrap-vps.sh`, test `ops-check-journal.test.sh`, README, runbook W6 bước 1. Giữ cả giá trị khác.
+- (b) Hoặc thêm `/etc/systemd/journald.conf.d/syslog.conf` (cùng tên ở `/etc` che bản `/usr/lib`) chỉ có `ForwardToSyslog=no`.
+- Thêm vào `ops-check journal` một chốt đọc `systemd-analyze cat-config` để `ForwardToSyslog` có hiệu lực khác `no` là WARN/FAIL (hiện mục này không kiểm, nên máy mới dựng bằng `bootstrap-vps.sh` cũng mắc cùng lỗi mà không ai thấy).
+Sau khi gộp và làm mới gói hai stack: chạy lại W6 bước 1–2 theo runbook (cần ORC xác nhận đồng ý 16/11 của INV còn dùng được cho bản sửa).
+
+### 16.4 `ops-check` đủ (lệnh W7, `systemd-run` + nhóm `systemd-journal`), 17:2x
+
+| Mục | Production `/opt/ottimo-prod` | Staging `/opt/ottimo` |
+|---|---|---|
+| containers | ok (5 chạy, api healthy) | ok |
+| j16 | ok | ok |
+| backup | ok, 0 h | ok, 0 h |
+| disk / mem / tls | ok 16% / 77% / > 14 ngày | ok 16% / 76% / > 14 ngày |
+| http5xx | ok 0 | ok 0 |
+| email_dead / email_missing / email_changes / email_ascii | ok / ok 0 / ok / ok | ok / ok (1, chỉ báo) / ok / ok |
+| pricelimit / pricegap / priceswitch | ok / ok (0 căn thiếu giá) / ok | ok / ok / ok |
+| email_config | ok (relay) | ok (mock) |
+| db_triggers | ok | ok |
+| **sshkeys** | **FAIL** 1/4 dòng khóa không phải lệnh ép (W0 chưa làm, đúng dự kiến) | **FAIL** như production (cùng user `ottimo`) |
+| **journal** | **WARN** `state/journald_since missing` (W6 bước 1–2 chưa làm) | **WARN** như production |
+| EXIT | 1 (vì `sshkeys`) | 1 (vì `sshkeys`) |
+
+Kết luận: lệnh tay đúng mong đợi (chỉ `FAIL sshkeys`). **Lượt theo timer** thì còn thêm `FAIL journal: journal unreadable` cho tới khi làm W6 bước 3.
+
+### 16.5 Việc còn lại
+1. **W0** (gỡ khóa người khỏi `authorized_keys` của `ottimo`): chờ INV đồng ý (Đợt B). Tới khi làm, `sshkeys` FAIL ở mọi lượt của cả hai stack.
+2. **W6 bước 3** (cài unit `ottimo-ops-check@.service` + `ottimo-ops-check.service` có `SupplementaryGroups=systemd-journal`, `daemon-reload`; không dựng lại container, không gián đoạn): ngoài phạm vi INV đồng ý tối nay nên OPS không làm. Không làm thì timer `ops-check` hai stack FAIL `journal unreadable` mỗi 30 phút. ORC xin INV đồng ý (đề xuất: làm sớm, rủi ro thấp, lùi bằng tệp unit cũ trong bundle `/root/...`).
+3. **W6 bước 1–2**: chờ sửa tên drop-in (16.3), SEC review, làm mới gói, rồi chạy lại.
+4. Ghi decision-log (ORC): giờ W1 hai stack, hai lượt sao lưu bù 17:22 `OK`, chốt chặn W6 bước 1 và lý do.
+5. Lượt 15:00 / 15:30 đầu tiên (17/11): xem `state/backup.last_ok` mới và journal `ottimo-backup` có `OK:`; ghi decision-log.
+
+Không commit (theo giao việc).
