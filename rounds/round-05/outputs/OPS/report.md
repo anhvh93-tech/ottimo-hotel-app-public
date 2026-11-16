@@ -181,3 +181,22 @@ Nguồn: `rounds/round-05/reviews/SEC-dependabot-triage-v1.0.5.md` mục 4 (đ�
   - chỉ còn cảnh báo #3 và #19;
   - OPS đóng #9, #10, #11 và kiểm #27;
   - PO thêm dòng Ghi chú kỹ thuật vào release notes v1.0.5.
+
+## 12. Cập nhật 16/11 – FB-INV-010 Đợt 1: proxy `monthly-rates` trên landing (PR `r5-fb010-ops-caddy`)
+
+**Đã làm**
+- `Caddyfile.landing` mở thêm đúng một route: `GET /v1/public/properties/<slug>/monthly-rates`. Route chỉ nhận GET, đúng đường dẫn, không có query, và chỉ mở khi `LANDING_PUBLIC_API=on`. Route dùng chung snippet `public_api` với ba route cũ (bỏ `Authorization`, ghi đè `X-Forwarded-For`, timeout). Mọi biến thể khác (có query, POST/HEAD/OPTIONS, đường dẫn con, slug sai) trả 404 và không tới api. Edge không có rate limit; giới hạn nằm ở api (dùng chung bucket với price-estimate, PR #180).
+- `check-caddy-landing.sh` thêm 2 ca proxy, 10 ca 404, 1 ca "không tới api", và thêm route vào bộ kiểm `Authorization` (production + staging) và bộ kiểm proxy tắt.
+- README mục 12.3, LP-v2 bước 8: landing chỉ bán dài hạn, đổi BR-108 không còn kéo theo phát hành landing. Ghi chú cũ chỉ còn dùng khi quay landing về bản v1.0.4.
+- Chú thích trong `docker-compose.prod.yml`, `env.example`, `env.production.example`, `ci.yml`: ba (hoặc hai) thao tác → bốn.
+
+**Giả định**
+- Trang gọi `monthly-rates` không kèm query (`booking-transport.ts` `fetchMonthlyRates` của #181). Api trả 422 khi có query, nên Caddy chặn luôn.
+
+**Rủi ro / vướng mắc**
+- Máy OPS không chạy được Docker và không có shellcheck, nên `check-caddy-landing.sh` mới chỉ qua `bash -n`; CI job `infra-scripts` / shellcheck mới là phép kiểm thật.
+- Phạm vi bản app: `main` có 190 commit api sau `v1.0.4`, gồm phần v1.0.5 đang treo; không có migration mới. Tag app từ `main` sẽ đưa các commit đó lên production cùng #180. ORC chọn A (đi như v1.0.5, đủ bảng kiểm 4a) hay B (nhánh vá từ `v1.0.4`; thử gộp #180 lên `v1.0.4` có 5 xung đột).
+- `ops-check pricelimit` vẫn chỉ đếm 429/503 của route `price-estimate`. Hai route dùng chung bucket, nên quét `monthly-rates` vẫn hiện ra qua price-estimate. Nếu muốn đếm riêng thì làm việc sau, không thuộc PR này.
+
+**Việc chưa xong**
+- Deploy production (bước sau, theo checklist trong thân PR).

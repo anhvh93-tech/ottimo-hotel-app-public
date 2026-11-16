@@ -9,17 +9,20 @@
 #     replaced by the address Caddy saw (the api trusts only this container – TRUST_PROXY); query of 256 bytes ok,
 #     257 bytes → 404; raw UTF-8 in the query (≤ 256 characters, > 256 bytes) → 404, the same text %-encoded is
 #     proxied; POST/HEAD, a sub-path, upper-case slug → 404 – none of these reach the api
+#   - GET  /v1/public/properties/<slug>/monthly-rates    → proxied (FB-INV-010 Dot 1), X-Forwarded-For set by Caddy, a
+#     client X-Forwarded-For replaced; any query (even a bare "?x"), POST/HEAD/OPTIONS, a sub-path, upper-case or
+#     1-char slug, /monthly-rate, /monthly-rates/ → 404 – none of these reach the api
 #   - POST with Content-Length > 16 KB                   → 413, nothing reaches the api
 #   - POST chunked 64 KB (no Content-Length)             → 413, nothing reaches the api
 #   - any other /v1/* (other operation, wrong method, bad slug, /v1/me, /v1/public/…/availability) → 404
 #   - languages: /ru/, /ko/ served (no /ru block any more); 404 page of the path's language (/vi/x, /ko/x, /ru/x),
 #     English 404 when the build has no 404 page for it (/zh/x here) or for an unknown prefix (/ja/x)
 #   - Authorization never reaches the api (SEC FB-R4-SEC-OPS-054-01, V5-67), with both access snippets of
-#     /run/secrets/landing_access: production (no restriction) – a client Basic or Bearer header on each of the three
+#     /run/secrets/landing_access: production (no restriction) – a client Basic or Bearer header on each of the four
 #     operations arrives empty at the stub; staging (basic auth with a throw-away password made by this run + X-Robots-Tag)
-#     – the right password passes on all three operations and the api still sees no Authorization; no or a wrong
+#     – the right password passes on all four operations and the api still sees no Authorization; no or a wrong
 #     password → 401 with X-Robots-Tag noindex, nothing reaches the api
-# and with LANDING_PUBLIC_API unset (the default): form-token and price-estimate → 404.
+# and with LANDING_PUBLIC_API unset (the default): form-token, price-estimate and monthly-rates → 404.
 # Needs Docker + curl. Exit 0 = ok, 1 = a rule is broken. CHECK_LANDING_CADDYFILE runs the checks on another file
 # (only to show that a check goes red on an older Caddyfile).
 set -Eeuo pipefail
@@ -91,6 +94,7 @@ req() { # port method path [curl args…] → "<code> <body>"
 }
 api_hits() { docker logs "$net-api" 2>/dev/null | grep -c '"uri":"/v1/public/properties/dlt/booking-requests"' || true; }
 price_hits() { docker logs "$net-api" 2>/dev/null | grep -c '"uri":"/v1/public/properties/[^"]*price-estimate' || true; }
+monthly_hits() { docker logs "$net-api" 2>/dev/null | grep -c '"uri":"/v1/public/properties/[^"]*monthly-rate' || true; }
 
 out=$(req "$port" GET /v1/public/properties/dlt/form-token)
 case "$out" in "200 api GET /v1/public/properties/dlt/form-token xff="[0-9]*) ok "form-token proxied, X-Forwarded-For set ($out)" ;;
@@ -143,6 +147,29 @@ done
 sleep 1
 [ "$(price_hits)" = "$before" ] && ok "refused price-estimate requests never reached the api" || bad "a refused price-estimate request reached the api"
 
+# ── FB-INV-010 Dot 1 monthly rates (OpenAPI 0.3.13 add-on 2): GET, exact path, no query ──
+out=$(req "$port" GET /v1/public/properties/dlt/monthly-rates)
+case "$out" in "200 api GET /v1/public/properties/dlt/monthly-rates xff="[0-9]*" q= "*) ok "monthly-rates proxied, X-Forwarded-For set" ;;
+  *) bad "monthly-rates: $out" ;; esac
+out=$(req "$port" GET /v1/public/properties/dlt/monthly-rates -H 'X-Forwarded-For: 203.0.113.66')
+case "$out" in "200 api GET /v1/public/properties/dlt/monthly-rates xff="*203.0.113.66*) bad "monthly-rates: client X-Forwarded-For passed on: $out" ;;
+  "200 api GET /v1/public/properties/dlt/monthly-rates xff="[0-9]*) ok "monthly-rates: client X-Forwarded-For replaced by the address Caddy saw" ;;
+  *) bad "monthly-rates with X-Forwarded-For: $out" ;; esac
+before=$(monthly_hits)
+for c in "GET /v1/public/properties/dlt/monthly-rates?x" "GET /v1/public/properties/dlt/monthly-rates?roomType=studio" \
+  "POST /v1/public/properties/dlt/monthly-rates" "OPTIONS /v1/public/properties/dlt/monthly-rates" \
+  "HEAD /v1/public/properties/dlt/monthly-rates" "GET /v1/public/properties/dlt/monthly-rates/x" \
+  "GET /v1/public/properties/dlt/monthly-rates/" "GET /v1/public/properties/DLT/monthly-rates" \
+  "GET /v1/public/properties/d/monthly-rates" "GET /v1/public/properties/dlt/monthly-rate"; do
+  if [ "${c%% *}" = HEAD ]; then
+    out=$(curl --silent --insecure --max-time 15 --resolve "landing.localhost:$port:127.0.0.1" --head -o /dev/null \
+      -w '%{http_code}' "https://landing.localhost:$port${c#* }" || true)
+  else out=$(req "$port" "${c%% *}" "${c#* }"); fi
+  [ "${out%% *}" = 404 ] && ok "404: ${c:0:72}" || bad "${c:0:72} → ${out:0:80}"
+done
+sleep 1
+[ "$(monthly_hits)" = "$before" ] && ok "refused monthly-rates requests never reached the api" || bad "a refused monthly-rates request reached the api"
+
 # ── LP-v2 languages: /ru/ open, 404 page by language (ARC lp-v2-design 3.2, SR-LC-06) ──
 for c in "/ru/ home ru" "/ko/ home ko" "/zh/ home zh" "/vi/x 404 vi" "/ko/x 404 ko" "/ru/x/y 404 ru" "/ru home ru" \
   "/zh/x 404</title>" "/ja/x 404</title>" "/x 404</title>"; do
@@ -163,7 +190,7 @@ done
 # ── Authorization stays at Caddy (SEC FB-R4-SEC-OPS-054-01, V5-67), both access snippets ──
 # The stub answers "… auth=<Authorization it received>", last in its body, so an empty header ends the body with "auth=".
 ops3=("GET /v1/public/properties/dlt/form-token" "POST /v1/public/properties/dlt/booking-requests"
-  "GET /v1/public/properties/dlt/price-estimate?$pq")
+  "GET /v1/public/properties/dlt/price-estimate?$pq" "GET /v1/public/properties/dlt/monthly-rates")
 proxied_without_auth() { # label → ok when the last request got 200 from the stub and the stub saw no Authorization
   local code="$1" label="$2" body
   body=$(cat "$work/body" 2>/dev/null || true)
@@ -201,6 +228,8 @@ out=$(req "$port_off" GET /v1/public/properties/dlt/form-token)
 [ "${out%% *}" = 404 ] && ok "LANDING_PUBLIC_API unset → form-token 404 (proxy off by default)" || bad "proxy off: $out"
 out=$(req "$port_off" GET "/v1/public/properties/dlt/price-estimate?$pq")
 [ "${out%% *}" = 404 ] && ok "LANDING_PUBLIC_API unset → price-estimate 404" || bad "proxy off, price-estimate: $out"
+out=$(req "$port_off" GET /v1/public/properties/dlt/monthly-rates)
+[ "${out%% *}" = 404 ] && ok "LANDING_PUBLIC_API unset → monthly-rates 404" || bad "proxy off, monthly-rates: $out"
 
 if [ "$fails" -gt 0 ]; then echo "::error::Caddyfile.landing: $fails check(s) failed"; exit 1; fi
-echo "OK: Caddyfile.landing – only the three public operations reach the api (form ≤ 16 KB, price GET ≤ 256-byte query, no Authorization header), 404 by language, everything else 404"
+echo "OK: Caddyfile.landing – only the four public operations reach the api (form ≤ 16 KB, price GET ≤ 256-byte query, monthly-rates GET without query, no Authorization header), 404 by language, everything else 404"
