@@ -61,7 +61,11 @@ EOF
 mk_env "$work/prod" production edge 172.31.2.2/32 desk.localhost landing.localhost www.landing.localhost
 mk_env "$work/stg" staging edge 172.31.1.2/32 desk.stg.localhost preview.localhost www.preview.localhost
 mk_env "$work/old" staging direct 127.0.0.1/32 desk.old.localhost old.localhost www.old.localhost
-render() { EDGE_HOME="$work/edge" EDGE_STACKS="$*" bash "$infra/server/bin/edge.sh" render; }
+# EDGE_STATIC_HOME: the secondary static site (infra/static) is OFF unless a test sets STATIC_HOME_UNDER_TEST.
+render() {
+  EDGE_HOME="${EDGE_HOME_UNDER_TEST:-$work/edge}" EDGE_STACKS="$*" EDGE_STATIC_HOME="${STATIC_HOME_UNDER_TEST:-$work/no-static}" \
+    bash "$infra/server/bin/edge.sh" render
+}
 
 if out=$(render "$work/prod $work/stg $work/old" 2>&1); then
   ok "(a) render + nginx -t: $(tail -n 1 <<<"$out")"
@@ -88,6 +92,19 @@ render "$work/badallow" >/dev/null 2>&1 && bad "(a) wrong PROXY_PROTOCOL_ALLOW a
 EDGE_CONN_PER_IP=abc render "$work/prod" >/dev/null 2>&1 && bad "(a) non-numeric EDGE_CONN_PER_IP accepted" \
   || ok "(a) non-numeric EDGE_CONN_PER_IP refused"
 cmp -s "$conf" "$work/good.conf" && ok "(a) refused renders left the previous nginx.conf untouched" || bad "(a) nginx.conf changed by a refused render"
+
+# ---------- (a) secondary static site (infra/static, EDGE_STATIC_HOME/.env) ----------
+# The OTTIMO routing must not move by one byte when no static site is configured: the render of the fixtures above is
+# compared with fixtures/edge-nginx.ottimo-only.conf, written by the edge.sh of main BEFORE the static site existed
+# (temporary directory replaced by @WORK@). EDGE_TEST_WRITE_GOLDEN=1 rewrites it – only for a deliberate, reviewed
+# change of the OTTIMO block.
+golden="$here/fixtures/edge-nginx.ottimo-only.conf"
+norm() { sed "s|$work|@WORK@|g" "$1"; }
+if [ "${EDGE_TEST_WRITE_GOLDEN:-}" = 1 ]; then mkdir -p "$here/fixtures"; norm "$work/good.conf" > "$golden"; echo "golden written: $golden"; fi
+cmp -s <(norm "$work/good.conf") "$golden" \
+  && ok "(a) no static site: nginx.conf byte-identical to the render before the static site existed" \
+  || { bad "(a) no static site: nginx.conf differs from $golden"; diff <(norm "$work/good.conf") "$golden" | head -20 || true; }
+[ "${EDGE_TEST_ONLY_RENDER:-}" = 1 ] && { [ "$fails" -eq 0 ] || exit 1; echo "OK (render part only)"; exit 0; }
 
 # ---------- (b) end to end ----------
 for n in staging production; do
