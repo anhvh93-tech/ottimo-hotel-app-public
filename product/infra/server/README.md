@@ -681,7 +681,7 @@ Một trang tĩnh nhỏ của doanh nghiệp khác (một tên miền + `www`) c
 Thiết kế:
 - **Stack riêng `ottimo-static`** (`infra/static/`): một container Caddy, image dựng tại chỗ từ `Dockerfile.static` (base `caddy:2-alpine` pin digest, cùng bản landing; bỏ file capability để chạy được với `cap_drop: [ALL]`), uid 10001, `read_only`, `no-new-privileges`, 96 MB / 100 pids, log journald (90 ngày). Không cổng công khai, không api, không DB, không bí mật. Web root gắn **chỉ đọc**. Chứng chỉ ACME riêng trong volume `ottimo-static_staticdata`.
 - **Mạng riêng** `ottimo-link-static` 172.31.3.0/24: edge 172.31.3.2 (overlay `infra/edge/docker-compose.edge-static.yml`), Caddy 172.31.3.10 (alias `static-site`). Caddy chỉ nhận PROXY protocol từ 172.31.3.2 (cố định trong compose, không cấu hình được).
-- **edge.sh** đọc `STATIC_HOST` + `STATIC_WWW_HOST` từ `/opt/ottimo-static/.env` (không phải biến shell: `sudo` xóa biến, và lượt `edge.sh up` sau này cho OTTIMO không được làm mất route). Hai tên được **thêm sau** các dòng OTTIMO; tệp trống hoặc không có → `nginx.conf` **giống từng byte** bản cũ (`infra/ci/test-edge.sh` so với `infra/ci/fixtures/edge-nginx.ottimo-only.conf` do edge.sh trước tính năng này sinh ra). Tên trùng một stack, tên sai dạng, có apex mà thiếu www, `.env` không đọc được → dừng, `nginx.conf` cũ giữ nguyên. Tên lạ vẫn bị đóng kết nối / 404.
+- **edge.sh** đọc `STATIC_HOST` + `STATIC_WWW_HOST` từ `/opt/ottimo-static/.env` (không phải biến shell: `sudo` xóa biến, và lượt `edge.sh up` sau này cho OTTIMO không được làm mất route). Hai tên được **thêm sau** các dòng OTTIMO; tệp trống hoặc không có → `nginx.conf` **giống từng byte** bản cũ (`infra/ci/test-edge.sh` so với `infra/ci/fixtures/edge-nginx.ottimo-only.conf` do edge.sh trước tính năng này sinh ra). Tên trùng một stack, tên sai dạng, nhiều tên trong một biến, có apex mà thiếu www, www khác `www.<apex>`, tên là hoặc nằm dưới `ottimo.vn` hay apex của một stack đang nạp, `.env` không đọc được → dừng, `nginx.conf` cũ giữ nguyên. Tên lạ vẫn bị đóng kết nối / 404.
 - **Caddyfile.static**: CSP riêng của trang (cho CSS/JS inline + Google Fonts – CSP OTTIMO sẽ làm vỡ trang), HSTS 1 năm, DENY, nosniff, Referrer/Permissions-Policy, bỏ `Server`; HTML `max-age=0, must-revalidate`, `/img/*` 7 ngày; `https://www…` và `http://` cả hai tên → **301** `https://<apex>{uri}` (một bước); chỉ GET/HEAD (khác → 405); tệp chấm (`.git`, `.DS_Store`) → 404; log che IP /24, bỏ query.
 
 ### 14.1 Bật trang (root, sau khi bundle mới đã ở `/opt/ottimo-edge/infra`)
@@ -695,13 +695,17 @@ chmod -R go-w /opt/ottimo-edge/infra && chmod 0755 /opt/ottimo-edge/infra/server
 /opt/ottimo-edge/infra/server/bin/edge.sh plan
 # 2. Thư mục + cấu hình + web root (tệp gửi đến thường là 0600: phải đọc được với uid 10001)
 install -d -o root -g root -m 0755 /opt/ottimo-static /opt/ottimo-static/site
-install -o root -g root -m 0600 /opt/ottimo-edge/infra/static/env.example /opt/ottimo-static/.env
-#    sửa .env: STATIC_HOST, STATIC_WWW_HOST, ACME_EMAIL (của chủ trang), STATIC_ROOT để mặc định
-rsync -a --delete --chmod=D755,F644 --chown=root:root <thư-mục-trang>/ /opt/ottimo-static/site/
+#    .env 0640 root:ottimo: không có bí mật, user deploy đọc được (edge.sh render), CHỈ root ghi – tệp này quyết định
+#    edge route tên nào, nên thư mục /opt/ottimo-static và .env là ranh giới bảo vệ tên miền OTTIMO (SEC-OPS-169)
+install -o root -g ottimo -m 0640 /opt/ottimo-edge/infra/static/env.example /opt/ottimo-static/.env
+#    sửa .env: STATIC_HOST, STATIC_WWW_HOST (= www.<STATIC_HOST>), ACME_EMAIL (của chủ trang), STATIC_ROOT để mặc định
+#    --no-links: KHÔNG chép symlink (file_server đi theo symlink → có thể lộ khóa TLS của trang – SEC-OPS-166);
+#    static-site.sh từ chối web root còn symlink
+rsync -rt --no-links -og --chown=root:root --chmod=D755,F644 --delete <thư-mục-trang>/ /opt/ottimo-static/site/
 # 3. Edge: plan phải chỉ có đúng 4 dòng "+ … static-site…", rồi up (mọi site gián đoạn ≈ 1–2 s)
 /opt/ottimo-edge/infra/server/bin/edge.sh plan
 /opt/ottimo-edge/infra/server/bin/edge.sh up
-# 4. Container trang tĩnh (từ chối nếu edge chưa route hai tên, web root thiếu index.html hoặc không đọc được)
+# 4. Container trang tĩnh (từ chối nếu edge chưa route hai tên, web root thiếu index.html, có symlink hoặc không đọc được)
 /opt/ottimo-edge/infra/server/bin/static-site.sh up
 ```
 
@@ -715,7 +719,7 @@ rsync -a --delete --chmod=D755,F644 --chown=root:root <thư-mục-trang>/ /opt/o
 - `curl -sI https://example.test/` → 200, `content-security-policy` có `'unsafe-inline'` + `fonts.googleapis.com`; `curl -sI https://www.example.test/x` và `curl -sI http://example.test/x` → `301 https://example.test/x`.
 - OTTIMO không đổi: `ottimo.vn`, `desk.ottimo.vn`, `g.ottimo.vn`, staging trả như trước; `curl -sI https://ottimo.vn/ | grep -i content-security-policy` vẫn `script-src 'self';` (không `unsafe-inline`).
 - `edge.sh status` có thêm đúng 2 dòng `… static-site:443;`; `static-site.sh status` healthy.
-- Cập nhật nội dung về sau: chỉ `rsync` lại bước 2 vào `/opt/ottimo-static/site/` (chép **vào** thư mục, không thay thư mục), không cần khởi động lại.
+- Cập nhật nội dung về sau: chỉ chạy lại lệnh `rsync … --no-links` của bước 2 vào `/opt/ottimo-static/site/` (chép **vào** thư mục, không thay thư mục), không cần khởi động lại.
 
 ### 14.4 Gỡ bỏ
 ```bash

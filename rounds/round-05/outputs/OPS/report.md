@@ -268,3 +268,5 @@ Ghi riêng, không thuộc kế hoạch round 5. INV muốn chạy thêm trang t
 - `edge.sh up` dựng lại edge: mọi site gián đoạn ≈ 1–2 s (như mọi lần đổi tên miền). Làm sau khi phát hành v1.0.5 xong.
 - Đổi DNS là việc của INV tại nhà đăng ký; phải giữ MX/TXT (thư điện tử của tên miền đó).
 - Chi phí: 0 (cùng VPS, ~96 MB RAM tối đa, chứng chỉ miễn phí) – không cần ESC.
+
+**Phản hồi SEC (review `SEC-on-ops-pr-184.md`, DUYỆT) – đã sửa trên cùng PR:** 166 (`static-site.sh` từ chối web root có symlink; README dùng `rsync -rt --no-links`), 167 (kiểm riêng từng biến, `STATIC_WWW_HOST = www.<STATIC_HOST>`, mảng, không tách chữ/glob), 168 (chặn tên là hoặc nằm dưới `ottimo.vn` và apex của stack đang nạp), 169 (`.env` 0640 root:ottimo ở README + env.example), 170 (test giả PROXY header trên mạng static; `static-site.sh` kiểm dạng tên, `grep -xF`). Thêm 10 ca test. Dòng decision-log bỏ khỏi PR (ORC ghi trên main).

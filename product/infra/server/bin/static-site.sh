@@ -31,14 +31,22 @@ check() {
   host=$(envval STATIC_HOST); www=$(envval STATIC_WWW_HOST); root=$(envval STATIC_ROOT)
   root="${root:-$STATIC_HOME/site}"
   [ -n "$host" ] && [ -n "$www" ] || die "STATIC_HOST and STATIC_WWW_HOST must both be set in $env_file"
+  # Same name rule as edge.sh (SEC FB-R5-SEC-OPS-170): the names go into the Caddyfile through the environment.
+  local re='^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+  [[ "$host" =~ $re ]] || die "STATIC_HOST is not a host name"
+  [ "$www" = "www.$host" ] || die "STATIC_WWW_HOST must be www.<STATIC_HOST>"
   [ -n "$(envval ACME_EMAIL)" ] || die "ACME_EMAIL missing in $env_file"
   [ -f "$root/index.html" ] || die "$root/index.html missing – copy the site first"
-  # uid 10001 in the container reads the files: every dir must be world-readable+searchable, every file world-readable.
+  # SEC FB-R5-SEC-OPS-166: file_server follows symlinks – one pointing into /home/caddy/data would publish the site's
+  # TLS / ACME keys. The content comes from a third party: no symlink at all in the web root (copy with --no-links).
   local bad
+  bad=$(find "$root" -type l | head -n 3)
+  [ -z "$bad" ] || die "symlink in the web root (copy with rsync --no-links, README 14.1): $bad"
+  # uid 10001 in the container reads the files: every dir must be world-readable+searchable, every file world-readable.
   bad=$(find "$root" \( -type d ! -perm -0005 \) -o \( -type f ! -perm -0004 \) | head -n 3)
   [ -z "$bad" ] || die "not readable by the container (chmod -R a+rX $root): $bad"
   for h in "$host" "$www"; do
-    grep -qE "^\s+${h//./\\.} static-site:443;$" "$EDGE_HOME/nginx.conf" 2>/dev/null \
+    grep -qxF "		$h static-site:443;" "$EDGE_HOME/nginx.conf" 2>/dev/null \
       || die "the edge does not route $h yet – run edge.sh up first (README 14 step 3)"
   done
   docker network inspect ottimo-link-static >/dev/null 2>&1 || die "network ottimo-link-static missing – run edge.sh up first"

@@ -68,19 +68,36 @@ collect() {
   [ "${#stacks[@]}" -gt 0 ] || die "no stack with EDGE_MODE=edge in: $EDGE_STACKS"
 }
 
-# Secondary static site: sets static_hosts ("" = none). A .env that exists but cannot be read stops the render (the
-# new nginx.conf would silently lose the site's route).
-static_hosts=""
+# Secondary static site: sets the array static_hosts (empty = none) to exactly (apex, www.apex). A .env that exists
+# but cannot be read stops the render (the new nginx.conf would silently lose the site's route). Each value is checked
+# on its own, quoted (SEC FB-R5-SEC-OPS-167: "a.test b.test" is refused, never split into two names, no glob).
+static_hosts=()
 collect_static() {
   local f="$EDGE_STATIC_HOME/.env" host www
-  static_hosts=""
+  static_hosts=()
   [ -e "$f" ] || return 0
   [ -r "$f" ] || die "$f exists but cannot be read (run as root)"
   host=$(envval "$f" STATIC_HOST)
   www=$(envval "$f" STATIC_WWW_HOST)
   [ -n "$host$www" ] || return 0
   { [ -n "$host" ] && [ -n "$www" ]; } || die "$f: STATIC_HOST and STATIC_WWW_HOST go together (both set or both empty)"
-  static_hosts="$host $www"
+  valid_host "$host" || die "$f: STATIC_HOST is not a host name"
+  valid_host "$www" || die "$f: STATIC_WWW_HOST is not a host name"
+  [ "$www" = "www.$host" ] || die "$f: STATIC_WWW_HOST must be www.<STATIC_HOST>"
+  static_hosts=("$host" "$www")
+}
+
+# SEC FB-R5-SEC-OPS-168: a static name may not be, or end in, an OTTIMO domain: ottimo.vn (hard-coded, also covers
+# names no stack routes yet) or the apex of any loaded stack's DESK_HOST / LANDING_HOST (a leading "www." dropped).
+OTTIMO_APEX=ottimo.vn
+static_name_owned() { # name apex...
+  local n="$1" a
+  shift
+  for a in "$OTTIMO_APEX" "$@"; do
+    [ "$n" = "$a" ] && return 0
+    case "$n" in *".$a") return 0 ;; esac
+  done
+  return 1
 }
 
 valid_host() { [[ "$1" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; }
@@ -89,7 +106,7 @@ render() { # [output file] (default: $conf, the file the edge uses)
   local out="${1:-$conf}"
   collect
   collect_static
-  local tls="" http="" seen=" " entry home name f key host target
+  local tls="" http="" seen=" " entry home name f key host target apexes=()
   for entry in "${stacks[@]}"; do
     home=${entry%%|*}; name=${entry##*|}; f="$home/.env"
     for key in DESK_HOST STAFF_HOST GUEST_HOST LANDING_HOST LANDING_WWW_HOST; do
@@ -98,13 +115,17 @@ render() { # [output file] (default: $conf, the file the edge uses)
       valid_host "$host" || die "$f: $key is not a host name"
       case "$seen" in *" $host "*) die "$host is configured twice (each host belongs to one stack)" ;; esac
       seen+="$host "
+      case "$key" in DESK_HOST | LANDING_HOST) apexes+=("${host#www.}") ;; esac
       case "$key" in LANDING_*) target="$name-landing" ;; *) target="$name-web" ;; esac
       tls+="		$host $target:443;"$'\n'
       http+="		$host $target;"$'\n'
     done
   done
-  for host in $static_hosts; do
+  for host in ${static_hosts[@]+"${static_hosts[@]}"}; do
     valid_host "$host" || die "$EDGE_STATIC_HOME/.env: '$host' is not a host name"
+    if static_name_owned "$host" ${apexes[@]+"${apexes[@]}"}; then
+      die "$EDGE_STATIC_HOME/.env: $host belongs to an OTTIMO domain – a static site may not take it"
+    fi
     case "$seen" in *" $host "*) die "$host is configured twice (each host belongs to one stack or to the static site)" ;; esac
     seen+="$host "
     tls+="		$host static-site:443;"$'\n'
@@ -182,12 +203,12 @@ EOF
     rm -f "$out.new"; die "generated nginx.conf does not pass nginx -t"
   fi
   mv "$out.new" "$out"
-  log "$(basename "$out") rendered: $(grep -c ':443;' "$out") host(s) for ${#stacks[@]} stack(s)$([ -z "$static_hosts" ] || echo ' + static site')"
+  log "$(basename "$out") rendered: $(grep -c ':443;' "$out") host(s) for ${#stacks[@]} stack(s)$([ "${#static_hosts[@]}" -eq 0 ] || echo ' + static site')"
 }
 
 networks() {
   local n list="staging production"
-  [ -z "$static_hosts" ] || list+=" static"
+  [ "${#static_hosts[@]}" -eq 0 ] || list+=" static"
   for n in $list; do
     docker network inspect "ottimo-link-$n" >/dev/null 2>&1 \
       || docker network create --driver bridge --subnet "$(subnet_of "$n")" --ip-range "$(range_of "$n")" "ottimo-link-$n" >/dev/null
@@ -218,7 +239,7 @@ up() {
   # The config is a bind-mounted file replaced by mv (new inode): recreate, not reload (≈ 1–2 s for every site).
   compose up --detach --wait --wait-timeout 60 --force-recreate edge
   log "edge running"
-  [ -z "$static_hosts" ] || log "static site routed: start it now if it is not running – infra/server/bin/static-site.sh up"
+  [ "${#static_hosts[@]}" -eq 0 ] || log "static site routed: start it now if it is not running – infra/server/bin/static-site.sh up"
 }
 
 plan() {

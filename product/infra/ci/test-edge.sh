@@ -159,6 +159,41 @@ STATIC_HOME_UNDER_TEST="$work/static-bad" render "$work/prod" >/dev/null 2>&1 &&
 mk_static "$work/static-half" static.localhost ''
 STATIC_HOME_UNDER_TEST="$work/static-half" render "$work/prod" >/dev/null 2>&1 && bad "(a) STATIC_HOST without STATIC_WWW_HOST accepted" \
   || ok "(a) STATIC_HOST without STATIC_WWW_HOST refused"
+# SEC FB-R5-SEC-OPS-167: one name per variable, www = www.<apex>, no word splitting / glob.
+mk_static "$work/static-two" 'static.localhost other.localhost' www.static.localhost
+STATIC_HOME_UNDER_TEST="$work/static-two" render "$work/prod" >/dev/null 2>&1 && bad "(a) two names in STATIC_HOST accepted" \
+  || ok "(a) STATIC_HOST with two names refused (not split into extra routes)"
+mk_static "$work/static-glob" '*' 'www.*'
+STATIC_HOME_UNDER_TEST="$work/static-glob" render "$work/prod" >/dev/null 2>&1 && bad "(a) glob static name accepted" \
+  || ok "(a) glob in STATIC_HOST refused"
+mk_static "$work/static-www" static.localhost www.other.localhost
+STATIC_HOME_UNDER_TEST="$work/static-www" render "$work/prod" >/dev/null 2>&1 && bad "(a) STATIC_WWW_HOST of another apex accepted" \
+  || ok "(a) STATIC_WWW_HOST other than www.<STATIC_HOST> refused"
+# SEC FB-R5-SEC-OPS-168: no name of an OTTIMO domain – ottimo.vn (hard) or under a loaded stack's apex.
+mk_static "$work/static-ov" api.ottimo.vn www.api.ottimo.vn
+STATIC_HOME_UNDER_TEST="$work/static-ov" render "$work/prod" >/dev/null 2>&1 && bad "(a) static name under ottimo.vn accepted" \
+  || ok "(a) static name under ottimo.vn refused"
+mk_static "$work/static-ov2" ottimo.vn www.ottimo.vn
+STATIC_HOME_UNDER_TEST="$work/static-ov2" render "$work/prod" >/dev/null 2>&1 && bad "(a) static name ottimo.vn accepted" \
+  || ok "(a) static name ottimo.vn refused"
+mk_static "$work/static-sub" shop.landing.localhost www.shop.landing.localhost
+STATIC_HOME_UNDER_TEST="$work/static-sub" render "$work/prod" >/dev/null 2>&1 && bad "(a) static name under a stack's apex accepted" \
+  || ok "(a) static name under a loaded stack's apex (landing.localhost) refused"
+# SEC FB-R5-SEC-OPS-166: static-site.sh refuses a web root with a symlink (file_server would follow it).
+mkdir -p "$work/static-ln/site" "$work/static-ln/edge"
+printf 'STATIC_HOST=static.localhost\nSTATIC_WWW_HOST=www.static.localhost\nACME_EMAIL=ops@example.invalid\nSTATIC_ROOT=%s/site\n' \
+  "$work/static-ln" > "$work/static-ln/.env"
+printf 'x\n' > "$work/static-ln/site/index.html" && chmod 644 "$work/static-ln/site/index.html"
+sout=$(STATIC_HOME="$work/static-ln" EDGE_HOME="$work/static-ln/edge" bash "$infra/server/bin/static-site.sh" up 2>&1 || true)
+grep -q 'the edge does not route' <<<"$sout" && ok "(a) static-site.sh: clean web root passes the content checks" \
+  || bad "(a) static-site.sh clean web root: $sout"
+ln -s /home/caddy/data/k.key "$work/static-ln/site/k.txt"
+sout=$(STATIC_HOME="$work/static-ln" EDGE_HOME="$work/static-ln/edge" bash "$infra/server/bin/static-site.sh" up 2>&1 || true)
+grep -q 'symlink in the web root' <<<"$sout" && ok "(a) static-site.sh: symlink in the web root refused" \
+  || bad "(a) static-site.sh symlink: $sout"
+printf 'STATIC_HOST=static.localhost\nSTATIC_WWW_HOST=www.other.localhost\nACME_EMAIL=ops@example.invalid\n' > "$work/static-ln/.env"
+sout=$(STATIC_HOME="$work/static-ln" EDGE_HOME="$work/static-ln/edge" bash "$infra/server/bin/static-site.sh" up 2>&1 || true)
+grep -q 'must be www' <<<"$sout" && ok "(a) static-site.sh: www not matching the apex refused" || bad "(a) static-site.sh www rule: $sout"
 if [ "$(id -u)" != 0 ]; then
   mk_static "$work/static-locked" static.localhost www.static.localhost && chmod 000 "$work/static-locked/.env"
   STATIC_HOME_UNDER_TEST="$work/static-locked" render "$work/prod" >/dev/null 2>&1 && bad "(a) unreadable static .env silently skipped" \
@@ -308,6 +343,15 @@ sleep 1
 slog=$(sdc logs --no-color static 2>/dev/null | grep '"uri":"/?\[q\]"' | grep -o '"remote_ip":"[^"]*"' | tail -n 1 || true)
 [ "$slog" = '"remote_ip":"172.31.2.0"' ] && ok "(b) static backend sees the client address via PROXY protocol ($slog, masked /24), not the edge's" \
   || bad "(b) static backend client address: '${slog:-none logged}'"
+# SEC FB-R5-SEC-OPS-170: a forged PROXY header sent straight to the static Caddy from another address of the static
+# network is ignored – the log shows the sender's real /24 (172.31.3.0), never the forged 203.0.113.0.
+docker run --rm --network ottimo-link-static --ip 172.31.3.77 "$CURL_IMAGE" -sk --max-time 10 -o /dev/null \
+  --haproxy-protocol --haproxy-clientip 203.0.113.9 --resolve static.localhost:443:172.31.3.10 \
+  "https://static.localhost/spoof-probe" >/dev/null 2>&1 || true
+sleep 1
+slog=$(sdc logs --no-color static 2>/dev/null | grep '"uri":"/spoof-probe"' | grep -o '"remote_ip":"[^"]*"' | tail -n 1 || true)
+[ "$slog" = '"remote_ip":"172.31.3.0"' ] && ok "(b) forged PROXY header (203.0.113.9) from a non-edge address on the static network ignored ($slog)" \
+  || bad "(b) static network PROXY spoof: '${slog:-none logged}'"
 # Hardening of the running container (the real compose file).
 sid=$(sdc ps -q static)
 [ "$(docker inspect -f '{{.Config.User}} {{.HostConfig.ReadonlyRootfs}} {{.HostConfig.CapDrop}} {{.HostConfig.PortBindings}}' "$sid")" = "10001:10001 true [ALL] map[]" ] \
