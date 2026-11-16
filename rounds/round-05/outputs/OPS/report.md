@@ -247,3 +247,25 @@ Căn cứ: giao việc ORC 16/11; decision-log 16/11 (ESC-052 = A); `rounds/roun
 - Deploy landing staging `sha-32c9bd2def9a`: chờ SEC chọn (a) hoặc (b) và có image mới, rồi `--check-only` lại (bước `privacy` phải ra 5 ngôn ngữ, không FAIL), rồi mới deploy.
 - Một lựa chọn để QA kiểm **route Caddy** ngay hôm nay mà không cần landing mới: dựng lại container landing staging **cùng tag đang chạy** `sha-6414be25f20d` (runbook W2: `--no-deps --force-recreate --pull never`, `staging.ottimo.vn` mất vài giây) để nạp Caddyfile mới. Sau đó `monthly-rates` qua landing (có mật khẩu xem trước) → 200, `?x=1`/POST → 404. Đây là bước ngoài câu giao việc, nên OPS **chưa chạy**. ORC xác nhận nó có nằm trong ESC-052 A ("cập nhật cấu hình landing") hay không.
 - Không commit, không push (theo giao việc).
+
+## 14. Cập nhật 16/11 14:35 – Phát hành production v1.0.5 + FB-INV-010 Đợt 1 (a9f510f7): DỪNG trước bước 1, không vào được máy chủ
+
+Căn cứ: giao việc ORC 16/11 (INV OK production, bỏ V5-61/T23/T24 – decision-log 16/11); thân PR #182 (mục 2–4); `rounds/round-05/reviews/SEC-privacy-label-20261116.md` (O1–O9); README 12.3; runbook v1.0.5.
+
+**Kết luận: chưa đổi gì trên staging hay production.** SSH vào `ottimo-admin@desk.ottimo.vn` bị từ chối: máy chủ nhận khóa `~/.ssh/ottimo_ops` (`Server accepts key`), nhưng ssh-agent trên Mac **không còn khóa nào** (`ssh-add -l` rc=1). Khóa có passphrase, `BatchMode=yes` không hỏi được. Lúc 13:30 (mục 13) agent còn khóa; nay đã mất. OPS không tự nạp passphrase (bí mật của người dùng).
+
+**Đã kiểm (chỉ đọc, trên Mac)**
+
+| Kiểm | Kết quả |
+|---|---|
+| CI push `a9f510f7611f` lượt 43820936429 | success; `publish images (GHCR)` success; `deploy staging` success |
+| Digest (artifact `image-digests` của lượt đó – cùng nguồn `release.yml` dùng) | `tag=sha-a9f510f7611f`; landing `sha256:54acf42ba8858414ec8e8725ff3ba88617ea177b181d609c4aebf9a0ca079f74` (khớp tiền tố ORC đưa `54acf42ba885`); api `sha256:9204c255c678…`; web `sha256:52156b2e632b…` |
+| O1: `VERSION` trong `privacy.ts` ở a9f510f7 | `'2026-11-16'` (không phải image `sha-32c9bd2def9a`) |
+| F2: `CHAT_DETAILS_MIN_NOTICE_VERSION` ở a9f510f7 | `'2026-11-04'` (không đổi, đúng SEC) |
+| Tag `landing-v2.1.0`, `v1.0.5` | chưa tạo, chưa push |
+
+**Chưa làm (theo thứ tự, làm tiếp ngay khi vào được máy):** staging O2 → O3 `--check-only` → deploy landing staging → O5 publish `2026-11-16` (root, thử rồi `--apply`) → kiểm staging; production: sao lưu → làm mới gói `infra/` (giữ bản cũ) → O4 → tag `landing-v2.1.0` + Release (dừng ở duyệt environment) → O5–O7 production → tag `v1.0.5` + Release → kiểm PR #182 mục 3 + `ops-check`.
+
+**Cần để đi tiếp:** INV nạp khóa vào agent trên Mac này (INV tự gõ passphrase, không qua chat): `ssh-add --apple-use-keychain ~/.ssh/ottimo_ops`. Sau đó ORC giao lại cho OPS cùng câu giao việc.
+
+Không commit (theo giao việc).
