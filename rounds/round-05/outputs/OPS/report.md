@@ -414,12 +414,23 @@ Kết luận: lệnh tay đúng mong đợi (chỉ `FAIL sshkeys`). **Lượt th
 
 ### 16.5 Việc còn lại
 1. **W0** (gỡ khóa người khỏi `authorized_keys` của `ottimo`): chờ INV đồng ý (Đợt B). Tới khi làm, `sshkeys` FAIL ở mọi lượt của cả hai stack.
-2. **W6 bước 3** (cài unit `ottimo-ops-check@.service` + `ottimo-ops-check.service` có `SupplementaryGroups=systemd-journal`, `daemon-reload`; không dựng lại container, không gián đoạn): ngoài phạm vi INV đồng ý tối nay nên OPS không làm. Không làm thì timer `ops-check` hai stack FAIL `journal unreadable` mỗi 30 phút. ORC xin INV đồng ý (đề xuất: làm sớm, rủi ro thấp, lùi bằng tệp unit cũ trong bundle `/root/...`).
+2. ~~**W6 bước 3**~~ (xong 17:29, xem 16.6) (cài unit `ottimo-ops-check@.service` + `ottimo-ops-check.service` có `SupplementaryGroups=systemd-journal`, `daemon-reload`; không dựng lại container, không gián đoạn): ngoài phạm vi INV đồng ý tối nay nên OPS không làm. Không làm thì timer `ops-check` hai stack FAIL `journal unreadable` mỗi 30 phút. ORC xin INV đồng ý (đề xuất: làm sớm, rủi ro thấp, lùi bằng tệp unit cũ trong bundle `/root/...`).
 3. **W6 bước 1–2**: chờ sửa tên drop-in (16.3), SEC review, làm mới gói, rồi chạy lại.
 4. Ghi decision-log (ORC): giờ W1 hai stack, hai lượt sao lưu bù 17:22 `OK`, chốt chặn W6 bước 1 và lý do.
 5. Lượt 15:00 / 15:30 đầu tiên (17/11): xem `state/backup.last_ok` mới và journal `ottimo-backup` có `OK:`; ghi decision-log.
 
-### 16.6 W6 bước 3 (ORC giao thêm 16/11 tối, INV đồng ý "sửa cách giữ nhật ký hệ thống"): CHƯA LÀM, bị chặn quyền
-OPS định làm trong một lệnh: chép 2 unit đang cài sang `/root/ottimo-units.before-w6s3-<giờ>/`, cài `ottimo-ops-check@.service` từ `/opt/ottimo-prod/infra/server/systemd/` và `ottimo-ops-check.service` từ `/opt/ottimo/infra/server/systemd/`, `daemon-reload`, đọc lại `SupplementaryGroups`. Hệ thống quyền của Claude Code trên Mac (auto mode classifier) **từ chối** lệnh này, nên **không có gì thay đổi trên máy chủ** ở bước này. OPS không tìm cách lách. Để làm tiếp: INV tự cho phép lệnh đó khi được hỏi, hoặc thêm quy tắc cho phép trong cài đặt, rồi ORC giao lại. Tới lúc đó, các lượt `ops-check` chạy theo timer của hai stack vẫn báo `FAIL journal: journal unreadable`.
+### 16.6 W6 bước 3 – unit ops-check mới: ĐẠT (production + staging)
+Lần thử đầu bị hệ thống quyền của Claude Code trên Mac từ chối, máy chủ không đổi. INV trả lời trong chat 16/11 "Đồng ý cài", ORC giao lại; lần chạy thứ hai được phép.
+
+| Giờ | Việc | Kết quả |
+|---|---|---|
+| 17:29:03 | Chép 2 unit đang cài sang `/root/ottimo-units.before-w6s3-20261116-172903/` (0700) | Có `ottimo-ops-check@.service`, `ottimo-ops-check.service` |
+| 17:29:03 | Cài `ottimo-ops-check@.service` từ `/opt/ottimo-prod/infra/server/systemd/`, `ottimo-ops-check.service` từ `/opt/ottimo/infra/server/systemd/`, `daemon-reload` | `NHOM PROD: systemd-journal`, `NHOM STAGING: systemd-journal`. Không dựng lại container, timer không đổi |
+| 17:29:11 | `systemctl start ottimo-ops-check@ottimo-prod.service` (lượt như timer) | 16 dòng `ok`; `FAIL sshkeys` (W0); `WARN journal: state/journald_since missing`. **Hết `journal unreadable`.** `Result=exit-code` chỉ vì `sshkeys` |
+| 17:29:45 | `systemctl start ottimo-ops-check.service` | Như production |
+
+Lùi bước 3: `install -m 0644` hai tệp từ `/root/ottimo-units.before-w6s3-20261116-172903/` vào `/etc/systemd/system/`, `daemon-reload` (khi đó `journal` FAIL "unreadable" trở lại). Xóa thư mục bản cũ ở Đợt D, cùng lúc với bản cũ `authorized_keys`.
+
+Mục 16.5 việc 2 coi như xong. Từ nay lượt theo timer của hai stack chỉ còn `FAIL sshkeys` (W0) và `WARN journal` (W6 bước 1–2).
 
 Không commit (theo giao việc).
