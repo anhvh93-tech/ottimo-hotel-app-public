@@ -17,7 +17,7 @@ const strings: BookingStrings = {
   when: {
     withinMinutes: (m, open, close) => `我们将在 ${dur(m)}内回复（${open}–${close}，大叻时间）。`,
     nextMorning: (by, open) => `前台 ${open} 开始服务，我们会在 ${by} 前回复您。`,
-    callNow: (m) => `您今晚抵达，我们将在 ${m} 分钟内联系您。`,
+    callNow: (m) => `您今晚入住，我们将在 ${m} 分钟内联系您。`,
   },
   fallback: ['如果到 ', ' 仍未收到我们的消息，请致电 ', '，或在 Zalo 上将此编号发给我们。'],
   roomHint: (lo, hi) =>

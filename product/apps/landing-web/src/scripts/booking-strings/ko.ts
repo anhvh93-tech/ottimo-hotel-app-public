@@ -17,7 +17,7 @@ const strings: BookingStrings = {
     withinMinutes: (m, open, close) =>
       `${dur(m)} 이내에 답변드립니다(${open}–${close}, 달랏 시간).`,
     nextMorning: (by, open) => `리셉션은 ${open}에 문을 엽니다. ${by} 전까지 답변드리겠습니다.`,
-    callNow: (m) => `오늘 밤 도착하시니 ${m}분 이내에 연락드리겠습니다.`,
+    callNow: (m) => `오늘 밤 입실하시니 ${m}분 이내에 연락드리겠습니다.`,
   },
   fallback: [
     '혹시 ',

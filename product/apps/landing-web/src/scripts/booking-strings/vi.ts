@@ -15,7 +15,7 @@ const strings: BookingStrings = {
       `Chúng tôi trả lời trong ${m % 60 === 0 ? `${m / 60} giờ` : `${m} phút`} (${open}–${close}, giờ Đà Lạt).`,
     nextMorning: (by, open) =>
       `Lễ tân làm việc lại từ ${open}. Chúng tôi sẽ trả lời bạn trước ${by}.`,
-    callNow: (m) => `Bạn đến trong tối nay, chúng tôi sẽ liên hệ bạn trong ${m} phút.`,
+    callNow: (m) => `Bạn dọn vào trong tối nay, chúng tôi sẽ liên hệ bạn trong ${m} phút.`,
   },
   fallback: ['Nếu đến ', ' chúng tôi chưa liên hệ, vui lòng gọi ', ' hoặc nhắn Zalo kèm mã này.'],
   roomHint: (lo, hi) =>

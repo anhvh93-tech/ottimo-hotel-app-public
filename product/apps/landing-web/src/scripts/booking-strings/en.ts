@@ -14,7 +14,7 @@ const strings: BookingStrings = {
     withinMinutes: (m, open, close) =>
       `We reply within ${m % 60 === 0 ? (m === 60 ? '1 hour' : `${m / 60} hours`) : `${m} minutes`} (${open}–${close}, Da Lat time).`,
     nextMorning: (by, open) => `Our reception opens at ${open}. We will reply before ${by}.`,
-    callNow: (m) => `As you arrive tonight, we will contact you within ${m} minutes.`,
+    callNow: (m) => `As you move in tonight, we will contact you within ${m} minutes.`,
   },
   fallback: [
     'If you have not heard from us by ',

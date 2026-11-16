@@ -1,7 +1,7 @@
 // Russian copy (LP-v2, FB-INV-008). Text = CPY rounds/round-04/outputs/CPY/lp-v2-copy.md (01/11/2026), sections 1–3;
 // consent lines A.1/A.2 and the privacy link label = SEC rounds/round-04/outputs/SEC/lp-v2-privacy-and-api.md section 7
 // (legal text – SEC wording wins). "вы" in lower case, «» quotes, em dash, decimal comma (CPY 1.1, 1.3); "boutique stay"
-// stays Latin (бутик-отель contains "отель"). Deposit = предоплата, never "депозит" (CPY 1.4). H1 stays the English
+// stays Latin (бутик-отель contains "отель"). Deposit = "депозит" since FB-INV-010 Dot 1 (CPY rounds/round-05/fb-inv-010/CPY-copy.md, open question 3 – replaces "предоплата" of CPY 1.4); do not change it back. H1 stays the English
 // tagline (site.json). Native-speaker review is a release gate (SEC D4) – not done yet.
 import type { Copy } from './types';
 
@@ -310,7 +310,7 @@ export const ru: Copy = {
         id: 'faq-long',
         q: 'Как забронировать долгое проживание?',
         a: [
-          'Выберите номер, дату заезда и «Сколько месяцев», затем отправьте запрос. Мы пришлём предложение, а номер закрепим за вами после получения депозита за один месяц. И кто-то всегда рядом, если нужна помощь.',
+          'Выберите номер, дату заезда и «Сколько месяцев», затем отправьте запрос. Мы пришлём предложение, а номер закрепим за вами после получения депозита за один месяц. Мы рядом на протяжении всего вашего проживания.',
         ],
       },
       {

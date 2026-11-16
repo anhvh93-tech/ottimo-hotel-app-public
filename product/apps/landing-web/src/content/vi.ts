@@ -214,7 +214,7 @@ export const vi: Copy = {
   },
   book: {
     label: 'Đặt trực tiếp',
-    title: 'Lên kế hoạch cho kỳ nghỉ',
+    title: 'Lên kế hoạch cho kỳ ở',
     intro:
       'Cho chúng tôi biết ngày bạn dọn vào và bạn định ở bao lâu. Chúng tôi sẽ gợi ý phòng phù hợp và gửi báo giá cho bạn.',
     steps: [
@@ -298,7 +298,7 @@ export const vi: Copy = {
         id: 'faq-long',
         q: 'Đặt kỳ ở dài thế nào?',
         a: [
-          'Chọn phòng, ngày dọn vào và "Số tháng", rồi gửi yêu cầu. Chúng tôi gửi báo giá; phòng được xác nhận khi chúng tôi nhận cọc một tháng. Và luôn có người hỗ trợ khi bạn cần.',
+          'Chọn phòng, ngày dọn vào và "Số tháng", rồi gửi yêu cầu. Chúng tôi gửi báo giá; phòng được xác nhận khi chúng tôi nhận cọc một tháng. Chúng tôi đồng hành cùng bạn suốt kỳ ở.',
         ],
       },
       {

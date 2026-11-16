@@ -302,7 +302,7 @@ export const en: Copy = {
         id: 'faq-long',
         q: 'How do I book a long stay?',
         a: [
-          'Choose your room, your move-in date and the "Number of months", then send your request. We reply with your quote, and your room is confirmed once your one-month deposit is received. Someone is always here when you need help.',
+          'Choose your room, your move-in date and the "Number of months", then send your request. We reply with your quote, and your room is confirmed once your one-month deposit is received. We are here for you throughout your stay.',
         ],
       },
       {
