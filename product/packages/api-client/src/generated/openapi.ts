@@ -5264,8 +5264,10 @@ export interface paths {
      *     **Cách tính**: cổng `reservations/public` `PublicRatePort` dùng **chung** `PricingService` với `calculateQuote`/`createReservation` – kênh `direct`, nguồn `website`: giá đêm niêm yết
      *     từng căn (BR-101), lịch giá cuối tuần/ngày đặc biệt (BR-104), giảm theo số đêm (BR-107), làm tròn (BR-005), phụ thu người (BR-110). Xét các căn có `publicRoomType` khớp slug,
      *     `is_sellable`, sức chứa vừa đoàn; giá của hạng = căn có **tổng thấp nhất** [GIẢ ĐỊNH A2 – DOM chốt]. **Không** xét căn có trống hay không. Không mã khách quay lại (BR-111),
-     *     không FOC, không giá thỏa thuận. Dài hạn (`stayType = long`, hoặc `short` ≥ `long_stay_required_from_nights` đêm – BR-108): **không có số** – `priceAvailable: false` + `unavailableReason: monthly_offer`
-     *     (ESC-043 câu 2, INV 01/11: chỉ lời mời ưu đãi/báo giá riêng; không token).
+     *     không FOC, không giá thỏa thuận. **Theo tháng** (`stayType = long` – 0.3.13 bổ sung 2, FB-INV-010, thay ESC-043 câu 2): `priceAvailable: true` + `longStay` – giá niêm yết **tháng**
+     *     (BR-101 (3), giá khách VN, gồm VAT) hiệu lực **tại ngày đến** của căn rẻ nhất trong các căn tham gia (vừa đoàn, không OOO chồng khoảng ngày đến + số tháng, vắng số tháng = 1 tháng),
+     *     làm tròn `rounding.monthly_rent` (BR-005), × `months`; không giảm kỳ hạn BR-201, không +10 % NN, không phí dịch vụ/điện nước; căn thiếu giá tháng bị bỏ qua (cảnh báo OWN), không căn nào có giá → `on_request`.
+     *     **Ngắn ngày ≥ `long_stay_required_from_nights` đêm** (BR-108): **không có số** – `priceAvailable: false` + `unavailableReason: monthly_offer` (mời chọn "theo tháng"; không token).
      *     **Không lộ dữ liệu nội bộ** (FB-INV-009; test hợp đồng): phản hồi theo danh sách cho phép (`additionalProperties: false`) – **không** số căn, `roomId`/`roomNo`/mã nhóm,
      *     còn/hết hay số phòng còn lại, giá OTA nền (BR-103), hoa hồng, phí kênh, `ottimoRemainingVnd`, biên, giá sàn/trần (BR-105). Slug lạ và hạng không có căn bán cùng trả
      *     `priceAvailable: false` + `on_request`.
@@ -5288,6 +5290,40 @@ export interface paths {
      *     **Khi lỗi**: mọi phản hồi khác 200 (và quá 3 giây) → trang **ẩn** giá; form vẫn gửi được; khách bấm gửi khi giá đang tải → gửi ngay không kèm token.
      */
     get: operations['getPublicPriceEstimate'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/properties/{propertySlug}/monthly-rates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Giá tháng "từ" của mọi hạng công khai cho landing thuê dài hạn (R5 – FB-INV-010 Đợt 1)
+     * @description **0.3.13 bổ sung 2 (FB-INV-010, INV 16/11 – thay ESC-043 câu 2).** Landing gọi **một lần** khi tải trang để hiện "From X / month" ở thân trang và form.
+     *     **Cách tính** (cổng `reservations/public` `PublicRatePort.monthlyFrom`): mỗi hạng = `Room.publicRoomType`; căn tham gia = `is_sellable`, có hạng công khai, hiệu lực tại **ngày nghiệp vụ**
+     *     (`active_from` ≤ ngày ≤ `active_to`); X = **giá niêm yết tháng nhỏ nhất** (BR-101 (3) – giá khách VN, đã gồm VAT – BR-523) hiệu lực tại ngày đó (BR-006), làm tròn `rounding.monthly_rent`
+     *     (BR-005, cùng khóa báo giá dài hạn của Desk). **Không** áp giảm kỳ hạn (BR-201), +10 % khách NN (BR-109), phí dịch vụ (BR-204), điện nước (BR-205). **Không** xét đơn, giữ chỗ,
+     *     khối OOO, trạng thái buồng (giá danh mục, không phải phòng trống – lịch trống là Đợt 2). Hạng mà mọi căn thiếu giá tháng **không có** trong danh sách (không bao giờ 0 hay số đoán);
+     *     căn thiếu giá ghi cảnh báo OWN một lần/căn/ngày. Nhãn khác nhau nhưng cùng slug gom thành một hạng (giữ giá nhỏ nhất). Sắp xếp theo `monthlyFromVnd` tăng dần rồi theo nhãn; tối đa 20.
+     *     **Số "From" là giá danh mục tại hôm nay** (không xét OOO, sức chứa, ngày đến); số của form (`getPublicPriceEstimate`) theo ngày đến và đoàn của khách – khi hai số lệch, trang hiện số của form (ARC FB-R5-ARC-BE-180-01).
+     *     **Không lộ dữ liệu nội bộ**: danh sách cho phép (`additionalProperties: false`) – không số căn, `roomId`, mã nhóm, số căn của hạng, giá cao nhất, giá OTA nền, hoa hồng, chiết khấu.
+     *     **Thứ tự kiểm và giới hạn = `getPublicPriceEstimate`** (dùng **chung** bucket RAM `pubest:` theo IP 30/10 phút, 200/ngày, 400/ngày/IPv6 /48; cửa sổ chung 10/giây; bulkhead 2;
+     *     trần 600 lần tính mới/giờ/cơ sở): `Sec-Fetch-Site` khác `same-origin` → 403; cơ sở không có / tắt `public_booking_requests_enabled` hoặc `public_show_prices` → 404; có bất kỳ tham số
+     *     query nào → 422 `VALIDATION_FAILED` (`NOT_ALLOWED`). Giao dịch READ ONLY, `statement_timeout` 1 giây. **Cache** RAM 60 giây theo (cơ sở, ngày nghiệp vụ), xóa cùng cache ước tính khi
+     *     đổi tham số; đổi giá căn lên web chậm tối đa 60 giây. `Cache-Control: no-store`, `X-Robots-Tag: noindex` ở mọi phản hồi. Lỗi bất kỳ → trang **ẩn** giá, form vẫn gửi.
+     */
+    get: operations['getPublicMonthlyRates'];
     put?: never;
     post?: never;
     delete?: never;
@@ -9677,7 +9713,8 @@ export interface components {
     };
     /**
      * @description **0.3.11 (R4 – FB-INV-009)** – phản hồi `getPublicPriceEstimate`. **Danh sách cho phép**: không thêm trường nào ngoài schema (test hợp đồng kiểm khóa và chuỗi cấm –
-     *     `lp-v2-design.md` mục 2.4). Số là VND nguyên; trang định dạng theo ngôn ngữ của trang. `priceAvailable = true` → có `shortStay` (chỉ ngắn ngày – thuê tháng không bao giờ có số, ESC-043).
+     *     `lp-v2-design.md` mục 2.4). Số là VND nguyên; trang định dạng theo ngôn ngữ của trang. `priceAvailable = true` → có `shortStay` (`stayKind = short`) hoặc `longStay`
+     *     (`stayKind = long`, chỉ khi `stayType = long` – 0.3.13 bổ sung 2, FB-INV-010, thay ESC-043 câu 2).
      */
     PublicPriceEstimate: {
       /**
@@ -9692,7 +9729,7 @@ export interface components {
       /** @description Slug đã nhận (không trả nhãn, không số căn) */
       roomType: string;
       /**
-       * @description `long` khi `stayType = long` hoặc `short` ≥ `long_stay_required_from_nights` đêm (BR-108) – khi đó `priceAvailable: false` + `monthly_offer` (không số), không trả `shortStay`
+       * @description `long` khi `stayType = long` (có `longStay` khi có giá) hoặc `short` ≥ `long_stay_required_from_nights` đêm (BR-108 – khi đó `priceAvailable: false` + `monthly_offer`, không số); không bao giờ trả `shortStay`
        * @enum {string}
        */
       stayKind: 'short' | 'long';
@@ -9702,8 +9739,8 @@ export interface components {
       priceAvailable: boolean;
       /**
        * @description Chỉ khi `priceAvailable = false`: `on_request` – hạng không có căn đang bán, slug lạ hoặc thiếu giá niêm yết (không phân biệt – không lộ cấu hình); `party_exceeds_room` – số người
-       *     tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn; `monthly_offer` (0.3.11 bổ sung 1 – ESC-043) – thuê theo
-       *     tháng (hoặc ngắn ngày ≥ `long_stay_required_from_nights` đêm): web không hiện giá, trang mời gửi yêu cầu để nhận ưu đãi/báo giá riêng
+       *     tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn; `monthly_offer` (0.3.11 bổ sung 1 – ESC-043; **thu hẹp** ở
+       *     0.3.13 bổ sung 2) – chỉ còn ngắn ngày ≥ `long_stay_required_from_nights` đêm: không số, trang mời chọn "theo tháng"; `stayType = long` không còn trả mã này
        * @enum {string}
        */
       unavailableReason?: 'on_request' | 'party_exceeds_room' | 'monthly_offer';
@@ -9722,6 +9759,15 @@ export interface components {
         totalVnd: components['schemas']['MoneyVnd'];
         /** @description `totalVnd` ÷ `nights`, làm tròn gần nhất 1 đồng – chỉ để hiện "≈ X/đêm" (cách làm tròn khi hiện: DOM K11) */
         nightlyAvgVnd: components['schemas']['MoneyVnd'];
+      };
+      /** @description 0.3.13 bổ sung 2 (FB-INV-010). Chỉ khi `priceAvailable = true` và `stayKind = long`. Giá niêm yết tháng (khách VN, gồm VAT) – không giảm kỳ hạn, không phí dịch vụ, không điện nước; giá cuối nằm trong báo giá/HĐ */
+      longStay?: {
+        /** @description `months` khách chọn; `null` = chưa chọn thời hạn */
+        months: number | null;
+        /** @description "Từ X / tháng" – giá tháng nhỏ nhất của các căn tham gia, hiệu lực tại ngày đến, làm tròn `rounding.monthly_rent` (BR-005) */
+        monthlyFromVnd: components['schemas']['MoneyVnd'];
+        /** @description `monthlyFromVnd` × `months`; `null` khi `months` = `null` */
+        totalVnd: components['schemas']['MoneyVnd'] | null;
       };
       /** @description Mã để trang hiện câu điều kiện (chữ của CPY). Thêm mã = chỉ thêm giá trị enum; trang bỏ qua mã chưa biết */
       notes: {
@@ -9755,10 +9801,34 @@ export interface components {
       totalVnd?: components['schemas']['MoneyVnd'] | null;
       losDiscountPct?: components['schemas']['Percent'] | null;
       extraPersonFeeVnd?: components['schemas']['MoneyVnd'] | null;
+      /** @description 0.3.13 bổ sung 2 (FB-INV-010) – "từ X / tháng" khách đã thấy (theo tháng); `totalVnd` = X × `months` khi khách chọn thời hạn */
+      monthlyVnd?: components['schemas']['MoneyVnd'] | null;
       /** @enum {string} */
       currency: 'VND';
       computedAt: components['schemas']['Instant'];
       priceVersion: string;
+    };
+    /** @description **0.3.13 bổ sung 2 (FB-INV-010)** – phản hồi `getPublicMonthlyRates`. **Danh sách cho phép**: không thêm trường nào ngoài schema (test hợp đồng kiểm khóa và chuỗi cấm như `PublicPriceEstimate`). */
+    PublicMonthlyRates: {
+      /**
+       * @description Giá niêm yết "từ" – giá cuối nằm trong báo giá/HĐ OTTIMO gửi
+       * @constant
+       */
+      estimate: true;
+      /** @enum {string} */
+      currency: 'VND';
+      /** @description Giá niêm yết đã gồm VAT (BR-523; tham số `prices_include_vat`) */
+      taxIncluded: boolean;
+      /** @description Mỗi hạng công khai đang bán có ít nhất một căn có giá tháng; tăng dần theo `monthlyFromVnd`. Hạng không có trong danh sách → trang không hiện giá cho hạng đó */
+      roomTypes: {
+        /** @description Slug của `Room.publicRoomType` (như `getPublicPriceEstimate.roomType`, `WebsiteBookingRequestInput.roomType`) */
+        roomType: string;
+        /** @description Tên hạng công khai `Room.publicRoomType` (BR-012 – tên theo website, ví dụ "Studio Garden") */
+        label: string;
+        /** @description "From X / month" – giá niêm yết tháng nhỏ nhất của hạng tại ngày nghiệp vụ, làm tròn `rounding.monthly_rent` */
+        monthlyFromVnd: components['schemas']['MoneyVnd'];
+      }[];
+      computedAt: components['schemas']['Instant'];
     };
   };
   responses: {
@@ -19371,6 +19441,44 @@ export interface operations {
       422: components['responses']['ValidationFailed'];
       429: components['responses']['RateLimited'];
       /** @description SERVICE_UNAVAILABLE – bulkhead đầy, chạm trần tính mới, hoặc bộ tính lỗi (thiếu tham số giá…) – trang ẩn giá, form vẫn gửi */
+      503: {
+        headers: {
+          'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getPublicMonthlyRates: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          'Cache-Control'?: 'no-store';
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicMonthlyRates'];
+        };
+      };
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
+      /** @description SERVICE_UNAVAILABLE – bulkhead đầy, chạm trần tính mới, hoặc bộ tính lỗi (thiếu `rounding.monthly_rent`…) – trang ẩn giá, form vẫn gửi */
       503: {
         headers: {
           'Retry-After'?: number;

@@ -13,6 +13,10 @@
  * The answer is the internal `PublicRateEstimate` + `priceVersion` (first 16 hex of the SHA-256 of the canonical
  * inputs – parameters read and list prices of the rooms considered). Room ids leave only in `priceGapRoomIds`
  * (OWN warning); nothing here is ever serialised as is to the public.
+ *
+ * FB-INV-010 Đợt 1 (INV 16/11): the monthly list price is read too – for a stay by the month and for
+ * `monthlyFrom` ("from X / month" of every public type, `getPublicMonthlyRates`). Same rule: no bookings, holds,
+ * occupancy or room statuses.
  */
 import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
@@ -26,6 +30,7 @@ import {
   type PublicRateRequest,
   type PublicRateRoom,
   estimatePublicRate,
+  monthlyFromByType,
   stayRangeOf,
 } from './public-rate';
 
@@ -72,7 +77,36 @@ export class PublicRatePort {
     return {
       pricing,
       openUntil: typeof openUntil === 'string' && DATE.test(openUntil) ? openUntil : null,
+      monthlyRentUnit: await this.monthlyRentUnit(tx, asOf),
     };
+  }
+
+  /** BR-005 rent unit of the Desk long-stay quote (sales quote pricing reads the same key). */
+  private async monthlyRentUnit(tx: Tx, asOf: LocalDate): Promise<number> {
+    return Number(await this.params.get<number>(tx, 'rounding.monthly_rent', asOf));
+  }
+
+  private async listPricesOf(tx: Tx, roomIds: string[]) {
+    const { rows } = await tx.query<{
+      room_id: string;
+      effective_from: string;
+      nightly: string | number;
+      monthly: string | number;
+    }>(
+      // FB-INV-010: the monthly list price is public from 16/11 (replaces ESC-043 câu 2).
+      `SELECT room_id, effective_from::text AS effective_from, nightly_list_price_vnd AS nightly,
+              monthly_list_price_vnd AS monthly
+         FROM room_list_price WHERE room_id = ANY($1::uuid[]) ORDER BY room_id, effective_from`,
+      [roomIds],
+    );
+    return (id: string) =>
+      rows
+        .filter((x) => x.room_id === id)
+        .map((x) => ({
+          effectiveFrom: x.effective_from,
+          nightlyVnd: Number(x.nightly),
+          monthlyVnd: Number(x.monthly),
+        }));
   }
 
   /** Sellable rooms of the public type `label` (Room.publicRoomType), active over the stay, with prices + OOO. */
@@ -95,28 +129,55 @@ export class PublicRatePort {
       [label, range.from, range.to],
     );
     if (rows.length === 0) return [] as PublicRateRoom[];
-    const { rows: prices } = await tx.query<{
-      room_id: string;
-      effective_from: string;
-      nightly: string | number;
-    }>(
-      // Nightly prices only: the web never shows a monthly price (ESC-043 câu 2).
-      `SELECT room_id, effective_from::text AS effective_from, nightly_list_price_vnd AS nightly
-         FROM room_list_price WHERE room_id = ANY($1::uuid[]) ORDER BY room_id, effective_from`,
-      [rows.map((r) => r.id)],
+    const pricesOf = await this.listPricesOf(
+      tx,
+      rows.map((r) => r.id),
     );
     return rows.map((r): PublicRateRoom => ({
       roomId: r.id,
       baseOccupancy: Number(r.base_occupancy),
       maxOccupancy: Number(r.max_occupancy),
       blocked: r.blocked,
-      listPrices: prices
-        .filter((x) => x.room_id === r.id)
-        .map((x) => ({
-          effectiveFrom: x.effective_from,
-          nightlyVnd: Number(x.nightly),
-        })),
+      listPrices: pricesOf(r.id),
     }));
+  }
+
+  /**
+   * FB-INV-010: "from X / month" of every public type on sale as of `asOf` (business date) – sellable rooms with a
+   * public type, active on `asOf`; OOO blocks are not read (a catalogue price, not an availability). Answer by
+   * LABEL (the caller maps it to the public slug); room ids leave only in `priceGapRoomIds` (OWN warning).
+   */
+  async monthlyFrom(
+    tx: Tx,
+    asOf: LocalDate,
+  ): Promise<{
+    types: Array<{ label: string; monthlyFromVnd: number }>;
+    priceGapRoomIds: string[];
+  }> {
+    const unit = await this.monthlyRentUnit(tx, asOf);
+    const { rows } = await tx.query<{ id: string; label: string }>(
+      `SELECT rm.id, rm.public_room_type AS label
+         FROM room rm
+        WHERE rm.public_room_type IS NOT NULL AND rm.is_sellable
+          AND rm.active_from <= $1::date AND (rm.active_to IS NULL OR rm.active_to >= $1::date)
+        ORDER BY rm.id`,
+      [asOf],
+    );
+    const pricesOf = await this.listPricesOf(
+      tx,
+      rows.map((r) => r.id),
+    );
+    const rooms = rows.map((r) => ({
+      label: r.label,
+      room: {
+        roomId: r.id,
+        baseOccupancy: 1,
+        maxOccupancy: 1,
+        blocked: false,
+        listPrices: pricesOf(r.id),
+      } satisfies PublicRateRoom,
+    }));
+    return monthlyFromByType(rooms, asOf, unit);
   }
 
   /**
@@ -137,6 +198,7 @@ export class PublicRatePort {
         canonical({
           pricing: p.pricing,
           openUntil: p.openUntil,
+          monthlyRentUnit: p.monthlyRentUnit,
           rooms: rooms.map((r) => ({
             b: r.baseOccupancy,
             m: r.maxOccupancy,

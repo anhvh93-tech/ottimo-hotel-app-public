@@ -308,7 +308,7 @@ describe('BUG-R5-003 – defensive read (DOM 12.3; oracle BR-113-29/30)', () => 
       },
     } as unknown as PricingParams;
     const est = estimatePublicRate(
-      { pricing, openUntil: null },
+      { pricing, openUntil: null, monthlyRentUnit: 1_000 },
       [
         {
           roomId: 'r1',

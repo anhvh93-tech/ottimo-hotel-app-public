@@ -64,6 +64,23 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     });
   };
   const garden = { roomType: GARDEN, arrival: '2026-11-10', departure: '2026-11-13', adults: 2 };
+  /** FB-INV-010: GET …/monthly-rates (same RAM counters as the price route – moves the clock like `estimate`). */
+  const monthlyRates = (
+    opts: {
+      ip?: string;
+      headers?: Record<string, string>;
+      raw?: string;
+      method?: 'GET' | 'POST';
+    } = {},
+  ) => {
+    tick(200);
+    return fa.app.inject({
+      method: opts.method ?? 'GET',
+      url: `/v1/public/properties/${slug}/monthly-rates${opts.raw ? `?${opts.raw}` : ''}`,
+      headers: opts.headers ?? {},
+      remoteAddress: opts.ip ?? nextIp(),
+    });
+  };
 
   const formToken = async (): Promise<string> => {
     const r = await fa.app.inject({
@@ -165,6 +182,7 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
 
   it('OFF by default: form off and prices off → 404 (no price block); unknown property → 404', async () => {
     expect((await estimate(garden)).statusCode).toBe(404);
+    expect((await monthlyRates()).statusCode).toBe(404);
     const unknown = await fa.app.inject({
       method: 'GET',
       url: `/v1/public/properties/nope-99/price-estimate?roomType=${GARDEN}`,
@@ -332,10 +350,135 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     expect(unknown).toMatchObject({ priceAvailable: false, unavailableReason: 'on_request' });
   });
 
-  it('monthly (ESC-043 câu 2, UXD FB-01): 200 monthly_offer with NO amount and no token – 6 months, no departure and no length, ≥ BR-108 nights', async () => {
+  // FB-INV-010 (INV 16/11) replaces ESC-043 câu 2: by the month → the DS-E Garden monthly list price of the cheapest
+  // room (102/103 = 9.000.000; 202/203 = 9.500.000 never leaves) × months, with a token; no term discount.
+  it('by the month (FB-INV-010): 200 with longStay – from 9.000.000 / month × 6, or no length → total null; token', async () => {
+    const six = await estimate({
+      roomType: GARDEN,
+      stayType: 'long',
+      arrival: '2026-12-01',
+      months: 6,
+      adults: 2,
+    });
+    expect(six.statusCode, six.body).toBe(200);
+    expect(six.json()).toMatchObject({
+      stayKind: 'long',
+      priceAvailable: true,
+      longStay: { months: 6, monthlyFromVnd: 9_000_000, totalVnd: 54_000_000 },
+      notes: [],
+    });
+    expect(six.json().estimateToken).toMatch(/^pe1\./);
+    expect(six.json()).not.toHaveProperty('shortStay');
+    expect(six.json()).not.toHaveProperty('unavailableReason');
+    expect(six.body).not.toMatch(/9500000|monthlyTo|roomId|"10[123]"/);
+    const open = (
+      await estimate({ roomType: GARDEN, stayType: 'long', arrival: '2026-12-01', adults: 2 })
+    ).json();
+    expect(open.longStay).toEqual({ months: null, monthlyFromVnd: 9_000_000, totalVnd: null });
+    // Over capacity / unknown type answer as before (no number).
+    const four = (
+      await estimate({ roomType: GARDEN, stayType: 'long', arrival: '2026-12-01', adults: 4 })
+    ).json();
+    expect(four).toMatchObject({ priceAvailable: false, unavailableReason: 'party_exceeds_room' });
+    const unknown = (
+      await estimate({
+        roomType: 'penthouse-sea-view',
+        stayType: 'long',
+        arrival: '2026-12-01',
+        adults: 2,
+      })
+    ).json();
+    expect(unknown).toMatchObject({ priceAvailable: false, unavailableReason: 'on_request' });
+    expect(unknown).not.toHaveProperty('longStay');
+
+    // The request by the month with the token: the Desk record carries the monthly price the guest saw.
+    const sent = await submit(
+      form(await formToken(), {
+        stayType: 'long',
+        departure: null,
+        months: 6,
+        arrival: '2026-12-01',
+        priceEstimateToken: six.json().estimateToken,
+      }),
+    );
+    expect(sent.statusCode, sent.body).toBe(202);
+    const row = await rowOf(sent.json().refCode);
+    expect(row.suspicious_flags).not.toContain('offer_unverified');
+    expect(row.price_estimate?.atSubmit).toMatchObject({
+      status: 'ok',
+      stayKind: 'long',
+      months: 6,
+      monthlyFromVnd: 9_000_000,
+      totalVnd: 54_000_000,
+    });
+    const rec = await desk(row.id);
+    expect(rec.statusCode, rec.body).toBe(200);
+    expect(rec.json().priceEstimate).toMatchObject({
+      stayKind: 'long',
+      months: 6,
+      monthlyVnd: 9_000_000,
+      totalVnd: 54_000_000,
+      nights: null,
+    });
+  });
+
+  it('getPublicMonthlyRates (FB-INV-010): from X / month of every public type, ascending; allowlist; 422 on any query; 403 cross-site; cache', async () => {
+    const r = await monthlyRates();
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.headers['cache-control']).toBe('no-store');
+    expect(r.headers['x-robots-tag']).toBe('noindex');
+    const b = r.json();
+    expect(b).toEqual({
+      estimate: true,
+      currency: 'VND',
+      taxIncluded: true,
+      roomTypes: [
+        {
+          roomType: 'standard-studio-city-view',
+          label: 'Standard Studio · City View',
+          monthlyFromVnd: 8_000_000,
+        },
+        { roomType: GARDEN, label: 'Standard Studio · Garden View', monthlyFromVnd: 9_000_000 },
+        { roomType: PREMIUM, label: 'Premium · One Bedroom + 1', monthlyFromVnd: 11_000_000 },
+        {
+          roomType: 'signature-two-bedrooms',
+          label: 'Signature · Two Bedrooms',
+          monthlyFromVnd: 11_500_000,
+        },
+      ],
+      computedAt: expect.stringMatching(/\+07:00$/),
+    });
+    // DS-E highest prices of each type and room numbers never leave.
+    expect(r.body).not.toMatch(
+      /8500000|9500000|12000000|12500000|roomId|roomNo|"10[123]"|"20[123]"/,
+    );
+    // A room taken off sale leaves the type; OWN changes a monthly price → web follows (within the 60 s cache).
+    await q(`UPDATE room SET is_sellable = false WHERE room_no = '101'`);
+    fa.clock.set(new Date(fa.clock.now().getTime() + 61_000));
+    const after = (await monthlyRates()).json();
+    expect(after.roomTypes[0]).toMatchObject({
+      label: 'Standard Studio · City View',
+      monthlyFromVnd: 8_500_000,
+    });
+    await q(`UPDATE room SET is_sellable = true WHERE room_no = '101'`);
+    fa.clock.set(new Date(fa.clock.now().getTime() + 61_000));
+
+    expect((await monthlyRates({ raw: 'roomType=premium' })).statusCode).toBe(422);
+    expect((await monthlyRates({ headers: { 'sec-fetch-site': 'cross-site' } })).statusCode).toBe(
+      403,
+    );
+    expect((await monthlyRates({ method: 'POST' })).statusCode).toBe(404);
+
+    await monthlyRates();
+    const spy = vi.spyOn(db, 'withContext');
+    const again = await monthlyRates();
+    expect(again.json().roomTypes).toHaveLength(4);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('by the night ≥ BR-108 nights (ESC-043 câu 2, narrowed by FB-INV-010): 200 monthly_offer with NO amount and no token', async () => {
     for (const query of <Array<Record<string, string | number>>>[
-      { roomType: GARDEN, stayType: 'long', arrival: '2026-12-01', months: 6, adults: 2 },
-      { roomType: GARDEN, stayType: 'long', arrival: '2026-12-01', adults: 2 },
       { roomType: GARDEN, arrival: '2026-11-10', departure: '2026-12-10', adults: 2 },
     ]) {
       const r = await estimate(query);
@@ -486,6 +629,8 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
       totalVnd: 2_250_000,
       losDiscountPct: 0,
       extraPersonFeeVnd: 0,
+      // FB-INV-010: null for a stay by the night.
+      monthlyVnd: null,
       currency: 'VND',
       computedAt: shown.computedAt,
       priceVersion: expect.stringMatching(/^[0-9a-f]{16}$/),

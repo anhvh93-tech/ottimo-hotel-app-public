@@ -21,8 +21,10 @@ import {
 } from '../src/modules/public-site/internal/estimate-token';
 import {
   checkEstimateDates,
+  checkMonthlyRatesQuery,
   parseEstimateQuery,
   publicEstimateDto,
+  publicMonthlyRatesDto,
   type EstimateQuery,
 } from '../src/modules/public-site/internal/price-estimate.service';
 import {
@@ -39,6 +41,7 @@ import type { PricingParams } from '../src/modules/reservations/public/pricing.s
 import {
   type PublicRateRoom,
   estimatePublicRate,
+  monthlyFromByType,
 } from '../src/modules/reservations/public/public-rate';
 import { DS_E } from './helpers/reservations-fixture';
 
@@ -94,6 +97,7 @@ const ROOMS = Object.fromEntries(
         {
           effectiveFrom: '2026-10-01',
           nightlyVnd: r.nightlyListPriceVnd,
+          monthlyVnd: r.monthlyListPriceVnd,
         },
       ],
     } satisfies PublicRateRoom,
@@ -111,6 +115,7 @@ const roomsOf = (t: string, patch: (r: PublicRateRoom) => PublicRateRoom = (r) =
 const params = (pricing: PricingParams = PRICING) => ({
   pricing,
   openUntil: '2027-01-01',
+  monthlyRentUnit: param<number>('rounding.monthly_rent'),
 });
 const short = (arrival: string, departure: string, adults: number, c = 0, i = 0) => ({
   stayType: 'short' as const,
@@ -180,10 +185,15 @@ describe('BR-115 – DOM mục 11 cases on the DS-E table (pure engine, same fun
     expect(e.shortStay).toBeUndefined();
   });
 
-  // ESC-043 câu 2 (INV 01/11): the web shows NO monthly price – DOM ca 5/5b (8.280.000 / 8.550.000) now answer
-  // `monthly_offer` without any amount; the monthly numbers stay in the private quote only.
-  it('ca 5 / 5b – Garden Studio, 6 or 4 months or no length: monthly_offer, no amount at all', () => {
-    for (const months of [6, 4, null]) {
+  // FB-INV-010 (INV 16/11) replaces ESC-043 câu 2: a stay BY THE MONTH shows the monthly list price of the cheapest
+  // room of the type (DS-E Garden 102/103 = 9.000.000, 202/203 = 9.500.000) × months – no BR-201 term discount
+  // (DOM question), no foreigner +10 %, no service fee.
+  it('ca 5 / 5b – Garden Studio, 6 or 4 months or no length: from 9.000.000 / month × months', () => {
+    for (const [months, total] of [
+      [6, 54_000_000],
+      [4, 36_000_000],
+      [null, null],
+    ] as const) {
       const e = estimatePublicRate(params(), roomsOf('garden'), {
         stayType: 'long',
         arrival: '2026-12-01',
@@ -191,8 +201,79 @@ describe('BR-115 – DOM mục 11 cases on the DS-E table (pure engine, same fun
         months,
         party: { adults: 2, children6to11: 0, childrenUnder6: 0 },
       });
-      expect(e).toEqual({ status: 'monthly_offer', stayKind: 'long', priceGapRoomIds: [] });
+      expect(e).toEqual({
+        status: 'ok',
+        stayKind: 'long',
+        priceGapRoomIds: [],
+        longStay: { months, monthlyFromVnd: 9_000_000, totalVnd: total, monthlyToVnd: 9_500_000 },
+      });
     }
+  });
+
+  it('monthly: the price in effect on the arrival date, OOO rooms out, a room without a monthly price is a gap', () => {
+    const long = (arrival: string, months: number | null = 3) => ({
+      stayType: 'long' as const,
+      arrival,
+      departure: null,
+      months,
+      party: { adults: 2, children6to11: 0, childrenUnder6: 0 },
+    });
+    // OWN schedules 102 at 8.000.000 from 01/01/2027: a December arrival still reads 9.000.000.
+    const scheduled = roomsOf('garden', (r) =>
+      r.roomId === 'room-102'
+        ? {
+            ...r,
+            listPrices: [
+              ...r.listPrices,
+              { effectiveFrom: '2027-01-01', nightlyVnd: 750_000, monthlyVnd: 8_000_000 },
+            ],
+          }
+        : r,
+    );
+    const dec = estimatePublicRate(params(), scheduled, long('2026-12-15'));
+    const jan = estimatePublicRate(params(), scheduled, long('2027-01-01'));
+    expect(dec.longStay).toMatchObject({ monthlyFromVnd: 9_000_000, totalVnd: 27_000_000 });
+    expect(jan.longStay).toMatchObject({ monthlyFromVnd: 8_000_000, totalVnd: 24_000_000 });
+    // 102 and 103 under an OOO block → the 9.500.000 rooms remain.
+    const ooo = roomsOf('garden', (r) =>
+      r.roomId === 'room-102' || r.roomId === 'room-103' ? { ...r, blocked: true } : r,
+    );
+    expect(estimatePublicRate(params(), ooo, long('2026-12-01')).longStay?.monthlyFromVnd).toBe(
+      9_500_000,
+    );
+    // A row without a monthly price → that room is a gap (OWN warning), never 0.
+    const gap = roomsOf('city', (r) =>
+      r.roomId === 'room-101'
+        ? { ...r, listPrices: [{ effectiveFrom: '2026-10-01', nightlyVnd: 667_000 }] }
+        : r,
+    );
+    const g = estimatePublicRate(params(), gap, long('2026-12-01', 1));
+    expect(g).toMatchObject({ status: 'ok', priceGapRoomIds: ['room-101'] });
+    expect(g.longStay).toMatchObject({ monthlyFromVnd: 8_500_000, totalVnd: 8_500_000 });
+    const none = estimatePublicRate(
+      params(),
+      gap.filter((r) => r.roomId === 'room-101'),
+      long('2026-12-01'),
+    );
+    expect(none).toMatchObject({ status: 'unavailable', priceGapRoomIds: ['room-101'] });
+    expect(none.longStay).toBeUndefined();
+  });
+
+  it('monthly: rounded with rounding.monthly_rent (BR-005), the Desk rent unit', () => {
+    const odd = roomsOf('city', (r) => ({
+      ...r,
+      listPrices: [{ effectiveFrom: '2026-10-01', nightlyVnd: 700_000, monthlyVnd: 8_499_500 }],
+    }));
+    const req = {
+      stayType: 'long' as const,
+      arrival: '2026-12-01',
+      departure: null,
+      months: 2,
+      party: { adults: 2, children6to11: 0, childrenUnder6: 0 },
+    };
+    expect(
+      estimatePublicRate({ ...params(), monthlyRentUnit: 1_000 }, odd, req).longStay,
+    ).toMatchObject({ monthlyFromVnd: 8_500_000, totalVnd: 17_000_000 });
   });
 
   it('monthly: over capacity still says so; a type without sellable room → unavailable', () => {
@@ -431,6 +512,7 @@ const FORBIDDEN_KEYS = [
   'parity',
   'pricegap',
   'lines',
+  'monthlyto',
 ];
 const FORBIDDEN_VALUES = [
   'ota_floor',
@@ -474,7 +556,7 @@ describe('public answer = allowlist (SR-PE-01, SR-PE-05)', () => {
       q(),
     ],
     [
-      'monthly offer',
+      'ok long (by the month)',
       estimatePublicRate(params(), roomsOf('garden'), {
         stayType: 'long',
         arrival: '2026-12-01',
@@ -500,6 +582,11 @@ describe('public answer = allowlist (SR-PE-01, SR-PE-05)', () => {
       q(),
     ],
     ['unavailable', estimatePublicRate(params(), [], short('2026-11-10', '2026-11-13', 2)), q()],
+    [
+      'monthly offer (by the night ≥ BR-108)',
+      estimatePublicRate(params(), roomsOf('garden'), short('2026-11-10', '2026-12-10', 2)),
+      q({ departure: '2026-12-10' }),
+    ],
   ];
 
   it.each(cases)(
@@ -543,17 +630,39 @@ describe('public answer = allowlist (SR-PE-01, SR-PE-05)', () => {
     expect(dto(3)).toMatchObject({ unavailableReason: 'party_exceeds_room' });
     expect(dto(4)).toMatchObject({ unavailableReason: 'on_request', notes: [] });
     expect(dto(5)).toMatchObject({ unavailableReason: 'on_request' });
-    // ESC-043 câu 2: monthly → no amount, no token, the page shows the special-offer invitation.
-    expect(dto(1)).toEqual({
+    // FB-INV-010: by the month → longStay (from / month, × months), never the highest price or a room.
+    expect(
+      publicEstimateDto(
+        cases[1]![2],
+        { estimate: cases[1]![1], computedAt: 'x', taxIncluded: true },
+        { estimateToken: 'pe1.abc.def', expiresAt: 'y' },
+      ),
+    ).toEqual({
       estimate: true,
       currency: 'VND',
       taxIncluded: true,
       roomType: 'standard-studio-garden-view',
       stayKind: 'long',
       arrival: '2026-12-01',
+      priceAvailable: true,
+      longStay: { months: 6, monthlyFromVnd: 9_000_000, totalVnd: 54_000_000 },
+      notes: [],
+      computedAt: 'x',
+      estimateToken: 'pe1.abc.def',
+      expiresAt: 'y',
+    });
+    // By the night over the BR-108 threshold: still no amount, no token – the page asks to choose "by the month".
+    expect(dto(6)).toEqual({
+      estimate: true,
+      currency: 'VND',
+      taxIncluded: true,
+      roomType: 'standard-studio-garden-view',
+      stayKind: 'long',
+      arrival: '2026-11-10',
+      departure: '2026-12-10',
       priceAvailable: false,
       unavailableReason: 'monthly_offer',
-      notes: [],
+      notes: [{ code: 'long_stay_required' }],
       computedAt: 'x',
     });
   });
@@ -724,6 +833,207 @@ describe('estimate token pe1 (ARC 2.7)', () => {
     expect(tokenMatches(payload, { ...req, infants: 1 })).toBe(false);
     expect(tokenMatches(payload, { ...req, roomType: 'premium-one-bedroom-1' })).toBe(false);
     expect(tokenMatches(payload, { ...req, roomType: null })).toBe(false);
+  });
+
+  it('FB-INV-010: a stay by the month carries `mo` (and `tot` = mo × months); a bad `mo` is refused', () => {
+    const long: EstimatePayload = {
+      ...payload,
+      st: 'long',
+      d: null,
+      m: 6,
+      tot: 54_000_000,
+      n: undefined,
+      los: undefined,
+      xp: undefined,
+      mo: 9_000_000,
+    };
+    const t = issueEstimateToken(sign, 'prop-1', JSON.parse(JSON.stringify(long)));
+    const check = verifyEstimateToken(sign, 'prop-1', t, now);
+    expect(check.ok && check.payload.mo).toBe(9_000_000);
+    expect(check.ok && check.payload.tot).toBe(54_000_000);
+    expect(
+      tokenMatches(JSON.parse(JSON.stringify(long)), {
+        ...req,
+        stayType: 'long',
+        departure: null,
+        months: 6,
+      }),
+    ).toBe(true);
+    const bad = issueEstimateToken(sign, 'prop-1', { ...long, mo: 9.5 as unknown as number });
+    expect(verifyEstimateToken(sign, 'prop-1', bad, now)).toEqual({ ok: false, reason: 'format' });
+  });
+});
+
+// ───────────── FB-INV-010 Đợt 1: "from X / month" of every public type (getPublicMonthlyRates) ─────────────
+describe('getPublicMonthlyRates (FB-INV-010 – replaces ESC-043 câu 2)', () => {
+  const SPEC_M = SPEC.components.schemas.PublicMonthlyRates as JsonSchema;
+  const LABEL: Record<string, string> = {
+    city: 'Studio City',
+    garden: 'Studio Garden',
+    premium: 'Premium',
+    signature: 'Signature',
+  };
+  const all = (patch: (r: PublicRateRoom) => PublicRateRoom = (r) => r) =>
+    Object.keys(TYPE).flatMap((t) =>
+      roomsOf(t, patch).map((room) => ({ label: LABEL[t] as string, room })),
+    );
+  /** INV price table 01/11: one monthly price per type – 8,5 / 9 / 11,5 / 13,5 million (BR-101). */
+  const MONTHLY_0111: Record<string, number> = {
+    'Studio City': 8_500_000,
+    'Studio Garden': 9_000_000,
+    Premium: 11_500_000,
+    Signature: 13_500_000,
+  };
+
+  it('DS-E: the lowest monthly list price of each type, ascending (City 8.000.000 … Signature 11.500.000)', () => {
+    expect(monthlyFromByType(all(), '2026-11-16', 1_000)).toEqual({
+      types: [
+        { label: 'Studio City', monthlyFromVnd: 8_000_000 },
+        { label: 'Studio Garden', monthlyFromVnd: 9_000_000 },
+        { label: 'Premium', monthlyFromVnd: 11_000_000 },
+        { label: 'Signature', monthlyFromVnd: 11_500_000 },
+      ],
+      priceGapRoomIds: [],
+    });
+  });
+
+  it('INV table 01/11 entered from 03/11: the new price on and after the switch, the old one before', () => {
+    const rooms = Object.keys(TYPE).flatMap((t) =>
+      roomsOf(t, (r) => ({
+        ...r,
+        listPrices: [
+          ...r.listPrices,
+          {
+            effectiveFrom: '2026-11-03',
+            nightlyVnd: NIGHTLY_0111[t] as number,
+            monthlyVnd: MONTHLY_0111[LABEL[t] as string] as number,
+          },
+        ],
+      })).map((room) => ({ label: LABEL[t] as string, room })),
+    );
+    const after = monthlyFromByType(rooms, '2026-11-16', 1_000).types;
+    expect(Object.fromEntries(after.map((x) => [x.label, x.monthlyFromVnd]))).toEqual(MONTHLY_0111);
+    expect(monthlyFromByType(rooms, '2026-11-02', 1_000).types[0]).toEqual({
+      label: 'Studio City',
+      monthlyFromVnd: 8_000_000,
+    });
+  });
+
+  it('a room without a monthly price is a gap (never 0); a type with no priced room is left out', () => {
+    const noSignature = all((r) =>
+      r.roomId === 'room-301' || r.roomId === 'room-401'
+        ? { ...r, listPrices: [{ effectiveFrom: '2026-10-01', nightlyVnd: 958_000 }] }
+        : r,
+    );
+    const out = monthlyFromByType(noSignature, '2026-11-16', 1_000);
+    expect(out.types.map((x) => x.label)).toEqual(['Studio City', 'Studio Garden', 'Premium']);
+    expect(out.priceGapRoomIds.sort()).toEqual(['room-301', 'room-401']);
+    // Price not in effect yet on the day → also a gap.
+    const future = all((r) => ({
+      ...r,
+      listPrices: r.listPrices.map((x) => ({ ...x, effectiveFrom: '2026-12-01' })),
+    }));
+    expect(monthlyFromByType(future, '2026-11-16', 1_000).types).toEqual([]);
+  });
+
+  it('rounded with the Desk rent unit (BR-005)', () => {
+    const odd = [
+      {
+        label: 'Premium',
+        room: {
+          ...(ROOMS['302'] as PublicRateRoom),
+          listPrices: [
+            { effectiveFrom: '2026-10-01', nightlyVnd: 1_000_000, monthlyVnd: 11_499_500 },
+          ],
+        },
+      },
+    ];
+    expect(monthlyFromByType(odd, '2026-11-16', 1_000).types[0]?.monthlyFromVnd).toBe(11_500_000);
+    expect(monthlyFromByType(odd, '2026-11-16', 10_000).types[0]?.monthlyFromVnd).toBe(11_500_000);
+  });
+
+  it('public answer = allowlist: slug + label + from amount, nothing else (no room, no count, no highest price)', () => {
+    const dto = publicMonthlyRatesDto({
+      types: monthlyFromByType(all(), '2026-11-16', 1_000).types,
+      computedAt: '2026-11-16T10:00:00+07:00',
+      taxIncluded: true,
+    });
+    expect(dto).toEqual({
+      estimate: true,
+      currency: 'VND',
+      taxIncluded: true,
+      roomTypes: [
+        { roomType: 'studio-city', label: 'Studio City', monthlyFromVnd: 8_000_000 },
+        { roomType: 'studio-garden', label: 'Studio Garden', monthlyFromVnd: 9_000_000 },
+        { roomType: 'premium', label: 'Premium', monthlyFromVnd: 11_000_000 },
+        { roomType: 'signature', label: 'Signature', monthlyFromVnd: 11_500_000 },
+      ],
+      computedAt: '2026-11-16T10:00:00+07:00',
+    });
+    expect(keysAllowed(dto, SPEC_M)).toEqual([]);
+    for (const r of SPEC_M.required ?? []) expect(dto, r).toHaveProperty(r);
+    const item = SPEC_M.properties?.roomTypes?.items as JsonSchema;
+    for (const t of dto.roomTypes as Array<Record<string, unknown>>) {
+      expect(keysAllowed(t, item)).toEqual([]);
+    }
+    for (const k of allKeys(dto))
+      for (const f of FORBIDDEN_KEYS) expect(k.toLowerCase()).not.toContain(f);
+    for (const v of allStrings(dto)) for (const f of FORBIDDEN_VALUES) expect(v, f).not.toBe(f);
+  });
+
+  it('FB-R5-ARC-BE-180-03: labels with the same slug are one type (lowest price kept); at most 20 types', () => {
+    const dto = publicMonthlyRatesDto({
+      types: [
+        { label: 'Studio garden', monthlyFromVnd: 9_500_000 },
+        { label: 'Studio Garden', monthlyFromVnd: 9_000_000 },
+        { label: 'Studio  Garden', monthlyFromVnd: 9_000_000 },
+        { label: 'Premium', monthlyFromVnd: 11_500_000 },
+      ],
+      computedAt: 'x',
+      taxIncluded: true,
+    });
+    expect(dto.roomTypes).toEqual([
+      { roomType: 'studio-garden', label: 'Studio  Garden', monthlyFromVnd: 9_000_000 },
+      { roomType: 'premium', label: 'Premium', monthlyFromVnd: 11_500_000 },
+    ]);
+    const many = publicMonthlyRatesDto({
+      types: Array.from({ length: 25 }, (_, i) => ({
+        label: `Type ${String(i).padStart(2, '0')}`,
+        monthlyFromVnd: 8_000_000 + i * 100_000,
+      })),
+      computedAt: 'x',
+      taxIncluded: true,
+    }).roomTypes as Array<{ label: string }>;
+    expect(many).toHaveLength(20);
+    expect(many[0]?.label).toBe('Type 00');
+    expect(many[19]?.label).toBe('Type 19');
+  });
+
+  it('no query parameter is accepted (SR-PE-02)', () => {
+    expect(() => checkMonthlyRatesQuery('')).not.toThrow();
+    for (const q of ['roomType=premium', 'a=1&b=2', 'x'.repeat(300)]) {
+      expect(() => checkMonthlyRatesQuery(q)).toThrow(ProblemError);
+    }
+  });
+
+  it('SR-PE-04: the monthly listing never reads bookings, holds, occupancy, room statuses or OOO blocks', () => {
+    const src = readFileSync(
+      join(__dirname, '../src/modules/reservations/public/public-rate.port.ts'),
+      'utf8',
+    );
+    const body = src.slice(src.indexOf('async monthlyFrom('), src.indexOf('async estimate('));
+    const sql = (body.match(/`[^`]*`/g) ?? []).join('\n');
+    expect(sql).toMatch(/FROM room rm/);
+    for (const t of [
+      'reservation',
+      'room_occupancy',
+      'stay_night',
+      'hold',
+      'room_status',
+      'room_block',
+    ]) {
+      expect(sql, t).not.toMatch(new RegExp(`\\b${t}\\b`));
+    }
   });
 });
 

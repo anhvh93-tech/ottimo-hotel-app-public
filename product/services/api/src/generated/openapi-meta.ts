@@ -2781,6 +2781,18 @@ export const OPENAPI_META: OpenApiMeta = {
       public: true,
       c3Log: false,
     },
+    getPublicMonthlyRates: {
+      method: 'GET',
+      path: '/v1/public/properties/{propertySlug}/monthly-rates',
+      roles: ['public'],
+      rbac: [],
+      idempotencyKey: false,
+      ifMatch: false,
+      trustedDevice: false,
+      stepUp: false,
+      public: true,
+      c3Log: false,
+    },
     listWebsiteBookingRequests: {
       method: 'GET',
       path: '/v1/properties/{propertyId}/website-booking-requests',
