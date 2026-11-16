@@ -200,3 +200,50 @@ Nguồn: `rounds/round-05/reviews/SEC-dependabot-triage-v1.0.5.md` mục 4 (đ�
 
 **Việc chưa xong**
 - Deploy production (bước sau, theo checklist trong thân PR).
+
+## 13. Cập nhật 16/11 chiều – Kiểm thử (chuẩn bị staging): gói `infra/` staging + landing staging (ESC-052 = A)
+
+Căn cứ: giao việc ORC 16/11; decision-log 16/11 (ESC-052 = A); `rounds/round-05/qa/v1.0.5-fb010-staging.md`; thân PR #182 (mục 2–3); README `product/infra/server/README.md` mục 2, 12, 12.3; runbook v1.0.5 mục 0.2, P2b, W2. Chỉ đụng stack staging (`/opt/ottimo`, project compose `ottimo`, mốc `.ottimo-home` = `staging`). Trước mỗi lệnh ghi đều kiểm mốc. Không đụng `/opt/ottimo-prod`, `/opt/ottimo-edge`, systemd, journald. Không SQL. Không in địa chỉ máy, bí mật hay mật khẩu.
+
+**Kết luận: DỪNG ở bước landing.** Gói `infra/` staging đã làm mới. `deploy-landing.sh --check-only` **FAIL ở bước `privacy`**, nên landing staging chưa đổi. Theo PR #182 mục 2, bước 3: băm trang privacy đổi thì dừng và báo SEC.
+
+**Đã làm (giờ VN)**
+
+| Giờ | Bước | Kết quả |
+|---|---|---|
+| 13:30 | Đọc hiện trạng (chỉ đọc) | Staging: `current_tag` = `sha-32c9bd2def9a` (CI deploy 06:26Z, lượt 43805583212 đạt), `landing_tag` = `sha-6414be25f20d`, `EDGE_MODE=edge`, `LANDING_PUBLIC_API=on`, `LANDING_LOCALES=en,vi,ko,zh,ru`. Caddyfile landing cũ: 0 dòng `monthly-rates`, 0 dòng bỏ `Authorization`. Staging không có `HEARTBEAT_URL` và `ALERT_WEBHOOK_URL`. Production: app và landing đều `sha-6414be25f20d` |
+| 13:30 | Gói từ `32c9bd2d` (`git archive product/infra`), `scp`, so băm | Băm Mac = máy chủ, 12 ký tự `376f55614ad4`. Gói có: matcher `@public_monthly_rates`, `header_up -Authorization`, `sshkeys` + `pricegap` tĩnh, compose driver `journald`. So với gói staging cũ: `02-roles.sh`, `deploy.sh`, `deploy-landing.sh` **không đổi** (nên không cần áp lại phân quyền DB) |
+| 13:31 | Thay gói staging (P2b bước 3, đổi đường dẫn sang staging) | `BAN CU GIU O: /root/ottimo-staging-bundles/infra-20261116-133101`. `rsync --checksum --delete` chỉ vào `/opt/ottimo/infra`, loại `server/test/`. `diff -rq` khớp. `dc --profile landing --profile deploy config -q` OK. Gói production không đổi (Caddyfile production vẫn 0 dòng `monthly-rates`) |
+| 13:31 | `deploy-landing.sh sha-32c9bd2def9a --digest sha256:58013dab…88aa7 --check-only` (user `ottimo`) | Digest landing lấy từ log job `publish images (GHCR)` của lượt 43805583212. Bước `config`, `pull`, `digest` qua. **Bước `privacy` FAIL**: "privacy page bytes changed for a published notice version", cả 5 ngôn ngữ, cùng nhãn `2026-11-04`. Không đổi gì, không ghi gì |
+| 13:35 | Tìm nguyên nhân (chỉ đọc; đọc tệp trang EN của hai image, container `--rm --network none`) | Trang `/privacy/` EN của image mới khác bản đã đăng đúng **2 dòng**: (1) khối JSON-LD `LodgingBusiness` có `description` mới (chữ site của #181 trong `content/en.ts`); (2) tên tệp CSS băm `Base.<hash>.css` đổi (#181 sửa `landing.css` và font KO/ZH). **Thân thông báo không đổi.** Bốn ngôn ngữ còn lại chắc cùng lý do (layout chung), chưa so từng tệp |
+| 13:37 | Kiểm staging không đăng nhập (curl) | Xem mục dưới |
+
+**Kiểm sau bước trên (staging, không đăng nhập)**
+
+| Kiểm | Kết quả |
+|---|---|
+| `GET desk.staging…/v1/public/properties/dlt/monthly-rates` | **200** `application/json`. Khóa đúng allowlist: `computedAt, currency, estimate, roomTypes, taxIncluded`; mỗi hạng đúng `label, monthlyFromVnd, roomType`, `monthlyFromVnd > 0` (`jq -e` = true). **4 hạng**: `standard-studio-city-view`, `standard-studio-garden-view`, `premium-one-bedroom-1`, `signature-two-bedrooms`. `grep roomId/monthlyTo/count/ota/commission/occupan` = 0. Vậy `public_show_prices` đang bật và cả 4 hạng có giá tháng + `public_room_type` trên Desk staging |
+| `price-estimate?…&stayType=long&months=6` (desk.staging) | `priceAvailable: true`, có `longStay` (`monthlyFromVnd, months, totalVnd`) |
+| `?x=1` và POST qua **desk.staging** | `?x=1` → 422 (api), POST → 404. Ca "?x=1 → 404" chỉ áp cho **Caddy landing**, chưa kiểm được (dưới) |
+| Qua landing `staging.ottimo.vn` | `/` → 401 (basic auth, đúng thiết kế). `monthly-rates` không mật khẩu → 401. Container landing **vẫn dùng Caddyfile cũ** (0 dòng `monthly-rates` trong container, `Up 2 days (healthy)`). Caddyfile là tệp gắn vào container, chỉ có hiệu lực khi container được tạo lại, mà bước này chưa chạy |
+| `ops-check containers` (staging) | ok: postgres, api, worker, web, landing running, api healthy |
+
+**Staging đã sẵn sàng cho QA chưa:** **một phần.**
+- Sẵn sàng: Desk v1.0.5 (`sha-32c9bd2def9a`) cho bảng kiểm v1.0.5 (T1–T25). Phần api của FB-INV-010 (`monthly-rates`, `price-estimate` dài hạn) qua desk.staging. Dữ liệu giá đủ, QA không cần nhập thêm.
+- Chưa sẵn sàng: landing mới trên staging (giá "From X / month", FAQ, form dài hạn, 360 px). Các ca Caddy landing (`?x=1` → 404, POST → 404 qua `staging.ottimo.vn`) cũng chưa, vì landing chưa đổi và container chưa nạp Caddyfile mới.
+
+**Rủi ro / vướng mắc (cho ORC, SEC)**
+- **Chặn cả production, không chỉ staging.** `deploy-landing.sh` production so cùng băm với nhãn `2026-11-04` đã đăng, nên PR #182 mục 2 bước 3 trên production cũng sẽ FAIL. Image hiện tại không lên được nếu giữ nhãn `2026-11-04`. Bất kỳ đổi chữ site hay CSS nào cũng làm đổi băm trang privacy, vì trang dùng layout chung. Hướng xử lý cần SEC (+ FE, ARC) chọn:
+  - (a) Đổi nhãn thông báo (ví dụ `2026-11-16`), thân thông báo giữ nguyên. FE đổi `VERSION` của trang privacy + form, build lại. SEC ghi dòng duyệt trong decision-log. Rồi chạy `publish-privacy-notice.sh` trên staging (bằng root) và trên production. Theo luật README 12.3 (`CONST_ROWS ≥ 1`), không đổi hằng api.
+  - (b) Sửa build để trang privacy không kéo khối JSON-LD và CSS băm của layout chung. Trang chỉ đổi byte khi thân thông báo đổi. Đây là việc FE + ARC, SEC duyệt, cũng phải build lại.
+  - Không có cờ nào để bỏ qua bước `privacy`, và OPS không đề xuất thêm cờ đó.
+- Gói staging mới đã vào, nhưng chưa làm các bước còn lại của Đợt A (W1 timer 2 lượt, W4, W6 journald, W7). Hệ quả, chỉ trên staging:
+  - `ops-check` mới chạy theo timer sẽ báo FAIL `journal` và `sshkeys` (W0 chưa làm), và FAIL `backup` sau khoảng 14 giờ, vì timer staging vẫn 1 lượt 03:30. Staging không có webhook báo động và heartbeat, nên các FAIL này chỉ nằm trong journal (`ottimo-alert`) và `systemctl --failed`, không tới phòng Báo động.
+  - `backup.sh` mới (giữ theo tuổi, Chủ nhật 33 ngày) chạy lúc 03:30. Bản sao lưu staging cũ nhất là 22/10, chưa tới 33 ngày, nên đêm nay không xóa thêm gì so với luật cũ.
+  - Lần deploy app staging kế tiếp (CI) sẽ dựng lại container với compose mới (driver `journald`, Postgres ghim cài đặt log). Desk staging có thể mất 20–60 giây lúc đó.
+- Quay lui gói (nếu ORC muốn): chép lại `/root/ottimo-staging-bundles/infra-20261116-133101` vào `/opt/ottimo/infra` (cùng cờ `rsync`). Chưa dựng lại container nào, nên không cần làm gì thêm.
+
+**Việc chưa xong**
+- Deploy landing staging `sha-32c9bd2def9a`: chờ SEC chọn (a) hoặc (b) và có image mới, rồi `--check-only` lại (bước `privacy` phải ra 5 ngôn ngữ, không FAIL), rồi mới deploy.
+- Một lựa chọn để QA kiểm **route Caddy** ngay hôm nay mà không cần landing mới: dựng lại container landing staging **cùng tag đang chạy** `sha-6414be25f20d` (runbook W2: `--no-deps --force-recreate --pull never`, `staging.ottimo.vn` mất vài giây) để nạp Caddyfile mới. Sau đó `monthly-rates` qua landing (có mật khẩu xem trước) → 200, `?x=1`/POST → 404. Đây là bước ngoài câu giao việc, nên OPS **chưa chạy**. ORC xác nhận nó có nằm trong ESC-052 A ("cập nhật cấu hình landing") hay không.
+- Không commit, không push (theo giao việc).
