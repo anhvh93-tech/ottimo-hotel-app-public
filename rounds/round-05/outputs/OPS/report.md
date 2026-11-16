@@ -330,3 +330,26 @@ Không tạo booking/form thử. Không SQL ghi. Không in IP/bí mật.
 - SEC xem quyền `state/privacy-notice.log` production `ottimo:ottimo 664` (staging 600).
 - QA ký landing staging bằng Playwright có header (BUG-R4-054) nếu cần bằng chứng hiển thị trên staging.
 - ORC ghi decision-log (tag, run 43834006137 / 43835200008, `sha-a9f510f7611f`, giờ, kết quả a–d) và commit.
+
+## 15. Việc phụ ngoài round 16/11 – trang tĩnh phụ trên cùng VPS (yêu cầu INV, PR `ops-static-site-edge`)
+
+Ghi riêng, không thuộc kế hoạch round 5. INV muốn chạy thêm trang tĩnh (~1,3 MB, một tên miền + `www`) của một doanh nghiệp khác của INV trên VPS OTTIMO, không ảnh hưởng ottimo.vn / Desk / staging. Tên miền, IP VPS, e-mail ACME **không ghi vào repo** (chỉ trong `/opt/ottimo-static/.env` trên máy chủ); repo dùng `example.test` / `*.localhost`. Không SSH (một OPS khác đang phát hành v1.0.5).
+
+**Đã làm gì**
+- Gói bàn giao của chủ trang giả định Caddy cài thẳng trên host (dán vào `/etc/caddy/Caddyfile`) – sai với VPS của ta (edge nginx giữ 80/443, route SNI tới Caddy của từng stack). Thay bằng stack riêng `ottimo-static` (`infra/static/`: `Dockerfile.static`, `docker-compose.static.yml`, `Caddyfile.static`, `env.example`) + overlay edge `infra/edge/docker-compose.edge-static.yml` + `infra/server/bin/static-site.sh`.
+- `edge.sh`: đọc `STATIC_HOST` / `STATIC_WWW_HOST` từ `/opt/ottimo-static/.env`, thêm 4 dòng `static-site` **sau** các dòng OTTIMO; tạo mạng `ottimo-link-static` và dùng overlay chỉ khi có trang. Lệnh mới `edge.sh plan` (render ra `nginx.conf.plan`, in diff, không đổi tệp đang dùng).
+- Chứng minh "OTTIMO không đổi": commit đầu của PR sinh `infra/ci/fixtures/edge-nginx.ottimo-only.conf` bằng **edge.sh cũ**; test so render mới (không có trang tĩnh / `.env` để trống) với tệp này từng byte; khi có trang: bỏ 4 dòng `static-site` thì còn lại giống từng byte.
+- `test-edge.sh` thêm 9 ca render + 11 ca end-to-end (compose + image thật): CSP riêng của trang, header, cache, 301 www/http một bước, 405, tệp chấm 404, CSP landing OTTIMO không đổi, địa chỉ khách qua PROXY protocol, hardening container; mọi ca OTTIMO cũ chạy cùng lúc với trang tĩnh. Chạy local (OrbStack, `EDGE_TEST_JSON_LOGS=1`): tất cả `ok`.
+- Runbook: `infra/server/README.md` mục 14 (bật, thứ tự DNS, kiểm, gỡ).
+
+**Giả định**
+- Một trang tĩnh (apex + www) là đủ; trang thứ hai cần thêm mạng/địa chỉ (sửa nhỏ edge.sh).
+- Giữ CSP `'unsafe-inline'` + Google Fonts đúng như gói bàn giao (trang inline CSS/JS); HSTS không `includeSubDomains` như gói bàn giao.
+- Image Caddy dựng tại chỗ trên máy chủ (không đẩy lên kho image), base pin digest như landing.
+
+**Rủi ro**
+- `edge.sh up` dựng lại edge: mọi site gián đoạn ≈ 1–2 s (như mọi lần đổi tên miền). Làm sau khi phát hành v1.0.5 xong.
+- Đổi DNS là việc của INV tại nhà đăng ký; phải giữ MX/TXT (thư điện tử của tên miền đó).
+- Chi phí: 0 (cùng VPS, ~96 MB RAM tối đa, chứng chỉ miễn phí) – không cần ESC.
+
+**Phản hồi SEC (review `SEC-on-ops-pr-184.md`, DUYỆT) – đã sửa trên cùng PR:** 166 (`static-site.sh` từ chối web root có symlink; README dùng `rsync -rt --no-links`), 167 (kiểm riêng từng biến, `STATIC_WWW_HOST = www.<STATIC_HOST>`, mảng, không tách chữ/glob), 168 (chặn tên là hoặc nằm dưới `ottimo.vn` và apex của stack đang nạp), 169 (`.env` 0640 root:ottimo ở README + env.example), 170 (test giả PROXY header trên mạng static; `static-site.sh` kiểm dạng tên, `grep -xF`). Thêm 10 ca test. Dòng decision-log bỏ khỏi PR (ORC ghi trên main).

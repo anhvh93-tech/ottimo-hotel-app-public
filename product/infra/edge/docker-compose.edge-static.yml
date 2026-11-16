@@ -1,0 +1,16 @@
+# Overlay of docker-compose.edge.yml for the secondary static site (infra/static – R5 16/11: a small static site of
+# another business on the same VPS). Added by infra/server/bin/edge.sh ONLY while the rendered nginx.conf routes a
+# static host (STATIC_HOST / STATIC_WWW_HOST in /opt/ottimo-static/.env): the edge joins one more link network at a
+# fixed address, the only sender of PROXY protocol headers the static site's Caddy accepts (infra/static). Without a
+# static site this file is not used and the edge container is exactly the one of docker-compose.edge.yml.
+services:
+  edge:
+    networks:
+      link-static:
+        ipv4_address: 172.31.3.2
+
+# Created by edge.sh (fixed name and subnet 172.31.3.0/24, dynamic addresses from .128/25 only).
+networks:
+  link-static:
+    name: ottimo-link-static
+    external: true

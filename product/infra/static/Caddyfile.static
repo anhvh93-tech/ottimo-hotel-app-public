@@ -1,0 +1,127 @@
+# Secondary static site (infra/static/docker-compose.static.yml – R5 16/11). Plain files from /srv/site (read-only),
+# no proxy, no api. Rules taken from the site owner's hand-over (headers, CSP, cache, 301 www → apex), names from the
+# environment: STATIC_HOST (served), STATIC_WWW_HOST (301 → https://STATIC_HOST). Behind the shared edge only: the
+# PROXY protocol header is accepted from the edge address alone (PROXY_PROTOCOL_ALLOW, fixed in the compose file).
+# CSP is the site's OWN one (inline CSS/JS + Google Fonts) – never the OTTIMO landing snippet, which would break it,
+# and never the other way round: this file is not imported by any OTTIMO Caddyfile.
+{
+	admin off
+	email {$ACME_EMAIL}
+	servers :443 {
+		listener_wrappers {
+			proxy_protocol {
+				timeout 5s
+				allow {$PROXY_PROTOCOL_ALLOW:127.0.0.1/32}
+				fallback_policy ignore
+			}
+			tls
+		}
+		protocols h1 h2
+		timeouts {
+			read_header 10s
+			read_body 10s
+			idle 2m
+		}
+	}
+	servers :80 {
+		protocols h1 h2
+		timeouts {
+			read_header 10s
+			read_body 10s
+			idle 2m
+		}
+	}
+	log default {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*$" "?[q]"
+				request>headers delete
+				resp_headers delete
+				request>remote_ip ip_mask 24 48
+				request>client_ip ip_mask 24 48
+			}
+		}
+	}
+}
+
+# Same masking as the OTTIMO sites (SR-LOG-02/03): no query string, no header, client address /24.
+(access_log) {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*$" "?[q]"
+				request>headers delete
+				resp_headers delete
+				request>remote_ip ip_mask 24 48
+				request>client_ip ip_mask 24 48
+			}
+		}
+	}
+}
+
+(static_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+		-Server
+	}
+}
+
+# Plain HTTP: one 301 straight to the https apex (the hand-over asks for 301; Caddy's automatic redirect is 308).
+# ACME HTTP-01 challenges on :80 are still answered by Caddy before this route.
+http://{$STATIC_HOST}, http://{$STATIC_WWW_HOST} {
+	import access_log
+	header -Server
+	redir https://{$STATIC_HOST}{uri} 301
+}
+
+{$STATIC_WWW_HOST} {
+	import access_log
+	import static_headers
+	redir https://{$STATIC_HOST}{uri} 301
+}
+
+{$STATIC_HOST} {
+	import access_log
+	import static_headers
+	root * /srv/site
+	encode zstd gzip
+	# Read-only site: no body, no other method.
+	request_body {
+		max_size 1KB
+	}
+	@write not method GET HEAD
+	handle @write {
+		respond 405
+	}
+	# Dot files (.git, .DS_Store …) and source maps are never served.
+	@hidden {
+		path_regexp hidden (^|/)\.|\.map$
+		not path /.well-known/*
+	}
+	handle @hidden {
+		error 404
+	}
+	@html path / /index.html
+	header @html Cache-Control "public, max-age=0, must-revalidate"
+	@img path /img/*
+	header @img Cache-Control "public, max-age=604800"
+	handle {
+		file_server
+	}
+
+	handle_errors {
+		# error responses get the same security headers (they are not covered by the site's header directives)
+		import static_headers
+		header Cache-Control "no-store"
+		respond "{err.status_code} {err.status_text}"
+	}
+}
