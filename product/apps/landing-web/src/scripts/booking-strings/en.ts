@@ -21,20 +21,16 @@ const strings: BookingStrings = {
     ', call ',
     ' or message us on Zalo with this number.',
   ],
-  // U+00A0: the number never leaves its word (CPY 13.5, FB-R4-UXD-FE-04)
-  nights: (n) => (n === 1 ? '1\u00a0night' : `${n}\u00a0nights`),
   roomHint: (lo, hi) =>
     lo
       ? `Sleeps ${lo}–${hi}. The higher number includes one more guest (sofa, or the 1.4 m extra bed in Premium), included in your quote.`
       : 'We suggest a room that suits your group.',
-  longHint: (n) => `${n}\u00a0nights. We will quote our long-stay rate.`,
   summary: (n) => (n === 1 ? 'Please check 1 field' : `Please check ${n} fields`),
   e: {
-    inReq: 'Choose your check-in date.',
-    outReq: 'Choose your check-out date.',
-    arrReq: 'Choose your arrival date.',
+    arrReq: 'Choose your move-in date.',
+    // FB-INV-010 (CPY Dot 1 section 7): a number of months is required
+    monthsReq: 'Choose how many months you plan to stay.',
     range: (max) => `Choose a date from today to ${max}.`,
-    order: 'Check-out must be after check-in.',
     cap: (n) =>
       `This room sleeps up to ${n} (children under 6 not counted). Choose a larger room, or "Any room".`,
     name: 'Tell us your name.',
@@ -62,36 +58,26 @@ const strings: BookingStrings = {
   sending: 'Sending…',
   notSent: 'Preview: this request was not sent. Please chat with us on Zalo.',
   estimate: {
-    label: 'Estimated rate',
-    // CPY lp-v2-copy 14.1 (BUG-R4-003): no room held + final rate and availability in the quote
-    final: 'No room is held yet. Your quote confirms the final rate and availability.',
-    guests: (n) => (n === 1 ? 'For 1\u00a0guest.' : `For ${n}\u00a0guests.`),
-    prompt: 'Choose a room and your dates to see an estimate.',
-    anyRoom: 'Choose a room to see an estimate, or let us suggest one in your quote.',
+    label: 'Monthly rate',
+    // FB-INV-010 (CPY Dot 1 section 7): main line (same words as rooms.fromPrice), the note under it, and
+    // the stay total for the months chosen (listed monthly rate × months – BE getPublicPriceEstimate longStay)
+    fromMonth: (amount) => `From ${amount} / month`,
+    note: 'Final rate confirmed when we contact you. Electricity and water billed on actual use.',
+    total: (amount, months) => `For ${months}: from ${amount}`,
+    // CPY Dot 1 section 7: no room held until the one-month deposit is received
+    final: 'No room is held yet. Your room is confirmed once your deposit is received.',
+    prompt: 'Choose a room to see its monthly rate.',
+    anyRoom: 'Choose a room to see its monthly rate, or let us suggest one in your quote.',
     loading: 'Checking rates…',
-    total: (amount, nights) => `${amount} for ${nights}`,
-    perNight: (amount) => `About ${amount} a night`,
-    longStay: 'Includes our longer-stay rate.',
-    unavailable: 'No online estimate for these dates. We will include the rate in your quote.',
-    error: 'We could not load an estimate just now. Your quote will include the rate.',
+    unavailable: 'No online rate for this room just now. We will include it in your quote.',
+    error: 'We could not load the rate just now. Your quote will include it.',
     currency: 'Rates in Vietnamese dong (VND).',
     taxIn: 'Taxes included.',
     taxOut: 'Before taxes.',
-    extraGuest: 'Includes one more guest.',
-    sentWith: 'This estimate is sent with your request.',
-    live: (amount, nights) => `Estimated rate updated: ${amount} for ${nights}`,
-    done: 'Estimated rate',
-    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
-    minStay: (n) =>
-      `These dates have a minimum stay of ${n === 1 ? '1\u00a0night' : `${n}\u00a0nights`}. Choose a longer stay to see an estimate, or send your request and we will suggest options.`,
-    liveCleared: 'Estimated rate cleared.',
-  },
-  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
-  priceMonthlyOffer: {
-    label: 'A special offer for longer stays',
-    text: 'For a month or longer, we prepare a rate around your dates. You will find it in the quote we send.',
-    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
-    live: 'A special offer for longer stays. For a month or longer, we prepare a rate around your dates. You will find it in the quote we send.',
+    sentWith: 'This rate is sent with your request.',
+    live: (amount) => `Monthly rate updated: from ${amount} a month`,
+    done: 'Monthly rate',
+    liveCleared: 'Monthly rate cleared.',
   },
 };
 

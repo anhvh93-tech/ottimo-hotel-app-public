@@ -69,8 +69,26 @@ export const siteSchema = z.object({
     promiseCallNowMinutes: z.number().int().positive(),
     promiseNextMorningBy: time,
     windowDays: z.number().int().positive(),
-    shortMaxNights: z.number().int().positive(),
+    // BR-305 short-stay deposit – no longer printed on the landing (FB-INV-010: one-month deposit, faq-policy).
     depositPercent: z.number().int().min(0).max(100),
+  }),
+  // Long-stay policy of the FAQ (FB-INV-010 Dot 1, INV 16/11; Desk parameters – OWN). copy.test.ts checks every
+  // language of faq-policy against these numbers.
+  longStay: z.object({
+    minMonths: z.number().int().positive(),
+    depositMonths: z.number().int().positive(),
+    electricityVndPerKwh: z.number().int().positive(),
+    waterVndPerM3: z.number().int().positive(),
+    meterReading: z.literal('last-day-of-month'),
+    // inclusive: "by the 5th" / "chậm nhất ngày 5" (INV 16/11)
+    billingDueDay: z.number().int().min(1).max(28),
+    // housekeeping is an extra service on a long stay, per visit, by public room type
+    housekeepingVndPerVisit: z.object({
+      'standard-studio-city-view': z.number().int().positive(),
+      'standard-studio-garden-view': z.number().int().positive(),
+      'premium-one-bedroom-1': z.number().int().positive(),
+      'signature-two-bedrooms': z.number().int().positive(),
+    }),
   }),
   // Name of the deposit account holder (ESC-008) for the anti-impersonation answer (SEC UXD-06); empty = not yet.
   paymentReceivingAccountHolder: z.string(),

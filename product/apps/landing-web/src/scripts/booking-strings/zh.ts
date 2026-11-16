@@ -20,20 +20,16 @@ const strings: BookingStrings = {
     callNow: (m) => `您今晚抵达，我们将在 ${m} 分钟内联系您。`,
   },
   fallback: ['如果到 ', ' 仍未收到我们的消息，请致电 ', '，或在 Zalo 上将此编号发给我们。'],
-  // U+00A0: the number never leaves its word (CPY 13.5, FB-R4-UXD-FE-04)
-  nights: (n) => `${n}\u00a0晚`,
   roomHint: (lo, hi) =>
     lo
       ? `可住 ${lo}–${hi} 人。较大的人数含加住一人（睡沙发，或 Premium 房型的 1.4 米加床），已含在报价中。`
       : '我们会根据人数为您推荐合适的房型。',
-  longHint: (n) => `${n}\u00a0晚。我们将按长住价格为您报价。`,
   summary: (n) => `请检查 ${n} 项内容`,
   e: {
-    inReq: '请选择入住日期。',
-    outReq: '请选择退房日期。',
-    arrReq: '请选择抵达日期。',
+    arrReq: '请选择入住日期。',
+    // FB-INV-010 (CPY Dot 1 section 7): a number of months is required
+    monthsReq: '请选择入住月数。',
     range: (max) => `请选择今天至 ${max} 之间的日期。`,
-    order: '退房日期须晚于入住日期。',
     cap: (n) =>
       `此房型最多可住 ${n} 人（6 岁以下儿童不计）。请选择更大的房型，或选择“请为我推荐”。`,
     name: '请填写您的姓名。',
@@ -55,36 +51,26 @@ const strings: BookingStrings = {
   sending: '正在发送…',
   notSent: '预览：此申请未发送。请通过 Zalo 联系我们。',
   estimate: {
-    label: '预估价格',
-    // CPY lp-v2-copy 14.1 (BUG-R4-003)
-    final: '尚未为您保留房间。最终价格及是否有房，以我们发送的报价为准。',
-    guests: (n) => `适用于 ${n}\u00a0位客人。`,
-    prompt: '选择房型和日期，即可查看预估价格。',
-    anyRoom: '选择房型即可查看预估价格；也可由我们在报价中为您推荐。',
+    label: '按月价格',
+    // FB-INV-010 (CPY Dot 1 section 7): main line (same words as rooms.fromPrice), the note under it, and
+    // the stay total for the months chosen (listed monthly rate × months – BE getPublicPriceEstimate longStay)
+    fromMonth: (amount) => `每月 ${amount} 起`,
+    note: '最终价格在我们联系您时确认。水电按实际用量计费。',
+    total: (amount, months) => `${months}：${amount} 起`,
+    // CPY Dot 1 section 7: no room held until the one-month deposit is received
+    final: '尚未为您保留房间。收到押金后，房间即为您确认。',
+    prompt: '选择房型，即可查看按月价格。',
+    anyRoom: '选择房型即可查看按月价格；也可由我们在报价中为您推荐。',
     loading: '正在计算价格…',
-    total: (amount, nights) => `${nights}，共 ${amount}`,
-    perNight: (amount) => `平均每晚约 ${amount}`,
-    longStay: '已含长住优惠价。',
-    unavailable: '所选日期暂无在线预估价格，我们会在报价中告知您。',
-    error: '暂时无法获取预估价格，具体价格请以报价为准。',
+    unavailable: '此房型暂无在线价格，我们会在报价中告知您。',
+    error: '暂时无法获取价格，具体价格请以报价为准。',
     currency: '价格以越南盾（VND）计。',
     taxIn: '含税。',
     taxOut: '不含税。',
-    extraGuest: '已含加住一人。',
-    sentWith: '此预估价格将随申请一并发送。',
-    live: (amount, nights) => `预估价格已更新：${nights}，共 ${amount}`,
-    done: '预估价格',
-    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
-    minStay: (n) =>
-      `所选日期最少需入住 ${n}\u00a0晚。延长住宿即可查看预估价格；也可直接提交申请，由我们为您推荐合适的安排。`,
-    liveCleared: '预估价格已清除。',
-  },
-  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
-  priceMonthlyOffer: {
-    label: '长住专属优惠',
-    text: '入住一个月或以上，我们会根据您的日期准备专属价格，随报价一并发送给您。',
-    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
-    live: '长住专属优惠。入住一个月或以上，我们会根据您的日期准备专属价格，随报价一并发送给您。',
+    sentWith: '此价格将随申请一并发送。',
+    live: (amount) => `按月价格已更新：每月 ${amount} 起`,
+    done: '按月价格',
+    liveCleared: '按月价格已清除。',
   },
 };
 

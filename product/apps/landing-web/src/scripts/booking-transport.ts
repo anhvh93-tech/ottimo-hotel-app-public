@@ -9,9 +9,11 @@
 // guest to Zalo or a call, never pretends the request was sent (US-155 AC5).
 import {
   isEstimate,
+  isMonthlyRates,
   type BookingAccepted,
   type BookingDraft,
   type PublicFormToken,
+  type PublicMonthlyRates,
   type PublicPriceEstimate,
 } from './booking-logic';
 
@@ -235,4 +237,40 @@ export function estimateTransport(base: string, deps: EstimateDeps) {
       signal.removeEventListener('abort', stop);
     }
   };
+}
+
+export type MonthlyRatesOutcome =
+  | { kind: 'ok'; body: PublicMonthlyRates }
+  /** 404 (prices or the form off), other 4xx/5xx, network, unreadable body, more than 3 s – cards keep their text. */
+  | { kind: 'none' };
+
+/**
+ * GET {base}/monthly-rates – FB-INV-010 Dot 1 (OpenAPI 0.3.13 add-on 2): called ONCE when the page loads, no query
+ * (the API refuses any – 422), no cookie, no retry. Shares the rate-limit bucket of the price estimate on the server.
+ * @param base `{apiOrigin}/v1/public/properties/{propertySlug}`
+ */
+export async function fetchMonthlyRates(
+  base: string,
+  deps: EstimateDeps,
+): Promise<MonthlyRatesOutcome> {
+  const ctrl = new AbortController();
+  const timer = deps.setTimeout(() => ctrl.abort(), ESTIMATE_TIMEOUT_MS);
+  try {
+    const res = await deps.fetch(`${base}/monthly-rates`, {
+      credentials: 'omit',
+      headers: { Accept: 'application/json' },
+      signal: ctrl.signal,
+    });
+    if (res.status !== 200) {
+      // the answer is not read: let the browser drop it (a 404 page body would otherwise stay in flight)
+      void res.body?.cancel().catch(() => undefined);
+      return { kind: 'none' };
+    }
+    const body: unknown = await res.json();
+    return isMonthlyRates(body) ? { kind: 'ok', body } : { kind: 'none' };
+  } catch {
+    return { kind: 'none' };
+  } finally {
+    deps.clearTimeout(timer);
+  }
 }

@@ -18,20 +18,16 @@ const strings: BookingStrings = {
     callNow: (m) => `Bạn đến trong tối nay, chúng tôi sẽ liên hệ bạn trong ${m} phút.`,
   },
   fallback: ['Nếu đến ', ' chúng tôi chưa liên hệ, vui lòng gọi ', ' hoặc nhắn Zalo kèm mã này.'],
-  // U+00A0: the number never leaves its word (CPY 13.5, FB-R4-UXD-FE-04)
-  nights: (n) => `${n}\u00a0đêm`,
   roomHint: (lo, hi) =>
     lo
       ? `${lo}–${hi} khách. Số lớn hơn là khi thêm một khách (ngủ sofa, hoặc giường phụ 1,4 m ở hạng Premium); chi phí đã gồm trong báo giá.`
       : 'Chúng tôi sẽ gợi ý phòng hợp với số khách.',
-  longHint: (n) => `${n}\u00a0đêm. Chúng tôi sẽ báo giá ở dài ngày.`,
   summary: (n) => `Vui lòng kiểm tra ${n} mục`,
   e: {
-    inReq: 'Chọn ngày nhận phòng.',
-    outReq: 'Chọn ngày trả phòng.',
-    arrReq: 'Chọn ngày đến.',
+    arrReq: 'Chọn ngày dọn vào.',
+    // FB-INV-010 (CPY Dot 1 section 7): a number of months is required
+    monthsReq: 'Chọn số tháng bạn định ở.',
     range: (max) => `Chọn ngày từ hôm nay đến ${max}.`,
-    order: 'Ngày trả phòng phải sau ngày nhận phòng.',
     cap: (n) =>
       `Hạng phòng này ở tối đa ${n} người (không tính trẻ dưới 6 tuổi). Chọn hạng lớn hơn, hoặc "Gợi ý giúp tôi".`,
     name: 'Cho chúng tôi biết tên của bạn.',
@@ -57,37 +53,26 @@ const strings: BookingStrings = {
   sending: 'Đang gửi…',
   notSent: 'Bản xem trước: yêu cầu chưa được gửi. Vui lòng nhắn chúng tôi qua Zalo.',
   estimate: {
-    label: 'Giá ước tính',
-    // CPY lp-v2-copy 14.1 (BUG-R4-003)
-    final: 'Chưa giữ phòng cho bạn. Giá chính thức và phòng trống được xác nhận trong báo giá.',
-    guests: (n) => `Cho ${n}\u00a0khách.`,
-    prompt: 'Chọn hạng phòng và ngày ở để xem giá ước tính.',
-    anyRoom: 'Chọn một hạng phòng để xem giá ước tính, hoặc để chúng tôi gợi ý trong báo giá.',
+    label: 'Giá theo tháng',
+    // FB-INV-010 (CPY Dot 1 section 7): main line (same words as rooms.fromPrice), the note under it, and
+    // the stay total for the months chosen (listed monthly rate × months – BE getPublicPriceEstimate longStay)
+    fromMonth: (amount) => `Từ ${amount}/tháng`,
+    note: 'Giá chính thức xác nhận khi chúng tôi liên hệ. Điện nước tính theo thực tế.',
+    total: (amount, months) => `Cho ${months}: từ ${amount}`,
+    // CPY Dot 1 section 7: no room held until the one-month deposit is received
+    final: 'Chưa giữ phòng cho bạn. Phòng được xác nhận khi chúng tôi nhận cọc.',
+    prompt: 'Chọn hạng phòng để xem giá theo tháng.',
+    anyRoom: 'Chọn một hạng phòng để xem giá theo tháng, hoặc để chúng tôi gợi ý trong báo giá.',
     loading: 'Đang tính giá…',
-    total: (amount, nights) => `${amount} cho ${nights}`,
-    perNight: (amount) => `Khoảng ${amount} mỗi đêm`,
-    longStay: 'Đã gồm ưu đãi ở dài ngày.',
-    unavailable:
-      'Chưa có giá ước tính trực tuyến cho ngày này. Chúng tôi sẽ báo giá riêng cho bạn.',
-    error: 'Chưa tải được giá ước tính. Giá sẽ có trong báo giá chúng tôi gửi bạn.',
+    unavailable: 'Chưa có giá trực tuyến cho hạng phòng này. Chúng tôi sẽ gửi trong báo giá.',
+    error: 'Chưa tải được giá. Giá sẽ có trong báo giá chúng tôi gửi bạn.',
     currency: 'Giá tính bằng VND.',
     taxIn: 'Đã gồm thuế.',
     taxOut: 'Chưa gồm thuế.',
-    extraGuest: 'Đã gồm thêm một khách.',
-    sentWith: 'Giá ước tính này được gửi kèm yêu cầu của bạn.',
-    live: (amount, nights) => `Giá ước tính mới: ${amount} cho ${nights}`,
-    done: 'Giá ước tính',
-    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
-    minStay: (n) =>
-      `Với ngày bạn chọn, thời gian ở tối thiểu là ${n}\u00a0đêm. Chọn ở dài hơn để xem giá ước tính, hoặc cứ gửi yêu cầu, chúng tôi sẽ gợi ý cho bạn.`,
-    liveCleared: 'Đã xóa giá ước tính.',
-  },
-  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
-  priceMonthlyOffer: {
-    label: 'Ưu đãi riêng cho kỳ ở dài',
-    text: 'Với kỳ ở từ một tháng, chúng tôi chuẩn bị mức giá riêng theo ngày ở của bạn, gửi kèm báo giá.',
-    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
-    live: 'Ưu đãi riêng cho kỳ ở dài. Với kỳ ở từ một tháng, chúng tôi chuẩn bị mức giá riêng theo ngày ở của bạn, gửi kèm báo giá.',
+    sentWith: 'Giá này được gửi kèm yêu cầu của bạn.',
+    live: (amount) => `Giá theo tháng mới: từ ${amount}/tháng`,
+    done: 'Giá theo tháng',
+    liveCleared: 'Đã xóa giá theo tháng.',
   },
 };
 

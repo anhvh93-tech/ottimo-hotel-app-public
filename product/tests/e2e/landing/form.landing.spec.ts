@@ -12,7 +12,7 @@ async function openForm(page: Page, path = '/') {
 }
 
 for (const width of [375, 1280]) {
-  test(`TC-LP-015 LP-v1.2.1 form ${width}px EN: empty submit → summary of 5 errors (focused), axe 0, nothing sent`, async ({
+  test(`TC-LP-015 LP-v1.2.1 form ${width}px EN: empty submit → summary of 4 errors (focused), axe 0, nothing sent`, async ({
     browser,
   }, info) => {
     const context = await browser.newContext({ viewport: { width, height: 900 }, locale: 'en-US' });
@@ -26,8 +26,8 @@ for (const width of [375, 1280]) {
     const summary = page.locator('#bk-summary');
     await expect(summary).toBeVisible();
     await expect(summary).toBeFocused();
-    await expect(page.locator('#bk-summary-h')).toHaveText('Please check 5 fields');
-    await expect(page.locator('#f-in')).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#bk-summary-h')).toHaveText('Please check 4 fields');
+    await expect(page.locator('#f-arr')).toHaveAttribute('aria-invalid', 'true');
     const v = await axeViolations(page, info, `form-errors-${width}`);
     expect(v, JSON.stringify(v, null, 2)).toEqual([]);
     expect(errors).toEqual([]);
@@ -37,7 +37,7 @@ for (const width of [375, 1280]) {
   });
 }
 
-test('TC-LP-016 LP-v1.2.1 form: capacity (under-6s not counted), by the month, email channel, room preselect', async ({
+test('TC-LP-016 LP-v1.2.1 form: capacity (under-6s not counted), long stay only, email channel, room preselect', async ({
   page,
 }) => {
   await openForm(page);
@@ -55,11 +55,16 @@ test('TC-LP-016 LP-v1.2.1 form: capacity (under-6s not counted), by the month, e
   await expect(page.locator('#f-guests-err')).toBeEmpty();
   await page.locator('#f-adults').selectOption('4');
   await expect(page.locator('#f-guests-err')).toContainText('up to 3');
-  // By the month: arrival + months, check-in/out disabled
-  await page.locator('label:has(input[value="long"])').click();
+  // FB-INV-010: long stay only – move-in date + months (1, 2, 3, 6, 12, 24; 3 by default), no by-the-night fields
   await expect(page.locator('#f-arr')).toBeEnabled();
-  await expect(page.locator('#f-months')).toBeEnabled();
-  await expect(page.locator('#f-in')).toBeDisabled();
+  await expect(page.locator('#f-months')).toHaveValue('3');
+  expect(
+    await page
+      .locator('#f-months option')
+      .evaluateAll((o) => o.map((x) => (x as HTMLOptionElement).value)),
+  ).toEqual(['1', '2', '3', '6', '12', '24']);
+  await expect(page.locator('#f-months-hint')).toHaveText('Stays start at one month.');
+  await expect(page.locator('#f-in, #f-out, #f-nights, input[name="stayType"]')).toHaveCount(0);
   // Email: the phone field goes away (one way to reach the guest – SEC ARC-14)
   await page.locator('label:has(input[value="email"])').click();
   await expect(page.locator('#f-email')).toBeVisible();
@@ -82,12 +87,11 @@ test('TC-LP-017 LP-v1.2.1 form VI: a valid request is NOT sent in the review bui
   await expect(page.locator('#f-consent')).not.toBeChecked();
   const hp = await page.locator('#f-website').boundingBox();
   expect(hp === null || hp.x < -1000).toBe(true);
-  const today = await page.locator('#f-in').getAttribute('min');
+  const today = await page.locator('#f-arr').getAttribute('min');
   const d = new Date(`${today}T00:00:00Z`);
   const iso = (n: number) => new Date(d.getTime() + n * 864e5).toISOString().slice(0, 10);
-  await page.locator('#f-in').fill(iso(10));
-  await page.locator('#f-out').fill(iso(13));
-  await expect(page.locator('#f-nights')).toHaveText('3 đêm');
+  await page.locator('#f-arr').fill(iso(10));
+  await page.locator('#f-months').selectOption('6');
   await page.locator('#f-name').fill('An');
   await page.locator('#f-phone').fill('0912 345 678');
   await page.locator('#f-consent').check();

@@ -9,7 +9,7 @@ export const en: Copy = {
   meta: {
     title: 'OTTIMO Boutique Stay · Da Lat',
     description:
-      'A boutique stay on a quiet Da Lat hillside, devoted to the art of staying well: deep sleep, calm rooms, everything at hand. Stay a night, or a season.',
+      'A boutique stay on a quiet Da Lat hillside, made for living well by the month: deep sleep, a kitchen of your own, a desk by the window.',
     ogImageAlt: 'OTTIMO at dusk, with warm lights on every balcony',
   },
   skip: 'Skip to content',
@@ -67,7 +67,7 @@ export const en: Copy = {
   },
   hero: {
     label: 'Boutique stay · Da Lat',
-    lead: 'Quiet, well-made rooms on a Da Lat hillside, where sleep comes easily and everything just works.',
+    lead: 'Quiet, well-made rooms on a Da Lat hillside, for a month or a season. Unpack once, and everything just works.',
   },
   carousel: {
     roledescription: 'carousel',
@@ -92,16 +92,16 @@ export const en: Copy = {
     label: 'The Stay',
     title: 'The art of staying well.',
     intro:
-      'It begins with small things done right, every day: crisp linen, a quiet that holds, light on warm oak. Stay a night, or a season.',
+      'It begins with small things done right, every day: crisp linen, a quiet that holds, light on warm oak. Stay a month, or a season.',
     short: {
       photo: 'signature-bed',
-      label: 'For a few nights',
-      title: 'Room to breathe, even for a night',
-      body: 'A quiet room, a bed made for deep sleep, housekeeping every day. Then the surprise: more space than you planned for, and a balcony of your own.',
+      label: 'For a month',
+      title: 'Settled in from day one',
+      body: 'A quiet room, a bed made for deep sleep, the furniture already in place. Bring your suitcase; the rest is here.',
     },
     long: {
       photo: 'detail-laundry-desk',
-      label: 'For a month, or longer',
+      label: 'For a season, or longer',
       title: 'A season, lived well',
       body: 'Unpack once and find your rhythm: market mornings, dinners from your own kitchen, quiet hours of work by the window, laundry done without leaving the room. Everything shaped around how you live.',
     },
@@ -113,6 +113,13 @@ export const en: Copy = {
     intro: 'City lights or garden green. A studio for two, or two bedrooms for the whole family.',
     request: 'Ask about this room',
     sleeps: (min, max) => `Sleeps ${min}–${max}`,
+    /** FB-INV-010 (CPY Dot 1 section 2): 'From X / month' on the room card, from getPublicMonthlyRates. */
+    fromPrice: (amount) => `From ${amount} / month`,
+    priceNote:
+      'Final rate confirmed when we contact you. Electricity and water billed on actual use.',
+    priceFallback: 'Monthly rate on request',
+    taxIn: 'Taxes included.',
+    taxOut: 'Before taxes.',
     items: [
       {
         slug: 'standard-studio-city-view',
@@ -123,7 +130,7 @@ export const en: Copy = {
         sleeps: [2, 3],
         size: '29 m²',
         view: 'City view',
-        desc: 'Da Lat glows beyond the glass at night. Right for a weekend; right for a month.',
+        desc: 'Da Lat glows beyond the glass at night. A calm studio to settle into for a month, or longer.',
       },
       {
         slug: 'standard-studio-garden-view',
@@ -134,7 +141,7 @@ export const en: Copy = {
         sleeps: [2, 3],
         size: '28–34 m²',
         view: 'Garden view',
-        desc: 'Wake to green beyond the glass and a balcony of your own. Morning light for a short stay; a quiet desk for the weeks that follow.',
+        desc: 'Wake to green beyond the glass and a balcony of your own. Morning light, and a quiet desk for the weeks ahead.',
       },
       {
         slug: 'premium-one-bedroom-1',
@@ -145,7 +152,7 @@ export const en: Copy = {
         sleeps: [3, 4],
         size: '37 m²',
         view: 'Garden view',
-        desc: 'A separate bedroom and living room, a long navy kitchen and a [[1.4 m]] extra bed for one more. A suite for a short stay; room for family on a long one.',
+        desc: 'A separate bedroom and living room, a long navy kitchen and a [[1.4 m]] extra bed for one more. Space to share a long stay with family.',
       },
       {
         slug: 'signature-two-bedrooms',
@@ -156,15 +163,15 @@ export const en: Copy = {
         sleeps: [4, 5],
         size: '47 m²',
         view: 'Garden view',
-        desc: 'Two bedrooms, a table for four and a balcony that holds the sunset. One stay for the whole family, or for two who work remotely through a season.',
+        desc: 'Two bedrooms, a table for four and a balcony that holds the sunset. For a family settling in, or for two who work remotely through a season.',
       },
     ],
-    note: 'Room for one more guest on request. Rates by the night or by the month, prepared for your dates.',
+    note: 'Stays from one month. Room for one more guest on request.',
   },
   amenities: {
     label: 'Amenities',
     title: 'Staying well, in every detail.',
-    intro: 'Small luxuries for one night. The essentials for a month.',
+    intro: 'Everything a month of living asks for, already in place.',
     groups: [
       {
         title: 'Sleep well',
@@ -180,7 +187,7 @@ export const en: Copy = {
       },
       {
         title: 'Come and go freely',
-        body: 'A warm welcome at the ground-floor reception, [[07:00–22:00]], and a smart lock for late arrivals. Check-in from 12:00 when your room is ready; it always is by 14:00. Check-out by 12:00.',
+        body: 'A warm welcome at the ground-floor reception, [[07:00–22:00]], and a smart lock for coming home late. On move-in day, check-in from 12:00 when your room is ready; it always is by 14:00. On your last day, check-out by 12:00.',
       },
     ],
   },
@@ -188,7 +195,7 @@ export const en: Copy = {
     label: 'Location',
     title: 'A quiet hillside, minutes from town.',
     intro: 'Come home to quiet. The market, the cafés and Xuan Huong Lake are a short drive away.',
-    ask: 'Ask us about your dates',
+    ask: 'Ask about your move-in date',
     maps: 'Open in Google Maps',
     copy: 'Copy address',
     copied: 'Address copied.',
@@ -209,33 +216,32 @@ export const en: Copy = {
     label: 'Book direct',
     title: 'Plan your stay',
     intro:
-      'Share your dates and how you like to travel. We will suggest the right room and prepare a rate for your stay.',
+      'Tell us your move-in date and how long you plan to stay. We will suggest the right room and send you a quote.',
     steps: [
-      { title: 'Share your dates', text: 'Dates, guests and the room you have in mind.' },
+      {
+        title: 'Share your plans',
+        text: 'Move-in date, how many months, guests and the room you have in mind.',
+      },
       {
         title: 'We reply on Zalo',
         text: 'Within 1 hour ([[07:00–22:00]], Da Lat time); outside these hours, before 09:00 the next morning.',
       },
       {
-        title: 'Your room, held for you',
-        text: 'When the quote feels right, a 30% deposit by QR transfer holds your room.',
+        title: 'Your room, confirmed',
+        text: 'When the quote feels right, a one-month deposit by QR transfer confirms your room.',
       },
     ],
     reassure: 'Nothing to pay here, and no commitment until you say yes.',
     chat: {
-      title: 'Send your dates on Zalo',
-      text: 'Message us your dates and the number of guests. We reply within 1 hour ([[07:00–22:00]]); outside these hours, before 09:00.',
+      title: 'Send your plans on Zalo',
+      text: 'Message us your move-in date, how many months and the number of guests. We reply within 1 hour ([[07:00–22:00]]); outside these hours, before 09:00.',
       call: 'Call',
     },
     form: {
       title: 'Booking request',
       yourStay: 'Your stay',
-      lengthOfStay: 'Length of stay',
-      byNight: 'By the night',
-      byMonth: 'By the month',
-      checkIn: 'Check-in',
-      checkOut: 'Check-out',
-      arrival: 'Arrival',
+      lengthOfStay: 'Number of months',
+      arrival: 'Move-in date',
       months: [
         { value: '1', label: '1 month' },
         { value: '2', label: '2 months' },
@@ -243,8 +249,8 @@ export const en: Copy = {
         { value: '6', label: '6 months' },
         { value: '12', label: '1 year' },
         { value: '24', label: '2 years' },
-        { value: '', label: 'Not sure yet' },
       ],
+      monthsHint: 'Stays start at one month.',
       adults: 'Adults',
       ages6to11: 'Ages 6–11',
       under6: 'Under 6',
@@ -258,7 +264,7 @@ export const en: Copy = {
       phoneHint: 'Add the country code if outside Viet Nam, e.g. +44.',
       note: 'Anything we should know?',
       optional: '(optional)',
-      noteHint: 'Arrival time, a baby cot… Please no card or ID numbers.',
+      noteHint: 'Move-in time, a baby cot… Please no card or ID numbers.',
       honeypot: 'Leave this field empty',
       consent:
         'I agree that OTTIMO may use the details in this form only to reply to this request.',
@@ -270,7 +276,7 @@ export const en: Copy = {
       done: {
         title: 'Request sent',
         requestNumber: 'Request number',
-        tonight: 'Arriving tonight? Calling is fastest: ',
+        tonight: 'Moving in tonight? Calling is fastest: ',
         openZalo: 'Open Zalo',
         again: 'Send another request',
       },
@@ -283,18 +289,31 @@ export const en: Copy = {
       {
         q: 'What is it like to stay at OTTIMO?',
         a: [
-          'The attentiveness of a reception and, for short stays, daily housekeeping, with the ease of your own kitchen, washer-dryer and desk. Check-in from 12:00 when your room is ready; it always is by 14:00. Check-out by 12:00. One night or several months, it simply works.',
+          'The attentiveness of a reception, with the ease of your own kitchen, washer-dryer and desk. A month or a season, it simply works.',
         ],
       },
       {
         q: 'How often is my room made up?',
-        a: ['Every day for short stays. On a monthly stay, you choose the rhythm that suits you.'],
+        a: [
+          'On a long stay, housekeeping is an extra service, as often as you like. The rate per visit is in our long-stay policy below.',
+        ],
       },
       {
         id: 'faq-long',
-        q: 'How do longer stays work?',
+        q: 'How do I book a long stay?',
         a: [
-          'Choose "By the month" in your request. We prepare a monthly rate for you, kinder the longer you stay, with every term set out clearly in your quote. And someone is always here when you need help.',
+          'Choose your room, your move-in date and the "Number of months", then send your request. We reply with your quote, and your room is confirmed once your one-month deposit is received. Someone is always here when you need help.',
+        ],
+      },
+      {
+        id: 'faq-policy',
+        q: 'What is the long-stay policy?',
+        a: [
+          'Your room is handed over with all the basic furniture in place, and bed linen and towels for each guest staying. Toiletries and other amenities are not included.',
+          "The minimum stay is one month, with a deposit of one month's rate.",
+          'Electricity is 4,000 VND per kWh and water 25,000 VND per m³, charged on what you actually use.',
+          'We take the readings on the last day of each month. Please settle the bill, based on actual use, by the 5th of the following month.',
+          'Housekeeping is an extra service: 150,000 VND a visit for the City and Garden Studios, 200,000 VND a visit for Premium and Signature.',
         ],
       },
       {
@@ -315,7 +334,8 @@ export const en: Copy = {
   contact: {
     label: 'Contact',
     title: 'Just a message away.',
-    intro: 'Dates, rooms, a longer stay: message us on Zalo and we will take care of the details.',
+    intro:
+      'A move-in date, a room, how long you plan to stay: message us on Zalo and we will take care of the details.',
     facebookLink: 'OTTIMO on Facebook',
     mailSubject: 'Booking – OTTIMO',
     otherChannels: 'Other channels',

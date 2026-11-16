@@ -24,19 +24,16 @@ const strings: BookingStrings = {
     '까지 연락이 없으면 ',
     '로 전화하시거나, 요청 번호와 함께 Zalo로 메시지를 보내 주세요.',
   ],
-  nights: (n) => `${n}박`,
   roomHint: (lo, hi) =>
     lo
       ? `${lo}–${hi}인. 큰 숫자는 한 명이 더 머무는 경우(소파, 또는 프리미엄 원베드룸의 1.4m 보조 침대)이며, 견적에 포함됩니다.`
       : '인원에 맞는 객실을 추천해 드립니다.',
-  longHint: (n) => `${n}박. 장기 숙박 요금으로 견적을 드립니다.`,
   summary: (n) => `${n}개 항목을 확인해 주세요`,
   e: {
-    inReq: '체크인 날짜를 선택해 주세요.',
-    outReq: '체크아웃 날짜를 선택해 주세요.',
-    arrReq: '도착 날짜를 선택해 주세요.',
+    arrReq: '입실 날짜를 선택해 주세요.',
+    // FB-INV-010 (CPY Dot 1 section 7): a number of months is required
+    monthsReq: '머무실 개월 수를 선택해 주세요.',
     range: (max) => `오늘부터 ${max}까지의 날짜를 선택해 주세요.`,
-    order: '체크아웃 날짜는 체크인 날짜 이후여야 합니다.',
     cap: (n) =>
       `이 객실은 최대 ${n}인까지 머물 수 있습니다(만 6세 미만 제외). 더 넓은 객실이나 "추천해 주세요"를 선택해 주세요.`,
     name: '이름을 알려 주세요.',
@@ -63,39 +60,27 @@ const strings: BookingStrings = {
   sending: '보내는 중…',
   notSent: '미리보기: 이 요청은 전송되지 않았습니다. Zalo로 문의해 주세요.',
   estimate: {
-    label: '예상 요금',
-    // CPY lp-v2-copy 14.1 (BUG-R4-003); 2인 is written solid – no space to keep
-    final:
-      '객실은 아직 확보되지 않았습니다. 최종 요금과 예약 가능 여부는 견적에서 안내해 드립니다.',
-    guests: (n) => `${n}인 기준.`,
-    prompt: '객실과 날짜를 선택하시면 예상 요금을 보여 드립니다.',
+    label: '월 요금',
+    // FB-INV-010 (CPY Dot 1 section 7): main line (same words as rooms.fromPrice), the note under it, and
+    // the stay total for the months chosen (listed monthly rate × months – BE getPublicPriceEstimate longStay)
+    fromMonth: (amount) => `월 ${amount}부터`,
+    note: '최종 요금은 연락드릴 때 확정됩니다. 전기·수도는 실제 사용량대로 청구됩니다.',
+    total: (amount, months) => `${months} 기준 ${amount}부터`,
+    // CPY Dot 1 section 7: no room held until the one-month deposit is received
+    final: '객실은 아직 확보되지 않았습니다. 보증금이 확인되면 객실이 확정됩니다.',
+    prompt: '객실을 선택하시면 월 요금을 보여 드립니다.',
     anyRoom:
-      '객실을 선택하시면 예상 요금을 볼 수 있습니다. 고르기 어려우시면 견적과 함께 추천해 드립니다.',
+      '객실을 선택하시면 월 요금을 볼 수 있습니다. 고르기 어려우시면 견적과 함께 추천해 드립니다.',
     loading: '요금 확인 중…',
-    total: (amount, nights) => `${nights} 기준 ${amount}`,
-    perNight: (amount) => `1박 평균 약 ${amount}`,
-    longStay: '장기 숙박 요금이 적용되었습니다.',
-    unavailable:
-      '선택하신 날짜는 온라인 예상 요금이 없습니다. 견적에서 요금을 안내해 드리겠습니다.',
-    error: '지금은 예상 요금을 불러올 수 없습니다. 견적에서 요금을 안내해 드리겠습니다.',
+    unavailable: '이 객실은 지금 온라인 요금이 없습니다. 견적에서 안내해 드리겠습니다.',
+    error: '지금은 요금을 불러올 수 없습니다. 견적에서 안내해 드리겠습니다.',
     currency: '요금은 베트남 동(VND) 기준입니다.',
     taxIn: '세금 포함.',
     taxOut: '세금 별도.',
-    extraGuest: '추가 인원 1명 포함.',
-    sentWith: '이 예상 요금은 요청과 함께 전달됩니다.',
-    live: (amount, nights) => `예상 요금이 변경되었습니다: ${nights} 기준 ${amount}`,
-    done: '예상 요금',
-    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
-    minStay: (n) =>
-      `선택하신 날짜는 최소 ${n}박부터 머무실 수 있습니다. 일정을 늘리시면 예상 요금을 보여 드리며, 이대로 요청을 보내 주셔도 맞는 일정을 안내해 드리겠습니다.`,
-    liveCleared: '예상 요금이 지워졌습니다.',
-  },
-  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
-  priceMonthlyOffer: {
-    label: '장기 숙박 특별 제안',
-    text: '한 달 이상 머무신다면 일정에 맞춘 요금을 따로 준비해 드립니다. 보내 드리는 견적에서 확인하실 수 있습니다.',
-    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
-    live: '장기 숙박 특별 제안. 한 달 이상 머무신다면 일정에 맞춘 요금을 따로 준비해 드립니다. 보내 드리는 견적에서 확인하실 수 있습니다.',
+    sentWith: '이 요금은 요청과 함께 전달됩니다.',
+    live: (amount) => `월 요금이 변경되었습니다: 월 ${amount}부터`,
+    done: '월 요금',
+    liveCleared: '월 요금이 지워졌습니다.',
   },
 };
 
