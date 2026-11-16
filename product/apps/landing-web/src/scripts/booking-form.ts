@@ -7,9 +7,9 @@ import {
   REF_CODE,
   addDays,
   buildDraft,
-  diffDays,
   fmtDate,
   looksLikeCard,
+  monthlyFromBySlug,
   overCapacity,
   promiseText,
   todayIn,
@@ -21,12 +21,14 @@ import {
 import {
   apiTransport,
   estimateTransport,
+  fetchMonthlyRates,
   previewTransport,
   type FieldProblem,
   type Outcome,
   type Transport,
 } from './booking-transport';
 import { initEstimate } from './price-estimate';
+import { fillRoomPrices } from './room-prices';
 
 const form = document.getElementById('bk-form') as HTMLFormElement | null;
 if (form) void init(form);
@@ -46,10 +48,6 @@ async function init(form: HTMLFormElement) {
     withinMinutes: Number(cfg.promiseMinutes ?? 60),
     callNowMinutes: Number(cfg.callNowMinutes ?? 60),
   };
-  // Last night count still priced by the night when the API has not answered for these dates (prices off, or not yet):
-  // site.json booking.shortMaxNights = BR-108 threshold − 1 (29 for 30 nights – INV 01/11). With prices on, the hint
-  // follows the API answer instead (monthly_offer – FB-R4-UXD-FE-10), so the two lines never disagree.
-  const shortMax = Number(cfg.shortMax ?? 29);
   const status = $('bk-status');
   const TODAY = todayIn(tz, new Date());
   const MAX = addDays(TODAY, Number(cfg.windowDays ?? 365));
@@ -69,7 +67,17 @@ async function init(form: HTMLFormElement) {
         })
       : previewTransport;
 
-  // Price estimate (LP-v2): only the live form asks the API; the review build never sends anything.
+  // Monthly prices (FB-INV-010 Dot 1): only the live form asks the API; the review build never sends anything.
+  const live = cfg.transport === 'api' && !!cfg.property;
+  const apiDeps = {
+    fetch: (url: string, init?: RequestInit) => fetch(url, init),
+    setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms),
+    clearTimeout: (id: unknown) => clearTimeout(id as ReturnType<typeof setTimeout>),
+  };
+  /** getPublicMonthlyRates of this page load: "From" figure per room type + the tax flag. */
+  let monthly: { bySlug: Map<string, number>; taxIncluded: boolean } | null = null;
+  const room = $<HTMLSelectElement>('f-room');
+  const months = $<HTMLSelectElement>('f-months');
   const estimate = initEstimate({
     box: $('bk-est'),
     live: $('bk-est-live'),
@@ -81,25 +89,26 @@ async function init(form: HTMLFormElement) {
       const cap = room.selectedOptions[0]?.dataset.cap;
       return { today: TODAY, max: MAX, capacity: cap ? Number(cap) : null };
     },
-    firstRoom: () => [...room.options].find((o) => o.value)?.value ?? '',
-    onAnswer: () => updateNights(),
-    fetchEstimate:
-      cfg.transport === 'api' && cfg.property
-        ? estimateTransport(base, {
-            fetch: (url, init) => fetch(url, init),
-            setTimeout: (fn, ms) => setTimeout(fn, ms),
-            clearTimeout: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
-          })
-        : null,
+    monthsLabel: () => months.selectedOptions[0]?.textContent?.trim() ?? '',
+    monthlyFrom: (slug) => {
+      const vnd = monthly?.bySlug.get(slug);
+      return vnd && monthly ? { vnd, taxIncluded: monthly.taxIncluded } : undefined;
+    },
+    fetchEstimate: live ? estimateTransport(base, apiDeps) : null,
     now: () => Date.now(),
   });
+  // Once per page load: "From X / month" on the room cards (and in the box before a move-in date is chosen).
+  if (live)
+    void fetchMonthlyRates(base, apiDeps).then((o) => {
+      if (o.kind !== 'ok') return;
+      monthly = { bySlug: monthlyFromBySlug(o.body), taxIncluded: o.body.taxIncluded };
+      fillRoomPrices(document, o.body, lang);
+      if (monthly.bySlug.size) estimate.pricesKnown();
+    });
 
   form.hidden = false;
-  for (const id of ['f-in', 'f-arr']) {
-    $<HTMLInputElement>(id).min = TODAY;
-    $<HTMLInputElement>(id).max = MAX;
-  }
-  $<HTMLInputElement>('f-out').min = addDays(TODAY, 1);
+  $<HTMLInputElement>('f-arr').min = TODAY;
+  $<HTMLInputElement>('f-arr').max = MAX;
   // First touch: fetch the form token; if the property is not taking requests, say so before the guest types more.
   form.addEventListener(
     'focusin',
@@ -112,34 +121,9 @@ async function init(form: HTMLFormElement) {
 
   const checked = (name: string) =>
     (form.querySelector(`input[name="${name}"]:checked`) as HTMLInputElement | null)?.value ?? '';
-  const stayType = () => (checked('stayType') === 'long' ? 'long' : 'short');
   const channel = () => checked('preferredChannel') as FormValues['preferredChannel'];
   const note = $<HTMLTextAreaElement>('f-note');
-  const room = $<HTMLSelectElement>('f-room');
 
-  function updateNights() {
-    const a = $<HTMLInputElement>('f-in').value;
-    const b = $<HTMLInputElement>('f-out').value;
-    const out = $('f-nights');
-    if (stayType() !== 'short' || !a || !b || b <= a) {
-      out.textContent = '';
-      return;
-    }
-    const n = diffDays(a, b);
-    const long = estimate.longFor(values()) ?? n > shortMax;
-    out.textContent = long ? S.longHint(n) : S.nights(n);
-  }
-  function syncStay() {
-    const t = stayType();
-    form.querySelectorAll<HTMLElement>('[data-stay]').forEach((el) => {
-      const on = el.dataset.stay === t;
-      el.hidden = !on;
-      el.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input,select').forEach((i) => {
-        i.disabled = !on;
-      });
-    });
-    updateNights();
-  }
   function syncChannel() {
     const mail = channel() === 'email';
     $('fld-phone').hidden = mail;
@@ -153,24 +137,12 @@ async function init(form: HTMLFormElement) {
     $('f-room-hint').textContent = S.roomHint(o?.dataset.min ?? null, o?.dataset.cap ?? null);
   }
 
-  form
-    .querySelectorAll<HTMLInputElement>('input[name="stayType"]')
-    .forEach((r) => r.addEventListener('change', syncStay));
   form.querySelectorAll<HTMLInputElement>('input[name="preferredChannel"]').forEach((r) =>
     r.addEventListener('change', () => {
       syncChannel();
       if (form.dataset.validated === '1') validate(false);
     }),
   );
-  $('f-in').addEventListener('change', () => {
-    const a = $<HTMLInputElement>('f-in').value;
-    if (!a) return;
-    const out = $<HTMLInputElement>('f-out');
-    out.min = addDays(a, 1);
-    if (!out.value || out.value <= a) out.value = addDays(a, 2);
-    updateNights();
-  });
-  $('f-out').addEventListener('change', updateNights);
   note.addEventListener(
     'input',
     () => ($('f-note-count').textContent = `${note.value.length} / 500`),
@@ -238,26 +210,11 @@ async function init(form: HTMLFormElement) {
     const add = (x: { id: string; msg: string } | null) => {
       if (x) errs.push(x);
     };
-    if (stayType() === 'short') {
-      const a = $<HTMLInputElement>('f-in').value;
-      const b = $<HTMLInputElement>('f-out').value;
-      add(
-        setErr('f-in', 'f-in-err', !a ? E.inReq : !inWindow(a) ? E.range(fmtDate(MAX, lang)) : ''),
-      );
-      add(setErr('f-out', 'f-out-err', !b ? E.outReq : a && b <= a ? E.order : ''));
-      setErr('f-arr', 'f-arr-err', '');
-    } else {
-      const m = $<HTMLInputElement>('f-arr').value;
-      add(
-        setErr(
-          'f-arr',
-          'f-arr-err',
-          !m ? E.arrReq : !inWindow(m) ? E.range(fmtDate(MAX, lang)) : '',
-        ),
-      );
-      setErr('f-in', 'f-in-err', '');
-      setErr('f-out', 'f-out-err', '');
-    }
+    const m = $<HTMLInputElement>('f-arr').value;
+    add(
+      setErr('f-arr', 'f-arr-err', !m ? E.arrReq : !inWindow(m) ? E.range(fmtDate(MAX, lang)) : ''),
+    );
+    add(setErr('f-months', 'f-months-err', months.value ? '' : E.monthsReq));
     const cap = room.selectedOptions[0]?.dataset.cap;
     const over = overCapacity(
       cap ? Number(cap) : null,
@@ -327,11 +284,9 @@ async function init(form: HTMLFormElement) {
    */
   function showServerErrors(errors: FieldProblem[]): boolean {
     const E = S.e;
-    const short = stayType() === 'short';
     const FIELD: Record<string, [string, string]> = {
-      arrival: short ? ['f-in', 'f-in-err'] : ['f-arr', 'f-arr-err'],
-      departure: ['f-out', 'f-out-err'],
-      months: ['f-months', 'f-arr-err'],
+      arrival: ['f-arr', 'f-arr-err'],
+      months: ['f-months', 'f-months-err'],
       adults: ['f-adults', 'f-guests-err'],
       children: ['f-children', 'f-guests-err'],
       infants: ['f-infants', 'f-guests-err'],
@@ -343,8 +298,8 @@ async function init(form: HTMLFormElement) {
       consent: ['f-consent', 'f-consent-err'],
     };
     const REQUIRED: Record<string, string> = {
-      arrival: short ? E.inReq : E.arrReq,
-      departure: E.outReq,
+      arrival: E.arrReq,
+      months: E.monthsReq,
       guestName: E.name,
       phone: E.phone(S.chName[channel() === 'email' ? 'phone' : (channel() as 'zalo')]),
       email: E.email,
@@ -364,8 +319,6 @@ async function init(form: HTMLFormElement) {
         case 'DATE_IN_PAST':
         case 'OUTSIDE_BOOKING_WINDOW':
           return E.range(fmtDate(MAX, lang));
-        case 'DATE_ORDER':
-          return E.order;
         case 'CONSENT_REQUIRED':
           return E.consent;
         case 'REQUIRED':
@@ -429,11 +382,8 @@ async function init(form: HTMLFormElement) {
 
   function values(): FormValues {
     return {
-      stayType: stayType(),
-      checkIn: $<HTMLInputElement>('f-in').value,
-      checkOut: $<HTMLInputElement>('f-out').value,
       arrival: $<HTMLInputElement>('f-arr').value,
-      months: $<HTMLSelectElement>('f-months').value,
+      months: months.value,
       adults: Number($<HTMLSelectElement>('f-adults').value),
       children: Number($<HTMLSelectElement>('f-children').value),
       infants: Number($<HTMLSelectElement>('f-infants').value),
@@ -497,9 +447,8 @@ async function init(form: HTMLFormElement) {
     tel.textContent = cfg.hotline ?? '';
     fb.textContent = '';
     fb.append(S.fallback[0] + p.by + S.fallback[1], tel, S.fallback[2]);
-    const arrival = v.stayType === 'short' ? v.checkIn : v.arrival;
-    $('bk-done-tonight').hidden = !(p.callNow || arrival === TODAY);
-    // UXD lp-v2 3.8: the estimate the guest saw, only when it travelled with the request
+    $('bk-done-tonight').hidden = !(p.callNow || v.arrival === TODAY);
+    // UXD lp-v2 3.8: the monthly rate the guest saw, only when it travelled with the request
     const est = $('bk-done-estimate');
     est.textContent = v.priceEstimateToken ? estimate.doneLine() : '';
     est.hidden = !est.textContent;
@@ -521,7 +470,6 @@ async function init(form: HTMLFormElement) {
   $('bk-again').addEventListener('click', () => {
     form.reset();
     form.dataset.validated = '0';
-    syncStay();
     syncChannel();
     roomHint();
     form.querySelectorAll('.err').forEach((e) => (e.textContent = ''));
@@ -531,10 +479,9 @@ async function init(form: HTMLFormElement) {
     $('bk-done').hidden = true;
     form.hidden = false;
     estimate.update();
-    $('f-in').focus();
+    room.focus();
   });
 
-  syncStay();
   syncChannel();
   roomHint();
 }

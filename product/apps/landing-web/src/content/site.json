@@ -1,5 +1,5 @@
 {
-  "$comment": "Single source for the facts the landing publishes (ADR-014 4.2, 5). Values from the e-brochure 2026 and INV 17/10 (ESC-020, FB-INV-002). No room count anywhere (FB-INV-002 point 1). Swap zaloUrl for the verified Zalo OA link with no UI change (US-151 AC2, ESC-021). The email must be a shared mailbox on the OTTIMO domain, never a personal one; leave it empty to hide every email link. facebookUrl is a plain link (no Facebook plugin/SDK – SEC C-1). features.bookingRequest stays false until the booking-request endpoint exists (ARC/BE) and the SEC/legal conditions of US-155 AC4 are met; features.privacyPage turns on the footer link once SEC publishes /privacy/. booking = public promise and windows the page states (BR-912 (4), BR-811, BR-112, BR-305) – the copy is tested against these numbers. paymentReceivingAccountHolder (ESC-008) names the deposit account in the FAQ; empty = sentence without the name (INV 23/10: left empty until INV names the account). legal = operator shown in the footer (INV 22/10, public). checkinTime = earliest check-in when the room is ready, roomReadyBy = the time the room is always ready (BR-401 v0.4.6, FB-INV-004; same idea as the Desk key room_ready_guaranteed_time). roomReadyBy stays out of JSON-LD (no schema.org field); the copy never promises a room ready at checkinTime (banned list).",
+  "$comment": "Single source for the facts the landing publishes (ADR-014 4.2, 5). Values from the e-brochure 2026 and INV 17/10 (ESC-020, FB-INV-002). No room count anywhere (FB-INV-002 point 1). Swap zaloUrl for the verified Zalo OA link with no UI change (US-151 AC2, ESC-021). The email must be a shared mailbox on the OTTIMO domain, never a personal one; leave it empty to hide every email link. facebookUrl is a plain link (no Facebook plugin/SDK – SEC C-1). features.bookingRequest stays false until the booking-request endpoint exists (ARC/BE) and the SEC/legal conditions of US-155 AC4 are met; features.privacyPage turns on the footer link once SEC publishes /privacy/. booking = public promise and windows the page states (BR-912 (4), BR-811, BR-112, BR-305) – the copy is tested against these numbers. paymentReceivingAccountHolder (ESC-008) names the deposit account in the FAQ; empty = sentence without the name (INV 23/10: left empty until INV names the account). legal = operator shown in the footer (INV 22/10, public). checkinTime = earliest check-in when the room is ready, roomReadyBy = the time the room is always ready (BR-401 v0.4.6, FB-INV-004; same idea as the Desk key room_ready_guaranteed_time). roomReadyBy stays out of JSON-LD (no schema.org field); the copy never promises a room ready at checkinTime (banned list). longStay (FB-INV-010 Dot 1, INV 16/11) = the long-stay policy the FAQ states (faq-policy): minimum stay and deposit in months, electricity per kWh and water per m3 in VND, meter readings on the last day of the month, payment due by day billingDueDay of the next month (inclusive - INV 16/11 'by the 5th'), housekeeping per visit by room type (an extra service). copy.test.ts checks the FAQ of every language against these numbers. They are Desk parameters (OWN): change them here and in the copy the same day. booking.depositPercent is no longer printed on the landing (FB-INV-010: one-month deposit); booking.shortMaxNights went with the by-the-night form.",
   "name": "OTTIMO Boutique Stay",
   "tagline": "A refined stay inspired by the calm spirit of Dalat.",
   "checkinTime": "12:00",
@@ -37,8 +37,21 @@
     "promiseCallNowMinutes": 60,
     "promiseNextMorningBy": "09:00",
     "windowDays": 365,
-    "shortMaxNights": 29,
     "depositPercent": 30
+  },
+  "longStay": {
+    "minMonths": 1,
+    "depositMonths": 1,
+    "electricityVndPerKwh": 4000,
+    "waterVndPerM3": 25000,
+    "meterReading": "last-day-of-month",
+    "billingDueDay": 5,
+    "housekeepingVndPerVisit": {
+      "standard-studio-city-view": 150000,
+      "standard-studio-garden-view": 150000,
+      "premium-one-bedroom-1": 200000,
+      "signature-two-bedrooms": 200000
+    }
   },
   "paymentReceivingAccountHolder": "",
   "legal": {

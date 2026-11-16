@@ -124,10 +124,9 @@ export function refHostOf(referrer: string, ownHost: string): string | undefined
 }
 
 export interface FormValues {
-  stayType: 'short' | 'long';
-  checkIn: string;
-  checkOut: string;
+  /** Move-in date (FB-INV-010: the landing sells long stays only – no by-the-night dates). */
   arrival: string;
+  /** Number of months, one of MONTH_CHOICES (required). */
   months: string;
   adults: number;
   children: number;
@@ -154,13 +153,16 @@ export interface FormValues {
 }
 
 /**
- * The request body (minus the form token), built only after the form validated (consent ticked): one way to reach the guest (SEC ARC-14 – phone XOR email), stayType +
- * departure or months (null = "Not sure yet"), children/infants by age group, contract key names only.
+ * The request body (minus the form token), built only after the form validated (consent ticked): one way to reach
+ * the guest (SEC ARC-14 – phone XOR email), always `stayType = long` + `months` (FB-INV-010 Dot 1: the landing sells
+ * long stays only, a number of months is required), children/infants by age group, contract key names only.
  */
 export function buildDraft(v: FormValues): BookingDraft {
+  const months = Number(v.months);
   const draft: BookingDraft = {
-    stayType: v.stayType,
-    arrival: v.stayType === 'short' ? v.checkIn : v.arrival,
+    stayType: 'long',
+    arrival: v.arrival,
+    months: Number.isInteger(months) && months >= 1 ? months : null,
     adults: v.adults,
     children: v.children,
     infants: v.infants,
@@ -172,8 +174,6 @@ export function buildDraft(v: FormValues): BookingDraft {
     utm: utmOf(v.search),
     landingPath: v.pathname.slice(0, 200),
   };
-  if (v.stayType === 'short') draft.departure = v.checkOut;
-  else draft.months = v.months ? Number(v.months) : null;
   if (v.roomType) draft.roomType = v.roomType;
   if (v.preferredChannel === 'email') draft.email = v.email.trim();
   else draft.phone = v.phone.trim();
@@ -216,135 +216,64 @@ export function promiseText(
   };
 }
 
-// ---------- Price estimate in the form (LP-v2, FB-INV-009; OpenAPI 0.3.9 getPublicPriceEstimate) ----------
+// ---------- Monthly price (FB-INV-010 Dot 1; OpenAPI 0.3.13 add-on 2) ----------
+// The landing sells long stays only (INV 16/11). Two public reads, same origin through the landing proxy:
+//  - getPublicMonthlyRates – once on page load: "From X / month" per room type on the room cards (and in the form
+//    box while no move-in date is chosen);
+//  - getPublicPriceEstimate with stayType=long&months=n – in the form: the monthly rate at the move-in date and the
+//    total for the months chosen (listed monthly rate × months; final rate in the quote).
+// A figure is drawn only when the API gave a positive whole number for that room type – never a 0, never a guess.
 
-/**
- * `PublicPriceEstimate` of OpenAPI 0.3.9-draft as fixed on lp-v2-be (63c5731e, ESC-043): no monthly figure at all –
- * `stayType = long` or a short stay over the monthly threshold → `priceAvailable: false` + `monthly_offer`
- * (allowlist – nothing else is ever read).
- */
-export interface PublicPriceEstimate {
-  estimate: true;
-  currency: 'VND';
-  taxIncluded: boolean;
-  roomType: string;
-  stayKind: 'short' | 'long';
-  arrival: string;
-  departure?: string;
-  priceAvailable: boolean;
-  /** party_exceeds_room and on_request win over monthly_offer (BE). */
-  unavailableReason?: 'on_request' | 'party_exceeds_room' | 'monthly_offer';
-  shortStay?: {
-    nights: number;
-    roomSubtotalVnd: number;
-    upliftNights: number;
-    losDiscountPct: number;
-    losDiscountVnd: number;
-    extraPersonFeeVnd: number;
-    totalVnd: number;
-    nightlyAvgVnd: number;
-  };
-  notes: { code: string; minNights?: number }[];
-  computedAt: string;
-  estimateToken?: string;
-  expiresAt?: string;
-}
+export type PublicPriceEstimate = components['schemas']['PublicPriceEstimate'];
+export type PublicMonthlyRates = components['schemas']['PublicMonthlyRates'];
 
-/** Query of getPublicPriceEstimate – inputs only, no personal data (ARC lp-v2 2.2). */
+/** Query of getPublicPriceEstimate by the month – inputs only, no personal data (ARC lp-v2 2.2). */
 export interface EstimateQuery {
   roomType: string;
-  stayType: 'short' | 'long';
+  stayType: 'long';
   arrival: string;
-  departure?: string;
-  months?: number;
+  months: number;
   adults: number;
   children: number;
   infants: number;
 }
 
 /**
- * Why there is no query: S0 (dates/room missing or invalid), S1 ("Any room"), or a stay by the month
- * (ESC-043: no figure for monthly stays – the box invites to a monthly offer, nothing is asked).
+ * Why there is no query: S0 `idle` (nothing to price, or a party the room cannot sleep), S1 `any-room`, or
+ * `no-date` – a room type is chosen but no valid move-in date yet: the box may show that type's "From X / month" from
+ * getPublicMonthlyRates (no token, no total) instead of asking.
  */
-export type EstimateWait = 'idle' | 'any-room' | 'monthly';
+export type EstimateWait = 'idle' | 'any-room' | 'no-date';
+
+/** Months the form offers (CPY Dot 1, INV 16/11). */
+export const MONTH_CHOICES = [1, 2, 3, 6, 12, 24] as const;
+
+const isMoney = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x > 0;
 
 /**
- * When the form may ask for an estimate (UXD lp-v2 3.2, ARC 2.8): a room type + valid dates (or an arrival date by the
- * month) + a party the room can sleep. Same window rules as the form checks; never called on page load.
+ * When the form may ask for a price (UXD lp-v2 3.2, ARC 2.8): a room type + a move-in date in the booking window +
+ * a number of months + a party the room can sleep. Never called on page load.
  */
 export function estimateQuery(
-  v: Pick<
-    FormValues,
-    | 'stayType'
-    | 'checkIn'
-    | 'checkOut'
-    | 'arrival'
-    | 'months'
-    | 'adults'
-    | 'children'
-    | 'infants'
-    | 'roomType'
-  >,
+  v: Pick<FormValues, 'arrival' | 'months' | 'adults' | 'children' | 'infants' | 'roomType'>,
   ctx: { today: string; max: string; capacity: number | null },
 ): EstimateQuery | EstimateWait {
-  const inWindow = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= ctx.today && d <= ctx.max;
-  const datesOk =
-    v.stayType === 'short'
-      ? inWindow(v.checkIn) && /^\d{4}-\d{2}-\d{2}$/.test(v.checkOut) && v.checkOut > v.checkIn
-      : inWindow(v.arrival);
-  if (!datesOk) return 'idle';
-  // By the month: never a figure (ESC-043) – the box shows the offer (asking once only while the page does not know
-  // whether prices are on: monthlyProbeQuery). A long stay BY THE NIGHT is asked: the API owns the monthly threshold
-  // (BR-108 – 30 nights from INV 01/11) and answers monthly_offer, so the price box has no copy of that number.
-  if (v.stayType === 'long') return 'monthly';
   if (!v.roomType) return 'any-room';
   if (overCapacity(ctx.capacity, v.adults, v.children)) return 'idle';
-  const q: EstimateQuery = {
-    roomType: v.roomType,
-    stayType: v.stayType,
-    arrival: v.stayType === 'short' ? v.checkIn : v.arrival,
-    adults: v.adults,
-    children: v.children,
-    infants: v.infants,
-  };
-  q.departure = v.checkOut;
-  return q;
-}
-
-/**
- * FB-R4-UXD-FE-01: a guest who opens "By the month" first must still see the monthly invitation. While the page does
- * not know yet whether prices are on (no 200 so far), it asks ONCE with `stayType=long` (no departure, no months –
- * OpenAPI 0.3.9: `departure` with `long` = NOT_ALLOWED): 200 `monthly_offer` → the invitation, 404 → the box stays off
- * (ARC 2.8). Same inputs as any estimate (room type, arrival, party – no personal data). "Any room" asks with the
- * first room type of the list: the answer only says whether prices are on, the invitation names no room.
- */
-export function monthlyProbeQuery(
-  v: Pick<FormValues, 'arrival' | 'adults' | 'children' | 'infants' | 'roomType'>,
-  fallbackRoom: string,
-): EstimateQuery | null {
-  const roomType = v.roomType || fallbackRoom;
-  if (!roomType || !/^\d{4}-\d{2}-\d{2}$/.test(v.arrival)) return null;
+  const dateOk =
+    /^\d{4}-\d{2}-\d{2}$/.test(v.arrival) && v.arrival >= ctx.today && v.arrival <= ctx.max;
+  if (!dateOk) return 'no-date';
+  const months = Number(v.months);
+  if (!(MONTH_CHOICES as readonly number[]).includes(months)) return 'idle';
   return {
-    roomType,
+    roomType: v.roomType,
     stayType: 'long',
     arrival: v.arrival,
+    months,
     adults: v.adults,
     children: v.children,
     infants: v.infants,
   };
-}
-
-/**
- * Every guest an estimate was asked for, read back from its query string (adults + children 6–11 + under 6 – CPY
- * lp-v2-copy 14.2): the "For n guests" sentence always matches the figure on screen, never a later edit of the form.
- */
-export function guestsOfSearch(search: string): number {
-  const p = new URLSearchParams(search);
-  const n = (k: string) => {
-    const v = Number(p.get(k) ?? 0);
-    return Number.isInteger(v) && v > 0 ? v : 0;
-  };
-  return n('adults') + n('children') + n('infants');
 }
 
 /** Query string in a fixed order (cache key in the page, URL of the request). */
@@ -353,8 +282,7 @@ export function estimateSearch(q: EstimateQuery): string {
   p.set('roomType', q.roomType);
   p.set('stayType', q.stayType);
   p.set('arrival', q.arrival);
-  if (q.departure) p.set('departure', q.departure);
-  if (q.months !== undefined) p.set('months', String(q.months));
+  p.set('months', String(q.months));
   p.set('adults', String(q.adults));
   p.set('children', String(q.children));
   p.set('infants', String(q.infants));
@@ -363,7 +291,7 @@ export function estimateSearch(q: EstimateQuery): string {
 
 /**
  * Amount as the page writes it (CPY lp-v2 2.3): whole dong, digits grouped the way of the page language, "VND" after
- * the number, never "₫" or a converted currency – en/ko/zh 2,363,000 VND · vi 2.363.000 VND · ru 2 363 000 VND.
+ * the number, never "₫" or a converted currency – en/ko/zh 9,000,000 VND · vi 9.000.000 VND · ru 9 000 000 VND.
  */
 export function formatVnd(n: number, lang: Lang): string {
   const num = new Intl.NumberFormat(INTL_LOCALE[lang], { maximumFractionDigits: 0 }).format(
@@ -372,31 +300,60 @@ export function formatVnd(n: number, lang: Lang): string {
   return `${num}\u00a0VND`;
 }
 
-/** Minimal shape check of a 200 body – anything else is treated as an error (the box shows no number). */
+/**
+ * Minimal shape check of a 200 price-estimate body – anything else is treated as an error (the box shows no number).
+ * With a price, only the monthly answer is accepted: a positive monthly figure, and a total that is null or positive.
+ */
 export function isEstimate(body: unknown): body is PublicPriceEstimate {
   const b = body as PublicPriceEstimate | null;
   if (!b || b.estimate !== true || typeof b.priceAvailable !== 'boolean' || !Array.isArray(b.notes))
     return false;
   if (!b.priceAvailable) return true;
-  const num = (x: unknown) => typeof x === 'number' && Number.isFinite(x) && x > 0;
-  if (b.stayKind === 'short')
-    return !!b.shortStay && num(b.shortStay.totalVnd) && b.shortStay.nights >= 1;
-  return b.stayKind === 'long'; // shown as the monthly offer, no figure (ESC-043)
+  const ls = b.longStay;
+  return (
+    b.stayKind === 'long' &&
+    !!ls &&
+    isMoney(ls.monthlyFromVnd) &&
+    (ls.totalVnd === null || ls.totalVnd === undefined || isMoney(ls.totalVnd))
+  );
 }
 
-/** What the estimate box shows for a 200 answer (UXD lp-v2 3.3 S3–S6, CPY lp-v2 2). */
+/** Shape check of a 200 monthly-rates body (allowlist of what the page reads). */
+export function isMonthlyRates(body: unknown): body is PublicMonthlyRates {
+  const b = body as PublicMonthlyRates | null;
+  return (
+    !!b && b.estimate === true && typeof b.taxIncluded === 'boolean' && Array.isArray(b.roomTypes)
+  );
+}
+
+/**
+ * "From" figure per room-type slug. Entries without a positive whole number are dropped (the card keeps its
+ * "Monthly rate on request" text); a slug listed twice keeps the lower figure.
+ */
+export function monthlyFromBySlug(body: PublicMonthlyRates): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of body.roomTypes) {
+    if (!r || typeof r.roomType !== 'string' || !isMoney(r.monthlyFromVnd)) continue;
+    const prev = out.get(r.roomType);
+    out.set(r.roomType, prev === undefined ? r.monthlyFromVnd : Math.min(prev, r.monthlyFromVnd));
+  }
+  return out;
+}
+
+/** What the price box shows (UXD lp-v2 3.3 S3/S6, CPY Dot 1 section 7). */
 export interface EstimateView {
-  /** price = S3; offer = S4/S5 monthly invitation without a figure (ESC-043); unavailable = S6 */
-  kind: 'price' | 'offer' | 'unavailable';
+  /** price = a monthly figure; unavailable = S6 (no online figure for this request). */
+  kind: 'price' | 'unavailable';
   /** Main line, split around the amount: [before, amount, after] (the amount is drawn in Lora). */
   main?: [string, string, string];
   /** Numeric value of the amount (<data value>). */
   value?: number;
+  /** Total for the months chosen (from 2 months on). */
   lines: string[];
   note: string[];
   /** role=status sentence. */
   live: string;
-  /** Thank-you line "Estimated rate: …" when the estimate is sent with the request. */
+  /** Thank-you line "Monthly rate: From X / month" when the rate is sent with the request. */
   done: string;
 }
 
@@ -414,86 +371,77 @@ const split = (sentence: string, amount: string): [string, string, string] => {
   return [a, amount, b];
 };
 
-export function estimateView(
-  r: PublicPriceEstimate,
-  S: {
-    estimate: Pick<
-      EstimateStrings,
-      | 'final'
-      | 'guests'
-      | 'total'
-      | 'longStay'
-      | 'unavailable'
-      | 'currency'
-      | 'taxIn'
-      | 'taxOut'
-      | 'extraGuest'
-      | 'live'
-      | 'done'
-      | 'minStay'
-    >;
-    nights: (n: number) => string;
-    e: { cap: (n: string) => string };
-    priceMonthlyOffer: { label: string; text: string; live: string };
-  },
-  lang: Lang,
-  /**
-   * capacity: data-cap of the room type (S6 party message). guests: every guest the estimate was asked for – adults
-   * + children 6–11 + under 6 (CPY 14.2, ORC: everyone declared in the form) – first sentence of the S3 note.
-   */
-  opts: { capacity?: number | null; guests?: number } = {},
-): EstimateView {
-  const E = S.estimate;
-  const sep = lang === 'zh' ? '：' : ': ';
-  // ESC-043 (INV 01/11): by the month, or over the monthly threshold, no number – only the monthly offer
-  if (r.unavailableReason === 'monthly_offer') return monthlyOfferView(S);
-  if (!r.priceAvailable) {
-    const minStay = r.notes.find((n) => n.code === 'min_stay');
-    const live =
-      r.unavailableReason === 'party_exceeds_room' && opts.capacity
-        ? S.e.cap(String(opts.capacity))
-        : minStay
-          ? E.minStay(minStay.minNights ?? 2)
-          : E.unavailable;
-    return { kind: 'unavailable', lines: [], note: [], live, done: '' };
-  }
-  if (r.stayKind === 'long') return monthlyOfferView(S); // never a monthly figure, whatever the body says
-  if (!r.shortStay)
-    return { kind: 'unavailable', lines: [], note: [], live: E.unavailable, done: '' };
-  const st = r.shortStay;
-  const amount = formatVnd(st.totalVnd, lang);
-  const nights = S.nights(st.nights);
-  // no average a night (DOM: weekend/special nights differ – BE lp-v2 6), a sentence for the discount, no amount
-  const lines: string[] = [];
-  if (st.losDiscountPct > 0 || st.losDiscountVnd > 0) lines.push(E.longStay);
-  if (st.extraPersonFeeVnd > 0) lines.push(E.extraGuest);
-  return {
-    kind: 'price',
-    // the amount stands on its own line; the nights phrase is the line above (ko/zh) or below (en/vi/ru) – UXD FE-04
-    // (nights(n) already holds U+00A0 between the number and the word – CPY 13.5)
-    main: split(E.total(MARK, nights), amount),
-    value: st.totalVnd,
-    lines,
-    // S3 note order (CPY 14.2, BUG-R4-003): guests(n) → currency (not vi) → taxIn/taxOut → final (no room held)
-    note: [
-      ...(opts.guests && opts.guests > 0 ? [E.guests(opts.guests)] : []),
-      ...(lang === 'vi' ? [] : [E.currency]),
-      r.taxIncluded ? E.taxIn : E.taxOut,
-      E.final,
-    ],
-    live: E.live(amount, nights),
-    done: `${E.done}${sep}${E.total(amount, nights)}`,
-  };
+export interface ViewStrings {
+  estimate: Pick<
+    EstimateStrings,
+    | 'fromMonth'
+    | 'note'
+    | 'total'
+    | 'final'
+    | 'unavailable'
+    | 'currency'
+    | 'taxIn'
+    | 'taxOut'
+    | 'live'
+    | 'done'
+  >;
+  e: { cap: (n: string) => string };
 }
 
 /**
- * ESC-043 (INV 01/11): a stay by the month – or a stay by the night from the monthly threshold on (BR-108, 30 nights
- * from INV 01/11; the API decides) – shows no figure, only the invitation to a monthly offer in our quote (CPY
- * lp-v2-copy 12.1 `priceMonthlyOffer`); the "Estimated rate" title is hidden. The spoken line is CPY's own sentence
- * `priceMonthlyOffer.live` (13.2 – zh with "。", never a code-made "label. text" – FB-R4-UXD-FE-08).
+ * The monthly figure (from the estimate, or from monthly-rates while no move-in date is chosen). Note order (CPY Dot 1
+ * section 7, INV 16/11 "Taxes included"): taxIn/taxOut → currency (not vi) → note → final.
  */
-export function monthlyOfferView(S: {
-  priceMonthlyOffer: { label: string; text: string; live: string };
-}): EstimateView {
-  return { kind: 'offer', lines: [], note: [], live: S.priceMonthlyOffer.live, done: '' };
+export function monthlyView(
+  monthlyFromVnd: number,
+  taxIncluded: boolean,
+  S: ViewStrings,
+  lang: Lang,
+  total?: { vnd: number; months: number; label: string },
+): EstimateView {
+  const E = S.estimate;
+  const sep = lang === 'zh' ? '：' : ': ';
+  const amount = formatVnd(monthlyFromVnd, lang);
+  const lines =
+    total && total.months > 1 && isMoney(total.vnd) && total.label
+      ? [E.total(formatVnd(total.vnd, lang), total.label)]
+      : [];
+  return {
+    kind: 'price',
+    main: split(E.fromMonth(MARK), amount),
+    value: monthlyFromVnd,
+    lines,
+    note: [
+      taxIncluded ? E.taxIn : E.taxOut,
+      ...(lang === 'vi' ? [] : [E.currency]),
+      E.note,
+      E.final,
+    ],
+    live: E.live(amount),
+    done: `${E.done}${sep}${E.fromMonth(amount)}`,
+  };
+}
+
+/** The view of a 200 price-estimate answer by the month. */
+export function estimateView(
+  r: PublicPriceEstimate,
+  S: ViewStrings,
+  lang: Lang,
+  /** capacity: data-cap of the room type (S6 party message); monthsLabel: label of the chosen months option. */
+  opts: { capacity?: number | null; monthsLabel?: string } = {},
+): EstimateView {
+  const E = S.estimate;
+  const ls = r.longStay;
+  if (!r.priceAvailable || r.stayKind !== 'long' || !ls || !isMoney(ls.monthlyFromVnd)) {
+    const live =
+      r.unavailableReason === 'party_exceeds_room' && opts.capacity
+        ? S.e.cap(String(opts.capacity))
+        : E.unavailable;
+    return { kind: 'unavailable', lines: [], note: [], live, done: '' };
+  }
+  const total =
+    ls.months && ls.totalVnd
+      ? { vnd: ls.totalVnd, months: ls.months, label: opts.monthsLabel ?? '' }
+      : undefined;
+  return monthlyView(ls.monthlyFromVnd, r.taxIncluded, S, lang, total);
 }

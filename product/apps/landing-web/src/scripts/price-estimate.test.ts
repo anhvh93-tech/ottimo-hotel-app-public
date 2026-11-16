@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-// The estimate box in the DOM (price-estimate.ts) after the LP-v2 review (round 4, Phản hồi & sửa):
-// FB-R4-UXD-FE-01 by the month first → one call with stayType=long, then the invitation (or nothing on 404);
-// FE-04 the amount alone on its line; FE-07 the waiting line is not faded; FE-09 the status line never keeps a price
-// that is gone ("Estimated rate cleared." – CPY 13.3); FE-10 the nights hint follows the API answer (longFor).
+// The monthly price box in the DOM (price-estimate.ts) – FB-INV-010 Dot 1: room type + move-in date + months →
+// getPublicPriceEstimate stayType=long&months=n; "From X / month" + the total for the months chosen; before a
+// move-in date, the monthly-rates figure of the room type (no token). Kept from LP-v2: FE-07 the waiting line is not
+// faded; FE-09 the status line never keeps a price that is gone (CPY 13.3); 404 = prices off for the visit.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FormValues, PublicPriceEstimate } from './booking-logic';
 import { BOOKING_STRINGS } from './booking-strings/all';
@@ -11,13 +11,16 @@ import { initEstimate } from './price-estimate';
 
 const S = BOOKING_STRINGS.en;
 const ROOM = 'standard-studio-garden-view';
+const LABELS: Record<string, string> = {
+  '1': '1 month',
+  '3': '3 months',
+  '6': '6 months',
+  '12': '1 year',
+};
 
 const form = (over: Partial<FormValues> = {}): FormValues => ({
-  stayType: 'short',
-  checkIn: '2026-11-12',
-  checkOut: '2026-11-15',
-  arrival: '',
-  months: '',
+  arrival: '2026-12-01',
+  months: '3',
   adults: 2,
   children: 0,
   infants: 0,
@@ -40,58 +43,32 @@ const form = (over: Partial<FormValues> = {}): FormValues => ({
 
 const priced = (search: string): PublicPriceEstimate => {
   const q = new URLSearchParams(search);
-  if (q.get('stayType') === 'long' || !q.get('departure'))
-    return {
-      estimate: true,
-      currency: 'VND',
-      taxIncluded: true,
-      roomType: q.get('roomType')!,
-      stayKind: 'long',
-      arrival: q.get('arrival')!,
-      priceAvailable: false,
-      unavailableReason: 'monthly_offer',
-      notes: [],
-      computedAt: '2026-11-03T10:00:00+07:00',
-    };
-  const nights = Math.round(
-    (Date.parse(q.get('departure')!) - Date.parse(q.get('arrival')!)) / 864e5,
-  );
-  if (nights >= 30)
-    return {
-      ...priced(`roomType=${ROOM}&stayType=long&arrival=${q.get('arrival')}`),
-      departure: q.get('departure')!,
-    };
+  const months = Number(q.get('months'));
   return {
     estimate: true,
     currency: 'VND',
     taxIncluded: true,
     roomType: q.get('roomType')!,
-    stayKind: 'short',
+    stayKind: 'long',
     arrival: q.get('arrival')!,
-    departure: q.get('departure')!,
     priceAvailable: true,
-    shortStay: {
-      nights,
-      roomSubtotalVnd: 733667 * nights,
-      upliftNights: 0,
-      losDiscountPct: 0,
-      losDiscountVnd: 0,
-      extraPersonFeeVnd: 0,
-      totalVnd: 733667 * nights,
-      nightlyAvgVnd: 733667,
-    },
+    longStay: { months, monthlyFromVnd: 9_000_000, totalVnd: 9_000_000 * months },
     notes: [],
-    computedAt: '2026-11-03T10:00:00+07:00',
-    estimateToken: 'pe1.e2e.sig',
+    computedAt: '2026-11-16T10:00:00+07:00',
+    estimateToken: `pe1.${months}.sig`,
     expiresAt: '2099-01-01T00:00:00+07:00',
   };
 };
 
-function setup(answer: (search: string, n: number) => EstimateOutcome | Promise<EstimateOutcome>) {
+function setup(
+  answer: (search: string, n: number) => EstimateOutcome | Promise<EstimateOutcome>,
+  start: Partial<FormValues> = {},
+  monthly?: Record<string, number>,
+) {
   document.body.innerHTML =
     '<div id="box" hidden></div><p id="live" role="status"></p><p id="sent" hidden></p>';
   const calls: string[] = [];
-  let values = form();
+  let values = form(start);
   const box = initEstimate({
     box: document.getElementById('box')!,
     live: document.getElementById('live')!,
@@ -100,75 +77,81 @@ function setup(answer: (search: string, n: number) => EstimateOutcome | Promise<
     lang: 'en',
     values: () => values,
     ctx: () => ({ today: '2026-11-01', max: '2027-11-01', capacity: 3 }),
-    firstRoom: () => ROOM,
+    monthsLabel: () => LABELS[values.months] ?? '',
+    monthlyFrom: (slug) =>
+      monthly?.[slug] ? { vnd: monthly[slug]!, taxIncluded: true } : undefined,
     fetchEstimate: (search) => {
       calls.push(search);
       return Promise.resolve(answer(search, calls.length));
     },
-    now: () => Date.parse('2026-11-03T10:00:00+07:00'),
+    now: () => Date.parse('2026-11-16T10:00:00+07:00'),
   });
   const el = () => document.getElementById('box')!;
   const live = () => document.getElementById('live')!.textContent;
+  const sent = () => document.getElementById('sent')!;
   const set = async (over: Partial<FormValues>) => {
     values = { ...values, ...over };
     box.update();
     await vi.advanceTimersByTimeAsync(1200); // debounce 400 ms + status line 700 ms
   };
-  return { box, calls, el, live, set, values: () => values };
+  return { box, calls, el, live, sent, set, values: () => values };
 }
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-describe('FB-R4-UXD-FE-01 – "By the month" first', () => {
-  const month = {
-    stayType: 'long' as const,
-    arrival: '2026-12-01',
-    months: '3',
-    checkIn: '',
-    checkOut: '',
-  };
-
-  it('no answer yet → one call with stayType=long (no departure, no months), then the invitation', async () => {
+describe('the form asks by the month (stayType=long&months=n)', () => {
+  it('room + move-in date + months → one call; "From X / month" + total; token only for these values', async () => {
     const t = setup((s) => ({ kind: 'ok', body: priced(s) }));
-    await t.set(month);
+    await t.set({ months: '6' });
     expect(t.calls).toEqual([
-      `roomType=${ROOM}&stayType=long&arrival=2026-12-01&adults=2&children=0&infants=0`,
+      `roomType=${ROOM}&stayType=long&arrival=2026-12-01&months=6&adults=2&children=0&infants=0`,
     ]);
     expect(t.el().hidden).toBe(false);
-    expect(t.el().dataset.state).toBe('offer');
-    expect(t.el().querySelector('.est-lbl')!.textContent).toBe(S.priceMonthlyOffer.label);
-    expect(t.el().textContent).not.toMatch(/\d|Estimated rate/);
-    expect(t.live()).toBe(S.priceMonthlyOffer.live);
-    // prices are known to be on: another month change shows the invitation without asking again
-    await t.set({ arrival: '2026-12-05', months: '6' });
-    expect(t.calls).toHaveLength(1);
-    expect(t.el().dataset.state).toBe('offer');
+    expect(t.el().dataset.state).toBe('price');
+    expect(t.el().querySelector('.est-lbl')!.textContent).toBe('Monthly rate');
+    const main = t.el().querySelector('.est-main')!;
+    expect(main.textContent).toBe('From 9,000,000 VND / month');
+    expect(main.querySelector('data')!.getAttribute('value')).toBe('9000000');
+    expect(t.el().querySelector('.est-line')!.textContent).toBe(
+      'For 6 months: from 54,000,000 VND',
+    );
+    expect(t.el().querySelector('.est-note')!.textContent).toMatch(/^Taxes included\. /);
+    expect(t.live()).toBe('Monthly rate updated: from 9,000,000 VND a month');
+    expect(t.sent().hidden).toBe(false);
+    expect(t.box.tokenFor(t.values())).toBe('pe1.6.sig');
+    expect(t.box.tokenFor({ ...t.values(), months: '12' })).toBeUndefined();
+    expect(t.box.doneLine()).toBe('Monthly rate: From 9,000,000 VND / month');
+    // the total follows the months chosen
+    await t.set({ months: '12' });
+    expect(t.el().querySelector('.est-line')!.textContent).toBe('For 1 year: from 108,000,000 VND');
+    await t.set({ months: '1' });
+    expect(t.el().querySelector('.est-line')).toBeNull();
   });
 
-  it('"Any room" by the month asks with the first room type of the list', async () => {
-    const t = setup((s) => ({ kind: 'ok', body: priced(s) }));
-    await t.set({ ...month, roomType: '' });
-    expect(new URLSearchParams(t.calls[0]).get('roomType')).toBe(ROOM);
-    expect(t.el().dataset.state).toBe('offer');
+  it('never a 0 or a guess: a figure the contract does not allow shows the neutral error', async () => {
+    const t = setup((s, n) => (n === 1 ? { kind: 'ok', body: priced(s) } : { kind: 'error' }));
+    await t.set({});
+    await t.set({ months: '6' });
+    expect(t.el().dataset.state).toBe('error');
+    expect(t.el().textContent).not.toMatch(/\d/);
+    expect(t.sent().hidden).toBe(true);
   });
 
-  it('404 = prices off: the box stays hidden and nothing more is asked, by the month or by the night', async () => {
+  it('404 = prices off: the box stays hidden and nothing more is asked', async () => {
     const t = setup(() => ({ kind: 'off' }));
-    await t.set(month);
+    await t.set({});
     expect(t.calls).toHaveLength(1);
     expect(t.el().hidden).toBe(true);
-    await t.set({ stayType: 'short', checkIn: '2026-11-12', checkOut: '2026-11-15' });
-    await t.set({ ...month, arrival: '2026-12-09' });
+    await t.set({ arrival: '2026-12-09' });
     expect(t.calls).toHaveLength(1);
-    expect(t.el().hidden).toBe(true);
   });
 
-  it('a passing error (503) shows nothing and asks again on the next change; 429 stops', async () => {
+  it('a passing error (503) shows nothing before any price and asks again on the next change; 429 stops', async () => {
     const t = setup((s, n) =>
       n === 1 ? { kind: 'error' } : n === 2 ? { kind: 'rate' } : { kind: 'ok', body: priced(s) },
     );
-    await t.set(month);
+    await t.set({});
     expect(t.el().hidden).toBe(true);
     await t.set({ arrival: '2026-12-02' });
     expect(t.calls).toHaveLength(2);
@@ -176,38 +159,51 @@ describe('FB-R4-UXD-FE-01 – "By the month" first', () => {
     expect(t.calls).toHaveLength(2);
     expect(t.el().hidden).toBe(true);
   });
+});
 
-  it('no arrival date yet: no call', async () => {
-    const t = setup((s) => ({ kind: 'ok', body: priced(s) }));
-    await t.set({ ...month, arrival: '' });
+describe('before a move-in date: the monthly-rates figure of the room type (page load)', () => {
+  it('no call; "From X / month" without total and without token; prompt for a type without a figure', async () => {
+    const t = setup(
+      (s) => ({ kind: 'ok', body: priced(s) }),
+      { arrival: '' },
+      { [ROOM]: 8_500_000 },
+    );
+    t.box.pricesKnown();
+    await vi.advanceTimersByTimeAsync(1200);
     expect(t.calls).toHaveLength(0);
+    expect(t.el().hidden).toBe(false);
+    expect(t.el().querySelector('.est-main')!.textContent).toBe('From 8,500,000 VND / month');
+    expect(t.el().querySelector('.est-line')).toBeNull();
+    expect(t.box.tokenFor(t.values())).toBeUndefined();
+    expect(t.box.doneLine()).toBe('');
+    expect(t.sent().hidden).toBe(true);
+    await t.set({ roomType: 'signature-two-bedrooms' });
+    expect(t.el().dataset.state).toBe('idle');
+    expect(t.el().textContent).toBe(S.estimate.prompt);
+    expect(t.live()).toBe(S.estimate.liveCleared);
+    await t.set({ roomType: '' });
+    expect(t.el().textContent).toBe(S.estimate.anyRoom);
+    // with a date: the estimate at the move-in date replaces it
+    await t.set({ roomType: ROOM, arrival: '2026-12-01' });
+    expect(t.calls).toHaveLength(1);
+    expect(t.el().querySelector('.est-main')!.textContent).toBe('From 9,000,000 VND / month');
+  });
+
+  it('no monthly-rates figure and no answer yet: nothing shown, nothing asked', async () => {
+    const t = setup((s) => ({ kind: 'ok', body: priced(s) }), { arrival: '' });
+    await t.set({});
+    expect(t.calls).toHaveLength(0);
+    expect(t.el().hidden).toBe(true);
   });
 });
 
-describe('S3 layout and the status line', () => {
-  it('FB-04: the amount alone in .est-main, "for 3 nights" a line of its own (U+00A0 inside)', async () => {
+describe('the status line and the waiting state', () => {
+  it('FB-09: back to S1 after a price → the old price leaves the status line, then the cleared sentence', async () => {
     const t = setup((s) => ({ kind: 'ok', body: priced(s) }));
     await t.set({});
-    const main = t.el().querySelector('.est-main')!;
-    expect(main.textContent).toBe('2,201,001\u00a0VND');
-    expect(main.querySelector('data')!.getAttribute('value')).toBe('2201001');
-    const nights = [...t.el().querySelectorAll('.est-nights')].map((n) => n.textContent);
-    expect(nights).toEqual(['for 3\u00a0nights']);
-    expect(main.nextElementSibling!.className).toBe('est-nights'); // below the amount (en word order)
-    expect(t.live()).toBe('Estimated rate updated: 2,201,001\u00a0VND for 3\u00a0nights');
-  });
-
-  it('FB-09: back to S0/S1 after a price → the old price leaves the status line, then "Estimated rate cleared."', async () => {
-    const t = setup((s) => ({ kind: 'ok', body: priced(s) }));
-    await t.set({});
-    expect(t.live()).toContain('2,201,001');
-    t.box.update();
+    expect(t.live()).toContain('9,000,000');
     await t.set({ roomType: '' }); // "Any room" = S1
     expect(t.el().dataset.state).toBe('any-room');
-    expect(t.live()).toBe(S.estimate.liveCleared);
-    // the price must already be gone before the cleared sentence is read
-    await t.set({ roomType: ROOM });
-    await t.set({ checkOut: '' });
     expect(t.live()).toBe(S.estimate.liveCleared);
     expect(t.live()).not.toMatch(/\d/);
   });
@@ -230,17 +226,5 @@ describe('S3 layout and the status line', () => {
     release({ kind: 'ok', body: priced(t.calls.at(-1)!) });
     await vi.advanceTimersByTimeAsync(800);
     expect(t.el().dataset.state).toBe('price');
-  });
-});
-
-describe('FB-R4-UXD-FE-10 – the nights hint follows the API (longFor)', () => {
-  it('29 nights priced → false; 30 nights answered monthly_offer → true; other values → undefined', async () => {
-    const t = setup((s) => ({ kind: 'ok', body: priced(s) }));
-    await t.set({ checkIn: '2026-11-12', checkOut: '2026-12-11' }); // 29 nights
-    expect(t.box.longFor(t.values())).toBe(false);
-    await t.set({ checkOut: '2026-12-12' }); // 30 nights
-    expect(t.el().dataset.state).toBe('offer');
-    expect(t.box.longFor(t.values())).toBe(true);
-    expect(t.box.longFor({ ...t.values(), checkOut: '2026-12-13' })).toBeUndefined();
   });
 });

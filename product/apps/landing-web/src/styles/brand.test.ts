@@ -134,7 +134,7 @@ describe('fonts (SEC C-1, concept 3)', () => {
       const runtime =
         JSON.stringify(S) +
         Object.values(S.estimate).map(String).join('') +
-        [S.thanks, S.nights, S.roomHint, S.longHint, S.summary].map(String).join('') +
+        [S.thanks, S.roomHint, S.summary].map(String).join('') +
         Object.values(S.e).map(String).join('') +
         Object.values(S.when).map(String).join('');
       const missing = [

@@ -2,8 +2,8 @@
 // Booking-request form (concept 5.2–5.4, mock v1.2.1) – rendered only in the review build or once the feature is on
 // (lib/booking-request.ts). SEC UXD-08: <form hidden> with no `action`; scripts/booking-form.ts removes `hidden`, so
 // without JavaScript the form never shows and can never be sent. Field names follow `WebsiteBookingRequestInput`
-// (OpenAPI 0.3.7 add-on 2): stayType, arrival, departure | months, adults, children (6–11), infants (< 6),
-// roomType, guestName, preferredChannel, phone | email, note, consent, website (honeypot).
+// (OpenAPI 0.3.7 add-on 2): arrival, months (stayType is always `long` – FB-INV-010 Dot 1), adults, children (6–11),
+// infants (< 6), roomType, guestName, preferredChannel, phone | email, note, consent, website (honeypot).
 import { PRIVACY_NOTICE } from '../content/privacy';
 import { links, phoneShown, site } from '../content/site';
 import type { Copy } from '../content/types';
@@ -48,7 +48,6 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
   data-call-now-minutes={b.promiseCallNowMinutes}
   data-next-morning={b.promiseNextMorningBy}
   data-window-days={b.windowDays}
-  data-short-max={b.shortMaxNights}
   data-hotline={hotline}
   data-hotline-tel={links.tel}
   data-consent-version={PRIVACY_NOTICE_VERSION}
@@ -64,60 +63,49 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
 
   <div class="form-sec">
     <p class="f-title">{f.yourStay}</p>
-    <fieldset>
-      <legend class="f-label sr">{f.lengthOfStay}</legend>
-      <div class="seg">
-        <label
-          ><input type="radio" name="stayType" value="short" checked /><span class="opt-box">{f.byNight}</span
-          ></label
-        >
-        <label
-          ><input type="radio" name="stayType" value="long" /><span class="opt-box">{f.byMonth}</span></label
-        >
+    {/*
+      FB-INV-010 Dot 1 (INV 16/11): the landing sells long stays only – room type, move-in date, number of months
+      (1, 2, 3, 6, 12, 24 – required, minimum one month), guests, then the monthly price box (CPY Dot 1 section 5).
+    */}
+    <div class="field">
+      <label for="f-room">{f.roomType}</label>
+      <div class="sel">
+        <select class="input" id="f-room" name="roomType" aria-describedby="f-room-hint f-guests-err">
+          <option value="">{f.anyRoom}</option>
+          {
+            t.rooms.items.map((r) => (
+              <option value={r.slug} data-min={r.sleeps[0]} data-cap={r.sleeps[1]}>
+                {r.shortName}
+              </option>
+            ))
+          }
+        </select>
+        <Icon name="chevron" />
       </div>
-    </fieldset>
-    <div class="row2 dates" data-stay="short">
-      <div class="field">
-        <label for="f-in">{f.checkIn}</label>
-        <input class="input" id="f-in" name="arrival" type="date" required aria-describedby="f-in-err" />
-        <p class="err" id="f-in-err"></p>
-      </div>
-      <div class="field">
-        <label for="f-out">{f.checkOut}</label>
-        <input
-          class="input"
-          id="f-out"
-          name="departure"
-          type="date"
-          required
-          aria-describedby="f-out-err f-nights"
-        />
-        <p class="err" id="f-out-err"></p>
-      </div>
+      <p class="hint" id="f-room-hint"></p>
     </div>
-    <p class="hint" id="f-nights" data-stay="short" aria-live="polite"></p>
-    <div class="row2 dates" data-stay="long" hidden>
+    <div class="row2 dates">
       <div class="field">
         <label for="f-arr">{f.arrival}</label>
-        <input
-          class="input"
-          id="f-arr"
-          name="arrival"
-          type="date"
-          required
-          disabled
-          aria-describedby="f-arr-err"
-        />
+        <input class="input" id="f-arr" name="arrival" type="date" required aria-describedby="f-arr-err" />
         <p class="err" id="f-arr-err"></p>
       </div>
       <div class="field">
         <label for="f-months">{f.lengthOfStay}</label>
         <div class="sel">
-          <select class="input" id="f-months" name="months" disabled>
+          <select
+            class="input"
+            id="f-months"
+            name="months"
+            required
+            aria-describedby="f-months-hint f-months-err"
+          >
             {f.months.map((m) => <option value={m.value} selected={m.value === '3'}>{m.label}</option>)}
           </select>
           <Icon name="chevron" />
         </div>
+        <p class="hint" id="f-months-hint">{f.monthsHint}</p>
+        <p class="err" id="f-months-err"></p>
       </div>
     </div>
     <div class="row3">
@@ -149,26 +137,9 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
         </div>
       </div>
     </div>
-    <div class="field">
-      <label for="f-room">{f.roomType}</label>
-      <div class="sel">
-        <select class="input" id="f-room" name="roomType" aria-describedby="f-room-hint f-guests-err">
-          <option value="">{f.anyRoom}</option>
-          {
-            t.rooms.items.map((r) => (
-              <option value={r.slug} data-min={r.sleeps[0]} data-cap={r.sleeps[1]}>
-                {r.shortName}
-              </option>
-            ))
-          }
-        </select>
-        <Icon name="chevron" />
-      </div>
-      <p class="hint" id="f-room-hint"></p>
-      <p class="err" id="f-guests-err"></p>
-    </div>
+    <p class="err" id="f-guests-err"></p>
     {/*
-      Estimated price (LP-v2, FB-INV-009; UXD lp-v2-design 3): filled by scripts/price-estimate.ts, hidden until the
+      Monthly price (FB-INV-010 Dot 1; UXD lp-v2-design 3): filled by scripts/price-estimate.ts, hidden until the
       API answers with prices (404 = prices off → stays hidden). Not a live region itself; the short result sentence
       goes to the role=status line below, which exists from the start (UXD 3.6).
     */}

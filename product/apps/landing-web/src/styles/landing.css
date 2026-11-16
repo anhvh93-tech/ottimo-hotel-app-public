@@ -1207,6 +1207,27 @@ html.lb-open {
 .room .desc {
   margin-bottom: var(--s2);
 }
+/* FB-INV-010 (CPY Dot 1 section 2): monthly price of the room type – line 1 "From X / month" in body size, Ink;
+   line 2 taxes + the note, never smaller than the form text. Static text = "Monthly rate on request" (no figure). */
+.room-price {
+  margin: 0 0 var(--s3);
+}
+.room-price p {
+  margin: 0;
+}
+.rp-main {
+  color: var(--brand-ink);
+}
+.rp-amt {
+  font-family: var(--serif);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+.rp-note {
+  margin-top: var(--s1);
+  color: var(--brand-stone);
+  font-size: 0.9375rem; /* = form text (.f-label), CPY Dot 1 section 2 */
+}
 .room .link {
   margin-top: auto;
   align-self: flex-start;
@@ -2138,6 +2159,11 @@ legend.f-label:not(.sr) {
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: 0.01em;
   color: var(--brand-ink);
+}
+/* FB-INV-010: "From <amount> / month" – the amount stays on the words' line; the line may wrap between words only. */
+.est-main--month .est-amt {
+  display: inline;
+  white-space: nowrap;
 }
 /* One reading size for every line that explains the figure (FB-R4-UXD-FE-16): nights, the longer-stay / nightly /
    extra-guest lines and the note below are all 15 px; was 14 px for .est-line. */

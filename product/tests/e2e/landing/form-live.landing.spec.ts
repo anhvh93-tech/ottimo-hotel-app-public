@@ -16,6 +16,27 @@ import {
 
 test.use({ baseURL: LIVE_URL });
 
+// FB-INV-010: the live page asks getPublicMonthlyRates once on load (room cards) – answered here like the landing Caddy
+// proxy will, so these LP-v1 tests keep a clean console (made-up figure, no Desk price)
+test.beforeEach(async ({ page }) => {
+  await page.route('**/v1/public/properties/dl01/monthly-rates', (route: Route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Cache-Control': 'no-store' },
+      body: JSON.stringify({
+        estimate: true,
+        currency: 'VND',
+        taxIncluded: true,
+        roomTypes: [
+          { roomType: 'standard-studio-city-view', label: 'Studio', monthlyFromVnd: 8_000_000 },
+        ],
+        computedAt: '2026-11-16T10:00:00+07:00',
+      }),
+    }),
+  );
+});
+
 const API = '/v1/public/properties/dl01';
 // LP-v2: one notice version for the 5 languages (SEC LP-v2 D1; final label SEC-on-lp-v2-main section 2)
 const NOTICE_VERSION = '2026-11-04';
@@ -69,11 +90,11 @@ async function mockApi(
 async function fillValid(page: Page, opts: { note?: string } = {}) {
   await page.goto('/#book', { waitUntil: 'networkidle' });
   await expect(page.locator('#bk-form')).toBeVisible();
-  const today = await page.locator('#f-in').getAttribute('min');
+  const today = await page.locator('#f-arr').getAttribute('min');
   const d = new Date(`${today}T00:00:00Z`);
   const iso = (n: number) => new Date(d.getTime() + n * 864e5).toISOString().slice(0, 10);
-  await page.locator('#f-in').fill(iso(20));
-  await page.locator('#f-out').fill(iso(23));
+  await page.locator('#f-arr').fill(iso(20));
+  await page.locator('#f-months').selectOption('6');
   await page.locator('#f-name').fill('Anna');
   await page.locator('#f-phone').fill('+7 912 345 6789');
   if (opts.note) await page.locator('#f-note').fill(opts.note);
@@ -100,7 +121,8 @@ test('TC-LP-030 live form EN: token on first touch, one POST to the same origin,
   expect(headers['content-type']).toContain('application/json');
   expect(body).toMatchObject({
     formToken: TOKEN.token,
-    stayType: 'short',
+    stayType: 'long',
+    months: 6,
     adults: 2,
     guestName: 'Anna',
     preferredChannel: 'zalo',
@@ -110,6 +132,7 @@ test('TC-LP-030 live form EN: token on first touch, one POST to the same origin,
     consentVersion: NOTICE_VERSION,
     landingPath: '/',
   });
+  expect(body.departure).toBeUndefined();
   expect(body.email).toBeUndefined();
   expect('website' in body).toBe(false);
   // the request number never goes into the URL or the title (SEC UXD-08)
@@ -178,11 +201,10 @@ test('TC-LP-033 VI: the server refuses an ID number in the note – message at t
   });
   await page.goto('/vi/#book', { waitUntil: 'networkidle' });
   await expect(page.locator('#bk-form')).toBeVisible();
-  const today = await page.locator('#f-in').getAttribute('min');
+  const today = await page.locator('#f-arr').getAttribute('min');
   const d = new Date(`${today}T00:00:00Z`);
   const iso = (n: number) => new Date(d.getTime() + n * 864e5).toISOString().slice(0, 10);
-  await page.locator('#f-in').fill(iso(5));
-  await page.locator('#f-out').fill(iso(7));
+  await page.locator('#f-arr').fill(iso(5));
   await page.locator('#f-name').fill('An');
   await page.locator('#f-phone').fill('0912 345 678');
   await page.locator('#f-note').fill('CCCD 079123456789');
