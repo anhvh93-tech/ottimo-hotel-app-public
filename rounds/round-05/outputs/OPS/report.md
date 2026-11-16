@@ -269,3 +269,64 @@ Căn cứ: giao việc ORC 16/11 (INV OK production, bỏ V5-61/T23/T24 – deci
 **Cần để đi tiếp:** INV nạp khóa vào agent trên Mac này (INV tự gõ passphrase, không qua chat): `ssh-add --apple-use-keychain ~/.ssh/ottimo_ops`. Sau đó ORC giao lại cho OPS cùng câu giao việc.
 
 Không commit (theo giao việc).
+
+### 14.1 Tiếp tục 16/11 sau khi INV nạp khóa (giờ VN)
+
+| Giờ | Bước | Kết quả |
+|---|---|---|
+| 15:00 | Đọc hiện trạng | Staging: app `sha-a9f510f7611f` (CI), landing `sha-6414be25f20d`. Production: app + landing `sha-6414be25f20d`, `landing_previous_tag` = `sha-72f9ac8e2b33` |
+| 15:00 | **O2** (image, `--network none`, chỉ đọc): `<main>` trang privacy image mới (đổi `2026-11-16` → `2026-11-04`) so với `sha-6414be25f20d` | **Bằng nhau cả 5**: en `d2fb0554ce25`=`d2fb0554ce25`; vi `f24f18fd6d0b`=`f24f18fd6d0b`; ko `91f21ba23de6`=`91f21ba23de6`; zh `c7fe6fb2b5a4`=`c7fe6fb2b5a4`; ru `cc9766812154`=`cc9766812154` (mỗi trang đúng 1 `<main`) |
+| 15:00 | **O3** staging `deploy-landing.sh sha-a9f510f7611f --digest sha256:54acf42b…079f74 --check-only` | 5 × `2026-11-16 (not published yet)`, `CHECK ONLY … passes`, RC 0 |
+| 15:00 | **O4** (`SQLRO`, chỉ cột `version`) | `on`, `ottimo_readonly`. Staging `CONST_ROWS=5`, `2026-11-16`=0. Production `CONST_ROWS=5`, `2026-11-16`=0 |
+| 15:01 | Gói staging so gói từ a9f510f7 | `git diff 32c9bd2d a9f510f7 -- product/infra` rỗng; gói trên máy giống hệt (`diff -rq`): không cần làm mới gói staging |
+| 15:01 | Deploy landing staging | `OK: landing sha-a9f510f7611f is live on staging.ottimo.vn`; `landing_tag` = `sha-a9f510f7611f` |
+| 15:01 | **O5** staging (root, `OTTIMO_HOME=/opt/ottimo`, `--operator ops`) chạy thử | ảnh `54acf42ba885` ok; trang live 200 cùng sha256; 5 × `dry-run (would): supersede version 2026-11-04` (en vi ko zh ru); `DRY RUN OK` |
+| 15:01 | O5 staging `--apply` | 5 × `apply: supersede version 2026-11-04 (<xx>)`; `OK: version 2026-11-16 published (en vi ko zh ru)`; log vẫn `ottimo:ottimo 600`. Khoảng trống O7 ≈ 40 giây |
+| 15:02 | Kiểm staging qua `staging.ottimo.vn` (root, `--resolve` edge, mật khẩu xem trước đọc từ tệp, không in) | `monthly-rates` có mật khẩu **200** `application/json`, `Cache-Control: no-store`, allowlist đúng (4 hạng, `taxIncluded` true, `monthlyFromVnd` 8,5–13,5 triệu), từ cấm = 0; `?x=1` **404**; POST **404**; không mật khẩu 401. `price-estimate` long: `priceAvailable` true, `longStay` = `monthlyFromVnd, months, totalVnd`. `form-token` 200. Trang privacy `/` và `/vi/` có meta `2026-11-16`. "Taxes included" có trong HTML |
+| 15:02 | "From X / month" trên staging | Chữ do JS dựng sau khi gọi `monthly-rates` (bundle có `From ${e} / month`). Trên staging trình duyệt thường **không thấy**: landing gọi `fetch` với `credentials: 'omit'`, Caddy staging trả 401 (BUG-R4-054, đã biết). HTML tĩnh hiện "on request" là bản dự phòng. Kiểm bằng mắt ở production (không basic auth) hoặc QA dùng Playwright `extraHTTPHeaders` |
+| 15:03 | O3 production `--check-only` (gói cũ) | 5 × `2026-11-16 (not published yet)`, passes, RC 0 |
+| 15:03 | Gói `infra/` từ a9f510f7 lên máy (chưa áp) | băm Mac = máy `94023541070e`; có `@public_monthly_rates`, `header_up -Authorization`; khác gói production 19 tệp; `02-roles.sh` không đổi |
+| 15:03 | Chờ hết khung sao lưu 14:55–15:45 rồi mới sao lưu production | |
+
+**Hiện trạng máy liên quan tới `ops-check` gói mới (đọc lúc 15:00):** W0 chưa làm (`authorized_keys` của `ottimo` còn 1 dòng khóa người, tổng 4) → `sshkeys` sẽ FAIL; timer sao lưu production vẫn 1 lượt 03:00 (W1 chưa làm) → `backup` FAIL sau 14 giờ; chưa có drop-in journald (W6 bước 1) và `journald_since`. Container production đang driver `local`; Release v1.0.5 với gói mới sẽ dựng lại sang `journald` (staging đã `journald` cả 5). Production có `ALERT_WEBHOOK_URL`, nên các FAIL này sẽ báo vào phòng Báo động.
+| 15:46 | Sao lưu production (`backup.sh`, ngoài khung 14:55–15:45) | `OK: 70 encrypted files in /var/backups/ottimo-prod` lúc 08:46:08Z (69 migration, trước v1.0.5) |
+| 15:46 | Làm mới gói `infra/` production từ a9f510f7 (P2b bước 3–4) | `BAN CU GIU O: /root/ottimo-prod-bundles/infra-20261116-154619`; `PRODUCTION: CAU HINH MOI DA VAO`; `init-secrets: nothing to do`; `CAU HINH: OK`; Caddyfile production có `@public_monthly_rates`. `02-roles.sh` không đổi (bỏ bước 5). Container landing chưa dựng lại (Release landing sẽ dựng lại) |
+| 15:46 | O3 production lại, gói mới | 5 × `2026-11-16 (not published yet)`, passes, RC 0 |
+| 15:47 | Tag `landing-v2.1.0` (annotated) trên `a9f510f7611f`, push | `* [new tag] landing-v2.1.0` |
+| 15:47 | Release run **43834006137** | `resolve` success: `release landing-v2.1.0 → landing sha-a9f510f7611f @sha256:54acf42ba8858414ec8e8725ff3ba88617ea177b181d609c4aebf9a0ca079f74` (trùng artifact CI và digest đã qua staging). `deploy production` = **waiting**, environment `production` (id 25137151508). **OPS DỪNG – chờ ORC duyệt** |
+
+Ghi chú: CI 43824544392 (main, commit tài liệu sau a9f510f7) đang `waiting` (duyệt staging). Không ảnh hưởng Release (Release dùng CI của a9f510f7); nếu duyệt, staging app đổi sang commit đó (cùng mã app), landing staging không đổi.
+| 15:48 | Release landing 43834006137 (ORC duyệt) | success; log `landing sha-a9f510f7611f: ok`; production `landing_tag` = `sha-a9f510f7611f`, `landing_previous_tag` = `sha-6414be25f20d` (đường `--rollback` của PR #182 mục 4 đúng) |
+| 15:54 | O5 production `publish-privacy-notice.sh` (`sudo -u ottimo`, `--operator ops`) chạy thử | ảnh `54acf42ba885` ok; trang live `https://ottimo.vn` 5 × 200 cùng sha256; **băm 5 trang trùng staging** (en `dc4c4c5c365b`, vi `d99aad15dba4`, ko `52d9e8364eba`, zh `d385e781d611`, ru `18358efde51d`) → O8 đạt; 5 × `dry-run (would): supersede version 2026-11-04` |
+| 15:54 | O5 production `--apply` | 5 × `apply: supersede version 2026-11-04 (<xx>)`; `OK: version 2026-11-16 published (en vi ko zh ru)`. Khoảng trống O7 (landing mới → apply) ≈ 6 phút. Ghi chú: `state/privacy-notice.log` production là `ottimo:ottimo 664` (staging 600) – không sửa (O9), báo SEC xem có cần siết |
+| 15:55 | Tag `v1.0.5` (annotated) trên `a9f510f7611f`, push | `* [new tag] v1.0.5` |
+| 15:55 | Release run **43835200008** | `resolve` success: `release v1.0.5 → sha-a9f510f7611f api@sha256:9204c255c678…0932 web@sha256:52156b2e632b…e119` (trùng artifact CI 43820936429). `deploy production` = **waiting**, environment `production` (id 25137151508). **OPS DỪNG – chờ ORC duyệt** |
+| 15:56 | Release v1.0.5 43835200008 (ORC duyệt) | success; CI log `deploy sha-a9f510f7611f: ok`. Máy chủ (journal `ottimo-deploy`) đủ **6 dòng**: deploy (previous `sha-6414be25f20d`) → digests match → config accepted → `02-roles.sh` applied → `migrations: 72 applied / 72` → `OK: sha-a9f510f7611f is live` (+ dòng CI ok). `current_tag` = `sha-a9f510f7611f`, `previous_tag` = `sha-6414be25f20d`. Thứ tự: postgres 08:56:28Z, **worker 08:56:35Z, api 08:56:42Z** (worker sớm hơn 7 giây), web 08:56:47Z; tất cả driver `journald`, api/web healthy, worker `restarts=0` |
+
+### 14.2 Kiểm sau deploy (PR #182 mục 3, từ Mac, không đăng nhập; 16:00)
+
+| Kiểm | Kết quả |
+|---|---|
+| a) `GET https://ottimo.vn/v1/public/properties/dlt/monthly-rates` | **200** `application/json`, `Cache-Control: no-store`; `jq -e` allowlist = **true**; 4 hạng, `taxIncluded` true: `standard-studio-city-view` 8.500.000, `standard-studio-garden-view` 9.000.000, `premium-one-bedroom-1` 11.500.000, `signature-two-bedrooms` 13.500.000 (production **đã có** giá tháng); từ cấm = **0** |
+| b) `?x=1` / POST | **404** / **404** |
+| c) `price-estimate?roomType=standard-studio-city-view&stayType=long&arrival=2026-12-15&months=6&adults=2` | `priceAvailable` true, `longStay` = `{months 6, monthlyFromVnd 8.500.000, totalVnd 51.000.000}` |
+| d) `form-token` | **200** |
+| `/` (trình duyệt, sau JS) | 4 thẻ "From 8,500,000 / 9,000,000 / 11,500,000 / 13,500,000 VND / month", 4 × "Taxes included"; khớp (a); `data-consent-version` = `2026-11-16`; console **không lỗi** |
+| `/vi/` | 4 thẻ "Từ … VND/tháng" cùng số, có dòng "đã gồm thuế"; `data-consent-version` = `2026-11-16` |
+| Desk `https://desk.ottimo.vn/` | 200 |
+| Log Caddy landing (chỉ đếm) | 5 dòng `monthly-rates`; query luôn che `?[q]` (1 dòng = ca `?x=1` của OPS); 10 trường IP, 0 IP chưa che /24 |
+| `ops-check` đủ (lệnh W7, `systemd-run` + nhóm `systemd-journal`) | Mọi dòng `ok` (containers, j16, backup 0 h, disk 16%, mem, tls, http5xx 0, email_*, pricelimit, pricegap, priceswitch, email_config, db_triggers) **trừ**: `FAIL sshkeys: 1 of 4 key line(s) … not a known forced command` (W0 chưa làm – ghi, không sửa theo ORC); `WARN journal: state/journald_since missing` (W6 bước 1–2 chưa làm; WARN, không FAIL). `EXIT: 1` vì `sshkeys` |
+
+Không tạo booking/form thử. Không SQL ghi. Không in IP/bí mật.
+
+**Đang chạy production:** app **v1.0.5** = `sha-a9f510f7611f` (api `sha256:9204c255c678…0932`, web `sha256:52156b2e632b…e119`, DB 72 migration); landing **landing-v2.1.0** = `sha-a9f510f7611f` (`sha256:54acf42ba885…079f74`); thông báo privacy **2026-11-16** (5 ngôn ngữ). Staging: app + landing `sha-a9f510f7611f`, privacy `2026-11-16`.
+
+**Quay lui (nếu cần, PR #182 mục 4):** landing `deploy-landing.sh --rollback` → `sha-6414be25f20d` (nhãn `2026-11-04` còn được nhận 7 ngày tính từ 08:54:58Z 16/11, có WARNING "older"); app `rollback.sh sha-6414be25f20d`; gói cũ ở `/root/ottimo-prod-bundles/infra-20261116-154619`.
+
+**Việc còn lại**
+- W0 (gỡ khóa người khỏi `ottimo`, cần INV đồng ý): tới khi làm, `ops-check` timer production FAIL `sshkeys` mỗi lượt và báo vào phòng Báo động.
+- W1 (timer sao lưu 2 lượt): chưa làm. Đêm nay không FAIL (sao lưu tay 15:46, lượt timer 03:00 cách ~11 giờ). Từ ~17:00 ngày mai (14 giờ sau lượt 03:00) `ops-check backup` FAIL tới lượt 03:00 kế tiếp, lặp lại mỗi chiều.
+- W6 bước 1–2 (drop-in journald + `journald_since`): `journal` chỉ WARN.
+- SEC xem quyền `state/privacy-notice.log` production `ottimo:ottimo 664` (staging 600).
+- QA ký landing staging bằng Playwright có header (BUG-R4-054) nếu cần bằng chứng hiển thị trên staging.
+- ORC ghi decision-log (tag, run 43834006137 / 43835200008, `sha-a9f510f7611f`, giờ, kết quả a–d) và commit.
