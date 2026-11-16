@@ -392,3 +392,13 @@ SEC/luật sư: không có câu pháp lý mới; câu cọc đổi từ 30% sang
 - [x] Câu pháp lý (`consent`, `consentMore`, `faq-real`) giữ nguyên.
 - [x] RU: thêm ` ` trong "в месяц"; câu mới không dài hơn câu cũ ở nút/thanh đáy (nút không đổi).
 - [x] Meta description ≤ 160 ký tự (EN 135, VI 131, KO 74, ZH 51, RU 140).
+
+---
+## Phụ lục – INV chốt 16/11 (qua ORC)
+1. Giá tháng trên Desk **đã gồm VAT** → landing ghi "Taxes included".
+2. Hạn thanh toán **hết ngày 5** → dùng "by the 5th" (VI: "chậm nhất ngày 5"), mọi ngôn ngữ.
+3. Chăn ga, khăn **có trang bị theo số người ở**; không gồm đồ vệ sinh cá nhân và amenities khác. **Dọn phòng là dịch vụ cộng thêm**: Studio (City/Garden) 150.000 VND/lần, Premium và Signature 200.000 VND/lần – ghi rõ số trong FAQ dài hạn. Bỏ câu "khách chọn lịch dọn phòng" kiểu miễn phí.
+4. **Không giảm giá theo thời hạn**: một giá tháng, bỏ câu "ở càng lâu càng ưu đãi".
+5. Ô số tháng: giữ đề xuất CPY (1, 2, 3, 6 tháng, 1 năm, 2 năm).
+6. Câu KO/ZH/RU: cần người bản xứ đọc trước production (INV lo, chưa chặn staging).
+Các số (cọc 1 tháng, tối thiểu 1 tháng, điện 4.000/kWh, nước 25.000/m³, dọn phòng 150.000/200.000) đặt ở `site.json` để FE kiểm khớp.
