@@ -419,4 +419,7 @@ Kết luận: lệnh tay đúng mong đợi (chỉ `FAIL sshkeys`). **Lượt th
 4. Ghi decision-log (ORC): giờ W1 hai stack, hai lượt sao lưu bù 17:22 `OK`, chốt chặn W6 bước 1 và lý do.
 5. Lượt 15:00 / 15:30 đầu tiên (17/11): xem `state/backup.last_ok` mới và journal `ottimo-backup` có `OK:`; ghi decision-log.
 
+### 16.6 W6 bước 3 (ORC giao thêm 16/11 tối, INV đồng ý "sửa cách giữ nhật ký hệ thống"): CHƯA LÀM, bị chặn quyền
+OPS định làm trong một lệnh: chép 2 unit đang cài sang `/root/ottimo-units.before-w6s3-<giờ>/`, cài `ottimo-ops-check@.service` từ `/opt/ottimo-prod/infra/server/systemd/` và `ottimo-ops-check.service` từ `/opt/ottimo/infra/server/systemd/`, `daemon-reload`, đọc lại `SupplementaryGroups`. Hệ thống quyền của Claude Code trên Mac (auto mode classifier) **từ chối** lệnh này, nên **không có gì thay đổi trên máy chủ** ở bước này. OPS không tìm cách lách. Để làm tiếp: INV tự cho phép lệnh đó khi được hỏi, hoặc thêm quy tắc cho phép trong cài đặt, rồi ORC giao lại. Tới lúc đó, các lượt `ops-check` chạy theo timer của hai stack vẫn báo `FAIL journal: journal unreadable`.
+
 Không commit (theo giao việc).
