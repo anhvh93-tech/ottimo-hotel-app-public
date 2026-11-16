@@ -42,13 +42,14 @@ export interface Step {
 export interface FormCopy {
   title: string;
   yourStay: string;
+  /** Label of the number-of-months select (FB-INV-010: the landing sells long stays only, from one month). */
   lengthOfStay: string;
-  byNight: string;
-  byMonth: string;
-  checkIn: string;
-  checkOut: string;
+  /** Move-in date. */
   arrival: string;
+  /** Months the guest may choose (CPY Dot 1, INV 16/11: 1, 2, 3, 6, 12, 24) – a number is required. */
   months: readonly { value: string; label: string }[];
+  /** Under the months select: stays start at one month. */
+  monthsHint: string;
   adults: string;
   ages6to11: string;
   under6: string;
@@ -157,6 +158,19 @@ export interface Copy {
     intro: string;
     request: string;
     sleeps: (min: number, max: number) => string;
+    /**
+     * FB-INV-010 (CPY Dot 1 section 2, INV 16/11): first line of the price on a room card, "From {amount} / month" –
+     * amount = getPublicMonthlyRates `monthlyFromVnd` already through formatVnd. Drawn by the script only when the API
+     * answered with a figure for that room type; never a 0, never a guess.
+     */
+    fromPrice: (amount: string) => string;
+    /** Second line, with the figure only: final rate in the quote, utilities on actual use. */
+    priceNote: string;
+    /** No figure for that room type (prices off, API error, type missing in the answer) – the static text of the card. */
+    priceFallback: string;
+    /** `taxIncluded` of the answer (INV 16/11: the Desk monthly price includes VAT → "Taxes included"). */
+    taxIn: string;
+    taxOut: string;
     items: readonly Room[];
     note: string;
   };

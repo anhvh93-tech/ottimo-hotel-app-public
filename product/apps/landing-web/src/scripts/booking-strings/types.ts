@@ -15,16 +15,14 @@ export interface BookingStrings {
   };
   /** "If you have not heard from us by {time}, call {hotline} or message us on Zalo with this number." */
   fallback: readonly [string, string, string];
-  nights: (n: number) => string;
   roomHint: (lo: string | null, hi: string | null) => string;
-  longHint: (n: number) => string;
   summary: (n: number) => string;
   e: {
-    inReq: string;
-    outReq: string;
+    /** Move-in date missing. */
     arrReq: string;
+    /** FB-INV-010: number of months missing (the select always holds one – kept for the server REQUIRED code). */
+    monthsReq: string;
     range: (max: string) => string;
-    order: string;
     cap: (n: string) => string;
     name: string;
     phone: (channel: string) => string;
@@ -50,44 +48,33 @@ export interface BookingStrings {
   /** Review build only: the request is validated but never sent (no endpoint yet). */
   notSent: string;
   /**
-   * Price estimate in the form (LP-v2, FB-INV-009; CPY lp-v2 section 2, UXD lp-v2-design 3). `amount` is already
-   * formatted with its unit (formatVnd), `nights` already through nights(n). Never "≈", never "!".
+   * Price box of the form (FB-INV-010 Dot 1, CPY Dot 1 section 7 – replaces the LP-v2 nightly estimate and the
+   * ESC-043 monthly invitation): the listed monthly rate of the chosen room type, and the total for the months chosen.
+   * `amount` is already formatted with its unit (formatVnd). Never "≈", never "!".
    */
   estimate: EstimateStrings;
-  /**
-   * ESC-043 (INV 01/11; CPY lp-v2-copy 12.1): by the month, or by the night from the BR-108 threshold on (30 nights – INV 01/11), the box shows no figure –
-   * this invitation instead (the "Estimated rate" title is hidden in this state). No digits, no %, no amount.
-   */
-  priceMonthlyOffer: {
-    label: string;
-    text: string;
-    /** role=status sentence of the offer (CPY 13.2) – written by CPY per language, no digit. */
-    live: string;
-  };
 }
 
 export interface EstimateStrings {
   /** Box title (all states with a number). */
   label: string;
-  /** Always under the number: no room is held yet; the quote confirms the final rate and availability (CPY 14.1). */
-  final: string;
+  /** Main line, "From {amount} / month" – same words as the room card (Copy.rooms.fromPrice). */
+  fromMonth: (amount: string) => string;
+  /** Right under the main line – same words as Copy.rooms.priceNote. */
+  note: string;
   /**
-   * First sentence of the S3 note (CPY lp-v2-copy 14.1–14.2, BUG-R4-003): the figure is for this party. n = every
-   * guest declared in the form (adults + children 6–11 + under 6). U+00A0 between the number and its word.
+   * Total for the months chosen (`longStay.totalVnd` = listed monthly rate × months): `months` = the label of the
+   * chosen option in the form ("6 months", "1 year"). Shown only from 2 months on.
    */
-  guests: (n: number) => string;
-  /** S0: room type or dates missing. */
+  total: (amount: string, months: string) => string;
+  /** No room is held until the deposit is received. */
+  final: string;
+  /** S0: room type or move-in date missing. */
   prompt: string;
   /** S1: "Any room" chosen. */
   anyRoom: string;
   /** S2: waiting > 300 ms. */
   loading: string;
-  /** S3 main line. */
-  total: (amount: string, nights: string) => string;
-  /** CPY S3 second line (average a night) – kept in the copy, NOT shown: DOM/BE lp-v2 6 (nights differ in price). */
-  perNight: (amount: string) => string;
-  /** S3 when a length-of-stay discount applies (BR-107) – no amount, no badge. */
-  longStay: string;
   /** S6: the API has no figure for this request (priceAvailable false). */
   unavailable: string;
   /** S7: 429 / 5xx / network / > 3 s. */
@@ -95,16 +82,12 @@ export interface EstimateStrings {
   currency: string;
   taxIn: string;
   taxOut: string;
-  /** Extra guest fee included (BR-110). */
-  extraGuest: string;
-  /** Under the submit button while a number is shown (the estimate travels with the request). */
+  /** Under the submit button while a number is shown (the rate travels with the request). */
   sentWith: string;
   /** role=status sentence (screen readers only). */
-  live: (amount: string, nights: string) => string;
+  live: (amount: string) => string;
   /** Thank-you state, next to the request number. */
   done: string;
-  /** 200 + notes.min_stay (BE lp-v2 L12: no figure under the minimum stay) – CPY lp-v2-copy 13.3. Also the status line. */
-  minStay: (minNights: number) => string;
   /**
    * Status line only (screen readers – CPY 13.3, FB-R4-UXD-FE-09): read when the box goes back to S0/S1 after a
    * number was shown; the old price sentence is emptied first.

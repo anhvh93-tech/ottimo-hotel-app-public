@@ -16,7 +16,7 @@
     "scoped": 184,
     "sprintR3": 429,
     "rbacMismatchOps": [],
-    "skipped": 13,
+    "skipped": 14,
     "fieldCases": 21,
     "fieldCasesByExpected": {
       "403": 6,
@@ -38,6 +38,10 @@
     },
     {
       "operationId": "getPublicFormToken",
+      "reason": "public"
+    },
+    {
+      "operationId": "getPublicMonthlyRates",
       "reason": "public"
     },
     {

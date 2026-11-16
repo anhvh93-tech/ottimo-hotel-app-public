@@ -13,6 +13,9 @@
  * 10 minutes and 200 per day per IP (IPv6 /64), 400 per day per IPv6 /48, 10 per second for the whole api → 503) and
  * its OWN bulkhead (2 in flight, no queue → 503): looking prices up never uses the form's 30/hour or its 4 slots.
  * No database counter (rate_limit_counter) for this GET. `Cache-Control: no-store`, `X-Robots-Tag: noindex`.
+ *
+ * FB-INV-010 Đợt 1 – getPublicMonthlyRates GET /v1/public/properties/{propertySlug}/monthly-rates ("from X / month" of
+ * every public type): the SAME counters and bulkhead as the price route (one page load = one call in the 30/10 min).
  */
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, Req, Res } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
@@ -121,6 +124,23 @@ export class PublicSiteController {
       const at = req.url.indexOf('?');
       const query = at >= 0 ? req.url.slice(at + 1) : '';
       return this.estimates.publicEstimate(await this.booking.resolve(slug), query);
+    });
+  }
+
+  @Get('monthly-rates')
+  @Operation('getPublicMonthlyRates')
+  monthlyRates(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('propertySlug') slug: string,
+  ) {
+    return this.guardedEstimate(req, reply, async () => {
+      const site = header(req, 'sec-fetch-site');
+      if (site !== undefined && site !== 'same-origin') throw problem('FORBIDDEN_ACTION');
+      if (!this.options.landingOrigin) throw problem('NOT_FOUND');
+      const at = req.url.indexOf('?');
+      const query = at >= 0 ? req.url.slice(at + 1) : '';
+      return this.estimates.publicMonthlyRates(await this.booking.resolve(slug), query);
     });
   }
 

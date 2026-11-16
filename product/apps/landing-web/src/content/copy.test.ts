@@ -62,13 +62,9 @@ describe('page copy (every published language)', () => {
   });
 
   it.each(ALL)('$lang: no empty string', (c) => {
-    // months[].value '' = "Not sure yet" (null in the request); ko puts the whole Zalo label after the name (suffix)
+    // ko puts the whole Zalo label after the name (suffix). FB-INV-010: no "Not sure yet" month (value '') any more
     for (const [p, v] of texts(c))
-      if (
-        p !== 'footer.backToTop' &&
-        !/months\[\d+\]\.value$/.test(p) &&
-        !(p === 'actions.chatOnPrefix' && c.actions.chatOnSuffix)
-      )
+      if (p !== 'footer.backToTop' && !(p === 'actions.chatOnPrefix' && c.actions.chatOnSuffix))
         expect(v.trim(), p).not.toBe('');
   });
 
@@ -98,27 +94,73 @@ describe('page copy (every published language)', () => {
     for (const c of ALL) {
       const S = BOOKING_STRINGS[c.lang];
       const long = c.faq.items.find((i) => i.id === 'faq-long')!.a.join(' ');
-      expect(long, `${c.lang} faq-long`).toContain(c.book.form.byMonth);
+      expect(long, `${c.lang} faq-long`).toContain(c.book.form.lengthOfStay);
       expect(S.e.cap('3'), `${c.lang} e.cap`).toContain(c.book.form.anyRoom.split(' – ')[0]!);
     }
   });
 
-  it('ESC-043 monthly offer: a label and a sentence in every language, no figure, no %, no {amount} (CPY lp-v2 12)', () => {
-    for (const lang of ['en', 'vi', 'ko', 'zh', 'ru'] as const) {
-      const o = BOOKING_STRINGS[lang].priceMonthlyOffer;
-      for (const x of [o.label, o.text]) {
-        expect(x.trim(), lang).not.toBe('');
-        expect(x, lang).not.toMatch(/\d|%|\{amount\}|[!！]/);
-        for (const re of BANNED) expect(x.match(re)?.[0] ?? null, `${lang} ${re}`).toBeNull();
+  it('FB-INV-010 monthly price (replaces ESC-043): same words on the card and in the form, only the amount is a number', () => {
+    for (const c of ALL) {
+      const E = BOOKING_STRINGS[c.lang].estimate;
+      // CPY Dot 1 section 7: estimate.fromMonth / estimate.note are the card's rooms.fromPrice / rooms.priceNote
+      expect(E.fromMonth('X'), c.lang).toBe(c.rooms.fromPrice('X'));
+      expect(E.note, c.lang).toBe(c.rooms.priceNote);
+      expect(E.taxIn, c.lang).toBe(c.rooms.taxIn);
+      expect(E.taxOut, c.lang).toBe(c.rooms.taxOut);
+      for (const f of [c.rooms.fromPrice, E.fromMonth]) {
+        expect(f('X'), c.lang).toContain('X');
+        expect(f('X'), c.lang).not.toMatch(/\d|%/);
       }
-      // the old monthly price keys are gone (CPY 12.2)
-      expect(Object.keys(BOOKING_STRINGS[lang].estimate)).not.toEqual(
-        expect.arrayContaining(['monthly']),
-      );
-      for (const k of ['monthly', 'monthlyNote', 'overShortMax'])
-        expect(k in BOOKING_STRINGS[lang].estimate, `${lang} ${k}`).toBe(false);
+      for (const x of [c.rooms.priceNote, c.rooms.priceFallback, E.note, E.final]) {
+        expect(x.trim(), c.lang).not.toBe('');
+        expect(x, c.lang).not.toMatch(/\d|%|[!！]/);
+        for (const re of BANNED) expect(x.match(re)?.[0] ?? null, `${c.lang} ${re}`).toBeNull();
+      }
+      // the months hint names the minimum stay only (site.json longStay.minMonths = 1)
+      const hint = c.book.form.monthsHint;
+      expect(hint.trim(), c.lang).not.toBe('');
+      expect(hint.replace(/\b1\b|1(?=개월)/g, ''), c.lang).not.toMatch(/\d|%|[!！]/);
+      // the ESC-043 invitation and the by-the-night estimate keys are gone (FB-INV-010)
+      const S = BOOKING_STRINGS[c.lang] as unknown as Record<string, unknown>;
+      for (const k of ['priceMonthlyOffer', 'nights', 'longHint'])
+        expect(k in S, `${c.lang} ${k}`).toBe(false);
+      for (const k of ['guests', 'perNight', 'longStay', 'extraGuest', 'minStay', 'monthly'])
+        expect(k in E, `${c.lang} estimate.${k}`).toBe(false);
     }
   });
+
+  it('FB-INV-010: the form sells long stays only – months 1, 2, 3, 6, 12, 24 (INV 16/11), no by-the-night labels', () => {
+    for (const c of ALL) {
+      expect(
+        c.book.form.months.map((m) => m.value),
+        c.lang,
+      ).toEqual(['1', '2', '3', '6', '12', '24']);
+      for (const k of ['byNight', 'byMonth', 'checkIn', 'checkOut'])
+        expect(k in c.book.form, `${c.lang} ${k}`).toBe(false);
+    }
+  });
+
+  it.each(ALL)(
+    '$lang: no by-the-night / short-stay wording on the page (CPY Dot 1 test 6)',
+    (c) => {
+      // photo alt texts describe pictures ("dusk", "sunset") – not offers
+      const all = texts(c)
+        .filter(([p]) => !p.startsWith('photoAlt.'))
+        .map(([, v]) => v)
+        .join(' \n ');
+      const re =
+        c.lang === 'zh'
+          ? /\d\s*晚|按晚|一晚|短住/
+          : c.lang === 'ko'
+            ? /\d박|1박|하룻밤|짧은 숙박/
+            : c.lang === 'ru'
+              ? /\d\s*ноч|на ночь|за ночь|по ночам|коротк/i
+              : c.lang === 'vi'
+                ? /\d\s*đêm|theo đêm|một đêm|mỗi đêm|ở ngắn|chuyến đi ngắn/iu
+                : /\b\d+\s*nights?\b|by the night|per night|a night\b|short stay|a weekend/i;
+      expect(all.match(re)?.[0] ?? null).toBeNull();
+    },
+  );
 
   it.each(ALL)('$lang: title ≤ 60; description ≤ 160 (ADR-014 5)', (c) => {
     expect(c.meta.title.length).toBeLessThanOrEqual(60);
@@ -366,13 +408,11 @@ describe('page copy (every published language)', () => {
         ...Object.values(s.net),
         s.roomHint('2', '3'),
         s.roomHint(null, null),
-        s.longHint(30),
         s.notSent,
         s.e.cap('3'),
-        s.priceMonthlyOffer.label,
-        s.priceMonthlyOffer.text,
+        ...Object.values(s.e).map((x) => (typeof x === 'function' ? x('3') : x)),
         ...Object.values(s.estimate).map((x) =>
-          typeof x === 'function' ? x('1,000 VND', s.nights(3)) : x,
+          typeof x === 'function' ? x('1,000 VND', '6 months') : x,
         ),
       ].join(' \n ');
       for (const re of BANNED) expect(all.match(re)?.[0] ?? null, String(re)).toBeNull();
@@ -386,38 +426,65 @@ describe('page copy (every published language)', () => {
 describe('numbers stated on the page = site.json booking parameters (concept 13)', () => {
   const b = site.booking;
   const hours = `${b.frontDeskOpen}–${b.frontDeskClose}`;
-  it.each(ALL)('$lang: promise, front desk hours, deposit', (c) => {
+  /** The one-month deposit phrase of each language (CPY Dot 1 test 4; site.json longStay.depositMonths = 1). */
+  const ONE_MONTH_DEPOSIT = {
+    en: 'one-month deposit',
+    vi: 'cọc một tháng',
+    ko: '1개월분 보증금',
+    zh: '一个月押金',
+    ru: 'депозит за один месяц',
+  } as const;
+  it.each(ALL)('$lang: promise, front desk hours, one-month deposit', (c) => {
     const step2 = plain(c.book.steps[1].text);
     expect(step2).toContain(hours);
     expect(step2).toContain(b.promiseNextMorningBy);
     expect(step2).toMatch(b.promiseMinutes === 60 ? ONE_HOUR : new RegExp(`${b.promiseMinutes}`));
     expect(plain(c.book.chat.text)).toContain(hours);
-    expect(plain(c.book.steps[2].text)).toContain(`${b.depositPercent}%`);
+    // FB-INV-010: the 30 % deposit of short stays is no longer on the landing
+    expect(site.longStay.depositMonths).toBe(1);
+    expect(plain(c.book.steps[2].text)).toContain(ONE_MONTH_DEPOSIT[c.lang]);
+    expect(plain(c.book.steps[2].text)).not.toMatch(/\d+\s*%/);
     expect(plain(c.amenities.groups[3]!.body)).toContain(hours);
   });
-  // FB-INV-004 / BR-401 v0.4.6 (CPY landing-fb-inv-004 1.1): check-in from checkinTime when the room is ready, always
-  // ready by roomReadyBy, check-out by checkoutTime – in the Amenities body and the first FAQ answer, both languages.
+  // FB-INV-004 / BR-401 v0.4.6 (CPY landing-fb-inv-004 1.1) as rewritten for long stays (CPY Dot 1 test 3): check-in
+  // from checkinTime on move-in day when the room is ready, always ready by roomReadyBy, check-out by checkoutTime on
+  // the last day – in the Amenities body only (the first FAQ answer no longer repeats the times).
   it.each(ALL)('$lang: check-in / room-ready / check-out times = site.json (F5)', (c) => {
     expect(site.checkinTime).toBe('12:00');
     expect(site.roomReadyBy).toBe('14:00');
-    for (const s of [plain(c.amenities.groups[3]!.body), plain(c.faq.items[0]!.a[0]!)]) {
-      expect(s).toContain(site.checkinTime);
-      expect(s).toContain(site.roomReadyBy);
-      expect(s).toContain(site.checkoutTime);
-      // the guaranteed time is never the check-in time
-      expect(s).not.toMatch(/(Check-in from|Nhận phòng từ) 14:00/iu);
-      if (c.lang !== 'en' && c.lang !== 'vi') continue; // ko/zh/ru: the same three times, CPY wording
-      expect(s).toMatch(
-        c.lang === 'en'
-          ? new RegExp(
-              `Check-in from ${site.checkinTime} when your room is ready; it always is by ${site.roomReadyBy}\\. Check-out by ${site.checkoutTime}\\.`,
-            )
-          : new RegExp(
-              `Nhận phòng từ ${site.checkinTime} khi phòng đã sẵn sàng – và phòng luôn sẵn sàng lúc ${site.roomReadyBy}\\. Trả phòng trước ${site.checkoutTime}\\.`,
-            ),
-      );
-    }
+    const s = plain(c.amenities.groups[3]!.body);
+    expect(s).toContain(site.checkinTime);
+    expect(s).toContain(site.roomReadyBy);
+    expect(s).toContain(site.checkoutTime);
+    // the guaranteed time is never the check-in time
+    expect(s).not.toMatch(/(Check-in from|Nhận phòng từ) 14:00/iu);
+    expect(plain(c.faq.items[0]!.a[0]!)).not.toMatch(/\d{2}:\d{2}/);
+    if (c.lang !== 'en' && c.lang !== 'vi') return; // ko/zh/ru: the same three times, CPY wording
+    expect(s).toMatch(
+      c.lang === 'en'
+        ? new RegExp(
+            `On move-in day, check-in from ${site.checkinTime} when your room is ready; it always is by ${site.roomReadyBy}\\. On your last day, check-out by ${site.checkoutTime}\\.`,
+          )
+        : new RegExp(
+            `Ngày dọn vào, nhận phòng từ ${site.checkinTime} khi phòng đã sẵn sàng – và phòng luôn sẵn sàng lúc ${site.roomReadyBy}\\. Ngày cuối, trả phòng trước ${site.checkoutTime}\\.`,
+          ),
+    );
   });
+  it.each(ALL)('$lang: one-month deposit in the long-stay answers (faq-long)', (c) => {
+    const long = c.faq.items.find((i) => i.id === 'faq-long')!.a.join(' ');
+    expect(long).toMatch(
+      {
+        en: /one-month deposit/,
+        vi: /cọc một tháng/,
+        ko: /1개월분 보증금/,
+        zh: /一个月押金/,
+        ru: /депозита за один месяц/,
+      }[c.lang],
+    );
+    // INV 16/11: one monthly rate – never "kinder the longer you stay"
+    expect(long).not.toMatch(/kinder|càng lâu càng|ưu đãi|할인|优惠|скидк/iu);
+  });
+
   it('the banned list stops a "ready from <time>" promise (BR-401 (e))', () => {
     const hit = (s: string) => BANNED.some((re) => re.test(s));
     expect(hit('Rooms ready from 12:00')).toBe(true);
@@ -486,4 +553,123 @@ describe('site facts (site.json)', () => {
       false,
     );
   });
+});
+
+// FB-INV-010 Dot 1 (INV 16/11, CPY Dot 1 section 6 + annex): the long-stay policy in the FAQ of every language states
+// exactly the numbers of site.json longStay (Desk parameters – OWN).
+describe('FAQ long-stay policy = site.json longStay', () => {
+  const L = site.longStay;
+  /** Digits as the page language groups them: 4,000 · 4.000 · 4 000 (any space, U+00A0 or U+202F in ru). */
+  const amount = (n: number, lang: Copy['lang']) => {
+    const g = String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '_');
+    const sep = lang === 'vi' ? '\\.' : lang === 'ru' ? '[\\s\\u00a0\\u202f]' : ',';
+    return new RegExp(`(?<![\\d.,])${g.replace(/_/g, sep)}(?![\\d.,]\\d)\\s*VND`);
+  };
+  const policy = (c: Copy) => c.faq.items.find((i) => i.id === 'faq-policy');
+  const ONE_MONTH = {
+    en: /one month/,
+    vi: /một tháng/,
+    ko: /1개월/,
+    zh: /一个月/,
+    ru: /один месяц|одного месяца/,
+  };
+  const DUE = {
+    en: (d: number) => new RegExp(`by the ${d}th`),
+    vi: (d: number) => new RegExp(`chậm nhất ngày ${d}(?!\\d)`),
+    ko: (d: number) => new RegExp(`${d}일까지`),
+    zh: (d: number) => new RegExp(`最迟于次月 ${d} 日`),
+    ru: (d: number) => new RegExp(`не позднее ${d}-го числа`),
+  };
+  const LAST_DAY = {
+    en: /last day of each month/,
+    vi: /ngày cuối tháng/,
+    ko: /매월 말일/,
+    zh: /每月最后一天/,
+    ru: /последний день месяца/,
+  };
+
+  it('site.json carries the numbers INV gave (16/11)', () => {
+    expect(L).toEqual({
+      minMonths: 1,
+      depositMonths: 1,
+      electricityVndPerKwh: 4000,
+      waterVndPerM3: 25000,
+      meterReading: 'last-day-of-month',
+      billingDueDay: 5,
+      housekeepingVndPerVisit: {
+        'standard-studio-city-view': 150000,
+        'standard-studio-garden-view': 150000,
+        'premium-one-bedroom-1': 200000,
+        'signature-two-bedrooms': 200000,
+      },
+    });
+    expect(
+      siteSchema.safeParse({ ...raw, longStay: { ...raw.longStay, billingDueDay: 0 } }).success,
+    ).toBe(false);
+  });
+
+  it.each(ALL)(
+    '$lang: faq-policy sits before the anti-impersonation answer, with every number of site.json',
+    (c) => {
+      const ids = c.faq.items.map((i) => i.id ?? '');
+      expect(ids.indexOf('faq-policy')).toBe(ids.indexOf('faq-real') - 1);
+      expect(ids.indexOf('faq-policy')).toBe(ids.indexOf('faq-long') + 1);
+      const p = policy(c)!;
+      expect(p.q.trim()).not.toBe('');
+      const all = p.a.map(plain).join(' ');
+      // minimum stay and deposit are written in words ("one month") while site.json says 1
+      expect(L.minMonths).toBe(1);
+      expect(L.depositMonths).toBe(1);
+      expect(
+        all.match(new RegExp(ONE_MONTH[c.lang].source, 'g'))?.length ?? 0,
+      ).toBeGreaterThanOrEqual(2);
+      expect(all).toMatch(amount(L.electricityVndPerKwh, c.lang));
+      expect(all).toMatch(/kWh|кВт·ч|千瓦时/);
+      expect(all).toMatch(amount(L.waterVndPerM3, c.lang));
+      expect(all).toMatch(/m³|м³|立方米/);
+      expect(all).toMatch(LAST_DAY[c.lang]);
+      expect(all).toMatch(DUE[c.lang](L.billingDueDay));
+      for (const vnd of new Set(Object.values(L.housekeepingVndPerVisit)))
+        expect(all, `housekeeping ${vnd}`).toMatch(amount(vnd, c.lang));
+      // no other figure than the ones above (and no meter / surcharge wording – banned list)
+      const allowed = new Set([
+        L.electricityVndPerKwh,
+        L.waterVndPerM3,
+        L.billingDueDay,
+        ...Object.values(L.housekeepingVndPerVisit),
+      ]);
+      const figures = (all.match(/\d[\d.,\s\u00a0\u202f]*\d|\d/g) ?? []).map((x) =>
+        Number(x.replace(/[.,\s\u00a0\u202f]/g, '')),
+      );
+      for (const f of figures)
+        expect(allowed.has(f) || f === 1, `${c.lang} figure ${f}`).toBe(true);
+      for (const re of BANNED) expect(all.match(re)?.[0] ?? null, String(re)).toBeNull();
+      expect(all).not.toMatch(/công tơ|by meter|phụ thu/i);
+    },
+  );
+
+  it.each(ALL)(
+    '$lang: housekeeping is an extra service – no free cleaning rhythm left in the FAQ (INV 16/11)',
+    (c) => {
+      const made = plain(c.faq.items[1]!.a.join(' '));
+      expect(made).toMatch(
+        {
+          en: /extra service/,
+          vi: /dịch vụ cộng thêm/,
+          ko: /추가 서비스/,
+          zh: /额外服务/,
+          ru: /дополнительная услуга/,
+        }[c.lang],
+      );
+      expect(plain(policy(c)!.a.join(' '))).toMatch(
+        {
+          en: /extra service/,
+          vi: /dịch vụ cộng thêm/,
+          ko: /추가 서비스/,
+          zh: /额外服务/,
+          ru: /дополнительная услуга/,
+        }[c.lang],
+      );
+    },
+  );
 });

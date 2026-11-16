@@ -2,6 +2,7 @@
 // 3 · Rooms (concept 4, US-147): the 4 room types of the e-brochure, one photo each; swipe row on phones, 2 × 2 from
 // 768 px. No room count, no unit numbers, no room names until INV sends the mapping (FB-INV-002, BR-012).
 // "Ask about this room" goes to #book and, when the form is on, preselects the room type (data-room).
+// Price (FB-INV-010): "From X / month" per room type from the Desk (see below).
 // Gallery (R3-Q52, INV 22/10 "như OTA"): "n photos" on the cover opens a full-screen viewer (RoomGallery – native
 // <dialog>, swipe, arrow keys, Esc). The button is rendered hidden and shown by scripts/lightbox.ts, so without
 // JavaScript the card is the plain cover photo.
@@ -17,6 +18,14 @@ interface Props {
 }
 
 const { t } = Astro.props;
+// FB-INV-010 Dot 1 (CPY Dot 1 section 2): the card says "Monthly rate on request" in the HTML. Builds with the live
+// form ask getPublicMonthlyRates once on load (scripts/room-prices.ts) and, for each room type the API priced, swap
+// in "From X / month" + "Taxes included" + the note. No figure → the static text stays; never "From" without a number.
+const MARK = '\u0001';
+const [fromBefore = '', fromAfter = ''] = t.rooms.fromPrice(MARK).split(MARK);
+const sep = t.lang === 'zh' ? '' : ' ';
+const noteIn = `${t.rooms.taxIn}${sep}${t.rooms.priceNote}`;
+const noteOut = `${t.rooms.taxOut}${sep}${t.rooms.priceNote}`;
 ---
 
 <section class="sec alt" id="rooms" aria-labelledby="rooms-h">
@@ -62,6 +71,12 @@ const { t } = Astro.props;
               <li>{room.size}</li>
               <li>{room.view}</li>
             </ul>
+            <div class="room-price" data-room-price={room.slug}>
+              <p class="rp-main" data-rp-fallback>{t.rooms.priceFallback}</p>
+              <p class="rp-main" data-rp-from hidden>{fromBefore}<data class="rp-amt"></data>{fromAfter.startsWith('/') && <wbr />}{fromAfter}</p>
+              <p class="rp-note" data-rp-note="in" hidden>{noteIn}</p>
+              <p class="rp-note" data-rp-note="out" hidden>{noteOut}</p>
+            </div>
             <p class="desc"><Rich text={room.desc} /></p>
             <a class="link" href="#book" data-room={room.slug} aria-describedby={`r${i + 1}-h`}>
               {t.rooms.request}

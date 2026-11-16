@@ -11,8 +11,9 @@
 #   LANDING_PUBLIC_API  on | off (default off). US-155 website form (v1.0, SEC s1-SEC-on-us155 condition 2): `on` proxies
 #                       EXACTLY three public operations to the stack's api – GET  /v1/public/properties/<slug>/form-token,
 #                       POST /v1/public/properties/<slug>/booking-requests and (R4 LP-v2, ARC lp-v2-design 2.6, SEC
-#                       SR-PE-10) GET /v1/public/properties/<slug>/price-estimate (query ≤ 256 bytes) – every other
-#                       /v1/* stays 404. Turn it on only when the api of the same stack runs (production Desk) and
+#                       SR-PE-10) GET /v1/public/properties/<slug>/price-estimate (query ≤ 256 bytes), and (R5
+#                       FB-INV-010, OpenAPI 0.3.13 add-on 2) GET /v1/public/properties/<slug>/monthly-rates (no query)
+#                       – every other /v1/* stays 404. Turn it on only when the api of the same stack runs (production Desk) and
 #                       LANDING_BASE_URL is set there. The price block also needs the Desk switch public_show_prices.
 #   LANDING_API_UPSTREAM  default api:3000 (the landing container joins the stack's `edge` network at LANDING_IP, which
 #                       the api trusts as a proxy next to WEB_IP – docker-compose.prod.yml TRUST_PROXY)
@@ -78,12 +79,12 @@
 	}
 }
 
-# Proxy of the public form operations (US-155) and of the price estimate (LP-v2). The request body is buffered
+# Proxy of the public form operations (US-155), of the price estimate (LP-v2) and of the monthly rates (FB-INV-010). The request body is buffered
 # (≤ 16 KB, request_body above) before the api sees it, so a chunked body over the limit ends in 413 here, never as a cut body at the api. Caddy overwrites
 # X-Forwarded-For with the client address it got from the edge (PROXY protocol); the api trusts this container's
 # fixed address (TRUST_PROXY). Responses of the api (no-store, its own headers) pass through.
 # The Authorization header never goes to the api (SEC FB-R4-SEC-OPS-054-01): on staging it carries the preview
-# password of the basic auth above, and none of the three public operations reads it. Production gets the same rule
+# password of the basic auth above, and none of the four public operations reads it. Production gets the same rule
 # (browsers send no Authorization there – the form fetches with credentials 'omit'), so both stacks behave alike.
 # Cookies are not stripped: the Desk cookies are __Host- cookies of the Desk origin and never come to this origin.
 (public_api) {
@@ -153,7 +154,7 @@
 	handle @hidden {
 		error 404
 	}
-	# US-155 + LP-v2: the only three operations of the api reachable from the landing origin (same origin – no CORS,
+	# US-155 + LP-v2 + FB-INV-010: the only four operations of the api reachable from the landing origin (same origin – no CORS,
 	# CSP connect-src 'self'). Off unless LANDING_PUBLIC_API=on (substituted when Caddy reads this file).
 	@public_form_token {
 		method GET
@@ -175,6 +176,15 @@
 		path_regexp ^/v1/public/properties/[a-z0-9-]{2,40}/price-estimate$
 		expression `"{$LANDING_PUBLIC_API:off}" == "on" && {http.request.uri.query}.matches('^[!-~]{0,256}$')`
 	}
+	# FB-INV-010 Dot 1 monthly rates ("From X / month" on the room cards, OpenAPI 0.3.13 add-on 2): GET only, exact
+	# path, NO query at all (the api takes none and answers 422 to one; the page calls it bare, once per load). Same
+	# proxy, headers and api-side limits as the price estimate (shared bucket, cache 60 s – PR #180). Another method,
+	# any query, a sub-path → 404 below, nothing reaches the api. The api answers 404 itself while public_show_prices is off.
+	@public_monthly_rates {
+		method GET
+		path_regexp ^/v1/public/properties/[a-z0-9-]{2,40}/monthly-rates$
+		expression `"{$LANDING_PUBLIC_API:off}" == "on" && {http.request.uri.query} == ""`
+	}
 	# A POST without Content-Length (chunked) is refused before the proxy: the reverse proxy would otherwise forward a
 	# request whose body it could not read in full. Browsers always send Content-Length for the form's JSON body.
 	@public_post_unsized {
@@ -192,6 +202,9 @@
 		import public_api
 	}
 	handle @public_price_estimate {
+		import public_api
+	}
+	handle @public_monthly_rates {
 		import public_api
 	}
 	# No API, no health, no test endpoints on the landing origin otherwise. Every language of the build is served
