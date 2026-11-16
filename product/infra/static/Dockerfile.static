@@ -1,0 +1,15 @@
+# Caddy for the secondary static site (infra/static/docker-compose.static.yml). Built ON THE SERVER by
+# infra/server/bin/static-site.sh (no registry, no network access needed during the build: no package is installed).
+# Same base image (pinned digest) as the OTTIMO landing (infra/docker/Dockerfile.landing). The stock binary carries
+# the file capability cap_net_bind_service, which makes exec fail under cap_drop ALL + no-new-privileges ("operation
+# not permitted"); `cp` writes a copy WITHOUT that extended attribute (the landing image drops it with setcap -r).
+# Binding 80/443 works through the namespaced sysctl net.ipv4.ip_unprivileged_port_start=0 (compose file).
+FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+RUN cp /usr/bin/caddy /usr/local/bin/caddy-static \
+    && mkdir -p /home/caddy/data /home/caddy/config /srv/site \
+    && chown -R 10001:10001 /home/caddy
+ENV XDG_DATA_HOME=/home/caddy/data \
+    XDG_CONFIG_HOME=/home/caddy/config
+USER 10001:10001
+ENTRYPOINT ["/usr/local/bin/caddy-static"]
+CMD ["run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

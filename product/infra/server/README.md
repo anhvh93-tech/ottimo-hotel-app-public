@@ -673,3 +673,60 @@ cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc exec -T postgres sh 
 - Đầu ra và journal (`ottimo-deploy`) chỉ có số. Không in địa chỉ, id, payload hay nguyên văn lỗi DB.
 - Dòng được xếp lại giữ `created_at` cũ. Trong vài phút sau `--apply`, `ops-check email_changes` có thể `FAIL … oldest waiting staff e-mail … min old` cho tới khi worker gửi xong (10 thư/phút/cơ sở). Đó là dự kiến, không làm mục F của runbook: chạy lại sau 3 phút, phải `ok` (ARC PR32-05).
 - Test: `infra/server/test/requeue-email-changed.test.sh` (47 kiểm; 49 khi có `flock`, gồm ca khóa deploy; các ca "thiếu `flock` trên production → từ chối" và "tệp mốc staging → từ chối stub" chạy ở mọi máy). Đã chạy thật trên Postgres 17 tạm: 2 dòng trong 7 ngày được xếp lại, dòng 8 ngày, dòng mẫu khác, dòng `NO_RECIPIENT` và dòng topic khác giữ nguyên; `--expect` sai thì giao dịch hủy.
+
+## 14. Trang tĩnh phụ trên cùng VPS (R5 16/11, ngoài round – yêu cầu INV)
+
+Một trang tĩnh nhỏ của doanh nghiệp khác (một tên miền + `www`) chạy chung VPS, **không đụng** ottimo.vn / Desk / staging. Tên miền thật, địa chỉ VPS, e-mail ACME **chỉ nằm trên máy chủ** (`/opt/ottimo-static/.env`), không ghi vào repo; dưới đây dùng `example.test`.
+
+Thiết kế:
+- **Stack riêng `ottimo-static`** (`infra/static/`): một container Caddy, image dựng tại chỗ từ `Dockerfile.static` (base `caddy:2-alpine` pin digest, cùng bản landing; bỏ file capability để chạy được với `cap_drop: [ALL]`), uid 10001, `read_only`, `no-new-privileges`, 96 MB / 100 pids, log journald (90 ngày). Không cổng công khai, không api, không DB, không bí mật. Web root gắn **chỉ đọc**. Chứng chỉ ACME riêng trong volume `ottimo-static_staticdata`.
+- **Mạng riêng** `ottimo-link-static` 172.31.3.0/24: edge 172.31.3.2 (overlay `infra/edge/docker-compose.edge-static.yml`), Caddy 172.31.3.10 (alias `static-site`). Caddy chỉ nhận PROXY protocol từ 172.31.3.2 (cố định trong compose, không cấu hình được).
+- **edge.sh** đọc `STATIC_HOST` + `STATIC_WWW_HOST` từ `/opt/ottimo-static/.env` (không phải biến shell: `sudo` xóa biến, và lượt `edge.sh up` sau này cho OTTIMO không được làm mất route). Hai tên được **thêm sau** các dòng OTTIMO; tệp trống hoặc không có → `nginx.conf` **giống từng byte** bản cũ (`infra/ci/test-edge.sh` so với `infra/ci/fixtures/edge-nginx.ottimo-only.conf` do edge.sh trước tính năng này sinh ra). Tên trùng một stack, tên sai dạng, có apex mà thiếu www, `.env` không đọc được → dừng, `nginx.conf` cũ giữ nguyên. Tên lạ vẫn bị đóng kết nối / 404.
+- **Caddyfile.static**: CSP riêng của trang (cho CSS/JS inline + Google Fonts – CSP OTTIMO sẽ làm vỡ trang), HSTS 1 năm, DENY, nosniff, Referrer/Permissions-Policy, bỏ `Server`; HTML `max-age=0, must-revalidate`, `/img/*` 7 ngày; `https://www…` và `http://` cả hai tên → **301** `https://<apex>{uri}` (một bước); chỉ GET/HEAD (khác → 405); tệp chấm (`.git`, `.DS_Store`) → 404; log che IP /24, bỏ query.
+
+### 14.1 Bật trang (root, sau khi bundle mới đã ở `/opt/ottimo-edge/infra`)
+```bash
+cd /
+# 0. Bundle: chỉ làm mới bản infra của edge (không đụng /opt/ottimo, /opt/ottimo-prod) – cùng lệnh bootstrap-vps.sh dùng
+rsync -a --delete --delete-excluded --chown=root:root --exclude '.DS_Store' --exclude '.out' --exclude '.work' \
+  --exclude '.env' --exclude '.env.*' <bundle>/infra/ /opt/ottimo-edge/infra/
+chmod -R go-w /opt/ottimo-edge/infra && chmod 0755 /opt/ottimo-edge/infra/server/bin/*
+# 1. Kiểm edge.sh mới trên cấu hình hiện tại: PHẢI in "plan: no change" (chưa có trang tĩnh → OTTIMO giữ nguyên byte)
+/opt/ottimo-edge/infra/server/bin/edge.sh plan
+# 2. Thư mục + cấu hình + web root (tệp gửi đến thường là 0600: phải đọc được với uid 10001)
+install -d -o root -g root -m 0755 /opt/ottimo-static /opt/ottimo-static/site
+install -o root -g root -m 0600 /opt/ottimo-edge/infra/static/env.example /opt/ottimo-static/.env
+#    sửa .env: STATIC_HOST, STATIC_WWW_HOST, ACME_EMAIL (của chủ trang), STATIC_ROOT để mặc định
+rsync -a --delete --chmod=D755,F644 --chown=root:root <thư-mục-trang>/ /opt/ottimo-static/site/
+# 3. Edge: plan phải chỉ có đúng 4 dòng "+ … static-site…", rồi up (mọi site gián đoạn ≈ 1–2 s)
+/opt/ottimo-edge/infra/server/bin/edge.sh plan
+/opt/ottimo-edge/infra/server/bin/edge.sh up
+# 4. Container trang tĩnh (từ chối nếu edge chưa route hai tên, web root thiếu index.html hoặc không đọc được)
+/opt/ottimo-edge/infra/server/bin/static-site.sh up
+```
+
+### 14.2 Thứ tự với DNS
+1. Bước 14.1 xong (route + Caddy chạy) **trước** khi đổi DNS. Caddy thử xin chứng chỉ ngay, thất bại vì DNS còn trỏ chỗ cũ, rồi tự thử lại thưa dần – vô hại.
+2. Kiểm trước DNS (từ máy bất kỳ, ép tên về VPS): `curl -sI --resolve example.test:80:<IP-VPS> http://example.test/` → `301` về `https://example.test/`. Tên lạ: `curl -sI --resolve nope.test:80:<IP-VPS> http://nope.test/` → `404`.
+3. INV đổi DNS tại nhà đăng ký: **chỉ** bản ghi `@` và `www` (A về VPS; xóa CNAME/AAAA cũ của `www`/`@` nếu có). **Giữ nguyên MX và mọi TXT** (thư điện tử của tên miền).
+4. Khi `dig +short example.test` và `dig +short www.example.test` đều ra IP VPS: `static-site.sh restart` (xin chứng chỉ lại ngay, không chờ lượt thử kế tiếp). Chứng chỉ có trong khoảng 1 phút; xem `journalctl CONTAINER_TAG=ottimo-static-static-1 --since -10min | grep -c 'certificate obtained successfully'`.
+
+### 14.3 Kiểm sau khi bật
+- `curl -sI https://example.test/` → 200, `content-security-policy` có `'unsafe-inline'` + `fonts.googleapis.com`; `curl -sI https://www.example.test/x` và `curl -sI http://example.test/x` → `301 https://example.test/x`.
+- OTTIMO không đổi: `ottimo.vn`, `desk.ottimo.vn`, `g.ottimo.vn`, staging trả như trước; `curl -sI https://ottimo.vn/ | grep -i content-security-policy` vẫn `script-src 'self';` (không `unsafe-inline`).
+- `edge.sh status` có thêm đúng 2 dòng `… static-site:443;`; `static-site.sh status` healthy.
+- Cập nhật nội dung về sau: chỉ `rsync` lại bước 2 vào `/opt/ottimo-static/site/` (chép **vào** thư mục, không thay thư mục), không cần khởi động lại.
+
+### 14.4 Gỡ bỏ
+```bash
+cd /
+/opt/ottimo-edge/infra/server/bin/static-site.sh down           # dừng container, giữ volume chứng chỉ
+# xóa hai dòng STATIC_HOST / STATIC_WWW_HOST (hoặc để trống) trong /opt/ottimo-static/.env
+/opt/ottimo-edge/infra/server/bin/edge.sh plan                   # chỉ còn 4 dòng "- … static-site…"
+/opt/ottimo-edge/infra/server/bin/edge.sh up                     # edge rời mạng static, OTTIMO về đúng byte cũ
+docker network rm ottimo-link-static                             # tùy chọn
+# xóa hẳn (không hoàn tác): docker volume rm ottimo-static_staticdata ottimo-static_staticconfig; rm -r /opt/ottimo-static
+```
+Báo INV trả DNS về chỗ cũ trước khi gỡ, nếu tên miền vẫn dùng.
+
+Test: `infra/ci/test-edge.sh` (CI job "Shared edge"): byte-identical khi không có trang tĩnh, đúng 4 dòng thêm khi có, các ca từ chối, `plan`; end-to-end bằng compose thật (image dựng từ `Dockerfile.static`): apex 200 + đủ header/cache, 301 www/http, 405, 404 tệp chấm, CSP landing OTTIMO không đổi, Caddy thấy địa chỉ khách qua PROXY protocol, container uid 10001/read-only/cap_drop ALL/không cổng. Máy không có journald (Docker Desktop/OrbStack): `EDGE_TEST_JSON_LOGS=1 bash infra/ci/test-edge.sh`.

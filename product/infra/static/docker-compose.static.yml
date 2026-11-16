@@ -1,0 +1,71 @@
+# Secondary static site on the OTTIMO VPS (R5 16/11, INV request: a small static site of another business of INV,
+# same server, must not touch ottimo.vn / desk / staging). One Caddy container, nothing else: no api, no database, no
+# secret. Always behind the shared edge (infra/edge): it publishes NO port; the edge routes the site's two names by SNI
+# (443) and Host (80) to the alias `static-site` on the network ottimo-link-static and prepends a PROXY protocol
+# header, accepted only from the edge address 172.31.3.2. TLS is terminated here, certificates (ACME, own account e-mail)
+# in the volume `staticdata`.
+# Run through infra/server/bin/static-site.sh (project ottimo-static, env file /opt/ottimo-static/.env, build).
+# Values (/opt/ottimo-static/.env – infra/static/env.example; never committed):
+#   STATIC_HOST       apex name of the site (example.test)       – served
+#   STATIC_WWW_HOST   www name (www.example.test)                 – 301 to https://STATIC_HOST
+#   ACME_EMAIL        contact address of the ACME account
+#   STATIC_ROOT       web root on the host (default /opt/ottimo-static/site), mounted read-only
+name: ottimo-static
+
+services:
+  static:
+    build:
+      context: .
+      dockerfile: Dockerfile.static
+    image: ottimo-static-caddy:local
+    pull_policy: never
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    user: '10001:10001'
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: '0'
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    environment:
+      STATIC_HOST: ${STATIC_HOST:?set STATIC_HOST in /opt/ottimo-static/.env}
+      STATIC_WWW_HOST: ${STATIC_WWW_HOST:?set STATIC_WWW_HOST in /opt/ottimo-static/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in /opt/ottimo-static/.env}
+      # Fixed: the edge's address on ottimo-link-static (docker-compose.edge-static.yml). Not configurable on purpose.
+      PROXY_PROTOCOL_ALLOW: 172.31.3.2/32
+    volumes:
+      - ./Caddyfile.static:/etc/caddy/Caddyfile:ro
+      # Copy new content INTO this directory (rsync); replacing the directory itself would leave the old one mounted.
+      - ${STATIC_ROOT:-/opt/ottimo-static/site}:/srv/site:ro
+      - staticdata:/home/caddy/data
+      - staticconfig:/home/caddy/config
+    networks:
+      link:
+        ipv4_address: 172.31.3.10
+        aliases: ['static-site']
+    restart: unless-stopped
+    mem_limit: 96m
+    pids_limit: 100
+    logging:
+      # Same as every OTTIMO container (v1.0.5 V5-63): host journal, 90-day cap (server/journald/50-ottimo.conf).
+      driver: journald
+      options:
+        tag: '{{.Name}}'
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 443 || exit 1']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+
+volumes:
+  # Certificates of the site – must persist (a new volume = a new ACME order on every start, rate limits).
+  staticdata:
+  staticconfig:
+
+networks:
+  # Created by infra/server/bin/edge.sh (172.31.3.0/24) once /opt/ottimo-static/.env names the site: run edge.sh first.
+  link:
+    name: ottimo-link-static
+    external: true
