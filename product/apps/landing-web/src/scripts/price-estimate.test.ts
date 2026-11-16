@@ -37,7 +37,7 @@ const form = (over: Partial<FormValues> = {}): FormValues => ({
   pathname: '/',
   referrer: '',
   ownHost: 'ottimo.vn',
-  consentVersion: '2026-11-04',
+  consentVersion: '2026-11-16',
   ...over,
 });
 

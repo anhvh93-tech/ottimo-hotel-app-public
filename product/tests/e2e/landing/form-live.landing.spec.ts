@@ -39,7 +39,7 @@ test.beforeEach(async ({ page }) => {
 
 const API = '/v1/public/properties/dl01';
 // LP-v2: one notice version for the 5 languages (SEC LP-v2 D1; final label SEC-on-lp-v2-main section 2)
-const NOTICE_VERSION = '2026-11-04';
+const NOTICE_VERSION = '2026-11-16';
 const TOKEN = {
   token: `v1.${'e2e'.padEnd(40, 'x')}`,
   notBefore: '2026-10-24T00:00:00Z',
