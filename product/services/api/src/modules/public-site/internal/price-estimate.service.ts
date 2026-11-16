@@ -113,6 +113,9 @@ interface MonthlyComputed {
   types: Array<{ label: string; monthlyFromVnd: number }>;
 }
 
+/** OpenAPI PublicMonthlyRates.roomTypes maxItems. */
+export const PUBLIC_MONTHLY_RATES_MAX = 20;
+
 /** FB-INV-010: `getPublicMonthlyRates` takes no query at all (SR-PE-02 – anything given → 422). */
 export function checkMonthlyRatesQuery(rawQuery: string): void {
   if (rawQuery === '') return;
@@ -136,15 +139,27 @@ export function publicMonthlyRatesDto(c: {
   computedAt: string;
   taxIncluded: boolean;
 }): Record<string, unknown> {
+  // FB-R5-ARC-BE-180-03: two Desk labels with the same slug ("Studio Garden" / "Studio garden") are ONE public type –
+  // grouped by slug, lowest price kept with the label of that price (ties: label order), at most 20 (schema maxItems).
+  const bySlug = new Map<string, { roomType: string; label: string; monthlyFromVnd: number }>();
+  for (const t of c.types) {
+    const roomType = slugOf(t.label);
+    const prev = bySlug.get(roomType);
+    if (
+      !prev ||
+      t.monthlyFromVnd < prev.monthlyFromVnd ||
+      (t.monthlyFromVnd === prev.monthlyFromVnd && t.label.localeCompare(prev.label) < 0)
+    ) {
+      bySlug.set(roomType, { roomType, label: t.label, monthlyFromVnd: t.monthlyFromVnd });
+    }
+  }
   return {
     estimate: true,
     currency: 'VND',
     taxIncluded: c.taxIncluded,
-    roomTypes: c.types.map((t) => ({
-      roomType: slugOf(t.label),
-      label: t.label,
-      monthlyFromVnd: t.monthlyFromVnd,
-    })),
+    roomTypes: [...bySlug.values()]
+      .sort((x, y) => x.monthlyFromVnd - y.monthlyFromVnd || x.label.localeCompare(y.label))
+      .slice(0, PUBLIC_MONTHLY_RATES_MAX),
     computedAt: c.computedAt,
   };
 }

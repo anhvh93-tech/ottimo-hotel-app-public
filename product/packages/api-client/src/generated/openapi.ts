@@ -5315,7 +5315,8 @@ export interface paths {
      *     (`active_from` ≤ ngày ≤ `active_to`); X = **giá niêm yết tháng nhỏ nhất** (BR-101 (3) – giá khách VN, đã gồm VAT – BR-523) hiệu lực tại ngày đó (BR-006), làm tròn `rounding.monthly_rent`
      *     (BR-005, cùng khóa báo giá dài hạn của Desk). **Không** áp giảm kỳ hạn (BR-201), +10 % khách NN (BR-109), phí dịch vụ (BR-204), điện nước (BR-205). **Không** xét đơn, giữ chỗ,
      *     khối OOO, trạng thái buồng (giá danh mục, không phải phòng trống – lịch trống là Đợt 2). Hạng mà mọi căn thiếu giá tháng **không có** trong danh sách (không bao giờ 0 hay số đoán);
-     *     căn thiếu giá ghi cảnh báo OWN một lần/căn/ngày. Sắp xếp theo `monthlyFromVnd` tăng dần rồi theo nhãn.
+     *     căn thiếu giá ghi cảnh báo OWN một lần/căn/ngày. Nhãn khác nhau nhưng cùng slug gom thành một hạng (giữ giá nhỏ nhất). Sắp xếp theo `monthlyFromVnd` tăng dần rồi theo nhãn; tối đa 20.
+     *     **Số "From" là giá danh mục tại hôm nay** (không xét OOO, sức chứa, ngày đến); số của form (`getPublicPriceEstimate`) theo ngày đến và đoàn của khách – khi hai số lệch, trang hiện số của form (ARC FB-R5-ARC-BE-180-01).
      *     **Không lộ dữ liệu nội bộ**: danh sách cho phép (`additionalProperties: false`) – không số căn, `roomId`, mã nhóm, số căn của hạng, giá cao nhất, giá OTA nền, hoa hồng, chiết khấu.
      *     **Thứ tự kiểm và giới hạn = `getPublicPriceEstimate`** (dùng **chung** bucket RAM `pubest:` theo IP 30/10 phút, 200/ngày, 400/ngày/IPv6 /48; cửa sổ chung 10/giây; bulkhead 2;
      *     trần 600 lần tính mới/giờ/cơ sở): `Sec-Fetch-Site` khác `same-origin` → 403; cơ sở không có / tắt `public_booking_requests_enabled` hoặc `public_show_prices` → 404; có bất kỳ tham số
