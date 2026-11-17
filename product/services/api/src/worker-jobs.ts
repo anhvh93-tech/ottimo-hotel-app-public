@@ -23,6 +23,7 @@ import { guestAccessPortForWorker } from './modules/guest-portal/public/worker-h
 import { guestsWorkerJobs } from './modules/guests/public/worker-jobs';
 import { housekeepingWorkerJobs } from './modules/housekeeping/public/worker-jobs';
 import { ParameterService } from './modules/platform/public/parameter.service';
+import { fxFetchModeFrom } from './modules/public-site/public/fx-refresh-job';
 import { publicSiteWorkerJobs } from './modules/public-site/public/worker-jobs';
 import { registrationWorkerComposition } from './modules/registration/public/worker-jobs';
 import { holdReminderJob } from './modules/reporting/public/hold-reminder-job';
@@ -102,7 +103,12 @@ export function buildWorkerJobs(deps: {
   for (const job of guestsWorkerJobs({ clock: deps.clock, audit, parameters }))
     registry.register(job);
   // US-155 (BE-D, R3 Sprint 1): website requests – overdue reminder, WR7 stale, T19 retention, technical cleanup.
-  for (const job of publicSiteWorkerJobs({ events: new EventsService(), params: parameters }))
+  // FB-INV-011 (BE, R5): `fx.refresh` – Vietcombank rates of the landing estimate (egress: portal.vietcombank.com.vn).
+  for (const job of publicSiteWorkerJobs({
+    events: new EventsService(),
+    params: parameters,
+    fxMode: fxFetchModeFrom(deps.env),
+  }))
     registry.register(job);
   return { registry, parameters };
 }

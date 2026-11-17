@@ -3894,6 +3894,28 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           },
         },
         computedAt: { s: { k: 'ref', name: 'Instant' } },
+        fx: { s: { k: 'ref', name: 'PublicFxRates' } },
+      },
+      open: false,
+    },
+    PublicFxRates: {
+      k: 'object',
+      props: {
+        base: { s: { k: 'scalar' } },
+        source: { s: { k: 'scalar' } },
+        asOf: { s: { k: 'ref', name: 'LocalDate' } },
+        rates: {
+          s: {
+            k: 'object',
+            props: {
+              USD: { s: { k: 'scalar' } },
+              KRW: { s: { k: 'scalar' } },
+              CNY: { s: { k: 'scalar' } },
+              RUB: { s: { k: 'scalar' } },
+            },
+            open: false,
+          },
+        },
       },
       open: false,
     },

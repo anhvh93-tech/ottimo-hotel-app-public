@@ -7,6 +7,8 @@
  * - "Cần chú ý" source `website_request_new`;
  * - the setParameter hook of `public_booking_requests_enabled` (SEC ARC-17: PUBLIC_FORM_NOT_READY + toggled
  *   notification to OWN + MGR; the property cache is dropped on change).
+ * - FB-INV-011: job `fx.refresh` (fetch off in the api), setParameter hooks of `fx_rates.vietcombank` (worker only) and
+ *   `fx_rate_overrides` (OWN override, allowlisted codes); `getPublicMonthlyRates` serves the optional `fx` block.
  * The public form stays OFF until OWN switches it on (default false – US-155 AC4).
  * R4 LP-v2: `getPublicPriceEstimate` (PriceEstimateService over the reservations PublicRatePort) – OFF until OWN sets
  * `public_show_prices` (default false); every parameter change of a property drops its estimate caches.
@@ -25,6 +27,14 @@ import { PublicSiteController } from './internal/public-site.controller';
 import { PUBLIC_SITE_OPTIONS, publicSiteOptionsFrom } from './internal/public-site.options';
 import { WebsiteRequestsController } from './internal/website-requests.controller';
 import { WebsiteRequestsService } from './internal/website-requests.service';
+import {
+  FX_AUTO_KEY,
+  FX_CURRENCIES,
+  FX_OVERRIDE_KEY,
+  FX_RATE_BOUNDS,
+  fxOverridesIssue,
+  isFxCurrency,
+} from './public/fx-rates';
 import { WEBSITE_REQUEST_PORT, WebsiteRequestPort } from './public/website-request.port';
 import { publicSiteWorkerJobs, websiteRequestNewSource } from './public/worker-jobs';
 import './audit-entities';
@@ -64,8 +74,38 @@ export class PublicSiteModule implements OnModuleInit {
   }
 
   onModuleInit(): void {
+    // `fx.refresh` is registered here with FX_RATES_FETCH off: only the worker calls Vietcombank (egress of the worker).
     for (const job of publicSiteWorkerJobs({ events: this.events, params: this.params })) {
       if (!this.jobs.get(job.key)) this.jobs.register(job);
+    }
+    // FB-INV-011: the Vietcombank rates are written by the worker only (403 to anyone, logged as access.denied);
+    // OWN's override is checked here (allowlisted codes, sanity band) before setParameter writes it.
+    if (!this.hooks.get(FX_AUTO_KEY)) {
+      this.hooks.register(FX_AUTO_KEY, {
+        before: async () => {
+          throw problem('FORBIDDEN_ACTION');
+        },
+      });
+    }
+    if (!this.hooks.get(FX_OVERRIDE_KEY)) {
+      this.hooks.register(FX_OVERRIDE_KEY, {
+        before: async (_tx: Tx, value: unknown, roles: readonly string[]) => {
+          if (!roles.includes('owner')) return; // setParameter's own 403 comes first
+          const issue = fxOverridesIssue(value);
+          if (!issue) return;
+          const code = issue.field.slice('value.'.length);
+          if (issue.code === 'PARAM_OUT_OF_RANGE' && isFxCurrency(code)) {
+            throw problem('PARAM_OUT_OF_RANGE', {
+              errors: [issue],
+              extras: { min: FX_RATE_BOUNDS[code].min, max: FX_RATE_BOUNDS[code].max },
+            });
+          }
+          throw problem('VALIDATION_FAILED', {
+            errors: [issue],
+            ...(issue.code === 'NOT_ALLOWED' ? { extras: { allowed: [...FX_CURRENCIES] } } : {}),
+          });
+        },
+      });
     }
     this.events.registerAttentionSource(websiteRequestNewSource);
     // R4 LP-v2: price / calendar / switch changes drop the estimate caches of the property at once (TTL 60 s is the
