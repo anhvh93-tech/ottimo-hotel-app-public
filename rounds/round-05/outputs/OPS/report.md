@@ -434,3 +434,54 @@ Lùi bước 3: `install -m 0644` hai tệp từ `/root/ottimo-units.before-w6s3
 Mục 16.5 việc 2 coi như xong. Từ nay lượt theo timer của hai stack chỉ còn `FAIL sshkeys` (W0) và `WARN journal` (W6 bước 1–2).
 
 Không commit (theo giao việc).
+
+## 17. Cập nhật 17/11 15:00–15:10 – FB-INV-011 phát hành: kiểm staging, sao lưu, tag `landing-v2.2.0` + `v1.0.6` (DỪNG ở duyệt production)
+
+Căn cứ: giao việc ORC 17/11 (INV "Đồng ý cả hai": kiểm staging rồi phát hành production landing + Desk); hợp đồng `rounds/round-05/fb-inv-011/contract.md`; cách làm như mục 13–16. Main `f8791cf8` (FE #188 + BE #187), CI push **44032910978** xanh (deploy staging success; `deploy landing preview (staging)` skipped). Không SQL ghi, không in `.env`/bí mật/IP, không tạo booking/form thử.
+
+### 17.1 Kiểm staging (giờ VN)
+
+| Giờ | Kiểm | Kết quả |
+|---|---|---|
+| 15:03 | Hiện trạng | Staging: app `sha-f8791cf83b63` (CI), migration **73/73**, api healthy, worker chạy; landing vẫn `sha-a9f510f7611f`. Production: app + landing `sha-a9f510f7611f` |
+| 15:03 | `FX_RATES_FETCH` | **Không có dòng nào** trong `.env` của cả hai stack. Compose (`x-api-env`, worker) cũng **không chuyển** biến này vào container, nên trong container nó luôn trống → theo `fxFetchModeFrom` trống + `APP_ENV` staging/production = **bật (`vietcombank`)** ở cả hai stack. OPS **không thêm** vào `.env`: thêm cũng không có tác dụng vì compose không đọc. Xem 17.4 (a) |
+| 15:03 | Worker staging chạy `fx.refresh` | Log worker: `fx.refresh` có trong danh sách job; `fx rates stored`, `asOf` `2026-11-17`; các lượt sau `job done` (tự gác, không gọi lại) |
+| 15:04 | `GET https://staging.ottimo.vn/v1/public/properties/dlt/monthly-rates` (root, `--resolve` về edge, mật khẩu xem trước đọc từ tệp, không in) | **200** `application/json`; khóa: `computedAt, currency, estimate, fx, roomTypes, taxIncluded`. `fx` = `base VND`, `source vietcombank`, `asOf 2026-11-17`, `rates` đúng 4 mã: USD 25930, KRW 20.04, CNY 3923.82, RUB 328.41 (tỷ giá công khai, không phải bí mật); `jq -e` hình dạng hợp đồng = true. Không mật khẩu: 401 |
+| 15:07 | `deploy-landing.sh sha-f8791cf83b63 --digest sha256:c3e67706…6ccba --check-only` (staging, root) | 5 × `2026-11-16 (same bytes as published)`; `CHECK ONLY … passes`; RC 0. **Byte trang privacy không đổi** |
+| 15:07 | Deploy landing staging `sha-f8791cf83b63` | **Không làm được**: lệnh bị hệ thống quyền của Claude Code trên Mac từ chối (máy chủ không đổi; landing staging vẫn `sha-a9f510f7611f`). Vì vậy **chưa xem được** `/ko/ /en/ /zh/ /ru/` hiện "≈ …" trên staging thật |
+| 15:08 | Thay thế (chỉ đọc): đọc image landing `c3e67706f683…6ccba` trong container `--network none --read-only` | Bundle `BookingForm…js` có bảng ngôn ngữ → tiền: `en USD`, `vi null` (chỉ VND), `ko KRW`, `zh CNY`, `ru RUB`; bước làm tròn `USD 1, KRW 1000, CNY 1, RUB 100` (đúng hợp đồng); khoảng hợp lý `USD 10000–65000, KRW 7–50, CNY 1400–9000, RUB 100–800`. Tỷ giá staging hôm nay nằm trong cả 4 khoảng (nên FE sẽ hiện "≈"). Chuỗi "Payment in VND" có trong gói en. CI 44032910978 job Playwright landing (có `fx.landing.spec.ts`) đạt |
+| 15:08 | `deploy-landing.sh … --check-only` production (`sudo -u ottimo`) | 5 × `2026-11-16 (same bytes as published)`; passes; RC 0 |
+
+Ghi chú: `/en/` trên production trả 301 về `/` (en ở gốc), nên khi kiểm bằng mắt dùng `/` cho tiếng Anh.
+
+### 17.2 Sao lưu production
+
+| Giờ | Việc | Kết quả |
+|---|---|---|
+| 15:01 | Lượt timer 15:00 (W1) | `backup.last_ok` 08:01:24Z |
+| 15:08 | `systemctl start ottimo-backup@ottimo-prod.service` (ngay trước tag) | `OK: 90 encrypted files in /var/backups/ottimo-prod`; `backup.last_ok` = **2026-11-17T08:08:04Z** (DB production trước 0098) |
+
+Gói `infra/` production **không cần làm mới**: `git diff a9f510f7 f8791cf8 -- product/infra` chỉ đổi edge/trang tĩnh (đã triển khai riêng ở mục 15.1), không đổi `deploy.sh`, `deploy-landing.sh`, Caddyfile, compose hay `02-roles.sh`.
+
+### 17.3 Tag và Release (DỪNG chờ ORC duyệt)
+
+Digest (artifact `image-digests` của CI 44032910978): `tag=sha-f8791cf83b63`; api `sha256:ed0e50ab…dae1d`; web `sha256:281fc3f6…c5c46d`; landing `sha256:c3e67706…6ccba`.
+
+| Giờ | Việc | Kết quả |
+|---|---|---|
+| 15:08 | Tag `landing-v2.2.0` (annotated) trên `f8791cf83b63`, push | `* [new tag] landing-v2.2.0` |
+| 15:08 | Release run **44044232280** | `resolve` success: `release landing-v2.2.0 → landing sha-f8791cf83b63 @sha256:c3e67706…6ccba` (trùng artifact CI). `deploy production` = **waiting**, environment `production` (id 25137151508). **Chờ ORC duyệt** |
+| 15:08 | Tag `v1.0.6` (annotated) trên `f8791cf83b63`, push | `* [new tag] v1.0.6` |
+| 15:09 | Release run **44044253851** | **pending** (xếp hàng sau 44044232280 vì `concurrency: release-production`). Sau khi duyệt và chạy xong landing, run này vào `resolve` rồi dừng ở `deploy production` – lúc đó ORC duyệt tiếp. Không tag/đẩy thêm Release nào khác trong lúc chờ (run thứ ba cùng nhóm sẽ thay run đang pending) |
+
+Thứ tự này an toàn: landing mới chạy trước app thì `monthly-rates` production chưa có `fx`, landing chỉ hiện VND (đúng hợp đồng "thiếu `fx` → chỉ VND"). Sau khi v1.0.6 lên, worker production gọi Vietcombank ở lượt tick đầu (chưa có bảng hôm nay), từ đó landing hiện "≈".
+
+### 17.4 Việc còn lại / rủi ro
+- (a) **Không có công tắc tắt nhanh** `FX_RATES_FETCH` trên máy chủ: compose không chuyển biến này. Muốn tắt (`off`) phải sửa compose. Đề xuất PR OPS nhỏ: thêm `FX_RATES_FETCH: ${FX_RATES_FETCH:-}` vào `x-api-env` (api luôn ép `off`, chỉ worker đọc) + 1 dòng runbook. Hiện tại không chặn phát hành vì mặc định trống = bật, đúng ý BE/ARC.
+- (b) Landing staging chưa lên `sha-f8791cf83b63` (17.1): ORC/INV cho phép rồi chạy `sudo /opt/ottimo/infra/server/bin/deploy-landing.sh sha-f8791cf83b63 --digest sha256:c3e67706f683dfa79585d9188d86ea947306461c1a4fb829e8a501ac0e86ccba`, hoặc ORC chấp nhận bằng chứng image + CI Playwright và kiểm bằng mắt trên production sau khi v1.0.6 lên.
+- (c) `product/docs/release-notes.md` chưa có mục v1.0.6 / landing-v2.2.0 (PO/ORC bổ sung).
+- (d) Sau khi duyệt cả hai: kiểm production (từ Mac, không đăng nhập): `journalctl -t ottimo-deploy` có `migrations: 73 applied / 73` và `OK: sha-f8791cf83b63 is live`; log worker `fx rates stored`; `monthly-rates` có `fx` đúng hợp đồng; `/`, `/ko/`, `/zh/`, `/ru/` hiện "≈ …" + dòng VND + "Payment in VND", `/vi/` chỉ VND; Desk 200; `ops-check`.
+- (e) Quay lui: landing `deploy-landing.sh --rollback` → `sha-a9f510f7611f`; app `rollback.sh sha-a9f510f7611f` (0098 chỉ thêm 2 khóa `config_parameter_def` `fx_rates.vietcombank`, `fx_rate_overrides`, không đổi schema; bản cũ không đọc 2 khóa này); sao lưu 08:08:04Z.
+- (f) ORC ghi decision-log (tag, run, digest, giờ) và commit.
+
+Không commit (nhánh hiện tại của checkout chung là `r5-fb011-be-fx`, ORC commit trên main).
