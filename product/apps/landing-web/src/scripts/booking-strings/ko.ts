@@ -81,6 +81,10 @@ const strings: BookingStrings = {
     live: (amount) => `월 요금이 변경되었습니다: 월 ${amount}부터`,
     done: '월 요금',
     liveCleared: '월 요금이 지워졌습니다.',
+    fx: {
+      month: (amount) => `≈ 월 ${amount}`,
+      note: (date) => `${date} 환율 기준 예상 금액입니다. 결제는 VND로 진행됩니다.`,
+    },
   },
 };
 

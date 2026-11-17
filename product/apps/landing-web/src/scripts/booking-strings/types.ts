@@ -1,6 +1,8 @@
 // Shape of the strings the booking-request script writes at run time (concept 5.3, 5.4; mock v1.2.1 `T`). Static
 // labels of the form live in the page copy (content/<lang>.ts). One module per language (./en.ts … ./ru.ts), loaded
 // with import() by the page language (ARC lp-v2 3.2): the English page never downloads Korean, Chinese or Russian.
+import type { FxStrings } from '../fx';
+
 export type ChannelKey = 'zalo' | 'whatsapp' | 'phone' | 'email';
 
 export interface BookingStrings {
@@ -93,4 +95,10 @@ export interface EstimateStrings {
    * number was shown; the old price sentence is emptied first.
    */
   liveCleared: string;
+  /**
+   * FB-INV-011: estimate in the currency of the page language under a VND figure (room cards + this box), only when
+   * getPublicMonthlyRates gave a valid `fx` rate. `month` gets the amount through formatFx ("≈ US$334 / month");
+   * `note` gets the rate date ("Estimate at the 17 Nov 2026 rate. Payment in VND."). vi never converts (unused).
+   */
+  fx: FxStrings;
 }

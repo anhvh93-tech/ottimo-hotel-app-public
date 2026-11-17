@@ -71,6 +71,10 @@ const strings: BookingStrings = {
     live: (amount) => `按月价格已更新：每月 ${amount} 起`,
     done: '按月价格',
     liveCleared: '按月价格已清除。',
+    fx: {
+      month: (amount) => `≈ 每月 ${amount}`,
+      note: (date) => `按${date}汇率估算。以越南盾（VND）付款。`,
+    },
   },
 };
 
