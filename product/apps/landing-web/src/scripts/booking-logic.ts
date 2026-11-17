@@ -3,6 +3,7 @@
 import type { components } from '../../../../packages/api-client/src/generated/openapi';
 import { INTL_LOCALE, type Lang } from '../lib/langs';
 import type { EstimateStrings } from './booking-strings/types';
+import { fxLines, type FxQuote } from './fx';
 
 /**
  * OpenAPI 0.3.9-draft (LP-v2) adds to `WebsiteBookingRequestInput`: `locale` ∈ `LandingLocale` (en, vi, ko, zh, ru) and
@@ -355,6 +356,8 @@ export interface EstimateView {
   live: string;
   /** Thank-you line "Monthly rate: From X / month" when the rate is sent with the request. */
   done: string;
+  /** FB-INV-011: "≈ US$334 / month" + the rate-date note under the main line; absent = VND only. */
+  fx?: { month: string; note: string; value: number };
 }
 
 /**
@@ -384,6 +387,7 @@ export interface ViewStrings {
     | 'taxOut'
     | 'live'
     | 'done'
+    | 'fx'
   >;
   e: { cap: (n: string) => string };
 }
@@ -398,8 +402,11 @@ export function monthlyView(
   S: ViewStrings,
   lang: Lang,
   total?: { vnd: number; months: number; label: string },
+  /** FB-INV-011: rate of the page currency (fxQuote), null/absent = VND only. */
+  fx?: FxQuote | null,
 ): EstimateView {
   const E = S.estimate;
+  const fxView = fxLines(monthlyFromVnd, fx ?? null, E.fx, lang);
   const sep = lang === 'zh' ? '：' : ': ';
   const amount = formatVnd(monthlyFromVnd, lang);
   const lines =
@@ -419,6 +426,7 @@ export function monthlyView(
     ],
     live: E.live(amount),
     done: `${E.done}${sep}${E.fromMonth(amount)}`,
+    ...(fxView ? { fx: fxView } : {}),
   };
 }
 
@@ -428,7 +436,7 @@ export function estimateView(
   S: ViewStrings,
   lang: Lang,
   /** capacity: data-cap of the room type (S6 party message); monthsLabel: label of the chosen months option. */
-  opts: { capacity?: number | null; monthsLabel?: string } = {},
+  opts: { capacity?: number | null; monthsLabel?: string; fx?: FxQuote | null } = {},
 ): EstimateView {
   const E = S.estimate;
   const ls = r.longStay;
@@ -443,5 +451,5 @@ export function estimateView(
     ls.months && ls.totalVnd
       ? { vnd: ls.totalVnd, months: ls.months, label: opts.monthsLabel ?? '' }
       : undefined;
-  return monthlyView(ls.monthlyFromVnd, r.taxIncluded, S, lang, total);
+  return monthlyView(ls.monthlyFromVnd, r.taxIncluded, S, lang, total, opts.fx);
 }

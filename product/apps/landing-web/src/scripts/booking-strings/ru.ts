@@ -95,6 +95,10 @@ const strings: BookingStrings = {
     live: (amount) => `Цена за месяц обновлена: от ${amount} в\u00a0месяц`,
     done: 'Цена за месяц',
     liveCleared: 'Цена за месяц сброшена.',
+    fx: {
+      month: (amount) => `≈ ${amount} в\u00a0месяц`,
+      note: (date) => `Оценка по курсу на ${date}. Оплата в\u00a0VND.`,
+    },
   },
 };
 

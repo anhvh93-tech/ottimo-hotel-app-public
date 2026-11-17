@@ -28,6 +28,7 @@ import {
   type Transport,
 } from './booking-transport';
 import { initEstimate } from './price-estimate';
+import { fxQuote, type FxQuote } from './fx';
 import { fillRoomPrices } from './room-prices';
 
 const form = document.getElementById('bk-form') as HTMLFormElement | null;
@@ -76,6 +77,8 @@ async function init(form: HTMLFormElement) {
   };
   /** getPublicMonthlyRates of this page load: "From" figure per room type + the tax flag. */
   let monthly: { bySlug: Map<string, number>; taxIncluded: boolean } | null = null;
+  /** FB-INV-011: rate of the page currency from the same answer (null = VND only, always on the vi page). */
+  let fx: FxQuote | null = null;
   const room = $<HTMLSelectElement>('f-room');
   const months = $<HTMLSelectElement>('f-months');
   const estimate = initEstimate({
@@ -94,6 +97,7 @@ async function init(form: HTMLFormElement) {
       const vnd = monthly?.bySlug.get(slug);
       return vnd && monthly ? { vnd, taxIncluded: monthly.taxIncluded } : undefined;
     },
+    fx: () => fx,
     fetchEstimate: live ? estimateTransport(base, apiDeps) : null,
     now: () => Date.now(),
   });
@@ -102,7 +106,8 @@ async function init(form: HTMLFormElement) {
     void fetchMonthlyRates(base, apiDeps).then((o) => {
       if (o.kind !== 'ok') return;
       monthly = { bySlug: monthlyFromBySlug(o.body), taxIncluded: o.body.taxIncluded };
-      fillRoomPrices(document, o.body, lang);
+      fx = fxQuote(o.body, lang, TODAY);
+      fillRoomPrices(document, o.body, lang, { fx, strings: S.estimate.fx });
       if (monthly.bySlug.size) estimate.pricesKnown();
     });
 

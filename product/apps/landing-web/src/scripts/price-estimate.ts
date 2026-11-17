@@ -27,6 +27,7 @@ import {
 } from './booking-logic';
 import type { EstimateOutcome } from './booking-transport';
 import type { BookingStrings } from './booking-strings';
+import type { FxQuote } from './fx';
 
 export interface EstimateDeps {
   box: HTMLElement;
@@ -42,6 +43,8 @@ export interface EstimateDeps {
   monthsLabel: () => string;
   /** "From" figure of a room type from getPublicMonthlyRates (page load), if the page has one. */
   monthlyFrom: (roomType: string) => { vnd: number; taxIncluded: boolean } | undefined;
+  /** FB-INV-011: rate of the page currency from getPublicMonthlyRates, null = VND only. */
+  fx?: () => FxQuote | null;
   /** null = this build never asks for prices (review build). */
   fetchEstimate: ((search: string, signal: AbortSignal) => Promise<EstimateOutcome>) | null;
   now: () => number;
@@ -176,6 +179,14 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
     if (after.startsWith('/')) main.append(document.createElement('wbr'));
     if (after) main.append(after);
     const parts: HTMLElement[] = [label(), main];
+    // FB-INV-011: "≈ US$334 / month" right under the VND figure, then the rate date (textContent only)
+    if (view.fx) {
+      const fx = el('p', 'est-fx');
+      const amt = el('data', 'est-fx-amt', view.fx.month) as HTMLDataElement;
+      amt.value = String(view.fx.value);
+      fx.append(amt);
+      parts.push(fx, el('p', 'est-fx-note', view.fx.note));
+    }
     for (const line of view.lines) parts.push(el('p', 'est-line', line));
     parts.push(el('p', 'est-note', joinSentences(view.note, d.lang)));
     render('price', parts, { live: view.live });
@@ -201,7 +212,11 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
       const from = q === 'no-date' ? d.monthlyFrom(v.roomType) : undefined;
       if (from) {
         reveal();
-        showView(monthlyView(from.vnd, from.taxIncluded, d.strings, d.lang), null, null);
+        showView(
+          monthlyView(from.vnd, from.taxIncluded, d.strings, d.lang, undefined, d.fx?.()),
+          null,
+          null,
+        );
       } else if (!pricesOn) {
         shown = null;
         silence();
@@ -230,6 +245,7 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
           estimateView(out.body, d.strings, d.lang, {
             capacity: d.ctx().capacity,
             monthsLabel: d.monthsLabel(),
+            fx: d.fx?.(),
           }),
           search,
           out.body,

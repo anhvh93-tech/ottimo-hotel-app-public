@@ -4,6 +4,8 @@
 // number, never a 0.
 import { describe, expect, it } from 'vitest';
 import { en } from '../content/en';
+import { BOOKING_STRINGS } from './booking-strings/all';
+import { fxQuote } from './fx';
 import { fillRoomPrices } from './room-prices';
 
 const card = (slug: string) => `
@@ -62,5 +64,52 @@ describe('room cards', () => {
       'en',
     );
     expect(visible(document.body)).toMatch(/\| Before taxes\. /);
+  });
+
+  it('FB-INV-011: with fx, "≈ US$334 / month" + the rate date follow the VND line; without fx, VND only', () => {
+    const base = {
+      estimate: true as const,
+      currency: 'VND' as const,
+      taxIncluded: true,
+      roomTypes: [{ roomType: 'a', label: 'A', monthlyFromVnd: 8_500_000 }],
+      computedAt: '2026-11-17T10:00:00+07:00',
+    };
+    const fx = { base: 'VND', source: 'vietcombank', asOf: '2026-11-17', rates: { USD: 25450 } };
+    document.body.innerHTML = card('a');
+    const q = fxQuote({ ...base, fx }, 'en', '2026-11-17');
+    fillRoomPrices(document, base, 'en', { fx: q, strings: BOOKING_STRINGS.en.estimate.fx });
+    expect(visible(document.body).replace(/\u00a0/g, ' ')).toBe(
+      'From 8,500,000 VND / month | ≈ US$334 / month | Estimate at the 17 Nov 2026 rate. Payment in VND. | Taxes included. Final rate confirmed when we contact you. Electricity and water billed on actual use.',
+    );
+    expect(document.querySelector('.rp-fx-amt')!.getAttribute('value')).toBe('334');
+    // a second fill (never two copies), then one without a rate: back to the VND card
+    fillRoomPrices(document, base, 'en', { fx: q, strings: BOOKING_STRINGS.en.estimate.fx });
+    expect(document.querySelectorAll('.rp-fx')).toHaveLength(1);
+    fillRoomPrices(document, base, 'en', { fx: null, strings: BOOKING_STRINGS.en.estimate.fx });
+    expect(document.querySelector('.rp-fx, .rp-fx-note')).toBeNull();
+    expect(visible(document.body).replace(/\u00a0/g, ' ')).toMatch(
+      /^From 8,500,000 VND \/ month \| Taxes included\./,
+    );
+  });
+
+  it('FB-INV-011: text from the API never becomes markup (textContent only)', () => {
+    document.body.innerHTML = card('a');
+    fillRoomPrices(
+      document,
+      {
+        estimate: true,
+        currency: 'VND',
+        taxIncluded: true,
+        roomTypes: [{ roomType: 'a', label: 'A', monthlyFromVnd: 8_500_000 }],
+        computedAt: '2026-11-17T10:00:00+07:00',
+      },
+      'en',
+      {
+        fx: { currency: 'USD', rate: 25450, asOf: '2026-11-17' },
+        strings: { month: () => '<img src=x onerror=alert(1)>', note: () => '<b>x</b>' },
+      },
+    );
+    expect(document.querySelector('img, b')).toBeNull();
+    expect(document.querySelector('.rp-fx')!.textContent).toBe('<img src=x onerror=alert(1)>');
   });
 });

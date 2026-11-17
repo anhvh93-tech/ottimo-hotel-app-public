@@ -73,6 +73,10 @@ const strings: BookingStrings = {
     live: (amount) => `Giá theo tháng mới: từ ${amount}/tháng`,
     done: 'Giá theo tháng',
     liveCleared: 'Đã xóa giá theo tháng.',
+    fx: {
+      month: (amount) => `≈ ${amount}/tháng`,
+      note: (date) => `Ước tính theo tỷ giá ngày ${date}. Thanh toán bằng VND.`,
+    },
   },
 };
 

@@ -1,0 +1,28 @@
+/* FB-INV-011: estimate in the currency of the page language, under the VND figure (VND stays the price, payment in
+   VND). Lines are created by scripts/room-prices.ts and scripts/price-estimate.ts only when the API gave a valid rate.
+   Kept out of landing.css on purpose: imported by Rooms.astro / BookingForm.astro only, so the shared Base stylesheet
+   – and with it the bytes of the published /privacy/ pages – does not change (ARC FB-R3-ARC-OPS-US155-01).
+   Brand tokens only: Stone Grey text, the form text size (15 px), numbers aligned. */
+
+/* room card: "≈ US$334 / month" then "Estimate at the 17 Nov 2026 rate. Payment in VND." */
+.rp-fx,
+.rp-fx-note {
+  color: var(--brand-stone);
+  font-size: 0.9375rem;
+}
+.rp-fx-amt,
+.est-fx-amt {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* form box: same two lines right under the VND amount, like .est-line */
+.est-fx,
+.est-fx-note {
+  font-size: 0.9375rem;
+  color: var(--brand-stone);
+}
+/* only the old number and its lines fade while a new one is computed (UXD S2) */
+.est.is-busy .est-fx,
+.est.is-busy .est-fx-note {
+  opacity: 0.45;
+}
