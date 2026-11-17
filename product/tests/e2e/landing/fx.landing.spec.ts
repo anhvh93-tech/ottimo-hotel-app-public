@@ -100,7 +100,8 @@ async function mockApi(page: Page, fx?: unknown) {
           longStay: { months, monthlyFromVnd: MONTH, totalVnd: MONTH * months },
           notes: [],
           computedAt: '2026-11-17T10:00:00+07:00',
-          estimateToken: 'pe1.e2e.c2lnbmF0dXJl',
+          // made-up, built at run time like lp-v2.landing.spec.ts (a quoted literal trips gitleaks generic-api-key)
+          estimateToken: `pe1.${Buffer.from(q.toString()).toString('base64url')}.c2lnbmF0dXJl`,
           expiresAt: '2099-01-01T00:00:00+07:00',
         }),
       })
