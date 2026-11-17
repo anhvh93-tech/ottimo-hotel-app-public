@@ -1,6 +1,6 @@
 # FB-INV-011 – Landing: giá ước tính theo tiền tệ của ngôn ngữ đang chọn
 
-- Ngày: 17/11/2026 | Người gửi: INV | Ghi: ORC | Loại: tính năng (landing ottimo.vn, Desk tham số) | Ưu tiên: P2 | Đích: v1.0.6 (bản vá landing + api) | **Trạng thái: Đang làm**
+- Ngày: 17/11/2026 | Người gửi: INV | Ghi: ORC | Loại: tính năng (landing ottimo.vn, Desk tham số) | Ưu tiên: P2 | Đích: v1.0.6 (bản vá landing + api) | **Trạng thái: Xong (production 17/11, landing-v2.2.0 + v1.0.6)**
 
 ## Nguyên văn
 > trang landing page, tôi cần một chuyện là ở cái việc tuỳ chọn ngôn ngữ á. khi mình chọn ngôn ngữ nào nó sẽ ra tiền tệ của quốc gia đó (estimate, còn tiền tệ thật thanh toán vẫn là vnd)
