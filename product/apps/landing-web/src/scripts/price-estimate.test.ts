@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FormValues, PublicPriceEstimate } from './booking-logic';
 import { BOOKING_STRINGS } from './booking-strings/all';
 import type { EstimateOutcome } from './booking-transport';
+import type { FxQuote } from './fx';
 import { initEstimate } from './price-estimate';
 
 const S = BOOKING_STRINGS.en;
@@ -64,6 +65,7 @@ function setup(
   answer: (search: string, n: number) => EstimateOutcome | Promise<EstimateOutcome>,
   start: Partial<FormValues> = {},
   monthly?: Record<string, number>,
+  fx: FxQuote | null = null,
 ) {
   document.body.innerHTML =
     '<div id="box" hidden></div><p id="live" role="status"></p><p id="sent" hidden></p>';
@@ -80,6 +82,7 @@ function setup(
     monthsLabel: () => LABELS[values.months] ?? '',
     monthlyFrom: (slug) =>
       monthly?.[slug] ? { vnd: monthly[slug]!, taxIncluded: true } : undefined,
+    fx: () => fx,
     fetchEstimate: (search) => {
       calls.push(search);
       return Promise.resolve(answer(search, calls.length));
@@ -226,5 +229,28 @@ describe('the status line and the waiting state', () => {
     release({ kind: 'ok', body: priced(t.calls.at(-1)!) });
     await vi.advanceTimersByTimeAsync(800);
     expect(t.el().dataset.state).toBe('price');
+  });
+
+  it('FB-INV-011: with a rate, "≈ US$354 / month" + the rate date under the VND amount; the VND figure stays', async () => {
+    const t = setup((s) => ({ kind: 'ok', body: priced(s) }), {}, undefined, {
+      currency: 'USD',
+      rate: 25450,
+      asOf: '2026-11-17',
+    });
+    await t.set({ months: '6' });
+    expect(t.el().querySelector('.est-amt')!.textContent).toBe('9,000,000\u00a0VND');
+    expect(t.el().querySelector('.est-fx')!.textContent).toBe('≈ US$354 / month');
+    expect(t.el().querySelector('.est-fx-amt')!.getAttribute('value')).toBe('354');
+    expect(t.el().querySelector('.est-fx-note')!.textContent).toBe(
+      'Estimate at the 17 Nov 2026 rate. Payment in VND.',
+    );
+  });
+
+  it('FB-INV-011: no rate → no "≈" line (VND only, as before)', async () => {
+    const t = setup((s) => ({ kind: 'ok', body: priced(s) }));
+    await t.set({ months: '6' });
+    expect(t.el().dataset.state).toBe('price');
+    expect(t.el().querySelector('.est-fx, .est-fx-note')).toBeNull();
+    expect(t.el().textContent).not.toContain('≈');
   });
 });

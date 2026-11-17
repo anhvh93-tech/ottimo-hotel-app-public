@@ -78,6 +78,10 @@ const strings: BookingStrings = {
     live: (amount) => `Monthly rate updated: from ${amount} a month`,
     done: 'Monthly rate',
     liveCleared: 'Monthly rate cleared.',
+    fx: {
+      month: (amount) => `≈ ${amount} / month`,
+      note: (date) => `Estimate at the ${date} rate. Payment in VND.`,
+    },
   },
 };
 
