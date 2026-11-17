@@ -1,12 +1,15 @@
 // FB-INV-012 – Monthly statements for long-stay guests (ARC contract `rounds/round-05/fb-inv-012/contract.md` §5,
-// OpenAPI 0.3.14-draft). The BE PR (`r5-fb012-be-statements`) adds these operations to `openapi.yaml` and
-// regenerates `@ottimo/api-client`; until then the shapes live here, typed by hand from the contract, and the
-// MSW mock (`mocks/statements.ts`) answers them. When the generated types land, replace these interfaces with
-// `ResponseOf<'getBillingPeriod'>` etc. and move the functions into `endpoints.ts`.
+// OpenAPI 0.3.14-draft). The BE PR (`r5-fb012-be-statements`, #190) adds these operations to `openapi.yaml` and
+// regenerates `@ottimo/api-client`; until it merges the shapes live here and the MSW mock (`mocks/statements.ts`)
+// answers them (`__tests__/fb012-mock-schema.test.ts` checks the mock against the OpenAPI schemas). When #190 merges,
+// replace these interfaces with `ResponseOf<'getBillingPeriod'>` etc. and move the functions into `endpoints.ts`
+// (ARC-FE-189-05, merge condition).
 //
-// INV 17/11 (FB-INV-012 "INV bổ sung", overrides contract §2.1 "đầu kỳ không cho gõ"): the opening reading of each
-// meter is TYPED by staff every period. The server answers the previous closing reading next to it (reference only)
-// and the gap (opening − previous closing, vacancy loss, never billed). Billed usage = closing − opening.
+// Shapes follow OpenAPI on the BE branch plus the fields ARC asked BE to add (review ARC-on-fe-pr-189 §1):
+// `excludedLines`, `replacesCode`, `readByInitials`, `onIssuedStatement`, candidate `rooms[]`,
+// `acknowledgeLowerThanPrevious`, `lateReason`. INV 17/11: the opening reading is its own reading (`period_start` of
+// the month opened, or `checkin` / `room_change_in`), typed by staff; the server answers the previous closing on it
+// (reference only) and the gap (vacancy use, never billed). Billed usage = closing − opening, on the closing reading.
 import type { AttachmentPurpose, AttachmentResult } from '@ottimo/api-client';
 import { apiClient } from './api';
 
@@ -17,8 +20,16 @@ export type AlertLevel = 'due_today' | 'overdue' | 'alert' | 'escalate';
 export type StatementAction =
   'update' | 'issue' | 'void' | 'record_payment' | 'print' | 'prior_adjustment';
 export type MeterType = 'electricity' | 'water';
+/** Opening: `checkin`, `period_start`, `room_change_in`. Closing: `period_end`, `room_change_out`, `checkout`. */
 export type ReadingKind =
-  'checkin' | 'period_end' | 'room_change_out' | 'room_change_in' | 'checkout';
+  | 'checkin'
+  | 'period_start'
+  | 'period_end'
+  | 'room_change_out'
+  | 'room_change_in'
+  | 'checkout';
+export const OPENING_KINDS: readonly ReadingKind[] = ['checkin', 'period_start', 'room_change_in'];
+export const isOpeningKind = (k: ReadingKind) => OPENING_KINDS.includes(k);
 
 export type MeterException =
   | { type: 'replaced'; oldFinal: number; newStart: number; replacedOn: string }
@@ -29,99 +40,138 @@ export interface Period {
   to: string;
 }
 
-/** One meter of one reading as the server answers it. */
+/** One meter of one reading (OpenAPI `MeterValue`). */
 export interface MeterValue {
-  /** Typed by staff (INV 17/11). */
-  opening: number;
-  /** Closing reading. */
   value: number;
-  exception: MeterException | null;
-  /** Previous valid closing of the same room (null on the first reading of a stay) – reference only. */
-  previousClosing: number | null;
-  /** opening − previousClosing when > 0: vacancy loss (viewings, housekeeping), NOT billed to the guest. */
-  gap: number | null;
-  /** Billed usage of this reading (closing − opening, or the exception formula of BR-LS-12). */
-  consumption: number;
+  exception?: MeterException | null;
 }
 
+export interface MeterPair {
+  electricity: number | null;
+  water: number | null;
+}
+
+/** OpenAPI `MeterReading` (+ `readByInitials`, `onIssuedStatement` – BE-190-04). */
 export interface MeterReading {
   id: string;
   reservationId: string;
   roomId: string;
   roomNo: string;
   kind: ReadingKind;
-  /** First day of the month the reading closes, as `YYYY-MM` (period_end only). */
-  periodMonth: string | null;
+  /** `YYYY-MM`: month opened (`period_start`) or closed (`period_end`). */
+  periodMonth?: string | null;
   readOn: string;
   electricity: MeterValue;
   water: MeterValue;
-  photoAttachmentId: string | null;
-  photoWaived: boolean;
-  note: string | null;
-  readAt: string;
-  readByInitials: string;
-  voidedAt: string | null;
-  voidReason: string | null;
-  /** Used on an issued statement → voiding answers 409 READING_ON_ISSUED_STATEMENT. */
-  onIssuedStatement: boolean;
+  /** Opening readings: latest closing of the room (any stay) – reference only (INV 17/11). */
+  previousClosing?: {
+    readingId: string;
+    readOn: string;
+    electricity: number;
+    water: number;
+  } | null;
+  /** Opening readings: opening − previous closing. > 0 vacancy use (not billed); < 0 a lower opening, acknowledged. */
+  gap?: MeterPair | null;
+  /** Closing readings: billed usage against the opening of the same period. */
+  consumption?: { fromReadingId: string; electricity: number | null; water: number | null } | null;
+  photoAttachmentId?: string | null;
+  photoWaived?: boolean;
+  exceptionApproved?: boolean;
+  note?: string | null;
+  readByRole?: string;
+  readByInitials?: string | null;
+  voided: boolean;
+  voidedAt?: string | null;
+  voidReason?: string | null;
+  createdAt?: string;
+  version: number;
+  /** On an issued statement → voiding answers 409 READING_ON_ISSUED_STATEMENT. */
+  onIssuedStatement?: boolean;
 }
 
+/** OpenAPI `MeterValueInput`. */
 export interface MeterInput {
-  opening: number;
   value: number;
-  exception: MeterException | null;
+  exception?: MeterException | null;
 }
 
+/** OpenAPI `MeterReadingCreate` (+ `acknowledgeLowerThanPrevious` BE-190-01, `lateReason` BE-190-03). */
 export interface RecordMeterReadingBody {
   roomId: string;
   kind: ReadingKind;
-  periodMonth: string | null;
+  periodMonth?: string;
   readOn: string;
   electricity: MeterInput;
   water: MeterInput;
-  photoAttachmentId: string | null;
-  photoWaived: boolean;
-  note: string | null;
+  photoAttachmentId?: string;
+  photoWaived?: boolean;
+  note?: string | null;
+  acknowledgeLowerThanPrevious?: boolean;
+  lateReason?: string;
 }
 
+export type ReadingStatus = 'missing' | 'recorded' | 'exception' | 'not_needed';
+
+/** BE-190-02 `rooms[]`: readings of the utility period of the statement, and the opening of the next month. */
+export interface CandidateRoom {
+  roomId: string;
+  roomNo: string;
+  opening: ReadingStatus;
+  closing: ReadingStatus;
+  nextOpening: 'missing' | 'recorded' | 'not_needed';
+}
+
+/** One item of OpenAPI `BillingCandidateList`. */
 export interface BillingCandidate {
   reservationId: string;
-  roomId: string;
+  reservationCode: string;
   roomNos: string[];
-  guestDisplayName: string;
-  readingStatus: 'missing' | 'recorded' | 'exception';
-  draftBillingPeriodId: string | null;
+  rooms: CandidateRoom[];
+  guestDisplayName?: string | null;
+  kind: StatementKind;
+  readingStatus: ReadingStatus;
+  draftId?: string | null;
 }
 
+/** OpenAPI `BillingPeriodLine`. */
 export interface StatementLine {
   kind: 'rent' | 'electricity' | 'water' | 'service' | 'rounding' | 'prior_adjustment';
   labelKey: string;
-  labelParams?: Record<string, string | number>;
-  roomNo?: string;
-  serviceDate?: string;
-  meter?: { from: number; to: number; exception: MeterException | null };
+  labelParams?: Record<string, unknown> | null;
+  roomNo?: string | null;
+  serviceDate?: string | null;
+  meter?: { from: number; to: number; exception?: MeterException | null } | null;
   quantity: number;
   unit: 'month' | 'day' | 'kwh' | 'm3' | 'item';
   unitPriceNetVnd: number;
-  /** null = the price already includes VAT (rent, cleaning). */
-  vatRatePct: number | null;
+  /** null = the price already includes VAT (rent, services). */
+  vatRatePct?: number | null;
   netVnd: number;
   vatVnd: number;
   amountVnd: number;
-  folioLineId: string | null;
+  folioLineId?: string | null;
 }
 
+export const KNOWN_WARNINGS = [
+  'METER_ANOMALY',
+  'RENT_ALREADY_POSTED',
+  'SERVICE_LINE_ON_OTHER_STATEMENT',
+  'PHOTO_WAIVED',
+  'OPENING_BELOW_PREVIOUS_CLOSING',
+  'READING_LATE',
+] as const;
+export type KnownWarningCode = (typeof KNOWN_WARNINGS)[number];
+
+/** OpenAPI `BillingWarning`: `code` + open fields – an unknown code is shown generically and still confirmed. */
 export interface StatementWarning {
-  code:
-    | 'METER_ANOMALY'
-    | 'RENT_ALREADY_POSTED'
-    | 'SERVICE_LINE_ON_OTHER_STATEMENT'
-    | 'PHOTO_WAIVED'
-    | 'PRICE_CHANGED_SINCE_DRAFT';
+  code: string;
   roomNo?: string;
   meter?: MeterType;
   consumption?: number;
   threshold?: number;
+  opening?: number;
+  previousClosing?: number;
+  [k: string]: unknown;
 }
 
 export interface StatementTotals {
@@ -133,78 +183,111 @@ export interface StatementTotals {
   balanceVnd: number;
 }
 
+export interface MissingMeterReading {
+  roomId: string;
+  roomNo: string;
+  kind: 'opening' | 'period_end' | 'room_change_out';
+  periodMonth: string;
+}
+
+/** OpenAPI `BillingPeriod` (+ `excludedLines`, `replacesCode` – BE-190-04). */
 export interface BillingPeriod {
   id: string;
-  code: string | null;
+  code?: string | null;
   status: StatementStatus;
   kind: StatementKind;
   /** `YYYY-MM`. */
   month: string;
   reservationId: string;
+  reservationCode?: string;
   folioId: string;
   roomNos: string[];
-  guestDisplayName: string;
-  rentPeriod: Period | null;
-  utilityPeriod: Period | null;
-  servicePeriod: Period | null;
-  dueDate: string | null;
-  overdueDays: number;
-  alertLevel: AlertLevel | null;
+  guestDisplayName?: string | null;
+  rentPeriod?: Period | null;
+  utilityPeriod?: Period | null;
+  servicePeriod?: Period | null;
+  dueDate?: string | null;
+  overdueDays?: number;
+  alertLevel?: AlertLevel | null;
   lines: StatementLine[];
-  /** Service lines of the period the desk moved to the next statement (BR-LS-14) – still listed, not billed. */
-  excludedLines?: StatementLine[];
+  /** Service lines moved to the next statement (BR-LS-14) – listed, not billed; `[]` once issued. */
+  excludedLines: StatementLine[];
+  excludedFolioLineIds?: string[];
+  missingReadings?: MissingMeterReading[];
   priorAdjustment?: { amountVnd: number; reason: string } | null;
+  note?: string | null;
   totals: StatementTotals;
   warnings: StatementWarning[];
   availableActions: StatementAction[];
-  replacesId: string | null;
+  replacesId?: string | null;
   replacesCode?: string | null;
-  issuedAt: string | null;
-  paidAt: string | null;
-  voidedAt: string | null;
+  issuedAt?: string | null;
+  paidAt?: string | null;
+  voidedAt?: string | null;
   voidReason?: string | null;
   version: number;
 }
 
-export interface BillingPeriodSummary {
-  id: string;
-  code: string | null;
-  roomNos: string[];
-  guestDisplayName: string;
-  month: string;
-  totalVnd: number;
-  balanceVnd: number;
-  dueDate: string | null;
-  status: StatementStatus;
-  overdueDays: number;
-  alertLevel: AlertLevel | null;
+/** OpenAPI `BillingPeriodVoided`. */
+export type BillingPeriodVoided = BillingPeriod & { canReplace: boolean };
+
+/** OpenAPI `BillingPeriodPaymentResult`. */
+export interface BillingPeriodPaymentResult {
+  billingPeriod: BillingPeriod;
+  payment: {
+    id: string;
+    method: string;
+    amountVnd: number;
+    status: string;
+    reconciliation: string;
+  };
 }
 
+/** OpenAPI `BillingPeriodSummary`. */
+export interface BillingPeriodSummary {
+  id: string;
+  code?: string | null;
+  reservationId: string;
+  roomNos: string[];
+  guestDisplayName?: string | null;
+  month: string;
+  kind: StatementKind;
+  totalVnd?: number | null;
+  balanceVnd: number;
+  dueDate?: string | null;
+  status: StatementStatus;
+  overdueDays: number;
+  alertLevel?: AlertLevel | null;
+}
+
+/** OpenAPI `BillingPeriodPrint`. */
 export interface BillingPeriodPrint extends BillingPeriod {
-  property: { displayName: string; addressLine: string; hotline: string; email: string };
-  guest: { fullName: string };
-  vietqr: {
+  property: {
+    displayName?: string | null;
+    addressLine?: string | null;
+    hotline?: string | null;
+    email?: string | null;
+  };
+  guest: { fullName?: string | null };
+  vietqr?: {
     payload: string;
-    bankShortName: string;
+    bankShortName?: string | null;
     accountHolder: string;
     accountNoMasked: string;
     amountVnd: number;
     transferContent: string;
   } | null;
   printedAt: string;
-  printedByInitials: string;
+  printedByInitials?: string | null;
 }
 
+/** OpenAPI `BillingPeriodPaymentCreate`. */
 export interface RecordStatementPaymentBody {
   method: 'cash' | 'vietqr';
   amountVnd: number;
-  receivedAt?: string;
+  receivedAt?: string | null;
   note?: string | null;
-}
-
-export interface VoidResult {
-  billingPeriod: BillingPeriod;
-  canReplace: boolean;
+  bankReference?: string | null;
 }
 
 const PROP = '/v1/properties/{propertyId}';
@@ -231,7 +314,11 @@ export const statementsApi = {
       path: { propertyId, readingId },
       body: { reason },
     }),
-  /** Meter photo (attachment C2 `purpose=meter`, contract §2.1) – the purpose is not yet in the generated union. */
+  /**
+   * Meter photo (attachment C2 `purpose=meter`, contract §2.1). One file binds to one record, so a photo used by
+   * the closing and the next opening is uploaded twice (ARC-FE-189-01). The OpenAPI upload enum has `meter` on the
+   * BE branch; the cast goes when the client is regenerated (ARC-FE-189-06).
+   */
   uploadMeterPhoto: (propertyId: string, reservationId: string, file: Blob, idem: string) => {
     const form = new FormData();
     form.append('file', file);
@@ -299,7 +386,7 @@ export const statementsApi = {
       idempotencyKey: idem,
     }),
   voidBillingPeriod: (propertyId: string, id: string, reason: string) =>
-    r<VoidResult>('POST', `${PROP}/billing-periods/{id}/void`, {
+    r<BillingPeriodVoided>('POST', `${PROP}/billing-periods/{id}/void`, {
       path: { propertyId, id },
       body: { reason },
     }),
@@ -309,7 +396,7 @@ export const statementsApi = {
     body: RecordStatementPaymentBody,
     idem: string,
   ) =>
-    r<BillingPeriod>('POST', `${PROP}/billing-periods/{id}/payments`, {
+    r<BillingPeriodPaymentResult>('POST', `${PROP}/billing-periods/{id}/payments`, {
       path: { propertyId, id },
       body,
       idempotencyKey: idem,
@@ -338,24 +425,44 @@ export function lastDayOf(month: string): string {
 }
 
 /**
- * Billed usage of one meter (BR-LS-11/12, INV 17/11): closing − opening; meter replaced = (old final − opening) +
- * (closing − new start); rollover = (max + 1 − opening) + closing. Water keeps one decimal (the desk drops the rest).
+ * Month whose end-of-month readings the desk is most likely entering on `day`: the current month on its last day,
+ * otherwise the month before (day 01 still closes it, BR-LS-10).
  */
-export function meterUsage(m: MeterInput, type: MeterType): number {
+export const readingMonthOn = (day: string) =>
+  day === lastDayOf(monthOf(day)) ? monthOf(day) : shiftMonth(monthOf(day), -1);
+
+/**
+ * Typed meter value cut to the unit of the server (BR-LS-11, ARC-FE-189-08): kWh whole, m³ one decimal; the extra
+ * digits are DROPPED on the typed text (no float maths), so the preview matches the server.
+ */
+export function parseMeter(raw: string, type: MeterType): number | null {
+  const s = raw.trim().replace(',', '.');
+  const m = /^(\d+)(?:\.(\d*))?$/.exec(s);
+  if (!m) return null;
+  if (type === 'electricity') return Number(m[1]);
+  return Number(`${m[1]}.${(m[2] ?? '').slice(0, 1) || '0'}`);
+}
+
+/**
+ * Billed usage PREVIEW of one meter (BR-LS-11/12): closing − opening; meter replaced = (old final − opening) +
+ * (closing − new start); rollover = (max + 1 − opening) + closing. Once saved the desk shows the server's
+ * `consumption`, never this number.
+ */
+export function meterUsage(opening: number, m: MeterInput, type: MeterType): number {
   const e = m.exception;
   const raw =
     e?.type === 'replaced'
-      ? e.oldFinal - m.opening + (m.value - e.newStart)
+      ? e.oldFinal - opening + (m.value - e.newStart)
       : e?.type === 'rollover'
-        ? e.maxValue + 1 - m.opening + m.value
-        : m.value - m.opening;
+        ? e.maxValue + 1 - opening + m.value
+        : m.value - opening;
   return type === 'water' ? Math.round(raw * 10) / 10 : Math.round(raw);
 }
 
 /** Tone of a statement row/chip – only the 80/15/5 palette (contract §6.1: Earth Brown for overdue, no extra red). */
 export function statusTone(
   status: StatementStatus,
-  alert: AlertLevel | null,
+  alert: AlertLevel | null | undefined,
 ): { tone: 'neutral' | 'oak' | 'ink' | 'long'; className?: string } {
   if (status === 'paid') return { tone: 'long' };
   if (status === 'void') return { tone: 'neutral' };
