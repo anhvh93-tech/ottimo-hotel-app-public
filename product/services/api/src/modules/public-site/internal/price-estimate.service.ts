@@ -45,6 +45,7 @@ import {
   tokenMatches,
   verifyEstimateToken,
 } from './estimate-token';
+import { FX_CURRENCIES, type PublicFxBlock, publicFxBlock, readFxRows } from '../public/fx-rates';
 import { nightsBetween, slugOf } from './website-request-rules';
 import { WebsiteRequestsService } from './website-requests.service';
 
@@ -111,6 +112,8 @@ interface MonthlyComputed {
   today: LocalDate;
   computedAt: Date;
   types: Array<{ label: string; monthlyFromVnd: number }>;
+  /** FB-INV-011: rates of the landing estimate (null → `fx` left out). */
+  fx: PublicFxBlock | null;
 }
 
 /** OpenAPI PublicMonthlyRates.roomTypes maxItems. */
@@ -138,6 +141,8 @@ export function publicMonthlyRatesDto(c: {
   types: ReadonlyArray<{ label: string; monthlyFromVnd: number }>;
   computedAt: string;
   taxIncluded: boolean;
+  /** FB-INV-011 (contract `rounds/round-05/fb-inv-011/contract.md`): optional, built field by field. */
+  fx?: PublicFxBlock | null;
 }): Record<string, unknown> {
   // FB-R5-ARC-BE-180-03: two Desk labels with the same slug ("Studio Garden" / "Studio garden") are ONE public type –
   // grouped by slug, lowest price kept with the label of that price (ties: label order), at most 20 (schema maxItems).
@@ -161,6 +166,22 @@ export function publicMonthlyRatesDto(c: {
       .sort((x, y) => x.monthlyFromVnd - y.monthlyFromVnd || x.label.localeCompare(y.label))
       .slice(0, PUBLIC_MONTHLY_RATES_MAX),
     computedAt: c.computedAt,
+    ...(c.fx ? { fx: publicFxDto(c.fx) } : {}),
+  };
+}
+
+/** OpenAPI PublicFxRates (additionalProperties: false) – allowlisted codes only, positive numbers only. */
+function publicFxDto(fx: PublicFxBlock): Record<string, unknown> {
+  const rates: Record<string, number> = {};
+  for (const code of FX_CURRENCIES) {
+    const r = fx.rates[code];
+    if (typeof r === 'number' && Number.isFinite(r) && r > 0) rates[code] = r;
+  }
+  return {
+    base: 'VND',
+    source: fx.source === 'manual' ? 'manual' : 'vietcombank',
+    asOf: fx.asOf,
+    rates,
   };
 }
 
@@ -611,13 +632,16 @@ export class PriceEstimateService {
       const wait = this.limiter.retryAfter(fresh, ESTIMATE_FRESH_RULE);
       if (wait > 0) throw problem('SERVICE_UNAVAILABLE', { headers: { 'Retry-After': '60' } });
       this.limiter.hit(fresh, ESTIMATE_FRESH_RULE);
-      let r: Awaited<ReturnType<PublicRatePort['monthlyFrom']>>;
+      let r: Awaited<ReturnType<PublicRatePort['monthlyFrom']>> & { fx: PublicFxBlock | null };
       try {
         r = await this.db.withContext(
           this.ctxOf(p),
           async (tx) => {
             await tx.query(`SET LOCAL statement_timeout = '1s'`);
-            return this.rates.monthlyFrom(tx, today);
+            const types = await this.rates.monthlyFrom(tx, today);
+            // FB-INV-011: Vietcombank rates / OWN override in force on the business date (≤ 7 days old).
+            const fx = await readFxRows(tx, today);
+            return { ...types, fx: publicFxBlock(today, fx.auto, fx.overrides) };
           },
           { readOnly: true },
         );
@@ -628,13 +652,14 @@ export class PriceEstimateService {
       }
       if (r.priceGapRoomIds.length > 0) this.warnGaps(p, today, r.priceGapRoomIds);
       const computedAt = new Date(Math.floor(now.getTime() / 1000) * 1000);
-      c = { at: now.getTime(), today, computedAt, types: r.types };
+      c = { at: now.getTime(), today, computedAt, types: r.types, fx: r.fx };
       this.monthlyCache.set(p.propertyId, c);
     }
     return publicMonthlyRatesDto({
       types: c.types,
       computedAt: toZonedIso(c.computedAt, p.timezone),
       taxIncluded: sw.taxIncluded,
+      fx: c.fx,
     });
   }
 

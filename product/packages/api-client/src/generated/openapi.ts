@@ -5322,6 +5322,7 @@ export interface paths {
      *     trần 600 lần tính mới/giờ/cơ sở): `Sec-Fetch-Site` khác `same-origin` → 403; cơ sở không có / tắt `public_booking_requests_enabled` hoặc `public_show_prices` → 404; có bất kỳ tham số
      *     query nào → 422 `VALIDATION_FAILED` (`NOT_ALLOWED`). Giao dịch READ ONLY, `statement_timeout` 1 giây. **Cache** RAM 60 giây theo (cơ sở, ngày nghiệp vụ), xóa cùng cache ước tính khi
      *     đổi tham số; đổi giá căn lên web chậm tối đa 60 giây. `Cache-Control: no-store`, `X-Robots-Tag: noindex` ở mọi phản hồi. Lỗi bất kỳ → trang **ẩn** giá, form vẫn gửi.
+     *     **0.3.13 bổ sung 3 (FB-INV-011)**: khối tùy chọn `fx` (`PublicFxRates`) – đọc trong cùng giao dịch, cùng cache 60 giây; vắng khi không có tỷ giá ≤ 7 ngày tuổi.
      */
     get: operations['getPublicMonthlyRates'];
     put?: never;
@@ -6361,6 +6362,8 @@ export interface components {
        *     (không lọc im lặng). Chỉ số, mã đơn/WO, số căn, ngày – **không** tên, SĐT, ghi chú, số tiền chi tiết của khách. `reconcile_overdue`: `count`, `oldestDays`.
        *     **0.3.7**: `data_quality` → `check` ∈ `registration_stay_not_closed`, `registration_party_docs_unlinked` (S4-39); `ooo_ending_work_open` → `roomNo`, `endDate`.
        *     **0.3.8 (SEC B.6 – ARC chọn a1, R3-Q33 a)**: `data_quality` thêm `check = attachment_retention_anchor_missing` – **chỉ OWN/MGR** (FD/HK không thấy), nguồn `computed` từ lần chạy J16 gần nhất, `params` chỉ `check` + `count`; hết ảnh thiếu mốc → mục tự hết.
+       *     **0.3.13 bổ sung 3 (FB-INV-011)**: `data_quality` thêm `check = fx_rate_fetch_failed` – **chỉ OWN**, nguồn `event`, mức `warning`, `params` chỉ `check`: job `fx.refresh` không lấy được tỷ giá Vietcombank
+       *     (tỷ giá cũ được giữ); tối đa một mục mới mỗi ngày; lần lấy được kế tiếp tự đóng, OWN cũng đóng được bằng `resolveAttentionEvent`. Xử lý: xem `fx_rates.vietcombank`, nếu cần đặt `fx_rate_overrides`.
        *     **0.3.7 bổ sung D1**: `ota_no_show_report` (US-136 AC2/AC5) → `action` ∈ `report` ("Báo no-show trên kênh" – sinh khi `markNoShow` đơn kênh `ota`), `revoke` ("Báo kênh hủy no-show" –
        *     sinh khi `restoreNoShow` đơn OTA đã báo), `channel` (mã kênh); `refCode` = mã đơn; nguồn `event`, mức `warning`, OWN/MGR/FDL/FD; lễ tân đóng bằng `resolveAttentionEvent` sau khi
        *     làm trên extranet (ghi người, lúc). `closed_reservation_credit` (S4-06, BR-522 – "tiền dư đơn đã đóng") → không tham số; `refCode` = mã đơn, **không** số tiền; nguồn `event`,
@@ -9829,6 +9832,27 @@ export interface components {
         monthlyFromVnd: components['schemas']['MoneyVnd'];
       }[];
       computedAt: components['schemas']['Instant'];
+      fx?: components['schemas']['PublicFxRates'];
+    };
+    /**
+     * @description **0.3.13 bổ sung 3 (FB-INV-011)** – tỷ giá để landing hiện "≈ số ngoại tệ" bên cạnh giá VND (chỉ ước tính; thanh toán bằng VND). Trường **tùy chọn** của `PublicMonthlyRates`:
+     *     vắng (hoặc client gặp `null`) → chỉ hiện VND. Mỗi mã: tỷ giá tay OWN đang hiệu lực (`fx_rate_overrides`, `asOf` = ngày hiệu lực) nếu ≤ 7 ngày tuổi, ngược lại tỷ giá Vietcombank
+     *     (`fx_rates.vietcombank`, `asOf` = ngày của bảng Vietcombank) nếu ≤ 7 ngày tuổi; mã không có tỷ giá hợp lệ thì **vắng** trong `rates` (landing chỉ hiện VND cho ngôn ngữ đó).
+     *     `source` = `manual` khi ít nhất một mã dùng tỷ giá tay; `asOf` = ngày **cũ nhất** trong các tỷ giá đã trả. Quy đổi (FE): ngoại tệ = VND ÷ `rates[mã]`.
+     */
+    PublicFxRates: {
+      /** @enum {string} */
+      base: 'VND';
+      /** @enum {string} */
+      source: 'vietcombank' | 'manual';
+      asOf: components['schemas']['LocalDate'];
+      /** @description Số VND cho 1 đơn vị ngoại tệ (tỷ giá bán), chỉ 4 mã allowlist */
+      rates: {
+        USD?: number;
+        KRW?: number;
+        CNY?: number;
+        RUB?: number;
+      };
     };
   };
   responses: {

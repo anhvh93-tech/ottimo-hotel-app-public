@@ -410,6 +410,14 @@ info:
       (d) ARC FB-R5-ARC-BE-180-01: số "From" của `getPublicMonthlyRates` (giá danh mục hôm nay) có thể khác số của form (`getPublicPriceEstimate`, theo ngày đến và đoàn) – khi lệch, trang hiện số của form.
       (e) Ghi chú phát hành (ARC FB-R5-ARC-BE-180-02): `priceVersion` nay băm thêm giá tháng và `rounding.monthly_rent` → yêu cầu web ngắn ngày gửi trong 24 giờ sau deploy (token phát trước deploy)
       có thể báo lệch phiên bản giá trên Desk dù số không đổi – bỏ qua nếu số khớp. (f) FB-R5-ARC-BE-180-03: nhãn khác nhau nhưng cùng slug là **một** hạng (giữ giá nhỏ nhất); tối đa 20 hạng.
+    - **0.3.13 bổ sung 3 (R5 – FB-INV-011, INV 17/11; hợp đồng BE ↔ FE `rounds/round-05/fb-inv-011/contract.md`, ARC review cùng PR BE)**: landing hiện thêm "≈ số ngoại tệ" theo ngôn ngữ
+      (EN USD, KO KRW, ZH CNY, RU RUB; VI không quy đổi) – giá và thanh toán vẫn **VND**. Chỉ **thêm** (trường tùy chọn ở phản hồi, khóa danh mục, giá trị `check`); không mã lỗi mới.
+      (a) `PublicMonthlyRates.fx` (tùy chọn, schema mới `PublicFxRates`): `base` = VND, `source` ∈ `vietcombank` | `manual`, `asOf` (ngày), `rates` – số VND cho 1 đơn vị (tỷ giá **bán** Vietcombank),
+      chỉ 4 mã allowlist, số dương. Vắng khi không có tỷ giá nào ≤ 7 ngày tuổi (so ngày nghiệp vụ) → landing chỉ hiện VND. `price-estimate` không đổi (FE tự quy đổi từ VND).
+      (b) Khóa danh mục (migration `0098_fx_rates_fb_inv_011`, chỉ dữ liệu): `fx_rates.vietcombank` (json, OWN xem; **chỉ worker ghi** – `setParameter` → 403 với mọi vai) và
+      `fx_rate_overrides` (json, chỉ OWN; `{"USD": 25500}` – mã ngoài allowlist → 422 `VALIDATION_FAILED` `NOT_ALLOWED`, số ngoài dải hợp lý → 422 `PARAM_OUT_OF_RANGE` kèm `min`/`max`).
+      (c) Job `fx.refresh` (worker): đọc XML công khai Vietcombank mỗi ngày (lần đầu khi worker khởi động, rồi tối đa 1 lần/giờ từ 07:30 tới khi có bảng của hôm nay); lỗi → giữ tỷ giá cũ,
+      `AttentionItem` `data_quality` `check = fx_rate_fetch_failed` (nguồn `event`, `warning`, **chỉ OWN**, tối đa 1 mục mới/ngày; lần lấy được sau tự đóng).
 
     ## Thay đổi phiên bản 0.3.12-draft (R4 v1.0.4 – gói P4-00; ARC 04/11; chi tiết `rounds/round-04/outputs/ARC/v1.0.4-contract-0.3.12.md`)
     Nền: 0.3.11-draft (`lp-v2-main`). Chỉ **thêm** giá trị enum ở phản hồi, trường chỉ đọc, mã lỗi trên operation đã có và mô tả – **không** operation mới, không đổi `x-roles`.
@@ -10170,6 +10178,7 @@ paths:
         trần 600 lần tính mới/giờ/cơ sở): `Sec-Fetch-Site` khác `same-origin` → 403; cơ sở không có / tắt `public_booking_requests_enabled` hoặc `public_show_prices` → 404; có bất kỳ tham số
         query nào → 422 `VALIDATION_FAILED` (`NOT_ALLOWED`). Giao dịch READ ONLY, `statement_timeout` 1 giây. **Cache** RAM 60 giây theo (cơ sở, ngày nghiệp vụ), xóa cùng cache ước tính khi
         đổi tham số; đổi giá căn lên web chậm tối đa 60 giây. `Cache-Control: no-store`, `X-Robots-Tag: noindex` ở mọi phản hồi. Lỗi bất kỳ → trang **ẩn** giá, form vẫn gửi.
+        **0.3.13 bổ sung 3 (FB-INV-011)**: khối tùy chọn `fx` (`PublicFxRates`) – đọc trong cùng giao dịch, cùng cache 60 giây; vắng khi không có tỷ giá ≤ 7 ngày tuổi.
       security: []
       x-roles: [public]
       x-allowed-origins: [landing]
@@ -11496,6 +11505,8 @@ components:
             (không lọc im lặng). Chỉ số, mã đơn/WO, số căn, ngày – **không** tên, SĐT, ghi chú, số tiền chi tiết của khách. `reconcile_overdue`: `count`, `oldestDays`.
             **0.3.7**: `data_quality` → `check` ∈ `registration_stay_not_closed`, `registration_party_docs_unlinked` (S4-39); `ooo_ending_work_open` → `roomNo`, `endDate`.
             **0.3.8 (SEC B.6 – ARC chọn a1, R3-Q33 a)**: `data_quality` thêm `check = attachment_retention_anchor_missing` – **chỉ OWN/MGR** (FD/HK không thấy), nguồn `computed` từ lần chạy J16 gần nhất, `params` chỉ `check` + `count`; hết ảnh thiếu mốc → mục tự hết.
+            **0.3.13 bổ sung 3 (FB-INV-011)**: `data_quality` thêm `check = fx_rate_fetch_failed` – **chỉ OWN**, nguồn `event`, mức `warning`, `params` chỉ `check`: job `fx.refresh` không lấy được tỷ giá Vietcombank
+            (tỷ giá cũ được giữ); tối đa một mục mới mỗi ngày; lần lấy được kế tiếp tự đóng, OWN cũng đóng được bằng `resolveAttentionEvent`. Xử lý: xem `fx_rates.vietcombank`, nếu cần đặt `fx_rate_overrides`.
             **0.3.7 bổ sung D1**: `ota_no_show_report` (US-136 AC2/AC5) → `action` ∈ `report` ("Báo no-show trên kênh" – sinh khi `markNoShow` đơn kênh `ota`), `revoke` ("Báo kênh hủy no-show" –
             sinh khi `restoreNoShow` đơn OTA đã báo), `channel` (mã kênh); `refCode` = mã đơn; nguồn `event`, mức `warning`, OWN/MGR/FDL/FD; lễ tân đóng bằng `resolveAttentionEvent` sau khi
             làm trên extranet (ghi người, lúc). `closed_reservation_credit` (S4-06, BR-522 – "tiền dư đơn đã đóng") → không tham số; `refCode` = mã đơn, **không** số tiền; nguồn `event`,
@@ -15087,3 +15098,29 @@ components:
               label: { type: string, maxLength: 60, description: 'Tên hạng công khai `Room.publicRoomType` (BR-012 – tên theo website, ví dụ "Studio Garden")' }
               monthlyFromVnd: { $ref: '#/components/schemas/MoneyVnd', description: '"From X / month" – giá niêm yết tháng nhỏ nhất của hạng tại ngày nghiệp vụ, làm tròn `rounding.monthly_rent`' }
         computedAt: { $ref: '#/components/schemas/Instant' }
+        fx:
+          $ref: '#/components/schemas/PublicFxRates'
+    PublicFxRates:
+      type: object
+      additionalProperties: false
+      x-round: R5
+      required: [base, source, asOf, rates]
+      description: |
+        **0.3.13 bổ sung 3 (FB-INV-011)** – tỷ giá để landing hiện "≈ số ngoại tệ" bên cạnh giá VND (chỉ ước tính; thanh toán bằng VND). Trường **tùy chọn** của `PublicMonthlyRates`:
+        vắng (hoặc client gặp `null`) → chỉ hiện VND. Mỗi mã: tỷ giá tay OWN đang hiệu lực (`fx_rate_overrides`, `asOf` = ngày hiệu lực) nếu ≤ 7 ngày tuổi, ngược lại tỷ giá Vietcombank
+        (`fx_rates.vietcombank`, `asOf` = ngày của bảng Vietcombank) nếu ≤ 7 ngày tuổi; mã không có tỷ giá hợp lệ thì **vắng** trong `rates` (landing chỉ hiện VND cho ngôn ngữ đó).
+        `source` = `manual` khi ít nhất một mã dùng tỷ giá tay; `asOf` = ngày **cũ nhất** trong các tỷ giá đã trả. Quy đổi (FE): ngoại tệ = VND ÷ `rates[mã]`.
+      properties:
+        base: { type: string, enum: [VND] }
+        source: { type: string, enum: [vietcombank, manual] }
+        asOf: { $ref: '#/components/schemas/LocalDate' }
+        rates:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          description: 'Số VND cho 1 đơn vị ngoại tệ (tỷ giá bán), chỉ 4 mã allowlist'
+          properties:
+            USD: { type: number, exclusiveMinimum: 0 }
+            KRW: { type: number, exclusiveMinimum: 0 }
+            CNY: { type: number, exclusiveMinimum: 0 }
+            RUB: { type: number, exclusiveMinimum: 0 }

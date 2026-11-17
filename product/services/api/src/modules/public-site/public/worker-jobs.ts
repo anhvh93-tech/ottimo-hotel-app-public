@@ -13,6 +13,7 @@
  *   at `retention.web_request_max_age_days` from creation (still open → WR7 first, reason `stale`);
  *   `ip_hmac` NULL after `retention.web_request_ip_hmac_days`. One `purge_journal` row per request (ids only).
  * - `public_site.cleanup` (tick): expired `public_form_nonce` / `rate_limit_counter` rows (technical, batch).
+ * - `fx.refresh` (tick, own gating – FB-INV-011): Vietcombank SELL rates of USD/KRW/CNY/RUB once a day (fx-refresh-job.ts).
  * "Cần chú ý" `website_request_new` is computed at read time (websiteRequestNewSource).
  */
 import type { Tx } from '../../../db/database';
@@ -21,6 +22,7 @@ import type { JobDefinition } from '../../../jobs/job-runner';
 import type { AttentionSource, EventsService } from '../../events/public/events.service';
 import type { ParameterService } from '../../platform/public/parameter.service';
 import { deskHoursOf } from '../internal/website-request-rules';
+import { type FxFetchMode, fxRefreshJob } from './fx-refresh-job';
 
 export const WEB_REQUEST_SLA_JOB_KEY = 'web_request.sla';
 export const WEB_REQUEST_STALE_JOB_KEY = 'web_request.stale';
@@ -127,11 +129,14 @@ async function morningNudge(
 export function publicSiteWorkerJobs(deps: {
   events: EventsService;
   params: ParameterService;
+  /** FB-INV-011 `fx.refresh`: FX_RATES_FETCH of the process (fxFetchModeFrom) – `off` when not given. */
+  fxMode?: FxFetchMode;
 }): JobDefinition[] {
   const { events, params } = deps;
   const int = async (tx: Tx, key: string, date: string) =>
     Number(await params.get<number>(tx, key, date));
   return [
+    fxRefreshJob({ events, params, mode: deps.fxMode ?? 'off' }),
     {
       key: WEB_REQUEST_SLA_JOB_KEY,
       schedule: { kind: 'tick' },
