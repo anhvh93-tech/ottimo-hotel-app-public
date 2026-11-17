@@ -44,6 +44,7 @@ import {
   reductionScope,
   rootLineOf,
 } from '../public/line-reduction';
+import { isStatementLine } from '../public/statement-codes';
 import { readDamageCatalog } from './damage-catalog-read';
 import { StayWaiverAlertService } from './stay-waiver-alert';
 
@@ -471,11 +472,18 @@ export class FolioLinesService {
       reservation_id: string | null;
       service_date: string | null;
       folio_id: string;
+      charge_code: string | null;
     }>(
-      `SELECT category, reservation_id, service_date::text AS service_date, folio_id FROM folio_line WHERE id = $1`,
+      `SELECT category, reservation_id, service_date::text AS service_date, folio_id, charge_code
+         FROM folio_line WHERE id = $1`,
       [lineId],
     );
     const target = pre[0];
+    // FB-INV-012 (contract 2.4): a line posted by a monthly statement is changed only through the statement (void and
+    // replace, or "Điều chỉnh kỳ trước" on the next one – BR-LS-16), never by A31/A32.
+    if (target && target.folio_id === folioId && isStatementLine(target.charge_code)) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: 'statement_line' } });
+    }
     // 16.19 (FB-R2-ARC-BE-S4-16): L1 – every booking of the folio, id order – BEFORE the night branch, so that
     // `setNightRate` only re-locks a booking already held (a child booking's night never locks the child before the
     // primary); L3 below (`lockStay` re-takes L1 without waiting).

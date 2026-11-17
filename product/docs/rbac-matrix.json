@@ -970,7 +970,10 @@
    },
    "trusted_device_required": false,
    "c3_access_log": false,
-   "operationIds": []
+   "operationIds": [
+    "recordBillingPeriodPayment"
+   ],
+   "note": "Ghi chú 49 (FB-INV-012, OpenAPI 0.3.14-draft): ghi thu phiếu thanh toán tháng khách dài hạn."
   },
   {
    "id": "A59",
@@ -1453,7 +1456,8 @@
    },
    "trusted_device_required": false,
    "c3_access_log": false,
-   "operationIds": []
+   "operationIds": [],
+   "note": "Ghi chú 49 (FB-INV-012): làm đơn giản – không dùng hộp duyệt; FD gửi ngoại lệ đồng hồ/miễn ảnh trong recordMeterReading → 403, OWN/MGR/FDL lưu thẳng (exception_approved_by)."
   },
   {
    "id": "A90",
@@ -1823,6 +1827,63 @@
     "getManagerPerformanceBonus"
    ],
    "note": "Ghi chú 48 (hợp đồng 0.3.13-draft mục 1.22, V5-30, PR-M): owner xem mọi quản lý; manager chỉ của chính mình (x-scope { manager: own }); tính lúc đọc, không lưu bản ghi. ARC gắn x-rbac [A120]."
+  },
+  {
+   "id": "A121",
+   "name_vi": "Lập, xem, sửa nháp, phát hành, in phiếu thanh toán tháng; hủy phiếu nháp",
+   "event": "manage_monthly_statement",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listBillingCandidates",
+    "createBillingPeriod",
+    "listBillingPeriods",
+    "getBillingPeriod",
+    "updateBillingPeriod",
+    "issueBillingPeriod",
+    "voidBillingPeriod",
+    "getBillingPeriodPrint"
+   ],
+   "note": "Ghi chú 49 (FB-INV-012, OpenAPI 0.3.14-draft tag billing)."
+  },
+  {
+   "id": "A122",
+   "name_vi": "Điều chỉnh kỳ trước trên phiếu tháng; hủy phiếu đã phát hành chưa thu",
+   "event": "adjust_or_void_issued_statement",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [],
+   "note": "Ghi chú 49: điều kiện trong operation của A121 – updateBillingPeriod.priorAdjustment và voidBillingPeriod phiếu đã phát hành; FD → 403 FORBIDDEN_ACTION."
+  },
+  {
+   "id": "A123",
+   "name_vi": "Ghi, xem, hủy chỉ số điện nước của khách dài hạn",
+   "event": "record_long_stay_meter",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listMeterReadings",
+    "recordMeterReading",
+    "voidMeterReading"
+   ],
+   "note": "Ghi chú 49 (FB-INV-012): tách khỏi A88 vì đợt này MT chưa mở (MT không được thấy tên khách, SEC D18); A88 giữ nguyên ô cũ."
   },
   {
    "id": "G-L1",

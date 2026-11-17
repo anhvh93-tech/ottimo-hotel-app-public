@@ -76,8 +76,19 @@ export interface ManualPaymentInput {
    * DUPLICATE_BANK_REFERENCE (checked here, under an advisory lock, for every path).
    */
   bankReference?: string | null;
+  /**
+   * FB-INV-012 (contract 5 `recordBillingPeriodPayment`): the monthly statement this receipt pays – set by the billing
+   * module only (`PaymentCreate.billingPeriodId` from a client stays refused by `checkPaymentShape`).
+   */
+  billingPeriodId?: string | null;
   requestId?: string;
 }
+
+/**
+ * FB-INV-012: told in the same transaction when a receipt of a monthly statement changes status (reversal – A34), so the
+ * billing module recomputes `billing_period.paid_vnd` and steps its status back. Provided by the billing module.
+ */
+export type BillingPeriodPaymentListener = (tx: Tx, billingPeriodId: string) => Promise<void>;
 
 /** 0.3.13 bổ sung 1 (5B-1, SEC ARC-15): `bankReference` as stored and compared – trimmed, upper-case. */
 export function normalizeBankReference(raw: string | null | undefined): string | null {
@@ -302,9 +313,9 @@ export class PaymentService {
     await tx.query(
       `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
          reconciliation, amount_vnd, status, auth_code, received_at, recorded_by, note, created_at,
-         created_by, updated_at, recorded_by_role, attachment_id, bank_reference)
+         created_by, updated_at, recorded_by_role, attachment_id, bank_reference, billing_period_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'succeeded', $11, $12, $13, $14, $15, $13, $15, $16, $17,
-         $18)`,
+         $18, $19)`,
       [
         id,
         tx.ctx.organizationId,
@@ -324,6 +335,7 @@ export class PaymentService {
         role,
         p.attachmentId ?? null,
         bankReference,
+        p.billingPeriodId ?? null,
       ],
     );
     // ARC 16.29 (N-6): every receipt moves the folio's version (B2/B4/B9/B18 callers and recordPayment).
@@ -345,6 +357,7 @@ export class PaymentService {
         ...(p.afterClosure
           ? { afterClosure: true, reservationStatus: p.afterClosure.reservationStatus }
           : {}),
+        ...(p.billingPeriodId ? { billingPeriodId: p.billingPeriodId } : {}),
       },
       ...(p.requestId ? { requestId: p.requestId } : {}),
     });
@@ -424,9 +437,28 @@ export class PaymentService {
        * role, OWN included) and its audit carries `afterClosure` + `reservationStatus`.
        */
       afterClosure?: AfterClosureContext;
+      /**
+       * FB-INV-012: the monthly statement paid (billing module – it checked the statement's balance and passes it as
+       * `outstandingCapVnd`). The receipt carries `billing_period_id`.
+       */
+      billingPeriodId?: string;
     },
   ): Promise<PaymentRowLite> {
     return (await this.recordInTxWithDue(tx, actor, folioId, raw, ctx)).row;
+  }
+
+  private billingListener: BillingPeriodPaymentListener | null = null;
+
+  /** FB-INV-012: the billing module listens to reversals of statement receipts (no import of billing here). */
+  provideBillingPeriodListener(listener: BillingPeriodPaymentListener): void {
+    this.billingListener = listener;
+  }
+
+  /** FB-INV-012: a receipt of statement `billingPeriodId` changed status – the statement recomputes what it received. */
+  async billingPeriodPaymentChanged(tx: Tx, billingPeriodId: string): Promise<void> {
+    if (!this.billingListener)
+      throw new Error('billing module not wired (statement receipt changed)');
+    await this.billingListener(tx, billingPeriodId);
   }
 
   /**
@@ -557,6 +589,7 @@ export class PaymentService {
       ...(ctx.afterClosure
         ? { afterClosure: { reservationStatus: ctx.afterClosure.reservationStatus } }
         : {}),
+      ...(ctx.billingPeriodId ? { billingPeriodId: ctx.billingPeriodId } : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
     if (raw.attachmentId) {

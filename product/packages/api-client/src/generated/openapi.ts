@@ -5493,6 +5493,277 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Lịch sử chỉ số điện nước của đơn dài hạn (FB-INV-012, BR-LS-10…12) – FD+
+     * @description **0.3.14 (FB-INV-012)**. Mọi lần đọc của đơn (kể cả đã hủy – `voided=true`), theo `readOn` tăng dần. Lần đọc **đầu kỳ** (`checkin`, `period_start`,
+     *     `room_change_in`) kèm `previousClosing` (chỉ số cuối gần nhất của căn, mọi đơn – chỉ để so) và `gap` = đầu kỳ − cuối kỳ trước (hao hụt khoảng trống:
+     *     tham quan, dọn phòng – **không tính cho khách**, INV 17/11). Lần đọc **cuối kỳ** (`period_end`, `room_change_out`, `checkout`) kèm `consumption` so với
+     *     lần đầu kỳ của cùng kỳ (số tính tiền). Đơn không phải dài hạn có tiền thuê → 422 `NOT_LONG_STAY`. `Cache-Control: no-store`.
+     */
+    get: operations['listMeterReadings'];
+    put?: never;
+    /**
+     * Ghi một lần đọc cả hai đồng hồ của một căn (FB-INV-012) – FD+; ngoại lệ / miễn ảnh FDL+
+     * @description **0.3.14 (FB-INV-012; INV 17/11 bổ sung)**. Chỉ số **đầu kỳ do lễ tân nhập, bắt buộc** mỗi kỳ (`checkin` lúc nhận phòng, `period_start` với `periodMonth` =
+     *     tháng mở, `room_change_in` khi đổi căn) – lệch hợp đồng 2.1 ("đầu kỳ không lưu") theo INV. Chỉ số cuối kỳ: `period_end` (`periodMonth` = tháng đóng; đọc
+     *     ngày 01 vẫn đóng tháng trước – BR-LS-10), `room_change_out`, `checkout`. Giá trị: điện kWh nguyên, nước m³ một số lẻ – **bỏ phần lẻ** (BR-LS-11).
+     *     - Cửa sổ `period_end` P: [ngày cuối P − `readingWindow.daysBeforeMonthEnd`, ngày cuối P + `daysAfter`]; `period_start` P dùng cửa sổ của `period_end` P−1;
+     *       ngoài → 422 `READING_OUT_OF_WINDOW` (`windowFrom`, `windowTo`). `readOn` > hôm nay, trước ngày đến hoặc sau ngày đi → `VALIDATION_FAILED` `readOn` `DATE_INVALID`.
+     *       `period_start` của tháng nhận phòng → `periodMonth` `NOT_ALLOWED` (đầu kỳ đầu tiên là lần đọc `checkin`).
+     *     - Đầu kỳ < cuối kỳ trước của căn, hoặc cuối kỳ < đầu kỳ cùng kỳ, mà không có `exception` → 422 `METER_LOWER_THAN_PREVIOUS` (`meter`, `previousValue`,
+     *       `previousReadingId`, `previousKind`). `exception` (`replaced` / `rollover`) hoặc `photoWaived=true` → chỉ OWN/MGR/FDL (FD → 403 `FORBIDDEN_ACTION`, A89 đơn giản hóa).
+     *     - Đầu kỳ > cuối kỳ trước → lưu `gap` (không tính tiền, OWN xem). Ảnh `photoAttachmentId` (attachment `purpose=meter`) bắt buộc trừ khi `photoWaived` (kèm `note`).
+     *     - Trùng lần đọc còn hiệu lực (đơn, căn, loại, tháng/ngày) → 409 `READING_EXISTS`. Đơn không `in_house` → 409 `INVALID_TRANSITION` (đơn `checked_out`: chỉ lần đọc cuối kỳ).
+     *     `note` 3–300 ký tự, lọc số thẻ/giấy tờ. Audit `meter_reading.recorded` (+ `meter_reading.exception`).
+     */
+    post: operations['recordMeterReading'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/meter-readings/{readingId}/void': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        readingId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Hủy lần đọc nhập sai (FB-INV-012) – FD+
+     * @description **0.3.14**. "Nhập sai" = hủy rồi nhập lại, không sửa đè. `reason` 3–300. Lần đọc đang nằm trên phiếu đã phát hành → 409 `READING_ON_ISSUED_STATEMENT`
+     *     (`statementCode`); đã hủy → 409 `INVALID_TRANSITION`. Phiếu nháp dùng lần đọc này tính lại khi đọc. Audit `meter_reading.voided`.
+     */
+    post: operations['voidMeterReading'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/billing-periods/candidates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Đơn dài hạn đang ở cần lập phiếu tháng (FB-INV-012, khối "Ready to bill") – FD+
+     * @description **0.3.14**. Đơn `stay_type=long` có tiền thuê, `in_house`, chưa có phiếu đã phát hành của tháng `month`, và tháng đó lập được phiếu theo
+     *     `monthly_statement_rules` (`kind` = `regular` / `final`). `readingStatus` của chỉ số cuối kỳ điện nước: `missing`, `recorded`, `exception` (ngoại lệ hoặc
+     *     miễn ảnh), `not_needed` (kỳ điện nước trước ngày đến). `draftId` = phiếu nháp đang có.
+     */
+    get: operations['listBillingCandidates'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Tạo phiếu thanh toán tháng nháp (FB-INV-012) – FD+
+     * @description **0.3.14**. `{month, kind?}` → 201 `BillingPeriod` nháp đã tính (tính lại mỗi lần đọc). `kind` vắng = server chọn. Tháng lập được: `advance` – từ tháng nhận
+     *     phòng (`partialFirstMonthRent=at_checkin`, INV 17/11: phần lẻ thu lúc nhận phòng) hoặc tháng sau (`first_statement`) tới tháng của đêm cuối; tháng đó là
+     *     `final` nếu đơn kết thúc giữa tháng (BR-LS-04). `arrears` – từ tháng sau tháng nhận phòng tới tháng của đêm cuối (+1 nếu đêm cuối là ngày cuối tháng).
+     *     Ngoài → `VALIDATION_FAILED` `month` `NOT_ALLOWED`; `kind` khác loại đúng → `kind` `NOT_ALLOWED` (`allowed[]`). Đã có phiếu sống cùng tháng → 409
+     *     `STATEMENT_EXISTS` (`billingPeriodId`). Phiếu đã phát hành bị hủy cùng tháng → phiếu mới có `replacesId`, mã `-R<n>` lúc phát hành.
+     *     Đơn không phải dài hạn → 422 `NOT_LONG_STAY`; không `in_house` → 409 `INVALID_TRANSITION` (phiếu `final`: tới hết `readingWindow.daysAfter` sau ngày đi).
+     */
+    post: operations['createBillingPeriod'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/billing-periods': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Danh sách phiếu thanh toán tháng (S16, "Cần chú ý") – FD+
+     * @description **0.3.14**. Sắp theo tháng giảm dần. `overdue=true`: phiếu `issued`/`partially_paid` còn nợ, `dueDate` ≤ hôm nay. `alertLevel` suy ra khi đọc (BR-LS-02):
+     *     ngày đến hạn `due_today`, từ hôm sau `overdue`, sau `rent_overdue_alert_days` ngày `alert`, sau `rent_overdue_escalate_days` ngày `escalate`. Phiếu nháp:
+     *     `totalVnd` null. `guestDisplayName` tên rút gọn – không SĐT, email, giấy tờ.
+     */
+    get: operations['listBillingPeriods'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/billing-periods/{billingPeriodId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Chi tiết phiếu (nháp = xem trước tính lại khi đọc; đã phát hành = bản chụp) – FD+
+     * @description **0.3.14**. ETag. Nháp: `lines`, `totals`, `warnings`, `missingReadings` tính lại theo chỉ số, tham số, dòng folio hiện có. Đã phát hành: bản chụp lúc phát hành.
+     */
+    get: operations['getBillingPeriod'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Sửa phiếu nháp – dời dòng dịch vụ (FD+), điều chỉnh kỳ trước (FDL+), ghi chú
+     * @description **0.3.14**. Chỉ phiếu `draft` (khác → 409 `INVALID_TRANSITION`). `If-Match`. `excludedFolioLineIds` thay cả danh sách – id không phải dòng dịch vụ của kỳ dịch vụ
+     *     trên folio của đơn → `excludedFolioLineIds[i]` `NOT_IN_LIST` (BR-LS-14). `priorAdjustment` (BR-LS-16, A122: OWN/MGR/FDL, FD → 403): `{amountVnd ≠ 0, reason 3–300}`,
+     *     `null` = bỏ; ghi folio `adjustment` nhóm `other` lúc phát hành. `note` 3–300.
+     */
+    patch: operations['updateBillingPeriod'];
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Phát hành phiếu – ghi dòng folio, chụp dòng, cấp mã (FB-INV-012) – FD+
+     * @description **0.3.14**. `If-Match` + `Idempotency-Key`. Một giao dịch: khóa đơn `KEY SHARE` → folio `FOR UPDATE` → phiếu → tính → ghi folio (thuê `room`/`monthly_rent`,
+     *     điện nước `utilities`/`electricity`·`water` đơn giá đã gồm VAT, làm tròn và điều chỉnh kỳ trước `adjustment`) → chụp `billing_period_line` → `issued`, mã
+     *     `TT-<yymm>-<số căn>[-R<n>]`. Thiếu chỉ số → 422 `METER_READING_MISSING` (`missingReadings[]`); có cảnh báo mà `acknowledgeWarnings` không `true` → 422
+     *     `WARNINGS_NOT_ACKNOWLEDGED` (`warnings[]`); tổng ≤ 0 → 422 `AMOUNT_NOT_POSITIVE`; folio `settled`/`closed` → 409 `FOLIO_LOCKED`. Không chốt folio.
+     *     Đơn giá điện nước theo ngày cuối kỳ điện nước; % VAT theo ngày phát hành (BR-LS-07/08) – ghi vào `ratesSnapshot`.
+     */
+    post: operations['issueBillingPeriod'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Hủy phiếu – nháp (FD+) hoặc đã phát hành chưa thu (FDL+)
+     * @description **0.3.14**. `reason` 3–300. Đã có khoản thu `succeeded` (hoặc `partially_paid`/`paid`) → 409 `STATEMENT_HAS_PAYMENTS` (`paidVnd`) – dùng "Điều chỉnh kỳ trước"
+     *     (BR-LS-16). Đã phát hành: đảo các dòng folio phiếu tự ghi (`reversal_of_id`), dòng tham chiếu `active=false`, cùng giao dịch; FD → 403 (A122).
+     *     `canReplace` = phiếu đã phát hành và tháng còn lập được → FE mở `createBillingPeriod` cùng tháng (server điền `replacesId`). `If-Match` tùy chọn.
+     */
+    post: operations['voidBillingPeriod'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ghi thu cho phiếu (tiền mặt / VietQR) – FD+
+     * @description **0.3.14**. Đường ghi thu của `PaymentService` (`type=charge`, `billing_period_id`). `vietqr` → `reconciliation=pending` (SM-12, không tự đối soát); `cash` theo luật
+     *     ca hiện có. Phiếu không `issued`/`partially_paid` → 409 `INVALID_TRANSITION`; `amountVnd` > còn phải thu → 422 `AMOUNT_OVER_BALANCE` (`balanceVnd`).
+     *     Cập nhật `paidVnd`, `status` → `partially_paid` / `paid` (+ `paidAt`) cùng giao dịch; đảo khoản thu (A34) trừ lại và lùi trạng thái. `bankReference` theo luật `PaymentCreate`.
+     */
+    post: operations['recordBillingPeriodPayment'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Dữ liệu trang in phiếu tháng (A5/A4, VietQR) – FD+
+     * @description **0.3.14**. Chỉ phiếu đã phát hành (`draft`/`void` → 409 `INVALID_TRANSITION`). `BillingPeriod` + `property`, `guest.fullName` (chỉ họ tên), `vietqr`
+     *     (payload EMVCo dựng từ tài khoản nhận tiền hiệu lực hôm nay, số tiền = `balanceVnd`, nội dung = mã phiếu bỏ `-`; hết nợ hoặc chưa cấu hình tài khoản → `null`),
+     *     `accountNoMasked` 4 số cuối. `printedByInitials` chữ cái đầu. Ghi audit `billing_period.printed`. Không SĐT, email khách, quốc tịch, giấy tờ.
+     */
+    get: operations['getBillingPeriodPrint'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9853,6 +10124,287 @@ export interface components {
         CNY?: number;
         RUB?: number;
       };
+    };
+    /** @description Tháng `YYYY-MM` (nhận cả `YYYY-MM-01`) */
+    YearMonthText: string;
+    /** @description Ngoại lệ đồng hồ (BR-LS-12): `replaced` – tiêu thụ = (cuối cũ − đầu) + (cuối − đầu mới); `rollover` – (tối đa + 1 − đầu) + cuối */
+    MeterException: {
+      /** @enum {string} */
+      type: 'replaced' | 'rollover';
+      oldFinal?: number;
+      newStart?: number;
+      replacedOn?: components['schemas']['LocalDate'];
+      maxValue?: number;
+    };
+    MeterValueInput: {
+      /** @description Điện kWh, nước m³ – phần lẻ bị bỏ (BR-LS-11) */
+      value: number;
+      exception?: components['schemas']['MeterException'] | null;
+    };
+    /**
+     * @description Đầu kỳ: `checkin`, `period_start`, `room_change_in` (INV 17/11 – lễ tân nhập mỗi kỳ). Cuối kỳ: `period_end`, `room_change_out`, `checkout`
+     * @enum {string}
+     */
+    MeterReadingKind:
+      'checkin' | 'period_start' | 'period_end' | 'room_change_out' | 'room_change_in' | 'checkout';
+    MeterReadingCreate: {
+      roomId: components['schemas']['Uuid'];
+      kind: components['schemas']['MeterReadingKind'];
+      /** @description Bắt buộc với `period_start` (tháng mở) và `period_end` (tháng đóng); loại khác → `NOT_ALLOWED` */
+      periodMonth?: components['schemas']['YearMonthText'];
+      readOn: components['schemas']['LocalDate'];
+      electricity: components['schemas']['MeterValueInput'];
+      water: components['schemas']['MeterValueInput'];
+      photoAttachmentId?: components['schemas']['Uuid'];
+      /**
+       * @description FDL+; kèm `note`
+       * @default false
+       */
+      photoWaived: boolean;
+      note?: string | null;
+    };
+    MeterValue: {
+      value: number;
+      exception?: components['schemas']['MeterException'] | null;
+    };
+    MeterPair: {
+      electricity?: number | null;
+      water?: number | null;
+    };
+    MeterReading: {
+      id: components['schemas']['Uuid'];
+      reservationId: components['schemas']['Uuid'];
+      roomId: components['schemas']['Uuid'];
+      roomNo: string;
+      kind: components['schemas']['MeterReadingKind'];
+      /** @description `YYYY-MM` */
+      periodMonth?: string | null;
+      readOn: components['schemas']['LocalDate'];
+      electricity: components['schemas']['MeterValue'];
+      water: components['schemas']['MeterValue'];
+      /** @description Lần đầu kỳ: chỉ số cuối gần nhất của căn (mọi đơn) – chỉ để so (INV 17/11) */
+      previousClosing?: {
+        readingId?: components['schemas']['Uuid'];
+        readOn?: components['schemas']['LocalDate'];
+        electricity?: number;
+        water?: number;
+      } | null;
+      /** @description Lần đầu kỳ: đầu kỳ − cuối kỳ trước = hao hụt khoảng trống, không tính cho khách (INV 17/11) */
+      gap?: components['schemas']['MeterPair'] | null;
+      /** @description Lần cuối kỳ: tiêu thụ so với đầu kỳ cùng kỳ (số tính tiền) */
+      consumption?: {
+        fromReadingId?: components['schemas']['Uuid'];
+        electricity?: number | null;
+        water?: number | null;
+      } | null;
+      photoAttachmentId?: components['schemas']['Uuid'] | null;
+      photoWaived?: boolean;
+      exceptionApproved?: boolean;
+      note?: string | null;
+      readByRole?: string;
+      voided: boolean;
+      /** Format: date-time */
+      voidedAt?: string | null;
+      voidReason?: string | null;
+      createdAt?: components['schemas']['Instant'];
+      version: number;
+    };
+    BillingReason: {
+      reason: string;
+    };
+    /** @enum {string} */
+    MonthlyStatementStatus: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void';
+    /** @enum {string} */
+    BillingAlertLevel: 'due_today' | 'overdue' | 'alert' | 'escalate';
+    BillingCandidateList: {
+      month: string;
+      items: {
+        reservationId: components['schemas']['Uuid'];
+        reservationCode: string;
+        roomNos: string[];
+        guestDisplayName?: string | null;
+        /** @enum {string} */
+        kind: 'regular' | 'final';
+        /** @enum {string} */
+        readingStatus: 'missing' | 'recorded' | 'exception' | 'not_needed';
+        draftId?: components['schemas']['Uuid'] | null;
+      }[];
+    };
+    BillingPeriodCreate: {
+      month: components['schemas']['YearMonthText'];
+      /** @enum {string} */
+      kind?: 'regular' | 'final';
+    };
+    BillingPeriodPatch: {
+      excludedFolioLineIds?: components['schemas']['Uuid'][];
+      priorAdjustment?: {
+        amountVnd: components['schemas']['MoneyVnd'];
+        reason: string;
+      } | null;
+      note?: string | null;
+    };
+    BillingPeriodIssue: {
+      /** @default false */
+      acknowledgeWarnings: boolean;
+    };
+    DateRange: {
+      from: components['schemas']['LocalDate'];
+      to: components['schemas']['LocalDate'];
+    };
+    BillingPeriodLine: {
+      /** @enum {string} */
+      kind: 'rent' | 'electricity' | 'water' | 'service' | 'rounding' | 'prior_adjustment';
+      labelKey: string;
+      labelParams?: {
+        [key: string]: unknown;
+      } | null;
+      quantity: number;
+      /** @enum {string} */
+      unit: 'month' | 'day' | 'kwh' | 'm3' | 'item';
+      unitPriceNetVnd: components['schemas']['MoneyVnd'];
+      /** @description null = giá đã gồm VAT (thuê, dịch vụ) */
+      vatRatePct?: number | null;
+      netVnd: components['schemas']['MoneyVnd'];
+      vatVnd: components['schemas']['MoneyVnd'];
+      amountVnd: components['schemas']['MoneyVnd'];
+      /** @description Nháp: dòng folio đã có (dịch vụ) hoặc null (ghi lúc phát hành) */
+      folioLineId?: components['schemas']['Uuid'] | null;
+      roomNo?: string | null;
+      meter?: {
+        from?: number;
+        to?: number;
+        exception?: components['schemas']['MeterException'] | null;
+      } | null;
+      serviceDate?: components['schemas']['LocalDate'] | null;
+    };
+    /** @description `METER_ANOMALY` (`roomNo`, `meter`, `consumption`, `threshold`), `RENT_ALREADY_POSTED` (`from`, `to`), `SERVICE_LINE_ON_OTHER_STATEMENT` (`folioLineId`, `statementCode`), `PHOTO_WAIVED` (`roomNo`, `readingId`) */
+    BillingWarning: {
+      code: string;
+    } & {
+      [key: string]: unknown;
+    };
+    MissingMeterReading: {
+      roomId: components['schemas']['Uuid'];
+      roomNo: string;
+      /** @enum {string} */
+      kind: 'opening' | 'period_end' | 'room_change_out';
+      periodMonth: string;
+    };
+    BillingPeriodTotals: {
+      netVnd: components['schemas']['MoneyVnd'];
+      vatVnd: components['schemas']['MoneyVnd'];
+      roundingVnd: components['schemas']['MoneyVnd'];
+      totalVnd: components['schemas']['MoneyVnd'];
+      paidVnd: components['schemas']['MoneyVnd'];
+      balanceVnd: components['schemas']['MoneyVnd'];
+    };
+    BillingPeriod: {
+      id: components['schemas']['Uuid'];
+      /** @description Cấp lúc phát hành: `TT-<yymm>-<số căn>[-R<n>]` */
+      code?: string | null;
+      status: components['schemas']['MonthlyStatementStatus'];
+      /** @enum {string} */
+      kind: 'regular' | 'final';
+      /** @description `YYYY-MM` */
+      month: string;
+      reservationId: components['schemas']['Uuid'];
+      reservationCode?: string;
+      folioId: components['schemas']['Uuid'];
+      roomNos: string[];
+      guestDisplayName?: string | null;
+      rentPeriod?: components['schemas']['DateRange'] | null;
+      utilityPeriod?: components['schemas']['DateRange'] | null;
+      servicePeriod?: components['schemas']['DateRange'] | null;
+      dueDate?: components['schemas']['LocalDate'] | null;
+      overdueDays?: number;
+      alertLevel?: components['schemas']['BillingAlertLevel'] | null;
+      lines: components['schemas']['BillingPeriodLine'][];
+      totals: components['schemas']['BillingPeriodTotals'];
+      warnings: components['schemas']['BillingWarning'][];
+      missingReadings?: components['schemas']['MissingMeterReading'][];
+      excludedFolioLineIds?: components['schemas']['Uuid'][];
+      priorAdjustment?: {
+        amountVnd?: components['schemas']['MoneyVnd'];
+        reason?: string;
+      } | null;
+      note?: string | null;
+      availableActions: (
+        'update' | 'prior_adjustment' | 'issue' | 'void' | 'record_payment' | 'print'
+      )[];
+      ratesSnapshot?: {
+        [key: string]: unknown;
+      } | null;
+      replacesId?: components['schemas']['Uuid'] | null;
+      /** Format: date-time */
+      issuedAt?: string | null;
+      /** Format: date-time */
+      paidAt?: string | null;
+      /** Format: date-time */
+      voidedAt?: string | null;
+      voidReason?: string | null;
+      version: number;
+    };
+    BillingPeriodVoided: components['schemas']['BillingPeriod'] & {
+      canReplace: boolean;
+    };
+    BillingPeriodSummary: {
+      id: components['schemas']['Uuid'];
+      code?: string | null;
+      reservationId: components['schemas']['Uuid'];
+      roomNos: string[];
+      guestDisplayName?: string | null;
+      month: string;
+      /** @enum {string} */
+      kind: 'regular' | 'final';
+      totalVnd?: components['schemas']['MoneyVnd'] | null;
+      balanceVnd: components['schemas']['MoneyVnd'];
+      dueDate?: components['schemas']['LocalDate'] | null;
+      status: components['schemas']['MonthlyStatementStatus'];
+      overdueDays: number;
+      alertLevel?: components['schemas']['BillingAlertLevel'] | null;
+    };
+    BillingPeriodPaymentCreate: {
+      /** @enum {string} */
+      method: 'cash' | 'vietqr';
+      amountVnd: components['schemas']['MoneyVnd'];
+      receivedAt?: components['schemas']['Instant'] | null;
+      note?: string | null;
+      bankReference?: string | null;
+    };
+    BillingPeriodPaymentResult: {
+      billingPeriod: components['schemas']['BillingPeriod'];
+      payment: {
+        id: components['schemas']['Uuid'];
+        method: string;
+        amountVnd: components['schemas']['MoneyVnd'];
+        status: string;
+        reconciliation: string;
+      };
+    };
+    BillingPeriodPrint: components['schemas']['BillingPeriod'] & {
+      property: {
+        displayName?: string | null;
+        addressLine?: string | null;
+        hotline?: string | null;
+        /** @description Chưa có cột email công khai của cơ sở – luôn null (0.3.14) */
+        email?: string | null;
+      };
+      guest: {
+        /** @description Chỉ họ tên đầy đủ (contract 5.2) */
+        fullName?: string | null;
+      };
+      vietqr?: {
+        /** @description Chuỗi EMVCo – client vẽ QR */
+        payload?: string;
+        bankShortName?: string | null;
+        accountHolder?: string;
+        /** @description 4 số cuối */
+        accountNoMasked?: string;
+        amountVnd?: components['schemas']['MoneyVnd'];
+        transferContent?: string;
+      } | null;
+      printedAt: components['schemas']['Instant'];
+      printedByInitials?: string | null;
     };
   };
   responses: {
@@ -19743,6 +20295,438 @@ export interface operations {
         };
         content?: never;
       };
+    };
+  };
+  listMeterReadings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: components['schemas']['MeterReading'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  recordMeterReading: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MeterReadingCreate'];
+      };
+    };
+    responses: {
+      /** @description Đã ghi */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MeterReading'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  voidMeterReading: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        readingId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BillingReason'];
+      };
+    };
+    responses: {
+      /** @description Đã hủy */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MeterReading'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  listBillingCandidates: {
+    parameters: {
+      query: {
+        month: components['schemas']['YearMonthText'];
+      };
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingCandidateList'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  createBillingPeriod: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BillingPeriodCreate'];
+      };
+    };
+    responses: {
+      /** @description Phiếu nháp */
+      201: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingPeriod'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  listBillingPeriods: {
+    parameters: {
+      query?: {
+        status?: components['schemas']['MonthlyStatementStatus'][];
+        month?: components['schemas']['YearMonthText'];
+        overdue?: boolean;
+        roomId?: components['schemas']['Uuid'];
+        /** @description Con trỏ mờ từ `page.nextCursor` */
+        cursor?: components['parameters']['Cursor'];
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['BillingPeriodSummary'][];
+            page: components['schemas']['PageInfo'];
+          };
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  getBillingPeriod: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingPeriod'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  updateBillingPeriod: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
+        'If-Match'?: components['parameters']['IfMatch'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BillingPeriodPatch'];
+      };
+    };
+    responses: {
+      /** @description Phiếu nháp sau khi sửa */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingPeriod'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  issueBillingPeriod: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
+        'If-Match'?: components['parameters']['IfMatch'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['BillingPeriodIssue'];
+      };
+    };
+    responses: {
+      /** @description Phiếu đã phát hành */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingPeriod'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  voidBillingPeriod: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BillingReason'];
+      };
+    };
+    responses: {
+      /** @description Phiếu đã hủy */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingPeriodVoided'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  recordBillingPeriodPayment: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BillingPeriodPaymentCreate'];
+      };
+    };
+    responses: {
+      /** @description Đã ghi thu */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingPeriodPaymentResult'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  getBillingPeriodPrint: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingPeriodPrint'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
     };
   };
 }

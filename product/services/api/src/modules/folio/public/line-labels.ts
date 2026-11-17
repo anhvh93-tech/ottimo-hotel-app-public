@@ -21,6 +21,10 @@
  *   bill.line.laundry {qty} · bill.line.adhoc_cleaning {qty} · bill.line.smoking_fee · bill.line.key_card_fee {qty}
  *   bill.line.damage {item, qty} · bill.line.fnb {text, qty} · bill.line.service_fee {text, qty}
  *   bill.line.utilities · bill.line.adjustment
+ *   FB-INV-012 (monthly statement, contract 2.4): bill.line.monthly_rent {from, to, statementCode} (room line with
+ *   charge_code `monthly_rent`) · bill.line.electricity {from, to, statementCode} · bill.line.water {…} (utilities lines
+ *   `electricity` / `water`) · bill.line.statement_rounding {statementCode} · bill.line.statement_prior_adjustment
+ *   {statementCode} (adjustment lines)
  */
 export type LabelParams = Record<string, string | number>;
 
@@ -103,6 +107,7 @@ function rawLabel(l: LabelSource, ctx: LabelContext): LineLabel {
   const d = l.description ?? '';
   switch (l.category) {
     case 'room':
+      if (l.charge_code === 'monthly_rent') return label('bill.line.monthly_rent', given);
       return label(
         l.charge_code === 'extra_night' ? 'bill.line.extra_night' : 'bill.line.room_night',
         {
@@ -181,7 +186,16 @@ function rawLabel(l: LabelSource, ctx: LabelContext): LineLabel {
     case 'service_fee':
       return label('bill.line.service_fee', { text: d, ...given, qty: qtyOf(l) });
     case 'utilities':
+      if (l.charge_code === 'electricity') return label('bill.line.electricity', given);
+      if (l.charge_code === 'water') return label('bill.line.water', given);
       return label('bill.line.utilities', given);
+    case 'adjustment':
+      if (l.charge_code === 'statement_rounding')
+        return label('bill.line.statement_rounding', given);
+      if (l.charge_code === 'statement_prior_adjustment') {
+        return label('bill.line.statement_prior_adjustment', given);
+      }
+      return label('bill.line.adjustment', given);
     default:
       return label('bill.line.adjustment', given);
   }
