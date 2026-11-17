@@ -1,0 +1,294 @@
+/* FB-INV-012 – monthly statement (Desk lists + the printed sheet, contract §6.6).
+   Brand guideline 17/10: ONLY the 80/15/5 palette (`--brand-*` of tokens.css: Ivory, Cream, Stone Grey, Ink,
+   Light Oak, Earth Brown, Sage; white paper) – no hex, rgb or other colour variable in this file
+   (`__tests__/fb012-statements-fe.test.tsx` scans it). Lora (`--serif`) for the property name and title, Be Vietnam
+   Pro (`--sans`) for text, JetBrains Mono (`--mono`) for the statement code, meter readings and transfer content.
+   Paper: A5 portrait by default, A4 on request – the class on `.print-root` picks a named @page. */
+
+/* ---------- Desk ---------- */
+.chip.stmt-overdue {
+  color: var(--brand-earth);
+  border: 1px solid var(--brand-earth);
+  background: var(--brand-cream);
+}
+.chip.stmt-overdue.strong {
+  color: var(--brand-ivory);
+  background: var(--brand-earth);
+}
+.stmt-row-overdue td:first-child {
+  box-shadow: inset 3px 0 0 var(--brand-earth);
+}
+.stmt-lines .nowrap {
+  white-space: nowrap;
+}
+.meters-table td {
+  vertical-align: top;
+  min-width: 11rem;
+}
+.meter-gap {
+  color: var(--brand-earth);
+}
+
+/* ---------- print page on screen ---------- */
+.stmt-print-page {
+  min-height: 100vh;
+  padding: 16px;
+  background: var(--brand-cream);
+  color: var(--brand-ink);
+}
+.stmt-toolbar {
+  max-width: 210mm;
+  margin: 0 auto 12px;
+  gap: 12px;
+  align-items: center;
+}
+.stmt-preview {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+.stmt-preview .stmt-sheet {
+  box-sizing: border-box;
+  background: var(--brand-white);
+  border: 1px solid var(--brand-sage);
+}
+.stmt-preview .stmt-a5 {
+  width: 148mm;
+  min-height: 210mm;
+  padding: 8mm;
+}
+.stmt-preview .stmt-a4 {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm 16mm;
+}
+
+/* ---------- the sheet ---------- */
+.stmt-sheet {
+  font-family: var(--sans);
+  color: var(--brand-ink);
+  font-size: 8pt;
+  line-height: 1.35;
+}
+.stmt-sheet.stmt-a4 {
+  font-size: 10.5pt;
+}
+.stmt-sheet .mono {
+  font-family: var(--mono);
+  font-size: 0.95em;
+}
+.stmt-sheet .bi {
+  display: inline-flex;
+  flex-direction: column;
+}
+.stmt-sheet .bi .vi {
+  font-size: 0.82em;
+  color: var(--brand-stone);
+}
+.stmt-sheet .r {
+  text-align: right;
+}
+.stmt-sheet .nowrap {
+  white-space: nowrap;
+}
+.stmt-hdr {
+  display: flex;
+  justify-content: space-between;
+  gap: 8pt;
+  border-bottom: 1.5px solid var(--brand-oak);
+  padding-bottom: 5pt;
+  margin-bottom: 6pt;
+}
+.stmt-brand {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.45em;
+  letter-spacing: 0.02em;
+}
+.stmt-muted,
+.stmt-printed {
+  color: var(--brand-stone);
+}
+.stmt-hdr-r {
+  text-align: right;
+}
+.stmt-title {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.35em;
+  margin: 0;
+}
+.stmt-title .bi {
+  align-items: flex-end;
+}
+.stmt-title .vi {
+  font-family: var(--sans);
+  font-weight: 400;
+}
+.stmt-code {
+  margin-top: 2pt;
+  font-weight: 500;
+}
+.stmt-meta {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 2pt 10pt;
+  margin: 0 0 6pt;
+}
+.stmt-meta dt {
+  color: var(--brand-stone);
+  font-size: 0.85em;
+}
+.stmt-meta dd {
+  margin: 0;
+  font-weight: 500;
+}
+.stmt-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.stmt-table-print th {
+  font-weight: 500;
+  font-size: 0.85em;
+  color: var(--brand-stone);
+  text-align: left;
+  border-bottom: 1px solid var(--brand-stone);
+  padding: 2pt 3pt;
+  vertical-align: bottom;
+}
+.stmt-table-print th.r {
+  text-align: right;
+}
+.stmt-table-print th .bi {
+  align-items: inherit;
+}
+.stmt-table-print td {
+  border-bottom: 0.5px solid var(--brand-sage);
+  padding: 2pt 3pt;
+  vertical-align: top;
+}
+.stmt-table-print td.r {
+  white-space: nowrap;
+}
+.stmt-table-print tr {
+  break-inside: avoid;
+}
+.stmt-totals {
+  margin-top: 4pt;
+  margin-left: auto;
+  max-width: 62%;
+}
+.stmt-totals th {
+  text-align: left;
+  font-weight: 400;
+  padding: 1pt 3pt;
+}
+.stmt-totals th .bi {
+  flex-direction: row;
+  gap: 4pt;
+  align-items: baseline;
+}
+.stmt-totals td {
+  padding: 1pt 3pt;
+  white-space: nowrap;
+}
+.stmt-totals tr.grand th,
+.stmt-totals tr.grand td {
+  border-top: 1.5px solid var(--brand-ink);
+  font-weight: 600;
+}
+.stmt-stamp {
+  display: inline-block;
+  margin-top: 6pt;
+  padding: 2pt 8pt;
+  border: 1.5px solid currentColor;
+  font-family: var(--serif);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.stmt-stamp.paid {
+  color: var(--brand-earth);
+}
+.stmt-stamp.void {
+  color: var(--brand-stone);
+}
+.stmt-due {
+  margin: 6pt 0 0;
+  font-weight: 500;
+}
+.stmt-qr {
+  display: flex;
+  gap: 8pt;
+  align-items: center;
+  margin-top: 6pt;
+  padding: 6pt;
+  border: 1px solid var(--brand-sage);
+  background: var(--brand-ivory);
+  break-inside: avoid;
+}
+.stmt-qr .qr rect {
+  fill: var(--brand-white);
+}
+.stmt-qr .qr path {
+  fill: var(--brand-ink);
+}
+.stmt-qr dl {
+  margin: 0;
+  display: grid;
+  gap: 3pt;
+}
+.stmt-qr dt {
+  color: var(--brand-stone);
+  font-size: 0.85em;
+}
+.stmt-qr dd {
+  margin: 0;
+}
+.stmt-qr-amt {
+  font-weight: 600;
+  font-size: 1.15em;
+}
+.stmt-foot {
+  margin-top: 8pt;
+  padding-top: 4pt;
+  border-top: 0.5px solid var(--brand-sage);
+  font-size: 0.85em;
+  color: var(--brand-stone);
+}
+.stmt-foot p {
+  margin: 0 0 2pt;
+}
+.stmt-foot .bi {
+  display: inline;
+}
+.stmt-foot .bi .vi {
+  margin-left: 4pt;
+}
+.stmt-foot .bi .vi::before {
+  content: '· ';
+}
+
+/* ---------- paper ---------- */
+@page stmt-a5 {
+  size: A5 portrait;
+  margin: 8mm;
+}
+@page stmt-a4 {
+  size: A4 portrait;
+  margin: 14mm 16mm;
+}
+@media print {
+  .print-root.stmt-paper-a5 .stmt-sheet {
+    page: stmt-a5;
+  }
+  .print-root.stmt-paper-a4 .stmt-sheet {
+    page: stmt-a4;
+  }
+  .print-root .stmt-sheet {
+    font-size: 8pt;
+    break-after: avoid;
+  }
+  .print-root .stmt-sheet.stmt-a4 {
+    font-size: 10.5pt;
+  }
+}

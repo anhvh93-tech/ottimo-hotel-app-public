@@ -14,6 +14,7 @@ import { nameSearchKey, normalizePhone } from '../app/validation';
 import { createDashboardMock } from './dashboard';
 import { createOpsMock } from './ops';
 import { createReservationMock } from './reservations';
+import { createStatementsMock, statementParamErrors } from './statements';
 import { createStayMock } from './stay';
 import { matchStep, randomBase32 } from './totp';
 import { createWebRequestMock } from './webreq';
@@ -180,6 +181,14 @@ const ops = createOpsMock({
   attachments: () => stay.state.attachments,
 });
 
+// FB-INV-012 (R5): long-stay monthly statements + meter readings (ARC contract 0.3.14-draft) until BE ships.
+const statements = createStatementsMock({
+  guard: (request, allowed, opts) => guard(request, allowed, opts),
+  problem: (status, code, extra) => problem(status, code, extra),
+  params: () => db.params,
+  receiving: () => db.receiving,
+});
+
 // Sprint 4 FE-B (EP01 – H03/H24): KPI, arrivals/departures, "Cần chú ý" computed from the mocks above.
 const dashboard = createDashboardMock({
   guard: (request, allowed) => guard(request, allowed),
@@ -203,6 +212,7 @@ export const mockControl = {
     ops.reset();
     dashboard.reset();
     webRequests.reset();
+    statements.reset();
     persist();
   },
   failNext(
@@ -246,6 +256,10 @@ export const mockControl = {
   /** R3 S1 website booking requests (S35) and the `public_booking_requests_enabled` switch. */
   get webRequests() {
     return webRequests.state;
+  },
+  /** FB-INV-012 monthly statements (stays, readings, statements) for tests. */
+  get statements() {
+    return statements.state;
   },
 };
 
@@ -652,6 +666,7 @@ export const handlers = [
   }),
   // EP01 first: its `GET …/attention` (full BR-907 list, incl. the stay item) wins over the S3 one in stay.ts.
   ...webRequests.handlers,
+  ...statements.handlers,
   ...dashboard.handlers,
   ...ops.handlers,
   ...stay.handlers,
@@ -1188,6 +1203,9 @@ export const handlers = [
     if (typeof cur.value === 'number' && typeof body.value !== 'number')
       errors.push({ field: 'value', code: 'VALUE_INVALID' });
     if (errors.length) return validation(errors);
+    // FB-INV-012: the billing module's setParameter hook (contract §3).
+    const hook = statementParamErrors(cur.key, body.value);
+    if (hook) return problem(422, hook, { errors: [{ field: 'value', code: hook }] });
     const bounds = PARAM_BOUNDS[cur.key];
     if (bounds && 'allowedFrom' in bounds) {
       const allowed = (db.params.find((p) => p.key === bounds.allowedFrom)?.value ??

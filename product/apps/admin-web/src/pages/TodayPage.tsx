@@ -22,6 +22,7 @@ import type { ResourceState } from '../hooks/useResource';
 import { NAV, isVisible } from '../session/nav';
 import { usePropertyId, useSession } from '../session/SessionProvider';
 import { AttentionBlock, SkeletonRows, formatPct } from './dashboard/parts';
+import { StatementsAttention } from './longstay/StatementsAttention';
 import { GuestRequestsCard } from './ops/GuestRequests';
 import { useDashboard } from './dashboard/useDashboard';
 
@@ -129,6 +130,7 @@ export function TodayPage() {
                 onReload={d.reload.attention}
                 emptyTitleKey="today.attention_empty"
               />
+              <StatementsAttention />
             </section>
             <div className="stack">
               <Board state={board} onRetry={d.reload.board} />

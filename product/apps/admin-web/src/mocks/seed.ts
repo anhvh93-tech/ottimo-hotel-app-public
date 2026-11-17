@@ -201,6 +201,21 @@ export function seedParams(): Parameter[] {
     p('trusted_device_mobile_days', 30, 'SR-DEV-08', OWN),
     p('c3_stepup_minutes', 15, 'SR-C3-09', OWN),
     p('guest_verify_max_attempts', 5, 'SR-GST-08', OWN),
+    // FB-INV-012 (contract §3, INV 17/11): OWN only; MGR/FDL read.
+    p('utility_unit_price', { electricityVndPerKwh: 4000, waterVndPerM3: 25000 }, 'BR-LS-07', OWN),
+    p('utility_vat_rate', { electricity: 8, water: 5 }, 'BR-LS-08', OWN),
+    p(
+      'monthly_statement_rules',
+      {
+        rentTiming: 'advance',
+        dueDay: 5,
+        totalRoundingVnd: 1000,
+        partialFirstMonthRent: 'at_checkin',
+        readingWindow: { daysBeforeMonthEnd: 0, daysAfter: 1 },
+      },
+      'BR-LS-01',
+      OWN,
+    ),
   ];
 }
 
