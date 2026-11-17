@@ -19,3 +19,8 @@
 ## Việc cho đội (nhỏ)
 - DOM: quy tắc kỳ, VAT điện/nước, số liệu đồng hồ sai (cuối < đầu, thay đồng hồ), khách trả phòng giữa kỳ.
 - ARC → BE → FE: dữ liệu chỉ số đồng hồ, phiếu thu vào folio, trang in. SEC + QA trước khi lên.
+
+## INV bổ sung (17/11)
+> note là vẫn nên nhập số điện nước đầu kỳ nha, tại vì có khả năng vận hành nó có những khoảng gap về mặt thời gian, và trong gap đó vẫn có mở tham quan phòng, hoặc dùng nước dọn phòng thì bị hao hụt
+
+→ Chỉ số đầu kỳ là **ô lễ tân nhập**, bắt buộc, không tự lấy cuối kỳ trước làm số chốt. Desk chỉ gợi ý số cuối kỳ trước để so; nếu đầu kỳ > cuối kỳ trước thì phần chênh là hao hụt khoảng trống (tham quan, dọn phòng), **không tính cho khách**, ghi lại để OWN xem. Đầu kỳ < cuối kỳ trước thì cảnh báo (nghi nhập sai/thay đồng hồ).
