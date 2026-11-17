@@ -170,6 +170,21 @@ describe('parseVietcombankXml – refused input (SEC: no DTD/entity, allowlist, 
   });
 });
 
+describe('parseVietcombankXml – no super-linear regex (SEC FB-R5-SEC-BE-187-01)', () => {
+  it('a 64 KiB tag of letters only (no `="`) is processed in < 200 ms', () => {
+    const head = '<ExrateList><DateTime>11/17/2026 8:00:00 AM</DateTime><Exrate ';
+    const tail = '/></ExrateList>';
+    const xml = head + 'a'.repeat(FX_MAX_BODY_BYTES - head.length - tail.length) + tail;
+    expect(Buffer.byteLength(xml)).toBeLessThanOrEqual(FX_MAX_BODY_BYTES);
+    const t0 = performance.now();
+    expect(codeOf(() => parseVietcombankXml(xml))).toBe('FX_RATE_MISSING');
+    // Same shape with a short tag reaches the attribute regex directly.
+    const inTag = `${head}${'a'.repeat(1_000)} ${tail}`;
+    expect(codeOf(() => parseVietcombankXml(inTag))).toBe('FX_RATE_MISSING');
+    expect(performance.now() - t0).toBeLessThan(200);
+  });
+});
+
 describe('fetchVietcombankXml – egress allowlist and limits', () => {
   const stream = (chunks: string[]) =>
     new ReadableStream<Uint8Array>({

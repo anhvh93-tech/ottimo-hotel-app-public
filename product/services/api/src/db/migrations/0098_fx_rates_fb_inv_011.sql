@@ -1,5 +1,6 @@
--- 0098 (BE, R5 – FB-INV-011, INV 17/11; contract rounds/round-05/fb-inv-011/contract.md). Number: 0096 is retired
--- (ARC 04/11), 0097 is PR #172 (V5-17) – provisional, ORC confirms; `when` = 0095 + 4000 so 0097 can go before it.
+-- 0098 (BE, R5 – FB-INV-011, INV 17/11; contract rounds/round-05/fb-inv-011/contract.md).
+-- 0098 (ARC 17/11, review #187): file name fixed; apply order = merge order – the PR merged second takes
+-- idx = last + 1, when = last when + 2000 and regenerates its snapshot from main (ARC-on-be-pr-187 (1)).
 -- No schema change: the snapshot is 0095's (pattern 0064/0067/0071/0073). Two catalogue keys (erd 9.3) of the landing price estimate in the
 -- currency of the page language (EN USD, KO KRW, ZH CNY, RU RUB – VND stays the price and the payment):
 --   * `fx_rates.vietcombank` (json, OWN – read on the Desk; WRITTEN BY THE WORKER ONLY: setParameter → 403 by the

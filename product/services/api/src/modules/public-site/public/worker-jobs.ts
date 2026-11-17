@@ -136,7 +136,6 @@ export function publicSiteWorkerJobs(deps: {
   const int = async (tx: Tx, key: string, date: string) =>
     Number(await params.get<number>(tx, key, date));
   return [
-    fxRefreshJob({ events, params, mode: deps.fxMode ?? 'off' }),
     {
       key: WEB_REQUEST_SLA_JOB_KEY,
       schedule: { kind: 'tick' },
@@ -269,6 +268,8 @@ export function publicSiteWorkerJobs(deps: {
         return { nonces: n.rowCount ?? 0, counters: c.rowCount ?? 0 };
       },
     },
+    // ARC FB-R5-ARC-BE-187-02: last – the tick runs jobs in order, the internal ones go before the network call.
+    fxRefreshJob({ events, params, mode: deps.fxMode ?? 'off' }),
   ];
 }
 

@@ -156,9 +156,10 @@ export function parseVietcombankXml(xml: string): FxAutoValue {
   const publishedAt = `${asOf}T${String(hour).padStart(2, '0')}:${mi}:${ss}+07:00`;
 
   const rates: FxRates = {};
-  for (const m of inner.matchAll(/<Exrate\s([^<>]*?)\/>/g)) {
+  // SEC FB-R5-SEC-BE-187-01: tag and attributes length-capped, attribute names anchored – linear on any input.
+  for (const m of inner.matchAll(/<Exrate\s([^<>]{0,1024}?)\/>/g)) {
     const attrs = new Map<string, string>();
-    for (const a of (m[1] as string).matchAll(/([A-Za-z]+)="([^"<>]*)"/g)) {
+    for (const a of (m[1] as string).matchAll(/(?<![A-Za-z])([A-Za-z]{1,32})="([^"<>]{0,64})"/g)) {
       attrs.set(a[1] as string, a[2] as string);
     }
     const code = attrs.get('CurrencyCode')?.trim();
