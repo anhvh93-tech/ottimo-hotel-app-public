@@ -71,4 +71,12 @@ commits = [
   # Commit-scoped on purpose, never a pattern. SEC reviewed 07/11/2026: every added line of its 12 files is a fake
   # value (tok_FAKE_v542_..., @example.test, job names, made-up UUIDs); this line was the only finding.
   'a5785ddf7b4f662eba5f8165aabac9c484f20ef5',
+  # FE FB-INV-011 first commit of PR #186 (closed; content re-done clean in PR #188): line 103 of
+  # product/tests/e2e/landing/fx.landing.spec.ts, `estimateToken: 'pe1.e2e.c2lnbmF0dXJl'`, is a made-up value in a
+  # Playwright page.route mock; its last part is base64 of the literal word "signature", so it is not an HMAC-signed
+  # estimate token and is accepted by nothing (real ones are signed by the API at run time, never stored). GitHub keeps
+  # the commit alive through refs/pull/186/head, which cannot be deleted, so `gitleaks --all` reports it on every PR.
+  # Commit-scoped on purpose, never a `pe1.` pattern. SEC reviewed 17/11/2026 (INV "Đồng ý", decision log 17/11): all
+  # 728 added lines of its 19 files are code, tests and docs with made-up rates, prices and tokens; no real secret.
+  '324ddb4460aeccf72592f348997a1caaf3daf4de',
 ]
