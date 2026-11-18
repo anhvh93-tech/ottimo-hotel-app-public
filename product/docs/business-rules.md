@@ -142,14 +142,14 @@ Nguồn: `rounds/round-05/fb-inv-012/DOM-rules.md` (DOM 17/11, cập nhật 18/1
 
 | Quy tắc cũ | Phần bị thay | Thay bằng |
 |---|---|---|
-| BR-204 | Phí dịch vụ 200.000/tháng; giá dọn thuê tháng 100.000/120.000/130.000/150.000 | Bỏ phí dịch vụ (INV 17/11); dọn thêm 150.000/200.000 theo hạng – BR-LS-07 |
-| BR-206 | HĐ 24 tháng (và trên) ký quỹ 2 tháng | Ký quỹ 1 tháng mọi kỳ hạn – BR-LS-05 |
+| BR-204 (cũ) | Phí dịch vụ 200.000/tháng; giá dọn thuê tháng 100.000/120.000/130.000/150.000 | Bỏ phí dịch vụ (INV 17/11); dọn thêm 150.000/200.000 theo hạng – BR-LS-07 |
+| BR-206 (cũ) | HĐ 24 tháng (và trên) ký quỹ 2 tháng | Ký quỹ 1 tháng mọi kỳ hạn – BR-LS-05 |
 | BR-207, BR-208 | Phí dịch vụ trong tiền thu trước; thu khi ký = phần lẻ + trọn tháng sau | Thu khi xác nhận = cọc; lúc nhận phòng = phần lẻ; từ ngày 01 mỗi tháng một phiếu – BR-LS-01, 03 |
-| BR-501 | Điện 5.000/kWh, nước 100.000/người/tháng, đã gồm VAT | Điện 4.000/kWh, nước 25.000/m³ chưa VAT, VAT theo loại dòng – BR-LS-07, 08 |
-| BR-502 | Chỉ công tơ điện tính tiền; cửa sổ ± 2 ngày | Cả điện và nước theo đồng hồ; cửa sổ ngày cuối tháng → hết ngày 01; đầu kỳ nhập mỗi kỳ – BR-LS-10 |
-| BR-503 | Thay công tơ / quay vòng do quản lý duyệt | FDL+ ghi ngoại lệ – BR-LS-12 |
-| BR-504 | Hạn 5 ngày sau chốt | Hạn hết ngày 05 – BR-LS-01, 02 |
-| BR-506 | Giá lượt dọn của khách thuê tháng theo căn (H3) | BR-LS-07 |
+| BR-501 (cũ) | Điện 5.000/kWh, nước 100.000/người/tháng, đã gồm VAT | Điện 4.000/kWh, nước 25.000/m³ chưa VAT, VAT theo loại dòng – BR-LS-07, 08 |
+| BR-502 (cũ) | Chỉ công tơ điện tính tiền; cửa sổ ± 2 ngày | Cả điện và nước theo đồng hồ; cửa sổ ngày cuối tháng → hết ngày 01; đầu kỳ nhập mỗi kỳ – BR-LS-10 |
+| BR-503 (cũ) | Thay công tơ / quay vòng do quản lý duyệt | FDL+ ghi ngoại lệ – BR-LS-12 |
+| BR-504 (cũ) | Hạn 5 ngày sau chốt | Hạn hết ngày 05 – BR-LS-01, 02 |
+| BR-506 (cũ) | Giá lượt dọn của khách thuê tháng theo căn (H3) | BR-LS-07 |
 
 | Mã | Quy tắc | Mặc định & ví dụ số | Nhãn | Nguồn |
 |---|---|---|---|---|
