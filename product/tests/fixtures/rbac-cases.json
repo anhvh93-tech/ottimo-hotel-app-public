@@ -6,12 +6,12 @@
     "seed": "product/tests/fixtures/seed/ds-e.json"
   },
   "summary": {
-    "operations": 210,
-    "cases": 2310,
+    "operations": 222,
+    "cases": 2442,
     "byExpected": {
-      "2xx": 1110,
-      "401": 345,
-      "403": 855
+      "2xx": 1170,
+      "401": 357,
+      "403": 915
     },
     "scoped": 184,
     "sprintR3": 429,
@@ -5266,6 +5266,196 @@
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
     {
+      "id": "RB-createBillingPeriod-qa.owner",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.mgr",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.fdl",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.fd",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.hk",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.mt",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.sal",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.ctv1",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.fdsal",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-qa.hkmt",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-createBillingPeriod-guest-session",
+      "operationId": "createBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/billing-periods",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
       "id": "RB-createDepositNotice-qa.owner",
       "operationId": "createDepositNotice",
       "method": "POST",
@@ -10291,6 +10481,386 @@
       "scope": null,
       "rbac": [],
       "sprint": "R2",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.owner",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.mgr",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.fdl",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.fd",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.hk",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.mt",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.sal",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.ctv1",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.fdsal",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-qa.hkmt",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriod-guest-session",
+      "operationId": "getBillingPeriod",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.owner",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.mgr",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.fdl",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.fd",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.hk",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.mt",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.sal",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.ctv1",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.fdsal",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-qa.hkmt",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getBillingPeriodPrint-guest-session",
+      "operationId": "getBillingPeriodPrint",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
@@ -16874,6 +17444,196 @@
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
     {
+      "id": "RB-issueBillingPeriod-qa.owner",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.mgr",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.fdl",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.fd",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.hk",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.mt",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.sal",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.ctv1",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.fdsal",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-qa.hkmt",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-issueBillingPeriod-guest-session",
+      "operationId": "issueBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
       "id": "RB-issueGroupBill-qa.owner",
       "operationId": "issueGroupBill",
       "method": "POST",
@@ -18200,6 +18960,386 @@
         "S27"
       ],
       "sprint": "R2",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.owner",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.mgr",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.fdl",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.fd",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.hk",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.mt",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.sal",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.ctv1",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.fdsal",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-qa.hkmt",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingCandidates-guest-session",
+      "operationId": "listBillingCandidates",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods/candidates",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.owner",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.mgr",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.fdl",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.fd",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.hk",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.mt",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.sal",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.ctv1",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.fdsal",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-qa.hkmt",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listBillingPeriods-guest-session",
+      "operationId": "listBillingPeriods",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/billing-periods",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A121"
+      ],
+      "sprint": "R5",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
@@ -20591,6 +21731,196 @@
         "S29"
       ],
       "sprint": "R2",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-listMeterReadings-qa.owner",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.mgr",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.fdl",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.fd",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.hk",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.mt",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.sal",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.ctv1",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.fdsal",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-qa.hkmt",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-listMeterReadings-guest-session",
+      "operationId": "listMeterReadings",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
@@ -26855,6 +28185,196 @@
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
     {
+      "id": "RB-recordBillingPeriodPayment-qa.owner",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.mgr",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.fdl",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.fd",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.hk",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.mt",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.sal",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.ctv1",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.fdsal",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-qa.hkmt",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordBillingPeriodPayment-guest-session",
+      "operationId": "recordBillingPeriodPayment",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A58"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
       "id": "RB-recordCheckoutConfirmation-qa.owner",
       "operationId": "recordCheckoutConfirmation",
       "method": "POST",
@@ -27766,6 +29286,196 @@
         "A81"
       ],
       "sprint": "R2",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-recordMeterReading-qa.owner",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.mgr",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.fdl",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.fd",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.hk",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.mt",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.sal",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.ctv1",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.fdsal",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-qa.hkmt",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-recordMeterReading-guest-session",
+      "operationId": "recordMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/meter-readings",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
@@ -36476,6 +38186,207 @@
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
     {
+      "id": "RB-updateBillingPeriod-qa.owner",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.mgr",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.fdl",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.fd",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.hk",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.mt",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.sal",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.ctv1",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.fdsal",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-qa.hkmt",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-updateBillingPeriod-guest-session",
+      "operationId": "updateBillingPeriod",
+      "method": "PATCH",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
       "id": "RB-updateGuest-qa.owner",
       "operationId": "updateGuest",
       "method": "PATCH",
@@ -38671,6 +40582,397 @@
       "sprint": "R2",
       "rbacMismatch": false,
       "note": "cookie nhân viên trên operation khách (SR-SES-09)"
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.owner",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.mgr",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.fdl",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.fd",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.hk",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.mt",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.sal",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.ctv1",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.fdsal",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-qa.hkmt",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidBillingPeriod-guest-session",
+      "operationId": "voidBillingPeriod",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A121",
+        "A122"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-voidMeterReading-qa.owner",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.mgr",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.fdl",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.fd",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.hk",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.mt",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.sal",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.ctv1",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.fdsal",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-qa.hkmt",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-voidMeterReading-guest-session",
+      "operationId": "voidMeterReading",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/meter-readings/{readingId}/void",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A123"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
     {
       "id": "RB-withdrawGuestConsent-guest-session",

@@ -30,6 +30,7 @@ import {
 import { FolioService, OTA_COVERED } from '../public/folio.service';
 import { folioLocked, lockReasonOfStatus } from '../public/folio-locked';
 import { keyKindOf } from '../public/reductions';
+import { isStatementLine } from '../public/statement-codes';
 import { StayWaiverAlertService } from './stay-waiver-alert';
 
 // ARC 16.27 (2) / R7LOCK-02 (DOM 18/10, BR-525): `DEBT_WRITE_OFF` (approvals/public – FB-R3-ARC-FUZZ-03) is the ONLY
@@ -57,6 +58,7 @@ interface LineRow {
   reversal_of_id: string | null;
   related_line_id: string | null;
   stay_night_id: string | null;
+  charge_code: string | null;
   reversed: boolean;
 }
 
@@ -122,7 +124,10 @@ export class FolioFocService {
       line.reversed ||
       line.reversal_of_id ||
       ['foc', 'discount', 'adjustment'].includes(line.category) ||
-      line.amount_vnd <= 0
+      line.amount_vnd <= 0 ||
+      // FB-INV-012 (contract 2.4): rent / utilities / rounding of a monthly statement are not reduced on the folio – the
+      // statement is voided and replaced, or corrected on the next one (BR-LS-16).
+      isStatementLine(line.charge_code)
     ) {
       throw problem('INVALID_TRANSITION');
     }
@@ -411,6 +416,7 @@ export class FolioFocService {
       `SELECT l.id, l.folio_id, l.reservation_id, l.category, l.revenue_group,
               l.service_date::text AS service_date,
               l.unit_price_vnd, l.amount_vnd, l.line_state, l.reversal_of_id, l.related_line_id, l.stay_night_id,
+              l.charge_code,
               EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id) AS reversed
          FROM folio_line l WHERE l.id = $1`,
       [id],

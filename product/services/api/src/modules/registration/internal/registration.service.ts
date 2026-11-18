@@ -2485,6 +2485,9 @@ export class RegistrationService {
   }
 
   async onCheckedOut(tx: Tx, reservationId: string, at: Date): Promise<void> {
+    // FB-INV-012 (SEC BE-190-01): meter photos of a long stay are kept 12 months from checkout – with or without a
+    // registration row.
+    await this.attachments?.setMeterRetentionAnchor(tx, reservationId, at);
     const reg = await lockRegistrationOfReservation(tx, reservationId);
     if (!reg) return;
     await tx.query(

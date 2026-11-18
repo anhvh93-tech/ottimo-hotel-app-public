@@ -29,6 +29,8 @@ defineAuditEntity('payment', [
   // `reservationStatus` also marks a pending VietQR expired by the closure itself (J1, B5, B10, B11).
   'afterClosure',
   'reservationStatus',
+  // FB-INV-012: a receipt of a long stay's monthly statement (`recordBillingPeriodPayment`).
+  'billingPeriodId',
 ]);
 // 0.3.13 bổ sung 1 (5B-1 S7, BE C0313-22): a "khách đã chuyển" notice on a closed booking – afterClosureOnly.
 defineAuditEntity('deposit_notice', ['amountVnd', 'status', 'afterClosure']);

@@ -33,6 +33,7 @@ import {
 import { auditColumns, instant } from './common';
 import { channel } from './channels';
 import { approvalRequest } from './approvals';
+import { billingPeriod } from './billing';
 import { appUser } from './identity';
 import { property } from './platform';
 import { reservation } from './reservations';
@@ -296,6 +297,13 @@ export const payment = pgTable(
   (t) => [
     unique('payment_property_id_key').on(t.propertyId, t.id),
     unique('payment_property_code_key').on(t.propertyId, t.code),
+    // 0099 (FB-INV-012, ARC BE-190-05): a statement payment points at a statement of the same property. Every row
+    // before 0099 has billing_period_id NULL, so the constraint is added validated.
+    foreignKey({
+      name: 'payment_billing_period_fk',
+      columns: [t.propertyId, t.billingPeriodId],
+      foreignColumns: [billingPeriod.propertyId, billingPeriod.id],
+    }),
     foreignKey({
       name: 'payment_property_fk',
       columns: [t.organizationId, t.propertyId],

@@ -1069,11 +1069,16 @@ export class PaymentsService {
          FROM payment WHERE id = $1`,
       [p.id, id, code, now, actor.userId, primaryRole(actor.roles), reason],
     );
-    await tx.query(
-      `UPDATE payment SET status = 'reversed', updated_at = $2, version = version + 1 WHERE id = $1`,
+    const { rows: reversedRows } = await tx.query<{ billing_period_id: string | null }>(
+      `UPDATE payment SET status = 'reversed', updated_at = $2, version = version + 1 WHERE id = $1
+       RETURNING billing_period_id`,
       [p.id, now],
     );
     await this.folios.touch(tx, p.folio_id); // ARC 16.29 (N-6)
+    // FB-INV-012 (contract 5): reversing a receipt of a monthly statement lowers what the statement received and steps
+    // its status back (paid → partially_paid → issued) in this transaction.
+    const billingPeriodId = reversedRows[0]?.billing_period_id ?? null;
+    if (billingPeriodId) await this.payments.billingPeriodPaymentChanged(tx, billingPeriodId);
     // SEC I5: a disputed receipt is kept until it is dealt with (the reversal) + the retention period.
     if (p.reconciliation === 'disputed')
       await anchorPaymentAttachment(this.attachments, tx, p, now);
