@@ -649,7 +649,11 @@ Danh sách kiểm trước khi deploy production v1.0.7 (thay 18.5 mục 3):
 1. Tag Release trên commit có 0099 giống hệt `f871ab1e`/`5e98ec5a`. Lấy digest từ artifact `image-digests` của CI, đối chiếu khi `resolve`.
 2. **Giờ vắng**: tránh giờ nhận/trả phòng và giờ lễ tân ghi thu. Báo lễ tân trước vài phút: Desk gián đoạn khoảng 4 giây lúc đổi container (`b2-runbook.md` 8.2).
 3. **Sao lưu thủ công** ngay trước tag: `systemctl start ottimo-backup@ottimo-prod.service`. Đạt khi có `OK: … encrypted files` và `backup.last_ok` mới. Ghi lại mã giờ để quay lui.
-4. **Kiểm `long_tx`** bằng `SQLRO` ngay trước khi duyệt deploy: giao dịch mở > 1 phút phải bằng 0. Khác 0 thì hoãn: migrator chưa có `lock_timeout` (18.3).
+4. **Kiểm giao dịch đang mở** bằng `SQLRO` ngay trước khi duyệt deploy, dùng `pg_locks` (sửa 18/11 theo §20.2):
+   ```sql
+   SELECT count(DISTINCT pid) FROM pg_locks WHERE pid IS NOT NULL AND pid <> pg_backend_pid();
+   ```
+   Đúng là `0`. Khác 0 thì chạy lại sau 1–2 phút; vẫn khác 0 thì hoãn: migrator chưa có `lock_timeout` (18.3). Lý do đổi: `ottimo_readonly` không có `pg_read_all_stats`, nên `pg_stat_activity` giấu `state`/`xact_start` và câu "giao dịch mở > 1 phút" cũ luôn ra 0. `pg_locks` không bị giấu theo vai, và mọi giao dịch đang mở đều giữ khóa `virtualxid`. Cấp `pg_read_all_stats` để vẫn đọc được tuổi giao dịch: thẻ Minor cho SEC, chưa làm.
 5. Ghi số đếm production trước (`SQLRO`, chỉ số): migrations 73, `payment`, `folio_line`, `folio`, `reservation`, `config_parameter_def`.
 6. Sau deploy:
    - `journalctl -t ottimo-deploy` có `migrations: 74 applied / 74 in the image journal` và `OK: <tag> is live`.
@@ -661,3 +665,51 @@ Danh sách kiểm trước khi deploy production v1.0.7 (thay 18.5 mục 3):
 Thẻ đề xuất, giữ như cũ (Minor, không chặn v1.0.7): BE/ARC thêm `SET lock_timeout` cho migrator (18.3).
 
 Không commit (theo giao việc, ORC commit).
+
+## 20. Kiểm chỉ đọc production trước v1.0.7 – 18/11 18:24–18:30 (QC FB-INV-012 điều kiện 2)
+
+Căn cứ: giao việc ORC Round 5, bước QC (điều kiện 2 của `rounds/round-05/qc/fb-inv-012-qc-gate.md`). ORC báo INV đồng ý trong chat 18/11 cho lần đọc này, chỉ cho mục đích này. Chỉ đọc: mọi câu DB qua khối `SQLRO`, ba phiên, cả ba phiên hai dòng chốt đầu là `on` và `ottimo_readonly`. Không SQL ghi, không migrate, không deploy, không đọc `.env`. Không in tên khách, mã đơn, số tiền, số/tên tài khoản, IP. Chỉ có số đếm và có/không. Lệnh Docker và tệp trạng thái đọc bằng `sudo -n` (chỉ `inspect`, `cat`).
+
+### 20.1 Bảng kết quả
+
+| # | Kiểm | Kết quả |
+|---|---|---|
+| 1 | `property` đang hoạt động | 1 |
+| 1a | Địa chỉ (`property.address`, ra `addressLine` của phiếu) có giá trị | **Không** (0/1) |
+| 1b | Hotline (`property.phone_public`, ra `hotline` của phiếu) có giá trị | **Không** (0/1) |
+| 2 | `payment_receiving_account` (tham số `config_parameter`, không phải bảng riêng): có bản hiệu lực hôm nay | **Có**. 1 dòng tất cả; 1 bản hiệu lực (`effective_from` ≤ hôm nay); đủ 3 trường `bankBin`/`accountNo`/`accountName`. Không đọc giá trị |
+| 3 | Đơn dài hạn (`stay_type = 'long'`) đang ở (`in_house`) | **0**. Đến trước 01/11: 0 · đến từ 01/11: 0 |
+| 3a | Đơn dài hạn `confirmed` (chưa nhận phòng trên Desk) | **6**. Đến trước 01/11: 0 · đến trong tháng 11: 6 · từ 12/2026: 0. Cả 6 có ngày đến ≤ hôm nay; 0 đơn có ngày đi ≤ hôm nay |
+| 3b | Đơn dài hạn `cancelled` | 2 |
+| 3c | Đơn ngắn ngày: `in_house` 0 · `confirmed` 1 (ngày đến đã qua) · `cancelled` 2 | – |
+| 3d | Bảng `meter_reading` / `billing_period` | **Chưa có** (0099 chưa lên production). Không đếm được số đọc đầu kỳ 11 |
+| 4 | `long_tx` theo cách §18.3 (`pg_stat_activity`, giao dịch mở > 1 phút) | Ra 0, nhưng **không dùng được làm bằng chứng**: xem 20.2 |
+| 4a | Giao dịch đang mở của phiên khác, theo `pg_locks` (mọi giao dịch đang mở đều giữ khóa `virtualxid`) | **0** tiến trình khác giữ khóa · 0 khóa trên `payment`, `folio`, `folio_line`, `reservation`, `property`, `room`, `attachment`, `app_user` · 0 `pg_prepared_xacts` |
+| 4b | Số đếm nền (§19.6 mục 5) | migrations **73** · `payment` **3** · `folio_line` **38** · `folio` **11** · `reservation` **11** · `config_parameter_def` **200**. Trùng số §18.3 lúc 14:5x |
+| 5 | Image production | `current_tag` = `sha-f8791cf83b63` (v1.0.6). api `sha256:ed0e50ab…ae1d` (trùng §17.3, §19.1) · worker cùng image api · web `sha256:281fc3f6…c46d` (trùng §17.3). api, web healthy; worker chạy; `RestartCount` 0/0/0 |
+| 5a | `backup.last_ok` production | `2026-11-18T08:01:02Z` = 15:01 VN, tuổi **203 phút** lúc đọc. Lượt 15:00 đạt; lượt kế 03:00. Còn trong hạn |
+
+### 20.2 Phát hiện: kiểm `long_tx` bằng `pg_stat_activity` bị mù dưới vai `ottimo_readonly`
+
+- `ottimo_readonly` không có `pg_read_all_stats` hay `pg_monitor` (cả hai `false`). Postgres giấu `state`, `xact_start`, `backend_type` của phiên không cùng vai. Phiên `SQLRO` đăng nhập bằng vai quản trị rồi đổi vai, nên **cả dòng của chính nó** cũng bị giấu: 6/6 dòng `pg_stat_activity` có `state` NULL, 0 dòng có `xact_start`.
+- Hệ quả: câu "giao dịch mở > 1 phút" **luôn ra 0**, kể cả khi có giao dịch dài. Số 0 ở §18.3 (14:5x) cũng là con số mù. Trạng thái thật lúc đó không biết. Không gây hại vì production không deploy, nhưng §19.6 mục 4 và QC §4 ("không phát hành nếu `long_tx` ≠ 0") đang dựa vào một kiểm không bao giờ báo động.
+- Thay thế OPS dùng từ nay (không cần thêm quyền): `pg_locks` không bị giấu theo vai. Mọi giao dịch đang mở giữ khóa `virtualxid` của nó, nên "0 tiến trình khác trong `pg_locks`" nghĩa là lúc đó không có giao dịch nào đang mở. Câu dùng lúc duyệt deploy, trong `SQLRO`:
+  ```sql
+  SELECT count(DISTINCT pid) FROM pg_locks WHERE pid IS NOT NULL AND pid <> pg_backend_pid();
+  ```
+  Đúng là `0`. Khác 0 thì chạy lại sau 1–2 phút (app có giao dịch ngắn hợp lệ); vẫn khác 0 thì hoãn deploy như §19.6 mục 4. Câu này không đo được tuổi giao dịch, nên chặt hơn câu cũ (đếm cả giao dịch ngắn).
+- Thẻ đề xuất (Minor, không chặn v1.0.7, cần SEC duyệt): `02-roles.sh` cấp `pg_read_all_stats` cho `ottimo_readonly` để `ops-check` và runbook đọc được tuổi giao dịch; hoặc giữ cách `pg_locks`. OPS sẽ sửa §19.6 mục 4 sang câu `pg_locks` khi ORC đồng ý.
+
+### 20.3 Ảnh hưởng tới phát hành
+
+| Điều kiện QC | Kết quả | Chặn gì |
+|---|---|---|
+| QC §4: có tài khoản nhận VietQR hiệu lực | Có (mục 2) | Không chặn |
+| QC §4: `long_tx` = 0 | Kiểm cũ mù (20.2). Theo `pg_locks` lúc 18:24: 0 | Không chặn, nếu lúc duyệt deploy dùng câu `pg_locks` |
+| QC điều kiện 4: chân phiếu đủ địa chỉ, hotline | **Cả hai trống** | Không chặn deploy. **Chặn phiếu đầu tiên** cho tới khi OWN nhập địa chỉ và hotline trên Desk (cấu hình cơ sở), rồi in thử A5 |
+| QC điều kiện 5: khách đang ở từ trước khi có Desk | **0 đơn dài hạn đang ở trên Desk**. 6 đơn dài hạn còn `confirmed`, ngày đến đều trong tháng 11 và đã qua; 0 đơn ngày đến trước 01/11 | Không chặn deploy. Chưa đơn nào có phiếu được cho tới khi lễ tân nhận phòng trên Desk. Cả 6 đều thuộc nhóm "phiếu tháng nhận phòng" (kỳ lẻ tháng 11), đúng rủi ro thu trùng tháng 11 của điều kiện 5. Nhóm "đến trước 01/11, thiếu đầu kỳ 11" hiện là 0 trên Desk |
+
+Lưu ý cho DOM/ORC (điều kiện 5): 6 đơn dài hạn trên Desk ít hơn số căn đang cho thuê dài hạn theo brief (10 căn). Dữ liệu không cho biết khách nào thực tế đã ở trước 01/11 nhưng được nhập ngày đến tháng 11. Hướng dẫn của điều kiện 5 nên yêu cầu lễ tân đối chiếu ngày đến thật trước khi bấm nhận phòng. Ngoài ra có 1 đơn ngắn ngày `confirmed` đã qua ngày đến, chưa nhận phòng hay đánh dấu vắng: lễ tân nên xử lý (không liên quan 0099).
+
+### 20.4 Không thay đổi gì
+Máy chủ: không ghi gì, không khởi động lại gì, không deploy. Chỉ chạy 3 phiên `SQLRO`, `docker inspect`, đọc `state/current_tag` và `state/backup.last_ok`. Không tạo tệp trong repo ngoài mục này. Không commit (theo giao việc, ORC commit).
