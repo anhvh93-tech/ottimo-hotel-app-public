@@ -79,6 +79,9 @@ describe('FB-INV-012 S16 statements – lines, totals, flow', () => {
     for (const td of dlg.querySelectorAll('td.stmt-amt'))
       expect(td.closest('table')).toHaveClass('stmt-lines');
     expect(dlg.querySelectorAll('tr.stmt-move-row').length).toBe(2);
+    // Three columns (description with qty × price under it, VAT, amount): the money fits the drawer at 390 px.
+    expect(dlg.querySelectorAll('table.stmt-lines thead th')).toHaveLength(3);
+    expect(within(dlg).getByText('142 kWh × 4.000')).toBeVisible();
     // FD on a draft: update/issue/void, not the prior-period adjustment (A122).
     expect(within(dlg).getByRole('button', { name: tv('stmt.issue') })).toBeVisible();
     expect(within(dlg).queryByText(tv('stmt.prior_title'))).toBeNull();

@@ -38,12 +38,15 @@
   border-radius: 4px;
   border: 1px solid var(--brand-sage);
 }
-/* UXD-189-04: money columns never wrap or shrink; the move button sits on its own row under its line. */
-.stmt-lines {
-  min-width: 34rem;
+/* UXD-189-04: three columns (description with qty × price under it, VAT, amount) fit the drawer at 1280 and 390;
+   money never wraps or shrinks; the move button sits on its own row under its line; overflow-x stays as a net. */
+.stmt-lines td:first-child {
+  overflow-wrap: anywhere;
 }
-.stmt-lines .stmt-amt {
-  min-width: 7.5rem;
+.stmt-lines .stmt-amt,
+.stmt-lines tfoot td {
+  min-width: 6.5rem;
+  white-space: nowrap;
 }
 .stmt-lines tr.stmt-has-move td {
   border-bottom: 0;

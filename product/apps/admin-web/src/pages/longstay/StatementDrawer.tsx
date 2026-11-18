@@ -273,9 +273,6 @@ export function StatementDrawer({
                 <tr>
                   <th scope="col">{t('stmt.col_desc')}</th>
                   <th scope="col" className="r">
-                    {t('stmt.col_qty')} × {t('stmt.col_unit_price')}
-                  </th>
-                  <th scope="col" className="r">
                     {t('stmt.col_vat')}
                   </th>
                   <th scope="col" className="r">
@@ -306,39 +303,39 @@ export function StatementDrawer({
               </tbody>
               <tfoot>
                 <tr>
-                  <th scope="row" colSpan={3}>
+                  <th scope="row" colSpan={2}>
                     {t('stmt.subtotal')}
                   </th>
                   <td className="r num">{num(p.totals.netVnd)}</td>
                 </tr>
                 <tr>
-                  <th scope="row" colSpan={3}>
+                  <th scope="row" colSpan={2}>
                     {t('stmt.vat_total')}
                   </th>
                   <td className="r num">{num(p.totals.vatVnd)}</td>
                 </tr>
                 <tr>
-                  <th scope="row" colSpan={3}>
+                  <th scope="row" colSpan={2}>
                     {t('stmt.rounding')}
                   </th>
                   <td className="r num">{signedNum(p.totals.roundingVnd)}</td>
                 </tr>
                 <tr className="total">
-                  <th scope="row" colSpan={3}>
+                  <th scope="row" colSpan={2}>
                     {t('stmt.total')}
                   </th>
                   <td className="r num">{num(p.totals.totalVnd)}</td>
                 </tr>
                 {p.totals.paidVnd > 0 ? (
                   <tr>
-                    <th scope="row" colSpan={3}>
+                    <th scope="row" colSpan={2}>
                       {t('stmt.paid')}
                     </th>
                     <td className="r num">−{num(p.totals.paidVnd)}</td>
                   </tr>
                 ) : null}
                 <tr className="total">
-                  <th scope="row" colSpan={3}>
+                  <th scope="row" colSpan={2}>
                     {t('stmt.balance')}
                   </th>
                   <td className="r num">{num(p.totals.balanceVnd)}</td>
@@ -424,16 +421,18 @@ function LineRow({ l, onMove }: { l: StatementLine; onMove?: () => void }) {
         <td>
           {lineText(locale, l)}
           {l.roomNo && utility ? ` · ${l.roomNo}` : ''}
+          {/* Quantity × net unit price and the meter go under the description, so the money column keeps its
+              width at 390 px too (UXD-189-04). */}
+          {l.kind === 'rounding' || l.kind === 'prior_adjustment' ? null : (
+            <div className="li-s num">
+              {`${meterNum(l.quantity, l.unit)}${unit ? ` ${unit}` : ''} × ${num(l.unitPriceNetVnd)}`}
+            </div>
+          )}
           {l.meter ? (
             <div className="li-s mono">
               {meterNum(l.meter.from, l.unit)} → {meterNum(l.meter.to, l.unit)}
             </div>
           ) : null}
-        </td>
-        <td className="r num nowrap">
-          {l.kind === 'rounding' || l.kind === 'prior_adjustment'
-            ? ''
-            : `${meterNum(l.quantity, l.unit)}${unit ? ` ${unit}` : ''} × ${num(l.unitPriceNetVnd)}`}
         </td>
         <td className="r num nowrap">
           {l.vatRatePct == null
@@ -446,7 +445,7 @@ function LineRow({ l, onMove }: { l: StatementLine; onMove?: () => void }) {
       </tr>
       {onMove ? (
         <tr className="stmt-move-row">
-          <td colSpan={4}>
+          <td colSpan={3}>
             <Button size="sm" variant="ghost" onClick={onMove}>
               {t('stmt.move_next')}
             </Button>
