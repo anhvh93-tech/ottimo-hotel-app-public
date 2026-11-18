@@ -215,8 +215,9 @@ export type CompleteReviewBody = BodyOf<'completeRegistrationReview'>;
 export type DocumentCheckBody = BodyOf<'recordDocumentCheck'>;
 export type PortalData = Schemas['PortalData'];
 export type RegistrationTransitionBody = BodyOf<'transitionRegistration'>;
+/** `uploadAttachment` purpose enum, read from the generated operation so it cannot drift (0.3.14 adds `meter`). */
 export type AttachmentPurpose =
-  'penalty_evidence' | 'deposit_receipt' | 'refund_proof' | 'work_order' | 'inspection';
+  operations['uploadAttachment']['requestBody']['content']['multipart/form-data']['purpose'];
 export type AttachmentResult = ResponseOf<'uploadAttachment'>;
 /** `updateRoom` 200 = Room + `warnings[]` (0.3.6 A-39). */
 export type RoomUpdateResult = ResponseOf<'updateRoom'>;
@@ -262,3 +263,36 @@ export type WebsiteBookingRequestRef = Schemas['WebsiteBookingRequestRef'];
 /** Path segment of `transitionWebsiteBookingRequest` (SM-18 WR1–WR5, WR8). */
 export type WebsiteBookingRequestAction =
   'claim' | 'release' | 'decline' | 'mark-spam' | 'reopen' | 'erase';
+
+// ---------- R5 FB-INV-012 – monthly statements and meter readings (OpenAPI 0.3.14, BE #190) ----------
+export type MeterReadingKind = Schemas['MeterReadingKind'];
+export type MeterException = Schemas['MeterException'];
+export type MeterValue = Schemas['MeterValue'];
+export type MeterValueInput = Schemas['MeterValueInput'];
+export type MeterPair = Schemas['MeterPair'];
+export type MeterReading = Schemas['MeterReading'];
+export type MeterReadingList = ResponseOf<'listMeterReadings'>;
+export type RecordMeterReadingBody = BodyOf<'recordMeterReading'>;
+export type MonthlyStatementStatus = Schemas['MonthlyStatementStatus'];
+export type BillingAlertLevel = Schemas['BillingAlertLevel'];
+export type BillingCandidateList = ResponseOf<'listBillingCandidates'>;
+export type BillingCandidate = BillingCandidateList['items'][number];
+export type BillingCandidateRoom = NonNullable<BillingCandidate['rooms']>[number];
+export type BillingPeriodLine = Schemas['BillingPeriodLine'];
+export type BillingWarning = Schemas['BillingWarning'];
+export type BillingPeriodTotals = Schemas['BillingPeriodTotals'];
+export type MissingMeterReading = Schemas['MissingMeterReading'];
+export type BillingPeriod = Schemas['BillingPeriod'];
+export type BillingPeriodAction = BillingPeriod['availableActions'][number];
+export type BillingPeriodVoided = ResponseOf<'voidBillingPeriod'>;
+export type BillingPeriodSummary = Schemas['BillingPeriodSummary'];
+export type BillingPeriodPage = ResponseOf<'listBillingPeriods'>;
+export type ListBillingPeriodsQuery = NonNullable<
+  operations['listBillingPeriods']['parameters']['query']
+>;
+export type BillingPeriodCreate = BodyOf<'createBillingPeriod'>;
+export type BillingPeriodPatch = BodyOf<'updateBillingPeriod'>;
+export type BillingPeriodPaymentCreate = BodyOf<'recordBillingPeriodPayment'>;
+export type BillingPeriodPaymentResult = ResponseOf<'recordBillingPeriodPayment'>;
+export type BillingPeriodPrint = ResponseOf<'getBillingPeriodPrint'>;
+export type DateRange = Schemas['DateRange'];

@@ -1,7 +1,7 @@
 // FB-INV-012 (ARC-FE-189-03): the MSW mock of monthly statements answers in the shapes of the OpenAPI schemas, so FE
 // tests cannot go green on shapes the server never sends. Reads `docs/api/openapi.yaml` (or `FB012_OPENAPI`, e.g. the
-// spec of the BE branch before #190 merges). Undeclared fields fail – no allowances (BE da40f1c7 has every field the
-// desk reads). Skips while the spec has no billing schemas (main before #190).
+// spec of another branch). Undeclared fields fail – no allowances. Whole response bodies are checked against the
+// operation's 2xx schema in `paths` (wrapper included: `listBillingPeriods` is `{data, page}`), not only the items.
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -19,10 +19,20 @@ const { parse } = createRequire(join(repo, 'services', 'api', 'package.json'))('
 type Schema = Record<string, unknown>;
 interface Spec {
   components: { schemas: Record<string, Schema> };
+  paths: Record<string, Record<string, { responses?: Record<string, Schema> }>>;
 }
 const spec: Spec | null = existsSync(specPath) ? parse(readFileSync(specPath, 'utf8')) : null;
 const schemas = spec?.components.schemas ?? {};
 const ready = !!schemas.BillingPeriod && !!schemas.MeterReading;
+
+/** JSON schema of the `code` response of `method path` (a `$ref` to components.responses resolved). */
+function responseOf(path: string, method: string, code: string): Schema {
+  let r = spec!.paths[`/v1/properties/{propertyId}${path}`]![method]!.responses![code]!;
+  if (typeof r.$ref === 'string')
+    r = (spec as unknown as { components: { responses: Record<string, Schema> } }).components
+      .responses[r.$ref.split('/').pop()!]!;
+  return (r.content as Record<string, { schema: Schema }>)['application/json']!.schema;
+}
 
 function resolve(s: Schema): Schema {
   let cur = s;
@@ -88,7 +98,11 @@ const api = (path: string, init?: RequestInit) =>
     body: (await r.json()) as Record<string, unknown>,
   }));
 
-describe.skipIf(!ready)('FB-INV-012 mock answers match the OpenAPI schemas (ARC-FE-189-03)', () => {
+describe('FB-INV-012 mock answers match the OpenAPI schemas (ARC-FE-189-03)', () => {
+  it('the spec on this branch has the billing operations (BE #190 on main)', () => {
+    expect(ready).toBe(true);
+  });
+
   it('the checker itself flags a missing field, a wrong type and an undeclared field', () => {
     const errs = check(
       { status: 'draft', kind: 7, bogus: true },
@@ -117,19 +131,30 @@ describe.skipIf(!ready)('FB-INV-012 mock answers match the OpenAPI schemas (ARC-
 
     const readings = await api(`/reservations/${stay.reservationId}/meter-readings`);
     expect(readings.status).toBe(200);
-    for (const [i, x] of (readings.body.items as unknown[]).entries())
-      errs.push(...check(x, ref('MeterReading'), `readings[${i}]`, 'MeterReading'));
+    expect((readings.body.items as unknown[]).length).toBeGreaterThan(0);
+    errs.push(
+      ...check(
+        readings.body,
+        responseOf('/reservations/{reservationId}/meter-readings', 'get', '200'),
+        'readings',
+        'listMeterReadings',
+      ),
+    );
 
     const cands = await api(`/billing-periods/candidates?month=${st.M}`);
-    const item = resolve(schemas.BillingCandidateList!).properties as Record<string, Schema>;
-    for (const [i, x] of (cands.body.items as unknown[]).entries())
-      errs.push(
-        ...check(x, (item.items as Schema).items as Schema, `candidates[${i}]`, 'candidate'),
-      );
+    expect((cands.body.items as unknown[]).length).toBeGreaterThan(0);
+    errs.push(
+      ...check(
+        cands.body,
+        responseOf('/billing-periods/candidates', 'get', '200'),
+        'candidates',
+        'list',
+      ),
+    );
 
     const list = await api('/billing-periods');
-    for (const [i, x] of (list.body.items as unknown[]).entries())
-      errs.push(...check(x, ref('BillingPeriodSummary'), `list[${i}]`, 'BillingPeriodSummary'));
+    expect((list.body.data as unknown[]).length).toBeGreaterThan(0);
+    errs.push(...check(list.body, responseOf('/billing-periods', 'get', '200'), 'list', 'list'));
 
     const issued = st.periods.find((p) => p.status === 'issued')!;
     const one = await api(`/billing-periods/${issued.id}`);

@@ -1,16 +1,12 @@
-import { isApiError } from '@ottimo/api-client';
+import { isApiError, type BillingPeriodPatch } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../../app/api';
 import { parseVnd } from '../../app/money';
 import { problemView } from '../../app/problem';
-import {
-  statementsApi,
-  statusTone,
-  type BillingPeriod,
-  type StatementLine,
-} from '../../app/statements';
+import { statusTone, type BillingPeriod, type StatementLine } from '../../app/statements';
 import { useToast } from '../../app/toast';
 import { useWrite } from '../../app/useWrite';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
@@ -49,7 +45,7 @@ export function StatementDrawer({
   const toast = useToast();
   const ids = useId();
   const res = useResource(
-    async () => (await statementsApi.getBillingPeriod(propertyId, id)).data,
+    async () => (await api.getBillingPeriod({ propertyId }, id)).data,
     [propertyId, id],
   );
   const [acked, setAcked] = useState<Set<number>>(new Set());
@@ -76,11 +72,11 @@ export function StatementDrawer({
     onChanged();
   };
 
-  const patch = async (body: Parameters<typeof statementsApi.updateBillingPeriod>[3]) => {
+  const patch = async (body: BillingPeriodPatch) => {
     if (!p) return;
     setBanner(null);
     try {
-      applied((await statementsApi.updateBillingPeriod(propertyId, p.id, p.version, body)).data);
+      applied((await api.updateBillingPeriod({ propertyId }, p.id, p.version, body)).data);
     } catch (e) {
       setBanner(problemView(t, e).text);
       if (isApiError(e) && e.status === 412) res.reload();
@@ -92,7 +88,7 @@ export function StatementDrawer({
     setBanner(null);
     try {
       const out = await issueW.run((key) =>
-        statementsApi.issueBillingPeriod(propertyId, p.id, p.version, p.warnings.length > 0, key),
+        api.issueBillingPeriod({ propertyId }, p.id, p.version, p.warnings.length > 0, key),
       );
       applied(out.data);
       toast(t('stmt.issued_toast', { code: out.data.code ?? '' }));
@@ -109,9 +105,8 @@ export function StatementDrawer({
     if (!replaceMonth) return;
     try {
       const out = await replaceW.run((key) =>
-        statementsApi.createBillingPeriod(
-          propertyId,
-          replaceMonth.reservationId,
+        api.createBillingPeriod(
+          { propertyId, reservationId: replaceMonth.reservationId },
           { month: replaceMonth.month, kind: 'regular' },
           key,
         ),
@@ -292,7 +287,7 @@ export function StatementDrawer({
                           ? () =>
                               void patch({
                                 excludedFolioLineIds: [
-                                  ...p.excludedLines.map((x) => x.folioLineId!),
+                                  ...(p.excludedLines ?? []).map((x) => x.folioLineId!),
                                   l.folioLineId!,
                                 ],
                               })
@@ -344,11 +339,11 @@ export function StatementDrawer({
             </table>
           </div>
 
-          {p.excludedLines.length ? (
+          {(p.excludedLines ?? []).length ? (
             <section className="stack">
               <h3 className="label-h">{t('stmt.moved_title')}</h3>
               <ul className="list-plain">
-                {p.excludedLines.map((l) => (
+                {(p.excludedLines ?? []).map((l) => (
                   <li key={l.folioLineId} className="row wrap">
                     <span className="grow">
                       {lineText(locale, l)} · {num(l.amountVnd)}
@@ -359,7 +354,7 @@ export function StatementDrawer({
                         variant="ghost"
                         onClick={() =>
                           void patch({
-                            excludedFolioLineIds: p.excludedLines
+                            excludedFolioLineIds: (p.excludedLines ?? [])
                               .map((x) => x.folioLineId!)
                               .filter((x) => x !== l.folioLineId),
                           })
@@ -545,7 +540,7 @@ function PaymentForm({
     setErr(null);
     try {
       const out = await write.run((key) =>
-        statementsApi.recordBillingPeriodPayment(propertyId, p.id, { method, amountVnd: n }, key),
+        api.recordBillingPeriodPayment({ propertyId }, p.id, { method, amountVnd: n }, key),
       );
       // OpenAPI `BillingPeriodPaymentResult` = {billingPeriod, payment}.
       onDone(out.data.billingPeriod);
@@ -615,7 +610,7 @@ function VoidForm({
     try {
       // OpenAPI `BillingPeriodVoided`: the statement, flat, + `canReplace`.
       const { canReplace, ...next } = (
-        await statementsApi.voidBillingPeriod(propertyId, p.id, reason.trim())
+        await api.voidBillingPeriod({ propertyId }, p.id, reason.trim())
       ).data;
       onDone(next, canReplace);
     } catch (e) {

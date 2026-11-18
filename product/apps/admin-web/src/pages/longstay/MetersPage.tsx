@@ -1,7 +1,8 @@
-import { isApiError, type Role } from '@ottimo/api-client';
+import { deriveIdempotencyKey, isApiError, type Role } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, StateView } from '@ottimo/ui';
 import { useEffect, useId, useRef, useState } from 'react';
+import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
 import { problemView } from '../../app/problem';
 import {
@@ -9,7 +10,6 @@ import {
   parseMeter,
   readingMonthOn,
   shiftMonth,
-  statementsApi,
   type BillingCandidate,
   type CandidateRoom,
   type MeterException,
@@ -49,13 +49,13 @@ export function MetersPage() {
   const [month, setMonth] = useState(() => readingMonthOn(today));
   const ids = useId();
   const rows = useResource<Row[]>(async () => {
-    const c = (await statementsApi.listBillingCandidates(propertyId, shiftMonth(month, 1))).data;
+    const c = (await api.listBillingCandidates({ propertyId }, shiftMonth(month, 1))).data;
     const out = await Promise.all(
       c.items.map(async (candidate) => {
         const readings = (
-          await statementsApi.listMeterReadings(propertyId, candidate.reservationId)
+          await api.listMeterReadings({ propertyId, reservationId: candidate.reservationId })
         ).data.items;
-        return candidate.rooms.map((room) => ({
+        return (candidate.rooms ?? []).map((room) => ({
           candidate,
           room,
           readings: readings.filter((r) => r.roomId === room.roomId),
@@ -235,9 +235,10 @@ function MeterRow({
       value: values.water,
       exception: kind === 'period_end' ? draft.water.closingEx : draft.water.openingEx,
     },
-    ...(photoAttachmentId ? { photoAttachmentId } : { photoWaived: true }),
+    // Both flags have a schema default; the generated body type lists them, so they are always sent.
+    ...(photoAttachmentId ? { photoAttachmentId, photoWaived: false } : { photoWaived: true }),
     note: note.trim() || null,
-    ...(kind === 'period_start' && ack ? { acknowledgeLowerThanPrevious: true } : {}),
+    acknowledgeLowerThanPrevious: kind === 'period_start' && ack,
     ...(late ? { lateReason: lateReason.trim() } : {}),
   });
 
@@ -284,7 +285,13 @@ function MeterRow({
       photo
         ? (
             await w.run((key) =>
-              statementsApi.uploadMeterPhoto(propertyId, candidate.reservationId, photo, key),
+              api.uploadAttachment(
+                { propertyId },
+                photo,
+                'meter',
+                deriveIdempotencyKey(key, 'attachment'),
+                candidate.reservationId,
+              ),
             )
           ).data.id
         : null;
@@ -293,9 +300,8 @@ function MeterRow({
       if (toClose) {
         const id = await upload(upC);
         await closeW.run((key) =>
-          statementsApi.recordMeterReading(
-            propertyId,
-            candidate.reservationId,
+          api.recordMeterReading(
+            { propertyId, reservationId: candidate.reservationId },
             body('period_end', closing, id),
             key,
           ),
@@ -307,7 +313,7 @@ function MeterRow({
         const b = body('period_start', opening, id);
         if (acked) b.acknowledgeLowerThanPrevious = true;
         await openW.run((key) =>
-          statementsApi.recordMeterReading(propertyId, candidate.reservationId, b, key),
+          api.recordMeterReading({ propertyId, reservationId: candidate.reservationId }, b, key),
         );
         saved = true;
       }

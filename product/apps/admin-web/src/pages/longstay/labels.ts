@@ -68,8 +68,8 @@ export const num = (n: number, digits = 0) =>
 export const signedNum = (n: number) => (n < 0 ? `−${num(-n)}` : num(n));
 
 /** Meter value: electricity whole kWh, water one decimal (BR-LS-11). */
-export const meterNum = (n: number, unit: StatementLine['unit'] | 'kwh' | 'm3') =>
-  num(n, unit === 'm3' ? 1 : 0);
+export const meterNum = (n: number | undefined, unit: StatementLine['unit'] | 'kwh' | 'm3') =>
+  n === undefined ? '–' : num(n, unit === 'm3' ? 1 : 0);
 
 /** A month without the long name (statement lines): EN "Oct 2026", VI "10/2026". */
 export function shortMonth(locale: Locale, month: string): string {

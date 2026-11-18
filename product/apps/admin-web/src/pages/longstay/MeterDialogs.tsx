@@ -1,11 +1,11 @@
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal } from '@ottimo/ui';
 import { useState } from 'react';
+import { api } from '../../app/api';
 import { problemView } from '../../app/problem';
 import {
   isOpeningKind,
   parseMeter,
-  statementsApi,
   type MeterException,
   type MeterReading,
   type MeterType,
@@ -241,7 +241,7 @@ export function HistoryDialog({
     if (reason.trim().length < 3) return setErr(t('meters.void_reason_required'));
     setBusy(true);
     try {
-      await statementsApi.voidMeterReading(propertyId, voiding.id, reason.trim());
+      await api.voidMeterReading({ propertyId }, voiding.id, reason.trim());
       onChanged();
     } catch (e) {
       setErr(problemView(t, e).text);

@@ -23,9 +23,3 @@ const client = createApiClient({
 
 export const api = createEndpoints(client);
 export type Api = typeof api;
-
-/**
- * The raw client, for operations not yet in the generated contract. FB-INV-012 (`app/statements.ts`) calls the
- * billing endpoints of ARC contract 0.3.14-draft until the BE PR regenerates `@ottimo/api-client`.
- */
-export const apiClient = client;

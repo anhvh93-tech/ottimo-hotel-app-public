@@ -3,7 +3,8 @@ import { Button, QrCode, Seg } from '@ottimo/ui';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
-import { statementsApi, type BillingPeriodPrint, type StatementLine } from '../../app/statements';
+import { api } from '../../app/api';
+import type { BillingPeriodPrint, StatementLine } from '../../app/statements';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId } from '../../session/SessionProvider';
@@ -58,6 +59,15 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
   const due = s.dueDate;
   const paid = s.status === 'paid';
   const voided = s.status === 'void';
+  // The QR block needs the server's payload; amount and reference fall back to the sheet's own figures.
+  const qr = s.vietqr?.payload
+    ? {
+        ...s.vietqr,
+        payload: s.vietqr.payload,
+        amountVnd: s.vietqr.amountVnd ?? s.totals.balanceVnd,
+        transferContent: s.vietqr.transferContent ?? s.code ?? '',
+      }
+    : null;
   return (
     <article className={`stmt-sheet stmt-${size}`} data-paper={size} lang="en">
       <header className="stmt-hdr">
@@ -262,14 +272,14 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
         </p>
       ) : null}
 
-      {s.vietqr && !voided ? (
+      {qr && !voided ? (
         <section className="stmt-qr">
           <QrCode
-            value={s.vietqr.payload}
+            value={qr.payload}
             size={size === 'a5' ? 88 : 100}
             label={translate('en', 'stmt.print.qr_label', {
-              amount: num(s.vietqr.amountVnd),
-              ref: s.vietqr.transferContent,
+              amount: num(qr.amountVnd),
+              ref: qr.transferContent,
             })}
           />
           <dl>
@@ -280,13 +290,13 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
               <dt>
                 <Bi k="stmt.print.qr_amount" />
               </dt>
-              <dd className="stmt-qr-amt">{num(s.vietqr.amountVnd)} VND</dd>
+              <dd className="stmt-qr-amt">{num(qr.amountVnd)} VND</dd>
             </div>
             <div>
               <dt>
                 <Bi k="stmt.print.qr_content" />
               </dt>
-              <dd className="mono">{s.vietqr.transferContent}</dd>
+              <dd className="mono">{qr.transferContent}</dd>
               <dd className="stmt-keep-ref">
                 <Bi k="stmt.print.qr_keep_ref" />
               </dd>
@@ -296,8 +306,8 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
                 <Bi k="stmt.print.qr_bank" />
               </dt>
               <dd>
-                {s.vietqr.bankShortName ? `${s.vietqr.bankShortName} · ` : ''}
-                {s.vietqr.accountHolder} · <span className="mono">{s.vietqr.accountNoMasked}</span>
+                {qr.bankShortName ? `${qr.bankShortName} · ` : ''}
+                {qr.accountHolder} · <span className="mono">{qr.accountNoMasked}</span>
               </dd>
             </div>
           </dl>
@@ -343,7 +353,7 @@ export function StatementPrintPage() {
   const propertyId = usePropertyId();
   const ids = useId();
   const res = useResource(
-    async () => (await statementsApi.getBillingPeriodPrint(propertyId, id)).data,
+    async () => (await api.getBillingPeriodPrint({ propertyId }, id)).data,
     [propertyId, id],
   );
   const [enReady, setEnReady] = useState(() => isLocaleLoaded('en'));

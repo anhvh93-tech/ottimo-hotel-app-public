@@ -445,7 +445,7 @@ describe('FB-INV-012 S12 check-in reading (INV 17/11; ARC-FE-189-01/09, BE-190-1
       lateReason: 'Quên chụp lúc nhận phòng',
     });
     // 422 late → 422 below → saved: three sends, a new key after each 4xx; only the last has the flag.
-    expect(sent.map((x) => x.ack)).toEqual([undefined, undefined, true]);
+    expect(sent.map((x) => x.ack)).toEqual([false, false, true]);
     expect(new Set(sent.map((x) => x.key)).size).toBe(3);
   });
 

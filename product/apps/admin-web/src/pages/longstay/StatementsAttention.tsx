@@ -1,5 +1,5 @@
 import { useI18n } from '@ottimo/i18n';
-import { statementsApi } from '../../app/statements';
+import { api } from '../../app/api';
 import { useResource } from '../../hooks/useResource';
 import { NAV, isVisible } from '../../session/nav';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
@@ -24,9 +24,7 @@ export function useStatementAttention(): ExtraAttentionLine[] {
   const propertyId = usePropertyId();
   const res = useResource(
     async () =>
-      allowed
-        ? (await statementsApi.listBillingPeriods(propertyId, { overdue: true })).data.items
-        : [],
+      allowed ? (await api.listBillingPeriods({ propertyId }, { overdue: true })).data.data : [],
     [propertyId, allowed],
   );
   const items = res.state.data ?? [];

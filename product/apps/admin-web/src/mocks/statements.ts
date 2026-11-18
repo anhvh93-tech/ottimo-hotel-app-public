@@ -208,7 +208,8 @@ export function createStatementsMock(c: Ctx) {
         .sort(
           (a, b) => b.month.localeCompare(a.month) || a.roomNos[0]!.localeCompare(b.roomNos[0]!),
         );
-      return json({ items, page: { nextCursor: null } });
+      // OpenAPI `listBillingPeriods` 200 = { data, page: PageInfo } (one page in the mock).
+      return json({ data: items, page: { nextCursor: null, limit: 50 } });
     }),
     http.post(
       `${prop}/reservations/:reservationId/billing-periods`,
@@ -323,7 +324,7 @@ export function createStatementsMock(c: Ctx) {
       }
       if (b.excludedFolioLineIds) {
         const cur = compute(st, p, rates()).body;
-        const period = [...cur.lines, ...cur.excludedLines]
+        const period = [...cur.lines, ...(cur.excludedLines ?? [])]
           .map((l) => l.folioLineId)
           .filter(Boolean);
         if (b.excludedFolioLineIds.some((id) => !period.includes(id)))

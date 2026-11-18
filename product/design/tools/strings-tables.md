@@ -4329,7 +4329,8 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `params.k.monthly_statement_rules` | Quy tắc phiếu tháng dài hạn | Monthly statement rules | ⟨chừa chỗ⟩ | contract §3 |
 | `error.METER_LOWER_THAN_PREVIOUS` | Chỉ số cuối kỳ thấp hơn đầu kỳ. Chọn lý do trước khi lưu. | The closing reading is below the opening. Choose a reason before saving. | ⟨chừa chỗ⟩ |  |
 | `error.READING_EXISTS` | Căn này đã có chỉ số cho kỳ này. Hủy lần đọc cũ nếu cần nhập lại. | This room already has a reading for this period. Void it first to enter again. | ⟨chừa chỗ⟩ |  |
-| `error.READING_OUT_OF_WINDOW` | Đã hết hạn chốt chỉ số. Lễ tân trưởng ghi trễ kèm lý do (tối đa 10 ngày). | The reading window has closed. A front desk lead can record it late with a reason (up to 10 days). | ⟨chừa chỗ⟩ | BR-LS-10, BE-190-03 |
+| `error.READING_OUT_OF_WINDOW` | Đã hết hạn chốt chỉ số ({date}). Lễ tân trưởng ghi trễ kèm lý do, tối đa {days} ngày sau hạn. | The reading window closed on {date}. A front desk lead can record it late with a reason, up to {days} days after. | ⟨chừa chỗ⟩ | BR-LS-10, BE-190-03/12; {days} = lateUntil − windowTo (parameter lateMaxDays), UXD #189 |
+| `error.READING_OUT_OF_WINDOW_PAST_LATE` | Đã quá hạn ghi trễ cho ngày đọc này (hạn chốt {date}). Báo quản lý. | This reading is past the late-entry limit (the window closed on {date}). Contact the manager. | ⟨chừa chỗ⟩ | BE-190-03/12: 422 without lateUntil |
 | `error.READING_ON_ISSUED_STATEMENT` | Chỉ số đã dùng trên phiếu đã phát hành. Hủy phiếu trước. | This reading is on an issued statement. Void the statement first. | ⟨chừa chỗ⟩ |  |
 | `error.STATEMENT_EXISTS` | Tháng này đã có phiếu. | This month already has a statement. | ⟨chừa chỗ⟩ |  |
 | `error.METER_READING_MISSING` | Chưa đủ chỉ số đầu kỳ và cuối kỳ. Nhập chỉ số trước khi phát hành. | Opening or closing readings are missing. Enter them before issuing. | ⟨chừa chỗ⟩ |  |

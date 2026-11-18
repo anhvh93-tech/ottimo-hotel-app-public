@@ -3,6 +3,19 @@
 import type { ApiClient } from './client';
 import type {
   ApprovalRequest,
+  BillingCandidateList,
+  BillingPeriod,
+  BillingPeriodCreate,
+  BillingPeriodPage,
+  BillingPeriodPatch,
+  BillingPeriodPaymentCreate,
+  BillingPeriodPaymentResult,
+  BillingPeriodPrint,
+  BillingPeriodVoided,
+  ListBillingPeriodsQuery,
+  MeterReading,
+  MeterReadingList,
+  RecordMeterReadingBody,
   AssignRoomBody,
   AvailabilityResult,
   BodyOf,
@@ -177,6 +190,7 @@ export interface ListPaymentsQuery {
 }
 const RES = '/v1/properties/{propertyId}/reservations/{reservationId}';
 const QUO = '/v1/properties/{propertyId}/quotes/{quoteId}';
+const BIL = '/v1/properties/{propertyId}/billing-periods';
 
 export interface ListReservationsQuery {
   status?: ReservationStatus[];
@@ -854,6 +868,99 @@ export function createEndpoints(api: ApiClient) {
         idempotencyKey: idem,
       });
     },
+
+    // ---------- R5 FB-INV-012 – meter readings and monthly statements (OpenAPI 0.3.14, S12/S16) ----------
+    listMeterReadings: ({ propertyId, reservationId }: R) =>
+      r<MeterReadingList>('GET', `${RES}/meter-readings`, { path: { propertyId, reservationId } }),
+    /**
+     * Two-step answers: 422 `OPENING_BELOW_PREVIOUS_CLOSING` -> resend with `acknowledgeLowerThanPrevious`; 422
+     * `READING_OUT_OF_WINDOW` with `lateUntil` -> FDL+ resends with `lateReason`. A new key after any 4xx.
+     */
+    recordMeterReading: (
+      { propertyId, reservationId }: R,
+      body: RecordMeterReadingBody,
+      idem: string,
+    ) =>
+      r<MeterReading>('POST', `${RES}/meter-readings`, {
+        path: { propertyId, reservationId },
+        body,
+        idempotencyKey: idem,
+      }),
+    voidMeterReading: ({ propertyId }: P, readingId: string, reason: string) =>
+      r<MeterReading>('POST', '/v1/properties/{propertyId}/meter-readings/{readingId}/void', {
+        path: { propertyId, readingId },
+        body: { reason } satisfies BodyOf<'voidMeterReading'>,
+      }),
+    listBillingCandidates: ({ propertyId }: P, month: string) =>
+      r<BillingCandidateList>('GET', `${BIL}/candidates`, {
+        path: { propertyId },
+        query: { month },
+      }),
+    /** `status` is a comma list (style form, explode false). */
+    listBillingPeriods: ({ propertyId }: P, query: ListBillingPeriodsQuery = {}) =>
+      r<BillingPeriodPage>('GET', BIL, {
+        path: { propertyId },
+        query: { ...query, status: query.status?.join(',') },
+      }),
+    createBillingPeriod: (
+      { propertyId, reservationId }: R,
+      body: BillingPeriodCreate,
+      idem: string,
+    ) =>
+      r<BillingPeriod>('POST', `${RES}/billing-periods`, {
+        path: { propertyId, reservationId },
+        body,
+        idempotencyKey: idem,
+      }),
+    getBillingPeriod: ({ propertyId }: P, billingPeriodId: string) =>
+      r<BillingPeriod>('GET', `${BIL}/{billingPeriodId}`, {
+        path: { propertyId, billingPeriodId },
+      }),
+    updateBillingPeriod: (
+      { propertyId }: P,
+      billingPeriodId: string,
+      version: number,
+      body: BillingPeriodPatch,
+    ) =>
+      r<BillingPeriod>('PATCH', `${BIL}/{billingPeriodId}`, {
+        path: { propertyId, billingPeriodId },
+        body,
+        ifMatch: version,
+      }),
+    issueBillingPeriod: (
+      { propertyId }: P,
+      billingPeriodId: string,
+      version: number,
+      acknowledgeWarnings: boolean,
+      idem: string,
+    ) =>
+      r<BillingPeriod>('POST', `${BIL}/{billingPeriodId}/issue`, {
+        path: { propertyId, billingPeriodId },
+        body: { acknowledgeWarnings } satisfies BodyOf<'issueBillingPeriod'>,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    voidBillingPeriod: ({ propertyId }: P, billingPeriodId: string, reason: string) =>
+      r<BillingPeriodVoided>('POST', `${BIL}/{billingPeriodId}/void`, {
+        path: { propertyId, billingPeriodId },
+        body: { reason } satisfies BodyOf<'voidBillingPeriod'>,
+      }),
+    recordBillingPeriodPayment: (
+      { propertyId }: P,
+      billingPeriodId: string,
+      body: BillingPeriodPaymentCreate,
+      idem: string,
+    ) =>
+      r<BillingPeriodPaymentResult>('POST', `${BIL}/{billingPeriodId}/payments`, {
+        path: { propertyId, billingPeriodId },
+        body,
+        idempotencyKey: idem,
+      }),
+    /** Only the sheet's fields (SEC BE-190-03); `vietqr.payload` is drawn as is. */
+    getBillingPeriodPrint: ({ propertyId }: P, billingPeriodId: string) =>
+      r<BillingPeriodPrint>('GET', `${BIL}/{billingPeriodId}/print`, {
+        path: { propertyId, billingPeriodId },
+      }),
 
     // ---------- approvals, refunds (SM-10, rbac A43/A47/A47a) ----------
     /** One page (newest first); the next page with `page.nextCursor` (BUG-R2-107). */

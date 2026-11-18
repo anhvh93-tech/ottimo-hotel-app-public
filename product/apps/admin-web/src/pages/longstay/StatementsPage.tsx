@@ -1,14 +1,14 @@
-import { isApiError } from '@ottimo/api-client';
+import { isApiError, type ListBillingPeriodsQuery } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
+import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
 import { problemView } from '../../app/problem';
 import {
   monthOf,
-  statementsApi,
   statusTone,
   type BillingCandidate,
   type BillingPeriodSummary,
@@ -22,12 +22,12 @@ import { dayText, monthText, num, statusText } from './labels';
 import { StatementDrawer } from './StatementDrawer';
 
 type Tab = 'draft' | 'issued' | 'overdue' | 'paid' | 'void';
-const TAB_QUERY: Record<Tab, { status?: string; overdue?: boolean }> = {
-  draft: { status: 'draft' },
-  issued: { status: 'issued,partially_paid' },
+const TAB_QUERY: Record<Tab, ListBillingPeriodsQuery> = {
+  draft: { status: ['draft'] },
+  issued: { status: ['issued', 'partially_paid'] },
   overdue: { overdue: true },
-  paid: { status: 'paid' },
-  void: { status: 'void' },
+  paid: { status: ['paid'] },
+  void: { status: ['void'] },
 };
 
 /**
@@ -49,18 +49,21 @@ export function StatementsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const ids = useId();
   const candidates = useResource(
-    async () => (await statementsApi.listBillingCandidates(propertyId, month)).data.items,
+    async () => (await api.listBillingCandidates({ propertyId }, month)).data.items,
     [propertyId, month],
   );
   const list = useResource(
     async () =>
       (
-        await statementsApi.listBillingPeriods(propertyId, {
-          ...TAB_QUERY[tab],
-          // Overdue is across months (an old statement still unpaid is what the desk must see).
-          month: tab === 'overdue' ? undefined : month,
-        })
-      ).data.items,
+        await api.listBillingPeriods(
+          { propertyId },
+          {
+            ...TAB_QUERY[tab],
+            // Overdue is across months (an old statement still unpaid is what the desk must see).
+            month: tab === 'overdue' ? undefined : month,
+          },
+        )
+      ).data.data,
     [propertyId, month, tab],
   );
   const reloadAll = () => {
@@ -218,9 +221,8 @@ function CandidateRow({
     setErr(null);
     try {
       const p = await write.run((key) =>
-        statementsApi.createBillingPeriod(
-          propertyId,
-          c.reservationId,
+        api.createBillingPeriod(
+          { propertyId, reservationId: c.reservationId },
           { month, kind: 'regular' },
           key,
         ),

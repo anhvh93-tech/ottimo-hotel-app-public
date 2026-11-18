@@ -1,11 +1,11 @@
-import { isApiError } from '@ottimo/api-client';
+import { deriveIdempotencyKey, isApiError } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field, Modal } from '@ottimo/ui';
 import { useEffect, useId, useRef, useState } from 'react';
+import { api } from '../../app/api';
 import { problemView } from '../../app/problem';
 import {
   parseMeter,
-  statementsApi,
   type MeterException,
   type MeterType,
   type RecordMeterReadingBody,
@@ -102,7 +102,13 @@ export function MeterCheckinDialog({
       if (!id) {
         id = (
           await up.run((key) =>
-            statementsApi.uploadMeterPhoto(propertyId, reservationId, photo!, key),
+            api.uploadAttachment(
+              { propertyId },
+              photo!,
+              'meter',
+              deriveIdempotencyKey(key, 'attachment'),
+              reservationId,
+            ),
           )
         ).data.id;
         setPhotoId(id);
@@ -114,13 +120,12 @@ export function MeterCheckinDialog({
         electricity: { value: parsed.electricity, exception: ex.electricity },
         water: { value: parsed.water, exception: ex.water },
         photoAttachmentId: id,
+        photoWaived: false,
         note: null,
-        ...(ack ? { acknowledgeLowerThanPrevious: true } : {}),
+        acknowledgeLowerThanPrevious: ack,
         ...(late ? { lateReason: lateReason.trim() } : {}),
       };
-      await rec.run((key) =>
-        statementsApi.recordMeterReading(propertyId, reservationId, body, key),
-      );
+      await rec.run((key) => api.recordMeterReading({ propertyId, reservationId }, body, key));
       toast(t('meters.checkin_saved', { room: roomNo }));
       onSaved();
     } catch (err) {
