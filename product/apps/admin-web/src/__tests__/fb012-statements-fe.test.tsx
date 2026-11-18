@@ -215,6 +215,27 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
     expect(screen.getByText(tv('stmt.paper_switched'))).toHaveAttribute('role', 'status');
   });
 
+  it('BUG-R5-013: no utilities & services period (check-in statement) → only the rent period is printed', async () => {
+    const p = await issuedSheet();
+    Object.assign(p.snapshot!, { utilityPeriod: null, servicePeriod: null });
+    renderApp(`/print/statements/${p.id}`, 'qa.fd');
+    const s = await sheet();
+    await waitFor(() => expect(s.textContent).toContain(translate('en', 'stmt.print.rent_period')));
+    expect(s.textContent).not.toContain(translate('en', 'stmt.print.utility_period'));
+    expect(s.textContent).not.toContain(translate('vi', 'stmt.print.utility_period'));
+  });
+
+  it('BUG-R5-011: on A5 a long description wraps instead of pushing the table past the 132 mm content box', () => {
+    const css = readFileSync(join(__dirname, '..', 'statements.css'), 'utf8');
+    // Only the column heads stay on one line; the description cell may wrap.
+    expect(css).not.toMatch(
+      /\.stmt-a5 \.stmt-table-print td:first-child,\s*\.stmt-a5 \.stmt-table-print th \{\s*white-space: nowrap;/,
+    );
+    expect(css).toMatch(
+      /\.stmt-a5 \.stmt-table-print td:first-child \{\s*overflow-wrap: anywhere;/,
+    );
+  });
+
   it('statements.css uses only the 80/15/5 brand palette and the three brand fonts', () => {
     const css = readFileSync(join(__dirname, '..', 'statements.css'), 'utf8').replace(
       /\/\*[\s\S]*?\*\//g,

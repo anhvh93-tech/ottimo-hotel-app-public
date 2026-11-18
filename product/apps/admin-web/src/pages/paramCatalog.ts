@@ -6,7 +6,8 @@ import { hasKey } from '@ottimo/i18n';
  * business-rules §13. Unknown keys still show (group "Khác", label = key). Values/bounds come from the
  * API – nothing here is a business number.
  */
-export type ParamGroup = 'booking' | 'occupancy' | 'time' | 'money' | 'security' | 'other';
+export type ParamGroup =
+  'booking' | 'occupancy' | 'time' | 'money' | 'statement' | 'security' | 'other';
 export type ParamUnit = 'hours' | 'days' | 'pct' | 'vnd' | 'age' | 'minutes' | 'time' | 'none';
 
 export interface ParamMeta {
@@ -20,6 +21,7 @@ export const GROUP_ORDER: ParamGroup[] = [
   'occupancy',
   'time',
   'money',
+  'statement',
   'security',
   'other',
 ];
@@ -29,6 +31,7 @@ export const GROUP_LABEL: Record<ParamGroup, string> = {
   occupancy: 'params.grp_occupancy',
   time: 'params.grp_time',
   money: 'params.grp_money',
+  statement: 'params.grp_statement',
   security: 'params.grp_security',
   other: 'params.grp_other',
 };
@@ -67,9 +70,10 @@ const KNOWN: Record<string, ParamMeta> = {
   short_stay_commission_pct: { group: 'money', unit: 'none' },
   vat_rate: { group: 'money', unit: 'pct' },
   // FB-INV-012 (contract §3): monthly statements of long stays – OWN edits (editableBy), MGR/FDL read.
-  utility_unit_price: { group: 'money', unit: 'none' },
-  utility_vat_rate: { group: 'money', unit: 'none' },
-  monthly_statement_rules: { group: 'money', unit: 'none' },
+  // BUG-R5-012: their own group, read and edited as fields (statementParams.tsx).
+  utility_unit_price: { group: 'statement', unit: 'none' },
+  utility_vat_rate: { group: 'statement', unit: 'none' },
+  monthly_statement_rules: { group: 'statement', unit: 'none' },
   trusted_device_days: { group: 'security', unit: 'days' },
   trusted_device_mobile_days: { group: 'security', unit: 'days' },
   c3_stepup_minutes: { group: 'security', unit: 'minutes' },

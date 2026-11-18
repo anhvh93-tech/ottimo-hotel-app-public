@@ -96,11 +96,12 @@ export function lastDayOf(month: string): string {
 }
 
 /**
- * Month whose end-of-month readings the desk is most likely entering on `day`: the current month on its last day,
- * otherwise the month before (day 01 still closes it, BR-LS-10).
+ * S12 default month on `day` – where the desk's work is due (BUG-R5-009): day 01 is still the closing window of the
+ * month before (BR-LS-10), so the month before; every other day the current month (its check-in / room-change
+ * readings, and its closing on the last day). Late closings of the month before are offered by a notice on the page.
  */
 export const readingMonthOn = (day: string) =>
-  day === lastDayOf(monthOf(day)) ? monthOf(day) : shiftMonth(monthOf(day), -1);
+  day.slice(8, 10) === '01' ? shiftMonth(monthOf(day), -1) : monthOf(day);
 
 /**
  * Typed meter value cut to the unit of the server (BR-LS-11, ARC-FE-189-08): kWh whole, m³ one decimal; the extra

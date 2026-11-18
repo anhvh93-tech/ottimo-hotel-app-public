@@ -6,7 +6,9 @@ import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
 import { problemView } from '../../app/problem';
 import {
+  lastDayOf,
   meterUsage,
+  monthOf,
   parseMeter,
   readingMonthOn,
   shiftMonth,
@@ -48,22 +50,29 @@ export function MetersPage() {
   const today = useBusinessDay();
   const [month, setMonth] = useState(() => readingMonthOn(today));
   const ids = useId();
-  const rows = useResource<Row[]>(async () => {
-    const c = (await api.listBillingCandidates({ propertyId }, shiftMonth(month, 1))).data;
-    const out = await Promise.all(
-      c.items.map(async (candidate) => {
-        const readings = (
-          await api.listMeterReadings({ propertyId, reservationId: candidate.reservationId })
-        ).data.items;
-        return (candidate.rooms ?? []).map((room) => ({
-          candidate,
-          room,
-          readings: readings.filter((r) => r.roomId === room.roomId),
-        }));
-      }),
-    );
-    return out.flat();
-  }, [propertyId, month]);
+  const current = monthOf(today);
+  const rows = useResource<Row[]>(() => loadRows(propertyId, month), [propertyId, month]);
+  // BUG-R5-009: the check-in readings due this month stay in sight whatever month is shown (window: arrival + 1).
+  const due = useResource<Row[]>(
+    async () =>
+      month === current
+        ? []
+        : (await loadRows(propertyId, current)).filter(
+            (r) => r.room.openingKind === 'checkin' && r.room.opening === 'missing',
+          ),
+    [propertyId, month, current],
+  );
+  // Closings of the month before still missing after its window (late, FDL+): a notice that switches to it.
+  const before = shiftMonth(current, -1);
+  const lateLeft = useResource<number>(
+    async () =>
+      month !== current || today === lastDayOf(current)
+        ? 0
+        : (await api.listBillingCandidates({ propertyId }, current)).data.items
+            .flatMap((c) => c.rooms ?? [])
+            .filter((r) => r.closing === 'missing').length,
+    [propertyId, month, current, today],
+  );
 
   return (
     <>
@@ -85,6 +94,40 @@ export function MetersPage() {
           />
         </div>
         <p className="li-s mb-8">{t('meters.help')}</p>
+        {lateLeft.state.data ? (
+          <Alert tone="warn">
+            <span>
+              {t('meters.late_left', {
+                n: lateLeft.state.data,
+                month: monthText(locale, before),
+              })}
+            </span>{' '}
+            <Button size="sm" variant="ghost" onClick={() => setMonth(before)}>
+              {t('meters.late_left_open', { month: monthText(locale, before) })}
+            </Button>
+          </Alert>
+        ) : null}
+        {due.state.data?.length ? (
+          <section className="stack mb-16" aria-labelledby={`${ids}-due`}>
+            <h2 className="label-h" id={`${ids}-due`}>
+              {t('meters.checkin_due_title', { month: monthText(locale, current) })}
+            </h2>
+            <ul className="list-plain">
+              {due.state.data.map((row) => (
+                <CheckinDue
+                  key={`${row.candidate.reservationId}-${row.room.roomId}`}
+                  row={row}
+                  month={current}
+                  today={today}
+                  onSaved={() => {
+                    due.reload();
+                    rows.reload();
+                  }}
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
         {rows.state.status === 'error' ? (
           <ErrorBlock
             titleKey="meters.load_error"
@@ -95,7 +138,10 @@ export function MetersPage() {
         ) : !rows.state.data ? (
           <LoadingBlock />
         ) : !rows.state.data.length ? (
-          <StateView icon="sparkle" title={t('meters.empty')}>
+          <StateView
+            icon="sparkle"
+            title={t('meters.empty_month', { month: monthText(locale, month) })}
+          >
             {t('meters.empty_body')}
           </StateView>
         ) : (
@@ -129,6 +175,67 @@ export function MetersPage() {
         )}
       </Page>
     </>
+  );
+}
+
+async function loadRows(propertyId: string, month: string): Promise<Row[]> {
+  const c = (await api.listBillingCandidates({ propertyId }, shiftMonth(month, 1))).data;
+  const out = await Promise.all(
+    c.items.map(async (candidate) => {
+      const readings = (
+        await api.listMeterReadings({ propertyId, reservationId: candidate.reservationId })
+      ).data.items;
+      return (candidate.rooms ?? []).map((room) => ({
+        candidate,
+        room,
+        readings: readings.filter((r) => r.roomId === room.roomId),
+      }));
+    }),
+  );
+  return out.flat();
+}
+
+/** BUG-R5-009: one check-in reading due this month, shown while another month is on screen. */
+function CheckinDue({
+  row,
+  month,
+  today,
+  onSaved,
+}: {
+  row: Row;
+  month: string;
+  today: string;
+  onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const session = useSession();
+  const [open, setOpen] = useState(false);
+  const { candidate, room } = row;
+  return (
+    <li className="row wrap">
+      <span className="grow">
+        {room.roomNo} · {candidate.guestDisplayName ?? ''}
+      </span>
+      <Button size="sm" icon="camera" onClick={() => setOpen(true)}>
+        {t('meters.checkin_enter')}
+      </Button>
+      {open ? (
+        <MeterCheckinDialog
+          reservationId={candidate.reservationId}
+          roomId={room.roomId}
+          roomNo={room.roomNo}
+          month={month}
+          segmentFrom={room.segmentFrom}
+          today={today}
+          lead={isLead(session.roles)}
+          onClose={() => setOpen(false)}
+          onSaved={() => {
+            setOpen(false);
+            onSaved();
+          }}
+        />
+      ) : null}
+    </li>
   );
 }
 
@@ -170,8 +277,10 @@ function MeterRow({
   const closeM = latest(readings, (r) => r.kind === 'period_end' && r.periodMonth === month);
   const openNext = latest(readings, (r) => r.kind === 'period_start' && r.periodMonth === next);
   const needNext = room.nextOpening !== 'not_needed';
-  const toClose = !closeM;
-  const toOpen = needNext && !openNext;
+  // BUG-R5-009: before the last day of M the closing (and the next opening) is not due yet – shown, not typed.
+  const early = today < lastDayOf(month);
+  const toClose = !closeM && !early;
+  const toOpen = needNext && !openNext && !early;
   // BR-LS-10 window: last day of M … end of day 01 of M+1; after it FDL+ records late with a reason (BE-190-03).
   const windowEnd = `${next}-01`;
   const late = today > windowEnd;
@@ -447,33 +556,43 @@ function MeterRow({
                   ) : (
                     <Alert tone="warn">{t('meters.opening_missing')}</Alert>
                   )}
-                  <Field label={t('meters.closing')} required error={errors[`${type}.closing`]}>
-                    {(p) => (
-                      <input
-                        {...p}
-                        className="input num mono"
-                        inputMode="decimal"
-                        autoComplete="off"
-                        value={draft[type].closing}
-                        onChange={(e) => set(type, { closing: e.target.value, closingEx: null })}
-                        aria-label={`${name} – ${t('meters.closing')} – ${room.roomNo}`}
-                      />
-                    )}
-                  </Field>
-                  {usage !== null ? (
+                  {early ? (
                     <p className="li-s">
-                      {t('meters.usage_preview', { usage: meterNum(usage, unit) })}
+                      {t('meters.closing_from', { date: dayText(locale, lastDayOf(month)) })}
                     </p>
-                  ) : null}
-                  {draft[type].closingEx ? (
-                    <Chip tone="oak" icon={null}>
-                      {t(`meters.exception.${draft[type].closingEx!.type}`)}
-                    </Chip>
-                  ) : null}
+                  ) : (
+                    <>
+                      <Field label={t('meters.closing')} required error={errors[`${type}.closing`]}>
+                        {(p) => (
+                          <input
+                            {...p}
+                            className="input num mono"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            value={draft[type].closing}
+                            onChange={(e) =>
+                              set(type, { closing: e.target.value, closingEx: null })
+                            }
+                            aria-label={`${name} – ${t('meters.closing')} – ${room.roomNo}`}
+                          />
+                        )}
+                      </Field>
+                      {usage !== null ? (
+                        <p className="li-s">
+                          {t('meters.usage_preview', { usage: meterNum(usage, unit) })}
+                        </p>
+                      ) : null}
+                      {draft[type].closingEx ? (
+                        <Chip tone="oak" icon={null}>
+                          {t(`meters.exception.${draft[type].closingEx!.type}`)}
+                        </Chip>
+                      ) : null}
+                    </>
+                  )}
                 </>
               )}
             </div>
-            {needNext ? (
+            {needNext && (!early || openNext) ? (
               <div className="meter-group">
                 <div className="label-h">
                   {t('meters.group_opening', { month: monthText(locale, next) })}
@@ -599,7 +718,7 @@ function MeterRow({
               </Field>
             ) : null}
           </>
-        ) : closeM?.photoWaived ? (
+        ) : early && !closeM ? null : closeM?.photoWaived ? (
           <Chip tone="neutral" icon={null}>
             {t('meters.photo_waived_chip')}
           </Chip>
@@ -660,6 +779,10 @@ function MeterRow({
               </div>
             ) : null}
           </>
+        ) : early && !closeM ? (
+          <Chip tone="neutral" icon={null}>
+            {t('meters.not_due')}
+          </Chip>
         ) : (
           <Chip tone="long" icon="check">
             {t('meters.recorded', { initials: closeM?.readByInitials ?? '' })}

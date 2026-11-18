@@ -269,3 +269,12 @@ Ghi chú:
 | Test schema mock | Done | Bỏ `skipIf`; chạy trên spec của nhánh (đã có #190), xanh |
 | UXD: `error.READING_OUT_OF_WINDOW` | Done | Câu dùng `{date}` và `{days}`; `{days}` = `lateUntil − windowTo` từ phản hồi server (tham số `lateMaxDays`), không gõ số. Hết cả hạn ghi trễ (không có `lateUntil`) thì dùng câu mới `error.READING_OUT_OF_WINDOW_PAST_LATE`, không nhắc lễ tân trưởng. Chờ UXD duyệt câu chữ |
 | E2E Playwright FB-012 | Done – chờ CI | `tests/e2e/ui-clock/fb012-monthly-statement.r5.spec.ts` (project desk-clock, đồng hồ giả, ngày ảo riêng). Dựng bằng API một đơn dài hạn nhập tay nhận phòng giữa tháng M và tài khoản nhận VietQR thử. Desk: chỉ số nhận phòng → ngày cuối M chốt cuối kỳ + đầu kỳ M+1 → ngày 01 M+1 tạo nháp, xác nhận cảnh báo, phát hành, in A5 và A4 (mỗi khổ 1 trang PDF, ảnh đính kèm), payload QR = còn nợ + mã phiếu, thu VietQR → Đã thu. Bản nháp cũ (17/11) viết theo giao diện trước review nên viết lại. Chạy xanh 3 lần trên stack compose cục bộ dùng một lần (đã gỡ); kết quả CI ghi ở báo cáo |
+
+### Lượt 5 – sửa lỗi QA staging FB-INV-012 (18/11, nhánh `r5-fb012-fe-qa-fixes`)
+
+| Lỗi | Trạng thái | Ghi chú |
+|---|---|---|
+| BUG-R5-009 (P2) | Fixed – chờ QA | "Chốt công tơ" mở mặc định tháng đang có việc: tháng hiện tại; chỉ ngày 01 mới mở tháng trước (cửa sổ chốt 30–01). Ghi trễ tháng trước: thông báo "Tháng M−1 còn n căn chưa chốt" kèm nút mở tháng đó. Giữa tháng, cột cuối kỳ hiện "Chốt cuối kỳ từ ngày …" và chip "Chưa tới kỳ chốt" thay cho ô nhập. Xem tháng khác vẫn thấy mục "Chỉ số nhận phòng cần nhập – tháng hiện tại". Câu rỗng ghi rõ tháng, không còn "không có căn dài hạn đang ở" |
+| BUG-R5-011 (P3) | Fixed – chờ QA | Khổ A5: chỉ tiêu đề cột giữ một dòng; cột Nội dung được xuống dòng khi sáu cột vượt 132 mm (bảng tự co, nên phiếu thường không đổi). Đo bằng dữ liệu giả dài: mép phải bảng 895 → 888 px, khớp lề nội dung |
+| BUG-R5-012 (P3) | Fixed – chờ UXD duyệt chữ, QA | Nhóm mới "Dài hạn – phiếu tháng". Giá trị đọc thành câu ("Điện 4.000 đ/kWh · Nước 25.000 đ/m³ (chưa VAT)", "VAT điện 8 % · nước 5 %", quy tắc phiếu tháng). Hộp sửa theo từng ô (đơn giá, % VAT chọn 0/5/8/10, quy tắc), giới hạn khớp hook BE, có ngày hiệu lực; lỗi 422 của server hiện dưới đúng ô. Chỉ OWN sửa |
+| BUG-R5-013 (P3, phần FE) | Done | Trang in và ngăn chi tiết đã ẩn ô "Điện nước, dịch vụ" khi `utilityPeriod` null, chỉ in kỳ thuê. Mock trả null cho phiếu nhận phòng (khách đến sau tháng M−1), khớp hướng sửa BE. Có test |
