@@ -485,3 +485,84 @@ Thứ tự này an toàn: landing mới chạy trước app thì `monthly-rates`
 - (f) ORC ghi decision-log (tag, run, digest, giờ) và commit.
 
 Không commit (nhánh hiện tại của checkout chung là `r5-fb011-be-fx`, ORC commit trên main).
+
+## 18. Cập nhật 18/11 14:50–15:05 – Kiểm thử FB-INV-012: migration 0099 trên staging + đánh giá rủi ro production (ARC `FB-R5-ARC-BE-190-07`)
+
+Căn cứ: giao việc ORC 18/11 (Round 5, bước Kiểm thử). Chỉ đọc: không SQL ghi, không deploy, không khôi phục, không in `.env`/khóa/IP. Mọi truy vấn DB qua khối `SQLRO` (`PGOPTIONS` `default_transaction_read_only=on`, `role=ottimo_readonly`); hai dòng chốt đầu của cả hai phiên là `on` và `ottimo_readonly`. Chỉ in số đếm, không in dòng dữ liệu.
+
+### 18.1 Staging đã lên main `f871ab1e`: migration 0099 ĐẠT
+
+| Giờ (VN) | Nguồn | Kết quả |
+|---|---|---|
+| 14:46:19 | `journalctl -t ottimo-deploy` | `deploy sha-f871ab1eaa1b (previous: sha-f8791cf83b63, pull=1, rollback=0)` |
+| 14:46:32–33 | như trên | config api/worker được image mới chấp nhận; `02-roles.sh` áp dụng, dấu hiệu v1.0.4 `1,true` |
+| 14:46:35 | log container `ottimo-migrate-run-…` | `{"level":"info","msg":"migrations applied"}` |
+| 14:46:36 | `ottimo-deploy` | **`migrations: 74 applied / 74 in the image journal`** (trước là 73) |
+| 14:47:03 | `ottimo-deploy` | `OK: sha-f871ab1eaa1b is live`; `CI deploy … ok` |
+| 14:49 | `docker ps` | `ottimo-api-1` healthy, `ottimo-web-1` healthy, `ottimo-worker-1` chạy, cùng `sha-f871ab1eaa1b`. Production không đổi (`sha-f8791cf83b63`, v1.0.6) |
+
+**Thời gian chạy:** từ cuối bước `roles` (14:46:33) tới dòng đếm migration (14:46:36) là **khoảng 3 giây**, gồm cả khởi động container một lần, chạy 0099 và chạy container đếm journal. Bản thân 0099 dưới 1 giây (log migrator không ghi mốc riêng).
+
+**Log PostgreSQL staging 14:46–14:48:** 0 dòng `ERROR`/`FATAL`/`PANIC`. Có 3 dòng `WARNING: role "ottimo_app|ottimo_readonly|ottimo_requeue" has not been granted membership in role "ottimo_owner"` lúc 14:46:33: đến từ `02-roles.sh` (REVOKE phòng thủ, chạy ở mọi deploy), **trước** migrate, không liên quan 0099.
+
+**Kiểm schema sau 0099 (`SQLRO`, staging):**
+
+| Kiểm | Kết quả |
+|---|---|
+| `drizzle.__drizzle_migrations` | 74 |
+| 3 bảng mới `billing_period`, `billing_period_line`, `meter_reading` | có đủ 3; 0 / 0 / 0 dòng |
+| `payment_billing_period_fk` | có, `convalidated = true` |
+| 7 chỉ mục mới (gồm 4 chỉ mục từng phần / duy nhất) | đủ 7 |
+| RLS bật + FORCE trên 3 bảng mới | 3/3 |
+| 3 khóa `config_parameter_def` (`utility_unit_price`, `utility_vat_rate`, `monthly_statement_rules`) | 3/3 |
+| `payment` staging | 518 dòng, 0 dòng có `billing_period_id`, 480 kB |
+
+### 18.2 Lệch so với mô tả giao việc (để ORC/ARC biết)
+File 0099 trên main (`f871ab1e`) **không** dùng `NOT VALID` rồi `VALIDATE`. FK được thêm một bước, có kiểm luôn:
+`ALTER TABLE "payment" ADD CONSTRAINT "payment_billing_period_fk" FOREIGN KEY ("property_id","billing_period_id") REFERENCES "public"."billing_period"("property_id","id") …;`
+Chú thích BE trong file ghi rõ lý do: mọi dòng `payment` trước 0099 có `billing_period_id` NULL. Với dữ liệu hiện nay, cách này đúng và không cần tách. Tách thành `NOT VALID` + `VALIDATE` cũng không giảm khóa ở đây, vì migrator của drizzle chạy mọi migration đang chờ trong **một** giao dịch, nên khóa vẫn giữ tới COMMIT.
+
+### 18.3 Rủi ro trên production: thấp, khóa dưới 1 giây
+
+Số đếm production (`SQLRO`, 14:5x, chỉ số):
+
+| Mục | Production |
+|---|---|
+| Migration đã chạy | 73 (chưa có 0099; `billing_period` chưa tồn tại) |
+| `payment` | **3 dòng**, 0 có `billing_period_id`, 152 kB |
+| `folio_line` / `folio` / `reservation` | 38 / 11 / 11 |
+| Dung lượng DB | 19 MB |
+| Giao dịch mở > 1 phút (`pg_stat_activity`) | 0 |
+
+Ước lượng khóa:
+- `ADD CONSTRAINT … FOREIGN KEY` lấy khóa `SHARE ROW EXCLUSIVE` trên `payment` và `billing_period` rồi quét `payment` để kiểm. Khóa này **chặn ghi** (INSERT/UPDATE/DELETE) vào `payment`, **không chặn đọc**. Quét 3 dòng (152 kB) mất dưới 1 ms. Staging quét 518 dòng (gấp ~170 lần) và cả lần migrate chạy chưa tới 3 giây, không lỗi.
+- Các FK khác của 0099 lấy cùng loại khóa trên các bảng được tham chiếu: `property`, `folio`, `reservation`, `folio_line`, `room`, `attachment`, `app_user`. Vì chạy trong một giao dịch, các bảng này cũng bị chặn ghi tới COMMIT, ước lượng **dưới 1 giây** trên production.
+- Trong lúc migrate, api/worker cũ vẫn chạy (`deploy.sh` bước 3, trước khi thay container). Một lễ tân ghi thu hay sửa folio đúng lúc đó sẽ chờ dưới 1 giây, không lỗi: khóa chờ của app là 5 s (`DEFAULT_LOCK_TIMEOUT_MS`).
+- **Rủi ro còn lại (nhỏ):** migrator (`src/db/migrate.ts`) **không đặt `lock_timeout`**. Nếu lúc deploy có một giao dịch dài đang giữ khóa trên `payment` hoặc `folio` (báo cáo dài, phiên psql quên đóng), `ALTER` sẽ chờ, và mọi lệnh ghi xếp hàng sau nó, gây treo ghi. Production hiện có 0 giao dịch mở > 1 phút. Cách giảm: (1) trước deploy chạy lại kiểm `long_tx` bằng `SQLRO` (đã làm lúc 14:5x, kết quả 0); (2) deploy giờ vắng; (3) đề xuất BE/ARC (không chặn v1.0.7): thêm `SET lock_timeout = '10s'` trong `migrate.ts` trước `migrate(...)`, để migrate tự dừng và báo lỗi thay vì treo ghi.
+- Quay lui: 0099 chỉ thêm (3 bảng, 2 cột trên bảng mới, 1 FK, 3 khóa danh mục). Image cũ `sha-f8791cf83b63` chạy được trên DB đã có 0099 (`rollback.sh`, DB đi trước image theo luật "expand first"). Sao lưu ngay trước deploy production như mục 17.2.
+
+Kết luận OPS: chạy 0099 trên production **an toàn với dữ liệu hiện có**. Phần thời gian khóa của `BE-190-07` coi như đã trả lời. Phần còn lại của thẻ là kiểm tính đúng trên dữ liệu thật: đếm dòng trước/sau, so tổng folio 3 đơn mẫu. Phần này cần chạy trên bản sao (18.4).
+
+### 18.4 Chạy thử 0099 trên bản sao production: các bước đề xuất (CHƯA LÀM, ORC hỏi INV)
+
+Lưu ý runbook: `restore-drill.sh` ghi rõ chỉ chạy **trên Mac của OPS/INV hoặc VPS thứ hai, không bao giờ trên máy chủ đã tạo bản sao lưu**. Vì vậy OPS **không** đề xuất khôi phục vào DB tạm trên VPS production. Cách an toàn sẵn có là cách đã dùng ở diễn tập R3/R4 (`b2-runbook.md` 2.5, runner `ottimo-drill-runner:local`, khóa `age` đưa qua stdin vào tmpfs). Lần diễn tập production trước mất 5 giây, số đếm khớp 100 %.
+
+| Bước | Việc | Ai | Thời gian |
+|---|---|---|---|
+| 1 | `systemctl start ottimo-backup@ottimo-prod.service` để có bản mới nhất (như 17.2) | OPS | ~10 s |
+| 2 | Trên Mac INV: `pull-backups.sh --to ~/.ottimo/backups/ottimo-prod` (khóa kéo chỉ đọc, tệp vẫn mã hóa `age`) | INV/OPS | < 1 phút (DB 19 MB) |
+| 3 | `restore-drill.sh --identity <khóa qua stdin> --from … --api-image ghcr.io/…/ottimo-api:sha-f8791cf83b63 --keep`: khôi phục vào mạng nội bộ không mở cổng, kiểm `/health`, so `backup-counts.sql` với `counts-<stamp>` (số đếm 73 migration) | INV (giữ khóa `age`) + OPS | ~10 s |
+| 4 | Trên DB tạm vừa khôi phục: lưu số đếm trước (`backup-counts.sql` + tổng folio 3 đơn mẫu, chỉ số tiền), chạy migrate one-shot của image `sha-f871ab1eaa1b` (`node dist/db/migrate-cli.js`, migrator là `ottimo_migrator` của DB tạm), đo thời gian, đọc log postgres | OPS | ~1 phút |
+| 5 | Lấy lại số đếm sau: phải trùng 100 % với trước, migration = 74, FK `convalidated`, 3 khóa danh mục, 3 bảng rỗng | OPS | ~1 phút |
+| 6 | Xóa container/volume/mạng/tệp giải mã (script tự làm khi bỏ `--keep`, ở đây làm tay), INV xóa khóa `age` khỏi Mac | OPS + INV | ~1 phút |
+
+Tổng: **khoảng 10–15 phút**, cần INV có mặt (khóa `age` chỉ INV giữ). Hạn chế: `restore-drill.sh` hiện không có tùy chọn chạy migrate của image khác. Bước 4 làm bằng lệnh tay trên container `--keep`, hoặc OPS làm PR nhỏ thêm `--migrate-with <image>` cho script (cần SEC review vì có mật khẩu migrator của DB tạm), khoảng 1 giờ.
+
+Phương án nhẹ hơn, không cần khóa `age`, không đụng dữ liệu production: chạy bước 3–5 trên bản sao lưu **staging** lúc 03:30 hôm nay (trước 0099). Thẻ ARC chỉ đòi "bản sao dữ liệu staging", nên cách này đủ. Staging dùng khóa `age` riêng của staging. Thời gian tương tự.
+
+### 18.5 Việc còn lại
+1. ORC hỏi INV chọn: (A) chạy thử 0099 trên bản sao staging 03:30 (đủ cho thẻ ARC, OPS đề xuất); (B) chạy trên bản sao production (cần INV có mặt với khóa `age`, 10–15 phút); (C) chấp nhận bằng chứng 18.1–18.3 và để QC quyết ở cổng.
+2. Thẻ đề xuất cho BE/ARC (Minor, không chặn): `lock_timeout` cho migrator (18.3).
+3. Trước khi deploy production v1.0.7: sao lưu thủ công, chạy lại kiểm `long_tx`, deploy giờ vắng; sau deploy `journalctl -t ottimo-deploy` phải có `migrations: 74 applied / 74`.
+
+Không commit (theo giao việc).
