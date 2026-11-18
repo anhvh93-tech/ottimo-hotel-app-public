@@ -32,9 +32,9 @@
 | E8 | Không thêm màn hình, không sửa `rbac-matrix.md` mục 3 (bài học #190): dùng S02 (Hôm nay / Cần chú ý), S09 (Giấy tờ & khai báo), S16 (HĐ dài hạn), màn tham số đang có. | Tránh main đỏ. |
 | E9 | Module: lịch sử visa + K14 ở `registration`; `stay_follow_up` + nguồn `lease_expiring` ở `frontdesk` (chủ ngày đi); job + bản xem trước email ở `reporting`; mẫu email ở `integrations` (INT). Job đăng ký ở **cả** module và `worker-jobs.ts` (BUG-R3-037). | Giữ ranh giới module. |
 
-## 2. Dữ liệu – migration `0100_long_stay_reminders_fb_inv_013.sql` (chỉ thêm)
+## 2. Dữ liệu – migration `0101_long_stay_reminders_fb_inv_013.sql` (chỉ thêm)
 
-- **Số 0100**: 0099 đang nằm ở PR BE #190 chưa merge. PR này lấy 0100 và **rebase lên main sau khi #190 merge** (journal + snapshot dựng lại từ main). Nếu #190 bị rút số, PR merge sau vẫn lấy số kế tiếp – không bao giờ hai file cùng số. Không `UPDATE`/`DELETE` dữ liệu cũ.
+- **Số 0101** (đổi 18/11 lần 2, ARC): 0099 đã merge (#190). **0100 nhường cho gói sửa trước ra mắt FB-INV-012** (`fb-inv-012/contract.md` §12, lên v1.0.7 trước). PR này lấy 0101 và **rebase lên main sau khi PR BE của §12 merge** (journal + snapshot dựng lại từ main). Nếu thứ tự merge đổi, PR merge sau vẫn lấy số kế tiếp – không bao giờ hai file cùng số. Không `UPDATE`/`DELETE` dữ liệu cũ. Mã hành động A124–A126 giữ nguyên (§12 dùng A127–A130).
 - RLS + FORCE RLS cho bảng mới, policy theo `property_id` (test kiến trúc quét `pg_class`). Trigger chỉ-thêm theo mẫu 0090/0095 (chặn UPDATE; DELETE chỉ trong luồng xóa giấy tờ/hết hạn lưu).
 
 ### 2.1 `guest_document_visa_history`
@@ -59,7 +59,7 @@
 | `daily_digest` (mới, **tham số bảo mật** – A119, chỉ OWN) | json `{enabled, roles[] ⊂ {owner, manager, front_desk_lead, front_desk}, sendWhenEmpty, guestName: 'short'\|'none'}` | `{true, [owner, manager, front_desk_lead, front_desk], true, 'short'}` | OWN | Quyết ai nhận dữ liệu khách qua email |
 | `registration_outside_desk_until` (mới) | date | ngày deploy + 30 | OWN | K14 chỉ cho đơn có ngày đến **trước** ngày này |
 
-## 3. API – OpenAPI `0.3.15-draft` (sau `0.3.14-draft` của #190; chỉ thêm)
+## 3. API – OpenAPI `0.3.16-draft` (sau `0.3.15-draft` của gói FB-INV-012 §12; chỉ thêm)
 
 | Operation | Đường | Thân / kết quả | Quyền |
 |---|---|---|---|
@@ -128,13 +128,13 @@ SSE: ghi follow-up / gia hạn visa / K14 phát `attention.changed` + `registrat
 
 ## 6. Chia việc – mỗi bên 1 PR
 
-**PR BE** `r5-fb013-be-reminders` (làm trước; nhánh từ main, rebase sau khi #190 merge):
-- Migration 0100, schema drizzle, journal + snapshot.
+**PR BE** `r5-fb013-be-reminders` (làm trước; nhánh từ main, rebase sau khi PR BE của FB-INV-012 §12 merge – lấy 0101):
+- Migration 0101, schema drizzle, journal + snapshot.
 - Registration: `recordVisaExtension`, lịch sử trong `…/sensitive`, K14, `checklistLabel`, hook E5, nguồn `registration_update_needed`, `visa_expiring` thêm `daysLeft`/critical.
 - Frontdesk: `stay_follow_up`, `list/recordStayFollowUp`, `LeaseFollowUpState`, nguồn `lease_expiring`.
 - Reporting: job `attention.daily_digest` (module + `worker-jobs.ts`), `getDailyDigestPreview`, `DigestGuestNamePort`.
 - Integrations (INT làm trong cùng PR hoặc commit riêng cùng nhánh): mẫu `daily_attention_digest` + test.
-- `openapi.yaml` 0.3.15-draft + `generated/*`; `rbac-matrix.md` (A124–A126, ghi chú A70/A71/A119) + `.json`; erd 4.7 (bảng mới, cột mới) + bảng tham số.
+- `openapi.yaml` 0.3.16-draft + `generated/*`; `rbac-matrix.md` (A124–A126, ghi chú A70/A71/A119) + `.json`; erd 4.7 (bảng mới, cột mới) + bảng tham số.
 - Seed dev/e2e: 1 khách NN dài hạn visa còn 3 ngày, 1 đơn dài hạn hết HĐ sau 7 ngày, 1 khai báo `needs_update`.
 
 **PR FE** `r5-fb013-fe-reminders` (song song trên mock theo hợp đồng này, merge sau BE):
