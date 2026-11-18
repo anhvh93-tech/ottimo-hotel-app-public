@@ -224,7 +224,7 @@ jobs:
       # OS libraries (apt): .deb cache, then the mirror (8 min), then archive.ubuntu.com (8 min, resumes what step 1
       # fetched). 26/10 and 18/11 the Azure Ubuntu mirror stalled for 17–26 min; a cold install is ~105 MB / 181
       # packages. The step cap keeps it from eating the E2E time (infra/ci/playwright-deps.sh). A failure here fails
-      # the job – no test is skipped. One cache for every job: chromium + webkit deps (superset), saved only by
+      # the job – no test is skipped. One cache for every job (deps of the browsers docker-build installs), saved only by
       # docker-build on main (FB-R5-SEC-OPS-192-02); exact image first, else (restore-keys) the newest cache of the
       # same OS + Playwright version from any image – every .deb is checked against the apt index before dpkg -i.
       - name: Restore Playwright OS deps cache (.deb)
@@ -559,21 +559,40 @@ jobs:
           echo "image_os=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
           echo "image_ver=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
           echo "version=$(pnpm --filter @ottimo/tests exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      # Install only the engines a project with at least one test launches (R5 18/11, PR #193): mobile-webkit
+      # (flows/*.mobile.spec.ts) has 0 tests today, so WebKit and its ~105 MB / 181 apt packages (GStreamer, libav…)
+      # were fetched on every cold runner and never used – the cold apt path timed out (480 s + 480 s). Every other
+      # project is Chromium, whose OS libraries are already on the ubuntu-24.04 image (landing job: deps in ~20 s).
+      # As soon as a *.mobile.spec.ts lands, webkit is listed again and installed – nothing is skipped: a project
+      # whose browser is missing fails at launch, it does not pass.
+      - name: Browsers the E2E suite launches
+        id: browsers
+        working-directory: product
+        env:
+          E2E_UI: '1'
+        run: |
+          n=$(pnpm --filter @ottimo/tests exec playwright test -c e2e/playwright.config.ts --list --project=mobile-webkit 2>/dev/null |
+            sed -n 's/^Total: \([0-9][0-9]*\) test.*/\1/p' || true)
+          list=chromium
+          if [ "${n:-0}" -gt 0 ]; then list="chromium webkit"; fi
+          echo "mobile-webkit tests: ${n:-0} → browsers: $list"
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+          echo "key=${list// /-}" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-webkit
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-${{ steps.browsers.outputs.key }}
       # Browsers only (no --with-deps): every apt call goes through the time-capped step below.
-      - name: Install Playwright browsers (chromium, webkit – projects in e2e/playwright.config.ts)
+      - name: Install Playwright browsers (the engines listed above)
         if: steps.pw-cache.outputs.cache-hit != 'true'
         working-directory: product
-        run: pnpm --filter @ottimo/tests exec playwright install chromium webkit
+        run: pnpm --filter @ottimo/tests exec playwright install ${{ steps.browsers.outputs.list }}
       # OS libraries (apt): .deb cache, then the mirror (8 min), then archive.ubuntu.com (8 min, resumes what step 1
       # fetched). 26/10 and 18/11 the Azure Ubuntu mirror stalled for 17–26 min; a cold install is ~105 MB / 181
       # packages. The step cap keeps it from eating the E2E time (infra/ci/playwright-deps.sh). A failure here fails
-      # the job – no test is skipped. One cache for every job: chromium + webkit deps (superset), saved only by
+      # the job – no test is skipped. One cache for every job (deps of the browsers docker-build installs), saved only by
       # docker-build on main (FB-R5-SEC-OPS-192-02); exact image first, else (restore-keys) the newest cache of the
       # same OS + Playwright version from any image – every .deb is checked against the apt index before dpkg -i.
       - name: Restore Playwright OS deps cache (.deb)
@@ -589,7 +608,7 @@ jobs:
         working-directory: product
         env:
           PW_APT_CACHE_DIR: ${{ runner.temp }}/pw-apt
-        run: infra/ci/playwright-deps.sh chromium webkit
+        run: infra/ci/playwright-deps.sh ${{ steps.browsers.outputs.list }}
       # Main only (SEC 192-02): PRs restore main's cache and never write one. saved=true only after a successful
       # install, so a failed or partial install is never cached.
       - name: Save Playwright OS deps cache (.deb)
