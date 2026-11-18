@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
-import { backdateBounds } from '../../app/goLive';
+import { backdateArrivalError, backdateBounds } from '../../app/goLive';
 import { currentSegment } from '../../app/reservations';
 import { useToast } from '../../app/toast';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
@@ -162,7 +162,7 @@ export function BackdatedCheckInDialog({
               (f) => f.field.replace(/^body\./, '') === 'arrivalDate' && f.code === 'NOT_ALLOWED',
             )
               ? t('bd.arrival_fixed')
-              : fe('arrivalDate')
+              : (backdateArrivalError(t, date, act.error) ?? fe('arrivalDate'))
           }
           help={
             arrivalFixed

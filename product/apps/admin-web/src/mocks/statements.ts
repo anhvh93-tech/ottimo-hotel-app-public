@@ -457,11 +457,20 @@ export function createStatementsMock(c: Ctx) {
           errors: [{ field: 'amountVnd', code: 'AMOUNT_OVER_BALANCE' }],
         });
       if (!g.roles.includes('owner')) {
+        // SEC 12-02 (a)–(c) + SEC 197-02: arrival-month statement of a backdated check-in, rent only, received on
+        // or before that check-in, no reversed payment and no real payment received after it.
+        const on = p.backdatedCheckinOn;
         const rent = p
           .snapshot!.lines.filter((l) => l.kind === 'rent')
           .reduce((sum, l) => sum + l.amountVnd, 0);
-        if (amount > rent - p.paidVnd)
-          return ctx.problem(403, 'FORBIDDEN_ACTION', { detail: 'owner only' });
+        const blocked =
+          !on ||
+          amount > rent - p.paidVnd ||
+          b.receivedOn! > on ||
+          p.payments.some(
+            (x) => x.reversed || (x.method !== 'outside_desk' && (x.receivedOn ?? '') > on),
+          );
+        if (blocked) return ctx.problem(403, 'FORBIDDEN_ACTION', { detail: 'owner only' });
       }
       st.seq += 1;
       const payment = {

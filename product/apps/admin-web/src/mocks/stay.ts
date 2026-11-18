@@ -2088,12 +2088,15 @@ export function createStayMock(ctx: Ctx) {
         if (arrival === T) errors.push({ field: 'arrivalDate', code: 'USE_CHECK_IN' });
         else if (!arrival || arrival > T || arrival < addDays(T, -45))
           errors.push({ field: 'arrivalDate', code: 'BACKDATE_OUT_OF_RANGE' });
+        const earliest = errors.some((e) => e.code === 'BACKDATE_OUT_OF_RANGE')
+          ? { earliest: addDays(T, -45) }
+          : {};
         if (String(body.reason ?? '').trim().length < 3)
           errors.push({ field: 'reason', code: 'REQUIRED' });
         const cards = Number(body.cardsIssued ?? 0);
-        if (!Number.isInteger(cards) || cards < 0 || cards > 9)
+        if (!Number.isInteger(cards) || cards < 0 || cards > 2)
           errors.push({ field: 'cardsIssued', code: 'VALUE_OUT_OF_RANGE' });
-        if (errors.length) return problem(422, 'VALIDATION_FAILED', { errors });
+        if (errors.length) return problem(422, 'VALIDATION_FAILED', { errors, ...earliest });
         if (arrival !== r.arrivalDate) {
           r.arrivalDate = arrival;
           if (r.segments?.[0]) r.segments[0] = { ...r.segments[0], fromDate: arrival };

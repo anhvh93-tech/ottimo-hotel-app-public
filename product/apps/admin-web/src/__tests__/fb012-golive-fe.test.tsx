@@ -4,7 +4,14 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { businessDayLocal } from '../app/dates';
-import { backdateBounds, contactFooter, contactIssues, goLiveDeferred } from '../app/goLive';
+import {
+  backdateArrivalError,
+  backdateBounds,
+  contactFooter,
+  contactIssues,
+  goLiveDeferred,
+} from '../app/goLive';
+import { ApiError } from '@ottimo/api-client';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { warningText } from '../pages/longstay/labels';
@@ -66,6 +73,25 @@ describe('FE-1/FE-2 backdated long stay (A127)', () => {
     expect(ok.status).toBe(201);
     const far = await createBackdated(-46);
     expect(far.status).toBe(422);
+    // #197 ARC 197-05: the Problem carries `earliest` (T − 45), and the FE says it.
+    expect((far.body as unknown as { earliest: string }).earliest).toBe(
+      addDays(businessDayLocal(), -45),
+    );
+  });
+
+  it('BACKDATE_OUT_OF_RANGE reads with its earliest date', () => {
+    const err = new ApiError(422, {
+      type: 'about:blank',
+      title: 'x',
+      status: 422,
+      code: 'VALIDATION_FAILED',
+      errors: [{ field: 'arrivalDate', code: 'BACKDATE_OUT_OF_RANGE' }],
+      earliest: '2026-10-04',
+    } as never);
+    const t = (k: string, a?: Record<string, string | number>) => tv(k, a);
+    expect(backdateArrivalError(t, (d) => d, err)).toBe(
+      tv('field_error.backdate_out_of_range_from', { date: '2026-10-04' }),
+    );
   });
 
   it('the H10 toggle shows for MGR only; FD never sees it', async () => {
@@ -143,9 +169,17 @@ describe('FE-3 Paid outside Desk (A128)', () => {
     expect(within(dlg).queryByText(tv('payment.method.outside_desk'))).toBeNull();
   });
 
+  it('MGR: no button on a statement that is not the arrival month of a backdated check-in (ARC 197-02)', async () => {
+    pinDaytime();
+    const dlg = await openIssued('qa.mgr');
+    await within(dlg).findByRole('button', { name: tv('stmt.record_payment') });
+    expect(within(dlg).queryByRole('button', { name: tv('od.action') })).toBeNull();
+  });
+
   it('MGR: defaults to the unpaid rent with the cap shown; above it → 403 shown as "owner only"', async () => {
     pinDaytime();
     const p = issued();
+    p.backdatedCheckinOn = businessDayLocal();
     const rent = p
       .snapshot!.lines.filter((l) => l.kind === 'rent')
       .reduce((a, l) => a + l.amountVnd, 0);

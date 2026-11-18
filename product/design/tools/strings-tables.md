@@ -4453,7 +4453,9 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `bd.chip` | Nhận phòng bù {date} | Backdated check-in {date} | ⟨chừa chỗ⟩ | Reservation.checkinBackdatedOn |
 | `checkin.cond.room_occupied` | Căn không có lượt ở khác trong các đêm này | No other stay in the room on these nights | ⟨chừa chỗ⟩ | unmet room_occupied (12.1.2) |
 | `field_error.backdate_out_of_range` | Ngày đến chỉ được lùi tối đa 45 ngày, và phải trước hôm nay. | Arrival can go back at most 45 days, and must be before today. | ⟨chừa chỗ⟩ | BACKDATE_OUT_OF_RANGE |
+| `field_error.backdate_out_of_range_from` | Ngày đến sớm nhất là {date}, và phải trước hôm nay. | The earliest arrival is {date}, and it must be before today. | ⟨chừa chỗ⟩ | 0.3.15 BACKDATE_OUT_OF_RANGE + earliest (ARC 197-05) |
 | `field_error.previous_month_closed` | Tháng trước đã hết hạn ghi trễ chỉ số cuối kỳ. Chọn ngày 01 của tháng này. | Last month's closing readings can no longer be entered. Choose the 1st of this month. | ⟨chừa chỗ⟩ | PREVIOUS_MONTH_CLOSED |
+| `field_error.previous_month_closed_from` | Tháng trước đã hết hạn ghi trễ chỉ số cuối kỳ. Chọn ngày đến từ {date}. | Last month's closing readings can no longer be entered. Choose an arrival from {date}. | ⟨chừa chỗ⟩ | 0.3.15 PREVIOUS_MONTH_CLOSED + earliest |
 | `field_error.use_check_in` | Khách đến hôm nay: dùng Nhận phòng thường. | The guest arrives today: use the normal check-in. | ⟨chừa chỗ⟩ | USE_CHECK_IN |
 | `field_error.catch_up_today_only` | Đọc bù chỉ ghi ngày hôm nay. | A catch-up reading is dated today only. | ⟨chừa chỗ⟩ | CATCH_UP_TODAY_ONLY |
 | `payment.method.outside_desk` | Đã trả ngoài app | Paid outside the app | ⟨chừa chỗ⟩ | Nhãn phương thức – chỉ hiển thị, không có trong ô chọn cách thu (SEC 12-03) · UXD-196-01 |

@@ -1303,6 +1303,7 @@ export function createReservationMock(ctx: Ctx) {
       const ch = channelById(body.channelId);
       const r = roomById(body.roomId);
       const errors: Array<{ field: string; code: string }> = [];
+      let backdateEarliest: string | null = null;
       if (!ch) errors.push({ field: 'channelId', code: 'NOT_IN_LIST' });
       if (!body.bookerGuestId) errors.push({ field: 'bookerGuestId', code: 'REQUIRED' });
       if (!body.adults || body.adults < 1) errors.push({ field: 'adults', code: 'REQUIRED' });
@@ -1327,8 +1328,10 @@ export function createReservationMock(ctx: Ctx) {
       }
       if (!body.arrivalDate) errors.push({ field: 'arrivalDate', code: 'REQUIRED' });
       else if (backdated) {
-        if (body.arrivalDate < addDays(bizToday(), -45) || body.arrivalDate >= bizToday())
+        if (body.arrivalDate < addDays(bizToday(), -45) || body.arrivalDate >= bizToday()) {
           errors.push({ field: 'arrivalDate', code: 'BACKDATE_OUT_OF_RANGE' });
+          backdateEarliest = addDays(bizToday(), -45);
+        }
         if (body.departureDate && body.departureDate <= bizToday())
           errors.push({ field: 'departureDate', code: 'DATE_IN_PAST' });
       } else if (body.arrivalDate < bizToday())
@@ -1397,6 +1400,7 @@ export function createReservationMock(ctx: Ctx) {
         const minStay = errors.some((e) => e.code === 'MIN_STAY_NOT_MET');
         return problem(422, 'VALIDATION_FAILED', {
           errors,
+          ...(backdateEarliest ? { earliest: backdateEarliest } : {}),
           ...(minStay
             ? {
                 minStayNights: 2,

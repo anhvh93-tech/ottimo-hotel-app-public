@@ -28,7 +28,7 @@ import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { monoArgs } from '../../app/mono';
 import { ContactMatches, guestPrefillOf, type WebRequestLink } from '../webreq/ContactMatches';
 import { LONG_STAY_SOURCES } from './directSources';
-import { backdateBounds, isOwnerOrManager } from '../../app/goLive';
+import { backdateArrivalError, backdateBounds, isOwnerOrManager } from '../../app/goLive';
 import { BackdatedCheckInDialog } from '../stay/BackdatedCheckInDialog';
 
 export interface LongStayPrefill {
@@ -77,7 +77,7 @@ export function LongStayDialog({
   onCreated: (r: Reservation) => void;
   onShortStay: () => void;
 }) {
-  const { t, vnd } = useI18n();
+  const { t, vnd, date } = useI18n();
   const propertyId = usePropertyId();
   const { roles, me, deviceTrusted } = useSession();
   // OWN/MGR only (A127); the server checks the role and the device by field (SEC 12-07).
@@ -243,6 +243,8 @@ export function LongStayDialog({
               ? t('lsm.below_threshold', { n: nights, min: rules.longStayFromNights })
               : fieldErrorText(t, fe);
         }
+        const early = backdateArrivalError(t, date, err);
+        if (early) out.arrivalDate = early;
         setErrors(out);
       } else if (isApiError(err) && err.code === 'CAPACITY_EXCEEDED') {
         setErrors({ occ: rsvErrorText(t, err, { roomNo: room?.roomNo }) });
@@ -316,7 +318,10 @@ export function LongStayDialog({
           <Alert tone="bad">
             {isApiError(requestError) && requestError.status === 409
               ? rsvErrorText(t, requestError, { roomNo: room?.roomNo, canSeeGuest: true })
-              : problemView(t, requestError).text}
+              : // #197 SEC 12-07: "Guest already in house" off an approved device → 403 DEVICE_NOT_TRUSTED.
+                inHouse && isApiError(requestError) && requestError.code === 'DEVICE_NOT_TRUSTED'
+                ? t('bd.need_device')
+                : problemView(t, requestError).text}
           </Alert>
         ) : null}
         {canBackdate && !prefill?.webRequest ? (

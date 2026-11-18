@@ -2,6 +2,7 @@
 // the property contact (A129) and the catch-up reading (A130). The server is the judge of every rule; these only
 // set the date pickers and say why a button is missing. Unknown action codes are ignored (FE-7).
 import {
+  isApiError,
   GO_LIVE_RESERVATION_ACTION,
   GO_LIVE_STATEMENT_ACTION,
   type Reservation,
@@ -29,19 +30,37 @@ export function backdateBounds(today: string): { earliest: string; latest: strin
   return { earliest: addDays(today, -BACKDATE_MAX_DAYS), latest: addDays(today, -1) };
 }
 
-/** `Reservation` fields of 0.3.15 the generated type does not have yet. */
-export type ReservationGoLive = Reservation & { checkinBackdatedOn?: string | null };
-
 /** The server offers the backdated check-in (OWN/MGR, confirmed manual long stay, arrival before today). */
 export const canCheckInBackdated = (r: Reservation | null | undefined) =>
-  !!r?.allowedActions?.some((a) => (a.event as string) === GO_LIVE_RESERVATION_ACTION);
+  !!r?.allowedActions?.some((a) => a.event === GO_LIVE_RESERVATION_ACTION);
 
-export const backdatedOn = (r: Reservation | null | undefined) =>
-  (r as ReservationGoLive | null | undefined)?.checkinBackdatedOn ?? null;
+export const backdatedOn = (r: Reservation | null | undefined) => r?.checkinBackdatedOn ?? null;
 
 /** S16: "Paid outside Desk" only when `availableActions` lists it. */
 export const canSettleOutsideDesk = (p: BillingPeriod | null | undefined) =>
-  !!p?.availableActions.some((a) => (a as string) === GO_LIVE_STATEMENT_ACTION);
+  !!p?.availableActions.some((a) => a === GO_LIVE_STATEMENT_ACTION);
+
+type Tr = (key: string, args?: Record<string, string | number>) => string;
+
+/**
+ * 0.3.15 (#197, ARC 197-05): a 422 on `arrivalDate` with `BACKDATE_OUT_OF_RANGE` / `PREVIOUS_MONTH_CLOSED` carries
+ * `earliest` on the Problem – say that date. Null when the error is something else (the caller's usual text).
+ */
+export function backdateArrivalError(
+  t: Tr,
+  formatDate: (d: string) => string,
+  err: unknown,
+): string | null {
+  if (!isApiError(err)) return null;
+  const fe = err.fieldErrors.find((f) => f.field.replace(/^body\./, '') === 'arrivalDate');
+  const earliest = (err.problem as { earliest?: unknown }).earliest;
+  if (!fe || typeof earliest !== 'string') return null;
+  if (fe.code === 'BACKDATE_OUT_OF_RANGE')
+    return t('field_error.backdate_out_of_range_from', { date: formatDate(earliest) });
+  if (fe.code === 'PREVIOUS_MONTH_CLOSED')
+    return t('field_error.previous_month_closed_from', { date: formatDate(earliest) });
+  return null;
+}
 
 /** §12.2 `reference`: ≤ 64 of `[A-Za-z0-9 ./-]`. */
 export const REFERENCE_RE = /^[A-Za-z0-9 ./-]{1,64}$/;

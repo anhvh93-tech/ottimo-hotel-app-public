@@ -94,7 +94,15 @@ export interface StoredPeriod {
     method: 'cash' | 'vietqr' | 'outside_desk';
     amountVnd: number;
     reconciliation: string;
+    /** Mock only: business day received, and whether the payment was reversed (SEC 197-02). */
+    receivedOn?: string;
+    reversed?: boolean;
   }>;
+  /**
+   * Mock only (#197 ARC 197-02, SEC 12-02 (a)): set on the arrival-month statement of a booking checked in with
+   * `checkInBackdated` – the day of that check-in. The real server reads it from the reservation.
+   */
+  backdatedCheckinOn?: string | null;
   issuedAt: string | null;
   paidAt: string | null;
   voidedAt: string | null;

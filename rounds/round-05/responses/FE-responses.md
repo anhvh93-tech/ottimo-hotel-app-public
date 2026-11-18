@@ -350,3 +350,18 @@ Kiểm: admin-web 106 file / 1160 test đạt (thêm test bảng giá dọn và 
 | Lệch 7: mặc định số tiền = còn phải thu, MGR vượt phần thuê → 403 | – | như vậy | FE mặc định phần thuê chưa thu cho MGR (UXD-196-08) |
 
 Mã 12.4/12.5 giữ lại sau cờ cho PR tiếp theo (bật cờ khi BE thêm API). Đổi sang kiểu sinh từ OpenAPI sau khi #197 merge (FE merge `origin/main`, không rebase). Chuỗi mới: `bd.arrival_fixed`, `bd.cards_range`, `od.reference_long_number` (UXD duyệt).
+
+### Lượt 4 – sau khi BE #197 merge (`main` @ `099fd1fc`, 18/11)
+
+- Đã merge `origin/main` vào nhánh, không rebase. `api-client/src/golive.ts` nay là bí danh của kiểu sinh từ OpenAPI 0.3.15: `CheckInBackdatedInput`, `BillingPeriodOutsideDeskCreate`, `PropertyContact`, `ReservationCreate.backdatedArrival`. Bỏ các ép kiểu tạm (`checkinBackdatedOn`, `check_in_backdated`, `settle_outside_desk`). Chỉ còn `ChargePriceSource` viết tay, vì 12.4 chưa có trong spec và mã đó vẫn nằm sau cờ `goLiveDeferred`.
+- **SEC 12-07:** `backdatedArrival` ngoài máy được cấp quyền trả 403 `DEVICE_NOT_TRUSTED`. Form dài hạn hiện `bd.need_device`, giống câu thiết bị của "ngoài app". Ô bật/tắt vốn đã khóa khi máy chưa được cấp quyền.
+- **ARC 197-02:** MGR chỉ thấy `settle_outside_desk` trên phiếu tháng nhận phòng của đơn nhận phòng bù. FE vẫn theo `availableActions`. Mock làm giống server, thêm trường mock `backdatedCheckinOn` trên phiếu.
+- **SEC 197-02:** MGR bị 403 khi phiếu có khoản thu đã bị đảo, hoặc có khoản thu thật nhận sau ngày nhận phòng bù. Lỗi hiện là `od.owner_only`. Mock kiểm đủ (a)–(c) và hai điều kiện này.
+- **ARC 197-05:** `BACKDATE_OUT_OF_RANGE` và `PREVIOUS_MONTH_CLOSED` có `earliest`. FE nói rõ ngày đó qua `backdateArrivalError` (`app/goLive.ts`) ở cả form dài hạn và hộp nhận phòng bù. Hai chuỗi mới: `field_error.backdate_out_of_range_from`, `field_error.previous_month_closed_from`. Mock trả kèm `earliest`.
+- **Các mã khác của 0.3.15:**
+  - `USE_CHECK_IN`: dùng `field_error.use_check_in`, đã có.
+  - `DATE_IN_FUTURE` của `receivedOn`: FE chặn trước bằng `od.date_future`.
+  - `CARD_NUMBER_DETECTED` / `NOT_ALLOWED` của `reference`: hiện dưới ô.
+  - `cardsIssued`: 0–2, mock cũng theo 0–2.
+- **Kiểm:** admin-web 106 file / 1163 test, api-client 39, `validate-fixtures` 0 lỗi; typecheck, ESLint và Prettier sạch.
+- **Việc cho UXD:** câu `od.owner_only` chưa nói tới trường hợp khoản thu bị đảo hoặc khoản thu thật nhận sau ngày nhận phòng bù. Đề nghị UXD xem có thêm ý này không. FE chưa sửa câu đã được duyệt.
