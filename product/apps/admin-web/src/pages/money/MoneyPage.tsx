@@ -170,7 +170,7 @@ const ACTION_KEY: Record<string, string> = {
 };
 
 /** Display names of the property's people by user id (`closer-candidates`, kind all), for rows that keep only ids. */
-type PeopleNames = { byId: ReadonlyMap<string, string>; loading: boolean };
+type PeopleNames = { byId: ReadonlyMap<string, string>; status: 'loading' | 'ready' | 'error' };
 
 function AuditAction({ e, names }: { e: AuditEvent; names: PeopleNames }) {
   const { t, money } = useI18n();
@@ -196,12 +196,19 @@ function AuditAction({ e, names }: { e: AuditEvent; names: PeopleNames }) {
   }
   if (e.action === 'reservation.closer_changed') {
     // FB-R5-DOM-FE-155-04: the server writes the closer's user id (`before.closerUserId` / `after.closerUserId`;
-    // `before` null when there was none, both empty on rows written before #154), never a name. Named from the
-    // people list; an id not in it (locked, left) → "Someone not on the list", as the "Người làm" filter; no id → "—".
+    // `before` null when there was none), never a name. A row written before #154 has no `closerUserId` in `after` at
+    // all → one line saying so, never "— → —" (UXD copy-v1.0.5 9.18).
+    if (!('closerUserId' in after)) return <>{t('mlog.a_closer_changed_legacy')}</>;
+    // Named from the people list (active accounts only). Not in the list once loaded → "Inactive account" (9.18; the
+    // "Người làm" filter keeps "Someone not on the list"); while it loads → "Loading…" (ARC FE-159-01); the list could
+    // not be read → "Couldn't load data", never "inactive" for everyone (DOM FE-159-01); no id → "—".
     const who = (v: unknown) => {
       const id = typeof v === 'string' ? v : '';
       if (!id) return '—';
-      return names.byId.get(id) ?? (names.loading ? t('common.loading') : t('mlog.who_unlisted'));
+      const name = names.byId.get(id);
+      if (name) return name;
+      if (names.status === 'loading') return t('common.loading');
+      return names.status === 'error' ? t('common.error_generic_title') : t('mlog.closer_inactive');
     };
     return (
       <>
@@ -323,7 +330,7 @@ function MoneyLog() {
   const staff = (people.state.data ?? []).filter((c) => c.kind === 'staff');
   const names: PeopleNames = {
     byId: new Map((people.state.data ?? []).map((c) => [c.userId, c.displayName])),
-    loading: people.state.status === 'loading',
+    status: people.state.status,
   };
   const toggleReductions = (on: boolean) => {
     setReductions(on);
