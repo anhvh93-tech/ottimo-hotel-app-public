@@ -16,6 +16,7 @@ import { ReceivingAccountSection } from './ReceivingAccount';
 import {
   GROUP_LABEL,
   GROUP_ORDER,
+  OTA_BASE_RATE_KEY,
   editorsOf,
   paramLabel,
   paramMeta,
@@ -155,6 +156,9 @@ export function ParamsPage() {
                                 <br />
                                 <code className="muted">{p.key}</code>
                               </>
+                            ) : null}
+                            {p.key === OTA_BASE_RATE_KEY ? (
+                              <div className="muted">{t('params.ota_base_rate_note')}</div>
                             ) : null}
                             {p.statusLabel?.includes('GD') ? (
                               <>

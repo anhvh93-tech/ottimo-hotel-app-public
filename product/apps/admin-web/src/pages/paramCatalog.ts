@@ -7,7 +7,8 @@ import { hasKey } from '@ottimo/i18n';
  * API – nothing here is a business number.
  */
 export type ParamGroup = 'booking' | 'occupancy' | 'time' | 'money' | 'security' | 'other';
-export type ParamUnit = 'hours' | 'days' | 'pct' | 'vnd' | 'age' | 'minutes' | 'time' | 'none';
+export type ParamUnit =
+  'hours' | 'days' | 'nights' | 'pct' | 'vnd' | 'age' | 'minutes' | 'time' | 'none';
 
 export interface ParamMeta {
   group: ParamGroup;
@@ -44,6 +45,9 @@ export const SECURITY_BOUNDS: Record<string, { min: number; max: number }> = {
   c3_stepup_minutes: { min: 1, max: 15 },
 };
 
+/** V5-21 (copy-v1.0.5 2.4): the OTA base rate row carries the "Không cần nhập" note on H05 and in its edit box. */
+export const OTA_BASE_RATE_KEY = 'ota_base_rate';
+
 const KNOWN: Record<string, ParamMeta> = {
   hold_hours_default: { group: 'booking', label: 'params.hold_hours', unit: 'hours' },
   hold_hours_options: { group: 'booking', unit: 'hours' },
@@ -74,6 +78,38 @@ const KNOWN: Record<string, ParamMeta> = {
   guest_link_grace_hours: { group: 'security', unit: 'hours' },
   guest_verify_code_channel_minutes: { group: 'security', unit: 'minutes' },
   guest_verify_code_channels: { group: 'security', unit: 'none' },
+  // v1.0.5 V5-21 (copy-v1.0.5 2.1): the price-table keys INV edits (B1–B11 of the price-change guide, rounding.*,
+  // early_checkin_tiers) get a unit; the name comes from `params.k.<key>`. Group stays "Khác" so the dictionary and the
+  // manual keep saying "tab Khác".
+  weekend_uplift_pct: { group: 'other', unit: 'pct' },
+  weekend_nights: { group: 'other', unit: 'none' },
+  weekend_uplift_channels: { group: 'other', unit: 'none' },
+  special_uplift_pct: { group: 'other', unit: 'pct' },
+  special_dates: { group: 'other', unit: 'none' },
+  special_uplift_channels: { group: 'other', unit: 'none' },
+  los_discount: { group: 'other', unit: 'none' },
+  long_stay_required_from_nights: { group: 'other', unit: 'nights' },
+  short_stay_max_nights: { group: 'other', unit: 'nights' },
+  ota_base_rate: { group: 'other', unit: 'none' },
+  early_checkin_tiers: { group: 'other', unit: 'none' },
+  long_stay_compare_from_nights: { group: 'other', unit: 'nights' },
+  'rounding.monthly_rent': { group: 'other', unit: 'vnd' },
+  'rounding.night_rate': { group: 'other', unit: 'vnd' },
+  'rounding.deposit': { group: 'other', unit: 'vnd' },
+  'rounding.fee': { group: 'other', unit: 'vnd' },
+  'rounding.ota_rate': { group: 'other', unit: 'vnd' },
+  late_checkout_tiers: { group: 'other', unit: 'none' },
+  rate_floor_pct: { group: 'other', unit: 'pct' },
+  rate_ceiling_pct: { group: 'other', unit: 'pct' },
+  min_stay: { group: 'other', unit: 'none' },
+  min_stay_orphan_night_exception: { group: 'other', unit: 'none' },
+  booking_window_days: { group: 'other', unit: 'days' },
+  return_guest_code: { group: 'other', unit: 'none' },
+  return_guest_pct: { group: 'other', unit: 'pct' },
+  stackable: { group: 'other', unit: 'none' },
+  prices_include_vat: { group: 'other', unit: 'none' },
+  public_show_prices: { group: 'other', unit: 'none' },
+  'web_estimate.open_until': { group: 'other', unit: 'none' },
 };
 
 export function paramMeta(key: string): ParamMeta {
@@ -86,6 +122,7 @@ export function paramMeta(key: string): ParamMeta {
 export const UNIT_KEY: Partial<Record<ParamUnit, string>> = {
   hours: 'params.unit_hours',
   days: 'params.unit_days',
+  nights: 'params.unit_nights',
   minutes: 'params.unit_minutes',
   age: 'params.unit_age',
 };

@@ -5,12 +5,19 @@ import { useId, useRef, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
 import { useBusinessDay, useBusinessDayChange } from '../app/businessDay';
 import { parseVnd } from '../app/money';
-import { fieldErrors, problemView } from '../app/problem';
+import { fieldErrors, paramProblemText, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { useOnline } from '../hooks/useOnline';
 import { useResource } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
-import { SECURITY_BOUNDS, UNIT_KEY, editorsOf, paramLabel, paramMeta } from './paramCatalog';
+import {
+  OTA_BASE_RATE_KEY,
+  SECURITY_BOUNDS,
+  UNIT_KEY,
+  editorsOf,
+  paramLabel,
+  paramMeta,
+} from './paramCatalog';
 import { RECEIVING_KEY } from './ReceivingAccount';
 
 type T = (key: string, args?: Record<string, string | number>) => string;
@@ -60,7 +67,7 @@ export function ParamDialog({
   /** A scheduled row was cancelled – the dialog stays open; the page refreshes its list. */
   onChanged?: () => void;
 }) {
-  const { t, date, dateTime } = useI18n();
+  const { t, date, dateTime, locale } = useI18n();
   const propertyId = usePropertyId();
   const session = useSession();
   const toast = useToast();
@@ -112,10 +119,11 @@ export function ParamDialog({
 
   const parseValue = (): { ok: true; value: unknown } | { ok: false; error: string } => {
     if (kind === 'options') return { ok: true, value: Number(text) };
+    // copy-v1.0.5 2.3: an empty time box is "Bắt buộc"; text in the wrong form says how to write a time.
     if (kind === 'time')
       return TIME_RE.test(text)
         ? { ok: true, value: text }
-        : { ok: false, error: t('common.required') };
+        : { ok: false, error: t(text.trim() ? 'params.err_time' : 'common.required') };
     if (kind === 'number') {
       const unit = paramMeta(param.key).unit;
       const n =
@@ -124,8 +132,8 @@ export function ParamDialog({
           : /^-?\d+(\.\d+)?$/.test(text.trim())
             ? Number(text.trim())
             : null;
-      if (n === null || !Number.isFinite(n))
-        return { ok: false, error: t('field_error.not_in_list') };
+      // copy-v1.0.5 2.3: this box has no list – say a number is expected (was `field_error.not_in_list`).
+      if (n === null || !Number.isFinite(n)) return { ok: false, error: t('params.err_number') };
       if (bounds && (n < bounds.min || n > bounds.max)) {
         return { ok: false, error: t('error.PARAM_OUT_OF_RANGE_MINMAX', bounds) };
       }
@@ -134,7 +142,8 @@ export function ParamDialog({
     try {
       return { ok: true, value: JSON.parse(text) };
     } catch {
-      return { ok: false, error: t('field_error.not_in_list') };
+      // copy-v1.0.5 2.3: words such as `deposit_base` live in this box too – quotes and brackets are what goes wrong.
+      return { ok: false, error: t('params.err_json') };
     }
   };
 
@@ -159,7 +168,15 @@ export function ParamDialog({
       onSaved();
     } catch (err) {
       if (isApiError(err) && err.code === 'PARAM_OUT_OF_RANGE') {
-        setErrors({ value: problemView(t, err).text });
+        // V5-21 / V5-25 (copy-v1.0.5 2.3, 9.2, 9.4): the sentence depends on the key and on where the value is wrong.
+        setErrors({
+          value: paramProblemText(
+            t,
+            err,
+            { key: param.key, unit: paramMeta(param.key).unit },
+            locale,
+          ),
+        });
       } else if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
         setErrors(fieldErrors(t, err));
       } else {
@@ -211,6 +228,12 @@ export function ParamDialog({
     >
       <form id={formId} onSubmit={onSubmit} noValidate>
         {banner ? <Alert tone="bad">{banner}</Alert> : null}
+        {/* V5-21 (copy-v1.0.5 2.4; plan R5 mục 6): no per-room-group editor – say the value is not needed. */}
+        {param.key === OTA_BASE_RATE_KEY ? (
+          <Alert tone="info" role="note">
+            {t('params.ota_base_rate_note')}
+          </Alert>
+        ) : null}
         {kind === 'options' && choices ? (
           <div className={`field${errors.value ? ' invalid' : ''}`}>
             <span className="lbl" id={`${ids}-v`}>

@@ -95,8 +95,8 @@ export function problemView(t: T, error: unknown, locale: 'vi' | 'en' = 'vi'): P
   if (code === 'SERVICE_UNAVAILABLE' || code === 'CONCURRENT_UPDATE') {
     return { text: t(`error.${code}`, args) };
   }
-  if (code === 'PARAM_OUT_OF_RANGE' && args.allowed === undefined) {
-    return { text: t('error.PARAM_OUT_OF_RANGE_MINMAX', args) };
+  if (code === 'PARAM_OUT_OF_RANGE') {
+    return { text: t(paramRangeKey(error), paramRangeArgs(error, locale)) };
   }
   if (code !== 'INTERNAL_ERROR' && error.status < 500 && hasKey(`error.${code}`)) {
     return { text: t(`error.${code}`, args) };
@@ -104,6 +104,141 @@ export function problemView(t: T, error: unknown, locale: 'vi' | 'en' = 'vi'): P
   // UXR #8: a refusal the client has no sentence for is still a refusal, not a server fault.
   if (error.status === 403) return { text: t('error.FORBIDDEN_ACTION') };
   return serverError(t, error.requestId ?? error.problem.requestId);
+}
+
+// ---------- 422 PARAM_OUT_OF_RANGE of setParameter (UXD copy-v1.0.5 2.3, 9.2, 9.4; V5-21, V5-25) ----------
+
+/**
+ * Structured keys whose save rule names the first wrong part in `errors[0].field` (BE #96 + the damage catalogue and
+ * the commission table checked the same way; copy 9.4). Their value is a JSON list or object, so "Giá trị phải từ 0
+ * đến 100." alone reads as if the whole box had to be one number.
+ */
+const STRUCTURED_PARAM_KEYS = new Set([
+  'special_dates',
+  'los_discount',
+  'cancel_policy_direct',
+  'early_checkin_tiers',
+  'late_checkout_tiers',
+  'early_departure_refund',
+  'checkout_reminders',
+  'weekend_uplift_channels',
+  'special_uplift_channels',
+  'max_open_holds_per_user',
+  'lease_terms',
+  'damage_catalog',
+  'short_stay_commission_pct',
+]);
+
+/** The extras of the problem: `allowed` (a set of numbers or words), `min`, `max` – any of them may be absent. */
+function paramExtras(error: ApiError) {
+  const p = error.problem as typeof error.problem & Record<string, unknown>;
+  return {
+    allowed: Array.isArray(p.allowed) ? (p.allowed as unknown[]) : undefined,
+    min: p.min as unknown,
+    max: p.max as unknown,
+  };
+}
+
+/** Copy 2.3, six steps: which sentence the extras call for (never "khoảng" for a set, never a raw `{min}`). */
+function paramRangeKey(error: ApiError): string {
+  const { allowed, min, max } = paramExtras(error);
+  const hasMin = min !== undefined;
+  const hasMax = max !== undefined;
+  if (allowed && (hasMin || hasMax)) return 'error.PARAM_OUT_OF_RANGE_GROUPS';
+  if (allowed) return 'error.PARAM_OUT_OF_RANGE';
+  if (hasMin && hasMax) return 'error.PARAM_OUT_OF_RANGE_MINMAX';
+  if (hasMax) return 'error.PARAM_OUT_OF_RANGE_MAX';
+  if (hasMin) return 'error.PARAM_OUT_OF_RANGE_MIN';
+  return 'error.PARAM_OUT_OF_RANGE_SHAPE';
+}
+
+/**
+ * Copy 2.3 formatting: numbers by locale (1.000, 100.000), a `vnd` parameter as money ("1.000 đ"), times and words
+ * as they are, `allowed` joined with ", ". `ota_base_rate` (`allowed` + min/max) bounds are night rates → money.
+ */
+function paramRangeArgs(error: ApiError, locale: 'vi' | 'en', unit?: string): Args {
+  const { allowed, min, max } = paramExtras(error);
+  const groups = allowed !== undefined && (min !== undefined || max !== undefined);
+  const show = (v: unknown, asMoney: boolean): string =>
+    typeof v === 'number'
+      ? asMoney
+        ? translate(locale, 'common.currency_vnd', { amount: formatNumber(locale, v) })
+        : formatNumber(locale, v)
+      : String(v);
+  const args: Args = {};
+  if (allowed) args.allowed = allowed.map((v) => show(v, !groups && unit === 'vnd')).join(', ');
+  if (min !== undefined) args.min = show(min, groups || unit === 'vnd');
+  if (max !== undefined) args.max = show(max, groups || unit === 'vnd');
+  return args;
+}
+
+/**
+ * Copy 9.4: `{where}` from `errors[0].field` – one index (counted from 1) and the first sub-key name, kept as code
+ * (`pct`, `refundPct`, `before`) because the JSON box and the dictionary use it. `value` alone → whole value (null).
+ */
+export function paramWhere(t: T, field: string | undefined): string | null {
+  const m = /^value(?:\[(\d+)\])?(?:\.([A-Za-z_]\w*))?(?:\[(\d+)\])?/.exec(
+    (field ?? '').replace(/^body\./, ''),
+  );
+  if (!m) return null;
+  const [, item, sub, subItem] = m;
+  if (item !== undefined && sub)
+    return t('params.where_item_field', { n: Number(item) + 1, field: sub });
+  if (item !== undefined) return t('params.where_item', { n: Number(item) + 1 });
+  if (sub && subItem !== undefined)
+    return t('params.where_field_item', { field: sub, n: Number(subItem) + 1 });
+  return sub ?? null;
+}
+
+/**
+ * The sentence under the value box when `setParameter` answers 422 PARAM_OUT_OF_RANGE (ParamDialog knows the key).
+ * Order (copy 9.4 "Thiếu trường bắt buộc", then 9.2, then 9.4, then the six steps of 2.3):
+ * - `cancel_policy_direct` = [] and `max_open_holds_per_user` missing a role have their own detail;
+ * - `min_stay` (9.2): a set → the structured sentence; min+max → nights of each rule; only max (over 20 rules) → whole
+ *   value; nothing → the "list of rules" sentence. `short_stay_max_nights` with only min → the reverse min_stay check;
+ * - the structured keys say where first, then what is accepted (`params.err_required` when a part is missing);
+ * - every other key → 2.3 (`weekend_nights` gets "Chọn một trong: MON, …, SUN", never the numbers 1–7 – BUG-R5-001).
+ */
+export function paramProblemText(
+  t: T,
+  error: ApiError,
+  param: { key: string; unit?: string },
+  locale: 'vi' | 'en' = 'vi',
+): string {
+  const { key, unit } = param;
+  const fe = error.fieldErrors[0];
+  const fieldCode = fe?.code;
+  const where = paramWhere(t, fe?.field);
+  const { allowed, min, max } = paramExtras(error);
+  const hasMin = min !== undefined;
+  const hasMax = max !== undefined;
+  const noExtras = !allowed && !hasMin && !hasMax;
+  const args = paramRangeArgs(error, locale, unit);
+  const generic = () => t(paramRangeKey(error), args);
+  const wrap = (detail: string) =>
+    where
+      ? t('params.err_structured', { where, detail, key })
+      : t('params.err_structured_whole', { detail, key });
+
+  if (key === 'cancel_policy_direct' && fieldCode === 'REQUIRED' && !where) {
+    return t('params.err_structured_whole', { detail: t('params.err_cancel_policy_empty'), key });
+  }
+  if (key === 'max_open_holds_per_user' && fieldCode === 'REQUIRED' && where) {
+    return t('params.err_structured', { where, detail: t('params.err_hold_limit_roles'), key });
+  }
+  if (key === 'min_stay') {
+    if (allowed) return wrap(generic());
+    if (hasMin && hasMax) return t('params.err_min_stay_nights', args);
+    if (hasMax) return t('params.err_structured_whole', { detail: generic(), key });
+    if (!hasMin) return t('params.err_min_stay_shape');
+  }
+  if (key === 'short_stay_max_nights' && hasMin && !hasMax && !allowed) {
+    return t('params.err_short_stay_below_min_stay', args);
+  }
+  if (STRUCTURED_PARAM_KEYS.has(key)) {
+    return wrap(fieldCode === 'REQUIRED' && noExtras ? t('params.err_required') : generic());
+  }
+  return generic();
 }
 
 const FIELD_FALLBACK: Record<string, string> = {
