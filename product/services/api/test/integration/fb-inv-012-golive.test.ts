@@ -807,6 +807,17 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     ]);
   });
 
+  it('§12.4 G6 (FE #196): long_stay_cleaning_fee_by_room is catalogued under BR-LS-07 (S24 badge), OWN/MGR, default {}', async () => {
+    const [def] = await q<{ br_ref: string; edit_roles: string[]; default_value: unknown }>(
+      `SELECT br_ref, edit_roles, default_value FROM config_parameter_def WHERE key = 'long_stay_cleaning_fee_by_room'`,
+    );
+    expect(def).toEqual({
+      br_ref: 'BR-LS-07',
+      edit_roles: ['owner', 'manager'],
+      default_value: {},
+    });
+  });
+
   it('SEC 190-08: a stay voided after an undone check-in anchors its meter photos', async () => {
     const up = await staff(fa, t.users.fdl!.sessionToken, null, 'POST', url('/attachments'), {
       multipart: [
