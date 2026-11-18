@@ -278,3 +278,16 @@
      - FDL ghi `checkin` trễ có lý do → 201 và nháp có `READING_LATE`.
   6. OpenAPI: mô tả `recordMeterReading` và `rooms[]`. Hợp đồng mục 11.2 thêm dòng này (ARC cập nhật khi BE làm).
 - Trạng thái: Open
+
+### Lượt 2 – kiểm BE-190-12 và BE-190-11 (18/11, head `da40f1c7`)
+
+- **BE-190-12: Closed.**
+  - `eventDateOf()` gắn mỗi lần đọc với ngày thật: `checkin` = ngày đến, chỉ cho căn nhận lúc đến; `room_change_in` / `room_change_out` = ngày đổi căn, nhiều lần đổi thì lấy lần gần nhất ≤ `readOn`. Căn không có sự kiện đó → 422 `kind: NOT_ALLOWED`.
+  - Dùng chung cửa sổ với `period_*` qua hàm `gate()`: cửa sổ [ngày sự kiện, + `daysAfter`]; trễ hơn tới `lateMaxDays` thì FDL+ kèm `lateReason` và cảnh báo `READING_LATE`; ngoài nữa → 422.
+  - Mỗi (đơn, căn) chỉ một `checkin` còn hiệu lực: kiểm trong service, có thêm chỉ mục từng phần `meter_reading_checkin_live_key` trong 0099 (chấp nhận vì 0099 chưa merge). `room_change_*`: một lần cho mỗi lần đổi căn, trùng → 409.
+  - `rooms[]` có `openingKind` và `segmentFrom`. Test đủ các ca ARC nêu, thêm cả ca INSERT thẳng vướng chỉ mục.
+  - ARC đã cập nhật hợp đồng mục 11.2, 11.3, 11.4.
+- **BE-190-11: Closed.** Đơn trả phòng 20/02 có trong danh sách ứng viên tháng 02 (`kind: final`) ngày 20 và 21/02, ngày 22/02 thì không còn.
+- `roomNames` trên trang in (phần BE của UXD-189-11): chấp nhận. Tên phòng không phải dữ liệu cá nhân. Đọc tên hiện tại nên in lại sau khi đổi tên sẽ ra tên mới; số căn và số tiền không đổi.
+- Ghi chú, không thành thẻ: `checkout` chưa gắn cửa sổ. Lần đọc này thuộc bill quyết toán, ngoài phạm vi phiếu tháng. Xem lại khi làm luồng trả phòng của khách dài hạn.
+- **Kết luận: APPROVE.** Chỉ còn điều kiện CI xanh đủ bước (BE-190-10, chờ OPS gỡ `pnpm audit`, rồi BE merge `origin/main`). BE-190-07 vẫn là điều kiện trước production.

@@ -287,6 +287,9 @@ Tác giả: ARC. Đã có trên PR BE #190 (head `f522aa60`, OpenAPI vẫn `0.3.
 | Đầu kỳ < cuối kỳ trước do thay đồng hồ trong khoảng trống | Gửi `exception` → lưu, không cảnh báo | FDL+ |
 | **Đọc sau cửa sổ** `period_start`/`period_end`, trong `readingWindow.lateMaxDays` (mặc định 10, 0–31) | Có `lateReason` (3–300) → lưu (`late_reason`, `late_approved_by`, audit `meter_reading.late`, cảnh báo nháp `READING_LATE`). FD hoặc thiếu lý do → `422 READING_OUT_OF_WINDOW` kèm `windowFrom`, `windowTo`, `lateUntil`, `lateNeedsRole` | FDL+ |
 | Quá `lateMaxDays` | `422 READING_OUT_OF_WINDOW` (không có `lateUntil`) | – |
+| **`checkin` / `room_change_in` / `room_change_out`** (BE-190-12) | Gắn với **ngày sự kiện thật**: `checkin` = ngày đến, chỉ cho căn nhận lúc đến; `room_change_in` = ngày vào căn; `room_change_out` = ngày rời căn. Có nhiều lần đổi căn thì lấy lần gần nhất ≤ `readOn`. Cửa sổ [ngày sự kiện, + `readingWindow.daysAfter`]; trễ hơn tới `lateMaxDays` thì như dòng đọc sau cửa sổ (FDL+ kèm `lateReason`, cảnh báo `READING_LATE`); ngoài nữa → `422 READING_OUT_OF_WINDOW`. Căn không có sự kiện đó → `422 VALIDATION_FAILED` (`kind: NOT_ALLOWED`) | Trong cửa sổ: FD+. Trễ: FDL+ |
+| Lần đọc thứ hai cùng sự kiện | `checkin`: một lần còn hiệu lực cho mỗi (đơn, căn) – chỉ mục `meter_reading_checkin_live_key`. `room_change_*`: một lần cho mỗi lần đổi căn. Trùng → `409 READING_EXISTS`; muốn sửa thì hủy lần đọc cũ rồi nhập lại | – |
+| `checkout` | Chưa gắn cửa sổ (dùng cho bill quyết toán, ngoài phạm vi phiếu tháng) | FD+ |
 
 Tham số `monthly_statement_rules` thêm `readingWindow.lateMaxDays` (mục 3).
 
@@ -296,13 +299,13 @@ Tham số `monthly_statement_rules` thêm `readingWindow.lateMaxDays` (mục 3).
 |---|---|
 | `MeterReadingCreate` | thêm `acknowledgeLowerThanPrevious`, `lateReason` |
 | `MeterReading` | thêm `previousClosing {readingId, readOn, electricity, water}`, `gap {electricity, water}`, `consumption {fromReadingId, electricity, water}`, `late`, `lateReason`, `readByInitials` (chữ cái đầu, không họ tên), `onIssuedStatement` |
-| `listBillingCandidates` phần tử | thêm `reservationCode`, `kind`, `draftId`, `rooms[{roomId, roomNo, opening, closing, nextOpening}]` (`missing`/`recorded`/`exception`/`not_needed`; `nextOpening` không có `exception`). `readingStatus` gồm cả đầu kỳ, có `not_needed`. Có đơn `checked_out` còn trong `daysAfter` cần phiếu `final` |
+| `listBillingCandidates` phần tử | thêm `reservationCode`, `kind`, `draftId`, `rooms[{roomId, roomNo, opening, closing, nextOpening, openingKind, segmentFrom}]` (`openingKind` ∈ `checkin`/`room_change_in`/`period_start` cho FE biết ô đầu kỳ nào cần nhập; `segmentFrom` = ngày đến hoặc ngày đổi căn) (`missing`/`recorded`/`exception`/`not_needed`; `nextOpening` không có `exception`). `readingStatus` gồm cả đầu kỳ, có `not_needed`. Có đơn `checked_out` còn trong `daysAfter` cần phiếu `final` |
 | `BillingPeriod` | thêm `reservationCode`, `missingReadings[]`, `excludedLines[]` (nháp, không cộng tổng), `excludedFolioLineIds`, `priorAdjustment`, `note`, `replacesCode`, `voidReason`; dòng có `periodMonth` |
 | `BillingPeriodTotals` | thêm `unreconciledVnd`, `disputed` (khoản thu VietQR `pending`/`disputed`; trạng thái phiếu không đổi) |
 | `createBillingPeriod` | `kind` tùy chọn, server tự suy |
 | `recordBillingPeriodPayment` | trả `{billingPeriod, payment {id, method, amountVnd, status, reconciliation}}` |
 | `voidBillingPeriod` | trả `BillingPeriod` phẳng + `canReplace` (`BillingPeriodVoided`) |
-| `getBillingPeriodPrint` | allowlist riêng (`BillingPeriodPrint`): không ghi chú, lý do, folio, giá chụp, thao tác (SEC BE-190-03). `property.email` = null (chưa có cột) |
+| `getBillingPeriodPrint` | allowlist riêng (`BillingPeriodPrint`): không ghi chú, lý do, folio, giá chụp, thao tác (SEC BE-190-03). `property.email` = null (chưa có cột). Thêm `roomNames` (tên phòng cho khách, cùng thứ tự `roomNos`, null khi chưa đặt tên; đọc tên hiện tại) |
 | Cảnh báo | **bỏ `PRICE_CHANGED_SINCE_DRAFT`**: nháp không lưu số, giá và VAT đọc lại lúc phát hành. Thêm `OPENING_BELOW_PREVIOUS_CLOSING`, `READING_LATE` |
 | Mã lỗi mới | `OPENING_BELOW_PREVIOUS_CLOSING` (422). `READING_OUT_OF_WINDOW` thêm trường |
 
@@ -311,6 +314,7 @@ Tham số `monthly_statement_rules` thêm `readingWindow.lateMaxDays` (mục 3).
 - Migration `0099` (sửa tại chỗ trước khi merge, chưa chạy ở môi trường nào):
   - `meter_reading` thêm `previous_reading_id`, `electricity_gap`, `water_gap`, `late_reason`, `late_approved_by` (CHECK đi cặp);
   - FK `payment_billing_period_fk (property_id, billing_period_id) → billing_period`.
+  - chỉ mục duy nhất từng phần `meter_reading_checkin_live_key (reservation_id, room_id) WHERE kind = 'checkin' AND voided_at IS NULL`.
 
   Sau merge, mọi sửa đổi là migration mới.
 - Quyền:
