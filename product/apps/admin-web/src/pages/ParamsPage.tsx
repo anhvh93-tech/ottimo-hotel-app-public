@@ -14,6 +14,8 @@ import { usePropertyId, useSession } from '../session/SessionProvider';
 import { ParamDialog, formatParamValue } from './ParamDialog';
 import { ReceivingAccountSection } from './ReceivingAccount';
 import { PropertyContactSection } from './PropertyContact';
+import { goLiveDeferred } from '../app/goLive';
+import { LSCF_KEY } from './cleaningFeeParams';
 import {
   GROUP_LABEL,
   GROUP_ORDER,
@@ -66,7 +68,12 @@ export function ParamsPage() {
     (g) => g === 'occupancy' || params.some((p) => paramMeta(p.key).group === g),
   );
   const current = groups.includes(active) ? active : (groups[0] ?? 'booking');
-  const rows = params.filter((p) => paramMeta(p.key).group === current);
+  const rows = params.filter(
+    (p) =>
+      paramMeta(p.key).group === current &&
+      // §12.4 deferred by BE #197: the key exists but nothing reads it yet – not offered in v1.0.7.
+      (goLiveDeferred.cleaningByRoom || p.key !== LSCF_KEY),
+  );
   const canEditAny = session.roles.some((r) => r === 'owner' || r === 'manager');
   const roomsItem = NAV.find((n) => n.id === 'rooms')!;
   const canRooms = isVisible(roomsItem, {

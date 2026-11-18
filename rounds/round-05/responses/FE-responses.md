@@ -326,3 +326,27 @@ Nhánh đã nhận merge `main` do ORC chạy `gh pr update-branch` (gồm sửa
 Ghi chú cho UXD: nhãn ô số tiền (`stmt.pay_amount` = "Số tiền (đ)") đã có đơn vị, nay thêm hậu tố "đ" nên đơn vị hiện hai lần. Nếu muốn bỏ "(đ)" khỏi nhãn thì đó là chuỗi chung, UXD quyết.
 
 Kiểm: admin-web 106 file / 1160 test đạt (thêm test bảng giá dọn và mặc định MGR; test S16 cũ đổi sang số có dấu chấm), api-client 39, i18n 22, `validate-fixtures` 0 lỗi; typecheck, ESLint, Prettier sạch.
+
+### Lượt 3 – khớp BE PR #197 (`r5-fb012-golive-be` @ `a1bd464f`, chưa merge, 18/11)
+
+Đối chiếu `openapi.yaml` 0.3.15-draft của #197 với kiểu tạm `packages/api-client/src/golive.ts` và `endpoints.ts`:
+
+| Mục | FE tạm | #197 | Xử lý |
+|---|---|---|---|
+| `checkInBackdated` đường dẫn, `If-Match`, idempotency, 200 `Reservation` | như spec | như spec | Khớp |
+| `CheckInBackdatedInput.cardsIssued` | tùy chọn, FE kiểm 0–9 | **bắt buộc, 0–2** | **Lệch**: FE luôn gửi, nay kiểm 0–2 (`bd.cards_range`) |
+| `CheckInBackdatedInput.documentBlockOverride.reason` | không giới hạn | 3–500 | Khớp (FE kiểm ≥ 3) |
+| `BillingPeriodOutsideDeskCreate.amountVnd` | `number?` | `MoneyVnd \| null`, tùy chọn | Tương thích (FE luôn gửi số) |
+| `reference` | `string \| null`, `^[A-Za-z0-9 ./-]{1,64}$` | như vậy + dãy ≥ 9 chữ số → 422 `NOT_ALLOWED` | FE kiểm trước (`od.reference_long_number`); 422 trên `reference` (cả `CARD_NUMBER_DETECTED`) hiện dưới ô |
+| settle: 201 `BillingPeriodPaymentResult`, `If-Match`, idempotency | như spec | như spec | Khớp |
+| `PropertyContact` {addressLine, hotline} null được; GET OWN/MGR/FDL, PUT OWN, không `If-Match` | như spec | như spec | Khớp |
+| `Reservation.checkinBackdatedOn`, action `check_in_backdated`, `availableActions` `settle_outside_desk`, method `outside_desk` | như spec | như spec | Khớp |
+| `PaymentMethodInput` (SEC 12-03) | FE không gửi `outside_desk` ở thân nào | enum mới cho thân lệnh | Khớp; #197 sửa 5 file admin-web, merge thử `git merge-tree` không xung đột |
+| `StaffNotification.kind` `backdated_stay`, `statement_settled_outside_desk` | – | mới | Admin-web không hiển thị theo kind này; không cần sửa |
+| 12.4 `getChargeCatalog?folioId`, `priceSource`, bảng `long_stay_cleaning_fee_by_room` | đã làm | **hoãn** | **Ẩn ở v1.0.7**: cờ `goLiveDeferred.cleaningByRoom = false` (`app/goLive.ts`): không gửi `folioId`, không chip nguồn giá, khóa không hiện ở S24 |
+| 12.5 `catchUp` | đã làm | **hoãn** | **Ẩn ở v1.0.7**: `goLiveDeferred.catchUp = false`: bỏ qua `catchUpNeedsRole`, không bao giờ gửi `catchUp` (luồng ghi trễ cũ giữ nguyên) |
+| Lệch 3: dời ngày đến chỉ đơn một đoạn | cho chọn ngày | 422 `arrivalDate: NOT_ALLOWED` | Đơn nhiều đoạn: khóa ô ngày, giải thích `bd.arrival_fixed`; 422 cũng hiện câu này |
+| Lệch 4: `USE_CHECK_IN` chỉ ở `checkInBackdated` | `field_error.use_check_in` | như vậy | Khớp (hiện dưới ô ngày của hộp nhận phòng bù) |
+| Lệch 7: mặc định số tiền = còn phải thu, MGR vượt phần thuê → 403 | – | như vậy | FE mặc định phần thuê chưa thu cho MGR (UXD-196-08) |
+
+Mã 12.4/12.5 giữ lại sau cờ cho PR tiếp theo (bật cờ khi BE thêm API). Đổi sang kiểu sinh từ OpenAPI sau khi #197 merge (FE merge `origin/main`, không rebase). Chuỗi mới: `bd.arrival_fixed`, `bd.cards_range`, `od.reference_long_number` (UXD duyệt).

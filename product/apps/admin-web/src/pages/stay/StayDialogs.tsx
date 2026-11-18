@@ -42,6 +42,7 @@ import {
 } from './common';
 import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
 import { unclaimedSlots } from '../registration/partyDocs';
+import { goLiveDeferred } from '../../app/goLive';
 import {
   SurchargeFocFields,
   focHeadroom,
@@ -715,7 +716,13 @@ export function AddChargeDialog({
   const toast = useToast();
   const catalog = useResource(
     // FB-INV-012 §12.4 (FE-5): with the folio, the ad-hoc cleaning item carries the long-stay room price.
-    async () => (await api.getChargeCatalog({ propertyId }, r.folioId ?? undefined)).data.data,
+    async () =>
+      (
+        await api.getChargeCatalog(
+          { propertyId },
+          goLiveDeferred.cleaningByRoom ? (r.folioId ?? undefined) : undefined,
+        )
+      ).data.data,
     [propertyId, r.folioId],
   );
   const items: Array<ChargeCatalogItem & { priceSource?: string }> = catalog.state.data ?? [];
@@ -810,7 +817,8 @@ export function AddChargeDialog({
             amount: money(item.defaultUnitPriceVnd),
             rule: item.ruleRef ?? item.name,
           })}
-          {item.priceSource === 'long_stay_room' || item.priceSource === 'default' ? (
+          {goLiveDeferred.cleaningByRoom &&
+          (item.priceSource === 'long_stay_room' || item.priceSource === 'default') ? (
             <>
               {' '}
               <Chip tone={item.priceSource === 'long_stay_room' ? 'long' : 'neutral'} icon={null}>

@@ -5,7 +5,7 @@ import { useEffect, useId, useState, type InputHTMLAttributes } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
-import { REFERENCE_RE, canSettleOutsideDesk } from '../../app/goLive';
+import { REFERENCE_LONG_NUMBER_RE, REFERENCE_RE, canSettleOutsideDesk } from '../../app/goLive';
 import { parseVnd } from '../../app/money';
 import { problemView } from '../../app/problem';
 import { statusTone, type BillingPeriod, type StatementLine } from '../../app/statements';
@@ -712,6 +712,7 @@ function SettleOutsideDeskForm({
     if (reason.trim().length < 3) e.reason = t('stmt.reason_required');
     if (reference.trim() && !REFERENCE_RE.test(reference.trim()))
       e.reference = t('od.reference_invalid');
+    else if (REFERENCE_LONG_NUMBER_RE.test(reference)) e.reference = t('od.reference_long_number');
     setErr(e);
     if (!Object.keys(e).length) setConfirm(n!);
   };
@@ -737,6 +738,13 @@ function SettleOutsideDeskForm({
     } catch (e) {
       setConfirm(null);
       if (isApiError(e) && e.status >= 400 && e.status < 500) write.renewKey();
+      // BE #197: a long run of numerals (NOT_ALLOWED) or a card number in `reference` – said under the field.
+      const refErr =
+        isApiError(e) && e.fieldErrors.find((f) => f.field.replace(/^body\./, '') === 'reference');
+      if (refErr) {
+        setErr((x) => ({ ...x, reference: t('od.reference_long_number') }));
+        return;
+      }
       setBanner(
         isApiError(e) && e.code === 'FORBIDDEN_ACTION'
           ? t('od.owner_only')

@@ -26,7 +26,7 @@ import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { MeterCheckinDialog } from './MeterCheckinDialog';
-import { isOwnerOrManager } from '../../app/goLive';
+import { goLiveDeferred, isOwnerOrManager } from '../../app/goLive';
 import { BelowDialog, HistoryDialog, LowerDialog, TYPES, UNIT } from './MeterDialogs';
 import { dayText, meterNum, monthText } from './labels';
 
@@ -461,6 +461,7 @@ function MeterRow({
       if (
         isApiError(err) &&
         err.code === 'READING_OUT_OF_WINDOW' &&
+        goLiveDeferred.catchUp &&
         err.problem.catchUpNeedsRole &&
         !catchUp
       ) {

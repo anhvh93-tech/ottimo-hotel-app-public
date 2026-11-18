@@ -13,7 +13,7 @@ import {
 import { useToast } from '../../app/toast';
 import { useWrite } from '../../app/useWrite';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
-import { backdatedOn, isOwnerOrManager } from '../../app/goLive';
+import { backdatedOn, goLiveDeferred, isOwnerOrManager } from '../../app/goLive';
 import { addDays } from '../../app/reservations';
 import { useResource } from '../../hooks/useResource';
 import { BelowDialog, TYPES } from './MeterDialogs';
@@ -158,6 +158,7 @@ export function MeterCheckinDialog({
       if (
         isApiError(err) &&
         err.code === 'READING_OUT_OF_WINDOW' &&
+        goLiveDeferred.catchUp &&
         err.problem.catchUpNeedsRole &&
         !catchUp
       ) {

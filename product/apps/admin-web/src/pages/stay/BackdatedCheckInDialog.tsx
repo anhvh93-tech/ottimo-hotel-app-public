@@ -42,6 +42,8 @@ export function BackdatedCheckInDialog({
   const roomNo =
     currentSegment(r.segments ?? [], r.arrivalDate)?.roomNo ?? r.segments?.[0]?.roomNo ?? '';
   const [arrival, setArrival] = useState(r.arrivalDate);
+  // BE #197 deviation 3: the arrival can move only on a single-segment booking (else 422 arrivalDate NOT_ALLOWED).
+  const arrivalFixed = (r.segments?.length ?? 1) > 1;
   const [reason, setReason] = useState('');
   const [cards, setCards] = useState('1');
   const [docReason, setDocReason] = useState('');
@@ -58,7 +60,9 @@ export function BackdatedCheckInDialog({
       e.arrivalDate = t('bd.date_range', { from: date(earliest), to: date(latest) });
     if (reason.trim().length < 3) e.reason = t('stmt.reason_required');
     const n = Number(cards);
-    if (!Number.isInteger(n) || n < 0 || n > 9) e.cardsIssued = t('common.required');
+    // OpenAPI 0.3.15 `CheckInBackdatedInput.cardsIssued`: required, 0–2.
+    if (cards.trim() === '' || !Number.isInteger(n) || n < 0 || n > 2)
+      e.cardsIssued = t('bd.cards_range');
     if (needDoc && docReason.trim().length < 3) e.doc = t('stmt.reason_required');
     setErrors(e);
     if (Object.keys(e).length) return;
@@ -152,11 +156,20 @@ export function BackdatedCheckInDialog({
         <Field
           label={t('bd.arrival_real')}
           required
-          error={fe('arrivalDate')}
+          error={
+            isApiError(act.error) &&
+            act.error.fieldErrors.some(
+              (f) => f.field.replace(/^body\./, '') === 'arrivalDate' && f.code === 'NOT_ALLOWED',
+            )
+              ? t('bd.arrival_fixed')
+              : fe('arrivalDate')
+          }
           help={
-            arrival && arrival !== r.arrivalDate
-              ? t('bd.arrival_moves', { from: date(r.arrivalDate), to: date(arrival) })
-              : t('bd.first_of_month')
+            arrivalFixed
+              ? t('bd.arrival_fixed')
+              : arrival && arrival !== r.arrivalDate
+                ? t('bd.arrival_moves', { from: date(r.arrivalDate), to: date(arrival) })
+                : t('bd.first_of_month')
           }
         >
           {(p) => (
@@ -166,6 +179,7 @@ export function BackdatedCheckInDialog({
               type="date"
               min={earliest}
               max={latest}
+              disabled={arrivalFixed}
               value={arrival}
               onChange={(e) => setArrival(e.target.value)}
             />

@@ -2,9 +2,9 @@
 // FE-1/2 backdated booking + check-in (A127), FE-3 "Paid outside Desk" (A128, SEC 12-02/03), FE-4 property contact
 // (A129, SEC 12-04) and the cleaning table, FE-6 catch-up warning, FE-7 unknown codes ignored. All data is made up.
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import { businessDayLocal } from '../app/dates';
-import { backdateBounds, contactFooter, contactIssues } from '../app/goLive';
+import { backdateBounds, contactFooter, contactIssues, goLiveDeferred } from '../app/goLive';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { warningText } from '../pages/longstay/labels';
@@ -185,6 +185,12 @@ describe('FE-3 Paid outside Desk (A128)', () => {
       target: { value: 'acct 1234/5678' },
     });
     fireEvent.click(within(dlg).getByRole('button', { name: tv('od.confirm') }));
+    // BE #197: 9+ numerals in a row are refused before sending.
+    fireEvent.change(within(dlg).getByLabelText(label('od.reference')), {
+      target: { value: 'OLD 123456789' },
+    });
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('od.confirm') }));
+    expect(await within(dlg).findByText(tv('od.reference_long_number'))).toBeVisible();
     // The reference accepts letters, digits, spaces and . / - only.
     fireEvent.change(within(dlg).getByLabelText(label('od.reference')), {
       target: { value: 'OLD-2026-11' },
@@ -220,7 +226,18 @@ describe('FE-4 property contact and cleaning table', () => {
     await waitFor(() => expect(mockControl.goLive.contact.hotline).toBe('+84000000111'));
   });
 
-  it('cleaning table: help and blank rooms show the standard price; the rule badge is BR-LS-07 (UXD-196-06)', async () => {
+  it('v1.0.7: the cleaning table is not offered (12.4 deferred by BE #197)', async () => {
+    renderApp('/settings/parameters', 'qa.owner');
+    fireEvent.click(await screen.findByRole('tab', { name: tv('params.grp_statement') }));
+    await screen.findByRole('tabpanel');
+    expect(screen.queryByText(tv('params.k.long_stay_cleaning_fee_by_room'))).toBeNull();
+  });
+
+  it('cleaning table (parked): help and blank rooms show the standard price; badge BR-LS-07 (UXD-196-06)', async () => {
+    goLiveDeferred.cleaningByRoom = true;
+    onTestFinished(() => {
+      goLiveDeferred.cleaningByRoom = false;
+    });
     renderApp('/settings/parameters', 'qa.owner');
     fireEvent.click(await screen.findByRole('tab', { name: tv('params.grp_statement') }));
     const name = tv('params.k.long_stay_cleaning_fee_by_room');
