@@ -1,4 +1,4 @@
-import type { Payment, PaymentMethod, Reservation, VietQrResult } from '@ottimo/api-client';
+import type { Payment, PaymentMethodInput, Reservation, VietQrResult } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
@@ -165,7 +165,7 @@ export function PaymentPanel({
         folio,
         {
           type: purpose === 'deposit' ? 'deposit' : 'charge',
-          method: method as PaymentMethod,
+          method: method as PaymentMethodInput,
           amountVnd: value,
           note: note.trim() || undefined,
           posAuthCode: method === 'card_pos' ? pos.trim() : undefined,

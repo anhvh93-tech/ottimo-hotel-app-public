@@ -94,6 +94,8 @@ export const meterReading = pgTable(
     /** ARC BE-190-03: a reading typed after its window – FDL+ only, with a reason (3–300). */
     lateReason: text('late_reason'),
     lateApprovedBy: uuid('late_approved_by'),
+    /** 0100 (§12.5, BR-LS-17): catch-up reading after the late-entry deadline – MGR/OWN, read today, photo, reason. */
+    catchUp: boolean('catch_up').notNull().default(false),
     readBy: uuid('read_by').notNull(),
     readByRole: text('read_by_role').notNull(),
     voidedAt: instant('voided_at'),
@@ -161,6 +163,10 @@ export const meterReading = pgTable(
     check(
       'meter_reading_late_check',
       sql`(${t.lateReason} IS NULL) = (${t.lateApprovedBy} IS NULL) AND (${t.lateReason} IS NULL OR char_length(${t.lateReason}) BETWEEN 3 AND 300)`,
+    ),
+    check(
+      'meter_reading_catch_up_check',
+      sql`NOT ${t.catchUp} OR (${t.lateReason} IS NOT NULL AND ${t.lateApprovedBy} IS NOT NULL AND ${t.photoAttachmentId} IS NOT NULL)`,
     ),
     check(
       'meter_reading_void_check',

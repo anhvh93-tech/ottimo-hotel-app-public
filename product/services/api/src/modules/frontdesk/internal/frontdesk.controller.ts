@@ -260,6 +260,22 @@ export class FrontdeskController {
     return out;
   }
 
+  /** FB-INV-012 §12.1.2 (A127): backdated check-in – x-roles OWN/MGR + trusted device from the spec. */
+  @Post('actions/check-in-backdated')
+  @Operation('checkInBackdated')
+  checkInBackdated(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('reservationId') reservationId: string,
+    @Body() raw: unknown,
+  ) {
+    const id = pathId(reservationId);
+    return this.reservationResult(req, reply, async (tx, ctx) => {
+      const r = await this.checkin.checkInBackdated(tx, ctx, id, expectedVersion(req), asBody(raw));
+      return r.row;
+    });
+  }
+
   @Post('actions/undo-check-in')
   @Operation('undoCheckIn')
   undo(

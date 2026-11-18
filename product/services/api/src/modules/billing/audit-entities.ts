@@ -22,6 +22,8 @@ defineAuditEntity('meter_reading', [
   'acknowledgedLower',
   'late',
   'voided',
+  // FB-INV-012 §12.5 (BR-LS-17): catch-up reading by MGR/OWN after the late limit.
+  'catchUp',
 ]);
 
 defineAuditEntity('billing_period', [
@@ -39,4 +41,6 @@ defineAuditEntity('billing_period', [
   // SEC BE-190-02: money decided on a draft (who set it is the actor of billing_period.updated).
   'priorAdjustmentVnd',
   'excludedFolioLineCount',
+  // FB-INV-012 §12.2: billing_period.settled_outside_desk (the reason is the audit reason, never a field).
+  'receivedOn',
 ]);

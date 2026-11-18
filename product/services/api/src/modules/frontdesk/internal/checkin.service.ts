@@ -13,6 +13,12 @@ import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import { assertBankReferenceNotCardFirst } from '../../../shared/validation';
 import {
+  MONTHLY_STATEMENT_RULES_KEY,
+  backdateBounds,
+  backdateRulesOf,
+} from '../../../shared/backdate';
+import { looksLikeIdNumber } from '../../../shared/sensitive-number';
+import {
   type LocalDate,
   type LocalTime,
   addDays,
@@ -121,6 +127,21 @@ function outOfRange(rate: number, p: { floorVnd?: number; ceilingVnd?: number })
 }
 
 const FDL_UP = ['front_desk_lead', 'manager', 'owner'];
+
+/** §12.1.2: fields of `checkIn` that a backdated check-in never takes → 422 `<field>: NOT_ALLOWED`. */
+const BACKDATED_NOT_ALLOWED = [
+  'checkinTime',
+  'checkinTimeNote',
+  'applyEarlySurcharge',
+  'expectedSurchargeVnd',
+  'houseRulesSent',
+  'doorAccessHandedOver',
+  'addPriorNight',
+  'priorNightRateVnd',
+  'roomNotReadyOverride',
+  'requestFocForSurcharge',
+  'payment',
+] as const;
 
 @Injectable()
 export class CheckinService {
@@ -1021,6 +1042,223 @@ export class CheckinService {
     await this.s.events.publish(tx, 'reservation.changed', row.id);
     await this.s.stay.emit(tx, 'transitioned', after, 'confirmed', transition, room.id);
     return { row: after };
+  }
+
+  // ─────────────────────────── FB-INV-012 §12.1.2 – backdated check-in (A127) ───────────────────────────
+
+  /**
+   * `checkInBackdated` (ARC G1 – its own path, `checkIn` untouched): a manual long stay already living in the room
+   * before Desk. Order (§12.1.2): device + role (guard, x-roles OWN/MGR) → If-Match → `confirmed` → manual long stay
+   * (422 NOT_LONG_STAY) → bounds of `arrivalDate` (shared/backdate) → conflict → BR-402 conditions without
+   * `room_ready` (+ `room_occupied`) → field data. No time, surcharge, B9a, payment, house rules, 202 branch.
+   * `actual_checkin_at` = the real click time; `checkin_backdated_on` = T. An arrival other than the booking's moves the
+   * arrival (single-segment stay only), `booked_arrival_date` kept, lease nights re-synced. No folio line, no money.
+   */
+  async checkInBackdated(
+    tx: Tx,
+    ctx: BookingContext,
+    id: string,
+    expectedVersion: number,
+    body: Record<string, unknown>,
+  ): Promise<{ row: ReservationRow }> {
+    const f = new Fields(body);
+    const arrivalDate = f.date('arrivalDate', true);
+    const reason = f.text('reason', 300, { required: true, min: 3 });
+    if (reason && looksLikeIdNumber(reason)) f.add('reason', 'ID_NUMBER_DETECTED');
+    const cardsIssued = f.int('cardsIssued', { required: true, min: 0, max: 2 });
+    const docOverride = this.object(f, body, 'documentBlockOverride');
+    const docOverrideReason =
+      docOverride && typeof docOverride.reason === 'string' ? docOverride.reason.trim() : null;
+    for (const k of BACKDATED_NOT_ALLOWED) {
+      if (body[k] !== undefined && body[k] !== null) f.add(k, 'NOT_ALLOWED');
+    }
+
+    const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
+    this.s.stay.assertVersion(row, expectedVersion);
+    if (row.status !== 'confirmed') throw this.s.stay.invalid(row);
+    if (row.stay_type !== 'long' || !row.external_contract || !row.manual_long_stay) {
+      throw problem('NOT_LONG_STAY');
+    }
+    if (!arrivalDate) f.done();
+    const arrival = arrivalDate as LocalDate;
+    const issue = backdateBounds(
+      ctx.today,
+      arrival,
+      backdateRulesOf(await this.s.param<unknown>(tx, ctx, MONTHLY_STATEMENT_RULES_KEY)),
+    );
+    if (issue) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'arrivalDate', code: issue.code }],
+        ...('earliest' in issue ? { extras: { earliest: issue.earliest } } : {}),
+      });
+    }
+    if (row.departure_date <= ctx.today) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'departureDate', code: 'DATE_IN_PAST' }],
+      });
+    }
+    if (row.conflict_state === 'open') throw problem('RESERVATION_UNASSIGNED');
+    const e = await this.evaluate(tx, ctx, row, undefined, 'write');
+    const room = e.room;
+    if (!room) throw problem('RESERVATION_UNASSIGNED');
+
+    // BR-402 conditions: `room_ready` is not one (the guest already lives in the room); another stay in the room
+    // instead → `room_occupied`.
+    const unmet: string[] = [];
+    for (const c of e.conditions) {
+      if (c.met || c.code === 'room_ready') continue;
+      if (c.code === 'document_check_block' && docOverrideReason) {
+        if (docOverrideReason.length < 3) f.add('documentBlockOverride.reason', 'REASON_REQUIRED');
+        continue;
+      }
+      unmet.push(c.code);
+    }
+    if (await this.roomHolder(tx, room.id, row, ctx)) unmet.push('room_occupied');
+    if (unmet.length > 0) throw problem('CHECKIN_CONDITIONS_NOT_MET', { extras: { unmet } });
+    f.done();
+
+    // ── writes (lock order: reservation → room → folio) ──
+    await this.s.occupancy.lockRooms(tx, [room.id]);
+    if (row.folio_id) await this.s.folios.lock(tx, row.folio_id);
+    const previousArrival = row.arrival_date;
+    if (arrival !== previousArrival) await this.moveArrival(tx, ctx, row, room.id, arrival);
+    await tx.query(
+      `UPDATE reservation SET status = 'in_house', actual_checkin_at = $2::timestamptz, cards_issued = $3,
+              checkin_document_override_reason = $4, checkin_document_override_by = $5,
+              checkin_room_status_before = $6, room_disclosed_to_guest = true,
+              checkin_backdated_on = $7::date, checkin_backdated_reason = $8,
+              manual_long_stay = CASE
+                WHEN stay_type = 'long' AND external_contract AND manual_long_stay IS NOT NULL
+                  THEN manual_long_stay || jsonb_build_object($9::text, departure_date::text)
+                ELSE manual_long_stay END,
+              updated_at = $2::timestamptz, version = version + 1
+        WHERE id = $1`,
+      [
+        row.id,
+        ctx.now,
+        cardsIssued,
+        docOverrideReason,
+        docOverrideReason ? ctx.actor.userId : null,
+        e.roomStatus,
+        ctx.today,
+        reason,
+        LEASE_END_DATE_KEY,
+      ],
+    );
+    await recordTransition(tx, {
+      reservationId: row.id,
+      code: row.code,
+      from: 'confirmed',
+      to: 'in_house',
+      event: 'B9',
+      reasonNote: [reason, docOverrideReason].filter(Boolean).join(' | ') || null,
+      now: ctx.now,
+      requestId: ctx.requestId,
+    });
+    const backdated = { arrivalDate: arrival, previousArrivalDate: previousArrival };
+    await this.audit.record(tx, {
+      category: 'state',
+      action: 'reservation.checked_in',
+      entityType: 'reservation',
+      entityId: row.id,
+      entityCode: row.code,
+      before: { status: 'confirmed' },
+      after: {
+        status: 'in_house',
+        roomNo: room.room_no,
+        cardsIssued,
+        roomStatusBefore: e.roomStatus,
+        backdated,
+      },
+      ...this.s.req(ctx),
+    });
+    await this.audit.record(tx, {
+      category: 'state',
+      action: 'reservation.checked_in_backdated',
+      entityType: 'reservation',
+      entityId: row.id,
+      entityCode: row.code,
+      after: { checkinBackdatedOn: ctx.today, roomNo: room.room_no, ...backdated },
+      reason: [reason, docOverrideReason].filter(Boolean).join(' | '),
+      ...this.s.req(ctx),
+    });
+    // The guest is in the room: occupied clean (SM-03), whatever the status was.
+    await this.s.roomStatus.set(tx, room.id, 'OC', {
+      today: ctx.today,
+      now: ctx.now,
+      event: 'B9',
+      reason: null,
+    });
+    // BR-602/603 (G-9): the registration deadline counts from actualCheckinAt (never moved back to the arrival).
+    await this.s.ports.registration.onCheckedIn(tx, row.id, ctx.now);
+    if (docOverrideReason) {
+      await this.audit.record(tx, {
+        category: 'security',
+        action: 'checkin.document_block_override',
+        entityType: 'reservation',
+        entityId: row.id,
+        entityCode: row.code,
+        reason: docOverrideReason,
+        ...this.s.req(ctx),
+      });
+    }
+    // §12.1.2: every OWN is told (booking code only), like 12.1.1.
+    await this.s.events.notify(
+      tx,
+      {
+        kind: 'backdated_stay',
+        roles: ['owner'],
+        refType: 'reservation',
+        refId: row.id,
+        refCode: row.code,
+      },
+      ctx.now,
+    );
+    const after = await loadReservation(tx, row.id, ctx.actor);
+    await this.s.events.publish(tx, 'reservation.changed', row.id);
+    await this.s.stay.emit(tx, 'transitioned', after, 'confirmed', 'B9', room.id);
+    return { row: after };
+  }
+
+  /**
+   * §12.1.2: the arrival on Desk becomes `arrival` (earlier: the added nights must be free → 409 ROOM_UNAVAILABLE;
+   * later: the nights before it are given back). One segment only (a manual long stay before check-in has one);
+   * otherwise 422 `arrivalDate: NOT_ALLOWED`. `booked_arrival_date` and the monthly rent are unchanged.
+   */
+  private async moveArrival(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    roomId: string,
+    arrival: LocalDate,
+  ): Promise<void> {
+    const { rows } = await tx.query<{ id: string; room_id: string | null; to_date: string }>(
+      `SELECT id, room_id, to_date::text AS to_date FROM reservation_segment
+        WHERE reservation_id = $1 AND active ORDER BY from_date, id`,
+      [row.id],
+    );
+    const seg = rows[0];
+    if (rows.length !== 1 || !seg || seg.room_id !== roomId || arrival >= seg.to_date) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'arrivalDate', code: 'NOT_ALLOWED' }],
+      });
+    }
+    await this.s.occupancy.update(
+      tx,
+      { segmentId: seg.id },
+      { roomId, from: arrival, to: seg.to_date },
+      ctx.now,
+      { withNames: true, persons: this.s.counted(row) },
+    );
+    await tx.query(
+      `UPDATE reservation_segment SET from_date = $2::date, updated_at = $3 WHERE id = $1`,
+      [seg.id, arrival, ctx.now],
+    );
+    await tx.query(
+      `UPDATE reservation SET arrival_date = $2::date, updated_at = $3 WHERE id = $1`,
+      [row.id, arrival, ctx.now],
+    );
+    await this.s.stay.syncLeaseNights(tx, { now: ctx.now, today: ctx.today }, row.id);
   }
 
   /**

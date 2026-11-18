@@ -56,6 +56,8 @@ export interface ActionContext {
   restoreWithinRules: boolean;
   rescheduleCount: number;
   rescheduleMaxTimes: number;
+  /** FB-INV-012 §12.1.2: a manual long stay (`stay_type = long`, external contract) – backdated check-in (A127). */
+  manualLongStay?: boolean;
   /**
    * OpenAPI 0.3.9 add 1: departure of the whole stay (primary + extension children) – absent on a child booking.
    * B16 is offered only while a valid new departure exists: max(today, arrival + 1) < stayDepartureDate.
@@ -125,6 +127,15 @@ export function allowedActions(roles: readonly string[], c: ActionContext): Allo
           event: 'check_in',
           transition: 'B9',
           action: 'check-in',
+          requiresTrustedDevice: true,
+        });
+      }
+      // FB-INV-012 §12.1.2 (A127): a manual long stay whose arrival has passed – MGR/OWN, trusted device.
+      if (mgr && c.manualLongStay && c.conflictState !== 'open' && c.arrivalDate < c.today) {
+        out.push({
+          event: 'check_in_backdated',
+          transition: 'B9',
+          action: 'check-in-backdated',
           requiresTrustedDevice: true,
         });
       }

@@ -6,7 +6,7 @@
  */
 import { Body, Controller, Get, Inject, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { DATABASE, Database, type Tx } from '../../../db/database';
-import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
+import { AuthGuard, type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
 import { parseLimit } from '../../../shared/http/pagination';
 import { expectedVersion, setETag } from '../../../shared/http/precondition';
@@ -20,10 +20,13 @@ import { ParameterService } from '../../platform/public/parameter.service';
 import type { BookingContext } from './booking-context';
 import { nightsOf } from '../public/pricing';
 import { Fields, asBody, pathId } from './inputs';
+import { MGR_PLUS, hasAny } from './allowed-actions';
 import { RackService } from './rack.service';
 import { loadReservation } from './reservation-store';
 import {
+  BACKDATED_ARRIVAL_NEEDS_MGR,
   CLOSER_CHANGE_AFTER_CHECKIN,
+  CLOSER_CHANGE_BACKDATED_STAY,
   CLOSER_CHANGE_BEFORE_CHECKIN,
   ReservationsService,
 } from './reservations.service';
@@ -54,6 +57,7 @@ export class ReservationsController {
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(AuthGuard) private readonly guard: AuthGuard,
   ) {}
 
   private read<T>(
@@ -208,15 +212,28 @@ export class ReservationsController {
     // US-155 (SEC FB-R3-SEC-US155-01): a booking for a website request keeps only its id in the idempotency
     // store; a replay reads the booking again for the caller.
     const web = body.websiteBookingRequestId !== undefined;
-    let result = await this.uow.run(req, async (tx) => {
-      const ctx = await this.ctx(tx, req);
-      const { row } = await this.reservations.create(tx, ctx, body);
-      return {
-        status: 201,
-        body: await this.reservations.dtoOf(tx, ctx, row),
-        ...(web ? { storeBody: false } : {}),
-      };
-    });
+    // SEC FB-R5-SEC-ARC-12-07: backdatedArrival also needs a trusted device (field level – the operation is not
+    // gated as a whole). Below MGR the service answers its own 403 (BACKDATED_ARRIVAL_NEEDS_MGR) first.
+    if (body.backdatedArrival !== undefined && body.backdatedArrival !== null) {
+      const p = principal(req);
+      if (hasAny(p.roles, MGR_PLUS)) await this.guard.requireTrustedDevice(req, p);
+    }
+    let result = await this.uow
+      .run(req, async (tx) => {
+        const ctx = await this.ctx(tx, req);
+        const { row } = await this.reservations.create(tx, ctx, body);
+        return {
+          status: 201,
+          body: await this.reservations.dtoOf(tx, ctx, row),
+          ...(web ? { storeBody: false } : {}),
+        };
+      })
+      .catch(async (err: unknown) => {
+        await recordUseCaseDenial(this.audit, req, err, 'createReservation', [
+          BACKDATED_ARRIVAL_NEEDS_MGR,
+        ]);
+        throw err;
+      });
     const stored = result.body as Record<string, unknown> | null;
     if (result.replayed && web && stored && Object.keys(stored).length === 1) {
       const id = stored.id as string;
@@ -266,6 +283,7 @@ export class ReservationsController {
       await recordUseCaseDenial(this.audit, req, err, 'updateReservation', [
         CLOSER_CHANGE_AFTER_CHECKIN,
         CLOSER_CHANGE_BEFORE_CHECKIN,
+        CLOSER_CHANGE_BACKDATED_STAY,
       ]);
       throw err;
     });

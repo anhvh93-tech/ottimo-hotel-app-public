@@ -1,7 +1,7 @@
 {
- "version": "0.2.8",
+ "version": "0.2.11",
  "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
- "generated": "2026-11-06",
+ "generated": "2026-11-18",
  "author": "BA",
  "roles": [
   "owner",
@@ -614,7 +614,8 @@
    "c3_access_log": false,
    "operationIds": [
     "reversePayment"
-   ]
+   ],
+   "note": "Gồm đảo khoản outside_desk (FB-INV-012 §12.2, ghi chú 50)."
   },
   {
    "id": "A35",
@@ -1532,7 +1533,8 @@
    "c3_access_log": false,
    "operationIds": [
     "setParameter"
-   ]
+   ],
+   "note": "Gồm khóa long_stay_cleaning_fee_by_room (FB-INV-012 §12.4, ghi chú 50)."
   },
   {
    "id": "A102",
@@ -1884,6 +1886,63 @@
     "voidMeterReading"
    ],
    "note": "Ghi chú 49 (FB-INV-012): tách khỏi A88 vì đợt này MT chưa mở (MT không được thấy tên khách, SEC D18); A88 giữ nguyên ô cũ."
+  },
+  {
+   "id": "A127",
+   "name_vi": "Nhập bù khách dài hạn đang ở: tạo đơn với ngày đến đã qua, nhận phòng bù",
+   "event": "check_in_backdated",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "checkInBackdated"
+   ],
+   "note": "Ghi chú 50 (FB-INV-012 §12.1). createReservation.backdatedArrival kiểm vai theo trường (FDL/FD → 403); operation createReservation giữ ở A01."
+  },
+  {
+   "id": "A128",
+   "name_vi": "Ghi \"đã thu ngoài Desk\" cho phiếu tháng",
+   "event": "settle_statement_outside_desk",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": false,
+   "operationIds": [
+    "settleBillingPeriodOutsideDesk"
+   ],
+   "note": "Ghi chú 50 (FB-INV-012 §12.2, SEC 12-02): MGR chỉ phiếu tháng nhận phòng của đơn nhận phòng bù, ≤ phần thuê chưa thu, ngày nhận ≤ ngày nhận phòng bù."
+  },
+  {
+   "id": "A129",
+   "name_vi": "Sửa địa chỉ, hotline công khai của cơ sở",
+   "event": "set_property_contact",
+   "roles": {
+    "owner": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "setPropertyContact"
+   ],
+   "note": "Ghi chú 50 (FB-INV-012 §12.3). getPropertyContact theo S24 (OWN, MGR, FDL)."
+  },
+  {
+   "id": "A130",
+   "name_vi": "Đọc bù chỉ số sau hạn ghi trễ (BR-LS-17)",
+   "event": "meter_catch_up",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [],
+   "note": "Ghi chú 50 (FB-INV-012 §12.5): recordMeterReading.catchUp – chưa có ở OpenAPI 0.3.15 (PR sau)."
   },
   {
    "id": "G-L1",

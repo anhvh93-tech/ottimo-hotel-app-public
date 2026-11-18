@@ -614,6 +614,15 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     p: StaffPrincipal,
   ): Promise<void> {
     if (!operation.trustedDevice) return;
+    await this.requireTrustedDevice(req, p);
+  }
+
+  /**
+   * x-requires-trusted-device, also reused as a FIELD-level gate by a controller whose operation is not gated as a
+   * whole (SEC FB-R5-SEC-ARC-12-07: `createReservation.backdatedArrival`). 403 DEVICE_NOT_TRUSTED + one
+   * access.denied, exactly as the operation-level gate.
+   */
+  async requireTrustedDevice(req: GuardedRequest, p: StaffPrincipal): Promise<void> {
     const token = readCookie(header(req, 'cookie'), this.names.device);
     // SEC-BE-34 / SR-DEV-04 (D1): a staff PWA session is never on a trusted device, whatever cookie it carries
     // (dev hosts share cookies across ports); a request Origin, when sent, must be admin-web's.

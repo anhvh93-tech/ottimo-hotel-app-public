@@ -6,12 +6,12 @@
     "seed": "product/tests/fixtures/seed/ds-e.json"
   },
   "summary": {
-    "operations": 222,
-    "cases": 2442,
+    "operations": 226,
+    "cases": 2486,
     "byExpected": {
-      "2xx": 1170,
-      "401": 357,
-      "403": 915
+      "2xx": 1178,
+      "401": 361,
+      "403": 947
     },
     "scoped": 184,
     "sprintR3": 429,
@@ -3755,6 +3755,207 @@
         "S06"
       ],
       "sprint": "R2",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-checkInBackdated-qa.owner",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.mgr",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.fdl",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.fd",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.hk",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.mt",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.sal",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.ctv1",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.fdsal",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-qa.hkmt",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-checkInBackdated-guest-session",
+      "operationId": "checkInBackdated",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A127",
+        "S06"
+      ],
+      "sprint": "R5",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
@@ -15047,6 +15248,196 @@
         "A73"
       ],
       "sprint": "R2",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-getPropertyContact-qa.owner",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.mgr",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.fdl",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.fd",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.hk",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.mt",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.sal",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.ctv1",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.fdsal",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-qa.hkmt",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-getPropertyContact-guest-session",
+      "operationId": "getPropertyContact",
+      "method": "GET",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "S24"
+      ],
+      "sprint": "R5",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
@@ -34865,6 +35256,196 @@
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },
     {
+      "id": "RB-setPropertyContact-qa.owner",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.mgr",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.fdl",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.fd",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.hk",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.mt",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.sal",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.ctv1",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.fdsal",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-qa.hkmt",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-setPropertyContact-guest-session",
+      "operationId": "setPropertyContact",
+      "method": "PUT",
+      "path": "/v1/properties/{propertyId}/contact",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A129"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
       "id": "RB-setPropertyWifi-qa.owner",
       "operationId": "setPropertyWifi",
       "method": "PUT",
@@ -35431,6 +36012,196 @@
         "A100"
       ],
       "sprint": "R2",
+      "rbacMismatch": false,
+      "note": "cookie khách trên operation nhân viên (SR-SES-09)"
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.owner",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.owner",
+      "roles": [
+        "owner"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.mgr",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.mgr",
+      "roles": [
+        "manager"
+      ],
+      "expected": "2xx",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.fdl",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.fdl",
+      "roles": [
+        "front_desk_lead"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.fd",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.fd",
+      "roles": [
+        "front_desk"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.hk",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.hk",
+      "roles": [
+        "housekeeping"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.mt",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.mt",
+      "roles": [
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.sal",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.sal",
+      "roles": [
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.ctv1",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.ctv1",
+      "roles": [
+        "collaborator"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.fdsal",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.fdsal",
+      "roles": [
+        "front_desk",
+        "sales_staff"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-qa.hkmt",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "qa.hkmt",
+      "roles": [
+        "housekeeping",
+        "maintenance"
+      ],
+      "expected": "403",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
+      "rbacMismatch": false
+    },
+    {
+      "id": "RB-settleBillingPeriodOutsideDesk-guest-session",
+      "operationId": "settleBillingPeriodOutsideDesk",
+      "method": "POST",
+      "path": "/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk",
+      "subject": "guest-session",
+      "roles": [
+        "guest"
+      ],
+      "expected": "401",
+      "scope": null,
+      "rbac": [
+        "A128"
+      ],
+      "sprint": "R5",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
     },

@@ -2892,6 +2892,9 @@ export class RegistrationService {
       { reservationId, purpose: 'penalty_evidence' },
       this.clock.now(),
     );
+    // SEC FB-R5-SEC-BE-190-08 (contract §12.5, BE-11): meter photos of a stay cancelled after an undone check-in get
+    // their retention anchor too – no checkout will set it.
+    await this.attachments?.setMeterRetentionAnchor(tx, reservationId, this.clock.now());
     if (!reg) return;
     await tx.query('UPDATE guest_document SET visa_alert_on = NULL WHERE registration_id = $1', [
       reg.id,
