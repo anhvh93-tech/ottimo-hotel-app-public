@@ -1,6 +1,6 @@
 # FB-INV-013 – Desk: nhắc visa hết hạn, nhắc hợp đồng dài hạn sắp hết, checklist đăng ký tạm trú
 
-- Ngày: 18/11/2026 | Người gửi: INV | Ghi: ORC | Loại: tính năng (Desk, khách dài hạn) | Ưu tiên: P2 | Đích: sau FB-INV-012 | **Trạng thái: Mới**
+- Ngày: 18/11/2026 | Người gửi: INV | Ghi: ORC | Loại: tính năng (Desk, khách dài hạn) | Ưu tiên: P2 | Đích: sau FB-INV-012 | **Trạng thái: Đang làm (INV xác nhận hiểu 18/11: "Đúng rồi")**
 
 ## Nguyên văn
 > Tôi có đề xuất này, bổ sung thêm ngày thị thực được gia hạn, hoặc ngày visa hết hạn, để hàng ngày desk gửi noti cho các trường hợp đến hạn trước 5 ngày. Và remind việc đi xác nhận với khách là HĐ chuẩn bị hết hạn, có gia hạn ko trước 10 ngày. Và check list để note là đã đăng ký tạm trú vosi nhà nước cho khách chưa
