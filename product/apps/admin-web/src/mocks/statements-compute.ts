@@ -88,7 +88,12 @@ export function compute(st: MockState, p: StoredPeriod, rates: Rates) {
   const open = periodOpening(st, stay, u);
   const close = periodClosing(st, stay, u);
   if (!open)
-    missingReadings.push({ roomId: stay.roomId, roomNo: stay.roomNo, kind: 'opening', periodMonth: u });
+    missingReadings.push({
+      roomId: stay.roomId,
+      roomNo: stay.roomNo,
+      kind: 'opening',
+      periodMonth: u,
+    });
   if (!close)
     missingReadings.push({
       roomId: stay.roomId,

@@ -6,13 +6,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { todayLocal } from '../app/dates';
-import {
-  meterUsage,
-  monthOf,
-  parseMeter,
-  readingMonthOn,
-  shiftMonth,
-} from '../app/statements';
+import { meterUsage, monthOf, parseMeter, readingMonthOn, shiftMonth } from '../app/statements';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { renderApp, tv } from '../test/render';
@@ -77,7 +71,11 @@ describe('FB-INV-012 meter maths (BR-LS-11/12)', () => {
       ),
     ).toBe(142);
     expect(
-      meterUsage(99990, { value: 20, exception: { type: 'rollover', maxValue: 99999 } }, 'electricity'),
+      meterUsage(
+        99990,
+        { value: 20, exception: { type: 'rollover', maxValue: 99999 } },
+        'electricity',
+      ),
     ).toBe(30);
     expect(readingMonthOn('2026-12-01')).toBe('2026-11');
     expect(readingMonthOn('2026-11-30')).toBe('2026-11');
@@ -152,7 +150,9 @@ describe('FB-INV-012 S12: Closing M + Opening M+1 (ARC-FE-189-01, INV 17/11)', (
     attachPhoto(row);
     fireEvent.click(within(row).getByRole('button', { name: tv('meters.save') }));
     const dlg = await screen.findByRole('alertdialog');
-    expect(within(dlg).getByRole('button', { name: tv('meters.exception.replaced') })).toBeDisabled();
+    expect(
+      within(dlg).getByRole('button', { name: tv('meters.exception.replaced') }),
+    ).toBeDisabled();
     fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save_anyway') }));
     const { M } = mockControl.statements;
     await waitFor(() => expect(saved('period_start', M)).toBeDefined());
@@ -213,8 +213,12 @@ describe('FB-INV-012 S12: Closing M + Opening M+1 (ARC-FE-189-01, INV 17/11)', (
     fireEvent.click(within(row).getByRole('button', { name: tv('meters.save') }));
     const dlg = await screen.findByRole('alertdialog');
     expect(within(dlg).getByRole('button', { name: tv('meters.wrong_entry') })).toBeEnabled();
-    expect(within(dlg).getByRole('button', { name: tv('meters.exception.replaced') })).toBeDisabled();
-    expect(within(dlg).getByRole('button', { name: tv('meters.exception.rollover') })).toBeDisabled();
+    expect(
+      within(dlg).getByRole('button', { name: tv('meters.exception.replaced') }),
+    ).toBeDisabled();
+    expect(
+      within(dlg).getByRole('button', { name: tv('meters.exception.rollover') }),
+    ).toBeDisabled();
     expect(within(dlg).getByText(tv('meters.ask_lead'))).toBeVisible();
     expect(within(row).queryByLabelText(tv('meters.photo_waive'))).toBeNull();
   });
@@ -252,7 +256,11 @@ describe('FB-INV-012 S12 late reading (BE-190-03)', () => {
     pinDay(lateDay());
     renderApp('/long-stay/meters', 'qa.fd');
     const row = await row203();
-    expect(row.textContent).toContain(tv('meters.late_fd', { date: expect.anything() as never }).split('(')[0]!.trim());
+    expect(row.textContent).toContain(
+      tv('meters.late_fd', { date: expect.anything() as never })
+        .split('(')[0]!
+        .trim(),
+    );
     expect(within(row).getByRole('button', { name: tv('meters.save') })).toBeDisabled();
   });
 

@@ -1,14 +1,13 @@
-// FB-INV-012 (R5) – monthly statements of long stays on the Desk (ARC contract §6, FE test criteria §8 1–4) with the
-// INV decision of 17/11 (opening reading typed each period, previous closing shown as a reference, vacancy gap not
-// billed, not printed). Numbers are the DOM examples: electricity 142 kWh × 4.000 + 8 % = 613.440, water 3,4 m³ ×
-// 25.000 + 5 % = 89.250, total 9.502.690 → 9.502.000 with "Rounding −690". All guests and readings are made up.
+// FB-INV-012 (R5, after the review) – monthly statements of long stays on the Desk (ARC contract §6, FE test criteria
+// §8 1–4; UXD-189-01..11). Numbers are the DOM example: electricity 142 kWh × 4.000 = 568.000 net, water 3,4 m³ ×
+// 25.000 = 85.000 net, one line "VAT on electricity and water" 49.690, subtotal 9.453.000, total 9.502.690 →
+// 9.502.000 with "Rounding −690". S12 (meter readings) is covered by fb012-meters-fe.test.tsx. All data is made up.
 import { encodeQr, qrSvgPath } from '@ottimo/ui';
 import { translate } from '@ottimo/i18n';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { meterUsage } from '../app/statements';
 import { mockControl } from '../mocks/handlers';
 import { parseEmv } from '../mocks/statements';
 import { pinDaytime } from '../test/clock';
@@ -16,178 +15,31 @@ import { renderApp, tv } from '../test/render';
 
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const exact = (s: string) => new RegExp(`^${esc(s)}$`);
+const P_ID = '0192a1b0-0000-7000-8000-0000000000a1';
 
-/** Room 203 row of the S12 table. */
-async function meterRow() {
-  const th = await screen.findByRole('rowheader', { name: /^203 · N\. Minh/ });
-  return th.closest('tr')!;
-}
-
-function typeReading(
-  row: HTMLElement,
-  meter: 'electricity' | 'water',
-  opening: string,
-  closing: string,
-) {
-  const name = tv(`stmt.meter.${meter}`);
-  fireEvent.change(within(row).getByLabelText(`${name} – ${tv('meters.opening')} – 203`), {
-    target: { value: opening },
-  });
-  fireEvent.change(within(row).getByLabelText(`${name} – ${tv('meters.closing')} – 203`), {
-    target: { value: closing },
-  });
-}
-
-function attachPhoto(row: HTMLElement) {
-  const input = within(row).getByLabelText(new RegExp(`^${esc(tv('meters.photo'))}`));
-  fireEvent.change(input, {
-    target: { files: [new File(['x'], 'meter.jpg', { type: 'image/jpeg' })] },
-  });
-}
-
-describe('FB-INV-012 S12 meter readings (INV 17/11: opening typed, gap not billed)', () => {
-  it('usage = closing − opening, meter replaced and rollover formulas (BR-LS-12)', () => {
-    expect(meterUsage({ opening: 1250, value: 1392, exception: null }, 'electricity')).toBe(142);
-    expect(meterUsage({ opening: 35.2, value: 38.6, exception: null }, 'water')).toBe(3.4);
-    expect(
-      meterUsage(
-        {
-          opening: 1250,
-          value: 82,
-          exception: { type: 'replaced', oldFinal: 1310, newStart: 0, replacedOn: '2026-11-15' },
-        },
-        'electricity',
-      ),
-    ).toBe(142);
-    expect(
-      meterUsage(
-        { opening: 99990, value: 20, exception: { type: 'rollover', maxValue: 99999 } },
-        'electricity',
-      ),
-    ).toBe(30);
-  });
-
-  it('opening is an empty required input; last closing is shown beside it, a gap is "not billed", lower opening warns', async () => {
-    pinDaytime();
-    renderApp('/long-stay/meters', 'qa.fd');
-    const row = await meterRow();
-    const opening = within(row).getByLabelText(
-      `${tv('stmt.meter.electricity')} – ${tv('meters.opening')} – 203`,
-    );
-    // Not pre-filled with the previous closing (INV 17/11).
-    expect(opening).toHaveValue('');
-    expect(within(row).getByText(tv('meters.last_closing', { value: '1.250' }))).toBeVisible();
-    // Opening above the last closing → vacancy use, not billed.
-    fireEvent.change(opening, { target: { value: '1262' } });
-    expect(within(row).getByText(tv('meters.gap', { gap: '12' }))).toBeVisible();
-    // Opening below → warning (wrong entry / replaced meter).
-    fireEvent.change(opening, { target: { value: '1200' } });
-    expect(
-      within(row).getByText(tv('meters.opening_below_last', { value: '1.250' })),
-    ).toBeVisible();
-    // Required: saving without it says so.
-    fireEvent.change(opening, { target: { value: '' } });
-    fireEvent.click(within(row).getByRole('button', { name: tv('meters.save') }));
-    expect(within(row).getAllByText(tv('common.required')).length).toBeGreaterThan(0);
-  });
-
-  it('records the opening and closing the desk typed; the gap is stored, billed usage excludes it', async () => {
-    pinDaytime();
-    renderApp('/long-stay/meters', 'qa.fd');
-    const row = await meterRow();
-    typeReading(row, 'electricity', '1262', '1404');
-    typeReading(row, 'water', '35.2', '38.67');
-    attachPhoto(row);
-    fireEvent.click(within(row).getByRole('button', { name: tv('meters.save') }));
-    await waitFor(() =>
-      expect(
-        mockControl.statements.readings.some(
-          (r) =>
-            r.roomNo === '203' &&
-            r.kind === 'period_end' &&
-            r.periodMonth === mockControl.statements.P,
-        ),
-      ).toBe(true),
-    );
-    const saved = mockControl.statements.readings.at(-1)!;
-    expect(saved.electricity).toMatchObject({ opening: 1262, value: 1404 });
-    // BR-LS-11: water keeps one decimal, the rest is dropped (38,67 → 38,6).
-    expect(saved.water).toMatchObject({ opening: 35.2, value: 38.6 });
-    const done = await meterRow();
-    expect(await within(done).findByText(tv('meters.usage', { usage: '142' }))).toBeVisible();
-    expect(within(done).getByText(tv('meters.gap_saved', { gap: '12' }))).toBeVisible();
-  });
-
-  it('FD: closing below opening offers Wrong entry only – replaced / rollover say "ask the lead" (A89)', async () => {
-    pinDaytime();
-    renderApp('/long-stay/meters', 'qa.fd');
-    const row = await meterRow();
-    typeReading(row, 'electricity', '1250', '82');
-    typeReading(row, 'water', '35.2', '38.6');
-    attachPhoto(row);
-    fireEvent.click(within(row).getByRole('button', { name: tv('meters.save') }));
-    const dlg = await screen.findByRole('alertdialog');
-    expect(within(dlg).getByRole('button', { name: tv('meters.wrong_entry') })).toBeEnabled();
-    expect(
-      within(dlg).getByRole('button', { name: tv('meters.exception.replaced') }),
-    ).toBeDisabled();
-    expect(
-      within(dlg).getByRole('button', { name: tv('meters.exception.rollover') }),
-    ).toBeDisabled();
-    expect(within(dlg).getByText(tv('meters.ask_lead'))).toBeVisible();
-    // No photo-waiver for FD either.
-    expect(within(row).queryByLabelText(tv('meters.photo_waive'))).toBeNull();
-  });
-
-  it('FDL: meter replaced is saved with its exception (60 + 82 = 142)', async () => {
-    pinDaytime();
-    renderApp('/long-stay/meters', 'qa.fdl');
-    const row = await meterRow();
-    typeReading(row, 'electricity', '1250', '82');
-    typeReading(row, 'water', '35.2', '38.6');
-    attachPhoto(row);
-    fireEvent.click(within(row).getByRole('button', { name: tv('meters.save') }));
-    const dlg = await screen.findByRole('alertdialog');
-    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.exception.replaced') }));
-    fireEvent.change(within(dlg).getByLabelText(new RegExp(`^${esc(tv('meters.old_final'))}`)), {
-      target: { value: '1310' },
-    });
-    fireEvent.change(within(dlg).getByLabelText(new RegExp(`^${esc(tv('meters.replaced_on'))}`)), {
-      target: { value: `${mockControl.statements.P}-15` },
-    });
-    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.use_exception') }));
-    expect(within(row).getByText(tv('meters.usage', { usage: '142' }))).toBeVisible();
-    fireEvent.click(within(row).getByRole('button', { name: tv('meters.save') }));
-    await waitFor(() =>
-      expect(mockControl.statements.readings.at(-1)!.electricity.exception).toMatchObject({
-        type: 'replaced',
-        oldFinal: 1310,
-      }),
-    );
-  });
-});
-
-/** Seed + the DOM example readings for room 203 (closing month M−1). */
-function recordDomExample() {
+/**
+ * The DOM example for room 203: the seed opens month P at 1.262 / 35,2 (`period_start`); the closing of P is
+ * 1.404 / 38,6 → 142 kWh and 3,4 m³. Pass `kwh` to change the usage (e.g. above the anomaly threshold).
+ */
+function recordDomClosing(kwh = 142) {
   const st = mockControl.statements;
-  const stay = st.stays[0]!;
+  const open = st.readings.find(
+    (r) => r.roomNo === '203' && r.kind === 'period_start' && r.periodMonth === st.P,
+  )!;
+  st.seq += 1;
   st.readings.push({
+    ...open,
     id: '0192a1b0-0000-7000-8000-000000839999',
-    reservationId: stay.reservationId,
-    roomId: stay.roomId,
-    roomNo: stay.roomNo,
+    seq: st.seq,
     kind: 'period_end',
-    periodMonth: st.P,
     readOn: `${st.M}-01`,
-    electricity: { opening: 1250, value: 1392, exception: null },
-    water: { opening: 35.2, value: 38.6, exception: null },
+    electricity: { value: open.electricity.value + kwh, exception: null },
+    water: { value: 38.6, exception: null },
     photoAttachmentId: '0192a1b0-0000-7000-8000-000000849999',
-    photoWaived: false,
-    note: null,
-    readAt: new Date().toISOString(),
-    readByInitials: 'H',
-    voidedAt: null,
-    voidReason: null,
+    lateReason: null,
+    acknowledgedLower: false,
+    createdAt: new Date().toISOString(),
+    version: 1,
   });
 }
 
@@ -201,26 +53,41 @@ async function openDraftFor203() {
   return screen.findByRole('dialog');
 }
 
-describe('FB-INV-012 S16 statements – availableActions, flow, totals', () => {
-  it('draft shows the DOM numbers: 613.440 + 89.250, rounding −690, total 9.502.000', async () => {
+describe('FB-INV-012 S16 statements – lines, totals, flow', () => {
+  it('draft: utilities net + one VAT line, rent/services "incl.", subtotal adds up, rounding −690 (UXD-189-01)', async () => {
     pinDaytime();
-    recordDomExample();
+    recordDomClosing();
     renderApp('/long-stay/statements', 'qa.fd');
     const dlg = await openDraftFor203();
-    expect(await within(dlg).findByText('613.440')).toBeVisible();
-    expect(within(dlg).getByText('89.250')).toBeVisible();
+    expect(await within(dlg).findByText('568.000')).toBeVisible();
+    expect(within(dlg).getByText('85.000')).toBeVisible();
+    // The gross utility amounts are not on the lines any more.
+    expect(within(dlg).queryByText('613.440')).toBeNull();
+    expect(within(dlg).queryByText('89.250')).toBeNull();
+    expect(within(dlg).getByText(tv('stmt.vat_total'))).toBeVisible();
+    expect(within(dlg).getByText('49.690')).toBeVisible();
+    expect(within(dlg).getByText(tv('stmt.subtotal'))).toBeVisible();
+    expect(within(dlg).getByText('9.453.000')).toBeVisible();
     expect(within(dlg).getByText('−690')).toBeVisible();
     expect(within(dlg).getAllByText('9.502.000').length).toBeGreaterThan(0);
+    // Rent and the two services: VAT already in the price.
+    expect(within(dlg).getAllByText(tv('stmt.vat_incl')).length).toBe(3);
+    // The status chip says Draft; the title does not repeat it (UXD-189-10).
+    const title = within(dlg).getByRole('heading', { level: 2 });
+    expect(title.textContent).not.toContain(tv('stmt.status.draft'));
+    // The amount column never wraps; the move button sits on its own row (UXD-189-04).
+    for (const td of dlg.querySelectorAll('td.stmt-amt'))
+      expect(td.closest('table')).toHaveClass('stmt-lines');
+    expect(dlg.querySelectorAll('tr.stmt-move-row').length).toBe(2);
     // FD on a draft: update/issue/void, not the prior-period adjustment (A122).
     expect(within(dlg).getByRole('button', { name: tv('stmt.issue') })).toBeVisible();
     expect(within(dlg).queryByText(tv('stmt.prior_title'))).toBeNull();
   });
 
-  it('flow: readings → draft → acknowledge warning → issue → print link → VietQR payment → Paid', async () => {
+  it('flow: draft → acknowledge warning → issue → print link → VietQR payment → Paid', async () => {
     pinDaytime();
     // 360 kWh: above the 300 kWh no-history threshold → METER_ANOMALY to confirm before issuing.
-    recordDomExample();
-    mockControl.statements.readings.at(-1)!.electricity.value = 1610;
+    recordDomClosing(360);
     renderApp('/long-stay/statements', 'qa.fd');
     const dlg = await openDraftFor203();
     const issue = await within(dlg).findByRole('button', { name: tv('stmt.issue') });
@@ -228,7 +95,8 @@ describe('FB-INV-012 S16 statements – availableActions, flow, totals', () => {
     fireEvent.click(within(dlg).getByRole('checkbox'));
     expect(issue).toBeEnabled();
     fireEvent.click(issue);
-    const code = `TT-${mockControl.statements.M.slice(2, 4)}${mockControl.statements.M.slice(5, 7)}-203`;
+    const { M } = mockControl.statements;
+    const code = `TT-${M.slice(2, 4)}${M.slice(5, 7)}-203`;
     expect(await within(dlg).findByText(code)).toBeVisible();
     // Print opens /print/statements/:id – the id only in the URL (criterion 4).
     const print = within(dlg).getByRole('link', { name: tv('stmt.print') });
@@ -254,8 +122,7 @@ describe('FB-INV-012 S16 statements – availableActions, flow, totals', () => {
 
   it('FDL sees Void on an issued unpaid statement and can create the replacement (-R1)', async () => {
     pinDaytime();
-    renderApp('/long-stay/statements', 'qa.fdl');
-    fireEvent.click(await screen.findByRole('button', { name: tv('stmt.tab.overdue') }));
+    renderApp('/long-stay/statements?tab=overdue', 'qa.fdl');
     const code = `TT-${mockControl.statements.P.slice(2, 4)}${mockControl.statements.P.slice(5, 7)}-302`;
     fireEvent.click(await screen.findByRole('button', { name: code }));
     const dlg = await screen.findByRole('dialog');
@@ -272,10 +139,29 @@ describe('FB-INV-012 S16 statements – availableActions, flow, totals', () => {
     );
   });
 
-  it('Today "Cần chú ý" counts overdue statements (BR-LS-02)', async () => {
+  it('Today: overdue statements are a row of the same "Cần chú ý" list, counted in its badge (UXD-189-08)', async () => {
     pinDaytime();
     renderApp('/today', 'qa.fd');
-    expect(await screen.findByText(tv('stmt.attention_overdue', { n: 1 }))).toBeVisible();
+    const st = mockControl.statements;
+    const overdue = st.periods.filter((p) => p.status === 'issued');
+    const balance = overdue.reduce((s, p) => s + p.snapshot!.totals.totalVnd - p.paidVnd, 0);
+    const text = tv('stmt.attention_overdue_amount', {
+      n: overdue.length,
+      amount: new Intl.NumberFormat('vi-VN').format(balance),
+    });
+    const row = await screen.findByText(text);
+    const task = row.closest('.task')!;
+    expect(task).toHaveClass('stmt-attn-late');
+    const heading = screen.getByRole('heading', {
+      name: new RegExp(`^${esc(tv('today.attention'))}`),
+    });
+    const list = heading.closest('section')!.querySelector('ul')!;
+    expect(list).toContainElement(task as HTMLElement);
+    const link = (task.closest('a') ??
+      within(task as HTMLElement).getByRole('link')) as HTMLElement;
+    expect(link.getAttribute('href')).toBe('/long-stay/statements?tab=overdue');
+    const badge = heading.querySelector('.badge')!;
+    expect(Number(badge.textContent)).toBe(list.querySelectorAll(':scope > li').length);
   });
 });
 
@@ -284,24 +170,43 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
     pinDaytime();
     renderApp('/long-stay/statements', 'qa.fd');
     await screen.findByRole('heading', { level: 1 });
-    const p = mockControl.statements.periods.find((x) => x.status === 'issued')!;
-    return p;
+    return mockControl.statements.periods.find((x) => x.status === 'issued')!;
   }
+  async function sheet() {
+    return waitFor(() => {
+      const el = document.querySelector('.stmt-preview .stmt-sheet');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+  }
+  const root = () => document.querySelector('body > .print-root');
 
-  it('A5 by default, A4 on request – the class on .print-root picks the named @page', async () => {
+  it('A5 by default up to 6 lines, A4 on request – the class on .print-root picks the named @page', async () => {
     const p = await issuedSheet();
+    expect(p.snapshot!.lines.filter((l) => l.kind !== 'rounding').length).toBeLessThanOrEqual(6);
     renderApp(`/print/statements/${p.id}`, 'qa.fd');
-    await waitFor(() => expect(document.querySelector('body > .print-root')).not.toBeNull());
-    const root = document.querySelector('body > .print-root')!;
-    expect(root).toHaveClass('stmt-paper-a5');
+    await waitFor(() => expect(root()).not.toBeNull());
+    expect(root()).toHaveClass('stmt-paper-a5');
     fireEvent.click(screen.getAllByRole('button', { name: 'A4' }).at(-1)!);
-    await waitFor(() =>
-      expect(document.querySelector('body > .print-root')).toHaveClass('stmt-paper-a4'),
-    );
+    await waitFor(() => expect(root()).toHaveClass('stmt-paper-a4'));
     const css = readFileSync(join(__dirname, '..', 'statements.css'), 'utf8');
     expect(css).toMatch(/@page stmt-a5 \{\s*size: A5 portrait;/);
     expect(css).toMatch(/@page stmt-a4 \{\s*size: A4 portrait;/);
     expect(css).toMatch(/\.print-root\.stmt-paper-a5 \.stmt-sheet \{\s*page: stmt-a5;/);
+    // UXD-189-03: body 9pt, the VI line never under 7pt.
+    expect(css).toMatch(/\.stmt-sheet \{[^}]*font-size: 9pt;/);
+    expect(css).toMatch(/max\(7pt, 0\.8em\)/);
+  });
+
+  it('7 printed lines → A4 by default (UXD-189-03)', async () => {
+    const p = await issuedSheet();
+    const snap = p.snapshot!;
+    const extra = snap.lines.filter((l) => l.kind !== 'rounding').length;
+    const svc = { ...snap.lines.find((l) => l.kind === 'rent')!, kind: 'service' as const };
+    for (let i = extra; i < 7; i += 1)
+      snap.lines.push({ ...svc, labelParams: { n: i }, amountVnd: 0 });
+    renderApp(`/print/statements/${p.id}`, 'qa.fd');
+    await waitFor(() => expect(root()).toHaveClass('stmt-paper-a4'));
   });
 
   it('statements.css uses only the 80/15/5 brand palette and the three brand fonts', () => {
@@ -329,7 +234,6 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
     const fonts = [...css.matchAll(/font-family:\s*([^;]+);/g)].map((m) => m[1]!.trim());
     expect(fonts.length).toBeGreaterThan(3);
     expect(fonts.filter((f) => !/^var\(--(serif|sans|mono)\)$/.test(f))).toEqual([]);
-    // The tokens behind the brand variables are the guideline values.
     const tokens = readFileSync(
       join(__dirname, '..', '..', '..', '..', 'design', 'wireframes', 'assets', 'tokens.css'),
       'utf8',
@@ -346,51 +250,49 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
       expect(tokens).toContain(`--brand-${k}:${v};`);
   });
 
-  it('EN leads, VI under it; no emoji; QR = balance + statement code; the vacancy gap and guest contact are not printed', async () => {
+  it('EN leads, VI under it; periods and months on the sheet; QR = balance + code; no gap, no guest contact', async () => {
     const p = await issuedSheet();
-    // A gap on the reading behind this statement must not reach the paper (INV 17/11).
     renderApp(`/print/statements/${p.id}`, 'qa.fd');
-    const sheet = await waitFor(() => {
-      const el = document.querySelector('.stmt-preview .stmt-sheet');
-      expect(el).not.toBeNull();
-      return el as HTMLElement;
-    });
-    const title = within(sheet).getByRole('heading', { level: 1 });
+    const s = await sheet();
+    const title = within(s).getByRole('heading', { level: 1 });
     expect(title.querySelector('[lang="en"]')).toHaveTextContent('Monthly statement');
     expect(title.querySelector('[lang="vi"]')).toHaveTextContent('Phiếu thanh toán tháng');
+    const text = s.textContent ?? '';
+    // UXD-189-02: rent period and utilities & services period; the month on the utility lines.
+    expect(text).toContain(translate('en', 'stmt.print.rent_period'));
+    expect(text).toContain(translate('en', 'stmt.print.utility_period'));
+    expect(text).toMatch(/Electricity · [A-Z][a-z]{2} \d{4}/);
+    expect(text).toMatch(/Điện tháng \d{2}\/\d{4}/);
+    // UXD-189-01: one VAT line for electricity and water; "incl." on rent.
+    expect(text).toContain(translate('en', 'stmt.print.vat'));
+    expect(text).toContain(translate('en', 'stmt.print.vat_incl'));
     // Statement code in the header and as the transfer reference – both JetBrains Mono.
-    const codes = within(sheet).getAllByText(exact(p.code!));
+    const codes = within(s).getAllByText(exact(p.code!));
     expect(codes).toHaveLength(2);
     for (const c of codes) expect(c).toHaveClass('mono');
-    expect(within(sheet).getByText(translate('en', 'stmt.print.rounding'))).toBeVisible();
-    expect(sheet.textContent).toContain('Please pay by 05 ');
-    expect(sheet.textContent).toMatch(/Vui lòng thanh toán trước hết ngày 05\//);
-    // No emoji anywhere on the sheet or in the guest strings.
+    expect(within(s).getByText(translate('en', 'stmt.print.rounding'))).toBeVisible();
+    expect(text).toContain('Please pay by 05 ');
+    expect(text).toMatch(/Vui lòng thanh toán đến hết ngày 05\//);
+    expect(text).toContain(translate('en', 'stmt.print.qr_title'));
+    expect(text).toContain(translate('en', 'stmt.print.qr_keep_ref'));
     const emoji = /\p{Extended_Pictographic}/u;
-    expect(sheet.textContent).not.toMatch(emoji);
+    expect(text).not.toMatch(emoji);
     for (const lang of ['en', 'vi'] as const)
-      for (const k of ['title', 'pay_by', 'vat_note', 'paid_stamp', 'balance'])
+      for (const k of ['title', 'pay_by', 'vat_note', 'paid_stamp', 'balance', 'qr_title'])
         expect(translate(lang, `stmt.print.${k}`)).not.toMatch(emoji);
-    // Personal data: full name and room only (contract §9.1).
-    expect(sheet.textContent).toContain('Trần Lan');
-    // The only phone number and e-mail on paper are the property's own (hotline, mailbox).
-    const text = sheet.textContent ?? '';
-    expect(text.split('@')).toHaveLength(2);
-    expect(text).toContain('stay@example.test');
+    // Personal data: full name and room only (contract §9.1); the property sends no e-mail (BE print schema).
+    expect(text).toContain('Trần Lan');
+    expect(text).not.toContain('@');
     expect([...text.matchAll(/(?:\+84|\b0)\d{2,3} \d{3} \d{3,4}/g)].map((m) => m[0])).toEqual([
       '0900 000 000',
     ]);
-    expect(sheet.textContent).not.toMatch(/quốc tịch|nationality|passport|CCCD/i);
-    expect(sheet.textContent).not.toMatch(
-      new RegExp(esc(translate('en', 'meters.gap_saved', { gap: '' }).split(':')[0]!)),
-    );
+    expect(text).not.toMatch(/quốc tịch|nationality|passport|CCCD/i);
+    // The vacancy gap stays off paper (INV 17/11).
+    expect(text).not.toContain(translate('en', 'meters.gap_saved', { gap: '' }).split(':')[0]!);
     // VietQR: the payload the server built, drawn as is; it carries the balance and the statement code.
-    const svg = sheet.querySelector('svg.qr')!;
-    const label = svg.getAttribute('aria-label')!;
-    expect(label).toContain(p.code!);
-    const res = await fetch(
-      `http://localhost/v1/properties/0192a1b0-0000-7000-8000-0000000000a1/billing-periods/${p.id}/print`,
-    );
+    const svg = s.querySelector('svg.qr')!;
+    expect(svg.getAttribute('aria-label')!).toContain(p.code!);
+    const res = await fetch(`http://localhost/v1/properties/${P_ID}/billing-periods/${p.id}/print`);
     const body = (await res.json()) as {
       vietqr: { payload: string };
       totals: { balanceVnd: number };
@@ -402,7 +304,21 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
       qrSvgPath(encodeQr(body.vietqr.payload)),
     );
     // The receiving account shows its last 4 digits only.
-    expect(sheet.textContent).toMatch(/•••• \d{4}/);
-    expect(sheet.textContent).not.toMatch(/\d{8,}/);
+    expect(text).toMatch(/•••• \d{4}/);
+    expect(text).not.toMatch(/\d{8,}/);
+  });
+
+  it('issued after the due day → "Payment due on receipt", never a date already past (UXD-189-06)', async () => {
+    const p = await issuedSheet();
+    const late = `${p.snapshot!.dueDate!}T00:00:00+07:00`.replace(
+      /-(\d{2})T/,
+      (_, d: string) => `-${String(Number(d) + 1).padStart(2, '0')}T`,
+    );
+    p.issuedAt = late;
+    p.snapshot!.issuedAt = late;
+    renderApp(`/print/statements/${p.id}`, 'qa.fd');
+    const s = await sheet();
+    expect(s.textContent).toContain(translate('en', 'stmt.print.due_on_receipt'));
+    expect(s.textContent).not.toContain('Please pay by');
   });
 });

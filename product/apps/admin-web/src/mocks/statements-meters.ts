@@ -24,7 +24,14 @@ import {
 import type { StatementsCtx } from './statements';
 
 export const FD_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
-const KINDS = ['checkin', 'period_start', 'period_end', 'room_change_out', 'room_change_in', 'checkout'];
+const KINDS = [
+  'checkin',
+  'period_start',
+  'period_end',
+  'room_change_out',
+  'room_change_in',
+  'checkout',
+];
 
 export function meterHandlers(
   ctx: StatementsCtx,

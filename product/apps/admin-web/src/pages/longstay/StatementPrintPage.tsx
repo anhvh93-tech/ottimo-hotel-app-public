@@ -285,8 +285,7 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
               </dt>
               <dd>
                 {s.vietqr.bankShortName ? `${s.vietqr.bankShortName} · ` : ''}
-                {s.vietqr.accountHolder} ·{' '}
-                <span className="mono">{s.vietqr.accountNoMasked}</span>
+                {s.vietqr.accountHolder} · <span className="mono">{s.vietqr.accountNoMasked}</span>
               </dd>
             </div>
           </dl>

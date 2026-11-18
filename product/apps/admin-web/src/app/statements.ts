@@ -22,12 +22,7 @@ export type StatementAction =
 export type MeterType = 'electricity' | 'water';
 /** Opening: `checkin`, `period_start`, `room_change_in`. Closing: `period_end`, `room_change_out`, `checkout`. */
 export type ReadingKind =
-  | 'checkin'
-  | 'period_start'
-  | 'period_end'
-  | 'room_change_out'
-  | 'room_change_in'
-  | 'checkout';
+  'checkin' | 'period_start' | 'period_end' | 'room_change_out' | 'room_change_in' | 'checkout';
 export const OPENING_KINDS: readonly ReadingKind[] = ['checkin', 'period_start', 'room_change_in'];
 export const isOpeningKind = (k: ReadingKind) => OPENING_KINDS.includes(k);
 
@@ -266,22 +261,21 @@ export interface BillingPeriodSummary {
 }
 
 /** OpenAPI `BillingPeriodPrint` – ONLY the sheet's fields (SEC BE-190-03: no notes, reasons, folio, actions). */
-export interface BillingPeriodPrint
-  extends Pick<
-    BillingPeriod,
-    | 'id'
-    | 'status'
-    | 'kind'
-    | 'month'
-    | 'roomNos'
-    | 'rentPeriod'
-    | 'utilityPeriod'
-    | 'servicePeriod'
-    | 'dueDate'
-    | 'issuedAt'
-    | 'lines'
-    | 'totals'
-  > {
+export interface BillingPeriodPrint extends Pick<
+  BillingPeriod,
+  | 'id'
+  | 'status'
+  | 'kind'
+  | 'month'
+  | 'roomNos'
+  | 'rentPeriod'
+  | 'utilityPeriod'
+  | 'servicePeriod'
+  | 'dueDate'
+  | 'issuedAt'
+  | 'lines'
+  | 'totals'
+> {
   code: string | null;
   property: {
     displayName?: string | null;

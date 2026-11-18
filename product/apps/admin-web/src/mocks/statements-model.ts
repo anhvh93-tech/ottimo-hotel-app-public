@@ -85,7 +85,12 @@ export interface StoredPeriod {
   snapshot: BillingPeriod | null;
   readingIds: string[];
   paidVnd: number;
-  payments: Array<{ id: string; method: 'cash' | 'vietqr'; amountVnd: number; reconciliation: string }>;
+  payments: Array<{
+    id: string;
+    method: 'cash' | 'vietqr';
+    amountVnd: number;
+    reconciliation: string;
+  }>;
   issuedAt: string | null;
   paidAt: string | null;
   voidedAt: string | null;

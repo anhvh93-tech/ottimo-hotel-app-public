@@ -51,8 +51,9 @@ export function MetersPage() {
     const c = (await statementsApi.listBillingCandidates(propertyId, shiftMonth(month, 1))).data;
     const out = await Promise.all(
       c.items.map(async (candidate) => {
-        const readings = (await statementsApi.listMeterReadings(propertyId, candidate.reservationId))
-          .data.items;
+        const readings = (
+          await statementsApi.listMeterReadings(propertyId, candidate.reservationId)
+        ).data.items;
         return candidate.rooms.map((room) => ({
           candidate,
           room,
@@ -395,7 +396,9 @@ function MeterRow({
               ) : (
                 <>
                   {o !== null ? (
-                    <p className="li-s mono">{t('meters.opening_of', { value: meterNum(o, unit) })}</p>
+                    <p className="li-s mono">
+                      {t('meters.opening_of', { value: meterNum(o, unit) })}
+                    </p>
                   ) : (
                     <Alert tone="warn">{t('meters.opening_missing')}</Alert>
                   )}
@@ -586,7 +589,9 @@ function MeterRow({
                   )}
                 </Field>
               ) : (
-                <Alert tone="info">{t('meters.late_fd', { date: dayText(locale, windowEnd) })}</Alert>
+                <Alert tone="info">
+                  {t('meters.late_fd', { date: dayText(locale, windowEnd) })}
+                </Alert>
               )
             ) : null}
             <div className="mt-8">
