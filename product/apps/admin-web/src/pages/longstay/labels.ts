@@ -1,4 +1,4 @@
-import { translate, type Args, type Locale } from '@ottimo/i18n';
+import { hasKey, translate, type Args, type Locale } from '@ottimo/i18n';
 import {
   KNOWN_WARNINGS,
   type BillingPeriod,
@@ -93,11 +93,30 @@ export function lineText(locale: Locale, line: StatementLine): string {
     params.month = shortMonth(locale, line.periodMonth);
   // The prior-period reason is internal text: never on the line label the guest reads.
   delete params.reason;
-  let label = translate(locale, line.labelKey, params);
+  // UXD 195-02: a key this desk does not know yet never reaches the guest's paper – the line's own text if any,
+  // else a generic label by line type.
+  let label = hasKey(line.labelKey, locale)
+    ? translate(locale, line.labelKey, params)
+    : fallbackLabel(locale, line);
   if (line.kind === 'service') label = label.replace(/\s*×\s*(\{qty\}|\d+)\s*$/, '');
   return line.kind === 'service' && line.serviceDate
     ? `${label} · ${shortDay(locale, line.serviceDate)}`
     : label;
+}
+
+const FALLBACK: Partial<Record<StatementLine['kind'], string>> = {
+  rent: 'stmt.line.fallback_rent',
+  service: 'stmt.line.fallback_service',
+  prior_adjustment: 'stmt.line.fallback_prior_adjustment',
+  rounding: 'bill.line.statement_rounding',
+};
+
+function fallbackLabel(locale: Locale, line: StatementLine): string {
+  const p = line.labelParams ?? {};
+  const own = [p.description, p.text, p.name].find(
+    (x): x is string => typeof x === 'string' && x.trim() !== '',
+  );
+  return own ?? translate(locale, FALLBACK[line.kind] ?? 'stmt.line.fallback_other');
 }
 
 /**

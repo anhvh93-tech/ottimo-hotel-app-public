@@ -182,7 +182,7 @@ export function ParamsPage() {
                               </div>
                             ) : null}
                           </td>
-                          <td>{p.brRef ?? '–'}</td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{p.brRef ?? '–'}</td>
                           <td>{date(p.effectiveFrom)}</td>
                           <td className="li-s">
                             {[p.changedBy, dateTime(p.changedAt)].filter(Boolean).join(' · ')}

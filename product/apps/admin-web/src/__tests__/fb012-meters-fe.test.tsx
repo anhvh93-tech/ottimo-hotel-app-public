@@ -87,7 +87,9 @@ describe('FB-INV-012 meter maths (BR-LS-11/12)', () => {
     ).toBe(30);
     expect(readingMonthOn('2026-12-01')).toBe('2026-11');
     expect(readingMonthOn('2026-11-30')).toBe('2026-11');
-    expect(readingMonthOn('2026-11-17')).toBe('2026-10');
+    // BUG-R5-009: mid-month the current month (its check-in readings); only day 01 is the month before.
+    expect(readingMonthOn('2026-11-17')).toBe('2026-11');
+    expect(readingMonthOn('2026-11-02')).toBe('2026-11');
   });
 });
 
@@ -259,10 +261,21 @@ describe('FB-INV-012 S12: Closing M + Opening M+1 (ARC-FE-189-01, INV 17/11)', (
   });
 });
 
+/** BUG-R5-009: after day 01 the page opens on the current month; a notice leads to the late closings. */
+async function openLateMonth() {
+  const stem = tv('meters.late_left_open', { month: '' }).trim();
+  const btn = await screen.findByRole('button', { name: new RegExp(`^${esc(stem)}`) });
+  expect(btn.closest('[role="alert"], .alert, div')!.textContent).toContain(
+    tv('meters.late_left', { n: 1, month: '' }).split('{')[0]!.split(' ')[0]!,
+  );
+  fireEvent.click(btn);
+}
+
 describe('FB-INV-012 S12 late reading (BE-190-03)', () => {
   it('FD after the window: "ask the lead", Save disabled', async () => {
     pinDay(lateDay());
     renderApp('/long-stay/meters', 'qa.fd');
+    await openLateMonth();
     const row = await row203();
     expect(row.textContent).toContain(
       tv('meters.late_fd', { date: expect.anything() as never })
@@ -275,6 +288,7 @@ describe('FB-INV-012 S12 late reading (BE-190-03)', () => {
   it('FDL after the window: a reason is required, then both readings carry it', async () => {
     pinDay(lateDay());
     renderApp('/long-stay/meters', 'qa.fdl');
+    await openLateMonth();
     const row = await row203();
     type(row, 'electricity', '1404', '1410');
     type(row, 'water', '38.6', '38.6');
@@ -498,7 +512,56 @@ describe('FB-INV-012 S12 check-in reading (INV 17/11; ARC-FE-189-01/09, BE-190-1
     st.readings.splice(drop, 1);
     renderApp('/long-stay/meters', 'qa.fdl');
     const row = await row203();
-    expect(row.textContent).toContain(tv('meters.opening_missing'));
     expect(within(row).queryByRole('button', { name: tv('meters.checkin_enter') })).toBeNull();
+    // UXD 195-03: one line for the row (not one per meter), with the way to the month where it is typed.
+    const shown = (m: string) => `${m.slice(5)}/${m.slice(0, 4)}`;
+    const prev = shiftMonth(st.P, -1);
+    const line = tv('meters.opening_missing_row', { month: shown(st.P), prev: shown(prev) });
+    expect(within(row).getAllByText(line)).toHaveLength(1);
+    expect(row.textContent).not.toContain(tv('meters.opening_missing'));
+    fireEvent.click(
+      within(row).getByRole('button', {
+        name: tv('meters.late_left_open', { month: shown(prev) }),
+      }),
+    );
+    await waitFor(() => expect(screen.getByLabelText(tv('meters.month'))).toHaveValue(prev));
+  });
+});
+
+describe('BUG-R5-009 S12 mid-month: the month where work is due', () => {
+  it('mid-month opens on the current month: check-in button shown, closing not due; another month keeps it in sight', async () => {
+    pinDay(`${shiftMonth(monthOf(todayLocal()), 1)}-18`);
+    const { M } = mockControl.statements;
+    midMonthArrival(`${M}-18`);
+    renderApp('/long-stay/meters', 'qa.fd');
+    const monthInput = await screen.findByLabelText(tv('meters.month'));
+    expect(monthInput).toHaveValue(M);
+    const row = await row203();
+    expect(within(row).getByRole('button', { name: tv('meters.checkin_enter') })).toBeVisible();
+    // The closing of M (and the opening of M+1) is not typed before the last day of M.
+    expect(within(row).queryByLabelText(label('electricity', 'closing'))).toBeNull();
+    expect(within(row).queryByLabelText(label('electricity', 'opening'))).toBeNull();
+    // UXD 195-03: "Closing reading from…" once above the table, the row keeps only the chip.
+    const from = tv('meters.closing_from', { date: viDay(lastDayOf(M)) });
+    expect(row.textContent).not.toContain(from);
+    expect(screen.getAllByText(from)).toHaveLength(1);
+    expect(within(row).getByText(tv('meters.not_due'))).toBeVisible();
+    expect(within(row).queryByRole('button', { name: tv('meters.save') })).toBeNull();
+    // The month before on screen: the check-in reading due this month is still offered.
+    fireEvent.change(monthInput, { target: { value: shiftMonth(M, -1) } });
+    const stem = tv('meters.checkin_due_title', { month: '' }).replace(/–\s*$/, '').trim();
+    const head = await screen.findByRole('heading', { name: new RegExp(`^${esc(stem)}`) });
+    const section = head.closest('section')!;
+    expect(section.textContent).toContain('203');
+    fireEvent.click(within(section).getByRole('button', { name: tv('meters.checkin_enter') }));
+    const dlg = await screen.findByRole('dialog', {
+      name: tv('meters.checkin_title', { room: '203' }),
+    });
+    expect(dlg.querySelector('input[type=date]')).toHaveValue(`${M}-18`);
+  });
+
+  it('the empty sentence names the month, never "no long-stay room in house"', () => {
+    expect(tv('meters.empty_month', { month: '11/2026' })).toContain('11/2026');
+    expect(tv('meters.empty_month', { month: '11/2026' })).not.toBe(tv('meters.empty'));
   });
 });

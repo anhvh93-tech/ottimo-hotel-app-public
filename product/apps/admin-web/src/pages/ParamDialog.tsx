@@ -12,6 +12,13 @@ import { useResource } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
 import { SECURITY_BOUNDS, UNIT_KEY, editorsOf, paramLabel, paramMeta } from './paramCatalog';
 import { RECEIVING_KEY } from './ReceivingAccount';
+import {
+  StatementParamFields,
+  formatStatementParam,
+  isStatementParam,
+  parseStatementDraft,
+  statementDraft,
+} from './statementParams';
 
 type T = (key: string, args?: Record<string, string | number>) => string;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -26,6 +33,10 @@ function suffix(t: T, key: string): string {
 
 export function formatParamValue(t: T, p: Pick<Parameter, 'key' | 'value'>): string {
   const v = p.value;
+  if (isStatementParam(p.key)) {
+    const s = formatStatementParam(t, p.key, v);
+    if (s) return s;
+  }
   if (typeof v === 'number') {
     const n = new Intl.NumberFormat('vi-VN').format(v);
     const s = suffix(t, p.key);
@@ -88,6 +99,10 @@ export function ParamDialog({
         ? String(param.value)
         : String(param.value ?? '');
   const [text, setText] = useState(initialText);
+  // BUG-R5-012: the monthly-statement keys edit as fields, not JSON.
+  const stmtKey = isStatementParam(param.key) ? param.key : null;
+  const [initialDraft] = useState(() => (stmtKey ? statementDraft(stmtKey, param.value) : {}));
+  const [draft, setDraft] = useState(initialDraft);
   const [effectiveFrom, setEffectiveFrom] = useState(today);
   const [initialFrom, setInitialFrom] = useState(today);
   useBusinessDayChange(today, (was, now) => {
@@ -108,7 +123,11 @@ export function ParamDialog({
   const mayCancel =
     param.key !== RECEIVING_KEY && editorsOf(param).some((r) => session.roles.includes(r));
 
-  const dirty = text !== initialText || reason !== '' || effectiveFrom !== initialFrom;
+  const dirty =
+    text !== initialText ||
+    JSON.stringify(draft) !== JSON.stringify(initialDraft) ||
+    reason !== '' ||
+    effectiveFrom !== initialFrom;
 
   const parseValue = (): { ok: true; value: unknown } | { ok: false; error: string } => {
     if (kind === 'options') return { ok: true, value: Number(text) };
@@ -141,8 +160,14 @@ export function ParamDialog({
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    const parsed = parseValue();
-    if (!parsed.ok) errs.value = parsed.error;
+    const stmt = stmtKey ? parseStatementDraft(t, stmtKey, draft) : null;
+    const parsed = stmt
+      ? stmt.ok
+        ? ({ ok: true, value: stmt.value } as const)
+        : ({ ok: false, error: '' } as const)
+      : parseValue();
+    if (stmt && !stmt.ok) Object.assign(errs, stmt.errors);
+    else if (!parsed.ok) errs.value = parsed.error;
     if (!effectiveFrom) errs.effectiveFrom = t('common.required');
     else if (effectiveFrom < today) errs.effectiveFrom = t('booking.error.past_date');
     if (reason.trim().length < 3) errs.reason = t('field_error.reason_required');
@@ -158,7 +183,13 @@ export function ParamDialog({
       toast(t('params.saved', { name, date: effectiveFrom.split('-').reverse().join('/') }));
       onSaved();
     } catch (err) {
-      if (isApiError(err) && err.code === 'PARAM_OUT_OF_RANGE') {
+      if (
+        stmtKey &&
+        isApiError(err) &&
+        err.fieldErrors.some((f) => /^(body\.)?value\./.test(f.field))
+      ) {
+        setErrors(fieldErrors(t, err));
+      } else if (isApiError(err) && err.code === 'PARAM_OUT_OF_RANGE') {
         setErrors({ value: problemView(t, err).text });
       } else if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
         setErrors(fieldErrors(t, err));
@@ -178,6 +209,8 @@ export function ParamDialog({
       : undefined;
   const rows = history.state.data ?? [];
   const cancelColumn = mayCancel && rows.some((h) => h.effectiveFrom > today);
+  // BUG-R5-012: a statement value reads as a sentence – give it room in the history table.
+  const valueCell = stmtKey ? { minWidth: '22ch' } : undefined;
 
   return (
     <Modal
@@ -211,7 +244,18 @@ export function ParamDialog({
     >
       <form id={formId} onSubmit={onSubmit} noValidate>
         {banner ? <Alert tone="bad">{banner}</Alert> : null}
-        {kind === 'options' && choices ? (
+        {stmtKey ? (
+          <>
+            {errors.value ? <Alert tone="bad">{errors.value}</Alert> : null}
+            <StatementParamFields
+              t={t}
+              paramKey={stmtKey}
+              draft={draft}
+              errors={errors}
+              onChange={(path, v) => setDraft((d) => ({ ...d, [path]: v }))}
+            />
+          </>
+        ) : kind === 'options' && choices ? (
           <div className={`field${errors.value ? ' invalid' : ''}`}>
             <span className="lbl" id={`${ids}-v`}>
               {t('params.new_value')}
@@ -339,8 +383,12 @@ export function ParamDialog({
                       ) : null}
                     </td>
                     <td>{h.changedBy ?? '–'}</td>
-                    <td className="r">{rows[i + 1] ? formatParamValue(t, rows[i + 1]!) : '–'}</td>
-                    <td className="r">{formatParamValue(t, h)}</td>
+                    <td className="r" style={valueCell}>
+                      {rows[i + 1] ? formatParamValue(t, rows[i + 1]!) : '–'}
+                    </td>
+                    <td className="r" style={valueCell}>
+                      {formatParamValue(t, h)}
+                    </td>
                     <td>{h.reason ?? ''}</td>
                     {cancelColumn ? (
                       <td>

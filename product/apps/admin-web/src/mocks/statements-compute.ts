@@ -74,7 +74,9 @@ export function compute(st: MockState, p: StoredPeriod, rates: Rates) {
   const u = shiftMonth(p.month, -1);
   const rentMonth = rules.rentTiming === 'advance' ? p.month : u;
   const rentPeriod = { from: `${rentMonth}-01`, to: lastDayOf(rentMonth) };
-  const utilityPeriod = { from: `${u}-01`, to: lastDayOf(u) };
+  // BUG-R5-013: the check-in statement of a guest who arrived after M−1 has no utilities or services period.
+  const utilityPeriod =
+    stay.arrivalDate > lastDayOf(u) ? null : { from: `${u}-01`, to: lastDayOf(u) };
   const servicePeriod = utilityPeriod;
   const lines: StatementLine[] = [
     flat('rent', 'bill.line.monthly_rent', stay.monthlyRentVnd, {
@@ -165,6 +167,7 @@ export function compute(st: MockState, p: StoredPeriod, rates: Rates) {
   for (const s of st.services.filter(
     (x) =>
       x.reservationId === p.reservationId &&
+      servicePeriod &&
       x.serviceDate >= servicePeriod.from &&
       x.serviceDate <= servicePeriod.to &&
       x.amountVnd > 0,
