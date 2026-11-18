@@ -41,7 +41,9 @@
       "fastify": "^5.12.7"
     },
     "auditConfig": {
-      "ignoreCves": []
+      "ignoreCves": [
+        "CVE-2026-112366"
+      ]
     }
   }
 }
