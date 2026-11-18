@@ -365,6 +365,14 @@
 .stmt-a5 .stmt-table-print td {
   padding: 1.5pt 2pt;
 }
+/* Column heads a step smaller on A5 (EN 7.65pt, VI stays ≥ 7pt) so the six columns fit 132 mm. */
+.stmt-a5 .stmt-table-print th {
+  font-size: 0.85em;
+}
+.stmt-a5 .stmt-table-print th:nth-child(4),
+.stmt-a5 .stmt-table-print td:nth-child(4) {
+  padding-left: 6pt;
+}
 .stmt-a5 .stmt-table-print td:first-child,
 .stmt-a5 .stmt-table-print th {
   white-space: nowrap;
