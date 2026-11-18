@@ -251,3 +251,11 @@ Ghi chú:
 | Bằng chứng ảnh 6/7 dòng | Done | `wrap.js` cộng vào `totals.netVnd` (trước đây cộng nhầm khóa không có `subtotalVnd`). Chụp lại `r5-print-6lines-a5` (Cộng 9.503.000 = tổng cột) và `r5-print-7lines-a4`; `r5-meters-below-dialog.png` nay có hộp thoại. Test mới: Cộng = tổng cột Thành tiền trên trang in |
 | FB-R5-ARC-FE-189-09 (Minor) | Done (theo đề xuất BE-190-12, chờ BE) | Nút "Nhập chỉ số nhận phòng" chỉ hiện khi `rooms[].openingKind === 'checkin'`. Thiếu `period_start` thì không có nút, chỉ báo thiếu đầu kỳ. Hộp: ngày trong [ngày đến, ngày đến + 1]; sau đó là ghi trễ: FD được nhắc nhờ lễ tân trưởng, nút Lưu tắt; FDL+ nhập lý do, gửi `lateReason`. Mock theo BE-190-12: cửa sổ check-in, một `checkin` mỗi đơn, `openingKind` + `arrivalDate` trong `rooms[]`. Kiểu FE để tùy chọn; test schema tạm cho qua hai trường này đến khi #190 có trong spec |
 | FB-R5-ARC-FE-189-05/06 | Open – chờ BE #190 merge | Không đổi |
+
+### Lượt 3 – khớp BE-190-12 tại `da40f1c7` (18/11, commit `88f48ee3`)
+
+- `rooms[]`: dùng `openingKind` (`checkin` / `room_change_in` / `period_start`) và `segmentFrom` (bắt buộc), bỏ `arrivalDate`. Nút "Nhập chỉ số nhận phòng" vẫn chỉ hiện khi `openingKind === 'checkin'`; ngày điền sẵn bằng `segmentFrom`.
+- Cửa sổ không còn cứng "+1 ngày" phía FE: hộp gửi theo ngày đọc đã chọn, server quyết. 422 `READING_OUT_OF_WINDOW` có `lateUntil` → FD được nhắc nhờ lễ tân trưởng (nút Lưu tắt), FDL+ nhập lý do rồi gửi lại với `lateReason`. Không có `lateUntil` → báo lỗi chung. 409 `READING_EXISTS` → báo lỗi, không lưu. Mock theo đúng BE: cổng trên `readOn`, cửa sổ [segmentFrom, segmentFrom + `daysAfter`], extras `windowFrom`/`windowTo`/`lateUntil`/`lateNeedsRole`.
+- Phiếu in: `BillingPeriodPrint.roomNames` → "The Ivory · 302" (tên Lora, số Mono); tên null thì chỉ số căn (UXD-189-11).
+- Test schema: bỏ hết các khoản cho qua tạm; mock khớp spec `da40f1c7` 2/2. Test mới: ghi trễ theo phản hồi server, 409 `READING_EXISTS`, tên căn trên phiếu. admin-web vitest 1132 xanh, `tsc`, ESLint sạch.
+- FB-R5-ARC-FE-189-05/06: vẫn chờ BE #190 merge.
