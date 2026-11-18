@@ -666,6 +666,8 @@ export class PaymentService {
     const note =
       typeof raw.note === 'string' && raw.note.trim().length >= 3 ? raw.note.trim() : null;
     if (!receivedAt || !note) throw new Error('outside_desk needs receivedAt and a reason');
+    // SEC-BE-197-01: re-check the composed note (reason | ref …) – payment.note never holds a card number.
+    assertNoCardNumber('note', note);
     const recorded = await this.recordManual(tx, {
       folioId: folio.id,
       reservationId: ctx.reservationId,

@@ -339,7 +339,7 @@ export const payment = pgTable(
     // reconciliation queue, always with its reason; its reversal row (A34, reversal_of_id) carries no statement/note.
     check(
       'payment_outside_desk_check',
-      sql`${t.method} <> 'outside_desk' OR (${t.type} = 'charge' AND ${t.reconciliation} = 'not_required' AND ${t.shiftId} IS NULL AND (${t.reversalOfId} IS NOT NULL OR (${t.billingPeriodId} IS NOT NULL AND ${t.note} IS NOT NULL)))`,
+      sql`${t.method} <> 'outside_desk' OR (${t.type} = 'charge' AND ${t.reconciliation} = 'not_required' AND ${t.shiftId} IS NULL AND ((${t.reversalOfId} IS NOT NULL AND ${t.amountVnd} < 0) OR (${t.billingPeriodId} IS NOT NULL AND ${t.note} IS NOT NULL)))`,
     ),
     check(
       'payment_method_detail_check',

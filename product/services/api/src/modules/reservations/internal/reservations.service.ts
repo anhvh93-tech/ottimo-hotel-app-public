@@ -9,6 +9,7 @@ import { LeadsService } from '../../sales/public/leads.service';
 import { inSequence } from '../../../shared/sequence';
 import {
   MONTHLY_STATEMENT_RULES_KEY,
+  BACKDATE_MAX_DAYS,
   backdateBounds,
   backdateRulesOf,
 } from '../../../shared/backdate';
@@ -227,6 +228,8 @@ const MANUAL_LONG_STAY_MAX_DAYS = 731;
 export const CLOSER_CHANGE_AFTER_CHECKIN = 'CLOSER_CHANGE_AFTER_CHECKIN';
 /** FB-INV-012 §12.1.1: FDL/FD sending `backdatedArrival` – one access.denied (controller, after the rollback). */
 export const BACKDATED_ARRIVAL_NEEDS_MGR = 'BACKDATED_ARRIVAL_NEEDS_MGR';
+/** SEC FB-R5-SEC-ARC-12-01 (2) / ARC-BE-197-06: closer change on a backdated long stay by someone other than OWN. */
+export const CLOSER_CHANGE_BACKDATED_STAY = 'CLOSER_CHANGE_BACKDATED_STAY';
 /** The same for the 403 "closer change after confirmation, before check-in, below MGR" (SEC FB-R5-SEC-ARC-1H-03). */
 export const CLOSER_CHANGE_BEFORE_CHECKIN = 'CLOSER_CHANGE_BEFORE_CHECKIN';
 
@@ -651,7 +654,10 @@ export class ReservationsService {
               code: issue.code === 'USE_CHECK_IN' ? 'BACKDATE_OUT_OF_RANGE' : issue.code,
             },
           ],
-          ...('earliest' in issue ? { extras: { earliest: issue.earliest } } : {}),
+          // ARC-BE-197-05: arrival = T is out of the backdate range too – answer its earliest (T − 45) as well.
+          extras: {
+            earliest: 'earliest' in issue ? issue.earliest : addDays(ctx.today, -BACKDATE_MAX_DAYS),
+          },
         });
       }
       if (to <= ctx.today) f.add('departureDate', 'DATE_IN_PAST');
@@ -1466,7 +1472,7 @@ export class ReservationsService {
     if (closerChange && backdatedStay && !hasAny(ctx.actor.roles, ['owner'])) {
       throw problem('FORBIDDEN_ACTION', {
         detail: 'closer change on a backdated stay needs OWN',
-        auditReason: CLOSER_CHANGE_AFTER_CHECKIN,
+        auditReason: CLOSER_CHANGE_BACKDATED_STAY,
       });
     }
     if (closerChange && row.status !== 'hold') {

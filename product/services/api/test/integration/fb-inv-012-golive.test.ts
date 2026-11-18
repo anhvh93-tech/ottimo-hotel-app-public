@@ -7,9 +7,11 @@
  * - §12.2 settleBillingPeriodOutsideDesk (A128) + SEC 12-02 (manager only in the go-live scope);
  * - BE-12 / Q16: the final statement does not bill November twice (rent × contract − rent of issued statements);
  * - §12.3 property contact (A129); SEC 190-08 (meter photo anchor on void).
+ * - PR #197 review: SEC-BE-197-01/02/04, SEC 12-07 (trusted device for backdatedArrival), ARC-BE-197-01/02/05/06/07.
  * DOM's go-live case: rent 8.500.000, in house since 01/11/2026, entered on Desk 24/11, room 202. Fake clock, FAKE data.
  */
 import { randomBytes } from 'node:crypto';
+import { Client as PgClient } from 'pg';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
@@ -92,7 +94,9 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
   const cd: Record<string, Client> = {}; // same users on the trusted desk device
 
   let stay: string;
+  let stayB: string; // Q4/Q5 + the reversal case (ARC-BE-197-01)
   let room202: string;
+  let roomB: string;
   let nov: Json;
   let dec: Json;
 
@@ -167,6 +171,7 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     t = await createTenant(db, { users: ROLES });
     ids = await seedBooking(db, t);
     room202 = ids.rooms['202'] as string;
+    roomB = Object.entries(ids.rooms).find(([no]) => no !== '202')![1] as string;
     guest = await seedGuestRow(db, t, { name: 'Khach Thue Thang' });
     fa = await startFeatureApp(db, {
       override: (b) =>
@@ -199,6 +204,11 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
        ON CONFLICT (room_id) DO UPDATE SET status = 'VC'`,
       [room202, t.organizationId, t.propertyIds[0], new Date('2026-10-01T00:00:00Z')],
     );
+    await q(
+      `INSERT INTO room_status (room_id, organization_id, property_id, status, since) VALUES ($1, $2, $3, 'VC', $4)
+       ON CONFLICT (room_id) DO UPDATE SET status = 'VC'`,
+      [roomB, t.organizationId, t.propertyIds[0], new Date('2026-10-01T00:00:00Z')],
+    );
     await at('2026-11-24T10:00:00+07:00');
   });
   afterAll(async () => {
@@ -212,20 +222,32 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     expect(fdl.statusCode).toBe(403);
     expect(await denied('createReservation')).toBe(before + 1);
 
-    const noManual = await lease(c.mgr!, { manualLongStay: undefined });
+    // SEC 12-07: backdatedArrival needs a trusted device as well (field level) – MGR off the desk device → 403.
+    const offDevice = await lease(c.mgr!);
+    expect(offDevice.statusCode).toBe(403);
+    expect(offDevice.json().code).toBe('DEVICE_NOT_TRUSTED');
+
+    const noManual = await lease(cd.mgr!, { manualLongStay: undefined });
     expect(noManual.statusCode).toBe(422);
     expect(noManual.json().errors).toEqual(
       expect.arrayContaining([{ field: 'backdatedArrival', code: 'NOT_ALLOWED' }]),
     );
     // SEC FB-R5-SEC-ARC-12-01 (1): a backdated stay has no closer (no commission rows).
-    const closer = await lease(c.mgr!, { closerUserId: t.users.mgr!.id });
+    const closer = await lease(cd.mgr!, { closerUserId: t.users.mgr!.id });
     expect(closer.statusCode).toBe(422);
     expect(closer.json().errors).toEqual(
       expect.arrayContaining([{ field: 'closerUserId', code: 'NOT_ALLOWED' }]),
     );
-    const tooOld = await lease(c.mgr!, { arrivalDate: '2026-10-09' }); // T − 46
+    const tooOld = await lease(cd.mgr!, { arrivalDate: '2026-10-09' }); // T − 46
     expect(tooOld.statusCode).toBe(422);
     expect(tooOld.json()).toMatchObject({
+      errors: [{ field: 'arrivalDate', code: 'BACKDATE_OUT_OF_RANGE' }],
+      earliest: '2026-10-10',
+    });
+    // ARC-BE-197-05: arrival = T is out of range too, with its earliest.
+    const todayArrival = await lease(cd.mgr!, { arrivalDate: '2026-11-24' });
+    expect(todayArrival.statusCode).toBe(422);
+    expect(todayArrival.json()).toMatchObject({
       errors: [{ field: 'arrivalDate', code: 'BACKDATE_OUT_OF_RANGE' }],
       earliest: '2026-10-10',
     });
@@ -237,7 +259,7 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
   });
 
   it('§12.1.1: MGR creates the stay (arrival 03/11) – confirmed, no commission, OWN told; allowedActions has check_in_backdated', async () => {
-    const r = await lease(c.mgr!);
+    const r = await lease(cd.mgr!);
     expect(r.statusCode, r.body).toBe(201);
     stay = r.json().id as string;
     expect(r.json()).toMatchObject({ status: 'confirmed', arrivalDate: '2026-11-03' });
@@ -276,6 +298,12 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     );
     expect(mgr.statusCode).toBe(403);
     expect(await denied('updateReservation')).toBe(before + 1);
+    // ARC-BE-197-06: its own reason – the stay is not checked in yet.
+    const [last] = await q<{ reason: string }>(
+      `SELECT reason FROM audit_event WHERE action = 'access.denied' AND entity_id = 'updateReservation'
+        ORDER BY id DESC LIMIT 1`,
+    );
+    expect(last!.reason).toBe('CLOSER_CHANGE_BACKDATED_STAY');
     const own = await c.own!.send(
       'PATCH',
       url(`/reservations/${stay}`),
@@ -356,6 +384,56 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     expect(nights.length).toBeGreaterThan(0);
   });
 
+  it('ARC-BE-197-07 Q4/Q5: an earlier arrival over nights taken by another stay → 409, nothing written; a later arrival gives nights back', async () => {
+    const occupant = await lease(cd.mgr!, {
+      roomId: roomB,
+      arrivalDate: '2026-11-04',
+      bookerGuestId: await seedGuestRow(db, t, { name: 'Khach Phong Ben' }),
+    });
+    expect(occupant.statusCode, occupant.body).toBe(201);
+    // The occupant only holds the night of 04/11 (shortened by hand: a past stay cannot be booked through the API).
+    await q(
+      `UPDATE room_occupancy SET stay_range = '[2026-11-04,2026-11-05)'::daterange
+        WHERE reservation_segment_id IN (SELECT id FROM reservation_segment WHERE reservation_id = $1)`,
+      [occupant.json().id],
+    );
+    const r = await lease(cd.mgr!, { roomId: roomB, arrivalDate: '2026-11-06' });
+    expect(r.statusCode, r.body).toBe(201);
+    stayB = r.json().id as string;
+    const body = { reason: 'In house before Desk, paper lease', cardsIssued: 1 };
+    // Q4: 03/11 takes the night of 04/11 → 409 ROOM_UNAVAILABLE, the stay unchanged.
+    const taken = await backdatedCheckIn(cd.mgr!, stayB, { ...body, arrivalDate: '2026-11-03' });
+    expect(taken.statusCode, taken.body).toBe(409);
+    expect(taken.json().code).toBe('ROOM_UNAVAILABLE');
+    expect(await getRes(stayB)).toMatchObject({ status: 'confirmed', arrivalDate: '2026-11-06' });
+    const [untouched] = await q<{ b: string | null }>(
+      `SELECT checkin_backdated_on::text AS b FROM reservation WHERE id = $1`,
+      [stayB],
+    );
+    expect(untouched!.b).toBeNull();
+    // Q5: a later arrival (08/11) gives the nights of 06 and 07/11 back.
+    const later = await backdatedCheckIn(cd.mgr!, stayB, { ...body, arrivalDate: '2026-11-08' });
+    expect(later.statusCode, later.body).toBe(200);
+    expect(later.json()).toMatchObject({ status: 'in_house', arrivalDate: '2026-11-08' });
+    const nights = await q<{ d: string; s: string; why: string | null }>(
+      `SELECT stay_date::text AS d, night_state AS s, void_reason AS why FROM stay_night
+        WHERE reservation_id = $1 AND stay_date < '2026-11-10' ORDER BY stay_date`,
+      [stayB],
+    );
+    expect(nights.map((x) => [x.d, x.s === 'void' ? x.why : 'live'])).toEqual([
+      ['2026-11-06', 'date_change'],
+      ['2026-11-07', 'date_change'],
+      ['2026-11-08', 'live'],
+      ['2026-11-09', 'live'],
+    ]);
+    const [occ] = await q<{ lo: string }>(
+      `SELECT lower(stay_range)::text AS lo FROM room_occupancy
+        WHERE reservation_segment_id IN (SELECT id FROM reservation_segment WHERE reservation_id = $1)`,
+      [stayB],
+    );
+    expect(occ!.lo).toBe('2026-11-08');
+  });
+
   it("§12.1.3 + SEC 12-06: check-in reading of a backdated stay – FD out of window; FDL late with a reason; not before the room's latest reading", async () => {
     const fd = await c.fd!.send('POST', url(`/reservations/${stay}/meter-readings`), {
       roomId: room202,
@@ -414,6 +492,10 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     nov = await issue(r.json().id);
     expect(nov).toMatchObject({ status: 'issued', totals: { totalVnd: RENT + 100_000 } });
     expect((await bp(nov.id)).availableActions).toContain('settle_outside_desk');
+    // ARC-BE-197-02: the manager sees it here – the check-in statement of a backdated stay (condition (a)).
+    expect(
+      (await cd.mgr!.get(url(`/billing-periods/${nov.id}`))).json().availableActions,
+    ).toContain('settle_outside_desk');
     const asFd = (await c.fd!.get(url(`/billing-periods/${nov.id}`))).json();
     expect(asFd.availableActions).not.toContain('settle_outside_desk');
 
@@ -497,6 +579,22 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     const card = await settle(cd.own!, nov.id, { ...body, reference: '4111 1111 1111 1111' });
     expect(card.statusCode).toBe(422);
     expect(card.body).not.toContain('4111');
+    // SEC-BE-197-01: letters + a card number pass the bank-code rule but not the free-text rule (V-09) → 422, no row.
+    const paymentsBefore = (await q(`SELECT 1 FROM payment WHERE billing_period_id = $1`, [nov.id]))
+      .length;
+    const lettersCard = await settle(cd.own!, nov.id, {
+      ...body,
+      reference: 'FT 4111 1111 1111 1111',
+    });
+    expect(lettersCard.statusCode).toBe(422);
+    expect(lettersCard.json()).toMatchObject({
+      code: 'CARD_NUMBER_DETECTED',
+      errors: [{ field: 'reference', code: 'CARD_NUMBER_DETECTED' }],
+    });
+    expect(lettersCard.body).not.toContain('4111');
+    expect((await q(`SELECT 1 FROM payment WHERE billing_period_id = $1`, [nov.id])).length).toBe(
+      paymentsBefore,
+    );
     const account = await settle(cd.own!, nov.id, { ...body, reference: '0123 456 789' });
     expect(account.statusCode).toBe(422);
     const rest = await settle(cd.own!, nov.id, { ...body, reference: 'OLD-PLATFORM/1102' });
@@ -507,6 +605,99 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     });
     // Paid: nothing left to settle.
     expect((await settle(cd.own!, nov.id, body)).statusCode).toBe(409);
+  });
+
+  it('ARC-BE-197-01 + SEC-BE-197-02/04: a wrong outside-Desk entry is reversed (statement back to issued), never re-recorded by MGR, never refunded by Desk', async () => {
+    const created = await c.fd!.send('POST', url(`/reservations/${stayB}/billing-periods`), {
+      month: '2026-11',
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const st = await issue(created.json().id);
+    const body = { receivedOn: '2026-11-08', reason: 'Rent 11/2026 paid on the old platform' };
+    const part = await settle(cd.mgr!, st.id, { ...body, amountVnd: 2_000_000 });
+    expect(part.statusCode, part.body).toBe(201);
+    expect(part.json().billingPeriod.status).toBe('partially_paid');
+    const paymentId = part.json().payment.id as string;
+
+    const rev = await cd.mgr!.send('POST', url(`/payments/${paymentId}/actions/reverse`), {
+      reason: 'Entered on the wrong statement',
+    });
+    expect(rev.statusCode, rev.body).toBe(200);
+    const [row] = await q<{
+      method: string;
+      amount_vnd: string;
+      shift_id: string | null;
+      billing_period_id: string | null;
+    }>(
+      `SELECT method, amount_vnd::text AS amount_vnd, shift_id, billing_period_id FROM payment
+        WHERE reversal_of_id = $1`,
+      [paymentId],
+    );
+    expect(row).toEqual({
+      method: 'outside_desk',
+      amount_vnd: '-2000000',
+      shift_id: null,
+      billing_period_id: null,
+    });
+    expect(await bp(st.id)).toMatchObject({ status: 'issued', totals: { paidVnd: 0 } });
+
+    // SEC-BE-197-04: the CHECK exempts a reversal row only with a negative amount.
+    // (ottimo_owner: the app role never updates a payment amount.)
+    const pg = new PgClient({ connectionString: process.env.MIGRATION_DATABASE_URL });
+    await pg.connect();
+    try {
+      await pg.query('SET ROLE ottimo_owner');
+      await pg.query('BEGIN');
+      await pg.query(
+        `SELECT set_config('app.organization_id', $1, true), set_config('app.property_id', $2, true)`,
+        [t.organizationId, t.propertyIds[0]],
+      );
+      await expect(
+        pg.query(`UPDATE payment SET amount_vnd = 2000000 WHERE reversal_of_id = $1`, [paymentId]),
+      ).rejects.toThrow(/payment_outside_desk_check/);
+      await pg.query('ROLLBACK');
+    } finally {
+      await pg.end();
+    }
+
+    // SEC-BE-197-02: a statement with a reversed payment is the owner's to settle again.
+    const before = await denied('settleBillingPeriodOutsideDesk');
+    const again = await settle(cd.mgr!, st.id, { ...body, amountVnd: 2_000_000 });
+    expect(again.statusCode).toBe(403);
+    expect(again.json()).toMatchObject({ code: 'FORBIDDEN_ACTION', detail: 'owner only' });
+    expect(await denied('settleBillingPeriodOutsideDesk')).toBe(before + 1);
+    const own = await settle(cd.own!, st.id, { ...body, amountVnd: 2_000_000 });
+    expect(own.statusCode, own.body).toBe(201);
+
+    // §12.2: an approved refund to the original method whose latest receipt is outside Desk → 422.
+    const approvalId = uuidv7();
+    const now = fa.clock.now();
+    await q(
+      `INSERT INTO approval_request (id, organization_id, property_id, type, status, target_type, target_id,
+         target_code, amount_vnd, reason_code, reason_note, requested_by, requested_at, required_role, approver_id,
+         approver_role_snapshot, decided_at, refund_method, refund_destination_set_at, refund_destination_set_by,
+         created_at, created_by, updated_at)
+       VALUES ($1, $2, $3, 'refund', 'approved', 'reservation', $4, $5, 500000, 'overpayment', 'Overpaid rent',
+               $6, $7, 'manager', $8, 'owner', $7, 'original_method', $7, $9, $7, $6, $7)`,
+      [
+        approvalId,
+        t.organizationId,
+        t.propertyIds[0],
+        stayB,
+        (await getRes(stayB)).code,
+        t.users.fd!.id,
+        now,
+        t.users.own!.id,
+        t.users.fdl!.id,
+      ],
+    );
+    const refund = await cd.mgr!.send(
+      'POST',
+      url(`/approval-requests/${approvalId}/actions/execute-refund`),
+      { amountVnd: 100_000, paidAt: now.toISOString(), bankReference: 'FT-TEST-1' },
+    );
+    expect(refund.statusCode, refund.body).toBe(422);
+    expect(refund.json().errors).toEqual([{ field: 'refundMethod', code: 'NOT_ALLOWED' }]);
   });
 
   it('SEC 12-03 / Q13: no request body takes outside_desk (folio payment 422 NOT_IN_LIST, statement payment 422)', async () => {
@@ -538,6 +729,11 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     });
     expect(r.statusCode, r.body).toBe(201);
     dec = await issue(r.json().id);
+    // ARC-BE-197-02: not the check-in statement → the manager is not offered the action.
+    expect(
+      (await cd.mgr!.get(url(`/billing-periods/${dec.id}`))).json().availableActions,
+    ).not.toContain('settle_outside_desk');
+    expect((await bp(dec.id)).availableActions).toContain('settle_outside_desk');
     const before = await denied('settleBillingPeriodOutsideDesk');
     const body = {
       receivedOn: '2026-11-20',

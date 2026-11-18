@@ -151,3 +151,37 @@ Test `fb-inv-012-golive.test.ts`:
 - `receivedOn` lưu 12:00 giờ cơ sở (Asia/Ho_Chi_Minh → 05:00Z).
 - Phiếu tháng nhận phòng = phiếu có kỳ thuê chứa `arrival_date` (sau khi đã dời ngày đến).
 - Biên tháng trước của `backdateBounds` dùng `readingWindow.daysAfter` + `lateMaxDays` (mặc định 10) của `monthly_statement_rules` có hiệu lực ngày T.
+
+## PR #197 – Phản hồi & sửa (18/11, review `SEC-on-be-pr-197.md`, `ARC-on-be-pr-197.md`, contract §12.14)
+
+### Trả lời thẻ SEC
+
+| Thẻ | Mức | Trạng thái | Cách xử lý |
+|---|---|---|---|
+| FB-R5-SEC-BE-197-01 | Major | **Đã sửa** | `settleOutsideDesk`: sau luật mã ngân hàng, `reference` qua thêm `assertNoCardNumber` (luật văn bản tự do V-09). `recordOutsideDesk` kiểm lại cả `note` đã ghép trước khi ghi. Test: `reference: 'FT 4111 1111 1111 1111'` → 422 `CARD_NUMBER_DETECTED` (`errors[reference]`), thân lỗi không chứa số, không thêm dòng `payment` nào |
+| FB-R5-SEC-BE-197-02 | Minor | **Đã sửa** | `assertManagerGoLiveScope` thêm: phiếu có khoản thu `status = 'reversed'`, hoặc khoản thu khác `outside_desk` nhận (theo giờ cơ sở) sau `checkin_backdated_on` → MGR 403 "owner only" + một `access.denied`. Test: MGR ghi ngoài Desk, MGR đảo, MGR ghi lại → 403; OWN ghi được. Nhánh "khoản thu thật sau ngày nhận phòng bù" chưa có test riêng (cùng câu SQL với nhánh `reversed`) |
+| FB-R5-SEC-BE-197-03 | Minor | **Dời – trước khi PR-M gộp** | Chọn cách 1 của SEC: `checkInBackdated` chặn `closer_user_id` khác null khi người gọi không phải OWN (422 `closerUserId: NOT_ALLOWED`), làm cùng điều kiện 12-05 trong PR-M. Hôm nay đơn dài hạn chưa sinh hoa hồng |
+| FB-R5-SEC-BE-197-04 | Minor | **Đã sửa** | CHECK `payment_outside_desk_check` siết thành `(reversal_of_id IS NOT NULL AND amount_vnd < 0) OR (billing_period_id IS NOT NULL AND note IS NOT NULL)`. Sửa thẳng trong 0100 (schema `folio.ts`, SQL, `0100_snapshot.json`; `drizzle-kit generate` báo không lệch). 0100 **chưa ở staging**: chỉ có trên nhánh này, chưa vào `main`; `release.yml` chỉ triển khai tag trỏ commit của `main`. Test: dòng đảo ghi được; đổi số tiền dòng đảo thành dương (vai `ottimo_owner`) → lỗi `payment_outside_desk_check` |
+| FB-R5-SEC-BE-197-05 | Minor | **Dời – 31/12** | Chặn tiền tố `TK`/`STK`/`ACC` + ≥ 9 chữ số trong `reference`. Gợi ý dưới ô là việc của UXD/FE |
+| FB-R5-SEC-ARC-12-04 (a)(c)(d) | Minor | **Dời – 31/12** | (a) so nguyên số hotline; (c) FE; (d) `x-requires-trusted-device` + thông báo OWN khác khi đổi hotline, cần thêm `kind` (gom vào migration kế tiếp) |
+| FB-R5-SEC-ARC-12-07 | Minor | **Đã sửa** | `createReservation.backdatedArrival`: OWN/MGR phải ở thiết bị tin cậy, kiểm ở tầng trường. Tách phần kiểm thiết bị của `AuthGuard` thành `requireTrustedDevice(req, p)` (dùng chung cho cấp operation), controller gọi khi thân có `backdatedArrival`. Ngoài thiết bị → 403 `DEVICE_NOT_TRUSTED` + `access.denied` (`trusted_device`). FD/FDL vẫn nhận 403 theo vai trước (không hỏi thiết bị). OpenAPI ghi ở `backdatedArrival` |
+
+### Trả lời thẻ ARC
+
+| Thẻ | Mức | Trạng thái | Cách xử lý |
+|---|---|---|---|
+| FB-R5-ARC-BE-197-01 | Major | **Đã sửa** | Ca tích hợp mới (đơn thứ hai, căn khác): MGR ghi ngoài Desk 2.000.000 → `partially_paid`; MGR `reversePayment` → 200; dòng đảo `method = outside_desk`, `amount_vnd = -2.000.000`, `shift_id` null, `billing_period_id` null; phiếu về `issued`, `paidVnd = 0`. Sau đó OWN ghi lại, rồi một yêu cầu hoàn đã duyệt `original_method` → `executeRefund` 422 `refundMethod: NOT_ALLOWED`. **Một chỉnh mã nhỏ:** trước đây kiểm `outside_desk` nằm sau kiểm số dư (folio dài hạn không có dư thừa nên luôn trả `REFUND_EXCEEDS_APPROVED` trước). Đã đưa phần xác định phương thức gốc + chặn `outside_desk` lên trước kiểm số tiền; chặn tiền mặt/OTA giữ chỗ cũ. Test hoàn tiền S3 và chi hoàn vẫn xanh. Yêu cầu hoàn trong test được chèn bằng SQL (luồng tạo – duyệt – nơi nhận dài, không thuộc phần cần chứng minh) |
+| FB-R5-ARC-BE-197-02 | Minor | **Đã sửa** | `actions()` nhận `stay`: OWN luôn thấy `settle_outside_desk` khi còn nợ; MGR chỉ khi đủ (a) (đơn có `checkinBackdatedOn`, kỳ thuê chứa ngày đến). Hàm `holdsBackdatedArrival` dùng chung với lúc ghi. Test: MGR thấy trên phiếu 11, không thấy trên phiếu 12; OWN thấy cả hai |
+| FB-R5-ARC-BE-197-03 | Minor | Ghi nhận, không sửa PR này | Hook kiểm `long_stay_cleaning_fee_by_room` làm đầu tiên trong PR 12.4. DOM ghi câu cảnh báo vào go-live-guide 5.3 (ORC báo DOM) |
+| FB-R5-ARC-BE-197-04 | Minor | **Dời – 31/12** | 12-04 (d) ghi ở bảng SEC trên, cùng (a) |
+| FB-R5-ARC-BE-197-05 | Minor | **Đã sửa** | Bảng mã trường OpenAPI thêm `BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED`, `USE_CHECK_IN`, `DATE_IN_FUTURE`; mô tả settle ghi `DATE_IN_FUTURE`/`DATE_INVALID`/`REQUIRED` cho `receivedOn`. `createReservation` ngày đến = T kèm `backdatedArrival` → `BACKDATE_OUT_OF_RANGE` **kèm** `earliest = T − 45` (test). `unmet room_occupied` đã có ở mô tả `checkInBackdated`; không thêm dòng bảng mã vì `unmet` không phải mã trường |
+| FB-R5-ARC-BE-197-06 | Minor | **Đã sửa** | Hằng số mới `CLOSER_CHANGE_BACKDATED_STAY`, thêm vào danh sách `recordUseCaseDenial` của `updateReservation`. Test SEC 12-01 (2) kiểm `access.denied.reason` |
+| FB-R5-ARC-BE-197-07 | Minor | **Đã sửa** | Q4: đơn khác giữ đêm 04/11 trên căn → nhận phòng bù với ngày đến 03/11 → 409 `ROOM_UNAVAILABLE`, đơn vẫn `confirmed`, ngày đến 06/11, `checkin_backdated_on` null. Q5: ngày đến muộn hơn (08/11) → 200, đêm 06–07/11 thành `void` (`date_change`), `room_occupancy` bắt đầu 08/11 |
+| FB-R5-ARC-BE-197-S1 | Gợi ý | **Đã làm** | Cùng sửa 197-04 |
+| FB-R5-ARC-BE-197-S2 | Gợi ý | Ghi nhận | Thứ tự gộp #197 rồi #196 là việc của ORC. API không đổi `PaymentMethodInput` |
+
+### Giả định
+
+- 0100 chưa chạy ở môi trường nào ngoài CI và máy dev. Nên sửa thẳng 0100, không cần migration mới. DB thử cục bộ đã có 0100 cũ, BE tự DROP/ADD CHECK mới tay để chạy test. CI dùng DB mới.
+- Ngày nhận tiền của khoản thu thật (SEC 197-02) so theo giờ cơ sở (`received_at AT TIME ZONE` múi giờ cơ sở).
+- Field-level device check chạy trước body 422 (giống thiết bị cấp operation). MGR gửi `backdatedArrival` sai dạng ngoài thiết bị nhận 403, không phải 422.

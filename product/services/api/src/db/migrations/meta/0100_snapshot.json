@@ -3245,7 +3245,7 @@
         },
         "payment_outside_desk_check": {
           "name": "payment_outside_desk_check",
-          "value": "\"payment\".\"method\" <> 'outside_desk' OR (\"payment\".\"type\" = 'charge' AND \"payment\".\"reconciliation\" = 'not_required' AND \"payment\".\"shift_id\" IS NULL AND (\"payment\".\"reversal_of_id\" IS NOT NULL OR (\"payment\".\"billing_period_id\" IS NOT NULL AND \"payment\".\"note\" IS NOT NULL)))"
+          "value": "\"payment\".\"method\" <> 'outside_desk' OR (\"payment\".\"type\" = 'charge' AND \"payment\".\"reconciliation\" = 'not_required' AND \"payment\".\"shift_id\" IS NULL AND ((\"payment\".\"reversal_of_id\" IS NOT NULL AND \"payment\".\"amount_vnd\" < 0) OR (\"payment\".\"billing_period_id\" IS NOT NULL AND \"payment\".\"note\" IS NOT NULL)))"
         },
         "payment_method_detail_check": {
           "name": "payment_method_detail_check",

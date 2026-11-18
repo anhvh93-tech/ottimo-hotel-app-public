@@ -330,6 +330,10 @@ info:
     | REQUEST_TYPE_NOT_AVAILABLE | Loại yêu cầu không dùng được lúc này (`available=false` ở `listGuestRequestOptions`; loại có phí khi đơn chưa `in_house`; đã có 3 yêu cầu có phí đang mở) (B-14/B-16) – 0.3.6 | `createGuestRequest` |
     | PERFORMED_AT_OUT_OF_RANGE | `performedAt` ngoài [giờ server − 24 giờ, giờ server + 5 phút] (SR-PWA-05) hoặc trước mốc `since` của trạng thái hiện tại – lệnh từ hàng đợi offline quá cũ; PWA đưa mục vào "Không áp dụng được" (0.3.7, B-02/BA E07-02) | `transitionRoomStatus`, `transitionHkTask`, `recordInspection`, `recordMinibarCheck` |
     | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
+    | BACKDATE_OUT_OF_RANGE | **0.3.15** – ngày đến đã qua ngoài biên [T − 45, T − 1] (kể cả ngày đến = T khi gửi `backdatedArrival`); `Problem` kèm `earliest` (= T − 45) | `createReservation.arrivalDate` (`backdatedArrival`), `checkInBackdated.arrivalDate` |
+    | PREVIOUS_MONTH_CLOSED | **0.3.15** – ngày đến ở tháng trước mà chỉ số cuối tháng đó không còn ghi trễ được; `Problem` kèm `earliest` (= ngày 1 tháng này) | `createReservation.arrivalDate` (`backdatedArrival`), `checkInBackdated.arrivalDate` |
+    | USE_CHECK_IN | **0.3.15** – ngày đến = T: dùng nhận phòng thường (`checkIn`) | `checkInBackdated.arrivalDate` |
+    | DATE_IN_FUTURE | **0.3.15** – ngày nhận tiền sau ngày nghiệp vụ T | `settleBillingPeriodOutsideDesk.receivedOn` |
 
     ## Thay đổi phiên bản 0.3.15-draft (R5 FB-INV-012 gói sửa trước ra mắt v1.0.7; hợp đồng `rounds/round-05/fb-inv-012/contract.md` §12, ARC 18/11; SEC `rounds/round-05/reviews/SEC-on-arc-contract-12.md`)
     Nền: 0.3.14-draft. **Chỉ thêm** (operation, trường tùy chọn, giá trị enum ở phản hồi). Migration `0100_go_live_fix_fb_inv_012` (chỉ thêm).
@@ -347,6 +351,11 @@ info:
     - `StaffNotification.kind` thêm `backdated_stay`, `statement_settled_outside_desk`. Tập `money` thêm `billing_period.settled_outside_desk`.
     - **Chưa có ở bản này** (PR sau, phần DB đã có trong 0100): `catchUp` (12.5, BR-LS-17), `getChargeCatalog?folioId` + `priceSource` (12.4) – khóa `long_stay_cleaning_fee_by_room` đã có
       trong danh mục tham số (A101, mặc định `{}`), chưa có hook kiểm và hàm chọn giá.
+    - **Review PR #197 (SEC/ARC, 18/11)**: `backdatedArrival` cần thêm **thiết bị tin cậy** ở tầng trường (SEC 12-07: OWN/MGR ngoài thiết bị → 403 `DEVICE_NOT_TRUSTED`);
+      ngày đến = T cũng trả `BACKDATE_OUT_OF_RANGE` **kèm** `earliest` (ARC 197-05); `reference` của settle qua luật văn bản tự do (422 `CARD_NUMBER_DETECTED`, SEC 197-01);
+      MGR không settle phiếu đã có khoản thu bị đảo hoặc có khoản thu thật nhận sau ngày nhận phòng bù (SEC 197-02); `settle_outside_desk` trong `availableActions` của MGR chỉ
+      khi đủ điều kiện (a) (ARC 197-02); `executeRefund` `original_method` về khoản `outside_desk` → 422 `refundMethod: NOT_ALLOWED` **trước** kiểm số tiền. Bảng mã trường thêm
+      `BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED`, `USE_CHECK_IN`, `DATE_IN_FUTURE`. CHECK `payment_outside_desk_check`: dòng đảo chỉ được miễn khi số tiền âm (SEC 197-04).
     BE sinh lại `openapi-meta.ts`, `openapi-schemas.ts`; api-client sinh lại `generated/openapi.ts` (cùng PR).
 
     ## Thay đổi phiên bản 0.3.14-draft (R5 FB-INV-012 – phiếu thanh toán tháng khách dài hạn; hợp đồng `rounds/round-05/fb-inv-012/contract.md`, ARC 17/11)
@@ -11084,9 +11093,12 @@ paths:
         **0.3.15**. Một khoản `charge` `outside_desk` (`succeeded`, `reconciliation = not_required`, không ca, không vào đối soát, không hoàn được – đảo bằng `reversePayment`, A34).
         Chỉ phiếu `issued`/`partially_paid` còn nợ (khác → 409 `INVALID_TRANSITION`). `amountVnd` tùy chọn, mặc định = còn phải thu; > còn phải thu → 422 `AMOUNT_OVER_BALANCE`
         (`balanceVnd`); ≤ 0 → 422. `receivedOn` ≤ T (lưu 12:00 giờ cơ sở). `reason` 3–300 (lọc số thẻ/giấy tờ) vào ghi chú khoản thu; `reference` tùy chọn ≤ 64 `[A-Za-z0-9 ./-]`,
-        không nhận số thẻ (422 `CARD_NUMBER_DETECTED`) hay chuỗi toàn số ≥ 9 chữ số (422 `reference: NOT_ALLOWED`).
+        không nhận số thẻ (422 `CARD_NUMBER_DETECTED` – luật mã ngân hàng **và** luật văn bản tự do V-09, SEC 197-01, ví dụ `FT 4111 1111 1111 1111`) hay chuỗi toàn số ≥ 9 chữ
+        số (422 `reference: NOT_ALLOWED`). `receivedOn` > T → 422 `receivedOn: DATE_IN_FUTURE`; sai dạng → `DATE_INVALID`; thiếu → `REQUIRED`.
         **SEC 12-02**: MGR chỉ khi **cả ba**: (a) phiếu tháng nhận phòng (kỳ thuê chứa ngày đến) của đơn có `checkinBackdatedOn`; (b) số tiền ≤ phần dòng `rent` chưa thu;
-        (c) `receivedOn` ≤ `checkinBackdatedOn`. Khác → 403 `FORBIDDEN_ACTION` ("owner only") + một `access.denied`. OWN theo các luật trên.
+        (c) `receivedOn` ≤ `checkinBackdatedOn`; và (SEC 197-02) phiếu **chưa** có khoản thu nào `reversed`, **chưa** có khoản thu khác `outside_desk` nhận sau
+        `checkinBackdatedOn`. Khác → 403 `FORBIDDEN_ACTION` ("owner only") + một `access.denied`. OWN theo các luật trên. `availableActions` của MGR chỉ có
+        `settle_outside_desk` khi đủ (a) (ARC 197-02); (b), (c) và SEC 197-02 kiểm lúc ghi.
         Audit `money` `billing_period.settled_outside_desk`; `staff_notification` `statement_settled_outside_desk` cho mọi OWN (refType `reservation`, refCode = mã phiếu).
       x-roles: [owner, manager]
       x-rbac: [A128]
@@ -12818,6 +12830,8 @@ components:
             **0.3.15 (FB-INV-012 §12.1.1, A127)**: khách dài hạn đã ở trước khi có Desk – cho phép `arrivalDate` đã qua trong biên [T − 45, T − 1] (tháng trước chỉ khi chỉ số cuối tháng
             đó còn ghi trễ được). Chỉ kèm `manualLongStay` (khác → 422 `backdatedArrival: NOT_ALLOWED`); chỉ OWN/MGR (khác → 403). Kèm `closerUserId` khác null → 422
             `closerUserId: NOT_ALLOWED` (SEC 12-01). Đơn tạo ra `confirmed`; nhận phòng bằng `checkInBackdated`.
+            **SEC 12-07**: OWN/MGR gửi trường này phải ở **thiết bị tin cậy** (kiểm ở tầng trường, operation không bắt buộc thiết bị) – khác → 403 `DEVICE_NOT_TRUSTED`.
+            Ngoài biên (kể cả ngày đến = T) → 422 `arrivalDate: BACKDATE_OUT_OF_RANGE` kèm `earliest`.
           properties:
             reason: { type: string, minLength: 3, maxLength: 300 }
     ManualLongStayInput:

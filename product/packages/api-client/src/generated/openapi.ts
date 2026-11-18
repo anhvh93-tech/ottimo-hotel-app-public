@@ -5824,9 +5824,12 @@ export interface paths {
      * @description **0.3.15**. Một khoản `charge` `outside_desk` (`succeeded`, `reconciliation = not_required`, không ca, không vào đối soát, không hoàn được – đảo bằng `reversePayment`, A34).
      *     Chỉ phiếu `issued`/`partially_paid` còn nợ (khác → 409 `INVALID_TRANSITION`). `amountVnd` tùy chọn, mặc định = còn phải thu; > còn phải thu → 422 `AMOUNT_OVER_BALANCE`
      *     (`balanceVnd`); ≤ 0 → 422. `receivedOn` ≤ T (lưu 12:00 giờ cơ sở). `reason` 3–300 (lọc số thẻ/giấy tờ) vào ghi chú khoản thu; `reference` tùy chọn ≤ 64 `[A-Za-z0-9 ./-]`,
-     *     không nhận số thẻ (422 `CARD_NUMBER_DETECTED`) hay chuỗi toàn số ≥ 9 chữ số (422 `reference: NOT_ALLOWED`).
+     *     không nhận số thẻ (422 `CARD_NUMBER_DETECTED` – luật mã ngân hàng **và** luật văn bản tự do V-09, SEC 197-01, ví dụ `FT 4111 1111 1111 1111`) hay chuỗi toàn số ≥ 9 chữ
+     *     số (422 `reference: NOT_ALLOWED`). `receivedOn` > T → 422 `receivedOn: DATE_IN_FUTURE`; sai dạng → `DATE_INVALID`; thiếu → `REQUIRED`.
      *     **SEC 12-02**: MGR chỉ khi **cả ba**: (a) phiếu tháng nhận phòng (kỳ thuê chứa ngày đến) của đơn có `checkinBackdatedOn`; (b) số tiền ≤ phần dòng `rent` chưa thu;
-     *     (c) `receivedOn` ≤ `checkinBackdatedOn`. Khác → 403 `FORBIDDEN_ACTION` ("owner only") + một `access.denied`. OWN theo các luật trên.
+     *     (c) `receivedOn` ≤ `checkinBackdatedOn`; và (SEC 197-02) phiếu **chưa** có khoản thu nào `reversed`, **chưa** có khoản thu khác `outside_desk` nhận sau
+     *     `checkinBackdatedOn`. Khác → 403 `FORBIDDEN_ACTION` ("owner only") + một `access.denied`. OWN theo các luật trên. `availableActions` của MGR chỉ có
+     *     `settle_outside_desk` khi đủ (a) (ARC 197-02); (b), (c) và SEC 197-02 kiểm lúc ghi.
      *     Audit `money` `billing_period.settled_outside_desk`; `staff_notification` `statement_settled_outside_desk` cho mọi OWN (refType `reservation`, refCode = mã phiếu).
      */
     post: operations['settleBillingPeriodOutsideDesk'];
@@ -7300,6 +7303,8 @@ export interface components {
        * @description **0.3.15 (FB-INV-012 §12.1.1, A127)**: khách dài hạn đã ở trước khi có Desk – cho phép `arrivalDate` đã qua trong biên [T − 45, T − 1] (tháng trước chỉ khi chỉ số cuối tháng
        *     đó còn ghi trễ được). Chỉ kèm `manualLongStay` (khác → 422 `backdatedArrival: NOT_ALLOWED`); chỉ OWN/MGR (khác → 403). Kèm `closerUserId` khác null → 422
        *     `closerUserId: NOT_ALLOWED` (SEC 12-01). Đơn tạo ra `confirmed`; nhận phòng bằng `checkInBackdated`.
+       *     **SEC 12-07**: OWN/MGR gửi trường này phải ở **thiết bị tin cậy** (kiểm ở tầng trường, operation không bắt buộc thiết bị) – khác → 403 `DEVICE_NOT_TRUSTED`.
+       *     Ngoài biên (kể cả ngày đến = T) → 422 `arrivalDate: BACKDATE_OUT_OF_RANGE` kèm `earliest`.
        */
       backdatedArrival?: {
         reason: string;

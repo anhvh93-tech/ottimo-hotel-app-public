@@ -39,7 +39,7 @@ import {
   OUTSIDE_DESK_SOURCE,
   PaymentService,
 } from '../../payments/public/payment.service';
-import { assertNotCardNumberReference } from '../../../shared/validation';
+import { assertNoCardNumber, assertNotCardNumberReference } from '../../../shared/validation';
 import { atLocal, toZonedIso } from '../../../shared/time';
 import { divideRoundVnd } from '../../platform/public/money';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
@@ -922,10 +922,13 @@ export class StatementsService {
     };
   }
 
-  private actions(row: BpRow, actor: BillingActor): string[] {
+  private actions(row: BpRow, actor: BillingActor, stay: LongStay): string[] {
     const fdl = isFdlPlus(actor.roles);
-    // §12.2: OWN/MGR (a manager's scope is checked at write – SEC 12-02).
-    const mgr = actor.roles.includes('owner') || actor.roles.includes('manager');
+    // §12.2: OWN always; MGR only on the check-in statement of a backdated stay – condition (a) of
+    // SEC 12-02 (ARC-BE-197-02). (b) and (c) are checked at write.
+    const mgr =
+      actor.roles.includes('owner') ||
+      (actor.roles.includes('manager') && this.holdsBackdatedArrival(row, stay));
     const balance = n(row.total_vnd) - n(row.paid_vnd);
     switch (row.status) {
       case 'draft':
@@ -1073,7 +1076,7 @@ export class StatementsService {
           ? null
           : { amountVnd: Number(row.prior_adjustment_vnd), reason: row.prior_adjustment_reason },
       note: row.note,
-      availableActions: this.actions(row, actor),
+      availableActions: this.actions(row, actor, stay),
       ratesSnapshot: row.rates_snapshot,
       replacesId: row.replaces_id,
       replacesCode: replaced?.rows[0]?.code ?? null,
@@ -1991,6 +1994,8 @@ export class StatementsService {
         });
       }
       assertNotCardNumberReference('reference', r.replace(/ /g, '-'));
+      // SEC-BE-197-01: the reference ends up in payment.note – the free-text rule (V-09) applies too.
+      assertNoCardNumber('reference', r);
       // Only digits (9+, separators aside) is how an account number looks – the field never takes one (§12.2).
       if (/^[0-9]{9,}$/.test(r.replace(/[ ./-]/g, ''))) {
         throw problem('VALIDATION_FAILED', {
@@ -2021,7 +2026,7 @@ export class StatementsService {
       throw problem('AMOUNT_OVER_BALANCE', { extras: { balanceVnd: Math.max(0, balance) } });
     }
     if (!actor.roles.includes('owner')) {
-      await this.assertManagerGoLiveScope(tx, row, stay, amount, paid, receivedOn);
+      await this.assertManagerGoLiveScope(tx, row, stay, amount, paid, receivedOn, pc.timezone);
     }
 
     const payment = await this.payments.recordInTx(
@@ -2085,6 +2090,17 @@ export class StatementsService {
     };
   }
 
+  /** SEC 12-02 (a): the stay was checked in backdated and this statement's rent period holds its arrival. */
+  private holdsBackdatedArrival(
+    row: BpRow,
+    stay: { arrival: LocalDate; checkinBackdatedOn?: LocalDate | null },
+  ): boolean {
+    if (!stay.checkinBackdatedOn) return false;
+    const from = row.rent_period_from ?? row.statement_month;
+    const to = row.rent_period_to ?? addDays(addMonths(row.statement_month, 1), -1);
+    return stay.arrival >= from && stay.arrival <= to;
+  }
+
   /** SEC FB-R5-SEC-ARC-12-02: the three conditions under which a manager may settle outside Desk. */
   private async assertManagerGoLiveScope(
     tx: Tx,
@@ -2093,6 +2109,7 @@ export class StatementsService {
     amount: number,
     paid: number,
     receivedOn: LocalDate,
+    timezone: string,
   ): Promise<void> {
     const denied = () =>
       problem('FORBIDDEN_ACTION', {
@@ -2107,9 +2124,20 @@ export class StatementsService {
     const r = rows[0];
     if (!r || r.backdated_on === null) throw denied();
     // (a) the statement whose rent period holds the arrival (the check-in statement).
-    const from = row.rent_period_from ?? row.statement_month;
-    const to = row.rent_period_to ?? addDays(addMonths(row.statement_month, 1), -1);
-    if (r.arrival < from || r.arrival > to) throw denied();
+    if (
+      !this.holdsBackdatedArrival(row, { arrival: r.arrival, checkinBackdatedOn: r.backdated_on })
+    )
+      throw denied();
+    // SEC-BE-197-02: no reversed payment on the statement, and no real payment taken after the backdated
+    // check-in – otherwise a manager could reverse Desk money and re-record it as "outside Desk".
+    const { rows: hist } = await tx.query<{ c: string }>(
+      `SELECT count(*)::text AS c FROM payment
+        WHERE billing_period_id = $1
+          AND (status = 'reversed'
+               OR (method <> 'outside_desk' AND (received_at AT TIME ZONE $3)::date > $2::date))`,
+      [row.id, r.backdated_on, timezone],
+    );
+    if (n(hist[0]?.c ?? null) > 0) throw denied();
     // (b) only the unpaid part of its rent lines.
     const { rows: rent } = await tx.query<{ s: string | null }>(
       `SELECT sum(amount_vnd)::text AS s FROM billing_period_line
