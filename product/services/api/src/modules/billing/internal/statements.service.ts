@@ -1230,6 +1230,8 @@ export class StatementsService {
         opening: St;
         closing: St;
         nextOpening: Exclude<St, 'exception'>;
+        openingKind: 'checkin' | 'room_change_in' | 'period_start';
+        segmentFrom: LocalDate;
       }> = [];
       if (u) {
         const pMonth = monthOf(u.from);
@@ -1288,12 +1290,25 @@ export class StatementsService {
                 ? 'recorded'
                 : 'missing'
               : 'not_needed';
+          // ARC BE-190-12: which opening the desk types for this room, and the day it belongs to.
+          const idx = stay.segments.indexOf(seg);
+          const movedIn = idx > 0 && stay.segments[idx - 1]?.roomId !== seg.roomId;
+          const openingKind =
+            seg.from < u.from
+              ? 'period_start'
+              : idx === 0
+                ? 'checkin'
+                : movedIn
+                  ? 'room_change_in'
+                  : 'period_start';
           rooms.push({
             roomId: seg.roomId,
             roomNo: seg.roomNo,
             opening: statusOf(open),
             closing,
             nextOpening,
+            openingKind,
+            segmentFrom: seg.from,
           });
         }
       }
@@ -1964,13 +1979,21 @@ export class StatementsService {
       periodMonth: l.periodMonth,
     }));
     const t = statement.totals as Record<string, number>;
+    // UXD FE-189-11: the guest-facing room name (The Mist…) next to each room number; null when none is set.
+    const roomNos = statement.roomNos as string[];
+    const named = await tx.query<{ room_no: string; name: string | null }>(
+      'SELECT room_no, name FROM room WHERE room_no = ANY($1::text[])',
+      [roomNos],
+    );
+    const roomNames = roomNos.map((no) => named.rows.find((r) => r.room_no === no)?.name ?? null);
     return {
       id: statement.id,
       code: statement.code,
       status: statement.status,
       kind: statement.kind,
       month: statement.month,
-      roomNos: statement.roomNos,
+      roomNos,
+      roomNames,
       rentPeriod: statement.rentPeriod,
       utilityPeriod: statement.utilityPeriod,
       servicePeriod: statement.servicePeriod,

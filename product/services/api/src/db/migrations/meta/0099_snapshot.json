@@ -15735,6 +15735,28 @@
           "method": "btree",
           "with": {}
         },
+        "meter_reading_checkin_live_key": {
+          "name": "meter_reading_checkin_live_key",
+          "columns": [
+            {
+              "expression": "reservation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "room_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"meter_reading\".\"kind\" = 'checkin' AND \"meter_reading\".\"voided_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "meter_reading_reservation_idx": {
           "name": "meter_reading_reservation_idx",
           "columns": [

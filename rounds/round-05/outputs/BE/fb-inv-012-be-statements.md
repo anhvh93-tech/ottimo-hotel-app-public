@@ -99,3 +99,8 @@ Chi tiết từng thẻ ở `rounds/round-05/responses/BE-responses.md` (mục P
   - mặc định quy tắc có thêm `lateMaxDays: 10`.
 - **Khởi động:** `PaymentsModule` dừng khi thiếu listener của BillingModule.
 - **Test:** 17 test tích hợp FB-INV-012 và toàn bộ api 5.283 test đều xanh.
+- **Lượt 2 (ARC BE-190-12, BE-190-11, UXD FE-189-11):**
+  - `checkin` / `room_change_*` chỉ nhận trong [ngày đến hoặc ngày đổi căn, + `daysAfter`], trễ hơn thì FDL+ kèm lý do tới `lateMaxDays`;
+  - một `checkin` sống mỗi (đơn, căn) – chỉ mục `meter_reading_checkin_live_key` trong 0099; một lần đọc đổi căn mỗi lần đổi;
+  - `rooms[]` thêm `openingKind`, `segmentFrom`; trang in thêm `roomNames`;
+  - test: 20 test tích hợp FB-INV-012, toàn bộ api 5.286 test xanh.

@@ -174,6 +174,10 @@ export const meterReading = pgTable(
     uniqueIndex('meter_reading_live_key')
       .on(t.reservationId, t.roomId, t.kind, sql`COALESCE(${t.periodMonth}, ${t.readOn})`)
       .where(sql`${t.voidedAt} IS NULL`),
+    // ARC BE-190-12: one live check-in reading per stay and room, whatever its date.
+    uniqueIndex('meter_reading_checkin_live_key')
+      .on(t.reservationId, t.roomId)
+      .where(sql`${t.kind} = 'checkin' AND ${t.voidedAt} IS NULL`),
     index('meter_reading_reservation_idx').on(t.reservationId, t.roomId, t.readOn),
   ],
 );

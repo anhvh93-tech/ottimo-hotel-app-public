@@ -5527,6 +5527,9 @@ export interface paths {
      *       `meter_reading.late`, cảnh báo nháp `READING_LATE`); FD hoặc thiếu lý do → 422 `READING_OUT_OF_WINDOW` kèm `lateUntil`, `lateNeedsRole`.
      *       `exception` (`replaced` / `rollover`) hoặc `photoWaived=true` → chỉ OWN/MGR/FDL (FD → 403 `FORBIDDEN_ACTION`, A89 đơn giản hóa).
      *     - Đầu kỳ > cuối kỳ trước → lưu `gap` (không tính tiền, OWN xem). Ảnh `photoAttachmentId` (attachment `purpose=meter`) bắt buộc trừ khi `photoWaived` (kèm `note`).
+     *     - `checkin` / `room_change_*` (ARC BE-190-12): `readOn` ∈ [ngày sự kiện, + `readingWindow.daysAfter`] – ngày sự kiện là ngày đến (`checkin`, chỉ căn
+     *       nhận lúc đến) hoặc ngày đổi căn (`room_change_in` căn mới, `room_change_out` căn cũ); trễ hơn như đọc trễ ở trên; ngoài → 422 `READING_OUT_OF_WINDOW`;
+     *       căn không có sự kiện đó → 422 `VALIDATION_FAILED` `kind` `NOT_ALLOWED`. Một `checkin` còn hiệu lực mỗi (đơn, căn), một lần đọc đổi căn mỗi lần đổi.
      *     - Trùng lần đọc còn hiệu lực (đơn, căn, loại, tháng/ngày) → 409 `READING_EXISTS`. Đơn không `in_house` → 409 `INVALID_TRANSITION` (đơn `checked_out`: chỉ lần đọc cuối kỳ).
      *     `note` 3–300 ký tự, lọc số thẻ/giấy tờ. Audit `meter_reading.recorded` (+ `meter_reading.exception`).
      */
@@ -10253,6 +10256,16 @@ export interface components {
            * @enum {string}
            */
           nextOpening: 'missing' | 'recorded' | 'not_needed';
+          /**
+           * @description ARC BE-190-12: loại lần đọc đầu kỳ của căn trong kỳ này
+           * @enum {string}
+           */
+          openingKind: 'checkin' | 'room_change_in' | 'period_start';
+          /**
+           * Format: date
+           * @description Ngày bắt đầu ở căn (ngày đến với `checkin`, ngày đổi căn với `room_change_in`)
+           */
+          segmentFrom: string;
         }[];
         guestDisplayName?: string | null;
         /** @enum {string} */
@@ -10439,6 +10452,8 @@ export interface components {
       kind: 'regular' | 'final';
       month: string;
       roomNos: string[];
+      /** @description UXD FE-189-11: tên phòng cho khách (The Mist…), cùng thứ tự `roomNos`; null khi chưa đặt tên */
+      roomNames?: (string | null)[];
       rentPeriod?: components['schemas']['DateRange'] | null;
       utilityPeriod?: components['schemas']['DateRange'] | null;
       servicePeriod?: components['schemas']['DateRange'] | null;

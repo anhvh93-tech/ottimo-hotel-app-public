@@ -160,6 +160,7 @@ CREATE INDEX "billing_period_due_idx" ON "billing_period" USING btree ("property
 CREATE UNIQUE INDEX "billing_period_line_live_folio_line_key" ON "billing_period_line" USING btree ("folio_line_id") WHERE "billing_period_line"."active";--> statement-breakpoint
 CREATE INDEX "billing_period_line_period_idx" ON "billing_period_line" USING btree ("billing_period_id","sort_order");--> statement-breakpoint
 CREATE UNIQUE INDEX "meter_reading_live_key" ON "meter_reading" USING btree ("reservation_id","room_id","kind",COALESCE("period_month", "read_on")) WHERE "meter_reading"."voided_at" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "meter_reading_checkin_live_key" ON "meter_reading" USING btree ("reservation_id","room_id") WHERE "meter_reading"."kind" = 'checkin' AND "meter_reading"."voided_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "meter_reading_reservation_idx" ON "meter_reading" USING btree ("reservation_id","room_id","read_on");
 --> statement-breakpoint
 ALTER TABLE meter_reading ENABLE ROW LEVEL SECURITY;

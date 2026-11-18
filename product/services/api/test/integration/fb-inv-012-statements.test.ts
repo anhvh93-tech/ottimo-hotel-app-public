@@ -624,9 +624,13 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     expect(draftPrint.statusCode).toBe(201);
     const refused = await api('fd', 'GET', `/billing-periods/${draftPrint.json().id}/print`);
     expect(refused.statusCode).toBe(409);
+    // UXD FE-189-11: the guest-facing room name next to the number (FAKE name).
+    await q(`UPDATE room SET name = 'The Mist' WHERE id = $1`, [room202]);
     const p = await api('fd', 'GET', `/billing-periods/${dec.id}/print`);
     expect(p.statusCode).toBe(200);
     expect(p.json()).toMatchObject({
+      roomNos: ['202'],
+      roomNames: ['The Mist'],
       code: 'TT-2612-202',
       guest: { fullName: 'Nguyễn Văn Minh' },
       property: { displayName: 'Test property 0' },
@@ -868,6 +872,8 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
             opening: 'exception',
             closing: 'missing',
             nextOpening: 'missing',
+            openingKind: 'period_start',
+            segmentFrom: '2026-11-20',
           },
         ],
       }),
@@ -1004,6 +1010,21 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
       [stay],
     );
     expect(after.every((x) => x.retention_anchor_at?.getTime() === out.getTime())).toBe(true);
+  });
+
+  it('ARC BE-190-11: a checked-out stay needs its final statement – a candidate until departure + daysAfter', async () => {
+    await q(`UPDATE reservation SET status = 'checked_out' WHERE id = $1`, [stay]);
+    const ids = async () =>
+      ((await api('fd', 'GET', `/billing-periods/candidates?month=2027-02`)).json().items as Json[])
+        .filter((x) => x.reservationId === stay)
+        .map((x) => x.kind);
+    await now('2027-02-20T15:00:00+07:00');
+    expect(await ids()).toEqual(['final']);
+    await now('2027-02-21T15:00:00+07:00'); // daysAfter 1 → still listed
+    expect(await ids()).toEqual(['final']);
+    await now('2027-02-22T09:00:00+07:00');
+    expect(await ids()).toEqual([]);
+    await q(`UPDATE reservation SET status = 'in_house' WHERE id = $1`, [stay]);
   });
 
   it('RLS (criterion 10): statements and readings of another property → 404', async () => {
@@ -1202,3 +1223,192 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – rules other than the defaults (criterio
     expect(i.json().totals.totalVnd % 100).toBe(0);
   });
 });
+
+describe.skipIf(!HAS_DB)(
+  'FB-INV-012 – ARC BE-190-12: check-in / room-change readings on their real date',
+  () => {
+    let db: Database;
+    let fa: FeatureApp;
+    let t: TestTenant;
+    let stay: string;
+    let room203: string;
+    let room202: string;
+    const tok = (u: string) => t.users[u]!.sessionToken;
+    const q = async (sql: string, p: unknown[] = []) =>
+      (await db.withContext(t.ctx(), (tx) => tx.query(sql, p))).rows;
+    const api = (who: string, method: 'GET' | 'POST', path: string, json?: unknown) =>
+      staff(fa, tok(who), null, method, `${P(t)}${path}`, json === undefined ? {} : { json });
+    const now = async (iso: string) => {
+      fa.clock.set(at(iso));
+      await touchSessions(db, t, fa.clock.now());
+    };
+    const reading = (who: string, body: Json) =>
+      api(who, 'POST', `/reservations/${stay}/meter-readings`, {
+        roomId: room203,
+        photoWaived: true,
+        note: 'Photo sent later',
+        electricity: { value: 100 },
+        water: { value: 10 },
+        ...body,
+      });
+
+    beforeAll(async () => {
+      db = appDatabase(4);
+      t = await createTenant(db, { users: { own: ['owner'], fdl: ['front_desk_lead'] } });
+      const ids = await seedBooking(db, t);
+      stay = (
+        await seedStay(db, t, ids, {
+          status: 'in_house',
+          stayType: 'long',
+          arrival: '2026-11-01',
+          departure: '2027-05-01',
+          roomNo: '203',
+        })
+      ).reservationId;
+      room203 = ids.rooms['203'] as string;
+      room202 = ids.rooms['202'] as string;
+      await q(
+        `UPDATE reservation SET manual_long_stay = '{"monthly_rent_vnd": 9000000}'::jsonb WHERE id = $1`,
+        [stay],
+      );
+      fa = await startFeatureApp(db);
+    });
+    afterAll(async () => {
+      await fa?.close();
+      await db?.close();
+    });
+
+    it('check-in reading: only in [arrival, arrival + daysAfter]; later FDL+ with a reason up to lateMaxDays; one per stay and room', async () => {
+      // A stay in since 01/11: a check-in reading on 15/11 would become the opening and hide half a month.
+      await now('2026-11-15T10:00:00+07:00');
+      const mid = await reading('fdl', {
+        kind: 'checkin',
+        readOn: '2026-11-15',
+        lateReason: 'Late',
+      });
+      expect(mid.statusCode).toBe(422);
+      expect(mid.json()).toMatchObject({
+        code: 'READING_OUT_OF_WINDOW',
+        windowFrom: '2026-11-01',
+        windowTo: '2026-11-02',
+      });
+      expect(mid.json().lateUntil).toBeUndefined();
+      await now('2026-11-10T10:00:00+07:00');
+      const noReason = await reading('fdl', { kind: 'checkin', readOn: '2026-11-10' });
+      expect(noReason.statusCode).toBe(422);
+      expect(noReason.json()).toMatchObject({
+        code: 'READING_OUT_OF_WINDOW',
+        lateUntil: '2026-11-12',
+        lateNeedsRole: 'front_desk_lead',
+      });
+      const late = await reading('fdl', {
+        kind: 'checkin',
+        readOn: '2026-11-03',
+        lateReason: 'Meter cupboard locked on arrival',
+      });
+      expect(late.statusCode).toBe(201);
+      expect(late.json()).toMatchObject({ kind: 'checkin', late: true });
+      await now('2026-11-11T10:00:00+07:00');
+      const second = await reading('fdl', {
+        kind: 'checkin',
+        readOn: '2026-11-11',
+        lateReason: 'Typed again',
+      });
+      expect(second.statusCode).toBe(409);
+      expect(second.json().code).toBe('READING_EXISTS');
+      // The database keeps one live check-in reading per stay and room as well.
+      await expect(
+        q(
+          `INSERT INTO meter_reading (id, organization_id, property_id, reservation_id, room_id, kind, read_on,
+           electricity_value, water_value, photo_waived_by, note, read_by, read_by_role, created_at, created_by,
+           updated_at)
+         SELECT $1, organization_id, property_id, reservation_id, room_id, kind, '2026-11-04', 1, 1, photo_waived_by,
+                note, read_by, read_by_role, now(), created_by, now()
+           FROM meter_reading WHERE reservation_id = $2 AND kind = 'checkin'`,
+          [uuidv7(), stay],
+        ),
+      ).rejects.toThrow(/meter_reading_checkin_live_key/);
+      // A draft shows the late opening.
+      await now('2026-11-30T20:00:00+07:00');
+      const close = await reading('fdl', {
+        kind: 'period_end',
+        periodMonth: '2026-11',
+        readOn: '2026-11-30',
+        electricity: { value: 150 },
+        water: { value: 11 },
+      });
+      expect(close.statusCode).toBe(201);
+      await now('2026-12-01T09:00:00+07:00');
+      const draft = await api('own', 'POST', `/reservations/${stay}/billing-periods`, {
+        month: '2026-12',
+      });
+      expect(draft.statusCode).toBe(201);
+      expect((draft.json().warnings as Json[]).map((w) => w.code)).toContain('READING_LATE');
+      const cand = await api('own', 'GET', `/billing-periods/candidates?month=2026-12`);
+      expect(
+        (cand.json().items as Json[]).find((x) => x.reservationId === stay)?.rooms,
+      ).toMatchObject([{ roomNo: '203', openingKind: 'checkin', segmentFrom: '2026-11-01' }]);
+    });
+
+    it('room change: readings on the move date (+ daysAfter); wrong room for the kind → NOT_ALLOWED; one per move', async () => {
+      await q(
+        `UPDATE reservation_segment SET to_date = '2026-12-10' WHERE reservation_id = $1 AND active`,
+        [stay],
+      );
+      await q(
+        `INSERT INTO reservation_segment (id, organization_id, property_id, reservation_id, room_id, from_date,
+         to_date, created_at, updated_at)
+       SELECT $1, organization_id, property_id, id, $2, '2026-12-10', departure_date, now(), now()
+         FROM reservation WHERE id = $3`,
+        [uuidv7(), room202, stay],
+      );
+      await now('2026-12-11T10:00:00+07:00');
+      const wrongRoom = await reading('fdl', { kind: 'room_change_in', readOn: '2026-12-10' });
+      expect(wrongRoom.statusCode).toBe(422);
+      expect(wrongRoom.json().errors).toEqual([{ field: 'kind', code: 'NOT_ALLOWED' }]);
+      const before = await reading('fdl', {
+        kind: 'room_change_in',
+        roomId: room202,
+        readOn: '2026-12-09',
+      });
+      expect(before.statusCode).toBe(422);
+      expect(before.json()).toMatchObject({
+        code: 'READING_OUT_OF_WINDOW',
+        windowFrom: '2026-12-10',
+      });
+      const out = await reading('fdl', {
+        kind: 'room_change_out',
+        readOn: '2026-12-10',
+        electricity: { value: 180 },
+        water: { value: 12 },
+      });
+      expect(out.statusCode).toBe(201);
+      const inn = await reading('fdl', {
+        kind: 'room_change_in',
+        roomId: room202,
+        readOn: '2026-12-10',
+        electricity: { value: 500 },
+        water: { value: 20 },
+      });
+      expect(inn.statusCode).toBe(201);
+      expect(inn.json()).toMatchObject({ late: false });
+      const again = await reading('fdl', {
+        kind: 'room_change_in',
+        roomId: room202,
+        readOn: '2026-12-11',
+        electricity: { value: 501 },
+        water: { value: 20 },
+      });
+      expect(again.statusCode).toBe(409);
+      expect(again.json().code).toBe('READING_EXISTS');
+      await now('2027-01-01T09:00:00+07:00');
+      const cand = await api('own', 'GET', `/billing-periods/candidates?month=2027-01`);
+      expect(
+        (cand.json().items as Json[]).find((x) => x.reservationId === stay)?.rooms,
+      ).toMatchObject([
+        { roomNo: '203', openingKind: 'period_start', segmentFrom: '2026-11-01' },
+        { roomNo: '202', openingKind: 'room_change_in', segmentFrom: '2026-12-10' },
+      ]);
+    });
+  },
+);

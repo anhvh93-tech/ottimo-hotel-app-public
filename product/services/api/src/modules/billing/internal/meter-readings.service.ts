@@ -120,6 +120,30 @@ export const exceptionOf = (meter: Meter, row: ReadingRow): MeterException | nul
 const METERS: readonly Meter[] = ['electricity', 'water'];
 
 /**
+ * ARC BE-190-12: the real date a check-in / room-change reading belongs to. `checkin` – the arrival, only for the
+ * room held on arrival; `room_change_in` – the day the stay moved into the room; `room_change_out` – the day it moved
+ * out (the next segment is another room). With several moves the latest one on or before `readOn` (else the first).
+ */
+export function eventDateOf(
+  segments: ReadonlyArray<{ roomId: string; from: LocalDate; to: LocalDate }>,
+  arrival: LocalDate,
+  roomId: string,
+  kind: string,
+  readOn: LocalDate,
+): LocalDate | null {
+  if (kind === 'checkin') return segments[0]?.roomId === roomId ? arrival : null;
+  const dates: LocalDate[] = [];
+  for (let i = 1; i < segments.length; i++) {
+    const prev = segments[i - 1] as { roomId: string };
+    const cur = segments[i] as { roomId: string; from: LocalDate };
+    if (prev.roomId === cur.roomId) continue;
+    if ((kind === 'room_change_in' ? cur.roomId : prev.roomId) === roomId) dates.push(cur.from);
+  }
+  if (dates.length === 0) return null;
+  return [...dates].reverse().find((d) => d <= readOn) ?? (dates[0] as LocalDate);
+}
+
+/**
  * Reading window of the closing of month P (BR-LS-10): [last day of P − daysBeforeMonthEnd, last day + daysAfter].
  * The opening of P (`period_start`) is read in the same window as the closing of P−1.
  */
@@ -389,31 +413,42 @@ export class MeterReadingsService {
     if (day > pc.today || day < stay.arrival || day > stay.departure) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'readOn', code: 'DATE_INVALID' }] });
     }
+    const rules = readRules(await this.params.get(tx, STATEMENT_RULES_KEY, pc.today));
     let lateReason: string | null = null;
-    if (periodMonth) {
-      const rules = readRules(await this.params.get(tx, STATEMENT_RULES_KEY, pc.today));
-      const w = windowOf(k as 'period_start' | 'period_end', periodMonth, rules);
+    // Window gate shared by every kind (ARC BE-190-03/12): inside [from, to] anyone; after `to` up to
+    // lateMaxDays only FDL+ with a reason; otherwise 422 READING_OUT_OF_WINDOW.
+    const gate = (w: { from: LocalDate; to: LocalDate }): string | null => {
+      if (day >= w.from && day <= w.to) return null;
       const lateUntil = addDays(w.to, lateMaxDaysOf(rules));
-      if (day < w.from || day > w.to) {
-        // ARC BE-190-03: after the window, FDL+ may still type it with a reason, up to lateMaxDays.
-        const lateOk = day > w.to && day <= lateUntil;
-        const out = {
-          extras: {
-            windowFrom: w.from,
-            windowTo: w.to,
-            ...(lateOk ? { lateUntil, lateNeedsRole: 'front_desk_lead' } : {}),
-          },
-        };
-        if (!lateOk || !fdl) throw problem('READING_OUT_OF_WINDOW', out);
-        lateReason = freeText('lateReason', body.lateReason);
-        if (lateReason === null) throw problem('READING_OUT_OF_WINDOW', out);
-      }
+      const lateOk = day > w.to && day <= lateUntil;
+      const out = {
+        extras: {
+          windowFrom: w.from,
+          windowTo: w.to,
+          ...(lateOk ? { lateUntil, lateNeedsRole: 'front_desk_lead' } : {}),
+        },
+      };
+      if (!lateOk || !fdl) throw problem('READING_OUT_OF_WINDOW', out);
+      const reason = freeText('lateReason', body.lateReason);
+      if (reason === null) throw problem('READING_OUT_OF_WINDOW', out);
+      return reason;
+    };
+    let anchor: LocalDate | null = null;
+    if (periodMonth) {
+      lateReason = gate(windowOf(k as 'period_start' | 'period_end', periodMonth, rules));
       if (k === 'period_start' && periodMonth <= monthOf(stay.arrival)) {
         // The opening of the arrival month is the check-in reading.
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'periodMonth', code: 'NOT_ALLOWED' }],
         });
       }
+    } else if (k !== 'checkout') {
+      // ARC BE-190-12: check-in / room-change readings belong to the real check-in or move date.
+      anchor = eventDateOf(stay.segments, stay.arrival, room.roomId, k, day);
+      if (anchor === null) {
+        throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_ALLOWED' }] });
+      }
+      lateReason = gate({ from: anchor, to: addDays(anchor, rules.readingWindow.daysAfter) });
     }
     if (photoId !== undefined && photoId !== null && photoId !== '') {
       await this.attachments.assertUsable(tx, actor, String(photoId), 'meter', {
@@ -471,6 +506,21 @@ export class MeterReadingsService {
       [stay.id, room.roomId, k, periodMonth, day],
     );
     if (dup.rowCount) throw problem('READING_EXISTS');
+    if (anchor !== null) {
+      // One live check-in reading per stay and room; one live room-change reading per move.
+      const again = await tx.query(
+        `SELECT 1 FROM meter_reading WHERE reservation_id = $1 AND room_id = $2 AND kind = $3
+            AND voided_at IS NULL AND ($3 = 'checkin' OR read_on BETWEEN $4::date AND $5::date)`,
+        [
+          stay.id,
+          room.roomId,
+          k,
+          anchor,
+          addDays(anchor, rules.readingWindow.daysAfter + lateMaxDaysOf(rules)),
+        ],
+      );
+      if (again.rowCount) throw problem('READING_EXISTS');
+    }
 
     const id = uuidv7();
     const e = values.electricity as { scaled: number; exception: MeterException | null };
@@ -511,7 +561,11 @@ export class MeterReadingsService {
         ],
       );
     } catch (err) {
-      if (isUniqueViolation(err, 'meter_reading_live_key')) throw problem('READING_EXISTS');
+      if (
+        isUniqueViolation(err, 'meter_reading_live_key') ||
+        isUniqueViolation(err, 'meter_reading_checkin_live_key')
+      )
+        throw problem('READING_EXISTS');
       throw err;
     }
     if (photoId) await this.attachments.bindTo(tx, String(photoId), { type: 'meter_reading', id });

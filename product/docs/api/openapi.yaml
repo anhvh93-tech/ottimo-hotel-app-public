@@ -196,7 +196,7 @@ info:
     | CHECKLIST_OUTDATED | 409 | `recordInspection`: `checklistVersion` khác phiên bản hiện hành (OWN/MGR vừa sửa danh mục hoặc mục động BR-812 vừa đổi) – kèm `currentVersion`; PWA tải lại checklist rồi kiểm lại (0.3.7, B-02/BA E07-02) |
     | ONLINE_CHECKIN_CLOSED | 409 | App khách ghi check-in online khi đã đóng (`onlineCheckinAvailable=false`: lễ tân đã nhập giấy tờ, đơn `in_house` hoặc không còn `confirmed`) (0.3.3, E06-06) |
     | NOT_LONG_STAY | 422 | **0.3.14 (FB-INV-012)** – chỉ số điện nước / phiếu tháng trên đơn không phải dài hạn có tiền thuê (`stay_type=long`, `manual_long_stay.monthly_rent_vnd`) |
-    | READING_OUT_OF_WINDOW | 422 | **0.3.14** – `recordMeterReading` `period_start`/`period_end` ngoài cửa sổ `monthly_statement_rules.readingWindow` (BR-LS-10) – kèm `windowFrom`, `windowTo`; còn trong hạn đọc trễ (`lateMaxDays`) thì thêm `lateUntil`, `lateNeedsRole` (FDL+ gửi `lateReason` – ARC BE-190-03) |
+    | READING_OUT_OF_WINDOW | 422 | **0.3.14** – `recordMeterReading` ngoài cửa sổ (`checkin`/`room_change_*`: ngày sự kiện + `daysAfter` – ARC BE-190-12; `period_*`: `monthly_statement_rules.readingWindow`, BR-LS-10) – kèm `windowFrom`, `windowTo`; còn trong hạn đọc trễ (`lateMaxDays`) thì thêm `lateUntil`, `lateNeedsRole` (FDL+ gửi `lateReason` – ARC BE-190-03) |
     | METER_LOWER_THAN_PREVIOUS | 422 | **0.3.14** – chỉ số cuối kỳ < đầu kỳ cùng kỳ mà không có `exception` (BR-LS-12) – kèm `meter`, `previousValue`, `previousReadingId`, `previousKind` |
     | OPENING_BELOW_PREVIOUS_CLOSING | 422 | **0.3.14 (review ARC BE-190-01)** – `recordMeterReading` đầu kỳ < cuối kỳ trước của căn, không `exception`, chưa gửi `acknowledgeLowerThanPrevious: true` – cảnh báo hai bước, gửi lại với cờ thì lưu (FD+) – kèm `meter`, `previousValue`, `previousReadingId`, `previousKind` |
     | READING_EXISTS | 409 | **0.3.14** – đã có lần đọc còn hiệu lực cùng đơn, căn, loại, tháng (`period_*`) / ngày (loại khác) |
@@ -352,6 +352,10 @@ info:
     `BillingPeriodLine` thêm `periodMonth`; ứng viên thêm `rooms[]` (đầu kỳ, cuối kỳ, đầu kỳ tháng kế) và đơn đã trả phòng cần phiếu `final`;
     `getBillingPeriodPrint` trả **danh sách trường cho giấy** (`BillingPeriodPrint`, không ghi chú, lý do, folio, giá chụp). FK `payment_billing_period_fk`.
     `uploadAttachment` nhận `purpose=meter` (trước đó 422 `NOT_IN_LIST` vì chưa có bản ghi gắn ảnh); ảnh đồng hồ có mốc lưu giữ lúc trả phòng (SEC BE-190-01).
+    **Lượt 2 (ARC BE-190-12)**: `checkin` chỉ trong [ngày đến, ngày đến + `daysAfter`] và cho căn nhận lúc đến; `room_change_in`/`room_change_out` trong
+    [ngày đổi căn, + `daysAfter`]; trễ hơn thì như đọc trễ (FDL+, `lateReason`, tới `lateMaxDays`); ngoài → 422 `READING_OUT_OF_WINDOW`; loại không khớp căn
+    → 422 `kind` `NOT_ALLOWED`. Một `checkin` còn hiệu lực mỗi (đơn, căn) – chỉ mục `meter_reading_checkin_live_key`; một lần đọc đổi căn mỗi lần đổi → 409
+    `READING_EXISTS`. `rooms[]` thêm `openingKind`, `segmentFrom`; `BillingPeriodPrint` thêm `roomNames` (UXD FE-189-11).
 
     ## Thay đổi phiên bản 0.3.13-draft (R5 v1.0.5 – Gói 0; ARC 06/11; chi tiết `rounds/round-05/outputs/ARC/contract-0.3.13.md`)
     Nền: 0.3.12-draft (`main` @ `4a36180a`). Chủ yếu **thêm**: trường chỉ đọc, trường tùy chọn ở thân lệnh, tham số lọc, trường mở rộng của Problem, luật trên operation đã có, và hai operation mới (Wi-Fi).
@@ -10567,6 +10571,9 @@ paths:
           `meter_reading.late`, cảnh báo nháp `READING_LATE`); FD hoặc thiếu lý do → 422 `READING_OUT_OF_WINDOW` kèm `lateUntil`, `lateNeedsRole`.
           `exception` (`replaced` / `rollover`) hoặc `photoWaived=true` → chỉ OWN/MGR/FDL (FD → 403 `FORBIDDEN_ACTION`, A89 đơn giản hóa).
         - Đầu kỳ > cuối kỳ trước → lưu `gap` (không tính tiền, OWN xem). Ảnh `photoAttachmentId` (attachment `purpose=meter`) bắt buộc trừ khi `photoWaived` (kèm `note`).
+        - `checkin` / `room_change_*` (ARC BE-190-12): `readOn` ∈ [ngày sự kiện, + `readingWindow.daysAfter`] – ngày sự kiện là ngày đến (`checkin`, chỉ căn
+          nhận lúc đến) hoặc ngày đổi căn (`room_change_in` căn mới, `room_change_out` căn cũ); trễ hơn như đọc trễ ở trên; ngoài → 422 `READING_OUT_OF_WINDOW`;
+          căn không có sự kiện đó → 422 `VALIDATION_FAILED` `kind` `NOT_ALLOWED`. Một `checkin` còn hiệu lực mỗi (đơn, căn), một lần đọc đổi căn mỗi lần đổi.
         - Trùng lần đọc còn hiệu lực (đơn, căn, loại, tháng/ngày) → 409 `READING_EXISTS`. Đơn không `in_house` → 409 `INVALID_TRANSITION` (đơn `checked_out`: chỉ lần đọc cuối kỳ).
         `note` 3–300 ký tự, lọc số thẻ/giấy tờ. Audit `meter_reading.recorded` (+ `meter_reading.exception`).
       x-roles: [owner, manager, front_desk_lead, front_desk]
@@ -15764,13 +15771,15 @@ components:
                 description: 'ARC BE-190-02: từng căn của kỳ điện nước trên phiếu; `missing` khớp kiểm tra lúc phát hành'
                 items:
                   type: object
-                  required: [roomId, roomNo, opening, closing, nextOpening]
+                  required: [roomId, roomNo, opening, closing, nextOpening, openingKind, segmentFrom]
                   properties:
                     roomId: { $ref: '#/components/schemas/Uuid' }
                     roomNo: { type: string }
                     opening: { type: string, enum: [missing, recorded, exception, not_needed] }
                     closing: { type: string, enum: [missing, recorded, exception, not_needed] }
                     nextOpening: { type: string, enum: [missing, recorded, not_needed], description: '`period_start` của tháng kế (cùng bảng cuối tháng)' }
+                    openingKind: { type: string, enum: [checkin, room_change_in, period_start], description: 'ARC BE-190-12: loại lần đọc đầu kỳ của căn trong kỳ này' }
+                    segmentFrom: { type: string, format: date, description: 'Ngày bắt đầu ở căn (ngày đến với `checkin`, ngày đổi căn với `room_change_in`)' }
               guestDisplayName: { type: [string, 'null'] }
               kind: { type: string, enum: [regular, final] }
               readingStatus: { type: string, enum: [missing, recorded, exception, not_needed], description: 'Tổng hợp: `missing` khi đầu kỳ hoặc cuối kỳ của căn nào thiếu' }
@@ -15966,6 +15975,7 @@ components:
             kind: { type: string, enum: [regular, final] }
             month: { type: string }
             roomNos: { type: array, items: { type: string } }
+            roomNames: { type: array, items: { type: [string, 'null'] }, description: 'UXD FE-189-11: tên phòng cho khách (The Mist…), cùng thứ tự `roomNos`; null khi chưa đặt tên' }
             rentPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
             utilityPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
             servicePeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }

@@ -4054,6 +4054,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                         opening: { s: { k: 'scalar' } },
                         closing: { s: { k: 'scalar' } },
                         nextOpening: { s: { k: 'scalar' } },
+                        openingKind: { s: { k: 'scalar' } },
+                        segmentFrom: { s: { k: 'scalar' } },
                       },
                       open: false,
                     },
@@ -4335,6 +4337,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         kind: { s: { k: 'scalar' } },
         month: { s: { k: 'scalar' } },
         roomNos: { s: { k: 'array', items: { k: 'scalar' } } },
+        roomNames: { s: { k: 'array', items: { k: 'scalar' } } },
         rentPeriod: { s: { k: 'union', of: [{ k: 'ref', name: 'DateRange' }, { k: 'scalar' }] } },
         utilityPeriod: {
           s: { k: 'union', of: [{ k: 'ref', name: 'DateRange' }, { k: 'scalar' }] },
