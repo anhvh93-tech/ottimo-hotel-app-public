@@ -18,6 +18,9 @@ defineAuditEntity('meter_reading', [
   'electricityException',
   'waterException',
   'photoWaived',
+  // ARC BE-190-01 / 03: opening below the previous closing saved after the warning; reading typed after its window.
+  'acknowledgedLower',
+  'late',
   'voided',
 ]);
 
@@ -33,4 +36,7 @@ defineAuditEntity('billing_period', [
   'paymentId',
   'method',
   'amountVnd',
+  // SEC BE-190-02: money decided on a draft (who set it is the actor of billing_period.updated).
+  'priorAdjustmentVnd',
+  'excludedFolioLineCount',
 ]);

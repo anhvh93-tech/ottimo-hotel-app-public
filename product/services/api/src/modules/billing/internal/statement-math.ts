@@ -73,7 +73,8 @@ export interface StatementRules {
   dueDay: number;
   totalRoundingVnd: number;
   partialFirstMonthRent: PartialFirstMonthRent;
-  readingWindow: { daysBeforeMonthEnd: number; daysAfter: number };
+  /** `lateMaxDays` (ARC BE-190-03): how many days after the window FDL+ may still type a late reading (default 10). */
+  readingWindow: { daysBeforeMonthEnd: number; daysAfter: number; lateMaxDays?: number };
 }
 
 export interface UtilityUnitPrice {
@@ -96,7 +97,7 @@ export const DEFAULT_RULES: StatementRules = {
   dueDay: 5,
   totalRoundingVnd: 1000,
   partialFirstMonthRent: 'at_checkin',
-  readingWindow: { daysBeforeMonthEnd: 0, daysAfter: 1 },
+  readingWindow: { daysBeforeMonthEnd: 0, daysAfter: 1, lateMaxDays: 10 },
 };
 
 export const VAT_RATES_ALLOWED = [0, 5, 8, 10] as const;
@@ -107,6 +108,10 @@ export const UNIT_PRICE_BOUNDS = {
 } as const;
 /** Reading window bounds (not in the contract table – BE: a window wider than a week is a typo). */
 export const READING_WINDOW_MAX_DAYS = 7;
+export const LATE_MAX_DAYS_DEFAULT = 10;
+export const LATE_MAX_DAYS_MAX = 31;
+export const lateMaxDaysOf = (rules: StatementRules): number =>
+  rules.readingWindow.lateMaxDays ?? LATE_MAX_DAYS_DEFAULT;
 
 export interface ParamIssue {
   field: string;
@@ -196,7 +201,9 @@ export function rulesIssue(v: unknown): ParamIssue | null {
   const w = v.readingWindow;
   if (w === undefined || w === null) return { field: 'value.readingWindow', code: 'REQUIRED' };
   if (!isObj(w)) return { field: 'value.readingWindow', code: 'VALIDATION_FAILED' };
-  const wExtra = Object.keys(w).find((k) => !['daysBeforeMonthEnd', 'daysAfter'].includes(k));
+  const wExtra = Object.keys(w).find(
+    (k) => !['daysBeforeMonthEnd', 'daysAfter', 'lateMaxDays'].includes(k),
+  );
   if (wExtra) return { field: `value.readingWindow.${wExtra}`, code: 'NOT_ALLOWED' };
   for (const k of ['daysBeforeMonthEnd', 'daysAfter'] as const) {
     const x = w[k];
@@ -208,6 +215,18 @@ export function rulesIssue(v: unknown): ParamIssue | null {
         field: `value.readingWindow.${k}`,
         code: 'PARAM_OUT_OF_RANGE',
         extras: { min: 0, max: READING_WINDOW_MAX_DAYS },
+      };
+    }
+  }
+  const late = w.lateMaxDays;
+  if (late !== undefined && late !== null) {
+    if (!isInt(late))
+      return { field: 'value.readingWindow.lateMaxDays', code: 'VALIDATION_FAILED' };
+    if (late < 0 || late > LATE_MAX_DAYS_MAX) {
+      return {
+        field: 'value.readingWindow.lateMaxDays',
+        code: 'PARAM_OUT_OF_RANGE',
+        extras: { min: 0, max: LATE_MAX_DAYS_MAX },
       };
     }
   }

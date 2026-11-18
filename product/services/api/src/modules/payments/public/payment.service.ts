@@ -454,6 +454,10 @@ export class PaymentService {
     this.billingListener = listener;
   }
 
+  hasBillingPeriodListener(): boolean {
+    return this.billingListener !== undefined && this.billingListener !== null;
+  }
+
   /** FB-INV-012: a receipt of statement `billingPeriodId` changed status – the statement recomputes what it received. */
   async billingPeriodPaymentChanged(tx: Tx, billingPeriodId: string): Promise<void> {
     if (!this.billingListener)

@@ -181,6 +181,19 @@ describe('FB-INV-012 – parameter hooks (criterion 9: out of bounds → 422)', 
     expect(rulesIssue({ ...DEFAULT_RULES, dueDay: 29 })?.code).toBe('PARAM_OUT_OF_RANGE');
     expect(rulesIssue({ ...DEFAULT_RULES, rentTiming: 'weekly' })).not.toBeNull();
     expect(rulesIssue({ ...DEFAULT_RULES, totalRoundingVnd: 500 })).not.toBeNull();
+    // ARC BE-190-03: lateMaxDays optional, 0–31 (default 10).
+    const w = (lateMaxDays?: number) => ({
+      ...DEFAULT_RULES,
+      readingWindow: {
+        daysBeforeMonthEnd: 0,
+        daysAfter: 1,
+        ...(lateMaxDays === undefined ? {} : { lateMaxDays }),
+      },
+    });
+    expect(rulesIssue(w())).toBeNull();
+    expect(rulesIssue(w(31))).toBeNull();
+    expect(rulesIssue(w(32))?.code).toBe('PARAM_OUT_OF_RANGE');
+    expect(DEFAULT_RULES.readingWindow.lateMaxDays).toBe(10);
   });
 });
 
@@ -192,12 +205,16 @@ describe('FB-INV-012 – migration 0099 is additive only (criterion 11, static p
     .split('\n')
     .filter((l) => !l.trim().startsWith('--'))
     .join('\n');
-  it('no UPDATE / DELETE / DROP / TRUNCATE; ALTER only on the three new tables', () => {
+  it('no UPDATE / DELETE / DROP / TRUNCATE; ALTER on the new tables + one FK on payment', () => {
     expect(sql).not.toMatch(/^\s*(UPDATE|DELETE\s+FROM|DROP|TRUNCATE)\b/im);
     const altered = [...sql.matchAll(/ALTER TABLE\s+"?(\w+)"?/gi)].map((m) => m[1]);
+    // ARC BE-190-05: the only ALTER of an existing table is a constraint (FK) on payment – no data change.
     expect(new Set(altered)).toEqual(
-      new Set(['billing_period', 'billing_period_line', 'meter_reading']),
+      new Set(['billing_period', 'billing_period_line', 'meter_reading', 'payment']),
     );
+    const onPayment = [...sql.matchAll(/ALTER TABLE\s+"payment"\s+([^;]+);/gi)].map((m) => m[1]);
+    expect(onPayment).toHaveLength(1);
+    expect(onPayment[0]).toMatch(/^ADD CONSTRAINT "payment_billing_period_fk" FOREIGN KEY/);
     const created = [...sql.matchAll(/CREATE TABLE\s+"?(\w+)"?/gi)].map((m) => m[1]);
     expect(created.sort()).toEqual(['billing_period', 'billing_period_line', 'meter_reading']);
     expect(sql).toMatch(/INSERT INTO config_parameter_def[\s\S]*ON CONFLICT \(key\) DO NOTHING/);

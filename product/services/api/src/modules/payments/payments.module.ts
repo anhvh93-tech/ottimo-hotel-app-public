@@ -8,7 +8,14 @@
  * AttachmentService), REFUND_ACCOUNT_CIPHER (CryptoModule → CryptoService); C3AccessGate (step-up window,
  * c3_access_log before data) for getRefundDestination.
  */
-import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Module,
+  type OnApplicationBootstrap,
+  type OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import { FolioService } from '../folio/public/folio.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
@@ -33,7 +40,7 @@ import './audit-entities';
   providers: [PaymentService, DepositsService, PaymentsService, RefundsService],
   exports: [PaymentService],
 })
-export class PaymentsModule implements OnModuleInit {
+export class PaymentsModule implements OnModuleInit, OnApplicationBootstrap {
   constructor(
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(RefundsService) private readonly refunds: RefundsService,
@@ -41,7 +48,20 @@ export class PaymentsModule implements OnModuleInit {
     @Optional() @Inject(ReservationHooks) private readonly hooks?: ReservationHooks,
     @Optional() @Inject(FolioService) private readonly folios?: FolioService,
     @Optional() @Inject(PaymentsService) private readonly paymentsSvc?: PaymentsService,
+    @Optional() @Inject(PaymentService) private readonly payment?: PaymentService,
   ) {}
+
+  /**
+   * FB-INV-012 (ARC BE-190-06): reversing a statement receipt needs the billing module's listener. A process with
+   * this module but without BillingModule stops at boot – not with a 500 in the middle of a money transaction.
+   */
+  onApplicationBootstrap(): void {
+    if (this.payment && !this.payment.hasBillingPeriodListener()) {
+      throw new Error(
+        'PaymentsModule needs BillingModule (statement receipt listener, FB-INV-012) – add it to the app modules',
+      );
+    }
+  }
 
   onModuleInit(): void {
     // `refund` onDecided + preLock – the same wiring as the worker's J15 (public/worker-hooks.ts, BUG-R3-037).

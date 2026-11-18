@@ -5,8 +5,11 @@
  * period is typed by the desk – `checkin`, `period_start` (period_month = the month it opens) or `room_change_in`.
  * The previous closing of the same room is only a reference (`previous_reading_id`); opening − previous closing is the
  * vacancy gap (viewings, housekeeping water) stored on the opening (`electricity_gap`, `water_gap`), never billed.
- * An opening below the previous closing (or a closing below its opening) without an exception → 422
- * METER_LOWER_THAN_PREVIOUS. Billed usage = closing − opening of the same period (statements.service.ts).
+ * An opening below the previous closing (no exception) is a WARNING (ARC BE-190-01): 422
+ * OPENING_BELOW_PREVIOUS_CLOSING, saved by any desk role when sent again with `acknowledgeLowerThanPrevious: true`
+ * (negative gap kept, draft warning, issue must acknowledge it). A closing below its opening stays blocked (422
+ * METER_LOWER_THAN_PREVIOUS, FDL+ exception – BR-LS-12). Billed usage = closing − opening of the same period.
+ * A period reading after its window (ARC BE-190-03): FDL+ with `lateReason`, up to `readingWindow.lateMaxDays`.
  *
  * A wrong reading is voided and typed again (never rewritten). Exceptions (meter replaced / rollover) and a waived
  * photo need FDL+ (A89 simplified, contract mục 4) – FD gets 403 FORBIDDEN_ACTION.
@@ -26,6 +29,7 @@ import {
   type MeterException,
   STATEMENT_RULES_KEY,
   addMonths,
+  lateMaxDaysOf,
   exceptionIssue,
   fromScaled,
   monthEnd,
@@ -71,6 +75,9 @@ export interface ReadingRow {
   photo_waived_by: string | null;
   exception_approved_by: string | null;
   note: string | null;
+  late_reason: string | null;
+  read_by_name: string | null;
+  on_issued_statement: boolean;
   read_by_role: string;
   voided_at: Date | null;
   void_reason: string | null;
@@ -81,7 +88,22 @@ export interface ReadingRow {
 const READING_COLUMNS = `m.id, m.reservation_id, m.room_id, rm.room_no, m.kind, m.period_month::text, m.read_on::text,
   m.electricity_value::text, m.water_value::text, m.electricity_exception, m.water_exception, m.previous_reading_id,
   m.electricity_gap::text, m.water_gap::text, m.photo_attachment_id, m.photo_waived_by, m.exception_approved_by, m.note,
+  m.late_reason, (SELECT u.display_name FROM app_user u WHERE u.id = m.read_by) AS read_by_name,
+  EXISTS (SELECT 1 FROM billing_period_line l JOIN billing_period b ON b.id = l.billing_period_id
+           WHERE l.active AND b.status IN ('issued', 'partially_paid', 'paid')
+             AND (l.meter_from_reading_id = m.id OR l.meter_to_reading_id = m.id)) AS on_issued_statement,
   m.read_by_role, m.voided_at, m.void_reason, m.created_at, m.version`;
+
+/** Initials of a staff display name (as `printedByInitials`): never the full name (ARC BE-190-04). */
+export function initialsOf(name: string | null | undefined): string | null {
+  const out = (name ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toLocaleUpperCase('vi'))
+    .join('')
+    .slice(0, 4);
+  return out || null;
+}
 
 /** Stored value → scaled integer (electricity kWh, water tenths of m³). */
 export function scaledOf(
@@ -274,7 +296,11 @@ export class MeterReadingsService {
       photoWaived: r.photo_waived_by !== null,
       exceptionApproved: r.exception_approved_by !== null,
       note: r.note,
+      late: r.late_reason !== null,
+      lateReason: r.late_reason,
       readByRole: r.read_by_role,
+      readByInitials: initialsOf(r.read_by_name),
+      onIssuedStatement: r.on_issued_statement,
       voided: r.voided_at !== null,
       voidedAt: r.voided_at ? r.voided_at.toISOString() : null,
       voidReason: r.void_reason,
@@ -346,6 +372,7 @@ export class MeterReadingsService {
     }
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
     const note = freeText('note', body.note, { required: photoWaived });
+    const acknowledgeLower = body.acknowledgeLowerThanPrevious === true;
     const k = kind as Kind;
     const day = readOn as LocalDate;
     const room = segment as NonNullable<typeof segment>;
@@ -362,11 +389,24 @@ export class MeterReadingsService {
     if (day > pc.today || day < stay.arrival || day > stay.departure) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'readOn', code: 'DATE_INVALID' }] });
     }
+    let lateReason: string | null = null;
     if (periodMonth) {
       const rules = readRules(await this.params.get(tx, STATEMENT_RULES_KEY, pc.today));
       const w = windowOf(k as 'period_start' | 'period_end', periodMonth, rules);
+      const lateUntil = addDays(w.to, lateMaxDaysOf(rules));
       if (day < w.from || day > w.to) {
-        throw problem('READING_OUT_OF_WINDOW', { extras: { windowFrom: w.from, windowTo: w.to } });
+        // ARC BE-190-03: after the window, FDL+ may still type it with a reason, up to lateMaxDays.
+        const lateOk = day > w.to && day <= lateUntil;
+        const out = {
+          extras: {
+            windowFrom: w.from,
+            windowTo: w.to,
+            ...(lateOk ? { lateUntil, lateNeedsRole: 'front_desk_lead' } : {}),
+          },
+        };
+        if (!lateOk || !fdl) throw problem('READING_OUT_OF_WINDOW', out);
+        lateReason = freeText('lateReason', body.lateReason);
+        if (lateReason === null) throw problem('READING_OUT_OF_WINDOW', out);
       }
       if (k === 'period_start' && periodMonth <= monthOf(stay.arrival)) {
         // The opening of the arrival month is the check-in reading.
@@ -394,11 +434,25 @@ export class MeterReadingsService {
       ? await this.previousClosing(tx, input)
       : await this.openingFor(tx, input);
     const gap: Partial<Record<Meter, number>> = {};
+    let acknowledgedLower = false;
     if (reference) {
       for (const m of METERS) {
         const v = values[m] as { scaled: number; exception: MeterException | null };
         const prev = scaledOf(m, reference);
-        if (!v.exception && v.scaled < prev) {
+        if (!v.exception && v.scaled < prev && isOpening(k)) {
+          // ARC BE-190-01: a warning – the gap is not billed; a typo is caught again at issue (draft warning).
+          if (!acknowledgeLower) {
+            throw problem('OPENING_BELOW_PREVIOUS_CLOSING', {
+              extras: {
+                meter: m,
+                previousValue: fromScaled(m, prev),
+                previousReadingId: reference.id,
+                previousKind: reference.kind,
+              },
+            });
+          }
+          acknowledgedLower = true;
+        } else if (!v.exception && v.scaled < prev) {
           throw problem('METER_LOWER_THAN_PREVIOUS', {
             extras: {
               meter: m,
@@ -426,9 +480,9 @@ export class MeterReadingsService {
         `INSERT INTO meter_reading (id, organization_id, property_id, reservation_id, room_id, kind, period_month,
            read_on, electricity_value, water_value, electricity_exception, water_exception, previous_reading_id,
            electricity_gap, water_gap, photo_attachment_id, photo_waived_by, exception_approved_by, note, read_by,
-           read_by_role, created_at, created_by, updated_at)
+           read_by_role, created_at, created_by, updated_at, late_reason, late_approved_by)
          SELECT $1, p.organization_id, p.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-                $18, $19, $20, $18, $20
+                $18, $19, $20, $18, $20, $22, $23
            FROM property p WHERE p.id = $21`,
         [
           id,
@@ -452,6 +506,8 @@ export class MeterReadingsService {
           primaryRole(actor.roles) ?? 'front_desk',
           pc.now,
           pc.propertyId,
+          lateReason,
+          lateReason ? actor.userId : null,
         ],
       );
     } catch (err) {
@@ -471,6 +527,8 @@ export class MeterReadingsService {
         gap.electricity === undefined ? null : fromScaled('electricity', gap.electricity),
       waterGap: gap.water === undefined ? null : fromScaled('water', gap.water),
       photoWaived,
+      acknowledgedLower,
+      late: lateReason !== null,
     };
     await this.audit.record(tx, {
       category: 'state',
@@ -481,6 +539,18 @@ export class MeterReadingsService {
       after,
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
+    if (lateReason) {
+      await this.audit.record(tx, {
+        category: 'state',
+        action: 'meter_reading.late',
+        entityType: 'meter_reading',
+        entityId: id,
+        entityCode: stay.code,
+        after,
+        reason: lateReason,
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
     if (exceptionGiven) {
       await this.audit.record(tx, {
         category: 'state',

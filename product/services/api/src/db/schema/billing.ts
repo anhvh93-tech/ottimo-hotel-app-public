@@ -91,6 +91,9 @@ export const meterReading = pgTable(
     photoWaivedBy: uuid('photo_waived_by'),
     exceptionApprovedBy: uuid('exception_approved_by'),
     note: text('note'),
+    /** ARC BE-190-03: a reading typed after its window – FDL+ only, with a reason (3–300). */
+    lateReason: text('late_reason'),
+    lateApprovedBy: uuid('late_approved_by'),
     readBy: uuid('read_by').notNull(),
     readByRole: text('read_by_role').notNull(),
     voidedAt: instant('voided_at'),
@@ -154,6 +157,10 @@ export const meterReading = pgTable(
     check(
       'meter_reading_note_check',
       sql`${t.note} IS NULL OR char_length(${t.note}) BETWEEN 3 AND 300`,
+    ),
+    check(
+      'meter_reading_late_check',
+      sql`(${t.lateReason} IS NULL) = (${t.lateApprovedBy} IS NULL) AND (${t.lateReason} IS NULL OR char_length(${t.lateReason}) BETWEEN 3 AND 300)`,
     ),
     check(
       'meter_reading_void_check',

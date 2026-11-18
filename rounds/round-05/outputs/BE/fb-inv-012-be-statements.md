@@ -75,3 +75,27 @@
 - **Tính lại trạng thái thu tiền:** hiện chỉ chạy khi ghi thu và khi đảo phiếu thu, chưa chạy khi đối soát từ chối.
 - **Worker:** listener phải được nối dây nếu worker ghi thu.
 - **Mở cho MT:** khi mở, gộp A123 vào A88.
+
+## 5. Phản hồi review 18/11 (ARC, SEC, UXD)
+
+Chi tiết từng thẻ ở `rounds/round-05/responses/BE-responses.md` (mục PR #190).
+
+- **Chỉ số đồng hồ:**
+  - đầu kỳ < cuối kỳ trước là cảnh báo hai bước (`OPENING_BELOW_PREVIOUS_CLOSING` + `acknowledgeLowerThanPrevious`), nháp có cảnh báo cùng mã;
+  - đọc trễ: FDL+ gửi `lateReason`, tối đa `lateMaxDays` (mặc định 10), cảnh báo `READING_LATE`;
+  - lần đọc thêm `readByInitials` và `onIssuedStatement`.
+- **Danh sách ứng viên:** thêm `rooms[]` (đầu kỳ, cuối kỳ, đầu kỳ tháng kế) và đơn đã trả phòng cần phiếu `final`.
+- **Phiếu tháng:**
+  - thêm `excludedLines`, `replacesCode`, `unreconciledVnd`, `disputed`;
+  - mỗi dòng có `periodMonth`;
+  - trang in trả theo allowlist, có tiền chưa VAT và tiền VAT riêng.
+- **Nhật ký:** `billing_period.updated` ghi trước/sau; `issued` ghi khoản điều chỉnh và số dòng dời.
+- **Ảnh đồng hồ:**
+  - đặt mốc lưu giữ lúc trả phòng; `anchorMissing` đếm cả `meter`;
+  - mở upload `purpose=meter` (trước đây bị chặn).
+- **Migration 0099** (chưa merge nên sửa tại chỗ):
+  - thêm cột `late_reason`, `late_approved_by` cho `meter_reading`;
+  - thêm FK `payment_billing_period_fk`;
+  - mặc định quy tắc có thêm `lateMaxDays: 10`.
+- **Khởi động:** `PaymentsModule` dừng khi thiếu listener của BillingModule.
+- **Test:** 17 test tích hợp FB-INV-012 và toàn bộ api 5.283 test đều xanh.

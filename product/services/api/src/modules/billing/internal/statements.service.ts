@@ -72,6 +72,7 @@ import {
   type ReadingRow,
   MeterReadingsService,
   exceptionOf,
+  initialsOf,
   scaledOf,
 } from './meter-readings.service';
 import {
@@ -139,6 +140,8 @@ interface Computed {
   service: Period;
   dueDate: LocalDate;
   lines: StatementLine[];
+  /** ARC BE-190-04: service lines moved off this draft (BR-LS-14) – shown, never totalled. */
+  excludedLines: StatementLine[];
   warnings: Warning[];
   missing: MissingReading[];
   netVnd: number;
@@ -281,6 +284,7 @@ export class StatementsService {
     const rules = await this.rules(tx, today);
     const periods = statementPeriods(bp.month, rules, stay.arrival);
     const lines: StatementLine[] = [];
+    const excludedLines: StatementLine[] = [];
     const warnings: Warning[] = [];
     const missing: MissingReading[] = [];
     const divisor = await this.intParam(tx, 'long_stay_daily_divisor', today, 30);
@@ -442,6 +446,31 @@ export class StatementsService {
           for (const r of [open, close]) {
             if (r.photo_waived_by)
               warnings.push({ code: 'PHOTO_WAIVED', roomNo: seg.roomNo, readingId: r.id });
+            // ARC BE-190-03: typed after its window by FDL+ – confirmed again at issue.
+            if (r.late_reason)
+              warnings.push({
+                code: 'READING_LATE',
+                roomNo: seg.roomNo,
+                readingId: r.id,
+                kind: r.kind,
+              });
+          }
+          // ARC BE-190-01: an opening saved below the previous closing makes the billed usage larger – a typo is
+          // caught here, before it becomes money.
+          for (const meter of ['electricity', 'water'] as const) {
+            const g = meter === 'electricity' ? open.electricity_gap : open.water_gap;
+            if (g === null || Number(g) >= 0 || exceptionOf(meter, open)) continue;
+            const openingScaled = scaledOf(meter, open);
+            const gapScaled =
+              meter === 'electricity' ? Math.round(Number(g)) : Math.round(Number(g) * 10);
+            warnings.push({
+              code: 'OPENING_BELOW_PREVIOUS_CLOSING',
+              roomNo: seg.roomNo,
+              meter,
+              opening: fromScaled(meter, openingScaled),
+              previousClosing: fromScaled(meter, openingScaled - gapScaled),
+              readingId: open.id,
+            });
           }
           for (const meter of ['electricity', 'water'] as const) {
             const usage = usageScaled(
@@ -483,13 +512,14 @@ export class StatementsService {
     // Services of the service period, net of FOC / discounts, not moved, not on another live statement (BR-LS-14).
     const services = await this.serviceLines(tx, stay, periods.service, bp.id);
     for (const s of services) {
-      if (bp.excluded.includes(s.id)) continue;
       if (s.onOtherStatement) {
-        warnings.push({
-          code: 'SERVICE_LINE_ON_OTHER_STATEMENT',
-          folioLineId: s.id,
-          statementCode: s.onOtherStatement,
-        });
+        if (!bp.excluded.includes(s.id)) {
+          warnings.push({
+            code: 'SERVICE_LINE_ON_OTHER_STATEMENT',
+            folioLineId: s.id,
+            statementCode: s.onOtherStatement,
+          });
+        }
         continue;
       }
       const label = lineLabel({
@@ -500,7 +530,7 @@ export class StatementsService {
         quantity: s.quantity,
         label_params: s.label_params,
       });
-      lines.push({
+      (bp.excluded.includes(s.id) ? excludedLines : lines).push({
         kind: 'service',
         labelKey: label.labelKey,
         labelParams: label.labelParams ?? null,
@@ -593,6 +623,7 @@ export class StatementsService {
       service: periods.service,
       dueDate: periods.dueDate,
       lines,
+      excludedLines,
       warnings,
       missing,
       netVnd,
@@ -904,6 +935,7 @@ export class StatementsService {
     const stay = await loadLongStay(tx, row.reservation_id);
     const draft = row.status === 'draft';
     let lines: StatementLine[];
+    let excludedLines: StatementLine[] = [];
     let warnings: Warning[] = [];
     let missing: MissingReading[] = [];
     let periods: {
@@ -929,6 +961,7 @@ export class StatementsService {
         now,
       );
       lines = c.lines;
+      excludedLines = c.excludedLines;
       warnings = c.warnings;
       missing = c.missing;
       periods = { rent: c.rent, utility: c.utility, service: c.service, due: c.dueDate };
@@ -960,6 +993,19 @@ export class StatementsService {
         )
       : { overdueDays: 0, alertLevel: null };
     const roomNos = [...new Set(stay.segments.map((s) => s.roomNo))];
+    const replaced = row.replaces_id
+      ? await tx.query<{ code: string | null }>('SELECT code FROM billing_period WHERE id = $1', [
+          row.replaces_id,
+        ])
+      : null;
+    // ARC BE-190-08: receipts not yet confirmed by the bank (VietQR `pending`) or disputed – the status stays paid.
+    const recon = await tx.query<{ u: string | null; d: boolean | null }>(
+      `SELECT sum(amount_vnd) FILTER (WHERE reconciliation IN ('pending', 'disputed'))::text AS u,
+              bool_or(reconciliation = 'disputed') AS d
+         FROM payment WHERE billing_period_id = $1 AND status = 'succeeded' AND reversal_of_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM payment r WHERE r.reversal_of_id = payment.id)`,
+      [row.id],
+    );
     return {
       id: row.id,
       code: row.code,
@@ -977,22 +1023,7 @@ export class StatementsService {
       dueDate: periods.due,
       overdueDays: od.overdueDays,
       alertLevel: od.alertLevel,
-      lines: lines.map((l) => ({
-        kind: l.kind,
-        labelKey: l.labelKey,
-        labelParams: l.labelParams,
-        quantity: l.quantity,
-        unit: l.unit,
-        unitPriceNetVnd: l.unitPriceNetVnd,
-        vatRatePct: this.vatOf(l),
-        netVnd: l.netVnd,
-        vatVnd: l.vatVnd,
-        amountVnd: l.amountVnd,
-        folioLineId: l.folioLineId,
-        roomNo: l.roomNo,
-        meter: l.meter,
-        serviceDate: l.serviceDate,
-      })),
+      lines: lines.map((l) => this.lineView(l)),
       totals: {
         netVnd: totals.net,
         vatVnd: totals.vat,
@@ -1000,10 +1031,13 @@ export class StatementsService {
         totalVnd: totals.total,
         paidVnd: paid,
         balanceVnd: balance,
+        unreconciledVnd: n(recon.rows[0]?.u ?? null),
+        disputed: recon.rows[0]?.d === true,
       },
       warnings,
       missingReadings: missing,
       excludedFolioLineIds: row.excluded_folio_line_ids,
+      excludedLines: excludedLines.map((l) => this.lineView(l)),
       priorAdjustment:
         row.prior_adjustment_vnd === null
           ? null
@@ -1012,11 +1046,45 @@ export class StatementsService {
       availableActions: this.actions(row, actor),
       ratesSnapshot: row.rates_snapshot,
       replacesId: row.replaces_id,
+      replacesCode: replaced?.rows[0]?.code ?? null,
       issuedAt: row.issued_at ? now.iso(row.issued_at) : null,
       paidAt: row.paid_at ? now.iso(row.paid_at) : null,
       voidedAt: row.voided_at ? now.iso(row.voided_at) : null,
       voidReason: row.void_reason,
       version: row.version,
+    };
+  }
+
+  /**
+   * One statement line as returned. `periodMonth` (UXD FE-189-02): the month the line is for – rent: its rent period,
+   * electricity / water: the utility period (M−1 in `advance`), service: its service date; null for rounding and the
+   * prior adjustment. `netVnd` (before VAT) and `vatVnd` are separate so the print sums net lines + one VAT line.
+   */
+  private lineView(l: StatementLine): Record<string, unknown> {
+    const from = l.labelParams?.from;
+    const periodMonth =
+      l.kind === 'service'
+        ? (l.serviceDate?.slice(0, 7) ?? null)
+        : (l.kind === 'rent' || l.kind === 'electricity' || l.kind === 'water') &&
+            typeof from === 'string'
+          ? from.slice(0, 7)
+          : null;
+    return {
+      kind: l.kind,
+      labelKey: l.labelKey,
+      labelParams: l.labelParams,
+      quantity: l.quantity,
+      unit: l.unit,
+      unitPriceNetVnd: l.unitPriceNetVnd,
+      vatRatePct: this.vatOf(l),
+      netVnd: l.netVnd,
+      vatVnd: l.vatVnd,
+      amountVnd: l.amountVnd,
+      folioLineId: l.folioLineId,
+      roomNo: l.roomNo,
+      meter: l.meter,
+      serviceDate: l.serviceDate,
+      periodMonth,
     };
   }
 
@@ -1115,15 +1183,24 @@ export class StatementsService {
     }
     const pc = await this.property.now(tx);
     const rules = await this.rules(tx, pc.today);
+    // ARC BE-190-02 (3): a stay checked out within `readingWindow.daysAfter` still needs its final statement.
     const { rows } = await tx.query<{ id: string }>(
       `SELECT r.id FROM reservation r
-        WHERE r.stay_type = 'long' AND r.status = 'in_house'
+        WHERE r.stay_type = 'long'
+          AND (r.status = 'in_house' OR (r.status = 'checked_out' AND r.departure_date >= $2))
           AND (r.manual_long_stay->>'monthly_rent_vnd') IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM billing_period b WHERE b.reservation_id = r.id AND b.statement_month = $1
                            AND b.status NOT IN ('void', 'draft'))
         ORDER BY r.arrival_date, r.id`,
-      [month],
+      [month, addDays(pc.today, -rules.readingWindow.daysAfter)],
     );
+    type St = 'missing' | 'recorded' | 'exception' | 'not_needed';
+    const statusOf = (r: ReadingRow | undefined | null): St =>
+      !r
+        ? 'missing'
+        : r.electricity_exception || r.water_exception || r.photo_waived_by
+          ? 'exception'
+          : 'recorded';
     const items: unknown[] = [];
     for (const { id } of rows) {
       let stay: LongStay;
@@ -1134,35 +1211,106 @@ export class StatementsService {
       }
       const kind = this.expectedKind(stay, month, rules);
       if (!kind) continue;
+      if (stay.status === 'checked_out' && kind !== 'final') continue;
       const draft = await tx.query<{ id: string }>(
         `SELECT id FROM billing_period WHERE reservation_id = $1 AND statement_month = $2 AND status = 'draft'`,
         [id, month],
       );
-      // Reading status of the closing of the utility period (contract 5: missing / recorded / exception).
+      // ARC BE-190-02: per room – the opening and the closing of the utility period on this statement (both
+      // required since INV 17/11) and the opening of the next month (typed from the same end-of-month sheet).
+      // `missing` follows the issue check (compute) so "ready" never ends in 422 METER_READING_MISSING.
       const u = clip(
         statementPeriods(month, rules, stay.arrival).utility,
         stay.arrival,
         stay.lastNight,
       );
-      let readingStatus: 'missing' | 'recorded' | 'exception' | 'not_needed' = 'not_needed';
+      const rooms: Array<{
+        roomId: string;
+        roomNo: string;
+        opening: St;
+        closing: St;
+        nextOpening: Exclude<St, 'exception'>;
+      }> = [];
       if (u) {
-        const readings = (await this.meters.readings(tx, id)).filter(
-          (r) =>
-            r.voided_at === null && r.kind === 'period_end' && r.period_month === monthOf(u.from),
+        const pMonth = monthOf(u.from);
+        const readings = (await this.meters.readings(tx, id)).filter((r) => r.voided_at === null);
+        const c = await this.compute(
+          tx,
+          stay,
+          {
+            id: draft.rows[0]?.id ?? null,
+            month,
+            kind,
+            excluded: [],
+            priorAdjustmentVnd: null,
+            priorAdjustmentReason: null,
+          },
+          pc,
         );
-        readingStatus =
-          readings.length === 0
+        const segs = stay.segments.filter((x) => x.from <= u.to && x.to > u.from);
+        for (const seg of segs) {
+          if (rooms.some((x) => x.roomId === seg.roomId)) continue;
+          const open = await this.meters.openingFor(tx, {
+            reservationId: id,
+            roomId: seg.roomId,
+            kind: 'period_end',
+            periodMonth: pMonth,
+            readOn: addDays(u.to, 62),
+          });
+          const closings = readings.filter(
+            (r) =>
+              r.room_id === seg.roomId &&
+              ((r.kind === 'period_end' && r.period_month === pMonth) ||
+                (r.kind === 'room_change_out' && r.read_on >= u.from && r.read_on <= u.to)),
+          );
+          const closingMissing = c.missing.some(
+            (m) => m.roomId === seg.roomId && m.kind !== 'opening',
+          );
+          const closing: St = closingMissing
             ? 'missing'
-            : readings.some(
-                  (r) => r.electricity_exception || r.water_exception || r.photo_waived_by,
+            : closings.length === 0
+              ? 'not_needed'
+              : closings.some((r) => statusOf(r) === 'exception')
+                ? 'exception'
+                : 'recorded';
+          const holdsAtEnd = stay.segments.some(
+            (x) => x.roomId === seg.roomId && x.from <= u.to && u.to < x.to,
+          );
+          const next = addMonths(pMonth, 1);
+          const nextOpening: Exclude<St, 'exception'> =
+            holdsAtEnd && stay.lastNight > u.to
+              ? readings.some(
+                  (r) =>
+                    r.room_id === seg.roomId &&
+                    r.kind === 'period_start' &&
+                    r.period_month === next,
                 )
+                ? 'recorded'
+                : 'missing'
+              : 'not_needed';
+          rooms.push({
+            roomId: seg.roomId,
+            roomNo: seg.roomNo,
+            opening: statusOf(open),
+            closing,
+            nextOpening,
+          });
+        }
+      }
+      // Aggregate (kept for compatibility): missing when an opening or a closing of any room is missing.
+      const readingStatus: St =
+        rooms.length === 0
+          ? 'not_needed'
+          : rooms.some((r) => r.opening === 'missing' || r.closing === 'missing')
+            ? 'missing'
+            : rooms.some((r) => r.opening === 'exception' || r.closing === 'exception')
               ? 'exception'
               : 'recorded';
-      }
       items.push({
         reservationId: id,
         reservationCode: stay.code,
-        roomNos: [...new Set(stay.segments.map((s) => s.roomNo))],
+        roomNos: [...new Set(stay.segments.map((x) => x.roomNo))],
+        rooms,
         guestDisplayName: shortGuestName(stay.guestFullName),
         kind,
         readingStatus,
@@ -1345,6 +1493,29 @@ export class StatementsService {
         WHERE id = $1`,
       [id, excluded, priorVnd, priorReason, note, pc.now],
     );
+    // SEC BE-190-02: money decided on a draft – who, when, before / after (the reason of the adjustment as reason).
+    const beforePrior = row.prior_adjustment_vnd === null ? null : Number(row.prior_adjustment_vnd);
+    const sameExcluded =
+      excluded.length === row.excluded_folio_line_ids.length &&
+      excluded.every((x) => row.excluded_folio_line_ids.includes(x));
+    if (beforePrior !== priorVnd || priorReason !== row.prior_adjustment_reason || !sameExcluded) {
+      await this.audit.record(tx, {
+        category: 'state',
+        action: 'billing_period.updated',
+        entityType: 'billing_period',
+        entityId: row.id,
+        entityCode: stay.code,
+        before: {
+          priorAdjustmentVnd: beforePrior,
+          excludedFolioLineCount: row.excluded_folio_line_ids.length,
+        },
+        after: { priorAdjustmentVnd: priorVnd, excludedFolioLineCount: excluded.length },
+        ...(priorReason && priorReason !== row.prior_adjustment_reason
+          ? { reason: priorReason }
+          : {}),
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
     const next = (await this.row(tx, id)) as BpRow;
     return { version: next.version, body: await this.view(tx, actor, next, pc) };
   }
@@ -1531,6 +1702,9 @@ export class StatementsService {
         kind: row.kind,
         totalVnd: c.totalVnd,
         warnings: c.warnings.map((w) => w.code),
+        priorAdjustmentVnd:
+          row.prior_adjustment_vnd === null ? null : Number(row.prior_adjustment_vnd),
+        excludedFolioLineCount: row.excluded_folio_line_ids.length,
       },
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
@@ -1553,9 +1727,10 @@ export class StatementsService {
     const pc = await this.property.now(tx);
     const paid = await this.paidVnd(tx, row.id);
     if (row.status !== 'draft') {
+      // SEC BE-190-06: the role first (403 before 409), so FD learns nothing from the order of the errors.
+      if (!isFdlPlus(actor.roles)) throw problem('FORBIDDEN_ACTION');
       if (paid > 0 || row.status !== 'issued')
         throw problem('STATEMENT_HAS_PAYMENTS', { extras: { paidVnd: paid } });
-      if (!isFdlPlus(actor.roles)) throw problem('FORBIDDEN_ACTION');
       const { rows } = await tx.query<{ folio_line_id: string; posted_by_statement: boolean }>(
         `SELECT folio_line_id, posted_by_statement FROM billing_period_line
           WHERE billing_period_id = $1 AND active ORDER BY sort_order DESC, id DESC`,
@@ -1760,12 +1935,7 @@ export class StatementsService {
       'SELECT display_name FROM app_user WHERE id = $1',
       [actor.userId],
     );
-    const initials = (who.rows[0]?.display_name ?? '')
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w.charAt(0).toLocaleUpperCase('vi'))
-      .join('')
-      .slice(0, 4);
+    const initials = initialsOf(who.rows[0]?.display_name);
     await this.audit.record(tx, {
       category: 'state',
       action: 'billing_period.printed',
@@ -1775,8 +1945,46 @@ export class StatementsService {
       after: { status: row.status, balanceVnd: balance },
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
+    // SEC BE-190-03: an allowlist of what the paper shows (contract 6.6) – no note, reason, rates, folio ids or
+    // actions; a line keeps label, readings, quantity, prices, net / VAT / amount and its month (UXD FE-189-01/02).
+    const lines = (statement.lines as Array<Record<string, unknown>>).map((l) => ({
+      kind: l.kind,
+      labelKey: l.labelKey,
+      labelParams: l.labelParams,
+      quantity: l.quantity,
+      unit: l.unit,
+      unitPriceNetVnd: l.unitPriceNetVnd,
+      vatRatePct: l.vatRatePct,
+      netVnd: l.netVnd,
+      vatVnd: l.vatVnd,
+      amountVnd: l.amountVnd,
+      roomNo: l.roomNo,
+      meter: l.meter,
+      serviceDate: l.serviceDate,
+      periodMonth: l.periodMonth,
+    }));
+    const t = statement.totals as Record<string, number>;
     return {
-      ...statement,
+      id: statement.id,
+      code: statement.code,
+      status: statement.status,
+      kind: statement.kind,
+      month: statement.month,
+      roomNos: statement.roomNos,
+      rentPeriod: statement.rentPeriod,
+      utilityPeriod: statement.utilityPeriod,
+      servicePeriod: statement.servicePeriod,
+      dueDate: statement.dueDate,
+      issuedAt: statement.issuedAt,
+      lines,
+      totals: {
+        netVnd: t.netVnd,
+        vatVnd: t.vatVnd,
+        roundingVnd: t.roundingVnd,
+        totalVnd: t.totalVnd,
+        paidVnd: t.paidVnd,
+        balanceVnd: t.balanceVnd,
+      },
       property: {
         displayName: prop.rows[0]?.name ?? null,
         addressLine: prop.rows[0]?.address ?? null,

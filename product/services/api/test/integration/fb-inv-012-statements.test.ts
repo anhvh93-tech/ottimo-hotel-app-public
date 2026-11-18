@@ -9,7 +9,8 @@ import { v7 as uuidv7 } from 'uuid';
 import type { Database } from '../../src/db/database';
 import { FolioService } from '../../src/modules/folio/public/folio.service';
 import { type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
-import { seedStay, staff } from '../helpers/registration-fixture';
+import { sampleJpeg, seedStay, staff } from '../helpers/registration-fixture';
+import { RegistrationPortService } from '../../src/modules/registration/public/registration.port';
 import { type BookingIds, seedBooking, touchSessions } from '../helpers/reservations-fixture';
 import {
   HAS_DB,
@@ -59,6 +60,23 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     api(who, 'POST', `/reservations/${stay}/meter-readings`, {
       json: { roomId: room202, photoWaived: true, note: 'Photo sent later', ...body },
     });
+  /** A real meter photo (attachment purpose=meter) – FD cannot waive the photo. */
+  const photo = async (who: string): Promise<string> => {
+    const r = await staff(fa, tok(who), null, 'POST', `${P(t)}/attachments`, {
+      multipart: [
+        { name: 'purpose', value: 'meter' },
+        { name: 'reservationId', value: stay },
+        {
+          name: 'file',
+          value: await sampleJpeg(),
+          filename: 'meter.jpg',
+          contentType: 'image/jpeg',
+        },
+      ],
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    return r.json().id as string;
+  };
   const create = (who: string, month: string, kind?: string) =>
     api(who, 'POST', `/reservations/${stay}/billing-periods`, {
       json: { month, ...(kind ? { kind } : {}) },
@@ -320,6 +338,14 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
       paidAt: null,
       totals: { paidVnd: 1_000_000, balanceVnd: 2_113_000 },
     });
+    // SEC BE-190-06: FD is refused on the role before the payments (403, not 409).
+    expect(
+      (
+        await api('fd', 'POST', `/billing-periods/${nov.id}/void`, {
+          json: { reason: 'Wrong statement' },
+        })
+      ).statusCode,
+    ).toBe(403);
     const hasPay = await api('fdl', 'POST', `/billing-periods/${nov.id}/void`, {
       json: { reason: 'Wrong statement' },
     });
@@ -422,6 +448,13 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
       expect.objectContaining({ amountVnd: -690, labelKey: 'bill.line.statement_rounding' }),
     ]);
     expect(dec.warnings.map((w: Json) => w.code)).toContain('PHOTO_WAIVED');
+    // UXD FE-189-02: the month each line is for – rent of 12, electricity / water / services of 11.
+    expect(byKind('rent')[0].periodMonth).toBe('2026-12');
+    expect(byKind('electricity')[0].periodMonth).toBe('2026-11');
+    expect(byKind('water')[0].periodMonth).toBe('2026-11');
+    expect(byKind('service').map((l: Json) => l.periodMonth)).toEqual(['2026-11', '2026-11']);
+    expect(byKind('rounding')[0].periodMonth).toBeNull();
+    expect(dec.excludedLines).toEqual([]);
     expect(dec).toMatchObject({
       dueDate: '2026-12-05',
       rentPeriod: { from: '2026-12-01', to: '2026-12-31' },
@@ -436,6 +469,15 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     });
     expect(moved.statusCode).toBe(200);
     expect(moved.json().totals.totalVnd).toBe(9_352_000);
+    // ARC BE-190-04: the moved line is shown (to put it back), never totalled.
+    expect(moved.json().excludedLines).toEqual([
+      expect.objectContaining({
+        kind: 'service',
+        folioLineId: fnb,
+        amountVnd: 150_000,
+        periodMonth: '2026-11',
+      }),
+    ]);
     const stale = await api('fd', 'PATCH', `/billing-periods/${dec.id}`, {
       json: { excludedFolioLineIds: [] },
       ifMatch: dec.version,
@@ -458,7 +500,46 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     });
     expect(back.statusCode).toBe(200);
     expect(back.json().totals.totalVnd).toBe(9_502_000);
-    dec = back.json();
+    // SEC BE-190-02: a prior adjustment set and removed by FDL – before / after + reason in the audit.
+    const adj = await api('fdl', 'PATCH', `/billing-periods/${dec.id}`, {
+      json: { priorAdjustment: { amountVnd: -10_000, reason: 'Late wifi fix' } },
+      ifMatch: back.json().version,
+    });
+    expect(adj.statusCode).toBe(200);
+    expect(adj.json().totals.totalVnd).toBe(9_492_000);
+    const clear = await api('fdl', 'PATCH', `/billing-periods/${dec.id}`, {
+      json: { priorAdjustment: null },
+      ifMatch: adj.json().version,
+    });
+    expect(clear.json().totals.totalVnd).toBe(9_502_000);
+    const trail = await q<{ before: Json; after: Json; reason: string | null }>(
+      `SELECT before, after, reason FROM audit_event WHERE entity_id = $1 AND action = 'billing_period.updated'
+        ORDER BY occurred_at, id`,
+      [dec.id],
+    );
+    expect(trail).toEqual([
+      {
+        before: { priorAdjustmentVnd: null, excludedFolioLineCount: 0 },
+        after: { priorAdjustmentVnd: null, excludedFolioLineCount: 1 },
+        reason: null,
+      },
+      {
+        before: { priorAdjustmentVnd: null, excludedFolioLineCount: 1 },
+        after: { priorAdjustmentVnd: null, excludedFolioLineCount: 0 },
+        reason: null,
+      },
+      {
+        before: { priorAdjustmentVnd: null, excludedFolioLineCount: 0 },
+        after: { priorAdjustmentVnd: -10_000, excludedFolioLineCount: 0 },
+        reason: 'Late wifi fix',
+      },
+      {
+        before: { priorAdjustmentVnd: -10_000, excludedFolioLineCount: 0 },
+        after: { priorAdjustmentVnd: null, excludedFolioLineCount: 0 },
+        reason: null,
+      },
+    ]);
+    dec = clear.json();
   });
 
   it('issue: warnings must be acknowledged; folio lines of contract 2.4; folio grows by the posted part; two concurrent issues → one wins', async () => {
@@ -518,6 +599,14 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
       [dec.id],
     );
     expect(audit.map((x) => x.action)).toContain('billing_period.issued');
+    const issuedAudit = await q<{ after: Json }>(
+      `SELECT after FROM audit_event WHERE entity_id = $1 AND action = 'billing_period.issued'`,
+      [dec.id],
+    );
+    expect(issuedAudit[0]!.after).toMatchObject({
+      priorAdjustmentVnd: null,
+      excludedFolioLineCount: 0,
+    });
     // One live statement per service line (UK on folio_line_id WHERE active).
     await expect(
       q(
@@ -544,6 +633,50 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
       vietqr: null,
     });
     expect(JSON.stringify(p.json())).not.toMatch(/phone"|nationality|documentNo/);
+    // SEC BE-190-03: what the paper shows only – no note, reason, folio, rates, actions.
+    expect(JSON.stringify(p.json())).not.toMatch(
+      /"note"|[rR]eason|folioId|folioLineId|ratesSnapshot|availableActions|excludedFolioLineIds/,
+    );
+    // UXD FE-189-01: net (before VAT) and VAT apart, so net lines + one VAT line add up.
+    const el = (p.json().lines as Json[]).find((l) => l.kind === 'electricity')!;
+    expect(el).toMatchObject({
+      netVnd: 568_000,
+      vatVnd: 45_440,
+      amountVnd: 613_440,
+      periodMonth: '2026-11',
+    });
+    expect(p.json().totals).toMatchObject({
+      netVnd: 9_453_000,
+      vatVnd: 49_690,
+      roundingVnd: -690,
+      totalVnd: 9_502_000,
+    });
+    // SEC BE-190-04: with a (fake) receiving account – content = code only, 4 last digits, amount = balance.
+    await setTenantParam(
+      db,
+      t,
+      'payment_receiving_account',
+      { bankBin: '970436', accountNo: '0000000000', accountName: 'OTTIMO TEST' },
+      '2026-11-01',
+    );
+    const qr = (await api('fd', 'GET', `/billing-periods/${dec.id}/print`)).json().vietqr as Json;
+    expect(qr.transferContent).toMatch(/TT2612202/);
+    expect(qr.transferContent).not.toMatch(/Minh|Nguyen|Nguyễn/i);
+    expect(qr.accountNoMasked).not.toContain('000000');
+    expect(String(qr.accountNoMasked).endsWith('0000')).toBe(true);
+    expect(qr.payload).toContain('0000000000');
+    expect(qr.amountVnd).toBe(9_502_000);
+    const novQr = (await api('fd', 'GET', `/billing-periods/${nov.id}/print`)).json()
+      .vietqr as Json;
+    expect(novQr.amountVnd).toBe(2_113_000);
+    expect(
+      (
+        await api('fd', 'POST', `/billing-periods/${nov.id}/payments`, {
+          json: { method: 'cash', amountVnd: 2_113_000 },
+        })
+      ).statusCode,
+    ).toBe(201);
+    expect((await api('fd', 'GET', `/billing-periods/${nov.id}/print`)).json().vietqr).toBeNull();
     const audit = await q<{ action: string }>(
       `SELECT action FROM audit_event WHERE entity_id = $1`,
       [dec.id],
@@ -563,6 +696,10 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     const readings = (await (await api('fd', 'GET', `/reservations/${stay}/meter-readings`)).json())
       .items as Json[];
     const checkin = readings.find((r) => r.kind === 'checkin')!;
+    // ARC BE-190-04: initials only, and whether the reading is on an issued statement.
+    expect(checkin).toMatchObject({ onIssuedStatement: true });
+    expect(typeof checkin.readByInitials).toBe('string');
+    expect(JSON.stringify(readings)).not.toMatch(/displayName|fullName/);
     const used = await api('fd', 'POST', `/meter-readings/${checkin.id}/void`, {
       json: { reason: 'Typed wrong' },
     });
@@ -589,6 +726,7 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     const again = await create('fd', '2026-12');
     expect(again.statusCode).toBe(201);
     expect(again.json().replacesId).toBe(dec.id);
+    expect(again.json().replacesCode).toBe('TT-2612-202');
     const i = await issue('fd', again.json().id);
     expect(i.statusCode).toBe(200);
     expect(i.json()).toMatchObject({ code: 'TT-2612-202-R1', totals: { totalVnd: 9_502_000 } });
@@ -609,39 +747,47 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     expect(await level('2026-12-15T10:00:00+07:00')).toEqual([['TT-2612-202-R1', 'escalate', 10]]);
   });
 
-  it('INV 17/11: the opening of December is typed; gap = opening − previous closing, stored and NOT billed', async () => {
+  it('INV 17/11 + ARC BE-190-01: an opening below the previous closing is a two-step warning; saved, flagged at issue', async () => {
     await now('2026-12-01T09:30:00+07:00');
-    const lower = await reading('own', {
+    const pic = await photo('fd');
+    const body = {
+      roomId: room202,
       kind: 'period_start',
       periodMonth: '2026-12',
       readOn: '2026-12-01',
       electricity: { value: 1390 },
       water: { value: 38.6 },
-    });
-    expect(lower.statusCode).toBe(422);
-    expect(lower.json()).toMatchObject({
-      code: 'METER_LOWER_THAN_PREVIOUS',
+      photoAttachmentId: pic,
+    };
+    const first = await api('fd', 'POST', `/reservations/${stay}/meter-readings`, { json: body });
+    expect(first.statusCode).toBe(422);
+    expect(first.json()).toMatchObject({
+      code: 'OPENING_BELOW_PREVIOUS_CLOSING',
       meter: 'electricity',
       previousValue: 1392,
       previousKind: 'period_end',
     });
-    const open = await reading('own', {
-      kind: 'period_start',
-      periodMonth: '2026-12',
-      readOn: '2026-12-01',
-      electricity: { value: 1395 },
-      water: { value: 38.9 },
+    // FD may confirm it (the gap is not billed; a typo is caught again at issue).
+    const open = await api('fd', 'POST', `/reservations/${stay}/meter-readings`, {
+      json: { ...body, acknowledgeLowerThanPrevious: true },
     });
     expect(open.statusCode).toBe(201);
     expect(open.json()).toMatchObject({
       previousClosing: { electricity: 1392, water: 38.6 },
-      gap: { electricity: 3, water: 0.3 },
+      gap: { electricity: -2, water: 0 },
+      photoWaived: false,
+      readByRole: 'front_desk',
     });
     const stored = await q<{ electricity_gap: string; water_gap: string }>(
       'SELECT electricity_gap::text, water_gap::text FROM meter_reading WHERE id = $1',
       [open.json().id],
     );
-    expect(stored[0]).toEqual({ electricity_gap: '3', water_gap: '0.3' });
+    expect(stored[0]).toEqual({ electricity_gap: '-2', water_gap: '0.0' });
+    const aud = await q<{ after: Json }>(
+      `SELECT after FROM audit_event WHERE entity_id = $1 AND action = 'meter_reading.recorded'`,
+      [open.json().id],
+    );
+    expect(aud[0]!.after).toMatchObject({ acknowledgedLower: true, electricityGap: -2 });
     await now('2026-12-31T20:00:00+07:00');
     const close = await reading('own', {
       kind: 'period_end',
@@ -651,12 +797,23 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
       water: { value: 41 },
     });
     expect(close.statusCode).toBe(201);
-    expect(close.json().consumption).toMatchObject({ electricity: 105, water: 2.1 });
+    expect(close.json().consumption).toMatchObject({ electricity: 110, water: 2.4 });
     await now('2027-01-01T09:00:00+07:00');
     const jan = await create('fd', '2027-01');
     expect(jan.statusCode).toBe(201);
     const el = (jan.json().lines as Json[]).find((l) => l.kind === 'electricity')!;
-    expect(el).toMatchObject({ quantity: 105, meter: { from: 1395, to: 1500 } }); // 1392 → 1395 not billed
+    expect(el).toMatchObject({ quantity: 110, meter: { from: 1390, to: 1500 } });
+    expect(jan.json().warnings).toContainEqual({
+      code: 'OPENING_BELOW_PREVIOUS_CLOSING',
+      roomNo: '202',
+      meter: 'electricity',
+      opening: 1390,
+      previousClosing: 1392,
+      readingId: open.json().id,
+    });
+    const noAck = await issue('fd', jan.json().id, false);
+    expect(noAck.statusCode).toBe(422);
+    expect(noAck.json().code).toBe('WARNINGS_NOT_ACKNOWLEDGED');
     // Voiding the closing (not on an issued statement) → the draft recomputes: reading missing at issue.
     const v = await api('fd', 'POST', `/meter-readings/${close.json().id}/void`, {
       json: { reason: 'Typed wrong' },
@@ -686,30 +843,65 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
 
   it('final statement (BR-LS-04): rent × months − rent of earlier statements = 5.387.000; kind regular refused', async () => {
     await now('2027-01-01T09:40:00+07:00');
-    expect(
-      (
-        await reading('own', {
-          kind: 'period_start',
-          periodMonth: '2027-01',
-          readOn: '2027-01-01',
-          electricity: { value: 1500 },
-          water: { value: 41 },
-        })
-      ).statusCode,
-    ).toBe(201);
-    await now('2027-01-31T20:00:00+07:00');
-    expect(
-      (
-        await reading('own', {
-          kind: 'period_end',
-          periodMonth: '2027-01',
-          readOn: '2027-01-31',
-          electricity: { value: 1620 },
-          water: { value: 44 },
-        })
-      ).statusCode,
-    ).toBe(201);
-    await now('2027-02-01T09:00:00+07:00');
+    // INV 17/11, gap above: opening 1.503 after a closing of 1.500 → gap 3, not billed.
+    const open = await reading('own', {
+      kind: 'period_start',
+      periodMonth: '2027-01',
+      readOn: '2027-01-01',
+      electricity: { value: 1503 },
+      water: { value: 41.3 },
+    });
+    expect(open.statusCode).toBe(201);
+    expect(open.json()).toMatchObject({ gap: { electricity: 3, water: 0.3 } });
+    // ARC BE-190-03: the closing of January forgotten in its window (31/01 – 01/02), typed on 02/02.
+    await now('2027-02-02T09:00:00+07:00');
+    const cand = (await api('fd', 'GET', `/billing-periods/candidates?month=2027-02`)).json();
+    expect(cand.items).toEqual([
+      expect.objectContaining({
+        reservationId: stay,
+        kind: 'final',
+        readingStatus: 'missing',
+        rooms: [
+          {
+            roomId: room202,
+            roomNo: '202',
+            opening: 'exception',
+            closing: 'missing',
+            nextOpening: 'missing',
+          },
+        ],
+      }),
+    ]);
+    const late = {
+      kind: 'period_end',
+      periodMonth: '2027-01',
+      readOn: '2027-02-02',
+      electricity: { value: 1620 },
+      water: { value: 44 },
+    };
+    const fdLate = await api('fd', 'POST', `/reservations/${stay}/meter-readings`, {
+      json: {
+        roomId: room202,
+        ...late,
+        photoAttachmentId: await photo('fd'),
+        lateReason: 'Guest away',
+      },
+    });
+    expect(fdLate.statusCode).toBe(422);
+    expect(fdLate.json()).toMatchObject({
+      code: 'READING_OUT_OF_WINDOW',
+      windowTo: '2027-02-01',
+      lateUntil: '2027-02-11',
+      lateNeedsRole: 'front_desk_lead',
+    });
+    expect((await reading('fdl', late)).statusCode).toBe(422); // no reason
+    const ok = await reading('fdl', { ...late, lateReason: 'Guest away on 31/01' });
+    expect(ok.statusCode).toBe(201);
+    expect(ok.json()).toMatchObject({
+      late: true,
+      lateReason: 'Guest away on 31/01',
+      consumption: { electricity: 117 },
+    });
     const regular = await create('fd', '2027-02', 'regular');
     expect(regular.statusCode).toBe(422);
     expect(regular.json()).toMatchObject({
@@ -724,6 +916,11 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     });
     expect((fin.json().lines as Json[]).find((l) => l.kind === 'rent')).toMatchObject({
       amountVnd: 5_387_000,
+    });
+    expect((fin.json().warnings as Json[]).map((w) => w.code)).toContain('READING_LATE');
+    expect((fin.json().lines as Json[]).find((l) => l.kind === 'electricity')).toMatchObject({
+      quantity: 117,
+      meter: { from: 1503, to: 1620 },
     });
     const mar = await create('fd', '2027-03');
     expect(mar.statusCode).toBe(422);
@@ -777,9 +974,36 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
       readingWindow: { daysBeforeMonthEnd: 0, daysAfter: 1 },
     });
     expect(rules.statusCode).toBe(422);
+    const late = await put('own', 'monthly_statement_rules', {
+      rentTiming: 'advance',
+      dueDay: 5,
+      totalRoundingVnd: 1000,
+      partialFirstMonthRent: 'at_checkin',
+      readingWindow: { daysBeforeMonthEnd: 0, daysAfter: 1, lateMaxDays: 40 },
+    });
+    expect(late.statusCode).toBe(422);
+    expect(late.json()).toMatchObject({ code: 'PARAM_OUT_OF_RANGE', max: 31 });
     expect((await put('own', 'utility_vat_rate', { electricity: 10, water: 5 })).statusCode).toBe(
       200,
     );
+  });
+
+  it('SEC BE-190-01: meter photos get their retention anchor at checkout (every reading of the stay)', async () => {
+    const photos = await q<{ id: string; retention_anchor_at: Date | null }>(
+      `SELECT id, retention_anchor_at FROM attachment WHERE purpose = 'meter' AND reservation_id = $1`,
+      [stay],
+    );
+    expect(photos.length).toBeGreaterThan(0);
+    expect(photos.every((x) => x.retention_anchor_at === null)).toBe(true);
+    const out = at('2027-02-20T11:00:00+07:00');
+    await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RegistrationPortService).onCheckedOut(tx, stay, out),
+    );
+    const after = await q<{ retention_anchor_at: Date | null }>(
+      `SELECT retention_anchor_at FROM attachment WHERE purpose = 'meter' AND reservation_id = $1`,
+      [stay],
+    );
+    expect(after.every((x) => x.retention_anchor_at?.getTime() === out.getTime())).toBe(true);
   });
 
   it('RLS (criterion 10): statements and readings of another property → 404', async () => {

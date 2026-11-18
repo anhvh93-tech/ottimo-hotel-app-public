@@ -3165,6 +3165,15 @@
         }
       },
       "foreignKeys": {
+        "payment_billing_period_fk": {
+          "name": "payment_billing_period_fk",
+          "tableFrom": "payment",
+          "tableTo": "billing_period",
+          "columnsFrom": ["property_id", "billing_period_id"],
+          "columnsTo": ["property_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "payment_property_fk": {
           "name": "payment_property_fk",
           "tableFrom": "payment",
@@ -15623,6 +15632,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "late_reason": {
+          "name": "late_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "late_approved_by": {
+          "name": "late_approved_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "read_by": {
           "name": "read_by",
           "type": "uuid",
@@ -15835,6 +15856,10 @@
         "meter_reading_note_check": {
           "name": "meter_reading_note_check",
           "value": "\"meter_reading\".\"note\" IS NULL OR char_length(\"meter_reading\".\"note\") BETWEEN 3 AND 300"
+        },
+        "meter_reading_late_check": {
+          "name": "meter_reading_late_check",
+          "value": "(\"meter_reading\".\"late_reason\" IS NULL) = (\"meter_reading\".\"late_approved_by\" IS NULL) AND (\"meter_reading\".\"late_reason\" IS NULL OR char_length(\"meter_reading\".\"late_reason\") BETWEEN 3 AND 300)"
         },
         "meter_reading_void_check": {
           "name": "meter_reading_void_check",

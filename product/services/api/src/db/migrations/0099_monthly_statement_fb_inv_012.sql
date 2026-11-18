@@ -9,7 +9,7 @@
 --   Live-row unique index: (reservation, room, kind, COALESCE(period_month, read_on)) WHERE not voided – a period kind
 --   is unique per month, the other kinds per day.
 -- - billing_period: the statement (ERD 4.11). One live statement per booking, month and kind. `payment.billing_period_id`
---   (exists since 0012) points at it – no FK added on `payment` (no change to an existing table).
+--   (exists since 0012) points at it – FK `payment_billing_period_fk` added (ARC BE-190-05; a constraint only, no data change).
 -- - billing_period_line: lines frozen at issue, one live statement per folio line (`active`).
 CREATE TABLE "billing_period" (
 	"id" uuid PRIMARY KEY NOT NULL,
@@ -148,6 +148,12 @@ ALTER TABLE "meter_reading" ADD CONSTRAINT "meter_reading_reservation_fk" FOREIG
 ALTER TABLE "meter_reading" ADD CONSTRAINT "meter_reading_room_fk" FOREIGN KEY ("property_id","room_id") REFERENCES "public"."room"("property_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meter_reading" ADD CONSTRAINT "meter_reading_previous_fk" FOREIGN KEY ("property_id","previous_reading_id") REFERENCES "public"."meter_reading"("property_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meter_reading" ADD CONSTRAINT "meter_reading_photo_fk" FOREIGN KEY ("photo_attachment_id") REFERENCES "public"."attachment"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- ARC BE-190-03 (late reading, FDL+ with a reason) and BE-190-05 (statement payment → statement of the same
+-- property; every payment row before 0099 has billing_period_id NULL, so the FK is added validated).
+ALTER TABLE "meter_reading" ADD COLUMN "late_reason" text;--> statement-breakpoint
+ALTER TABLE "meter_reading" ADD COLUMN "late_approved_by" uuid;--> statement-breakpoint
+ALTER TABLE "payment" ADD CONSTRAINT "payment_billing_period_fk" FOREIGN KEY ("property_id","billing_period_id") REFERENCES "public"."billing_period"("property_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "meter_reading" ADD CONSTRAINT "meter_reading_late_check" CHECK (("meter_reading"."late_reason" IS NULL) = ("meter_reading"."late_approved_by" IS NULL) AND ("meter_reading"."late_reason" IS NULL OR char_length("meter_reading"."late_reason") BETWEEN 3 AND 300));--> statement-breakpoint
 ALTER TABLE "meter_reading" ADD CONSTRAINT "meter_reading_read_by_fk" FOREIGN KEY ("organization_id","read_by") REFERENCES "public"."app_user"("organization_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "billing_period_live_key" ON "billing_period" USING btree ("reservation_id","statement_month","kind") WHERE "billing_period"."status" <> 'void';--> statement-breakpoint
 CREATE INDEX "billing_period_due_idx" ON "billing_period" USING btree ("property_id","status","due_date");--> statement-breakpoint
@@ -207,5 +213,5 @@ INSERT INTO config_parameter_def (key, value_schema, edit_roles, br_ref, is_secu
     '{"electricityVndPerKwh": 4000, "waterVndPerM3": 25000}'::jsonb),
   ('utility_vat_rate', 'json', '{owner}', 'BR-LS-08', false, NULL, '{"electricity": 8, "water": 5}'::jsonb),
   ('monthly_statement_rules', 'json', '{owner}', 'BR-LS-01', false, NULL,
-    '{"rentTiming": "advance", "dueDay": 5, "totalRoundingVnd": 1000, "partialFirstMonthRent": "at_checkin", "readingWindow": {"daysBeforeMonthEnd": 0, "daysAfter": 1}}'::jsonb)
+    '{"rentTiming": "advance", "dueDay": 5, "totalRoundingVnd": 1000, "partialFirstMonthRent": "at_checkin", "readingWindow": {"daysBeforeMonthEnd": 0, "daysAfter": 1, "lateMaxDays": 10}}'::jsonb)
 ON CONFLICT (key) DO NOTHING;
