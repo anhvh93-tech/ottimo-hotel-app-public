@@ -1,18 +1,21 @@
 import { isApiError, type Role } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field, Modal, StateView } from '@ottimo/ui';
-import { useId, useState, type FormEvent } from 'react';
+import { Alert, Button, Chip, Field, StateView } from '@ottimo/ui';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useBusinessDay } from '../../app/businessDay';
 import { problemView } from '../../app/problem';
 import {
   meterUsage,
-  monthOf,
+  parseMeter,
+  readingMonthOn,
   shiftMonth,
   statementsApi,
   type BillingCandidate,
+  type CandidateRoom,
   type MeterException,
   type MeterReading,
   type MeterType,
+  type RecordMeterReadingBody,
 } from '../../app/statements';
 import { useToast } from '../../app/toast';
 import { useWrite } from '../../app/useWrite';
@@ -20,45 +23,44 @@ import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
-import { meterNum, monthText } from './labels';
+import { BelowDialog, HistoryDialog, LowerDialog, TYPES, UNIT } from './MeterDialogs';
+import { dayText, meterNum, monthText } from './labels';
 
 const LEADS: Role[] = ['owner', 'manager', 'front_desk_lead'];
 export const isLead = (roles: Role[]) => roles.some((r) => LEADS.includes(r));
-const TYPES: MeterType[] = ['electricity', 'water'];
-const UNIT = { electricity: 'kwh', water: 'm3' } as const;
 
 interface Row {
   candidate: BillingCandidate;
+  room: CandidateRoom;
   readings: MeterReading[];
 }
 
-/** Latest valid reading of the room – its closing values are the "Last closing" reference (INV 17/11). */
-function lastValid(readings: MeterReading[], roomId: string): MeterReading | undefined {
-  return readings.filter((r) => !r.voidedAt && r.roomId === roomId).at(-1);
-}
-
 /**
- * S12 – end-of-month meter readings of the long stays (FB-INV-012, contract §6.2). One row per long-stay room
- * in house. INV 17/11: the OPENING reading is typed each period (required); the previous closing is shown next
- * to it only as a reference, the gap between them is vacancy loss (viewings, housekeeping) and is not billed.
- * Closing below opening → Wrong entry / Meter replaced / Meter rolled over (the last two front desk lead and up).
+ * S12 – end-of-month meter readings (FB-INV-012, contract §6.2; ARC-FE-189-01). One row per long-stay room. For month
+ * M the desk enters TWO readings per meter: Closing M (`period_end`, against the opening of M already on record) and
+ * Opening M+1 (`period_start`, required, never pre-filled; the closing just typed is shown as the reference). Save =
+ * two POSTs, each with its own Idempotency-Key and its own photo upload (one file binds to one record).
  */
 export function MetersPage() {
   const { t, locale } = useI18n();
   const propertyId = usePropertyId();
   const today = useBusinessDay();
-  // A reading taken on day 01 still closes the month before (BR-LS-10).
-  const [month, setMonth] = useState(() => shiftMonth(monthOf(today), -1));
+  const [month, setMonth] = useState(() => readingMonthOn(today));
   const ids = useId();
   const rows = useResource<Row[]>(async () => {
     const c = (await statementsApi.listBillingCandidates(propertyId, shiftMonth(month, 1))).data;
-    return Promise.all(
-      c.items.map(async (candidate) => ({
-        candidate,
-        readings: (await statementsApi.listMeterReadings(propertyId, candidate.reservationId)).data
-          .items,
-      })),
+    const out = await Promise.all(
+      c.items.map(async (candidate) => {
+        const readings = (await statementsApi.listMeterReadings(propertyId, candidate.reservationId))
+          .data.items;
+        return candidate.rooms.map((room) => ({
+          candidate,
+          room,
+          readings: readings.filter((r) => r.roomId === room.roomId),
+        }));
+      }),
     );
+    return out.flat();
   }, [propertyId, month]);
 
   return (
@@ -112,7 +114,7 @@ export function MetersPage() {
               <tbody>
                 {rows.state.data.map((row) => (
                   <MeterRow
-                    key={row.candidate.reservationId}
+                    key={`${row.candidate.reservationId}-${row.room.roomId}`}
                     row={row}
                     month={month}
                     today={today}
@@ -128,19 +130,16 @@ export function MetersPage() {
   );
 }
 
-interface MeterDraft {
-  opening: string;
+interface Draft {
   closing: string;
-  exception: MeterException | null;
+  opening: string;
+  closingEx: MeterException | null;
+  openingEx: MeterException | null;
 }
+const EMPTY: Draft = { closing: '', opening: '', closingEx: null, openingEx: null };
 
-const parseMeter = (raw: string, type: MeterType): number | null => {
-  const s = raw.trim().replace(',', '.');
-  if (!/^\d+(\.\d+)?$/.test(s)) return null;
-  const n = Number(s);
-  // BR-LS-11: kWh whole, m³ one decimal – the extra digits are dropped (never rounded up).
-  return type === 'water' ? Math.floor(n * 10 + 1e-9) / 10 : Math.floor(n);
-};
+const latest = (list: MeterReading[], ok: (r: MeterReading) => boolean) =>
+  list.filter((r) => !r.voided && ok(r)).at(-1);
 
 function MeterRow({
   row,
@@ -153,572 +152,509 @@ function MeterRow({
   today: string;
   onSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const propertyId = usePropertyId();
   const session = useSession();
   const toast = useToast();
   const lead = isLead(session.roles);
-  const { candidate } = row;
-  const roomNo = candidate.roomNos[0] ?? '';
-  const recorded = row.readings.find(
-    (r) => !r.voidedAt && r.kind === 'period_end' && r.periodMonth === month,
+  const { candidate, room, readings } = row;
+  const next = shiftMonth(month, 1);
+  const openM = latest(
+    readings,
+    (r) =>
+      (r.kind === 'period_start' && r.periodMonth === month) ||
+      ((r.kind === 'checkin' || r.kind === 'room_change_in') && r.readOn.slice(0, 7) === month),
   );
-  const previous = lastValid(
-    row.readings.filter((r) => r.id !== recorded?.id),
-    candidate.roomId,
-  );
-  const [draft, setDraft] = useState<Record<MeterType, MeterDraft>>({
-    electricity: { opening: '', closing: '', exception: null },
-    water: { opening: '', closing: '', exception: null },
+  const closeM = latest(readings, (r) => r.kind === 'period_end' && r.periodMonth === month);
+  const openNext = latest(readings, (r) => r.kind === 'period_start' && r.periodMonth === next);
+  const needNext = room.nextOpening !== 'not_needed';
+  const toClose = !closeM;
+  const toOpen = needNext && !openNext;
+  // BR-LS-10 window: last day of M … end of day 01 of M+1; after it FDL+ records late with a reason (BE-190-03).
+  const windowEnd = `${next}-01`;
+  const late = today > windowEnd;
+
+  const [draft, setDraft] = useState<Record<MeterType, Draft>>({
+    electricity: { ...EMPTY },
+    water: { ...EMPTY },
   });
+  const [ack, setAck] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [waived, setWaived] = useState(false);
   const [note, setNote] = useState('');
+  const [lateReason, setLateReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<string | null>(null);
   const [lower, setLower] = useState<MeterType | null>(null);
+  const [below, setBelow] = useState<{ type: MeterType; previous: number } | null>(null);
   const [history, setHistory] = useState(false);
-  const write = useWrite();
-  const upload = useWrite();
+  const closeW = useWrite();
+  const openW = useWrite();
+  const upC = useWrite();
+  const upO = useWrite();
+  const fileRef = useRef<HTMLInputElement>(null);
   const ids = useId();
 
-  const set = (type: MeterType, patch: Partial<MeterDraft>) =>
+  useEffect(() => {
+    if (!photo || typeof URL.createObjectURL !== 'function') return setPreview(null);
+    const url = URL.createObjectURL(photo);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+
+  const set = (type: MeterType, patch: Partial<Draft>) =>
     setDraft((d) => ({ ...d, [type]: { ...d[type], ...patch } }));
 
-  const save = async (e?: FormEvent) => {
-    e?.preventDefault();
+  /** Opening of M for a meter (read-only reference of the closing). */
+  const openingValue = (type: MeterType) => openM?.[type].value ?? null;
+  /** Reference of the next opening: the closing on record, else the closing being typed. */
+  const lastClosing = (type: MeterType) =>
+    closeM ? closeM[type].value : parseMeter(draft[type].closing, type);
+
+  const busy = closeW.busy || openW.busy || upC.busy || upO.busy;
+  const blockedLate = late && !lead;
+
+  const body = (
+    kind: 'period_end' | 'period_start',
+    values: Record<MeterType, number>,
+    photoAttachmentId: string | null,
+  ): RecordMeterReadingBody => ({
+    roomId: room.roomId,
+    kind,
+    periodMonth: kind === 'period_end' ? month : next,
+    readOn: today,
+    electricity: {
+      value: values.electricity,
+      exception: kind === 'period_end' ? draft.electricity.closingEx : draft.electricity.openingEx,
+    },
+    water: {
+      value: values.water,
+      exception: kind === 'period_end' ? draft.water.closingEx : draft.water.openingEx,
+    },
+    ...(photoAttachmentId ? { photoAttachmentId } : { photoWaived: true }),
+    note: note.trim() || null,
+    ...(kind === 'period_start' && ack ? { acknowledgeLowerThanPrevious: true } : {}),
+    ...(late ? { lateReason: lateReason.trim() } : {}),
+  });
+
+  const save = async (opts: { ack?: boolean } = {}) => {
     setBanner(null);
     const errs: Record<string, string> = {};
-    const values = {} as Record<MeterType, { opening: number; value: number } | null>;
+    const closing = {} as Record<MeterType, number>;
+    const opening = {} as Record<MeterType, number>;
     for (const type of TYPES) {
-      const o = parseMeter(draft[type].opening, type);
-      const c = parseMeter(draft[type].closing, type);
-      if (o === null) errs[`${type}.opening`] = t('common.required');
-      if (c === null) errs[`${type}.value`] = t('common.required');
-      values[type] = o === null || c === null ? null : { opening: o, value: c };
+      if (toClose) {
+        const c = parseMeter(draft[type].closing, type);
+        if (c === null) errs[`${type}.closing`] = t('common.required');
+        else closing[type] = c;
+      }
+      if (toOpen) {
+        const o = parseMeter(draft[type].opening, type);
+        if (o === null) errs[`${type}.opening`] = t('common.required');
+        else opening[type] = o;
+      }
     }
     if (!photo && !waived) errs.photo = t('meters.photo_required');
+    if (waived && note.trim().length < 3) errs.note = t('meters.void_reason_required');
+    if (late && lateReason.trim().length < 3) errs.late = t('meters.void_reason_required');
     setErrors(errs);
     if (Object.keys(errs).length) return;
-    // BR-LS-12: closing below opening is never saved as is – ask why first.
-    const low = TYPES.find(
-      (type) => values[type]!.value < values[type]!.opening && !draft[type].exception,
-    );
-    if (low) {
-      setLower(low);
-      return;
+    // BR-LS-12: closing below the opening of M is never saved as typed – ask why first.
+    if (toClose) {
+      const low = TYPES.find((type) => {
+        const o = openingValue(type);
+        return o !== null && closing[type] < o && !draft[type].closingEx;
+      });
+      if (low) return setLower(low);
     }
+    // BE-190-01: opening below the last closing – warn, then save with acknowledgement.
+    const acked = opts.ack || ack;
+    if (toOpen && !acked) {
+      const lowOpen = TYPES.find((type) => {
+        const prev = lastClosing(type);
+        return prev !== null && opening[type] < prev && !draft[type].openingEx;
+      });
+      if (lowOpen) return setBelow({ type: lowOpen, previous: lastClosing(lowOpen)! });
+    }
+    const upload = async (w: typeof upC) =>
+      photo
+        ? (
+            await w.run((key) =>
+              statementsApi.uploadMeterPhoto(propertyId, candidate.reservationId, photo, key),
+            )
+          ).data.id
+        : null;
+    let saved = false;
     try {
-      let photoAttachmentId: string | null = null;
-      if (photo)
-        photoAttachmentId = (
-          await upload.run((key) =>
-            statementsApi.uploadMeterPhoto(propertyId, candidate.reservationId, photo, key),
-          )
-        ).data.id;
-      await write.run((key) =>
-        statementsApi.recordMeterReading(
-          propertyId,
-          candidate.reservationId,
-          {
-            roomId: candidate.roomId,
-            kind: 'period_end',
-            periodMonth: month,
-            readOn: today,
-            electricity: { ...values.electricity!, exception: draft.electricity.exception },
-            water: { ...values.water!, exception: draft.water.exception },
-            photoAttachmentId,
-            photoWaived: !photo && waived,
-            note: note.trim() || null,
-          },
-          key,
-        ),
-      );
-      toast(t('meters.saved', { room: roomNo }));
+      if (toClose) {
+        const id = await upload(upC);
+        await closeW.run((key) =>
+          statementsApi.recordMeterReading(
+            propertyId,
+            candidate.reservationId,
+            body('period_end', closing, id),
+            key,
+          ),
+        );
+        saved = true;
+      }
+      if (toOpen) {
+        const id = await upload(upO);
+        const b = body('period_start', opening, id);
+        if (acked) b.acknowledgeLowerThanPrevious = true;
+        await openW.run((key) =>
+          statementsApi.recordMeterReading(propertyId, candidate.reservationId, b, key),
+        );
+        saved = true;
+      }
+      toast(t('meters.saved', { room: room.roomNo }));
+      setAck(false);
       onSaved();
     } catch (err) {
+      if (saved) onSaved();
+      if (isApiError(err) && err.status >= 400 && err.status < 500) {
+        closeW.renewKey();
+        openW.renewKey();
+      }
       if (isApiError(err) && err.code === 'METER_LOWER_THAN_PREVIOUS') {
         setLower((err.problem.meter as MeterType | undefined) ?? 'electricity');
+        return;
+      }
+      if (isApiError(err) && err.code === 'OPENING_BELOW_PREVIOUS_CLOSING') {
+        const type = (err.problem.meter as MeterType | undefined) ?? 'electricity';
+        const previous = Number(err.problem.previousValue ?? lastClosing(type) ?? 0);
+        setBelow({ type, previous });
         return;
       }
       setBanner(problemView(t, err).text);
     }
   };
 
-  if (recorded) {
-    return (
-      <tr>
-        <th scope="row">
-          {roomNo} · {candidate.guestDisplayName}
-        </th>
-        {TYPES.map((type) => {
-          const m = recorded[type];
-          return (
-            <td key={type}>
-              <span className="mono">
-                {meterNum(m.opening, UNIT[type])} → {meterNum(m.value, UNIT[type])}
-              </span>
-              <div className="li-s">
-                {t('meters.usage', { usage: meterNum(m.consumption, UNIT[type]) })}
-              </div>
-              {m.gap ? (
-                <div className="li-s">
-                  {t('meters.gap_saved', { gap: meterNum(m.gap, UNIT[type]) })}
-                </div>
-              ) : null}
-              {m.exception ? (
-                <Chip tone="oak" icon={null}>
-                  {t(`meters.exception.${m.exception.type}`)}
-                </Chip>
-              ) : null}
-            </td>
-          );
-        })}
-        <td>
-          {recorded.photoWaived ? (
-            <Chip tone="neutral" icon={null}>
-              {t('meters.photo_waived_chip')}
-            </Chip>
-          ) : (
-            <Chip tone="long" icon="camera">
-              {t('meters.photo_saved')}
-            </Chip>
-          )}
-        </td>
-        <td>
-          <Chip tone="long" icon="check">
-            {t('meters.recorded', { initials: recorded.readByInitials })}
-          </Chip>{' '}
-          <Button size="sm" variant="ghost" onClick={() => setHistory(true)}>
-            {t('meters.history')}
-          </Button>
-          {history ? (
-            <HistoryDialog
-              row={row}
-              onClose={() => setHistory(false)}
-              onChanged={() => {
-                setHistory(false);
-                onSaved();
-              }}
-            />
-          ) : null}
-        </td>
-      </tr>
-    );
-  }
+  const history$ = history ? (
+    <HistoryDialog
+      rooms={candidate.roomNos.join(', ')}
+      readings={readings}
+      onClose={() => setHistory(false)}
+      onChanged={() => {
+        setHistory(false);
+        onSaved();
+      }}
+    />
+  ) : null;
 
   return (
     <tr>
       <th scope="row">
-        {roomNo} · {candidate.guestDisplayName}
-        {row.readings.length ? (
+        {room.roomNo} · {candidate.guestDisplayName ?? ''}
+        {readings.length ? (
           <div>
             <Button size="sm" variant="ghost" onClick={() => setHistory(true)}>
               {t('meters.history')}
             </Button>
           </div>
         ) : null}
-        {history ? (
-          <HistoryDialog
-            row={row}
-            onClose={() => setHistory(false)}
-            onChanged={() => {
-              setHistory(false);
-              onSaved();
-            }}
-          />
-        ) : null}
+        {history$}
       </th>
       {TYPES.map((type) => {
-        const prev = previous ? previous[type].value : null;
-        const o = parseMeter(draft[type].opening, type);
-        const c = parseMeter(draft[type].closing, type);
-        const gap = prev !== null && o !== null ? o - prev : null;
-        const usage =
-          o !== null && c !== null && (c >= o || draft[type].exception)
-            ? meterUsage({ opening: o, value: c, exception: draft[type].exception }, type)
-            : null;
         const unit = UNIT[type];
+        const name = t(`stmt.meter.${type}`);
+        const o = openingValue(type);
+        const c = parseMeter(draft[type].closing, type);
+        const usage =
+          o !== null && c !== null && (c >= o || draft[type].closingEx)
+            ? meterUsage(o, { value: c, exception: draft[type].closingEx }, type)
+            : null;
+        const prev = lastClosing(type);
+        const n = parseMeter(draft[type].opening, type);
+        const gap = prev !== null && n !== null ? n - prev : null;
+        const shownGap = gap === null ? null : type === 'water' ? Math.round(gap * 10) / 10 : gap;
+        const savedGap = openNext?.gap?.[type];
+        const used = closeM?.consumption?.[type];
         return (
           <td key={type} className="meter-cell">
-            <Field
-              label={t('meters.opening')}
-              required
-              error={errors[`${type}.opening`]}
-              help={
-                prev !== null
-                  ? t('meters.last_closing', { value: meterNum(prev, unit) })
-                  : t('meters.no_last_closing')
-              }
-            >
-              {(p) => (
-                <input
-                  {...p}
-                  className="input num mono"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={draft[type].opening}
-                  onChange={(e) => set(type, { opening: e.target.value })}
-                  aria-label={`${t(`stmt.meter.${type}`)} – ${t('meters.opening')} – ${roomNo}`}
-                />
+            <div className="meter-group">
+              <div className="label-h">
+                {t('meters.group_closing', { month: monthText(locale, month) })}
+              </div>
+              {closeM ? (
+                <>
+                  <span className="mono">
+                    {o !== null ? `${meterNum(o, unit)} → ` : ''}
+                    {meterNum(closeM[type].value, unit)}
+                  </span>
+                  {typeof used === 'number' ? (
+                    <div className="li-s">{t('meters.usage', { usage: meterNum(used, unit) })}</div>
+                  ) : null}
+                  {closeM[type].exception ? (
+                    <Chip tone="oak" icon={null}>
+                      {t(`meters.exception.${closeM[type].exception!.type}`)}
+                    </Chip>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {o !== null ? (
+                    <p className="li-s mono">{t('meters.opening_of', { value: meterNum(o, unit) })}</p>
+                  ) : (
+                    <Alert tone="warn">{t('meters.opening_missing')}</Alert>
+                  )}
+                  <Field label={t('meters.closing')} required error={errors[`${type}.closing`]}>
+                    {(p) => (
+                      <input
+                        {...p}
+                        className="input num mono"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={draft[type].closing}
+                        onChange={(e) => set(type, { closing: e.target.value, closingEx: null })}
+                        aria-label={`${name} – ${t('meters.closing')} – ${room.roomNo}`}
+                      />
+                    )}
+                  </Field>
+                  {usage !== null ? (
+                    <p className="li-s">
+                      {t('meters.usage_preview', { usage: meterNum(usage, unit) })}
+                    </p>
+                  ) : null}
+                  {draft[type].closingEx ? (
+                    <Chip tone="oak" icon={null}>
+                      {t(`meters.exception.${draft[type].closingEx!.type}`)}
+                    </Chip>
+                  ) : null}
+                </>
               )}
-            </Field>
-            {gap !== null && gap > 0 ? (
-              <p className="li-s meter-gap" role="status">
-                {t('meters.gap', {
-                  gap: meterNum(type === 'water' ? Math.round(gap * 10) / 10 : gap, unit),
-                })}
-              </p>
-            ) : gap !== null && gap < 0 ? (
-              <Alert tone="warn" role="status">
-                {t('meters.opening_below_last', { value: meterNum(prev!, unit) })}
-              </Alert>
-            ) : null}
-            <Field label={t('meters.closing')} required error={errors[`${type}.value`]}>
-              {(p) => (
-                <input
-                  {...p}
-                  className="input num mono"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={draft[type].closing}
-                  onChange={(e) => set(type, { closing: e.target.value, exception: null })}
-                  aria-label={`${t(`stmt.meter.${type}`)} – ${t('meters.closing')} – ${roomNo}`}
-                />
-              )}
-            </Field>
-            {usage !== null ? (
-              <p className="li-s">{t('meters.usage', { usage: meterNum(usage, unit) })}</p>
-            ) : null}
-            {draft[type].exception ? (
-              <Chip tone="oak" icon={null}>
-                {t(`meters.exception.${draft[type].exception.type}`)}
-              </Chip>
+            </div>
+            {needNext ? (
+              <div className="meter-group">
+                <div className="label-h">
+                  {t('meters.group_opening', { month: monthText(locale, next) })}
+                </div>
+                {openNext ? (
+                  <>
+                    <span className="mono">{meterNum(openNext[type].value, unit)}</span>
+                    {typeof savedGap === 'number' && savedGap > 0 ? (
+                      <div className="li-s meter-gap">
+                        {t('meters.gap_saved', { gap: meterNum(savedGap, unit) })}
+                      </div>
+                    ) : typeof savedGap === 'number' && savedGap < 0 ? (
+                      <div className="li-s meter-gap">
+                        {t('meters.below_saved', { gap: meterNum(-savedGap, unit) })}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <Field
+                      label={t('meters.opening')}
+                      required
+                      error={errors[`${type}.opening`]}
+                      help={
+                        prev !== null
+                          ? t('meters.last_closing', { value: meterNum(prev, unit) })
+                          : t('meters.last_closing_pending')
+                      }
+                    >
+                      {(p) => (
+                        <input
+                          {...p}
+                          className="input num mono"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          value={draft[type].opening}
+                          onChange={(e) => {
+                            set(type, { opening: e.target.value, openingEx: null });
+                            setAck(false);
+                          }}
+                          aria-label={`${name} – ${t('meters.opening')} – ${room.roomNo}`}
+                        />
+                      )}
+                    </Field>
+                    {shownGap !== null && shownGap > 0 ? (
+                      <p className="li-s meter-gap" role="status">
+                        {t('meters.gap', { gap: meterNum(shownGap, unit) })}
+                      </p>
+                    ) : shownGap !== null && shownGap < 0 && !draft[type].openingEx ? (
+                      <Alert tone="warn" role="status">
+                        {t('meters.below_body', {
+                          opening: meterNum(n!, unit),
+                          previous: meterNum(prev!, unit),
+                        })}
+                      </Alert>
+                    ) : null}
+                    {draft[type].openingEx ? (
+                      <Chip tone="oak" icon={null}>
+                        {t(`meters.exception.${draft[type].openingEx!.type}`)}
+                      </Chip>
+                    ) : null}
+                  </>
+                )}
+              </div>
             ) : null}
           </td>
         );
       })}
       <td>
-        <Field
-          label={t('meters.photo')}
-          required={!waived}
-          error={errors.photo}
-          help={t('meters.photo_help')}
-        >
-          {(p) => (
-            <input
-              {...p}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-            />
-          )}
-        </Field>
-        {lead ? (
-          <label className="row">
-            <input type="checkbox" checked={waived} onChange={(e) => setWaived(e.target.checked)} />{' '}
-            {t('meters.photo_waive')}
-          </label>
-        ) : null}
-        {waived ? (
-          <Field label={t('meters.note')} required>
-            {(p) => (
-              <input
-                {...p}
-                className="input"
-                value={note}
-                maxLength={300}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            )}
-          </Field>
-        ) : null}
+        {toClose || toOpen ? (
+          <>
+            <Field
+              label={t('meters.photo')}
+              required={!waived}
+              error={errors.photo}
+              help={t('meters.photo_help')}
+            >
+              {(p) => (
+                <div className="stack">
+                  <input
+                    {...p}
+                    ref={fileRef}
+                    className="sr-only"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    tabIndex={-1}
+                    onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                  />
+                  {photo ? (
+                    <div className="row meter-photo">
+                      {preview ? <img src={preview} alt="" width={48} height={48} /> : null}
+                      <span className="li-s grow">{photo.name}</span>
+                    </div>
+                  ) : null}
+                  <Button size="sm" icon="camera" onClick={() => fileRef.current?.click()}>
+                    {photo ? t('meters.photo_change') : t('meters.photo_pick')}
+                  </Button>
+                </div>
+              )}
+            </Field>
+            {lead ? (
+              <label className="row">
+                <input
+                  type="checkbox"
+                  checked={waived}
+                  onChange={(e) => setWaived(e.target.checked)}
+                />{' '}
+                {t('meters.photo_waive')}
+              </label>
+            ) : null}
+            {waived ? (
+              <Field label={t('meters.note')} required error={errors.note}>
+                {(p) => (
+                  <input
+                    {...p}
+                    className="input"
+                    value={note}
+                    maxLength={300}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                )}
+              </Field>
+            ) : null}
+          </>
+        ) : closeM?.photoWaived ? (
+          <Chip tone="neutral" icon={null}>
+            {t('meters.photo_waived_chip')}
+          </Chip>
+        ) : (
+          <Chip tone="long" icon="camera">
+            {t('meters.photo_saved')}
+          </Chip>
+        )}
       </td>
       <td>
-        <Chip tone="neutral" icon={null}>
-          {t('meters.missing')}
-        </Chip>
-        <div className="mt-8">
-          <Button
-            variant="pri"
-            size="sm"
-            onClick={() => void save()}
-            busy={write.busy || upload.busy}
-            busyLabel={write.busyLabel ?? t('common.saving')}
-            aria-describedby={banner ? `${ids}-err` : undefined}
-          >
-            {write.label(t('meters.save'))}
-          </Button>
-        </div>
-        {write.notice}
-        {banner ? (
-          <div id={`${ids}-err`}>
-            <Alert tone="bad">{banner}</Alert>
-          </div>
-        ) : null}
+        {toClose || toOpen ? (
+          <>
+            <Chip tone="neutral" icon={null}>
+              {t('meters.missing')}
+            </Chip>
+            {late ? (
+              lead ? (
+                <Field
+                  label={t('meters.late_reason')}
+                  required
+                  error={errors.late}
+                  help={t('meters.late', { date: dayText(locale, windowEnd) })}
+                >
+                  {(p) => (
+                    <input
+                      {...p}
+                      className="input"
+                      value={lateReason}
+                      maxLength={300}
+                      onChange={(e) => setLateReason(e.target.value)}
+                    />
+                  )}
+                </Field>
+              ) : (
+                <Alert tone="info">{t('meters.late_fd', { date: dayText(locale, windowEnd) })}</Alert>
+              )
+            ) : null}
+            <div className="mt-8">
+              <Button
+                variant="pri"
+                size="sm"
+                disabled={blockedLate}
+                onClick={() => void save()}
+                busy={busy}
+                busyLabel={closeW.busyLabel ?? openW.busyLabel ?? t('common.saving')}
+                aria-describedby={banner ? `${ids}-err` : undefined}
+              >
+                {closeW.label(t('meters.save'))}
+              </Button>
+            </div>
+            {closeW.notice}
+            {openW.notice}
+            {banner ? (
+              <div id={`${ids}-err`}>
+                <Alert tone="bad">{banner}</Alert>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <Chip tone="long" icon="check">
+            {t('meters.recorded', { initials: closeM?.readByInitials ?? '' })}
+          </Chip>
+        )}
         {lower ? (
           <LowerDialog
             type={lower}
             lead={lead}
-            opening={parseMeter(draft[lower].opening, lower) ?? 0}
+            opening={openingValue(lower) ?? 0}
             closing={parseMeter(draft[lower].closing, lower) ?? 0}
             onWrongEntry={() => {
               setLower(null);
-              setErrors((x) => ({ ...x, [`${lower}.value`]: t('meters.fix_entry') }));
+              setErrors((x) => ({ ...x, [`${lower}.closing`]: t('meters.fix_entry') }));
             }}
             onException={(ex) => {
-              set(lower, { exception: ex });
+              set(lower, { closingEx: ex });
               setLower(null);
             }}
             onClose={() => setLower(null)}
           />
         ) : null}
+        {below ? (
+          <BelowDialog
+            type={below.type}
+            lead={lead}
+            opening={parseMeter(draft[below.type].opening, below.type) ?? 0}
+            previous={below.previous}
+            onWrongEntry={() => {
+              setBelow(null);
+              setErrors((x) => ({ ...x, [`${below.type}.opening`]: t('meters.fix_opening') }));
+            }}
+            onException={(ex) => {
+              set(below.type, { openingEx: ex });
+              setBelow(null);
+            }}
+            onSaveAnyway={() => {
+              setBelow(null);
+              setAck(true);
+              void save({ ack: true });
+            }}
+            onClose={() => setBelow(null)}
+          />
+        ) : null}
       </td>
     </tr>
-  );
-}
-
-/** BR-LS-12: closing < opening – Wrong entry (anyone) / Meter replaced / Meter rolled over (FDL+, A89). */
-function LowerDialog({
-  type,
-  lead,
-  opening,
-  closing,
-  onWrongEntry,
-  onException,
-  onClose,
-}: {
-  type: MeterType;
-  lead: boolean;
-  opening: number;
-  closing: number;
-  onWrongEntry: () => void;
-  onException: (e: MeterException) => void;
-  onClose: () => void;
-}) {
-  const { t } = useI18n();
-  const [mode, setMode] = useState<'choose' | 'replaced' | 'rollover'>('choose');
-  const [oldFinal, setOldFinal] = useState('');
-  const [newStart, setNewStart] = useState('0');
-  const [replacedOn, setReplacedOn] = useState('');
-  const [maxValue, setMaxValue] = useState(type === 'electricity' ? '99999' : '9999.9');
-  const [err, setErr] = useState<string | null>(null);
-  const unit = UNIT[type];
-
-  const confirm = () => {
-    if (mode === 'replaced') {
-      const a = parseMeter(oldFinal, type);
-      const b = parseMeter(newStart, type);
-      if (a === null || b === null || !replacedOn) return setErr(t('common.required'));
-      onException({ type: 'replaced', oldFinal: a, newStart: b, replacedOn });
-    } else if (mode === 'rollover') {
-      const m = parseMeter(maxValue, type);
-      if (m === null) return setErr(t('common.required'));
-      onException({ type: 'rollover', maxValue: m });
-    }
-  };
-
-  return (
-    <Modal
-      open
-      size="sm"
-      title={t('meters.lower_title', { meter: t(`stmt.meter.${type}`) })}
-      onClose={onClose}
-      closeLabel={t('common.close')}
-      role="alertdialog"
-      footer={
-        mode === 'choose' ? (
-          <Button onClick={onClose}>{t('common.back')}</Button>
-        ) : (
-          <>
-            <Button onClick={() => setMode('choose')}>{t('common.back')}</Button>
-            <Button variant="pri" onClick={confirm}>
-              {t('meters.use_exception')}
-            </Button>
-          </>
-        )
-      }
-    >
-      <p>
-        {t('meters.lower_body', {
-          closing: meterNum(closing, unit),
-          opening: meterNum(opening, unit),
-        })}
-      </p>
-      {mode === 'choose' ? (
-        <div className="stack">
-          <Button onClick={onWrongEntry}>{t('meters.wrong_entry')}</Button>
-          <Button disabled={!lead} onClick={() => setMode('replaced')}>
-            {t('meters.exception.replaced')}
-          </Button>
-          <Button disabled={!lead} onClick={() => setMode('rollover')}>
-            {t('meters.exception.rollover')}
-          </Button>
-          {!lead ? <Alert tone="info">{t('meters.ask_lead')}</Alert> : null}
-        </div>
-      ) : mode === 'replaced' ? (
-        <div className="stack">
-          <Field label={t('meters.old_final')} required>
-            {(p) => (
-              <input
-                {...p}
-                className="input num mono"
-                inputMode="decimal"
-                value={oldFinal}
-                onChange={(e) => setOldFinal(e.target.value)}
-              />
-            )}
-          </Field>
-          <Field label={t('meters.new_start')} required>
-            {(p) => (
-              <input
-                {...p}
-                className="input num mono"
-                inputMode="decimal"
-                value={newStart}
-                onChange={(e) => setNewStart(e.target.value)}
-              />
-            )}
-          </Field>
-          <Field label={t('meters.replaced_on')} required>
-            {(p) => (
-              <input
-                {...p}
-                className="input"
-                type="date"
-                value={replacedOn}
-                onChange={(e) => setReplacedOn(e.target.value)}
-              />
-            )}
-          </Field>
-          {err ? <Alert tone="bad">{err}</Alert> : null}
-        </div>
-      ) : (
-        <div className="stack">
-          <Field label={t('meters.max_value')} required help={t('meters.max_value_help')}>
-            {(p) => (
-              <input
-                {...p}
-                className="input num mono"
-                inputMode="decimal"
-                value={maxValue}
-                onChange={(e) => setMaxValue(e.target.value)}
-              />
-            )}
-          </Field>
-          {err ? <Alert tone="bad">{err}</Alert> : null}
-        </div>
-      )}
-    </Modal>
-  );
-}
-
-/** Readings of one stay (all, voided ones marked) – "Nhập sai" = void then enter again (contract §2.1). */
-function HistoryDialog({
-  row,
-  onClose,
-  onChanged,
-}: {
-  row: Row;
-  onClose: () => void;
-  onChanged: () => void;
-}) {
-  const { t, date } = useI18n();
-  const propertyId = usePropertyId();
-  const [voiding, setVoiding] = useState<MeterReading | null>(null);
-  const [reason, setReason] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const doVoid = async () => {
-    if (!voiding) return;
-    if (reason.trim().length < 3) return setErr(t('meters.void_reason_required'));
-    setBusy(true);
-    try {
-      await statementsApi.voidMeterReading(propertyId, voiding.id, reason.trim());
-      onChanged();
-    } catch (e) {
-      setErr(problemView(t, e).text);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal
-      open
-      size="lg"
-      title={t('meters.history_title', { room: row.candidate.roomNos.join(', ') })}
-      onClose={onClose}
-      closeLabel={t('common.close')}
-    >
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th scope="col">{t('meters.col_date')}</th>
-              <th scope="col">{t('stmt.meter.electricity')}</th>
-              <th scope="col">{t('stmt.meter.water')}</th>
-              <th scope="col">{t('meters.col_status')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...row.readings].reverse().map((r) => (
-              <tr key={r.id} className={r.voidedAt ? 'muted' : undefined}>
-                <td>
-                  {date(r.readOn)}
-                  <div className="li-s">{t(`meters.kind.${r.kind}`)}</div>
-                </td>
-                {TYPES.map((type) => (
-                  <td key={type} className="mono">
-                    {meterNum(r[type].opening, UNIT[type])} → {meterNum(r[type].value, UNIT[type])}
-                    {r[type].gap ? (
-                      <div className="li-s">
-                        {t('meters.gap_saved', { gap: meterNum(r[type].gap!, UNIT[type]) })}
-                      </div>
-                    ) : null}
-                  </td>
-                ))}
-                <td>
-                  {r.voidedAt ? (
-                    <Chip tone="neutral" icon={null}>
-                      {t('meters.voided')}
-                    </Chip>
-                  ) : r.onIssuedStatement ? (
-                    <span className="li-s">{t('meters.on_issued')}</span>
-                  ) : (
-                    <Button size="sm" onClick={() => setVoiding(r)}>
-                      {t('meters.void')}
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {voiding ? (
-        <div className="stack mt-16">
-          <Field label={t('meters.void_reason')} required error={err ?? undefined}>
-            {(p) => (
-              <input
-                {...p}
-                className="input"
-                value={reason}
-                maxLength={300}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            )}
-          </Field>
-          <div className="row">
-            <Button onClick={() => setVoiding(null)}>{t('common.back')}</Button>
-            <Button variant="danger" busy={busy} onClick={() => void doVoid()}>
-              {t('meters.void_confirm')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-    </Modal>
   );
 }
