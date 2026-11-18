@@ -217,7 +217,9 @@ export function seedParams(): Parameter[] {
       OWN,
     ),
     // FB-INV-012 §12.4 (H3): OWN/MGR (A101); `{}` = every room uses `adhoc_cleaning_fee` (v1.0.7 unchanged).
-    p('long_stay_cleaning_fee_by_room', {}, 'H3', MGMT),
+    p('long_stay_cleaning_fee_by_room', {}, 'BR-LS-07', MGMT),
+    // UXD-196-06: the standard price the table falls back to (catalogue 0002, BR-506).
+    p('adhoc_cleaning_fee', 100000, 'BR-506', MGMT),
   ];
 }
 

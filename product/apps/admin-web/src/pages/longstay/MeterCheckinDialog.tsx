@@ -230,7 +230,7 @@ export function MeterCheckinDialog({
               {t(lead ? 'meters.late' : 'meters.late_fd', { date: dayText(locale, late.windowTo) })}
             </Alert>
           ) : backdated && !lead ? (
-            <Alert tone="warn">{t('meters.late_fd', { date: dayText(locale, segmentFrom) })}</Alert>
+            <Alert tone="warn">{t('meters.backdated_fd')}</Alert>
           ) : null}
           {(needsReason && lead && !pastLate) || catchUp ? (
             <Field

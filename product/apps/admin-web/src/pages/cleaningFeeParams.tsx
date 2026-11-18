@@ -19,10 +19,10 @@ const entries = (v: unknown): Array<[string, number]> =>
         .sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))
     : [];
 
-/** "101: 150.000 · 102: 150.000" – or "Not set" for `{}`. */
-export function formatLscf(t: T, v: unknown): string {
+/** "101: 150.000 · 102: 150.000" – or "Not set" for `{}` (`short` in the history table, UXD-196-06). */
+export function formatLscf(t: T, v: unknown, short = false): string {
   const e = entries(v);
-  if (!e.length) return t('params.lscf.empty');
+  if (!e.length) return t(short ? 'params.lscf.empty_short' : 'params.lscf.empty');
   if (e.length > 4) return t('params.lscf.rooms_n', { n: e.length });
   return e.map(([room, n]) => `${room}: ${fmt(n)}`).join(' · ');
 }
@@ -53,9 +53,12 @@ export function LscfFields({
   draft,
   errors,
   onChange,
+  standardPrice,
 }: {
   t: T;
   rooms: string[];
+  /** The effective `adhoc_cleaning_fee` – shown in the help and as the placeholder of a blank room. */
+  standardPrice?: number | null;
   draft: Record<string, string>;
   errors: Record<string, string>;
   onChange: (room: string, v: string) => void;
@@ -67,7 +70,11 @@ export function LscfFields({
   return (
     <fieldset className="stack">
       <legend className="label-h">{t('params.k.long_stay_cleaning_fee_by_room')}</legend>
-      <p className="li-s">{t('params.lscf.help')}</p>
+      <p className="li-s">
+        {typeof standardPrice === 'number'
+          ? t('params.lscf.help', { price: `${fmt(standardPrice)} ${t('common.vnd_unit')}` })
+          : t('params.lscf.help_noprice')}
+      </p>
       <div className="g-3">
         {all.map((room) => (
           <Field
@@ -81,6 +88,7 @@ export function LscfFields({
                   {...p}
                   className="input num"
                   inputMode="numeric"
+                  placeholder={typeof standardPrice === 'number' ? fmt(standardPrice) : undefined}
                   value={draft[room] ?? ''}
                   onChange={(e) => onChange(room, e.target.value)}
                 />

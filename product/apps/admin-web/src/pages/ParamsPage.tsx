@@ -239,6 +239,10 @@ export function ParamsPage() {
         <ParamDialog
           param={editing}
           options={params.find((p) => p.key === 'hold_hours_options')?.value}
+          standardCleaningPrice={(() => {
+            const v = params.find((p) => p.key === 'adhoc_cleaning_fee')?.value;
+            return typeof v === 'number' ? v : null;
+          })()}
           onClose={() => setEditing(null)}
           onChanged={reload}
           onSaved={() => {

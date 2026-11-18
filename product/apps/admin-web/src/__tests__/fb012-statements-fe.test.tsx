@@ -112,7 +112,8 @@ describe('FB-INV-012 S16 statements – lines, totals, flow', () => {
     const amount = within(dlg).getByLabelText(new RegExp(`^${esc(tv('stmt.pay_amount'))}`));
     const total = mockControl.statements.periods.find((p) => p.id === id)!.snapshot!.totals
       .totalVnd;
-    expect(amount).toHaveValue(String(total));
+    // UXD-196-07: grouped in thousands.
+    expect(amount).toHaveValue(new Intl.NumberFormat('vi-VN').format(total));
     fireEvent.click(within(dlg).getByRole('button', { name: tv('stmt.pay_save') }));
     await waitFor(() =>
       expect(mockControl.statements.periods.find((p) => p.id === id)!.status).toBe('paid'),

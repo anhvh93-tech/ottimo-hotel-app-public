@@ -33,13 +33,13 @@ function suffix(t: T, key: string): string {
   return k ? t(k) : '';
 }
 
-export function formatParamValue(t: T, p: Pick<Parameter, 'key' | 'value'>): string {
+export function formatParamValue(t: T, p: Pick<Parameter, 'key' | 'value'>, short = false): string {
   const v = p.value;
   if (isStatementParam(p.key)) {
     const s = formatStatementParam(t, p.key, v);
     if (s) return s;
   }
-  if (p.key === LSCF_KEY) return formatLscf(t, v);
+  if (p.key === LSCF_KEY) return formatLscf(t, v, short);
   if (typeof v === 'number') {
     const n = new Intl.NumberFormat('vi-VN').format(v);
     const s = suffix(t, p.key);
@@ -63,12 +63,15 @@ type Kind = 'options' | 'number' | 'time' | 'json';
 export function ParamDialog({
   param,
   options,
+  standardCleaningPrice,
   onClose,
   onSaved,
   onChanged,
 }: {
   param: Parameter;
   options?: unknown;
+  /** UXD-196-06: the effective `adhoc_cleaning_fee`, for the long-stay cleaning table. */
+  standardCleaningPrice?: number | null;
   onClose: () => void;
   onSaved: () => void;
   /** A scheduled row was cancelled – the dialog stays open; the page refreshes its list. */
@@ -273,6 +276,7 @@ export function ParamDialog({
             <LscfFields
               t={t}
               rooms={catalog.rooms.map((r) => r.roomNo)}
+              standardPrice={standardCleaningPrice}
               draft={draft}
               errors={errors}
               onChange={(room, v) => setDraft((d) => ({ ...d, [room]: v }))}
@@ -407,10 +411,10 @@ export function ParamDialog({
                     </td>
                     <td>{h.changedBy ?? '–'}</td>
                     <td className="r" style={valueCell}>
-                      {rows[i + 1] ? formatParamValue(t, rows[i + 1]!) : '–'}
+                      {rows[i + 1] ? formatParamValue(t, rows[i + 1]!, true) : '–'}
                     </td>
                     <td className="r" style={valueCell}>
-                      {formatParamValue(t, h)}
+                      {formatParamValue(t, h, true)}
                     </td>
                     <td>{h.reason ?? ''}</td>
                     {cancelColumn ? (

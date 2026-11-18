@@ -6,7 +6,7 @@ import {
   type Reservation,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field, Modal } from '@ottimo/ui';
+import { Alert, Button, Checkbox, Chip, Field, Modal } from '@ottimo/ui';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
@@ -321,27 +321,25 @@ export function LongStayDialog({
         ) : null}
         {canBackdate && !prefill?.webRequest ? (
           <div className="stack mb-12">
-            <label className="row">
-              <input
-                type="checkbox"
-                checked={inHouse}
-                disabled={!deviceTrusted}
-                onChange={(e) =>
-                  set(
-                    e.target.checked
-                      ? {
-                          inHouse: true,
-                          arrivalDate: form.arrivalDate < today ? form.arrivalDate : bounds.latest,
-                        }
-                      : { inHouse: false, arrivalDate: today },
-                  )
-                }
-              />{' '}
-              <span>
-                <b>{t('bd.in_house_toggle')}</b>
-              </span>
-            </label>
+            <Checkbox
+              checked={inHouse}
+              disabled={!deviceTrusted}
+              onChange={(on) =>
+                set(
+                  on
+                    ? {
+                        inHouse: true,
+                        arrivalDate: form.arrivalDate < today ? form.arrivalDate : bounds.latest,
+                      }
+                    : { inHouse: false, arrivalDate: today },
+                )
+              }
+            >
+              {t('bd.in_house_toggle')}
+            </Checkbox>
             <p className="li-s">{t(deviceTrusted ? 'bd.in_house_help' : 'bd.need_device')}</p>
+            {/* UXD-196-04: the "1st of the month" hint sits with the toggle, not in the narrow date column. */}
+            {inHouse ? <p className="li-s">{t('bd.first_of_month')}</p> : null}
             {inHouse ? (
               <Field
                 label={t('bd.reason')}
@@ -379,12 +377,7 @@ export function LongStayDialog({
               </select>
             )}
           </Field>
-          <Field
-            label={t('lsm.move_in')}
-            required
-            error={errors.arrivalDate}
-            help={inHouse ? t('bd.first_of_month') : undefined}
-          >
+          <Field label={t('lsm.move_in')} required error={errors.arrivalDate}>
             {(p) => (
               <input
                 {...p}

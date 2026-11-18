@@ -307,3 +307,22 @@ Làm trên mock MSW theo hình dạng §12 (OpenAPI `0.3.15-draft`). Kiểu mớ
 | 12.6 `lock_timeout` | Không thuộc FE | Việc BE (`migrate.ts`) |
 
 Giả định: (1) `Reservation.checkinBackdatedOn` và `allowedActions[].event = 'check_in_backdated'` như §12.1.2; (2) `settleBillingPeriodOutsideDesk` gửi `If-Match` theo `BillingPeriod.version` như các thao tác ghi phiếu khác, trả `BillingPeriodPaymentResult`; (3) cảnh báo `READING_CATCH_UP` có `roomNo` và `readOn`; (4) `getPropertyContact` gọi được với OWN/MGR/FDL. BE lệch tên nào thì FE sửa khi merge.
+
+### Lượt 2 – trả lời UXD review PR #196 (`reviews/UXD-on-fe-pr-196.md`, 18/11)
+
+Nhánh đã nhận merge `main` do ORC chạy `gh pr update-branch` (gồm sửa trình kiểm BR). Không rebase, không force-push. Kiểu tạm trong `api-client/src/golive.ts` giữ nguyên, chờ PR BE.
+
+| Thẻ | Trạng thái | Cách sửa |
+|---|---|---|
+| FB-R5-UXD-FE-196-01 (Major) | Fixed | Đủ 9 khóa đúng bảng của UXD (EN/VI): "Paid outside the app / Khách đã trả ngoài app", nói rõ "lúc này không thu tiền", trỏ sang Ghi đã thu, "Đảo giao dịch" do quản lý hoặc chủ đầu tư làm. Tên khóa `od.*`, `payment.method.outside_desk` và enum API giữ nguyên. Câu ví dụ nhãn ở contract §12.2 là việc của ARC |
+| FB-R5-UXD-FE-196-02 | Fixed | `pc.help`, `od.owner_only` dùng "chủ đầu tư"; ngày thống nhất "Date the guest paid / Ngày khách đã trả" (`od.received_on`, `od.date_future`) |
+| FB-R5-UXD-FE-196-03 | Fixed | `bd.in_house_toggle` VI "Khách đang ở từ trước"; `bd.in_house_help`, `bd.reason_help`, `bd.first_of_month`, `bd.checkin_body` theo bảng UXD |
+| FB-R5-UXD-FE-196-04 | Fixed | `LongStayDialog.tsx` dùng `Checkbox` của `@ottimo/ui`; `bd.first_of_month` chuyển lên khối của ô bật/tắt (chỉ hiện khi bật), ô Ngày vào không còn help riêng nên hàng Căn / Ngày vào / Ngày ra thẳng |
+| FB-R5-UXD-FE-196-05 | Fixed | Khóa mới `meters.backdated_fd`, dùng cho FD ở đơn nhận phòng bù, không truyền ngày (`MeterCheckinDialog.tsx`) |
+| FB-R5-UXD-FE-196-06 | Fixed | `params.lscf.help` có `{price}` = `adhoc_cleaning_fee` hiệu lực (ParamsPage truyền vào; chưa có giá thì dùng `params.lscf.help_noprice`); ô trống có placeholder = giá chung; lịch sử dùng `params.lscf.empty_short`; "dọn lẻ" đổi thành "dọn thêm". Nhãn quy tắc lấy `brRef` từ API: mock đổi "H3" → `BR-LS-07`. **BE cần đặt `br_ref` của khóa `long_stay_cleaning_fee_by_room` là `BR-LS-07`** (hoặc mã DOM gán) trong migration catalogue |
+| FB-R5-UXD-FE-196-07 | Fixed | Giữ `danger={false}`: đã kiểm nút xác nhận có class `btn pri` (Ink). Ô số tiền của cả "Ghi đã thu" và "Khách đã trả ngoài app" dùng `VndInput`: nhóm nghìn khi mở và khi rời ô, hậu tố "đ"/"VND" (`input-affix`). Ảnh chụp lại VI + EN (OWN) và VI (MGR) ở scratchpad của FE, dữ liệu giả, không vào repo |
+| FB-R5-UXD-FE-196-08 | Fixed | MGR: số tiền mặc định = tiền thuê trên phiếu trừ phần đã thu (không quá còn phải thu), help `od.manager_cap` dưới ô. Server vẫn quyết (403 `od.owner_only` nếu vượt). OWN mặc định vẫn là toàn bộ còn phải thu |
+
+Ghi chú cho UXD: nhãn ô số tiền (`stmt.pay_amount` = "Số tiền (đ)") đã có đơn vị, nay thêm hậu tố "đ" nên đơn vị hiện hai lần. Nếu muốn bỏ "(đ)" khỏi nhãn thì đó là chuỗi chung, UXD quyết.
+
+Kiểm: admin-web 106 file / 1160 test đạt (thêm test bảng giá dọn và mặc định MGR; test S16 cũ đổi sang số có dấu chấm), api-client 39, i18n 22, `validate-fixtures` 0 lỗi; typecheck, ESLint, Prettier sạch.

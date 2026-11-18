@@ -1,7 +1,7 @@
 import { isApiError, type BillingPeriodPatch } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type InputHTMLAttributes } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
@@ -550,7 +550,7 @@ function PaymentForm({
   const { t } = useI18n();
   const propertyId = usePropertyId();
   const [method, setMethod] = useState<'vietqr' | 'cash'>('vietqr');
-  const [amount, setAmount] = useState(String(p.totals.balanceVnd));
+  const [amount, setAmount] = useState(groupVnd(String(p.totals.balanceVnd)));
   const [err, setErr] = useState<string | null>(null);
   const write = useWrite();
   const ids = useId();
@@ -586,15 +586,7 @@ function PaymentForm({
       />
       {method === 'vietqr' ? <p className="li-s">{t('stmt.pay_vietqr_help')}</p> : null}
       <Field label={t('stmt.pay_amount')} required error={err ?? undefined}>
-        {(c) => (
-          <input
-            {...c}
-            className="input num"
-            inputMode="numeric"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        )}
+        {(c) => <VndInput {...c} value={amount} onChange={setAmount} />}
       </Field>
       {write.notice}
       <div className="row">
@@ -685,9 +677,21 @@ function SettleOutsideDeskForm({
 }) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
-  const { deviceTrusted } = useSession();
+  const { deviceTrusted, roles } = useSession();
   const today = useBusinessDay();
-  const [amount, setAmount] = useState(String(p.totals.balanceVnd));
+  // UXD-196-08: a manager may record only the unpaid rent (SEC 12-02) – default to it and say so up front.
+  // The server stays the judge (403 "owner only"); this only avoids the round trip.
+  const managerCap = roles.includes('owner')
+    ? null
+    : Math.max(
+        0,
+        Math.min(
+          p.totals.balanceVnd,
+          p.lines.filter((l) => l.kind === 'rent').reduce((sum, l) => sum + l.amountVnd, 0) -
+            p.totals.paidVnd,
+        ),
+      );
+  const [amount, setAmount] = useState(groupVnd(String(managerCap ?? p.totals.balanceVnd)));
   const [receivedOn, setReceivedOn] = useState(today);
   const [reason, setReason] = useState('');
   const [reference, setReference] = useState('');
@@ -752,16 +756,13 @@ function SettleOutsideDeskForm({
       {!deviceTrusted ? <Alert tone="warn">{t('od.need_device')}</Alert> : null}
       {banner ? <Alert tone="bad">{banner}</Alert> : null}
       <div className="row wrap">
-        <Field label={t('stmt.pay_amount')} required error={err.amount}>
-          {(c) => (
-            <input
-              {...c}
-              className="input num"
-              inputMode="numeric"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          )}
+        <Field
+          label={t('stmt.pay_amount')}
+          required
+          error={err.amount}
+          help={managerCap !== null ? t('od.manager_cap', { amount: num(managerCap) }) : undefined}
+        >
+          {(c) => <VndInput {...c} value={amount} onChange={setAmount} />}
         </Field>
         <Field label={t('od.received_on')} required error={err.receivedOn}>
           {(c) => (
@@ -819,5 +820,36 @@ function SettleOutsideDeskForm({
         />
       ) : null}
     </section>
+  );
+}
+
+/** "7901000" → "7.901.000" (UXD-196-07); anything that isn't a plain amount is left as typed. */
+function groupVnd(raw: string): string {
+  const n = parseVnd(raw);
+  return n === null ? raw : num(n);
+}
+
+/** A VND amount field: digits while typing, grouped in thousands on blur, with the "đ" suffix. */
+function VndInput({
+  value,
+  onChange,
+  ...field
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="input-affix">
+      <input
+        {...field}
+        className="input num"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => onChange(groupVnd(value))}
+      />
+      <span className="affix">{t('common.vnd_unit')}</span>
+    </div>
   );
 }

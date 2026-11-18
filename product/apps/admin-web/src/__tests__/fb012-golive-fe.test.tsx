@@ -143,10 +143,24 @@ describe('FE-3 Paid outside Desk (A128)', () => {
     expect(within(dlg).queryByText(tv('payment.method.outside_desk'))).toBeNull();
   });
 
-  it('MGR above the unpaid rent → 403 shown as "owner only"; OWN records it → paid, off shift', async () => {
+  it('MGR: defaults to the unpaid rent with the cap shown; above it → 403 shown as "owner only"', async () => {
     pinDaytime();
+    const p = issued();
+    const rent = p
+      .snapshot!.lines.filter((l) => l.kind === 'rent')
+      .reduce((a, l) => a + l.amountVnd, 0);
+    const balance = p.snapshot!.totals.totalVnd - p.paidVnd;
+    const cap = Math.max(0, Math.min(balance, rent - p.paidVnd));
+    const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
     const dlg = await openIssued('qa.mgr');
     fireEvent.click(await within(dlg).findByRole('button', { name: tv('od.action') }));
+    // UXD-196-08: rent only, said before confirming; UXD-196-07: grouped in thousands.
+    expect(within(dlg).getByText(tv('od.manager_cap', { amount: fmt(cap) }))).toBeVisible();
+    const amount = within(dlg).getByLabelText(label('stmt.pay_amount'));
+    expect(amount).toHaveValue(fmt(cap));
+    fireEvent.change(amount, { target: { value: String(balance) } });
+    fireEvent.blur(amount);
+    expect(amount).toHaveValue(fmt(balance));
     fireEvent.change(within(dlg).getByLabelText(label('od.reason')), {
       target: { value: 'Rent paid on the old platform' },
     });
@@ -206,6 +220,21 @@ describe('FE-4 property contact and cleaning table', () => {
     await waitFor(() => expect(mockControl.goLive.contact.hotline).toBe('+84000000111'));
   });
 
+  it('cleaning table: help and blank rooms show the standard price; the rule badge is BR-LS-07 (UXD-196-06)', async () => {
+    renderApp('/settings/parameters', 'qa.owner');
+    fireEvent.click(await screen.findByRole('tab', { name: tv('params.grp_statement') }));
+    const name = tv('params.k.long_stay_cleaning_fee_by_room');
+    const edit = await screen.findByRole('button', { name: `${tv('rooms.edit')}: ${name}` });
+    expect(edit.closest('tr')).toHaveTextContent('BR-LS-07');
+    expect(edit.closest('tr')).not.toHaveTextContent(/\bH3\b/);
+    fireEvent.click(edit);
+    const dlg = await screen.findByRole('dialog');
+    expect(
+      within(dlg).getByText(tv('params.lscf.help', { price: `100.000 ${tv('common.vnd_unit')}` })),
+    ).toBeVisible();
+    expect(within(dlg).getAllByPlaceholderText('100.000').length).toBeGreaterThan(0);
+  });
+
   it('MGR reads the contact, no inputs', async () => {
     renderApp('/settings/parameters', 'qa.mgr');
     expect(await screen.findByText('1 Example Street, Ward 1, Da Lat')).toBeVisible();
@@ -223,6 +252,7 @@ describe('FE-4 property contact and cleaning table', () => {
     });
     expect(parseLscfDraft(t, { '101': '150500' }).ok).toBe(false);
     expect(formatLscf(t, {})).toBe(tv('params.lscf.empty'));
+    expect(formatLscf(t, {}, true)).toBe(tv('params.lscf.empty_short'));
   });
 });
 
