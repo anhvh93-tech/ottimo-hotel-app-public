@@ -479,7 +479,7 @@ function MeterRow({
                       </p>
                     ) : shownGap !== null && shownGap < 0 && !draft[type].openingEx ? (
                       <Alert tone="warn" role="status">
-                        {t('meters.below_body', {
+                        {t('meters.below_inline', {
                           opening: meterNum(n!, unit),
                           previous: meterNum(prev!, unit),
                         })}

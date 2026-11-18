@@ -3738,6 +3738,7 @@
   "meters.below_saved": "{gap} below the last closing – the statement asks to check it.",
   "meters.below_title": "{meter}: opening below the last closing",
   "meters.below_body": "Opening {opening} is below the last closing {previous}. Choose what to do:",
+  "meters.below_inline": "Opening {opening} is below the last closing {previous}. Saving will ask you to check it.",
   "meters.save_anyway": "Save anyway – the number is right",
   "meters.fix_opening": "Fix the opening reading.",
   "meters.late": "The reading window closed on {date}. A late reading needs a reason.",

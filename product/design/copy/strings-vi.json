@@ -3738,6 +3738,7 @@
   "meters.below_saved": "Thấp hơn cuối kỳ trước {gap} – phiếu sẽ hỏi kiểm lại.",
   "meters.below_title": "{meter}: đầu kỳ thấp hơn cuối kỳ trước",
   "meters.below_body": "Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Chọn cách xử lý:",
+  "meters.below_inline": "Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Khi lưu sẽ hỏi kiểm lại.",
   "meters.save_anyway": "Vẫn lưu – số đã đúng",
   "meters.fix_opening": "Sửa lại chỉ số đầu kỳ.",
   "meters.late": "Đã hết hạn chốt ({date}). Ghi trễ cần lý do.",

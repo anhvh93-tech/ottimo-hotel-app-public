@@ -105,7 +105,7 @@ describe('FB-INV-012 S12: Closing M + Opening M+1 (ARC-FE-189-01, INV 17/11)', (
     expect(within(row).getByText(tv('meters.gap', { gap: '6' }))).toBeVisible();
     fireEvent.change(next, { target: { value: '1400' } });
     expect(
-      within(row).getByText(tv('meters.below_body', { opening: '1.400', previous: '1.404' })),
+      within(row).getByText(tv('meters.below_inline', { opening: '1.400', previous: '1.404' })),
     ).toBeVisible();
     // Required: saving without the next opening says so; nothing is written.
     fireEvent.change(next, { target: { value: '' } });

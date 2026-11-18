@@ -4347,6 +4347,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `meters.below_saved` | Thấp hơn cuối kỳ trước {gap} – phiếu sẽ hỏi kiểm lại. | {gap} below the last closing – the statement asks to check it. | ⟨chừa chỗ⟩ | BE-190-01 |
 | `meters.below_title` | {meter}: đầu kỳ thấp hơn cuối kỳ trước | {meter}: opening below the last closing | ⟨chừa chỗ⟩ | BE-190-01 |
 | `meters.below_body` | Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Chọn cách xử lý: | Opening {opening} is below the last closing {previous}. Choose what to do: | ⟨chừa chỗ⟩ |  |
+| `meters.below_inline` | Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Khi lưu sẽ hỏi kiểm lại. | Opening {opening} is below the last closing {previous}. Saving will ask you to check it. | ⟨chừa chỗ⟩ | S12 cảnh báo tại ô, trước khi lưu |
 | `meters.save_anyway` | Vẫn lưu – số đã đúng | Save anyway – the number is right | ⟨chừa chỗ⟩ | Mọi vai FD+ |
 | `meters.fix_opening` | Sửa lại chỉ số đầu kỳ. | Fix the opening reading. | ⟨chừa chỗ⟩ |  |
 | `meters.late` | Đã hết hạn chốt ({date}). Ghi trễ cần lý do. | The reading window closed on {date}. A late reading needs a reason. | ⟨chừa chỗ⟩ | BE-190-03, FDL+ |

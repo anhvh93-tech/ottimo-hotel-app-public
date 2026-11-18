@@ -254,7 +254,7 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
         <section className="stmt-qr">
           <QrCode
             value={s.vietqr.payload}
-            size={100}
+            size={size === 'a5' ? 88 : 100}
             label={translate('en', 'stmt.print.qr_label', {
               amount: num(s.vietqr.amountVnd),
               ref: s.vietqr.transferContent,
@@ -296,23 +296,25 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
         <p>
           <Bi k="stmt.print.vat_note" />
         </p>
-        {s.property.hotline || s.property.email ? (
-          <p>
-            <Bi k="stmt.print.contact" />{' '}
-            {[s.property.hotline, s.property.email].filter(Boolean).map((x, i) => (
-              <span key={i} className="nowrap">
-                {i ? ' · ' : ''}
-                {x}
-              </span>
-            ))}
+        <div className="stmt-foot-row">
+          {s.property.hotline || s.property.email ? (
+            <p>
+              <Bi k="stmt.print.contact" />{' '}
+              {[s.property.hotline, s.property.email].filter(Boolean).map((x, i) => (
+                <span key={i} className="nowrap">
+                  {i ? ' · ' : ''}
+                  {x}
+                </span>
+              ))}
+            </p>
+          ) : null}
+          <p className="stmt-printed">
+            {translate('en', 'stmt.print.printed', {
+              date: dayText('en', s.printedAt.slice(0, 10)),
+              by: s.printedByInitials ?? '',
+            })}
           </p>
-        ) : null}
-        <p className="stmt-printed">
-          {translate('en', 'stmt.print.printed', {
-            date: dayText('en', s.printedAt.slice(0, 10)),
-            by: s.printedByInitials ?? '',
-          })}
-        </p>
+        </div>
       </footer>
     </article>
   );
