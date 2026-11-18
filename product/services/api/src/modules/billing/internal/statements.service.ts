@@ -964,7 +964,12 @@ export class StatementsService {
       excludedLines = c.excludedLines;
       warnings = c.warnings;
       missing = c.missing;
-      periods = { rent: c.rent, utility: c.utility, service: c.service, due: c.dueDate };
+      periods = {
+        rent: c.rent,
+        utility: shownPeriod(c.utility, stay.arrival),
+        service: shownPeriod(c.service, stay.arrival),
+        due: c.dueDate,
+      };
       totals = { net: c.netVnd, vat: c.vatVnd, rounding: c.roundingVnd, total: c.totalVnd };
     } else {
       lines = await this.frozenLines(tx, row.id);
@@ -1689,10 +1694,10 @@ export class StatementsService {
         code,
         c.rent?.from ?? null,
         c.rent?.to ?? null,
-        c.utility.from,
-        c.utility.to,
-        c.service.from,
-        c.service.to,
+        shownPeriod(c.utility, stay.arrival)?.from ?? null,
+        shownPeriod(c.utility, stay.arrival)?.to ?? null,
+        shownPeriod(c.service, stay.arrival)?.from ?? null,
+        shownPeriod(c.service, stay.arrival)?.to ?? null,
         c.dueDate,
         JSON.stringify(c.rates),
         c.netVnd,
@@ -2020,4 +2025,12 @@ export class StatementsService {
       printedByInitials: initials || null,
     };
   }
+}
+
+/**
+ * BUG-R5-013: the utilities / services period shown and stored on a statement – null when it ends before the arrival
+ * (the check-in month bills no earlier month; FE then prints the rent period only). The computation keeps the period.
+ */
+function shownPeriod(p: Period, arrival: LocalDate): Period | null {
+  return p.to < arrival ? null : p;
 }

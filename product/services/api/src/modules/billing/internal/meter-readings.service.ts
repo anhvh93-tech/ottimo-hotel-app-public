@@ -415,12 +415,14 @@ export class MeterReadingsService {
     }
     const rules = readRules(await this.params.get(tx, STATEMENT_RULES_KEY, pc.today));
     let lateReason: string | null = null;
-    // Window gate shared by every kind (ARC BE-190-03/12): inside [from, to] anyone; after `to` up to
-    // lateMaxDays only FDL+ with a reason; otherwise 422 READING_OUT_OF_WINDOW.
+    // Window gate shared by every kind (ARC BE-190-03/12): `readOn` in [from, to] and typed by `to` (business day of
+    // the property) – anyone; typed after `to` up to lateMaxDays – only FDL+ with a reason; otherwise 422
+    // READING_OUT_OF_WINDOW. BUG-R5-008: lateness is judged on the entry day, so a back-dated `readOn` is still late.
     const gate = (w: { from: LocalDate; to: LocalDate }): string | null => {
-      if (day >= w.from && day <= w.to) return null;
       const lateUntil = addDays(w.to, lateMaxDaysOf(rules));
-      const lateOk = day > w.to && day <= lateUntil;
+      const entered = pc.today;
+      if (day >= w.from && day <= w.to && entered <= w.to) return null;
+      const lateOk = day >= w.from && day <= lateUntil && entered > w.to && entered <= lateUntil;
       const out = {
         extras: {
           windowFrom: w.from,
