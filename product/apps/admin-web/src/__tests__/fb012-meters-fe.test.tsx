@@ -283,3 +283,123 @@ describe('FB-INV-012 S12 late reading (BE-190-03)', () => {
     expect(saved('period_start', M)!.lateReason).toBe('Khách vắng ngày 01');
   });
 });
+
+/**
+ * Room 203 as a stay that came in on day 10 of the reading month P with no reading yet. With `previousClosing`, the
+ * room's last closing (an earlier stay's checkout on day 05) is left on record.
+ */
+function midMonthArrival(previousClosing?: number) {
+  const st = mockControl.statements;
+  const stay = st.stays.find((s) => s.roomNo === '203')!;
+  const keep = st.readings.filter((r) => r.reservationId !== stay.reservationId);
+  st.readings.splice(0, st.readings.length, ...keep);
+  stay.arrivalDate = `${st.P}-10`;
+  if (previousClosing !== undefined) {
+    const model = keep[0]!;
+    st.seq += 1;
+    st.readings.push({
+      ...model,
+      id: '0192a1b0-0000-7000-8000-000000839997',
+      seq: st.seq,
+      reservationId: '0192a1b0-0000-7000-8000-000000819999',
+      roomId: stay.roomId,
+      roomNo: '203',
+      kind: 'checkout',
+      periodMonth: null,
+      readOn: `${st.P}-05`,
+      electricity: { value: previousClosing, exception: null },
+      water: { value: 35.2, exception: null },
+    });
+  }
+}
+
+async function openCheckin() {
+  const row = await row203();
+  expect(row.textContent).toContain(tv('meters.opening_missing'));
+  fireEvent.click(within(row).getByRole('button', { name: tv('meters.checkin_enter') }));
+  return screen.findByRole('dialog', { name: tv('meters.checkin_title', { room: '203' }) });
+}
+function fillCheckin(dlg: HTMLElement, day: string, kwh: string, m3: string) {
+  fireEvent.change(dlg.querySelector('input[type=date]')!, { target: { value: day } });
+  fireEvent.change(
+    within(dlg).getByLabelText(new RegExp(`^${esc(tv('stmt.meter.electricity'))}`)),
+    { target: { value: kwh } },
+  );
+  fireEvent.change(within(dlg).getByLabelText(new RegExp(`^${esc(tv('stmt.meter.water'))}`)), {
+    target: { value: m3 },
+  });
+  fireEvent.change(dlg.querySelector('input[type=file]')!, {
+    target: { files: [new File(['x'], 'meter.jpg', { type: 'image/jpeg' })] },
+  });
+}
+const checkinOf203 = () =>
+  mockControl.statements.readings.find(
+    (r) => r.roomNo === '203' && r.kind === 'checkin' && !r.voidedAt,
+  );
+
+describe('FB-INV-012 S12 check-in reading for a mid-month arrival (INV 17/11, ARC-FE-189-01)', () => {
+  it('"missing opening" row → Enter check-in reading → saved as kind=checkin; the row then shows the opening', async () => {
+    pinDay(windowDay());
+    midMonthArrival();
+    renderApp('/long-stay/meters', 'qa.fd');
+    const dlg = await openCheckin();
+    // Required: date, both meters, photo.
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
+    expect(within(dlg).getAllByText(tv('common.required')).length).toBe(3);
+    expect(within(dlg).getByText(tv('meters.photo_required'))).toBeVisible();
+    // A day outside the reading month is refused on the desk.
+    const { P } = mockControl.statements;
+    fillCheckin(dlg, `${shiftMonth(P, -1)}-28`, '1300', '36.07');
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
+    expect(within(dlg).getByText(tv('meters.checkin_date_range'))).toBeVisible();
+    fillCheckin(dlg, `${P}-10`, '1300', '36.07');
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
+    await waitFor(() => expect(checkinOf203()).toBeDefined());
+    const r = checkinOf203()!;
+    expect(r).toMatchObject({ readOn: `${P}-10`, periodMonth: null, acknowledgedLower: false });
+    expect(r.electricity.value).toBe(1300);
+    expect(r.water.value).toBe(36);
+    expect(r.photoAttachmentId).toBeTruthy();
+    await waitFor(async () =>
+      expect((await row203()).textContent).toContain(tv('meters.opening_of', { value: '1.300' })),
+    );
+    expect(
+      within(await row203()).queryByRole('button', { name: tv('meters.checkin_enter') }),
+    ).toBeNull();
+  });
+
+  it('below the room\'s last closing: 422 → same warning; "Save anyway" resends with the flag and a new key', async () => {
+    pinDay(windowDay());
+    midMonthArrival(1320);
+    const sent: Array<{ ack: unknown; key: string | null }> = [];
+    server.use(
+      http.post('*/reservations/:reservationId/meter-readings', async ({ request }) => {
+        const b = (await request.clone().json()) as Record<string, unknown>;
+        sent.push({
+          ack: b.acknowledgeLowerThanPrevious,
+          key: request.headers.get('idempotency-key'),
+        });
+        return undefined;
+      }),
+    );
+    renderApp('/long-stay/meters', 'qa.fd');
+    const dlg = await openCheckin();
+    fillCheckin(dlg, `${mockControl.statements.P}-10`, '1300', '36');
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
+    const warn = await screen.findByRole('alertdialog');
+    expect(warn.textContent).toContain(
+      tv('meters.below_body', { opening: '1.300', previous: '1.320' }),
+    );
+    // FD: Meter replaced is for the lead.
+    expect(
+      within(warn).getByRole('button', { name: tv('meters.exception.replaced') }),
+    ).toBeDisabled();
+    fireEvent.click(within(warn).getByRole('button', { name: tv('meters.save_anyway') }));
+    await waitFor(() => expect(checkinOf203()).toBeDefined());
+    expect(checkinOf203()!.acknowledgedLower).toBe(true);
+    expect(sent).toHaveLength(2);
+    expect(sent[0]!.ack).toBeUndefined();
+    expect(sent[1]!.ack).toBe(true);
+    expect(sent[1]!.key).not.toBe(sent[0]!.key);
+  });
+});

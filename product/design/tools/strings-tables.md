@@ -4348,6 +4348,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `meters.below_title` | {meter}: đầu kỳ thấp hơn cuối kỳ trước | {meter}: opening below the last closing | ⟨chừa chỗ⟩ | BE-190-01 |
 | `meters.below_body` | Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Chọn cách xử lý: | Opening {opening} is below the last closing {previous}. Choose what to do: | ⟨chừa chỗ⟩ |  |
 | `meters.below_inline` | Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Khi lưu sẽ hỏi kiểm lại. | Opening {opening} is below the last closing {previous}. Saving will ask you to check it. | ⟨chừa chỗ⟩ | S12 cảnh báo tại ô, trước khi lưu |
+| `meters.checkin_enter` | Nhập chỉ số nhận phòng | Enter check-in reading | ⟨chừa chỗ⟩ | S12, hàng thiếu đầu kỳ (khách nhận phòng trong tháng) |
+| `meters.checkin_title` | Chỉ số nhận phòng · căn {room} | Check-in reading · room {room} | ⟨chừa chỗ⟩ |  |
+| `meters.checkin_help` | Số trên đồng hồ lúc khách nhận phòng, kèm ảnh. Đây là đầu kỳ của tháng đầu tiên. | The meters when the guest checked in, with a photo. This is the opening of the first month. | ⟨chừa chỗ⟩ |  |
+| `meters.checkin_date` | Ngày nhận phòng | Check-in date | ⟨chừa chỗ⟩ |  |
+| `meters.checkin_date_range` | Chọn một ngày trong tháng chốt, không sau hôm nay. | Pick a day in the reading month, not after today. | ⟨chừa chỗ⟩ |  |
+| `meters.checkin_saved` | Đã lưu chỉ số nhận phòng căn {room}. | Check-in reading saved for room {room}. | ⟨chừa chỗ⟩ |  |
 | `meters.save_anyway` | Vẫn lưu – số đã đúng | Save anyway – the number is right | ⟨chừa chỗ⟩ | Mọi vai FD+ |
 | `meters.fix_opening` | Sửa lại chỉ số đầu kỳ. | Fix the opening reading. | ⟨chừa chỗ⟩ |  |
 | `meters.late` | Đã hết hạn chốt ({date}). Ghi trễ cần lý do. | The reading window closed on {date}. A late reading needs a reason. | ⟨chừa chỗ⟩ | BE-190-03, FDL+ |

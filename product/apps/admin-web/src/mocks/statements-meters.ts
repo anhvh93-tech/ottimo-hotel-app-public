@@ -91,6 +91,16 @@ export function meterHandlers(
       const checkin = st.readings.find(
         (x) => !x.voidedAt && x.reservationId === stay.reservationId && x.kind === 'checkin',
       );
+      // Day-based readings: not before arrival, not in the future (contract: DATE_INVALID).
+      if (
+        !monthly &&
+        (!/^\d{4}-\d{2}-\d{2}$/.test(b.readOn ?? '') ||
+          b.readOn < stay.arrivalDate ||
+          b.readOn > today())
+      )
+        return validation([{ field: 'readOn', code: 'DATE_INVALID' }]);
+      // One check-in reading per stay.
+      if (b.kind === 'checkin' && checkin) return ctx.problem(409, 'READING_EXISTS');
       if (b.kind === 'period_start' && checkin && monthOf(checkin.readOn) === b.periodMonth)
         return validation([{ field: 'periodMonth', code: 'NOT_ALLOWED' }]);
       // End-of-month window (BR-LS-10): period_end of M and period_start of M+1 share it.

@@ -31,6 +31,8 @@ export interface LeaseStay {
   guestDisplayName: string;
   guestFullName: string;
   monthlyRentVnd: number;
+  /** Arrival day: a `checkin` reading is read on or after it (contract: `readOn` before arrival → DATE_INVALID). */
+  arrivalDate: string;
   status: 'in_house' | 'checked_out';
 }
 
@@ -124,6 +126,7 @@ export function seedState() {
       guestDisplayName: 'N. Minh',
       guestFullName: 'Nguyễn Minh',
       monthlyRentVnd: 8_500_000,
+      arrivalDate: `${P2}-20`,
       status: 'in_house',
     },
     {
@@ -135,6 +138,7 @@ export function seedState() {
       guestDisplayName: 'T. Lan',
       guestFullName: 'Trần Lan',
       monthlyRentVnd: 7_000_000,
+      arrivalDate: `${P2}-01`,
       status: 'in_house',
     },
   ];

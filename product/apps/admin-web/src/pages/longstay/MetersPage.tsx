@@ -23,6 +23,7 @@ import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { MeterCheckinDialog } from './MeterCheckinDialog';
 import { BelowDialog, HistoryDialog, LowerDialog, TYPES, UNIT } from './MeterDialogs';
 import { dayText, meterNum, monthText } from './labels';
 
@@ -190,6 +191,7 @@ function MeterRow({
   const [lower, setLower] = useState<MeterType | null>(null);
   const [below, setBelow] = useState<{ type: MeterType; previous: number } | null>(null);
   const [history, setHistory] = useState(false);
+  const [checkin, setCheckin] = useState(false);
   const closeW = useWrite();
   const openW = useWrite();
   const upC = useWrite();
@@ -356,6 +358,29 @@ function MeterRow({
           </div>
         ) : null}
         {history$}
+        {/* No opening for M: a stay that came in during M needs its check-in reading (INV 17/11, ARC-FE-189-01). */}
+        {!openM && !closeM ? (
+          <div>
+            <Button size="sm" icon="camera" onClick={() => setCheckin(true)}>
+              {t('meters.checkin_enter')}
+            </Button>
+          </div>
+        ) : null}
+        {checkin ? (
+          <MeterCheckinDialog
+            reservationId={candidate.reservationId}
+            roomId={room.roomId}
+            roomNo={room.roomNo}
+            month={month}
+            today={today}
+            lead={lead}
+            onClose={() => setCheckin(false)}
+            onSaved={() => {
+              setCheckin(false);
+              onSaved();
+            }}
+          />
+        ) : null}
       </th>
       {TYPES.map((type) => {
         const unit = UNIT[type];
