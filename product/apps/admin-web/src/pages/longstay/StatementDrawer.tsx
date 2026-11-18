@@ -131,10 +131,10 @@ export function StatementDrawer({
       variant="drawer"
       size="lg"
       title={
-        p ? (
+        // UXD-189-10: a draft has no code – the title stays "Statement", the chip says Draft.
+        p?.code ? (
           <>
-            {t('stmt.drawer_title')}{' '}
-            {p.code ? <span className="mono">{p.code}</span> : t('stmt.draft_code')}
+            {t('stmt.drawer_title')} <span className="mono">{p.code}</span>
           </>
         ) : (
           t('stmt.drawer_title')
@@ -294,7 +294,7 @@ export function StatementDrawer({
                           ? () =>
                               void patch({
                                 excludedFolioLineIds: [
-                                  ...(p.excludedLines ?? []).map((x) => x.folioLineId!),
+                                  ...p.excludedLines.map((x) => x.folioLineId!),
                                   l.folioLineId!,
                                 ],
                               })
@@ -346,7 +346,7 @@ export function StatementDrawer({
             </table>
           </div>
 
-          {p.excludedLines?.length ? (
+          {p.excludedLines.length ? (
             <section className="stack">
               <h3 className="label-h">{t('stmt.moved_title')}</h3>
               <ul className="list-plain">
@@ -361,8 +361,8 @@ export function StatementDrawer({
                         variant="ghost"
                         onClick={() =>
                           void patch({
-                            excludedFolioLineIds: p
-                              .excludedLines!.map((x) => x.folioLineId!)
+                            excludedFolioLineIds: p.excludedLines
+                              .map((x) => x.folioLineId!)
                               .filter((x) => x !== l.folioLineId),
                           })
                         }
@@ -409,35 +409,54 @@ export function StatementDrawer({
   );
 }
 
+/** Amount column of a line, as on the printed sheet: utilities net of VAT (VAT is its own total line). */
+export const lineAmount = (l: StatementLine) =>
+  l.kind === 'electricity' || l.kind === 'water' ? l.netVnd : l.amountVnd;
+
+/**
+ * One line + (draft, service) its "Move to next statement" on a row of its own under it, so the description never
+ * widens the money columns (UXD-189-04).
+ */
 function LineRow({ l, onMove }: { l: StatementLine; onMove?: () => void }) {
   const { t, locale } = useI18n();
   const unit = l.unit === 'kwh' ? 'kWh' : l.unit === 'm3' ? 'm³' : '';
+  const utility = l.kind === 'electricity' || l.kind === 'water';
   return (
-    <tr>
-      <td>
-        {lineText(locale, l)}
-        {l.roomNo && (l.kind === 'electricity' || l.kind === 'water') ? ` · ${l.roomNo}` : ''}
-        {l.meter ? (
-          <div className="li-s mono">
-            {meterNum(l.meter.from, l.unit)} → {meterNum(l.meter.to, l.unit)}
-          </div>
-        ) : null}
-        {onMove ? (
-          <div>
+    <>
+      <tr className={onMove ? 'stmt-has-move' : undefined}>
+        <td>
+          {lineText(locale, l)}
+          {l.roomNo && utility ? ` · ${l.roomNo}` : ''}
+          {l.meter ? (
+            <div className="li-s mono">
+              {meterNum(l.meter.from, l.unit)} → {meterNum(l.meter.to, l.unit)}
+            </div>
+          ) : null}
+        </td>
+        <td className="r num nowrap">
+          {l.kind === 'rounding' || l.kind === 'prior_adjustment'
+            ? ''
+            : `${meterNum(l.quantity, l.unit)}${unit ? ` ${unit}` : ''} × ${num(l.unitPriceNetVnd)}`}
+        </td>
+        <td className="r num nowrap">
+          {l.vatRatePct == null
+            ? l.kind === 'prior_adjustment'
+              ? ''
+              : t('stmt.vat_incl')
+            : `${l.vatRatePct}%`}
+        </td>
+        <td className="r num nowrap stmt-amt">{signedNum(lineAmount(l))}</td>
+      </tr>
+      {onMove ? (
+        <tr className="stmt-move-row">
+          <td colSpan={4}>
             <Button size="sm" variant="ghost" onClick={onMove}>
               {t('stmt.move_next')}
             </Button>
-          </div>
-        ) : null}
-      </td>
-      <td className="r num nowrap">
-        {l.kind === 'rounding' || l.kind === 'prior_adjustment'
-          ? ''
-          : `${meterNum(l.quantity, l.unit)}${unit ? ` ${unit}` : ''} × ${num(l.unitPriceNetVnd)}`}
-      </td>
-      <td className="r num">{l.vatRatePct === null ? '' : `${l.vatRatePct}%`}</td>
-      <td className="r num nowrap">{signedNum(l.amountVnd)}</td>
-    </tr>
+          </td>
+        </tr>
+      ) : null}
+    </>
   );
 }
 
@@ -532,7 +551,8 @@ function PaymentForm({
       const out = await write.run((key) =>
         statementsApi.recordBillingPeriodPayment(propertyId, p.id, { method, amountVnd: n }, key),
       );
-      onDone(out.data);
+      // OpenAPI `BillingPeriodPaymentResult` = {billingPeriod, payment}.
+      onDone(out.data.billingPeriod);
     } catch (e) {
       setErr(problemView(t, e).text);
     }
@@ -597,8 +617,11 @@ function VoidForm({
     if (reason.trim().length < 3) return setErr(t('stmt.reason_required'));
     setBusy(true);
     try {
-      const out = (await statementsApi.voidBillingPeriod(propertyId, p.id, reason.trim())).data;
-      onDone(out.billingPeriod, out.canReplace);
+      // OpenAPI `BillingPeriodVoided`: the statement, flat, + `canReplace`.
+      const { canReplace, ...next } = (
+        await statementsApi.voidBillingPeriod(propertyId, p.id, reason.trim())
+      ).data;
+      onDone(next, canReplace);
     } catch (e) {
       setErr(problemView(t, e).text);
     } finally {
