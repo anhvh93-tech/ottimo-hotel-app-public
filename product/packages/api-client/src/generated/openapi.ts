@@ -5523,6 +5523,8 @@ export interface paths {
      *     - Cuối kỳ < đầu kỳ cùng kỳ, không có `exception` → 422 `METER_LOWER_THAN_PREVIOUS` (`meter`, `previousValue`, `previousReadingId`, `previousKind`).
      *     - Đầu kỳ < cuối kỳ trước của căn, không có `exception` → **cảnh báo hai bước** (ARC BE-190-01): 422 `OPENING_BELOW_PREVIOUS_CLOSING` (cùng các trường);
      *       gửi lại với `acknowledgeLowerThanPrevious: true` thì lưu với mọi vai FD+, `gap` âm, audit `acknowledgedLower`; nháp phiếu có cảnh báo cùng mã.
+     *     - **Trễ tính theo ngày nhập** (BUG-R5-008): `readOn` trong cửa sổ nhưng nhập (ngày nghiệp vụ của cơ sở lúc gửi) sau `windowTo` vẫn là đọc trễ;
+     *       `readOn` sau hôm nay → `VALIDATION_FAILED` `readOn` `DATE_INVALID`.
      *     - Đọc trễ (ARC BE-190-03): sau cửa sổ tới `readingWindow.lateMaxDays` ngày (mặc định 10) – OWN/MGR/FDL gửi `lateReason` (3–300) thì lưu (audit
      *       `meter_reading.late`, cảnh báo nháp `READING_LATE`); FD hoặc thiếu lý do → 422 `READING_OUT_OF_WINDOW` kèm `lateUntil`, `lateNeedsRole`.
      *       `exception` (`replaced` / `rollover`) hoặc `photoWaived=true` → chỉ OWN/MGR/FDL (FD → 403 `FORBIDDEN_ACTION`, A89 đơn giản hóa).
@@ -10367,7 +10369,9 @@ export interface components {
       roomNos: string[];
       guestDisplayName?: string | null;
       rentPeriod?: components['schemas']['DateRange'] | null;
+      /** @description null khi kỳ kết thúc trước ngày đến (phiếu tháng nhận phòng – BUG-R5-013) */
       utilityPeriod?: components['schemas']['DateRange'] | null;
+      /** @description null khi kỳ kết thúc trước ngày đến (BUG-R5-013) */
       servicePeriod?: components['schemas']['DateRange'] | null;
       dueDate?: components['schemas']['LocalDate'] | null;
       overdueDays?: number;

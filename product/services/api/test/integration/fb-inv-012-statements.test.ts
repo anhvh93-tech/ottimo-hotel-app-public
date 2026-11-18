@@ -248,6 +248,9 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
       guestDisplayName: 'N. Minh',
       roomNos: ['202'],
       rentPeriod: { from: '2026-11-20', to: '2026-11-30' },
+      // BUG-R5-013: the check-in month bills no October – no utilities / services period.
+      utilityPeriod: null,
+      servicePeriod: null,
       dueDate: '2026-11-20',
       totals: { totalVnd: 3_113_000, roundingVnd: 0, balanceVnd: 3_113_000 },
       availableActions: ['update', 'issue', 'void'],
@@ -308,8 +311,15 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     expect(p1.statusCode).toBe(201);
     expect(p1.json().billingPeriod).toMatchObject({
       status: 'partially_paid',
-      totals: { paidVnd: 1_000_000, balanceVnd: 2_113_000 },
+      // BUG-R5-010: the VietQR receipt waits for the bank – present in the HTTP response, not dropped.
+      totals: {
+        paidVnd: 1_000_000,
+        balanceVnd: 2_113_000,
+        unreconciledVnd: 1_000_000,
+        disputed: false,
+      },
     });
+    expect((await get(nov.id)).totals).toMatchObject({ unreconciledVnd: 1_000_000 });
     expect(p1.json().payment).toMatchObject({
       method: 'vietqr',
       amountVnd: 1_000_000,
@@ -336,7 +346,8 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – meter readings + monthly statements (lo
     expect(await get(nov.id)).toMatchObject({
       status: 'partially_paid',
       paidAt: null,
-      totals: { paidVnd: 1_000_000, balanceVnd: 2_113_000 },
+      // The reversed receipt no longer counts; the first one still waits for the bank.
+      totals: { paidVnd: 1_000_000, balanceVnd: 2_113_000, unreconciledVnd: 1_000_000 },
     });
     // SEC BE-190-06: FD is refused on the role before the payments (403, not 409).
     expect(
@@ -1139,6 +1150,18 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – rules other than the defaults (criterio
         })
       ).statusCode,
     ).toBe(201);
+    // The opening of December from the same end-of-month sheet, typed in its window (BUG-R5-008: entry day counts).
+    expect(
+      (
+        await reading({
+          kind: 'period_start',
+          periodMonth: '2026-12',
+          readOn: '2026-11-29',
+          electricity: { value: 200 },
+          water: { value: 12 },
+        })
+      ).statusCode,
+    ).toBe(201);
   });
   afterAll(async () => {
     await fa?.close();
@@ -1169,17 +1192,6 @@ describe.skipIf(!HAS_DB)('FB-INV-012 – rules other than the defaults (criterio
 
   it('VAT 10 % once issued on/after 01/01/2027; unit price of 31/12 (3.500); code format unchanged', async () => {
     await now('2026-12-31T20:00:00+07:00');
-    expect(
-      (
-        await reading({
-          kind: 'period_start',
-          periodMonth: '2026-12',
-          readOn: '2026-11-30',
-          electricity: { value: 200 },
-          water: { value: 12 },
-        })
-      ).statusCode,
-    ).toBe(201);
     expect(
       (
         await reading({
@@ -1254,7 +1266,9 @@ describe.skipIf(!HAS_DB)(
 
     beforeAll(async () => {
       db = appDatabase(4);
-      t = await createTenant(db, { users: { own: ['owner'], fdl: ['front_desk_lead'] } });
+      t = await createTenant(db, {
+        users: { own: ['owner'], fdl: ['front_desk_lead'], fd: ['front_desk'] },
+      });
       const ids = await seedBooking(db, t);
       stay = (
         await seedStay(db, t, ids, {
@@ -1409,6 +1423,65 @@ describe.skipIf(!HAS_DB)(
         { roomNo: '203', openingKind: 'period_start', segmentFrom: '2026-11-01' },
         { roomNo: '202', openingKind: 'room_change_in', segmentFrom: '2026-12-10' },
       ]);
+    });
+
+    it('BUG-R5-008: lateness is judged on the entry day – a back-dated readOn typed after the window is late; future readOn refused', async () => {
+      // December closing of room 202: window 31/12 – 01/01; typed on 05/01 with readOn 31/12.
+      await now('2027-01-05T10:00:00+07:00');
+      const photo = await staff(fa, tok('fd'), null, 'POST', `${P(t)}/attachments`, {
+        multipart: [
+          { name: 'purpose', value: 'meter' },
+          { name: 'reservationId', value: stay },
+          {
+            name: 'file',
+            value: await sampleJpeg(),
+            filename: 'meter.jpg',
+            contentType: 'image/jpeg',
+          },
+        ],
+      });
+      expect(photo.statusCode).toBe(201);
+      const body = {
+        roomId: room202,
+        kind: 'period_end',
+        periodMonth: '2026-12',
+        readOn: '2026-12-31',
+        electricity: { value: 600 },
+        water: { value: 21 },
+      };
+      const fd = await api('fd', 'POST', `/reservations/${stay}/meter-readings`, {
+        ...body,
+        photoAttachmentId: photo.json().id,
+      });
+      expect(fd.statusCode).toBe(422);
+      expect(fd.json()).toMatchObject({
+        code: 'READING_OUT_OF_WINDOW',
+        windowFrom: '2026-12-31',
+        windowTo: '2027-01-01',
+        lateUntil: '2027-01-11',
+        lateNeedsRole: 'front_desk_lead',
+      });
+      expect((await reading('fdl', body)).statusCode).toBe(422); // FDL without a reason
+      const future = await reading('fdl', {
+        ...body,
+        readOn: '2027-01-06',
+        lateReason: 'Typed ahead',
+      });
+      expect(future.statusCode).toBe(422);
+      expect(future.json().errors).toEqual([{ field: 'readOn', code: 'DATE_INVALID' }]);
+      const ok = await reading('fdl', { ...body, lateReason: 'Sheet of 31/12 typed late' });
+      expect(ok.statusCode).toBe(201);
+      expect(ok.json()).toMatchObject({ late: true, lateReason: 'Sheet of 31/12 typed late' });
+      // Past lateUntil nothing is accepted, whatever readOn says.
+      await now('2027-01-12T10:00:00+07:00');
+      const tooLate = await reading('fdl', {
+        ...body,
+        kind: 'period_start',
+        periodMonth: '2027-01',
+        lateReason: 'Very late',
+      });
+      expect(tooLate.statusCode).toBe(422);
+      expect(tooLate.json().lateUntil).toBeUndefined();
     });
   },
 );

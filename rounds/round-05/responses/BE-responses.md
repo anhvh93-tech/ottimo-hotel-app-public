@@ -64,3 +64,13 @@ Review: `rounds/round-05/reviews/ARC-on-be-pr-190.md`, `SEC-on-be-pr-190.md`; th
 - MT vẫn tải được ảnh `meter` (quyền upload cũ), nhưng không ghi được lần đọc. Ảnh không gắn vào lần đọc nào thì J16 xóa sau `attachment_unbound_days`.
 
 Ghi chú cho DOM (ARC BE-190-03): đầu kỳ đọc trễ thì phần dùng từ ngày 01 tới ngày đọc nằm trong `gap`, không tính cho khách. Đây là cách INV chọn.
+
+## QA staging 18/11 – FB-INV-012 (nhánh `r5-fb012-be-qa-fixes`)
+
+Bug: `rounds/round-05/qa/bug-list.md`. Không có migration mới.
+
+| Bug | Trạng thái | Ghi chú |
+|---|---|---|
+| BUG-R5-008 (P2) | Fixed | **Đọc trễ xét theo ngày nhập** (`pc.today`, ngày nghiệp vụ của cơ sở), không chỉ theo `readOn`. Áp cho mọi loại có cửa sổ (`checkin`, `room_change_*`, `period_start`, `period_end`).<br>- `readOn` trong cửa sổ và nhập trước hết `windowTo` → ai trong FD+ cũng lưu được;<br>- nhập sau `windowTo` tới `lateUntil` → chỉ FDL+ kèm `lateReason`, `late=true`, cảnh báo `READING_LATE`; FD → 422 `READING_OUT_OF_WINDOW` kèm `lateUntil`;<br>- nhập sau `lateUntil` → 422, không còn đường ghi trễ;<br>- `readOn` sau hôm nay → 422 `readOn` `DATE_INVALID` (đã có, nay có test).<br>**Test:** `period_end` 12/2026 nhập ngày 05/01 với `readOn` 31/12: FD (ảnh thật) → 422 `lateUntil` 11/01; FDL không lý do → 422; `readOn` 06/01 → `DATE_INVALID`; FDL có lý do → 201 `late`; ngày 12/01 → 422 không `lateUntil`. Sửa một test cũ ghi đầu kỳ tháng 12 lùi ngày (đúng kiểu lỗi này) |
+| BUG-R5-010 (P3) | Fixed | Nguyên nhân: bộ sinh `scripts/gen-openapi-meta.mjs` biến `allOf: [$ref kiểu vô hướng]` (cách thêm `description` cho `MoneyVnd`) thành object rỗng đóng, nên serializer bỏ trường. Nay `allOf` một phần tử không phải object thì lấy đúng kiểu được bọc. Sinh lại chỉ đổi 2 trường: `BillingPeriodTotals.unreconciledVnd` và `BillingPeriodLine.periodMonth`.<br>**Test:** ghi thu VietQR 1.000.000 → `totals.unreconciledVnd` 1.000.000, `disputed: false` trong phản hồi ghi thu và `GET`; sau khi đảo khoản thứ hai vẫn 1.000.000 |
+| BUG-R5-013 (P3) | Fixed | `utilityPeriod` / `servicePeriod` = null khi kỳ kết thúc trước ngày đến (phiếu tháng nhận phòng). Áp cho nháp và lúc phát hành (cột kỳ lưu null). Phần tính vẫn giữ kỳ cũ (không có dòng nào), các tháng sau không đổi. FE in chỉ kỳ thuê khi null.<br>**Test:** phiếu tháng 11 (đến 20/11) → `utilityPeriod: null`, `servicePeriod: null` |

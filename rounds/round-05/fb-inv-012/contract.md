@@ -280,6 +280,8 @@ Tác giả: ARC. Đã có trên PR BE #190 (head `f522aa60`, OpenAPI vẫn `0.3.
 
 ### 11.2 Kiểm tra lúc ghi chỉ số
 
+**Trễ xét theo ngày nhập** (BUG-R5-008, PR #194): một lần đọc là "trong cửa sổ" khi `readOn` ∈ [from, to] **và** ngày nhập (ngày nghiệp vụ của cơ sở lúc gửi) ≤ to. Nhập sau `to` là đọc trễ, kể cả khi `readOn` lùi về trong cửa sổ. Đọc trễ nhận `readOn` ∈ [from, `lateUntil`] và ngày nhập ≤ `lateUntil` (`lateUntil` = to + `lateMaxDays`). `readOn` sau hôm nay → `422 VALIDATION_FAILED` (`readOn: DATE_INVALID`). Luật áp cho mọi loại có cửa sổ (`period_*`, `checkin`, `room_change_*`).
+
 | Tình huống | Xử lý | Vai |
 |---|---|---|
 | **Cuối kỳ < đầu kỳ** cùng kỳ, không `exception` | `422 METER_LOWER_THAN_PREVIOUS` – chặn (BR-LS-12, số này thành tiền). Ngoại lệ thay đồng hồ / quay vòng → lưu | Ngoại lệ: FDL+ (FD → `403 FORBIDDEN_ACTION`) |
