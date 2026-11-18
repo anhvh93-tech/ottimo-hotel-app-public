@@ -255,3 +255,26 @@
 ### Việc của ARC sau lượt này
 - Đã cập nhật `rounds/round-05/fb-inv-012/contract.md` (mục "Sửa đổi 18/11"): đầu kỳ nhập mỗi kỳ, cảnh báo hai bước, đọc trễ, bỏ `PRICE_CHANGED_SINCE_DRAFT`, `availableActions` 6 giá trị, các trường thêm, `rooms[]`, hình dạng ghi thu và hủy phiếu, FK.
 - Còn lại: ghi cổng listener billing ↔ payments vào `product/docs/architecture.md` (mục cổng module) ở lần ARC sửa kiến trúc kế tiếp.
+
+### Lượt 2 – bổ sung (18/11, phát hiện khi review FE #189 `a34e03be`)
+
+### FB-R5-ARC-BE-190-12
+- Mức độ: Major, nhưng **không** đổi kết luận "approve có điều kiện" của PR. ORC chọn: sửa ngay trong #190 trước khi merge (nên làm, nhỏ), hoặc PR kế tiếp trước khi phát hành bản có phiếu tháng.
+- Vị trí: `meter-readings.service.ts` `record()`. Lần đọc `checkin` và `room_change_in` chỉ bị kiểm `arrival ≤ readOn ≤ min(today, departure)`. Khóa duy nhất `meter_reading_live_key` theo (đơn, căn, loại, `read_on`).
+- Vấn đề:
+  - Có thể ghi `checkin` **vào ngày bất kỳ** trong kỳ ở, và **nhiều lần** (mỗi ngày một lần). `openingFor` lấy đầu kỳ mới nhất trong tháng, nên một `checkin` ghi ngày 15 của đơn đã ở từ tháng trước sẽ thành đầu kỳ của tháng đó.
+  - Tương tự `room_change_in` không gắn với ngày đổi căn thật (`segment.from`).
+  - Đường này đi vòng qua luật đọc trễ (FDL+, có lý do, giới hạn `lateMaxDays`): FD làm được mà không ai duyệt.
+  - Hộp "Enter check-in reading" mới của FE làm đường này dễ đi vô tình (FE-189-09).
+- Vì sao quan trọng: điện nước nửa đầu tháng không được tính, vì rơi vào `gap`. Sai tiền theo hướng có lợi cho khách và khó thấy khi xem phiếu.
+- Đề xuất sửa:
+  1. `checkin`: `readOn` ∈ [`arrival`, `arrival + readingWindow.daysAfter`]. Sau đó tới `lateMaxDays` thì FDL+ kèm `lateReason` (cùng cơ chế BE-190-03, cảnh báo `READING_LATE`). Ngoài khoảng → 422 `READING_OUT_OF_WINDOW`.
+  2. `room_change_in` / `room_change_out`: `readOn` ∈ [`segment.from`, `segment.from + daysAfter`], trễ hơn thì như mục 1.
+  3. Một lần đọc sống cho mỗi (đơn, căn) với `checkin`, và cho mỗi (đơn, căn, đoạn ở) với `room_change_*`. Kiểm trong service, kèm chỉ mục duy nhất từng phần nếu làm được bằng migration mới (0099 đã đóng sau merge; nếu sửa trước merge thì sửa thẳng 0099).
+  4. `candidates().rooms[]` thêm `openingKind` (`checkin` / `room_change_in` / `period_start`) và `arrivalDate` / `segmentFrom` để FE biết ô nào cần nhập (FE-189-09).
+  5. Test:
+     - `checkin` ngày 15 của đơn vào từ tháng trước → 422;
+     - `checkin` thứ hai → 409 `READING_EXISTS`;
+     - FDL ghi `checkin` trễ có lý do → 201 và nháp có `READING_LATE`.
+  6. OpenAPI: mô tả `recordMeterReading` và `rooms[]`. Hợp đồng mục 11.2 thêm dòng này (ARC cập nhật khi BE làm).
+- Trạng thái: Open
