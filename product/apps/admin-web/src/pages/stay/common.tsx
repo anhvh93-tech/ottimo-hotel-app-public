@@ -29,15 +29,27 @@ export interface SubmitFieldMap {
 
 const FD_PLUS_ROLES: readonly string[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 
+/**
+ * Who reads an error sentence – one place for every box that says a Problem, so a new caller does not forget the
+ * role (ARC-134-02, 134-03).
+ * - `manager` = OWN/MGR: a 409 FOLIO_LOCKED `settled` says what they can still do (V5-44, UXD 9.12).
+ * - `salesOnly` = SAL/CTV with no FD+ role: their own closed-booking sentence (V5-48, UXD 9.1a).
+ * Optional session: `useSubmit` is also rendered alone in tests (C0313-25) – no session, no role, nothing changes.
+ */
+export function useProblemRoles(): { manager: boolean; salesOnly: boolean } {
+  const roles = useOptionalSession()?.roles ?? [];
+  return {
+    manager: roles.some((r) => r === 'owner' || r === 'manager'),
+    salesOnly: !roles.some((r) => FD_PLUS_ROLES.includes(r)),
+  };
+}
+
 export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
   const { t, locale } = useI18n();
+  const { manager, salesOnly } = useProblemRoles();
   const write = useWrite(writeOptions);
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
-  // V5-48 (UXD 9.1a): SAL/CTV get their own closed-booking sentence (pass the money to the front desk).
-  // Optional session: the hook is also rendered alone in tests (C0313-25) – no session, no role, nothing else changes.
-  const roles = useOptionalSession()?.roles ?? [];
-  const salesOnly = !roles.some((r) => FD_PLUS_ROLES.includes(r));
 
   async function submit<T>(fn: (idempotencyKey: string) => Promise<T>): Promise<T | undefined> {
     if (write.busy) return undefined;
@@ -91,7 +103,7 @@ export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
           .join(' ');
       }
     }
-    return rsvErrorText(t, e, { locale, canSeeGuest: true, ...extra });
+    return rsvErrorText(t, e, { locale, canSeeGuest: true, manager, ...extra });
   };
 
   const view = (extra?: Record<string, unknown>, actions?: ReactNode): ReactNode =>

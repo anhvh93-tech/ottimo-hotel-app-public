@@ -106,13 +106,14 @@ describe('FB-R2-ARC-FE-S4-01 – N-7: Desk không chặn trước; 409 FOLIO_LOC
     expect(screen.queryByRole('dialog', { name: /^Điều chỉnh:/ })).toBeNull();
   });
 
-  // FB-R4-UXD-FE-P441-02: the second `detail` is the sentence the server really sends (folio-lines.service) – it
-  // says "window" too, and must still read as the debt case.
+  // FB-R4-UXD-FE-P441-02 → V5-44 (P4-41): the debt case is told by `lockReason`, whatever `detail` says (the second
+  // sentence is the one the server really sends – it says "window" too).
   it.each([
     'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
     'reduction above the charges still in their window – the debt goes down through a FOC debt_write_off (BR-525)',
+    'any log sentence',
   ])(
-    '409 FOLIO_LOCKED lúc đua (công nợ vừa mở) → cùng câu và nút "Xóa công nợ", không câu "folio đã khóa" chung (%s)',
+    '409 FOLIO_LOCKED lúc đua (công nợ vừa mở), lockReason debt_reduction_requires_write_off → cùng câu và nút "Xóa công nợ", không câu "folio đã khóa" chung (%s)',
     async (detail) => {
       const { r } = settledWith(0);
       const { user } = renderApp(`/reservations/${r.id}`, 'qa.mgr');
@@ -120,7 +121,11 @@ describe('FB-R2-ARC-FE-S4-01 – N-7: Desk không chặn trước; 409 FOLIO_LOC
       expect(within(box).queryByText(tv('folio.adjust_debt_locked'))).toBeNull();
       await user.click(within(box).getByRole('checkbox', { name: tv('folio.adjust_void') }));
       await user.type(within(box).getByLabelText(fieldRe('folio.adjust_reason')), 'Ghi nhầm');
-      mockControl.failNext(/\/adjustments:POST$/, 409, { code: 'FOLIO_LOCKED', detail });
+      mockControl.failNext(/\/adjustments:POST$/, 409, {
+        code: 'FOLIO_LOCKED',
+        lockReason: 'debt_reduction_requires_write_off',
+        detail,
+      });
       await user.click(within(box).getByRole('button', { name: tv('folio.adjust_submit') }));
       expect(await within(box).findByText(tv('folio.adjust_debt_locked'))).toBeInTheDocument();
       expect(within(box).queryByText(tv('error.FOLIO_LOCKED'))).toBeNull();
@@ -128,21 +133,52 @@ describe('FB-R2-ARC-FE-S4-01 – N-7: Desk không chặn trước; 409 FOLIO_LOC
     },
   );
 
-  it.each(['post-checkout window over (BR-427 d)', 'some new sentence'])(
-    'FB-R4-UXD-FE-P441-02: a reduction refused with the window (or an unknown) sentence → the locked sentence, no "Xóa công nợ" (%s)',
-    async (detail) => {
+  // V5-44: no `lockReason` (older server) or one this Desk does not know → the general sentence, never "Xóa công nợ" –
+  // `detail` is no longer read, even when it names the debt rule.
+  it.each([
+    ['post-checkout window over (BR-427 d)', undefined],
+    ['open debt – reduce what is owed through a FOC debt_write_off (BR-525)', undefined],
+    ['some new sentence', 'some_new_reason'],
+  ])(
+    'FB-R4-UXD-FE-P441-02, V5-44: a reduction refused without a known lockReason → the general locked sentence, no "Xóa công nợ" (%s)',
+    async (detail, lockReason) => {
       const { r } = settledWith(0);
       const { user } = renderApp(`/reservations/${r.id}`, 'qa.mgr');
       const { box } = await openAdjust(user);
       await user.click(within(box).getByRole('checkbox', { name: tv('folio.adjust_void') }));
       await user.type(within(box).getByLabelText(fieldRe('folio.adjust_reason')), 'Ghi nhầm');
-      mockControl.failNext(/\/adjustments:POST$/, 409, { code: 'FOLIO_LOCKED', detail });
+      mockControl.failNext(/\/adjustments:POST$/, 409, {
+        code: 'FOLIO_LOCKED',
+        detail,
+        ...(lockReason ? { lockReason } : {}),
+      });
       await user.click(within(box).getByRole('button', { name: tv('folio.adjust_submit') }));
       expect(await within(box).findByText(tv('error.FOLIO_LOCKED'))).toBeInTheDocument();
       expect(within(box).queryByText(tv('folio.adjust_debt_locked'))).toBeNull();
       expect(within(box).queryByRole('button', { name: tv('debt.write_off') })).toBeNull();
     },
   );
+
+  it('V5-44: lockReason post_checkout_window_over on a reduction → the window sentence (managers included), no "Xóa công nợ"', async () => {
+    const { r } = settledWith(0);
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.mgr');
+    const { dlg, box } = await openAdjust(user);
+    await user.click(within(box).getByRole('checkbox', { name: tv('folio.adjust_void') }));
+    await user.type(within(box).getByLabelText(fieldRe('folio.adjust_reason')), 'Ghi nhầm');
+    mockControl.failNext(/\/adjustments:POST$/, 409, {
+      code: 'FOLIO_LOCKED',
+      lockReason: 'post_checkout_window_over',
+      detail: 'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
+    });
+    await user.click(within(box).getByRole('button', { name: tv('folio.adjust_submit') }));
+    expect(await within(box).findByText(tv('error.FOLIO_LOCKED_window_over'))).toBeInTheDocument();
+    expect(within(box).queryByText(tv('folio.adjust_debt_locked'))).toBeNull();
+    expect(within(box).queryByRole('button', { name: tv('debt.write_off') })).toBeNull();
+    await user.click(within(box).getByRole('button', { name: tv('common.cancel') }));
+    // the folio is final now: its frame says why, no "Điều chỉnh" left
+    expect(await within(dlg).findByText(tv('error.FOLIO_LOCKED_window_over'))).toBeVisible();
+    expect(within(dlg).queryByRole('button', { name: tv('folio.adjust') })).toBeNull();
+  });
 
   it('không có công nợ mở: hủy dòng trên folio đã chốt ghi bình thường (A32)', async () => {
     const { r } = settledWith(0);

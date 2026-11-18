@@ -169,6 +169,8 @@ export interface RsvErrorContext {
   holdPaidVnd?: number;
   /** The hold's deadline (`Reservation.hold.expiresAt`) – the `{time}` of `HOLD_EXPIRED_PAID` when the Problem has no `expiredAt`. */
   holdExpiresAt?: string;
+  /** V5-44: the person is OWN/MGR – 409 FOLIO_LOCKED `settled` / debt rule say what a manager can do (`problemView`). */
+  manager?: boolean;
 }
 
 /**
@@ -242,7 +244,7 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
         ? t('error.HOLD_EXPIRED', { time: formatInstant(locale, p.expiredAt) })
         : t('error.HOLD_EXPIRED_notime');
     default:
-      return problemView(t, error).text;
+      return problemView(t, error, undefined, { manager: ctx.manager }).text;
   }
 }
 

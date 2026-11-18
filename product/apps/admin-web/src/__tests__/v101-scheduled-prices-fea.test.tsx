@@ -259,6 +259,37 @@ describe('v1.0.1 giá đã lên lịch trên ngăn kéo căn (BUG-R3-018 phần 
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
+  it('V5-44 (b) (#121): the trigger 0094 refusal (DB clock already past the date) is the same 409 effective – said in the box, never the server-error sentence; the room is read again', async () => {
+    const D1 = addDays(today(), 3);
+    schedule('101', D1, 9_000_000, 700_000);
+    // the Desk still lists the row as scheduled; the server's own check passed, the trigger refused it
+    mockControl.failNext(/cancel-scheduled:POST/, 409, {
+      code: 'INVALID_TRANSITION',
+      currentState: 'effective',
+      detail: 'list price row already in effect (trigger 0094)',
+      requestId: 'req-0094',
+    });
+    const reads: string[] = [];
+    const on = ({ request }: { request: Request }) => {
+      if (request.method === 'GET' && /\/rooms$/.test(new URL(request.url).pathname))
+        reads.push(request.url);
+    };
+    server.events.on('request:start', on);
+    const { user } = renderApp('/settings/rooms', 'qa.owner');
+    const dlg = await openRoom(user, '101');
+    const ask = await askCancel(user, dlg, D1);
+    await user.type(reasonBox(ask), 'Nhập nhầm');
+    const before = reads.length;
+    await user.click(confirmCancel(ask));
+    expect(
+      await within(ask).findByText(tv('rooms.cancel_sched_effective', { date: D(D1) })),
+    ).toBeInTheDocument();
+    expect(within(ask).queryByText(/req-0094/)).toBeNull();
+    expect(confirmCancel(ask)).toBeDisabled();
+    await waitFor(() => expect(reads.length).toBeGreaterThan(before));
+    server.events.removeListener('request:start', on);
+  });
+
   it('409 only_price → said in the box', async () => {
     const D1 = addDays(today(), 3);
     schedule('101', D1, 9_000_000, 700_000);

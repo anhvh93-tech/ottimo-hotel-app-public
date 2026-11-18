@@ -1,4 +1,4 @@
-import type { AuditEvent } from '@ottimo/api-client';
+import type { AuditEvent, CancelReasonCode, Folio } from '@ottimo/api-client';
 import { hasKey, type Args } from '@ottimo/i18n';
 import { FOC_REASON } from './folio';
 
@@ -47,25 +47,92 @@ const CODE_KEYS: Record<string, string> = {
 };
 
 /**
- * v1.0.4 BUG-R4-026: reason codes of a REFUND request (`ApprovalRequest.reasonCode` with `type = refund`). Kept
- * apart from `CODE_KEYS` because `early_departure` on a folio line means "Trả phòng sớm" (`mlog.reason.*`), while on
- * a refund request it is "Hoàn khi trả sớm".
+ * v1.0.4 BUG-R4-026, v1.0.5 V5-13 (UXD copy-v1.0.5 9.12, DOM FB-R5-DOM-UXD-112-01): the reason codes of a REFUND
+ * request (`ApprovalRequest.reasonCode` with `type = refund`, `OpenRefund.reasonCode`) that have a label of their own.
+ * Kept apart from `CODE_KEYS` because `early_departure` on a folio line means "Trả phòng sớm" (`mlog.reason.*`), while
+ * on a refund request it is "Hoàn khi trả sớm".
  */
-const REFUND_REASON: Record<string, string> = {
-  overpayment: 'audit.reason.overpayment',
+const REFUND_OWN_LABEL: Record<string, string> = {
   early_departure: 'audit.reason.early_departure',
+  overpayment: 'audit.reason.overpayment',
+  // BR-312 – also a `CancelReasonCode`, so it is looked up before the cancellation group.
+  overbooking_relocated: 'audit.reason.overbooking_relocated',
+  payment_after_cancel: 'audit.reason.payment_after_cancel',
 };
 
 /**
- * The reason of an approval request in words (Cần duyệt, Hoàn tiền): FOC / discount codes, refund codes. Null when
- * there is no code or none we know – the row then shows only the note the sender typed, never a code.
+ * Every `CancelReasonCode` of the contract (B5, B10 refund what is left with the cancellation's own reason). Typed on
+ * the generated union, so a code added to or dropped from the contract fails the type check here – the list is never
+ * kept by hand.
+ */
+const CANCEL_REASON: Record<CancelReasonCode, true> = {
+  guest_cancelled: true,
+  guest_changed_mind: true,
+  found_other: true,
+  price: true,
+  date_change: true,
+  unreachable: true,
+  hold_expired: true,
+  ota_cancelled: true,
+  overbooking_relocated: true,
+  group_partial: true,
+  other: true,
+};
+
+const REFUND_CANCELLATION = 'audit.reason.cancellation';
+const REFUND_OTHER = 'audit.reason.refund_other';
+
+/**
+ * V5-13 (UXD 9.12): the label key of a refund reason, in three steps – (1) a code with its own label
+ * (`overbooking_relocated` before step 2); (2) a cancellation code or `no_show` (B11) → one label; (3) anything else
+ * (a code typed in A32, an unknown or missing code) → "Hoàn tiền". Never the code itself.
+ */
+export function refundReasonKey(code: string | null | undefined): string {
+  const c = code ?? '';
+  if (Object.hasOwn(REFUND_OWN_LABEL, c)) return REFUND_OWN_LABEL[c]!;
+  if (c === 'no_show' || Object.hasOwn(CANCEL_REASON, c)) return REFUND_CANCELLATION;
+  return REFUND_OTHER;
+}
+
+/** UXD 9.12: the fixed order of the refund groups on screen (the server sorts `openRefunds` by code). */
+const REFUND_GROUP_ORDER = [
+  'audit.reason.early_departure',
+  'audit.reason.overpayment',
+  'audit.reason.overbooking_relocated',
+  'audit.reason.payment_after_cancel',
+  REFUND_CANCELLATION,
+  REFUND_OTHER,
+];
+
+export type OpenRefund = NonNullable<Folio['totals']['openRefunds']>[number];
+
+/**
+ * V5-13 (ARC A1 (b), UXD 9.12): `openRefunds` (one row per server code) summed per label – e.g. `found_other` and
+ * `price` make ONE "Hoàn khi hủy hoặc không đến" – in the fixed order; groups at 0 are left out.
+ */
+export function openRefundGroups(list: readonly OpenRefund[]): Array<{ key: string; vnd: number }> {
+  const sums = new Map<string, number>();
+  for (const x of list) {
+    const key = refundReasonKey(x.reasonCode);
+    sums.set(key, (sums.get(key) ?? 0) + x.openVnd);
+  }
+  return REFUND_GROUP_ORDER.filter((key) => (sums.get(key) ?? 0) > 0).map((key) => ({
+    key,
+    vnd: sums.get(key)!,
+  }));
+}
+
+/**
+ * The reason of an approval request in words (Cần duyệt, Hoàn tiền): FOC / discount codes, refund codes. A refund
+ * always has a label (V5-13 – "Hoàn tiền" for a code without one). Null for another type with no code or none we
+ * know – the row then shows only the note the sender typed, never a code.
  */
 export function requestReasonText(
   t: T,
   a: { type?: string; reasonCode?: string | null },
 ): string | null {
-  const code = a.reasonCode ?? '';
-  const key = (a.type === 'refund' ? REFUND_REASON[code] : undefined) ?? FOC_REASON[code];
+  if (a.type === 'refund') return t(refundReasonKey(a.reasonCode));
+  const key = FOC_REASON[a.reasonCode ?? ''];
   return key ? t(key) : null;
 }
 
@@ -129,10 +196,10 @@ export function auditReasonText(t: T, e: AuditEvent): string {
     return hasKey(`approval.auto_cancel.${auto}`) || !hasKey(`mlog.reason.${auto}`)
       ? autoCancelText(t, auto)
       : t(`mlog.reason.${auto}`);
-  // BUG-R4-026: "Gửi yêu cầu duyệt" of a refund – its own label for `early_departure`.
+  // BUG-R4-026, V5-13: "Gửi yêu cầu duyệt" of a refund – the refund label (one code, one label everywhere).
   const refundKey =
     !e.reason && after.type === 'refund' && typeof after.reasonCode === 'string'
-      ? REFUND_REASON[raw]
+      ? refundReasonKey(raw)
       : undefined;
   const key =
     refundKey ??

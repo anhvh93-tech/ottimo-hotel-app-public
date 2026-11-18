@@ -212,6 +212,14 @@ function AuditAction({ e, names }: { e: AuditEvent; names: PeopleNames }) {
       </>
     );
   }
+  // FB-R5-UXD-FE-111-02 (UXD 9.11): "Không thấy tiền về cho đơn đã hủy" names one kind of item – an item of another
+  // kind in the money log reads as an unknown action, never as that sentence.
+  if (e.action === 'attention_event.resolved' && after.kind !== 'deposit_after_cancel')
+    return (
+      <>
+        {t('mlog.a_other')} <span className="caption mono">{e.action}</span>
+      </>
+    );
   if (e.action === 'deposit.shortfall_accepted')
     return (
       <>{t('mlog.a_shortfall_accepted', { amount: money(Number(after.shortfallVnd ?? 0)) })}</>

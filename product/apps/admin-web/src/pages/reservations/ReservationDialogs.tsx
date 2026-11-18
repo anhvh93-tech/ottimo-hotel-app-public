@@ -54,7 +54,7 @@ import {
   type KeepState,
   type ServiceLine,
 } from './ServiceLines';
-import { FilePicker, useSubmit } from '../stay/common';
+import { FilePicker, useProblemRoles, useSubmit } from '../stay/common';
 
 export interface DialogBase {
   reservation: Reservation;
@@ -76,6 +76,7 @@ export interface DialogBase {
  */
 function useAction(base: DialogBase) {
   const { t, locale } = useI18n();
+  const { manager } = useProblemRoles();
   const write = useWrite();
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -122,6 +123,8 @@ function useAction(base: DialogBase) {
 
   const ctx = (extra: RsvErrorContext = {}): RsvErrorContext => ({
     locale,
+    // ARC-134-02: the FOLIO_LOCKED sentence follows the role here too (B5/B11 `voidStay`, B4 answer `settled`).
+    manager,
     roomNo: base.reservation.segments?.[0]?.roomNo ?? undefined,
     canSeeGuest: true,
     // BUG-R3-044 (2): `HOLD_EXPIRED` on a hold with money says the booking is kept (never "back on sale").
