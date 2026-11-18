@@ -373,7 +373,7 @@ function MeterRow({
             roomId={room.roomId}
             roomNo={room.roomNo}
             month={month}
-            arrivalDate={room.arrivalDate}
+            segmentFrom={room.segmentFrom}
             today={today}
             lead={lead}
             onClose={() => setCheckin(false)}

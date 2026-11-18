@@ -33,6 +33,8 @@ export interface LeaseStay {
   monthlyRentVnd: number;
   /** Arrival day: a `checkin` reading is read on or after it (contract: `readOn` before arrival → DATE_INVALID). */
   arrivalDate: string;
+  /** Guest-facing room name (print, UXD-189-11). */
+  roomName: string | null;
   status: 'in_house' | 'checked_out';
 }
 
@@ -127,6 +129,7 @@ export function seedState() {
       guestFullName: 'Nguyễn Minh',
       monthlyRentVnd: 8_500_000,
       arrivalDate: `${P2}-20`,
+      roomName: 'The Sage',
       status: 'in_house',
     },
     {
@@ -139,6 +142,7 @@ export function seedState() {
       guestFullName: 'Trần Lan',
       monthlyRentVnd: 7_000_000,
       arrivalDate: `${P2}-01`,
+      roomName: 'The Ivory',
       status: 'in_house',
     },
   ];

@@ -84,7 +84,19 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
           <dt>
             <Bi k="stmt.print.room" />
           </dt>
-          <dd>{s.roomNos.join(', ')}</dd>
+          {/* UXD-189-11: "The Mist · 203" – the room name for the guest, the number in Mono. */}
+          <dd>
+            {s.roomNos.map((no, i) => {
+              const name = s.roomNames?.[i];
+              return (
+                <span key={no} className="nowrap">
+                  {i ? ', ' : ''}
+                  {name ? <span className="stmt-room-name">{name} · </span> : null}
+                  <span className={name ? 'mono' : undefined}>{no}</span>
+                </span>
+              );
+            })}
+          </dd>
         </div>
         {/* UXD-189-02: rent of M in advance, utilities and services of M−1 – both printed, no "Month". */}
         {s.rentPeriod ? (

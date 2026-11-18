@@ -5,7 +5,6 @@
 // outside the end-of-month window → 422 READING_OUT_OF_WINDOW, FDL+ may record late with `lateReason` (BE-190-03).
 import type { Role } from '@ottimo/api-client';
 import { http } from 'msw';
-import { daysBetween } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { isOpeningKind, monthOf, shiftMonth, type RecordMeterReadingBody } from '../app/statements';
 import { LEADS, has, issuedReadingIds } from './statements-compute';
@@ -104,38 +103,34 @@ export function meterHandlers(
       if (b.kind === 'checkin' && checkin) return ctx.problem(409, 'READING_EXISTS');
       if (b.kind === 'period_start' && checkin && monthOf(checkin.readOn) === b.periodMonth)
         return validation([{ field: 'periodMonth', code: 'NOT_ALLOWED' }]);
+      // Window gate shared by every kind, on `readOn` (BE-190-03/12): inside anyone; after it up to lateMaxDays only
+      // FDL+ with a reason; otherwise 422 READING_OUT_OF_WINDOW with windowFrom/windowTo (+ lateUntil, lateNeedsRole).
+      const w = window();
+      const gate = (win: { from: string; to: string }): Response | string | null => {
+        const day = b.readOn;
+        if (day >= win.from && day <= win.to) return null;
+        const lateUntil = addDays(win.to, w.lateMaxDays);
+        const lateOk = day > win.to && day <= lateUntil;
+        const out = {
+          windowFrom: win.from,
+          windowTo: win.to,
+          ...(lateOk ? { lateUntil, lateNeedsRole: 'front_desk_lead' } : {}),
+        };
+        const reason = String(b.lateReason ?? '').trim();
+        if (!lateOk || !lead || reason.length < 3 || reason.length > 300)
+          return ctx.problem(422, 'READING_OUT_OF_WINDOW', out);
+        return reason;
+      };
       let lateReason: string | null = null;
-      // BE-190-12: the check-in reading is read from arrival to arrival + daysAfter; recorded later only by FDL+
-      // with a reason, up to lateMaxDays (as BE-190-03).
-      if (b.kind === 'checkin') {
-        const w = window();
-        const win = { from: stay.arrivalDate, to: addDays(stay.arrivalDate, w.daysAfter) };
-        if (b.readOn > win.to) return ctx.problem(422, 'READING_OUT_OF_WINDOW', { window: win });
-        const day = today();
-        if (day > win.to) {
-          const reason = String(b.lateReason ?? '').trim();
-          const lateAllowed = lead && daysBetween(win.to, day) <= w.lateMaxDays;
-          if (!lateAllowed || reason.length < 3 || reason.length > 300)
-            return ctx.problem(422, 'READING_OUT_OF_WINDOW', { window: win, lateAllowed });
-          lateReason = reason;
-        }
-      }
-      // End-of-month window (BR-LS-10): period_end of M and period_start of M+1 share it.
-      if (monthly) {
-        const closes = b.kind === 'period_end' ? b.periodMonth! : shiftMonth(b.periodMonth!, -1);
-        const w = window();
-        const win = windowOf(closes, w);
-        const day = today();
-        if (day < win.from) return ctx.problem(422, 'READING_OUT_OF_WINDOW', { window: win });
-        if (day > win.to) {
-          const late = daysBetween(win.to, day);
-          const reason = String(b.lateReason ?? '').trim();
-          const lateAllowed = lead && late <= w.lateMaxDays;
-          if (!lateAllowed || reason.length < 3 || reason.length > 300)
-            return ctx.problem(422, 'READING_OUT_OF_WINDOW', { window: win, lateAllowed });
-          lateReason = reason;
-        }
-      }
+      const passed = monthly
+        ? gate(
+            windowOf(b.kind === 'period_end' ? b.periodMonth! : shiftMonth(b.periodMonth!, -1), w),
+          )
+        : b.kind === 'checkin'
+          ? gate({ from: stay.arrivalDate, to: addDays(stay.arrivalDate, w.daysAfter) })
+          : null;
+      if (passed instanceof Response) return passed;
+      lateReason = passed;
       const exists = st.readings.some(
         (x) =>
           !x.voidedAt &&

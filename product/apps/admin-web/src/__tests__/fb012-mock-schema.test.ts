@@ -1,7 +1,7 @@
 // FB-INV-012 (ARC-FE-189-03): the MSW mock of monthly statements answers in the shapes of the OpenAPI schemas, so FE
 // tests cannot go green on shapes the server never sends. Reads `docs/api/openapi.yaml` (or `FB012_OPENAPI`, e.g. the
-// spec of the BE branch before #190 merges). Undeclared fields fail, except those ARC asked BE to add (BE-190-02/04)
-// while they are not in the spec yet. Skips while the spec has no billing schemas (main before #190).
+// spec of the BE branch before #190 merges). Undeclared fields fail – no allowances (BE da40f1c7 has every field the
+// desk reads). Skips while the spec has no billing schemas (main before #190).
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -23,14 +23,6 @@ interface Spec {
 const spec: Spec | null = existsSync(specPath) ? parse(readFileSync(specPath, 'utf8')) : null;
 const schemas = spec?.components.schemas ?? {};
 const ready = !!schemas.BillingPeriod && !!schemas.MeterReading;
-
-/** Fields ARC asked BE to ADD (review §1) – accepted while the spec does not list them yet. */
-const PENDING: Record<string, string[]> = {
-  BillingPeriod: ['excludedLines', 'replacesCode'],
-  MeterReading: ['readByInitials', 'onIssuedStatement'],
-  candidate: ['rooms'],
-  rooms: ['openingKind', 'arrivalDate'],
-};
 
 function resolve(s: Schema): Schema {
   let cur = s;
@@ -83,8 +75,7 @@ function check(v: unknown, s0: Schema, at: string, ctx: string): string[] {
       if (!(r in o)) errs.push(`${at}.${r}: required`);
     for (const [k, x] of Object.entries(o)) {
       if (props[k]) errs.push(...check(x, props[k]!, `${at}.${k}`, k));
-      else if (s.additionalProperties !== true && !(PENDING[name] ?? []).includes(k))
-        errs.push(`${at}.${k}: not in ${name}`);
+      else if (s.additionalProperties !== true) errs.push(`${at}.${k}: not in ${name}`);
     }
   }
   return errs;

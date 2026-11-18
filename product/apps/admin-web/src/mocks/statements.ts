@@ -171,7 +171,7 @@ export function createStatementsMock(c: Ctx) {
                 nextOpening: next ? 'recorded' : 'missing',
                 // BE-190-12: the check-in month opens with the check-in reading.
                 openingKind: monthOf(s.arrivalDate) === u ? 'checkin' : 'period_start',
-                arrivalDate: s.arrivalDate,
+                segmentFrom: s.arrivalDate,
               },
             ],
             guestDisplayName: s.guestDisplayName,
@@ -260,6 +260,11 @@ export function createStatementsMock(c: Ctx) {
         kind: v.kind,
         month: v.month,
         roomNos: v.roomNos,
+        roomNames: v.roomNos.map(
+          (no) =>
+            st.stays.find((x) => x.reservationId === v.reservationId && x.roomNo === no)
+              ?.roomName ?? null,
+        ),
         rentPeriod: v.rentPeriod,
         utilityPeriod: v.utilityPeriod,
         servicePeriod: v.servicePeriod,

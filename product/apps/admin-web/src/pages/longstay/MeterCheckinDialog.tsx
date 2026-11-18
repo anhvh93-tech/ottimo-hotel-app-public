@@ -4,7 +4,6 @@ import { Alert, Button, Field, Modal } from '@ottimo/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { problemView } from '../../app/problem';
 import {
-  lastDayOf,
   parseMeter,
   statementsApi,
   type MeterException,
@@ -12,7 +11,6 @@ import {
   type RecordMeterReadingBody,
 } from '../../app/statements';
 import { useToast } from '../../app/toast';
-import { addDays } from '../../app/reservations';
 import { useWrite } from '../../app/useWrite';
 import { usePropertyId } from '../../session/SessionProvider';
 import { BelowDialog, TYPES } from './MeterDialogs';
@@ -23,15 +21,17 @@ import { dayText } from './labels';
  * always entered; ARC-FE-189-01: the first opening is the `checkin` reading, not a `period_start`). Date, both meters
  * and a photo; one POST. Below the room's last closing → the same two-step warning as the monthly opening
  * (422 `OPENING_BELOW_PREVIOUS_CLOSING` → Wrong entry / Meter replaced (FDL+) / Save anyway with a new key).
- * The date is prefilled with the arrival day (UXD-189-15) and kept within arrival … arrival + 1 day (BE-190-12); after
- * that the reading is late: FD asks the lead, FDL+ records it with a reason (as the monthly window, BE-190-03).
+ * The date is prefilled with `segmentFrom` (the arrival, UXD-189-15) and never earlier. The window (arrival + the
+ * `readingWindow.daysAfter` parameter) is the server's (BE-190-12): a date after it comes back as 422
+ * `READING_OUT_OF_WINDOW`; with `lateUntil` the FDL+ adds a reason and saves again, FD is asked to call the lead;
+ * without it the date is refused. A second check-in reading → 409 `READING_EXISTS`.
  */
 export function MeterCheckinDialog({
   reservationId,
   roomId,
   roomNo,
   month,
-  arrivalDate,
+  segmentFrom,
   today,
   lead,
   onClose,
@@ -41,7 +41,7 @@ export function MeterCheckinDialog({
   roomId: string;
   roomNo: string;
   month: string;
-  arrivalDate?: string | null;
+  segmentFrom: string;
   today: string;
   lead: boolean;
   onClose: () => void;
@@ -51,13 +51,13 @@ export function MeterCheckinDialog({
   const propertyId = usePropertyId();
   const toast = useToast();
   const ids = useId();
-  const windowEnd = arrivalDate ? addDays(arrivalDate, 1) : null;
-  const minDay = arrivalDate && arrivalDate > `${month}-01` ? arrivalDate : `${month}-01`;
-  const maxDay = [today, lastDayOf(month), windowEnd ?? today].sort()[0]!;
-  const late = !!windowEnd && today > windowEnd;
+  const minDay = segmentFrom > `${month}-01` ? segmentFrom : `${month}-01`;
+  const maxDay = today;
   const [readOn, setReadOn] = useState(() =>
-    arrivalDate && arrivalDate >= minDay && arrivalDate <= maxDay ? arrivalDate : '',
+    segmentFrom >= minDay && segmentFrom <= maxDay ? segmentFrom : '',
   );
+  /** From 422 READING_OUT_OF_WINDOW with `lateUntil`: the reading is late, FDL+ may save it with a reason. */
+  const [late, setLate] = useState<{ windowTo: string } | null>(null);
   const [lateReason, setLateReason] = useState('');
   const [values, setValues] = useState<Record<MeterType, string>>({ electricity: '', water: '' });
   const [ex, setEx] = useState<Record<MeterType, MeterException | null>>({
@@ -125,6 +125,11 @@ export function MeterCheckinDialog({
       onSaved();
     } catch (err) {
       if (isApiError(err) && err.status >= 400 && err.status < 500) rec.renewKey();
+      if (isApiError(err) && err.code === 'READING_OUT_OF_WINDOW' && err.problem.lateUntil) {
+        setLate({ windowTo: String(err.problem.windowTo ?? '') });
+        if (lead) setErrors((e) => ({ ...e, late: t('meters.void_reason_required') }));
+        return;
+      }
       if (isApiError(err) && err.code === 'OPENING_BELOW_PREVIOUS_CLOSING') {
         const type = (err.problem.meter as MeterType | undefined) ?? 'electricity';
         setBelow({ type, previous: Number(err.problem.previousValue ?? 0) });
@@ -145,7 +150,7 @@ export function MeterCheckinDialog({
         footer={
           <>
             <Button onClick={onClose}>{t('common.cancel')}</Button>
-            <Button variant="pri" disabled={busy || (late && !lead)} onClick={() => void save()}>
+            <Button variant="pri" disabled={busy || (!!late && !lead)} onClick={() => void save()}>
               {t('meters.save')}
             </Button>
           </>
@@ -156,7 +161,7 @@ export function MeterCheckinDialog({
           {banner ? <Alert tone="bad">{banner}</Alert> : null}
           {late ? (
             <Alert tone="warn">
-              {t(lead ? 'meters.late' : 'meters.late_fd', { date: dayText(locale, windowEnd) })}
+              {t(lead ? 'meters.late' : 'meters.late_fd', { date: dayText(locale, late.windowTo) })}
             </Alert>
           ) : null}
           {late && lead ? (
@@ -181,7 +186,10 @@ export function MeterCheckinDialog({
                 min={minDay}
                 max={maxDay}
                 value={readOn}
-                onChange={(e) => setReadOn(e.target.value)}
+                onChange={(e) => {
+                  setReadOn(e.target.value);
+                  setLate(null);
+                }}
               />
             )}
           </Field>

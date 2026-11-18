@@ -388,15 +388,24 @@ describe('FB-INV-012 S12 check-in reading (INV 17/11; ARC-FE-189-01/09, BE-190-1
     expect(fig.parentElement!.closest('.mono')).toBeNull();
   });
 
-  it('late (after arrival + 1 day): FD is asked to call the lead, Save disabled', async () => {
+  it('read after arrival + daysAfter: the server answers late (lateUntil) – FD is asked to call the lead, Save disabled', async () => {
     pinDay(windowDay());
     const { P } = mockControl.statements;
     midMonthArrival(lateArrival(P));
     renderApp('/long-stay/meters', 'qa.fd');
     const dlg = await openCheckin();
-    expect(dlg.textContent).toContain(
-      tv('meters.late_fd', { date: viDay(addDays(lateArrival(P), 1)) }),
+    // Prefilled with segmentFrom (the arrival) – inside the window, nothing late yet.
+    expect(dlg.querySelector('input[type=date]')).toHaveValue(lateArrival(P));
+    expect(within(dlg).getByRole('button', { name: tv('meters.save') })).toBeEnabled();
+    // Read today (arrival + 5): the BE window gate is on readOn → 422 READING_OUT_OF_WINDOW.
+    fillCheckin(dlg, todayLocal(), '1300', '36');
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
+    await waitFor(() =>
+      expect(dlg.textContent).toContain(
+        tv('meters.late_fd', { date: viDay(addDays(lateArrival(P), 1)) }),
+      ),
     );
+    expect(savedCheckin()).toBeUndefined();
     expect(within(dlg).getByRole('button', { name: tv('meters.save') })).toBeDisabled();
   });
 
@@ -418,9 +427,9 @@ describe('FB-INV-012 S12 check-in reading (INV 17/11; ARC-FE-189-01/09, BE-190-1
     renderApp('/long-stay/meters', 'qa.fdl');
     const dlg = await openCheckin();
     expect(dlg.querySelector('input[type=date]')).toHaveValue(lateArrival(P));
-    fillCheckin(dlg, lateArrival(P), '1300', '36');
+    fillCheckin(dlg, todayLocal(), '1300', '36');
     fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
-    expect(within(dlg).getByText(tv('meters.void_reason_required'))).toBeVisible();
+    expect(await within(dlg).findByText(tv('meters.void_reason_required'))).toBeVisible();
     fireEvent.change(within(dlg).getByLabelText(new RegExp(`^${esc(tv('meters.late_reason'))}`)), {
       target: { value: 'Quên chụp lúc nhận phòng' },
     });
@@ -435,10 +444,34 @@ describe('FB-INV-012 S12 check-in reading (INV 17/11; ARC-FE-189-01/09, BE-190-1
       acknowledgedLower: true,
       lateReason: 'Quên chụp lúc nhận phòng',
     });
-    expect(sent).toHaveLength(2);
-    expect(sent[0]!.ack).toBeUndefined();
-    expect(sent[1]!.ack).toBe(true);
-    expect(sent[1]!.key).not.toBe(sent[0]!.key);
+    // 422 late → 422 below → saved: three sends, a new key after each 4xx; only the last has the flag.
+    expect(sent.map((x) => x.ack)).toEqual([undefined, undefined, true]);
+    expect(new Set(sent.map((x) => x.key)).size).toBe(3);
+  });
+
+  it('a second live check-in reading → 409 READING_EXISTS is shown, nothing saved (BE-190-12)', async () => {
+    pinDay(windowDay());
+    const { P } = mockControl.statements;
+    midMonthArrival(lastDayOf(P));
+    server.use(
+      http.post('*/reservations/:reservationId/meter-readings', () =>
+        HttpResponse.json(
+          {
+            type: '/problems/reading-exists',
+            title: 'READING_EXISTS',
+            status: 409,
+            code: 'READING_EXISTS',
+          },
+          { status: 409, headers: { 'content-type': 'application/problem+json' } },
+        ),
+      ),
+    );
+    renderApp('/long-stay/meters', 'qa.fd');
+    const dlg = await openCheckin();
+    fillCheckin(dlg, lastDayOf(P), '1300', '36');
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
+    await waitFor(() => expect(dlg.textContent).toContain(tv('error.READING_EXISTS')));
+    expect(savedCheckin()).toBeUndefined();
   });
 
   it('FD in the lower-opening dialog is told the replaced meter needs the lead (UXD-189-14)', async () => {

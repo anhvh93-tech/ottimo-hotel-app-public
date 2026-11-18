@@ -288,6 +288,11 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
         expect(translate(lang, `stmt.print.${k}`)).not.toMatch(emoji);
     // Personal data: full name and room only (contract §9.1); the property sends no e-mail (BE print schema).
     expect(text).toContain('Trần Lan');
+    // UXD-189-11 / BE-190-12: `roomNames` beside `roomNos` – the name in Lora, the number in Mono.
+    const roomName = within(s).getByText(/^The Ivory/);
+    expect(roomName).toHaveClass('stmt-room-name');
+    expect(roomName.nextElementSibling).toHaveTextContent('302');
+    expect(roomName.nextElementSibling).toHaveClass('mono');
     expect(text).not.toContain('@');
     expect([...text.matchAll(/(?:\+84|\b0)\d{2,3} \d{3} \d{3,4}/g)].map((m) => m[0])).toEqual([
       '0900 000 000',

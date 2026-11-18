@@ -201,6 +201,10 @@
   margin: 0;
   font-weight: 500;
 }
+.stmt-room-name {
+  font-family: var(--serif);
+  font-weight: 600;
+}
 .stmt-sheet table {
   width: 100%;
   border-collapse: collapse;
