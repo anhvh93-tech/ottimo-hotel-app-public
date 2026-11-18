@@ -512,8 +512,19 @@ describe('FB-INV-012 S12 check-in reading (INV 17/11; ARC-FE-189-01/09, BE-190-1
     st.readings.splice(drop, 1);
     renderApp('/long-stay/meters', 'qa.fdl');
     const row = await row203();
-    expect(row.textContent).toContain(tv('meters.opening_missing'));
     expect(within(row).queryByRole('button', { name: tv('meters.checkin_enter') })).toBeNull();
+    // UXD 195-03: one line for the row (not one per meter), with the way to the month where it is typed.
+    const shown = (m: string) => `${m.slice(5)}/${m.slice(0, 4)}`;
+    const prev = shiftMonth(st.P, -1);
+    const line = tv('meters.opening_missing_row', { month: shown(st.P), prev: shown(prev) });
+    expect(within(row).getAllByText(line)).toHaveLength(1);
+    expect(row.textContent).not.toContain(tv('meters.opening_missing'));
+    fireEvent.click(
+      within(row).getByRole('button', {
+        name: tv('meters.late_left_open', { month: shown(prev) }),
+      }),
+    );
+    await waitFor(() => expect(screen.getByLabelText(tv('meters.month'))).toHaveValue(prev));
   });
 });
 
@@ -530,7 +541,10 @@ describe('BUG-R5-009 S12 mid-month: the month where work is due', () => {
     // The closing of M (and the opening of M+1) is not typed before the last day of M.
     expect(within(row).queryByLabelText(label('electricity', 'closing'))).toBeNull();
     expect(within(row).queryByLabelText(label('electricity', 'opening'))).toBeNull();
-    expect(row.textContent).toContain(tv('meters.closing_from', { date: viDay(lastDayOf(M)) }));
+    // UXD 195-03: "Closing reading from…" once above the table, the row keeps only the chip.
+    const from = tv('meters.closing_from', { date: viDay(lastDayOf(M)) });
+    expect(row.textContent).not.toContain(from);
+    expect(screen.getAllByText(from)).toHaveLength(1);
     expect(within(row).getByText(tv('meters.not_due'))).toBeVisible();
     expect(within(row).queryByRole('button', { name: tv('meters.save') })).toBeNull();
     // The month before on screen: the check-in reading due this month is still offered.

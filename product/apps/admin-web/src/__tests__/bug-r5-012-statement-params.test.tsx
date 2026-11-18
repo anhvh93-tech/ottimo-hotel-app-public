@@ -24,7 +24,10 @@ describe('BUG-R5-012 monthly-statement parameters', () => {
       tv('params.stmt.vat_value', { electricity: 8, water: 5 }),
     );
     const rules = row('monthly_statement_rules').textContent ?? '';
-    expect(rules).toContain(tv('params.stmt.rent_advance'));
+    // UXD 195-04: summary phrases readable alone.
+    expect(rules).toContain(tv('params.stmt.sum_rent_advance'));
+    expect(rules).toContain(tv('params.stmt.sum_partial_at_checkin'));
+    expect(rules).toContain('làm tròn xuống 1.000 đ');
     expect(rules).toContain(tv('params.stmt.due_value', { day: 5 }));
     for (const k of ['utility_unit_price', 'utility_vat_rate', 'monthly_statement_rules'])
       expect(row(k).textContent).not.toMatch(/[{}"]/);

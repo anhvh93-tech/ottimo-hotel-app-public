@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { mockControl } from '../mocks/handlers';
 import { parseEmv } from '../mocks/statements';
-import { warningText } from '../pages/longstay/labels';
+import { lineText, warningText } from '../pages/longstay/labels';
 import { pinDaytime } from '../test/clock';
 import { renderApp, tv } from '../test/render';
 
@@ -223,6 +223,52 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
     await waitFor(() => expect(s.textContent).toContain(translate('en', 'stmt.print.rent_period')));
     expect(s.textContent).not.toContain(translate('en', 'stmt.print.utility_period'));
     expect(s.textContent).not.toContain(translate('vi', 'stmt.print.utility_period'));
+  });
+
+  it('UXD 195-02: a label key the desk does not know never prints raw – own text, else a label by line type', async () => {
+    const p = await issuedSheet();
+    const rent = p.snapshot!.lines.find((l) => l.kind === 'rent')!;
+    const unknown = { ...rent, labelKey: 'stmt.line.not_in_this_build', labelParams: {} };
+    expect(lineText('en', unknown)).toBe(translate('en', 'stmt.line.fallback_rent'));
+    expect(lineText('vi', { ...unknown, kind: 'service' })).toBe(
+      translate('vi', 'stmt.line.fallback_service'),
+    );
+    expect(lineText('vi', { ...unknown, kind: 'prior_adjustment' })).toBe(
+      translate('vi', 'stmt.line.fallback_prior_adjustment'),
+    );
+    expect(lineText('en', { ...unknown, kind: 'service', labelParams: { text: 'Laundry' } })).toBe(
+      'Laundry',
+    );
+    // On the sheet: no raw key.
+    p.snapshot!.lines.push({ ...unknown, kind: 'service', amountVnd: 0 });
+    renderApp(`/print/statements/${p.id}`, 'qa.fd');
+    const s = await sheet();
+    await waitFor(() =>
+      expect(s.textContent).toContain(translate('en', 'stmt.line.fallback_service')),
+    );
+    expect(s.textContent).not.toContain('stmt.line.not_in_this_build');
+  });
+
+  it('UXD 195-01: an A4 sheet taller than one page warns in the toolbar before printing', async () => {
+    const p = await issuedSheet();
+    const proto = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get(this: HTMLElement) {
+        // 1.100 px ≈ 291 mm: past the 269 mm of A4, only for the off-screen A4 copy.
+        return this.closest('.stmt-measure') && this.classList.contains('stmt-a4') ? 1100 : 0;
+      },
+    });
+    try {
+      renderApp(`/print/statements/${p.id}`, 'qa.fd');
+      await waitFor(() => expect(root()).toHaveClass('stmt-paper-a5'));
+      expect(screen.queryByText(tv('stmt.paper_overflow'))).toBeNull();
+      fireEvent.click(screen.getAllByRole('button', { name: 'A4' }).at(-1)!);
+      expect(await screen.findByText(tv('stmt.paper_overflow'))).toHaveAttribute('role', 'status');
+    } finally {
+      if (proto) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', proto);
+      else delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
+    }
   });
 
   it('BUG-R5-011: on A5 a long description wraps instead of pushing the table past the 132 mm content box', () => {

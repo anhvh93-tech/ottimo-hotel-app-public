@@ -17,6 +17,8 @@ import { dayText, lineAmount, lineText, meterNum, num, rangeText, signedNum } fr
 export const A5_MAX_LINES = 6;
 /** Printable height of A5 portrait with the 8 mm margins of `@page stmt-a5` (210 − 16 mm). */
 export const A5_PRINT_HEIGHT_MM = 194;
+/** Printable height of A4 portrait with the 14 mm top/bottom margins of `@page stmt-a4` (297 − 28 mm). */
+export const A4_PRINT_HEIGHT_MM = 269;
 export type PaperSize = 'a5' | 'a4';
 
 export const printedLines = (s: { lines: StatementLine[] }) =>
@@ -371,15 +373,18 @@ export function StatementPrintPage() {
   const s = res.state.data;
   const [size, setSize] = useState<PaperSize | null>(null);
   const [overflow, setOverflow] = useState(false);
+  const [a4Overflow, setA4Overflow] = useState(false);
   const auto: PaperSize = s && (printedLines(s) > A5_MAX_LINES || overflow) ? 'a4' : 'a5';
   const paper: PaperSize = size ?? auto;
   const measure = useRef<HTMLDivElement>(null);
   // Height guard (UXD-189-03): the A5 sheet laid out off screen; taller than the A5 print area → A4 by default.
   useLayoutEffect(() => {
-    const el = measure.current?.querySelector<HTMLElement>('.stmt-sheet');
-    if (!el || !s || !enReady) return;
-    const mm = el.scrollHeight / (96 / 25.4);
-    setOverflow(mm > A5_PRINT_HEIGHT_MM);
+    const [a5, a4] = measure.current?.querySelectorAll<HTMLElement>('.stmt-sheet') ?? [];
+    if (!a5 || !s || !enReady) return;
+    const mm = (el: HTMLElement) => el.scrollHeight / (96 / 25.4);
+    setOverflow(mm(a5) > A5_PRINT_HEIGHT_MM);
+    // UXD 195-01: A4 has no bigger paper to fall back on – warn before printing, never cut text.
+    setA4Overflow(!!a4 && mm(a4) > A4_PRINT_HEIGHT_MM);
   }, [s, enReady]);
   // UXD-189-16: say so whether the line count or the height guard picked A4.
   const switched = !size && auto === 'a4' && !!s;
@@ -396,6 +401,7 @@ export function StatementPrintPage() {
         </div>
         <div className="stmt-measure" ref={measure} aria-hidden="true">
           <StatementSheet s={s} size="a5" />
+          <StatementSheet s={s} size="a4" />
         </div>
         {createPortal(
           <div className={`print-root stmt-paper-${paper}`} aria-hidden="true">
@@ -430,6 +436,11 @@ export function StatementPrintPage() {
         {switched ? (
           <span className="li-s" role="status">
             {t('stmt.paper_switched')}
+          </span>
+        ) : null}
+        {paper === 'a4' && a4Overflow ? (
+          <span className="li-s" role="status">
+            {t('stmt.paper_overflow')}
           </span>
         ) : null}
       </div>

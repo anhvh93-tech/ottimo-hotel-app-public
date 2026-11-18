@@ -94,6 +94,12 @@ export function MetersPage() {
           />
         </div>
         <p className="li-s mb-8">{t('meters.help')}</p>
+        {/* UXD 195-03: said once for the table, not in every cell. */}
+        {today < lastDayOf(month) ? (
+          <p className="li-s mb-8">
+            {t('meters.closing_from', { date: dayText(locale, lastDayOf(month)) })}
+          </p>
+        ) : null}
         {lateLeft.state.data ? (
           <Alert tone="warn">
             <span>
@@ -167,6 +173,7 @@ export function MetersPage() {
                     month={month}
                     today={today}
                     onSaved={rows.reload}
+                    onOpenMonth={setMonth}
                   />
                 ))}
               </tbody>
@@ -255,11 +262,13 @@ function MeterRow({
   month,
   today,
   onSaved,
+  onOpenMonth,
 }: {
   row: Row;
   month: string;
   today: string;
   onSaved: () => void;
+  onOpenMonth: (month: string) => void;
 }) {
   const { t, locale } = useI18n();
   const propertyId = usePropertyId();
@@ -277,6 +286,9 @@ function MeterRow({
   const closeM = latest(readings, (r) => r.kind === 'period_end' && r.periodMonth === month);
   const openNext = latest(readings, (r) => r.kind === 'period_start' && r.periodMonth === next);
   const needNext = room.nextOpening !== 'not_needed';
+  // UXD 195-03: the opening of M is the period_start typed at the end of M−1 – one line for the row, with the way there.
+  const prevMonth = shiftMonth(month, -1);
+  const openingElsewhere = !openM && room.openingKind === 'period_start';
   // BUG-R5-009: before the last day of M the closing (and the next opening) is not due yet – shown, not typed.
   const early = today < lastDayOf(month);
   const toClose = !closeM && !early;
@@ -482,6 +494,19 @@ function MeterRow({
             </Button>
           </div>
         ) : null}
+        {openingElsewhere ? (
+          <Alert tone="warn">
+            <span>
+              {t('meters.opening_missing_row', {
+                month: monthText(locale, month),
+                prev: monthText(locale, prevMonth),
+              })}
+            </span>{' '}
+            <Button size="sm" variant="ghost" onClick={() => onOpenMonth(prevMonth)}>
+              {t('meters.late_left_open', { month: monthText(locale, prevMonth) })}
+            </Button>
+          </Alert>
+        ) : null}
         {checkin ? (
           <MeterCheckinDialog
             reservationId={candidate.reservationId}
@@ -553,14 +578,10 @@ function MeterRow({
                           ),
                         )}
                     </p>
-                  ) : (
+                  ) : openingElsewhere ? null : (
                     <Alert tone="warn">{t('meters.opening_missing')}</Alert>
                   )}
-                  {early ? (
-                    <p className="li-s">
-                      {t('meters.closing_from', { date: dayText(locale, lastDayOf(month)) })}
-                    </p>
-                  ) : (
+                  {early ? null : (
                     <>
                       <Field label={t('meters.closing')} required error={errors[`${type}.closing`]}>
                         {(p) => (

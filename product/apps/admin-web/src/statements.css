@@ -118,6 +118,9 @@
   box-sizing: border-box;
   width: 132mm;
 }
+.stmt-measure .stmt-sheet.stmt-a4 {
+  width: 178mm;
+}
 
 /* ---------- the sheet ---------- */
 .stmt-sheet {
@@ -379,7 +382,8 @@
 }
 /* BUG-R5-011: heads stay on one line; a description wraps only when the six columns would pass 132 mm
    (auto layout keeps it on one line whenever it fits, so the usual sheet looks the same). */
-.stmt-a5 .stmt-table-print th {
+.stmt-a5 .stmt-table-print th,
+.stmt-a4 .stmt-table-print th {
   white-space: nowrap;
 }
 .stmt-a5 .stmt-table-print td:first-child {

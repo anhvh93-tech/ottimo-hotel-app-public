@@ -36,7 +36,8 @@ type Def =
 const VAT_RATES = [0, 5, 8, 10];
 const ROUNDING = [1, 100, 1000];
 const vnd = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
-const pctOptions = () => VAT_RATES.map((r) => ({ value: String(r), label: `${r} %` }));
+const pctOptions = () => VAT_RATES.map((r) => ({ value: String(r), label: `${r}%` }));
+const lowerFirst = (x: string) => x.charAt(0).toLocaleLowerCase() + x.slice(1);
 const roundingLabel = (t: T, n: number) =>
   n === 1 ? t('params.stmt.rounding_1') : t('params.stmt.rounding_n', { amount: vnd(n) });
 
@@ -155,12 +156,17 @@ export function formatStatementParam(t: T, key: StatementParamKey, v: unknown): 
   const rounding = n(v.totalRoundingVnd);
   if (!w || due === null || rounding === null) return null;
   return [
-    v.rentTiming === 'arrears' ? t('params.stmt.rent_arrears') : t('params.stmt.rent_advance'),
+    // UXD 195-04: summary phrases of their own, each readable alone, lower-case.
+    v.rentTiming === 'arrears'
+      ? t('params.stmt.sum_rent_arrears')
+      : t('params.stmt.sum_rent_advance'),
     t('params.stmt.due_value', { day: due }),
-    roundingLabel(t, rounding),
+    rounding === 1
+      ? t('params.stmt.sum_rounding_1')
+      : lowerFirst(t('params.stmt.rounding_n', { amount: vnd(rounding) })),
     v.partialFirstMonthRent === 'first_statement'
-      ? t('params.stmt.partial_first_statement')
-      : t('params.stmt.partial_at_checkin'),
+      ? t('params.stmt.sum_partial_first_statement')
+      : t('params.stmt.sum_partial_at_checkin'),
     t('params.stmt.window_value', {
       before: n(w.daysBeforeMonthEnd) ?? 0,
       after: n(w.daysAfter) ?? 0,

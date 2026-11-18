@@ -4151,9 +4151,9 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `meters.empty_body` | Khi có khách dài hạn nhận phòng, căn sẽ hiện ở đây để chốt chỉ số. | Rooms appear here once a long-stay guest checks in. | ⟨chừa chỗ⟩ |  |
 | `meters.empty_month` | Tháng {month} không có căn dài hạn nào cần chốt | No long-stay room to read for {month} | ⟨chừa chỗ⟩ | BUG-R5-009: never says 'no long stay' when one is in house |
 | `meters.checkin_due_title` | Chỉ số nhận phòng cần nhập – {month} | Check-in readings to enter – {month} | ⟨chừa chỗ⟩ | BUG-R5-009 |
-| `meters.closing_from` | Chốt cuối kỳ từ ngày {date}. | The closing reading opens on {date}. | ⟨chừa chỗ⟩ | BUG-R5-009: before the last day of the month |
+| `meters.closing_from` | Nhập cuối kỳ từ ngày {date}. | Closing reading from {date}. | ⟨chừa chỗ⟩ | BUG-R5-009: before the last day of the month |
 | `meters.not_due` | Chưa tới kỳ chốt | Not due yet | ⟨chừa chỗ⟩ | BUG-R5-009 |
-| `meters.late_left` | Tháng {month} còn {n} căn chưa chốt cuối kỳ (ghi trễ cần lễ tân trưởng và lý do). | {month}: {n} room(s) still without a closing reading (a late reading needs the front desk lead and a reason). | ⟨chừa chỗ⟩ | BUG-R5-009 |
+| `meters.late_left` | Tháng {month} còn {n} căn chưa chốt cuối kỳ (ghi trễ cần lễ tân trưởng và lý do). | Closing readings still missing for {month}: {n}. A late reading needs the front desk lead and a reason. | ⟨chừa chỗ⟩ | BUG-R5-009 |
 | `meters.late_left_open` | Mở tháng {month} | Open {month} | ⟨chừa chỗ⟩ | BUG-R5-009 |
 | `meters.col_room` | Căn · Khách | Room · Guest | ⟨chừa chỗ⟩ |  |
 | `meters.col_photo` | Ảnh đồng hồ | Meter photo | ⟨chừa chỗ⟩ |  |
@@ -4333,38 +4333,49 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `params.k.utility_unit_price` | Đơn giá điện, nước (chưa VAT) | Electricity and water unit price (before VAT) | ⟨chừa chỗ⟩ | contract §3 |
 | `params.k.utility_vat_rate` | % VAT điện, nước | Electricity and water VAT % | ⟨chừa chỗ⟩ | contract §3 |
 | `params.k.monthly_statement_rules` | Quy tắc phiếu tháng dài hạn | Monthly statement rules | ⟨chừa chỗ⟩ | contract §3 |
-| `params.grp_statement` | Dài hạn – phiếu tháng | Long stay – monthly statement | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.electricity` | Điện | Electricity | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.water` | Nước | Water | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.per_kwh` | đ/kWh | VND/kWh | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.per_m3` | đ/m³ | VND/m³ | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.price_help` | Đơn giá chưa VAT. VAT cộng theo tham số % VAT điện, nước. | Unit prices before VAT. VAT is added at the electricity and water VAT %. | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.price_value` | Điện {electricity} đ/kWh · Nước {water} đ/m³ (chưa VAT) | Electricity {electricity} VND/kWh · Water {water} VND/m³ (before VAT) | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.vat_electricity` | VAT điện | Electricity VAT | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.vat_water` | VAT nước | Water VAT | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.vat_help` | Đổi mức VAT từ một ngày (ví dụ điện 10 % từ 01/01/2027): chọn ngày hiệu lực bên dưới. Phiếu đã phát hành giữ mức cũ. | To change a rate from a given day (e.g. electricity 10 % from 01/01/2027), set the effective date below. Issued statements keep the old rate. | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.vat_value` | VAT điện {electricity} % · nước {water} % | VAT electricity {electricity} % · water {water} % | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.rent_timing` | Thu tiền thuê | Rent is charged | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.rent_advance` | Thu trước | In advance | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.rent_arrears` | Thu sau | In arrears | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.rent_help` | Thu trước: phiếu tháng M có tiền thuê tháng M. Thu sau: có tiền thuê tháng M−1. | In advance: the statement of M carries the rent of M. In arrears: the rent of M−1. | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.due_day` | Hạn thanh toán – ngày trong tháng | Payment due – day of the month | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.due_value` | hạn ngày {day} | due on day {day} | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.rounding` | Làm tròn tổng phiếu | Round the statement total | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.rounding_1` | Không làm tròn | No rounding | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.rounding_n` | Xuống {amount} đ | Down to {amount} VND | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.partial` | Tiền thuê tháng nhận phòng (lẻ ngày) | Rent of the arrival month (part month) | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.partial_at_checkin` | Thu khi nhận phòng | Charged at check-in | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.partial_first_statement` | Cộng vào phiếu tháng đầu | Added to the first statement | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.window_before` | Chốt công tơ – số ngày trước cuối tháng | Meter closing – days before month end | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.window_after` | Chốt công tơ – số ngày sau cuối tháng | Meter closing – days after month end | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.late_max` | Ghi trễ tối đa sau hạn chốt | Late reading allowed up to | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.window_value` | chốt công tơ {before} ngày trước – {after} ngày sau cuối tháng, ghi trễ tối đa {late} ngày | meter closing {before} days before – {after} days after month end, late up to {late} days | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
-| `params.stmt.range` | Từ {min} đến {max} | From {min} to {max} | ⟨chừa chỗ⟩ | BUG-R5-012 FE → UXD duyệt |
+| `params.grp_statement` | Dài hạn – phiếu tháng | Long stay – monthly statement | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.electricity` | Điện | Electricity | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.water` | Nước | Water | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.per_kwh` | đ/kWh | VND/kWh | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.per_m3` | đ/m³ | VND/m³ | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.price_help` | Đơn giá chưa VAT. VAT cộng theo tham số % VAT điện, nước. | Unit prices before VAT. VAT is added at the electricity and water VAT %. | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.price_value` | Điện {electricity} đ/kWh · Nước {water} đ/m³ | Electricity {electricity} VND/kWh · Water {water} VND/m³ | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.vat_electricity` | VAT điện | Electricity VAT | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.vat_water` | VAT nước | Water VAT | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.vat_help` | Đổi mức VAT từ một ngày (ví dụ điện 10% từ 01/01/2027): chọn ngày hiệu lực bên dưới. Phiếu đã phát hành giữ mức cũ. | To change a rate from a given day (e.g. electricity 10% from 01/01/2027), set the effective date below. Issued statements keep the old rate. | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.vat_value` | VAT điện {electricity}% · nước {water}% | VAT electricity {electricity}% · water {water}% | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.rent_timing` | Thu tiền thuê | Rent is charged | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.rent_advance` | Thu trước | In advance | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.rent_arrears` | Thu sau | In arrears | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.rent_help` | Thu trước: phiếu tháng M có tiền thuê tháng M. Thu sau: có tiền thuê tháng M−1. | In advance: the statement of M carries the rent of M. In arrears: the rent of M−1. | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.due_day` | Hạn thanh toán – ngày trong tháng | Payment due – day of the month | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.due_value` | hạn thanh toán ngày {day} | payment due on day {day} | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.rounding` | Làm tròn tổng phiếu | Round the statement total | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.rounding_1` | Không làm tròn | No rounding | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.rounding_n` | Làm tròn xuống {amount} đ | Round down to {amount} VND | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.partial` | Tiền thuê tháng nhận phòng (lẻ ngày) | Rent of the arrival month (part month) | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.partial_at_checkin` | Thu khi nhận phòng | Charged at check-in | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.partial_first_statement` | Cộng vào phiếu tháng đầu | Added to the first statement | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.window_before` | Chốt công tơ – số ngày trước cuối tháng | Meter closing – days before month end | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.window_after` | Chốt công tơ – số ngày sau cuối tháng | Meter closing – days after month end | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.late_max` | Ghi trễ tối đa sau hạn chốt | Late reading allowed up to | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.window_value` | chốt công tơ {before} ngày trước – {after} ngày sau cuối tháng, ghi trễ tối đa {late} ngày | meter closing {before} days before – {after} days after month end, late up to {late} days | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
+| `params.stmt.sum_rent_advance` | tiền thuê thu trước | rent in advance | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `params.stmt.sum_rent_arrears` | tiền thuê thu sau | rent in arrears | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `params.stmt.sum_partial_at_checkin` | tháng lẻ thu khi nhận phòng | part month at check-in | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `params.stmt.sum_partial_first_statement` | tháng lẻ cộng vào phiếu đầu | part month on the first statement | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `params.stmt.sum_rounding_1` | không làm tròn | no rounding | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `meters.opening_missing_row` | Chưa có đầu kỳ {month}. Nhập ở tháng {prev}. | No opening reading for {month}. Enter it under {prev}. | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `stmt.line.fallback_rent` | Tiền thuê | Rent | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `stmt.line.fallback_service` | Dịch vụ | Service | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `stmt.line.fallback_prior_adjustment` | Điều chỉnh phiếu trước | Adjustment to previous statement | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `stmt.line.fallback_other` | Khoản khác | Other charge | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `stmt.paper_overflow` | Phiếu dài hơn một trang – kiểm lại trước khi in | Statement runs past one page – check before printing | ⟨chừa chỗ⟩ | UXD-on-fe-pr-195 |
+| `params.stmt.range` | Từ {min} đến {max} | From {min} to {max} | ⟨chừa chỗ⟩ | BUG-R5-012, UXD-on-fe-pr-195 |
 | `error.METER_LOWER_THAN_PREVIOUS` | Chỉ số cuối kỳ thấp hơn đầu kỳ. Chọn lý do trước khi lưu. | The closing reading is below the opening. Choose a reason before saving. | ⟨chừa chỗ⟩ |  |
 | `error.READING_EXISTS` | Căn này đã có chỉ số cho kỳ này. Hủy lần đọc cũ nếu cần nhập lại. | This room already has a reading for this period. Void it first to enter again. | ⟨chừa chỗ⟩ |  |
 | `error.READING_OUT_OF_WINDOW` | Đã hết hạn chốt chỉ số ({date}). Lễ tân trưởng ghi trễ kèm lý do, tối đa {days} ngày sau hạn. | The reading window closed on {date}. A front desk lead can record it late with a reason, up to {days} days after. | ⟨chừa chỗ⟩ | BR-LS-10, BE-190-03/12; {days} = lateUntil − windowTo (parameter lateMaxDays), UXD #189 |
-| `error.READING_OUT_OF_WINDOW_PAST_LATE` | Đã quá hạn ghi trễ cho ngày đọc này (hạn chốt {date}). Báo quản lý. | This reading is past the late-entry limit (the window closed on {date}). Contact the manager. | ⟨chừa chỗ⟩ | BE-190-03/12: 422 without lateUntil |
+| `error.READING_OUT_OF_WINDOW_PAST_LATE` | Đã quá hạn ghi trễ cho ngày đọc này (hạn chốt {date}). Vui lòng báo quản lý để xử lý. | This reading is past the late-entry limit (the window closed on {date}). Ask the manager to handle it. | ⟨chừa chỗ⟩ | BE-190-03/12: 422 without lateUntil |
 | `error.READING_ON_ISSUED_STATEMENT` | Chỉ số đã dùng trên phiếu đã phát hành. Hủy phiếu trước. | This reading is on an issued statement. Void the statement first. | ⟨chừa chỗ⟩ |  |
 | `error.STATEMENT_EXISTS` | Tháng này đã có phiếu. | This month already has a statement. | ⟨chừa chỗ⟩ |  |
 | `error.METER_READING_MISSING` | Chưa đủ chỉ số đầu kỳ và cuối kỳ. Nhập chỉ số trước khi phát hành. | Opening or closing readings are missing. Enter them before issuing. | ⟨chừa chỗ⟩ |  |
