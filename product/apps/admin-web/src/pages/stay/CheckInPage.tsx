@@ -23,6 +23,8 @@ import {
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../app/api';
+import { canCheckInBackdated } from '../../app/goLive';
+import { BackdatedCheckInDialog } from './BackdatedCheckInDialog';
 import { listApprovals } from '../../app/approvals';
 import { useCatalog } from '../../app/catalog';
 import { dayMonth } from '../../app/reservations';
@@ -165,6 +167,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
     preview.reload();
   };
   const [registration, setRegistration] = useState<Registration | null>(null);
+  // FB-INV-012 §12.1.2 (S06, FE-2): a long stay already in house is checked in with its own dialog.
+  const [backdated, setBackdated] = useState(false);
   useEffect(() => {
     if (!deviceTrusted || !r?.registrationId) return;
     let stale = false;
@@ -1029,6 +1033,26 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           <Alert tone="warn" icon="offline">
             {t('ci.offline', { time: since ? timeHHmm(since) : '' })}
           </Alert>
+        ) : null}
+        {canCheckInBackdated(r) ? (
+          <Alert
+            tone="info"
+            role="note"
+            actions={
+              <Button size="sm" variant="pri" onClick={() => setBackdated(true)}>
+                {t('bd.checkin_action')}
+              </Button>
+            }
+          >
+            {t('bd.checkin_body')}
+          </Alert>
+        ) : null}
+        {backdated ? (
+          <BackdatedCheckInDialog
+            reservation={r}
+            onClose={() => setBackdated(false)}
+            onDone={() => navigate(`/reservations/${r.id}`)}
+          />
         ) : null}
         {steps}
         <div className="cols-2">

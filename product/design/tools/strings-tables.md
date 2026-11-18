@@ -4425,6 +4425,79 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stmt.print.qr_keep_ref` | Vui lòng giữ nguyên nội dung này. | Please keep this reference unchanged. | ⟨chừa chỗ⟩ | UXD-189-11 |
 | `error.OPENING_BELOW_PREVIOUS_CLOSING` | Đầu kỳ thấp hơn cuối kỳ trước. Chọn cách xử lý trước khi lưu. | The opening is below the last closing. Choose what to do before saving. | ⟨chừa chỗ⟩ | BE-190-01 |
 
+#### R5 FB-INV-012 §12 – FE: nhận phòng bù (A127), đã thu ngoài Desk (A128), liên hệ cơ sở (A129), đọc bù (A130), giá dọn dài hạn theo căn. Nháp FE 18/11 – UXD duyệt
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `bd.in_house_toggle` | Khách đã ở | Guest already in house | ⟨chừa chỗ⟩ | FE-1 – ô chọn trong H10, chỉ OWN/MGR |
+| `bd.in_house_help` | Khách vào ở trước khi có Desk. Chọn ngày đến thật trong 45 ngày qua. Đơn nhập bù không có người chốt, không tính hoa hồng. | The guest moved in before Desk. Choose the real arrival date within the last 45 days. A backdated booking has no closer and no commission. | ⟨chừa chỗ⟩ | FE-1; SEC 12-01 |
+| `bd.need_device` | Nhập bù chỉ làm được trên thiết bị đã được cấp quyền. | Backdated entry works only on an approved device. | ⟨chừa chỗ⟩ | SEC 12-07, x-requires-trusted-device |
+| `bd.reason` | Lý do nhập bù | Reason for backdated entry | ⟨chừa chỗ⟩ | 3–300 ký tự |
+| `bd.reason_help` | Ví dụ: hợp đồng giấy ký trước khi dùng Desk. | For example: paper contract signed before Desk. | ⟨chừa chỗ⟩ |  |
+| `bd.date_range` | Ngày đến phải từ {from} đến {to}. | Arrival must be between {from} and {to}. | ⟨chừa chỗ⟩ | {from} = hôm nay − 45, {to} = hôm qua |
+| `bd.first_of_month` | Khách ở trước ngày 01 của tháng đang chốt: chọn ngày 01, ghi ngày bắt đầu hợp đồng thật vào ghi chú. | If the guest moved in before the 1st of the month being closed, choose the 1st and put the real contract start in the note. | ⟨chừa chỗ⟩ | G2 |
+| `bd.checkin_action` | Nhận phòng bù | Backdated check-in | ⟨chừa chỗ⟩ | FE-2 nút S04/S06 theo allowedActions.check_in_backdated |
+| `bd.checkin_title` | Nhận phòng bù · căn {room} | Backdated check-in · room {room} | ⟨chừa chỗ⟩ |  |
+| `bd.checkin_body` | Ghi nhận khách đã ở trong căn từ ngày đến thật. Không có giờ nhận phòng, phụ thu hay thu tiền. Giờ ghi nhận là lúc bấm. | Records that the guest has been in the room since the real arrival date. No check-in time, surcharge or payment. The time recorded is now. | ⟨chừa chỗ⟩ |  |
+| `bd.arrival_real` | Ngày đến thật | Actual arrival date | ⟨chừa chỗ⟩ |  |
+| `bd.arrival_moves` | Ngày đến của đơn sẽ dời từ {from} sang {to}. Tiền thuê tháng và ngày hết hợp đồng không đổi. | The booking's arrival moves from {from} to {to}. Monthly rent and contract end stay the same. | ⟨chừa chỗ⟩ | arrivalDate khác reservation.arrivalDate |
+| `bd.cards` | Số thẻ phòng đã giao | Key cards issued | ⟨chừa chỗ⟩ |  |
+| `bd.doc_override` | Lý do bỏ qua kiểm giấy tờ | Reason to skip the document check | ⟨chừa chỗ⟩ | documentBlockOverride.reason |
+| `bd.doc_override_help` | Ví dụ: đã khai tạm trú ngoài Desk. | For example: residence already declared outside Desk. | ⟨chừa chỗ⟩ |  |
+| `bd.done` | Đã nhận phòng bù căn {room} | Backdated check-in done for room {room} | ⟨chừa chỗ⟩ | toast + tiêu đề bước tiếp |
+| `bd.next_help` | Tiếp theo: ghi chỉ số nhận phòng theo sổ giấy (ghi trễ, cần lý do), rồi lập phiếu tháng nhận phòng. Khách đã trả ngoài Desk thì phát hành phiếu rồi ghi Đã thu ngoài Desk. | Next: record the check-in meter reading from the paper log (late, with a reason), then the arrival-month statement. If the guest already paid outside Desk, issue it and record Paid outside Desk. | ⟨chừa chỗ⟩ | FE-2 |
+| `bd.next_meter` | Ghi chỉ số nhận phòng | Record check-in meter reading | ⟨chừa chỗ⟩ | → S12 |
+| `bd.next_statement` | Phiếu tháng nhận phòng | Arrival-month statement | ⟨chừa chỗ⟩ | → S16 |
+| `bd.chip` | Nhận phòng bù {date} | Backdated check-in {date} | ⟨chừa chỗ⟩ | Reservation.checkinBackdatedOn |
+| `checkin.cond.room_occupied` | Căn không có lượt ở khác trong các đêm này | No other stay in the room on these nights | ⟨chừa chỗ⟩ | unmet room_occupied (12.1.2) |
+| `field_error.backdate_out_of_range` | Ngày đến chỉ được lùi tối đa 45 ngày, và phải trước hôm nay. | Arrival can go back at most 45 days, and must be before today. | ⟨chừa chỗ⟩ | BACKDATE_OUT_OF_RANGE |
+| `field_error.previous_month_closed` | Tháng trước đã hết hạn ghi trễ chỉ số cuối kỳ. Chọn ngày 01 của tháng này. | Last month's closing readings can no longer be entered. Choose the 1st of this month. | ⟨chừa chỗ⟩ | PREVIOUS_MONTH_CLOSED |
+| `field_error.use_check_in` | Khách đến hôm nay: dùng Nhận phòng thường. | The guest arrives today: use the normal check-in. | ⟨chừa chỗ⟩ | USE_CHECK_IN |
+| `field_error.catch_up_today_only` | Đọc bù chỉ ghi ngày hôm nay. | A catch-up reading is dated today only. | ⟨chừa chỗ⟩ | CATCH_UP_TODAY_ONLY |
+| `payment.method.outside_desk` | Thu ngoài Desk | Outside Desk | ⟨chừa chỗ⟩ | Nhãn phương thức – chỉ hiển thị, không có trong ô chọn cách thu (SEC 12-03) |
+| `od.action` | Đã thu ngoài Desk | Paid outside Desk | ⟨chừa chỗ⟩ | FE-3 nút S16 theo availableActions.settle_outside_desk |
+| `od.help` | Dùng khi khách đã trả khoản này ngoài Desk, ví dụ trên nền tảng cũ. Chủ cơ sở được báo mỗi lần ghi. | Use this when the guest already paid outside Desk, for example on the old platform. The owner is notified each time. | ⟨chừa chỗ⟩ |  |
+| `od.received_on` | Ngày khách đã trả | Date received | ⟨chừa chỗ⟩ | ≤ hôm nay |
+| `od.reason` | Lý do | Reason | ⟨chừa chỗ⟩ | 3–300 |
+| `od.reason_help` | Ví dụ: tiền thuê 11/2026 đã trả trên nền tảng cũ. | For example: rent for 11/2026 paid on the old platform. | ⟨chừa chỗ⟩ |  |
+| `od.reference` | Mã tham chiếu | Reference | ⟨chừa chỗ⟩ | Không bắt buộc, ≤ 64 ký tự |
+| `od.reference_help` | Không bắt buộc. Chữ, số, dấu cách và . / -. Không nhập số tài khoản. | Optional. Letters, digits, spaces and . / -. No account numbers. | ⟨chừa chỗ⟩ |  |
+| `od.reference_invalid` | Chỉ dùng chữ, số, dấu cách và . / -, tối đa 64 ký tự. | Use letters, digits, spaces and . / - only, up to 64 characters. | ⟨chừa chỗ⟩ |  |
+| `od.date_future` | Ngày nhận không được sau hôm nay. | The date received can't be after today. | ⟨chừa chỗ⟩ |  |
+| `od.confirm_title` | Ghi {amount} đ là đã thu ngoài Desk? | Record {amount} VND as paid outside Desk? | ⟨chừa chỗ⟩ | UXD duyệt |
+| `od.confirm_body` | Khoản này không vào ca, không vào đối soát và không vào tiền mặt bàn giao. Không hoàn tiền được. Ghi nhầm thì quản lý đảo khoản. | This amount does not go into any shift, reconciliation or cash handover. It can't be refunded. If it is wrong, a manager reverses it. | ⟨chừa chỗ⟩ | UXD duyệt – contract FE-3 |
+| `od.confirm` | Ghi đã thu ngoài Desk | Record as paid outside Desk | ⟨chừa chỗ⟩ |  |
+| `od.saved` | Đã ghi đã thu ngoài Desk | Recorded as paid outside Desk | ⟨chừa chỗ⟩ | toast |
+| `od.owner_only` | Chỉ chủ cơ sở ghi được khoản này. Quản lý chỉ ghi được tiền thuê của phiếu tháng nhận phòng bù, với ngày nhận không sau ngày nhập bù. | Only the owner can record this. A manager can record only the rent of a backdated arrival-month statement, received no later than the backdated check-in. | ⟨chừa chỗ⟩ | 403 SEC 12-02 |
+| `od.need_device` | Ghi đã thu ngoài Desk chỉ làm được trên thiết bị đã được cấp quyền. | Paid outside Desk works only on an approved device. | ⟨chừa chỗ⟩ | SEC 12-02 (1) |
+| `pc.title` | Liên hệ cơ sở | Property contact | ⟨chừa chỗ⟩ | FE-4 khối S24 |
+| `pc.help` | In ở chân phiếu tháng và trang công khai của căn. Chỉ chủ cơ sở sửa. | Printed at the foot of monthly statements and on the public room page. Only the owner can change it. | ⟨chừa chỗ⟩ |  |
+| `pc.address` | Địa chỉ | Address | ⟨chừa chỗ⟩ |  |
+| `pc.address_help` | Một dòng, 5–200 ký tự. | One line, 5–200 characters. | ⟨chừa chỗ⟩ |  |
+| `pc.hotline` | Hotline | Hotline | ⟨chừa chỗ⟩ |  |
+| `pc.hotline_help` | Số điện thoại, có thể bắt đầu bằng +. | A phone number, may start with +. | ⟨chừa chỗ⟩ |  |
+| `pc.address_invalid` | Địa chỉ cần 5–200 ký tự, trên một dòng. | The address needs 5–200 characters on one line. | ⟨chừa chỗ⟩ |  |
+| `pc.hotline_invalid` | Hotline chưa đúng dạng số điện thoại. | The hotline isn't a valid phone number. | ⟨chừa chỗ⟩ |  |
+| `pc.preview` | Xem trước chân phiếu | Statement footer preview | ⟨chừa chỗ⟩ |  |
+| `pc.not_set` | Chưa nhập | Not set | ⟨chừa chỗ⟩ |  |
+| `pc.saved` | Đã lưu liên hệ cơ sở | Property contact saved | ⟨chừa chỗ⟩ | toast |
+| `pc.load_error` | Chưa tải được liên hệ cơ sở | Couldn't load the property contact | ⟨chừa chỗ⟩ |  |
+| `params.k.long_stay_cleaning_fee_by_room` | Giá dọn thêm khách dài hạn theo căn | Extra cleaning for long stays, by room | ⟨chừa chỗ⟩ | H3, A101 |
+| `params.lscf.help` | Căn không có trong bảng dùng giá dọn lẻ chung. Khách ngắn ngày luôn dùng giá chung. | Rooms not listed use the standard ad-hoc cleaning price. Short stays always use the standard price. | ⟨chừa chỗ⟩ |  |
+| `params.lscf.room` | Căn | Room | ⟨chừa chỗ⟩ |  |
+| `params.lscf.price` | Giá (đ) | Price (VND) | ⟨chừa chỗ⟩ |  |
+| `params.lscf.empty` | Chưa đặt – mọi căn dùng giá dọn lẻ chung | Not set – every room uses the standard price | ⟨chừa chỗ⟩ |  |
+| `params.lscf.rooms_n` | {n} căn có giá riêng | {n} rooms with their own price | ⟨chừa chỗ⟩ | Tóm tắt giá trị trong bảng tham số |
+| `params.lscf.price_invalid` | Giá từ 0 đến 5.000.000 đ, bội 1.000. | Price from 0 to 5,000,000 VND, in steps of 1,000. | ⟨chừa chỗ⟩ |  |
+| `charge.price_source.long_stay_room` | Giá dài hạn của căn | Long-stay room price | ⟨chừa chỗ⟩ | FE-5 priceSource |
+| `charge.price_source.default` | Giá chung | Standard price | ⟨chừa chỗ⟩ | FE-5 priceSource |
+| `meters.past_late` | Đã quá hạn ghi trễ cho ngày đọc này (hạn {date}). Quản lý cần đọc bù đồng hồ hôm nay. | The late-entry deadline for this reading has passed ({date}). A manager needs to take a catch-up reading today. | ⟨chừa chỗ⟩ | DOM §3.3 – FD/FDL và MGR/OWN |
+| `meters.catch_up_action` | Đọc bù hôm nay | Catch-up reading today | ⟨chừa chỗ⟩ | MGR/OWN, catchUpNeedsRole |
+| `meters.catch_up_on` | Đọc bù: ngày đọc là hôm nay ({date}). Cần lý do và ảnh. | Catch-up reading: dated today ({date}). A reason and a photo are required. | ⟨chừa chỗ⟩ |  |
+| `meters.catch_up_reason` | Lý do đọc bù | Reason for catch-up reading | ⟨chừa chỗ⟩ |  |
+| `meters.backdated_help` | Nhận phòng bù: chọn ngày ghi trên sổ giấy, sớm nhất là ngày trước ngày đến. Luôn là ghi trễ, cần lý do. | Backdated check-in: choose the date in the paper log, at the earliest the day before arrival. Always a late reading, with a reason. | ⟨chừa chỗ⟩ | 12.1.3 |
+| `stmt.warning.READING_CATCH_UP` | Căn {room}: chỉ số đọc bù ngày {date} (quá hạn ghi trễ). Kiểm tra trước khi phát hành. | Room {room}: catch-up reading on {date}, after the late-entry deadline. Check before issuing. | ⟨chừa chỗ⟩ | DOM §3.3 |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

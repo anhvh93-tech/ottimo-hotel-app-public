@@ -1,9 +1,11 @@
 import { isApiError, type BillingPeriodPatch } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field, Modal, Seg } from '@ottimo/ui';
+import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
+import { useBusinessDay } from '../../app/businessDay';
+import { REFERENCE_RE, canSettleOutsideDesk } from '../../app/goLive';
 import { parseVnd } from '../../app/money';
 import { problemView } from '../../app/problem';
 import { statusTone, type BillingPeriod, type StatementLine } from '../../app/statements';
@@ -11,7 +13,7 @@ import { useToast } from '../../app/toast';
 import { useWrite } from '../../app/useWrite';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
-import { usePropertyId } from '../../session/SessionProvider';
+import { usePropertyId, useSession } from '../../session/SessionProvider';
 import {
   dayText,
   lineAmount,
@@ -55,6 +57,7 @@ export function StatementDrawer({
     null,
   );
   const [paying, setPaying] = useState(false);
+  const [settling, setSettling] = useState(false);
   const issueW = useWrite();
   const replaceW = useWrite();
   useEffect(() => {
@@ -62,6 +65,7 @@ export function StatementDrawer({
     setBanner(null);
     setVoiding(false);
     setPaying(false);
+    setSettling(false);
     setReplaceMonth(null);
   }, [id]);
 
@@ -156,6 +160,13 @@ export function StatementDrawer({
             {can('void') ? (
               <Button variant="ghost" onClick={() => setVoiding(true)}>
                 {t('stmt.void')}
+              </Button>
+            ) : null}
+            {canSettleOutsideDesk(p) ? (
+              // FB-INV-012 §12.2 (A128, FE-3): only when the server lists it (OWN; MGR on the backdated
+              // arrival-month statement – SEC 12-02).
+              <Button variant="ghost" onClick={() => setSettling(true)}>
+                {t('od.action')}
               </Button>
             ) : null}
             {can('record_payment') ? (
@@ -382,6 +393,17 @@ export function StatementDrawer({
                 toast(t('stmt.payment_saved'));
               }}
               onCancel={() => setPaying(false)}
+            />
+          ) : null}
+          {settling ? (
+            <SettleOutsideDeskForm
+              p={p}
+              onDone={(next) => {
+                setSettling(false);
+                applied(next);
+                toast(t('od.saved'));
+              }}
+              onCancel={() => setSettling(false)}
             />
           ) : null}
           {voiding ? (
@@ -642,6 +664,160 @@ function VoidForm({
           {t('stmt.void_confirm')}
         </Button>
       </div>
+    </section>
+  );
+}
+
+/**
+ * FB-INV-012 §12.2 (A128, FE-3): "Paid outside Desk" – amount (the balance by default), date received (≤ today),
+ * reason, optional reference; a confirmation says it goes into no shift, reconciliation or cash handover. Recorded
+ * as a payment `outside_desk` by the server only – the method is never offered in a payment picker (SEC 12-03).
+ * 403 FORBIDDEN_ACTION = owner only (SEC 12-02); DEVICE_NOT_TRUSTED = an approved device is needed.
+ */
+function SettleOutsideDeskForm({
+  p,
+  onDone,
+  onCancel,
+}: {
+  p: BillingPeriod;
+  onDone: (next: BillingPeriod) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useI18n();
+  const propertyId = usePropertyId();
+  const { deviceTrusted } = useSession();
+  const today = useBusinessDay();
+  const [amount, setAmount] = useState(String(p.totals.balanceVnd));
+  const [receivedOn, setReceivedOn] = useState(today);
+  const [reason, setReason] = useState('');
+  const [reference, setReference] = useState('');
+  const [err, setErr] = useState<Record<string, string>>({});
+  const [confirm, setConfirm] = useState<number | null>(null);
+  const [banner, setBanner] = useState<string | null>(null);
+  const write = useWrite();
+  const ids = useId();
+
+  const check = () => {
+    const n = parseVnd(amount);
+    const e: Record<string, string> = {};
+    if (n === null || n <= 0) e.amount = t('common.required');
+    else if (n > p.totals.balanceVnd)
+      e.amount = t('stmt.amount_over_balance', { max: num(p.totals.balanceVnd) });
+    if (!receivedOn) e.receivedOn = t('common.required');
+    else if (receivedOn > today) e.receivedOn = t('od.date_future');
+    if (reason.trim().length < 3) e.reason = t('stmt.reason_required');
+    if (reference.trim() && !REFERENCE_RE.test(reference.trim()))
+      e.reference = t('od.reference_invalid');
+    setErr(e);
+    if (!Object.keys(e).length) setConfirm(n!);
+  };
+
+  const save = async (n: number) => {
+    setBanner(null);
+    try {
+      const out = await write.run((key) =>
+        api.settleBillingPeriodOutsideDesk(
+          { propertyId },
+          p.id,
+          p.version,
+          {
+            amountVnd: n,
+            receivedOn,
+            reason: reason.trim(),
+            reference: reference.trim() || null,
+          },
+          key,
+        ),
+      );
+      onDone(out.data.billingPeriod);
+    } catch (e) {
+      setConfirm(null);
+      if (isApiError(e) && e.status >= 400 && e.status < 500) write.renewKey();
+      setBanner(
+        isApiError(e) && e.code === 'FORBIDDEN_ACTION'
+          ? t('od.owner_only')
+          : isApiError(e) && e.code === 'DEVICE_NOT_TRUSTED'
+            ? t('od.need_device')
+            : problemView(t, e).text,
+      );
+    }
+  };
+
+  return (
+    <section className="card stack" aria-labelledby={`${ids}-h`}>
+      <h3 className="label-h" id={`${ids}-h`}>
+        {t('od.action')}
+      </h3>
+      <p className="li-s">{t('od.help')}</p>
+      {!deviceTrusted ? <Alert tone="warn">{t('od.need_device')}</Alert> : null}
+      {banner ? <Alert tone="bad">{banner}</Alert> : null}
+      <div className="row wrap">
+        <Field label={t('stmt.pay_amount')} required error={err.amount}>
+          {(c) => (
+            <input
+              {...c}
+              className="input num"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label={t('od.received_on')} required error={err.receivedOn}>
+          {(c) => (
+            <input
+              {...c}
+              className="input"
+              type="date"
+              max={today}
+              value={receivedOn}
+              onChange={(e) => setReceivedOn(e.target.value)}
+            />
+          )}
+        </Field>
+      </div>
+      <Field label={t('od.reason')} required error={err.reason} help={t('od.reason_help')}>
+        {(c) => (
+          <input
+            {...c}
+            className="input"
+            maxLength={300}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        )}
+      </Field>
+      <Field label={t('od.reference')} error={err.reference} help={t('od.reference_help')}>
+        {(c) => (
+          <input
+            {...c}
+            className="input mono"
+            maxLength={64}
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+          />
+        )}
+      </Field>
+      {write.notice}
+      <div className="row">
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button variant="pri" disabled={!deviceTrusted} onClick={check}>
+          {t('od.confirm')}
+        </Button>
+      </div>
+      {confirm !== null ? (
+        <ConfirmDialog
+          title={t('od.confirm_title', { amount: num(confirm) })}
+          body={t('od.confirm_body')}
+          keepLabel={t('common.back')}
+          confirmLabel={t('od.confirm')}
+          danger={false}
+          busy={write.busy}
+          busyLabel={write.busyLabel}
+          onKeep={() => setConfirm(null)}
+          onConfirm={() => void save(confirm)}
+        />
+      ) : null}
     </section>
   );
 }

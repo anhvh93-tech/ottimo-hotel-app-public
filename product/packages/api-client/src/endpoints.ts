@@ -2,6 +2,12 @@
 // generated contract, so a contract change breaks the build here instead of at runtime.
 import type { ApiClient } from './client';
 import type {
+  CheckInBackdatedBody,
+  ChargePriceSource,
+  PropertyContact,
+  SettleOutsideDeskBody,
+} from './golive';
+import type {
   ApprovalRequest,
   BillingCandidateList,
   BillingPeriod,
@@ -746,10 +752,16 @@ export function createEndpoints(api: ApiClient) {
     // ---------- folio, payments, bill (EP05/EP15) ----------
     getFolio: ({ propertyId, folioId }: F) =>
       r<Folio>('GET', FOL, { path: { propertyId, folioId } }),
-    getChargeCatalog: ({ propertyId }: P) =>
-      r<{ data: ChargeCatalogItem[] }>('GET', '/v1/properties/{propertyId}/charge-catalog', {
-        path: { propertyId },
-      }),
+    /**
+     * §12.4 (0.3.15): with `folioId` the `adhoc_cleaning_fee` item carries the long-stay room price and its
+     * `priceSource`; without it, as before.
+     */
+    getChargeCatalog: ({ propertyId }: P, folioId?: string) =>
+      r<{ data: Array<ChargeCatalogItem & { priceSource?: ChargePriceSource }> }>(
+        'GET',
+        '/v1/properties/{propertyId}/charge-catalog',
+        { path: { propertyId }, query: folioId ? { folioId } : undefined },
+      ),
     addFolioLine: ({ propertyId, folioId }: F, body: FolioLineCreate, idem: string) =>
       r<Folio>('POST', `${FOL}/lines`, {
         path: { propertyId, folioId },
@@ -960,6 +972,44 @@ export function createEndpoints(api: ApiClient) {
     getBillingPeriodPrint: ({ propertyId }: P, billingPeriodId: string) =>
       r<BillingPeriodPrint>('GET', `${BIL}/{billingPeriodId}/print`, {
         path: { propertyId, billingPeriodId },
+      }),
+
+    // ---------- FB-INV-012 go-live fix (contract §12, OpenAPI 0.3.15-draft) ----------
+    /** A127 (OWN/MGR, trusted device): a long stay already in house – no time, surcharge or payment. */
+    checkInBackdated: (
+      { propertyId, reservationId }: R,
+      body: CheckInBackdatedBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<Reservation>('POST', `${RES}/actions/check-in-backdated`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    /** A128: "Paid outside Desk" – a payment `outside_desk`, off shift and off reconciliation. */
+    settleBillingPeriodOutsideDesk: (
+      { propertyId }: P,
+      billingPeriodId: string,
+      version: number,
+      body: SettleOutsideDeskBody,
+      idem: string,
+    ) =>
+      r<BillingPeriodPaymentResult>('POST', `${BIL}/{billingPeriodId}/settle-outside-desk`, {
+        path: { propertyId, billingPeriodId },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    /** S24 – OWN/MGR/FDL read; `no-store`. */
+    getPropertyContact: ({ propertyId }: P) =>
+      r<PropertyContact>('GET', '/v1/properties/{propertyId}/contact', { path: { propertyId } }),
+    /** A129 – OWN only (MGR → 403). No If-Match, like Wi-Fi. */
+    setPropertyContact: ({ propertyId }: P, body: PropertyContact) =>
+      r<PropertyContact>('PUT', '/v1/properties/{propertyId}/contact', {
+        path: { propertyId },
+        body,
       }),
 
     // ---------- approvals, refunds (SM-10, rbac A43/A47/A47a) ----------

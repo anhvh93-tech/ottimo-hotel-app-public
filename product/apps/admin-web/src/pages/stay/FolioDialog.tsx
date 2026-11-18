@@ -31,6 +31,8 @@ const METHOD_KEY: Record<string, string> = {
   bank_transfer: 'pay.bank_transfer',
   card_pos: 'pay.card',
   ota_collect: 'pay.ota',
+  // FB-INV-012 §12.2: display label only – never offered as a method to record (SEC 12-03).
+  outside_desk: 'payment.method.outside_desk',
 };
 
 /**

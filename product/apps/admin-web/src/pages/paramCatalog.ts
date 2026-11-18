@@ -74,6 +74,8 @@ const KNOWN: Record<string, ParamMeta> = {
   utility_unit_price: { group: 'statement', unit: 'none' },
   utility_vat_rate: { group: 'statement', unit: 'none' },
   monthly_statement_rules: { group: 'statement', unit: 'none' },
+  // FB-INV-012 §12.4 (H3): OWN/MGR (A101) – a price per room for long stays; `{}` = the standard price.
+  long_stay_cleaning_fee_by_room: { group: 'statement', unit: 'none' },
   trusted_device_days: { group: 'security', unit: 'days' },
   trusted_device_mobile_days: { group: 'security', unit: 'days' },
   c3_stepup_minutes: { group: 'security', unit: 'minutes' },

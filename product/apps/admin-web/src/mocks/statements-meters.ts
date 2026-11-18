@@ -106,10 +106,36 @@ export function meterHandlers(
       // Window gate shared by every kind, on `readOn` (BE-190-03/12): inside anyone; after it up to lateMaxDays only
       // FDL+ with a reason; otherwise 422 READING_OUT_OF_WINDOW with windowFrom/windowTo (+ lateUntil, lateNeedsRole).
       const w = window();
+      const catchUp = (b as { catchUp?: boolean }).catchUp === true;
+      const manager = g.roles.some((r) => r === 'owner' || r === 'manager');
+      if (catchUp && !manager) return ctx.problem(403, 'FORBIDDEN_ACTION');
       const gate = (win: { from: string; to: string }): Response | string | null => {
         const day = b.readOn;
-        if (day >= win.from && day <= win.to) return null;
         const lateUntil = addDays(win.to, w.lateMaxDays);
+        // FB-INV-012 §12.5 (BR-LS-17): entered after `lateUntil` → only a catch-up reading dated today (OWN/MGR,
+        // reason, photo). The mock judges on `readOn`, as its window gate does.
+        const past = day > lateUntil;
+        if (catchUp) {
+          if (!past) return validation([{ field: 'catchUp', code: 'NOT_ALLOWED' }]);
+          if (b.kind === 'room_change_out')
+            return validation([{ field: 'kind', code: 'NOT_ALLOWED' }]);
+          if (day !== today())
+            return validation([{ field: 'readOn', code: 'CATCH_UP_TODAY_ONLY' }]);
+          if (!b.photoAttachmentId || b.photoWaived)
+            return validation([{ field: 'photoAttachmentId', code: 'REQUIRED' }]);
+          const why = String(b.lateReason ?? '').trim();
+          if (why.length < 3 || why.length > 300)
+            return validation([{ field: 'lateReason', code: 'REQUIRED' }]);
+          return why;
+        }
+        if (past)
+          return ctx.problem(422, 'READING_OUT_OF_WINDOW', {
+            windowFrom: win.from,
+            windowTo: win.to,
+            lateUntil,
+            catchUpNeedsRole: 'manager',
+          });
+        if (day >= win.from && day <= win.to) return null;
         const lateOk = day > win.to && day <= lateUntil;
         const out = {
           windowFrom: win.from,

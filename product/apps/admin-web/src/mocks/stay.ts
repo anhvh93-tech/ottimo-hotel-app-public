@@ -407,6 +407,14 @@ const CATALOG = [
     evidenceRequired: true,
     priceEditable: false,
   },
+  {
+    // FB-INV-012 §12.4: priced by `cleaningFeeFor` – the long-stay room table, else this standard price.
+    code: 'adhoc_cleaning_fee',
+    category: 'cleaning',
+    name: 'Dọn phòng thêm',
+    defaultUnitPriceVnd: 100_000,
+    priceEditable: false,
+  },
 ];
 const ROOM_STATUS: Record<string, string> = {
   '101': 'OD',
@@ -2057,6 +2065,49 @@ export function createStayMock(ctx: Ctx) {
         return rsv().remember(key, 200, resView(r, g));
       },
     ),
+    // FB-INV-012 §12.1.2 (A127): backdated check-in of a confirmed manual long stay already in the room – OWN/MGR,
+    // trusted device; no time, surcharge, B9a or payment; `actualCheckinAt` = now, `checkinBackdatedOn` = today.
+    http.post(
+      `${prop}/reservations/:reservationId/actions/check-in-backdated`,
+      async ({ request, params }) => {
+        const x = withRes(request, params, OWN_MGR, { ifMatch: true });
+        if (isResponse(x)) return x;
+        const { g, r } = x;
+        if (!trusted(g)) return problem(403, 'DEVICE_NOT_TRUSTED');
+        const { key, replay } = rsv().idem(request, `checkin-bd:${r.id}`);
+        if (replay) return replay;
+        if (r.status !== 'confirmed')
+          return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
+        if (!r.manualLongStay) return problem(422, 'NOT_LONG_STAY');
+        const body = (await request.json()) as Body;
+        const T = businessDayLocal();
+        const arrival = String(body.arrivalDate ?? '');
+        const errors: Array<{ field: string; code: string }> = [];
+        for (const f of ['checkinTime', 'payment', 'addPriorNight', 'houseRulesSent'])
+          if (body[f] !== undefined) errors.push({ field: f, code: 'NOT_ALLOWED' });
+        if (arrival === T) errors.push({ field: 'arrivalDate', code: 'USE_CHECK_IN' });
+        else if (!arrival || arrival > T || arrival < addDays(T, -45))
+          errors.push({ field: 'arrivalDate', code: 'BACKDATE_OUT_OF_RANGE' });
+        if (String(body.reason ?? '').trim().length < 3)
+          errors.push({ field: 'reason', code: 'REQUIRED' });
+        const cards = Number(body.cardsIssued ?? 0);
+        if (!Number.isInteger(cards) || cards < 0 || cards > 9)
+          errors.push({ field: 'cardsIssued', code: 'VALUE_OUT_OF_RANGE' });
+        if (errors.length) return problem(422, 'VALIDATION_FAILED', { errors });
+        if (arrival !== r.arrivalDate) {
+          r.arrivalDate = arrival;
+          if (r.segments?.[0]) r.segments[0] = { ...r.segments[0], fromDate: arrival };
+        }
+        r.status = 'in_house';
+        r.actualCheckinAt = nowIso();
+        r.cardsIssued = cards;
+        (r as MockReservation & { checkinBackdatedOn?: string }).checkinBackdatedOn = T;
+        const room = roomOf(r);
+        if (room) st.roomStatus[room.roomNo] = 'OC';
+        bump(r);
+        return rsv().remember(key, 200, resView(r, g));
+      },
+    ),
     // B-28 door handed over (and other patch fields) – reservations.ts handles adults etc.
     http.patch(`${prop}/reservations/:reservationId`, async ({ request, params }) => {
       const x = withRes(request, params, FD_PLUS, { ifMatch: true });
@@ -3573,7 +3624,27 @@ export function createStayMock(ctx: Ctx) {
     http.get(`${prop}/charge-catalog`, ({ request }) => {
       const g = guard(request, FD_PLUS);
       if (isResponse(g)) return g;
-      return json({ data: CATALOG });
+      // §12.4 `?folioId=`: the ad-hoc cleaning price of that stay + `priceSource`.
+      const folioId = new URL(request.url).searchParams.get('folioId');
+      if (!folioId) return json({ data: CATALOG });
+      const r = byFolio(folioId, g);
+      const table = ((
+        ctx.db() as unknown as { params: Array<{ key: string; value: unknown }> }
+      ).params.find((p) => p.key === 'long_stay_cleaning_fee_by_room')?.value ?? {}) as Record<
+        string,
+        number
+      >;
+      const roomNo = r ? roomOf(r)?.roomNo : undefined;
+      const own = r?.stayType === 'long' && roomNo !== undefined ? table[roomNo] : undefined;
+      return json({
+        data: CATALOG.map((c) =>
+          c.code === 'adhoc_cleaning_fee'
+            ? typeof own === 'number'
+              ? { ...c, defaultUnitPriceVnd: own, priceSource: 'long_stay_room' }
+              : { ...c, priceSource: 'default' }
+            : c,
+        ),
+      });
     }),
     http.post(`${prop}/folios/:folioId/lines`, async ({ request, params }) => {
       const g = guard(request, FD_PLUS);

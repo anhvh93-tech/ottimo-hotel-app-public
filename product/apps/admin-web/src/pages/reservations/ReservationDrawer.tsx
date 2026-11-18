@@ -51,6 +51,8 @@ import {
 import { BillDialog } from '../stay/CheckOutPage';
 import { EarlyDepartureDialog } from '../stay/EarlyDepartureDialog';
 import { FolioDialog } from '../stay/FolioDialog';
+import { BackdatedCheckInDialog } from '../stay/BackdatedCheckInDialog';
+import { backdatedOn, canCheckInBackdated } from '../../app/goLive';
 
 type Open =
   | 'cancel'
@@ -76,6 +78,7 @@ type Open =
   | 'write_off'
   | 'folio'
   | 'bill'
+  | 'backdated'
   | null;
 
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
@@ -409,6 +412,12 @@ export function ReservationDrawer({
           </Button>
         </>
       ) : null}
+      {canCheckInBackdated(r) ? (
+        // FB-INV-012 §12.1.2 (A127, FE-2): only when the server offers it (OWN/MGR, manual long stay, past arrival).
+        <Button variant="pri" onClick={() => setOpen('backdated')}>
+          {t('bd.checkin_action')}
+        </Button>
+      ) : null}
       {allowed.has('check_in') ? (
         // H13: C3 steps only on a granted device (rbac 8.7) – elsewhere the button explains why.
         deviceTrusted || !allowed.get('check_in')?.requiresTrustedDevice ? (
@@ -467,6 +476,11 @@ export function ReservationDrawer({
               <Chip tone="info">{t('status.booking.long_term')}</Chip>
             ) : null}
             {r.externalContract ? <Chip tone="neutral">{t('lsm.flag')}</Chip> : null}
+            {backdatedOn(r) ? (
+              <Chip tone="oak" icon={null}>
+                {t('bd.chip', { date: dayMonth(backdatedOn(r)!) })}
+              </Chip>
+            ) : null}
             {r.capacityConflict ? (
               <Chip tone="bad" icon="alert">
                 {t('rsv.capacity_chip')}
@@ -869,6 +883,13 @@ export function ReservationDrawer({
       ) : null}
       {r && open === 'undo' ? (
         <UndoCheckInDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'backdated' ? (
+        <BackdatedCheckInDialog
+          reservation={r}
+          onClose={() => setOpen(null)}
+          onDone={(u) => done(u)}
+        />
       ) : null}
       {r && open === 'folio' ? (
         <FolioDialog

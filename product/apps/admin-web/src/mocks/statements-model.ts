@@ -91,7 +91,7 @@ export interface StoredPeriod {
   paidVnd: number;
   payments: Array<{
     id: string;
-    method: 'cash' | 'vietqr';
+    method: 'cash' | 'vietqr' | 'outside_desk';
     amountVnd: number;
     reconciliation: string;
   }>;

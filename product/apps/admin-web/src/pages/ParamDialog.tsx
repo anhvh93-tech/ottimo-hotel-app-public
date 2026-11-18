@@ -19,6 +19,8 @@ import {
   parseStatementDraft,
   statementDraft,
 } from './statementParams';
+import { LSCF_KEY, LscfFields, formatLscf, lscfDraft, parseLscfDraft } from './cleaningFeeParams';
+import { useCatalog } from '../app/catalog';
 
 type T = (key: string, args?: Record<string, string | number>) => string;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -37,6 +39,7 @@ export function formatParamValue(t: T, p: Pick<Parameter, 'key' | 'value'>): str
     const s = formatStatementParam(t, p.key, v);
     if (s) return s;
   }
+  if (p.key === LSCF_KEY) return formatLscf(t, v);
   if (typeof v === 'number') {
     const n = new Intl.NumberFormat('vi-VN').format(v);
     const s = suffix(t, p.key);
@@ -101,7 +104,12 @@ export function ParamDialog({
   const [text, setText] = useState(initialText);
   // BUG-R5-012: the monthly-statement keys edit as fields, not JSON.
   const stmtKey = isStatementParam(param.key) ? param.key : null;
-  const [initialDraft] = useState(() => (stmtKey ? statementDraft(stmtKey, param.value) : {}));
+  // FB-INV-012 §12.4: the long-stay cleaning price by room edits as one field per room.
+  const lscf = param.key === LSCF_KEY;
+  const catalog = useCatalog(propertyId);
+  const [initialDraft] = useState<Record<string, string>>(() =>
+    stmtKey ? statementDraft(stmtKey, param.value) : lscf ? lscfDraft(param.value) : {},
+  );
   const [draft, setDraft] = useState(initialDraft);
   const [effectiveFrom, setEffectiveFrom] = useState(today);
   const [initialFrom, setInitialFrom] = useState(today);
@@ -160,7 +168,11 @@ export function ParamDialog({
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    const stmt = stmtKey ? parseStatementDraft(t, stmtKey, draft) : null;
+    const stmt = stmtKey
+      ? parseStatementDraft(t, stmtKey, draft)
+      : lscf
+        ? parseLscfDraft(t, draft)
+        : null;
     const parsed = stmt
       ? stmt.ok
         ? ({ ok: true, value: stmt.value } as const)
@@ -184,7 +196,7 @@ export function ParamDialog({
       onSaved();
     } catch (err) {
       if (
-        stmtKey &&
+        (stmtKey || lscf) &&
         isApiError(err) &&
         err.fieldErrors.some((f) => /^(body\.)?value\./.test(f.field))
       ) {
@@ -210,7 +222,7 @@ export function ParamDialog({
   const rows = history.state.data ?? [];
   const cancelColumn = mayCancel && rows.some((h) => h.effectiveFrom > today);
   // BUG-R5-012: a statement value reads as a sentence – give it room in the history table.
-  const valueCell = stmtKey ? { minWidth: '22ch' } : undefined;
+  const valueCell = stmtKey || lscf ? { minWidth: '22ch' } : undefined;
 
   return (
     <Modal
@@ -253,6 +265,17 @@ export function ParamDialog({
               draft={draft}
               errors={errors}
               onChange={(path, v) => setDraft((d) => ({ ...d, [path]: v }))}
+            />
+          </>
+        ) : lscf ? (
+          <>
+            {errors.value ? <Alert tone="bad">{errors.value}</Alert> : null}
+            <LscfFields
+              t={t}
+              rooms={catalog.rooms.map((r) => r.roomNo)}
+              draft={draft}
+              errors={errors}
+              onChange={(room, v) => setDraft((d) => ({ ...d, [room]: v }))}
             />
           </>
         ) : kind === 'options' && choices ? (

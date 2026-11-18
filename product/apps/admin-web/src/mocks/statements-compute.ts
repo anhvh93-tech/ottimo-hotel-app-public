@@ -247,13 +247,17 @@ export function alertOf(p: StoredPeriod, dueDate: string | null | undefined, tod
 
 export function actionsOf(p: StoredPeriod, roles: Role[]): StatementAction[] {
   const lead = has(roles, LEADS);
+  // FB-INV-012 §12.2 (A128, 0.3.15): OWN/MGR on a statement still owed (the server narrows MGR – SEC 12-02).
+  const outside = (roles.some((r) => r === 'owner' || r === 'manager')
+    ? ['settle_outside_desk']
+    : []) as unknown as StatementAction[];
   switch (p.status) {
     case 'draft':
       return ['update', 'issue', 'void', ...(lead ? (['prior_adjustment'] as const) : [])];
     case 'issued':
-      return ['print', 'record_payment', ...(lead ? (['void'] as const) : [])];
+      return ['print', 'record_payment', ...(lead ? (['void'] as const) : []), ...outside];
     case 'partially_paid':
-      return ['print', 'record_payment'];
+      return ['print', 'record_payment', ...outside];
     case 'paid':
       return ['print'];
     default:

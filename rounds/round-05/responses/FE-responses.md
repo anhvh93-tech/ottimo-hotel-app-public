@@ -289,3 +289,21 @@ Ghi chú:
 | FB-R5-UXD-FE-195-03 | Done | (a) Căn mở kỳ bằng `period_start` thiếu đầu kỳ: một dòng cho cả hàng "Chưa có đầu kỳ {month}. Nhập ở tháng {prev}." kèm nút mở tháng trước. Căn nhận phòng giữa tháng giữ cảnh báo theo công tơ vì có nút nhập ngay. (b) "Nhập cuối kỳ từ ngày …" một lần trên đầu bảng, hàng chỉ giữ chip |
 | FB-R5-UXD-FE-195-04 | Done | Chuỗi tóm tắt riêng `params.stmt.sum_*`, chữ thường đầu cụm |
 | FB-R5-UXD-FE-195-05 | Done | Ô mã quy tắc không xuống dòng |
+
+## Go-live fix FB-INV-012 v1.0.7 (contract §12, 18/11, nhánh `r5-fb012-golive-fe`)
+
+Làm trên mock MSW theo hình dạng §12 (OpenAPI `0.3.15-draft`). Kiểu mới tạm viết tay trong `packages/api-client/src/golive.ts`; khi PR BE `r5-fb012-golive-be` lên main, FE merge `origin/main` (không rebase) và trỏ các alias sang kiểu sinh từ OpenAPI. Không sửa `screens.ts`, không sửa ma trận RBAC.
+
+| Việc | Trạng thái | Ghi chú |
+|---|---|---|
+| FE-1 (12.1.1, A127) | Done | H10 "Đơn dài hạn nhập tay": OWN/MGR thấy ô "Khách đã ở". Bật lên thì ngày vào trong [hôm nay − 45, hôm qua], ô "Lý do nhập bù" bắt buộc, gửi `backdatedArrival.reason`. Thiết bị chưa cấp quyền thì ô bị khóa và nói lý do (SEC 12-07). Form không có ô người chốt, không gửi `closerUserId` (SEC 12-01). Lưu xong mở luôn hộp nhận phòng bù. Mã lỗi `BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED` có câu riêng |
+| FE-2 (12.1.2–12.1.3) | Done | Nút "Nhận phòng bù" ở S04 (ngăn đơn) và S06 (trang nhận phòng) chỉ theo `allowedActions` có `check_in_backdated`. Hộp: ngày đến thật (mặc định ngày đến của đơn, báo khi dời ngày), lý do, số thẻ; ô bỏ qua kiểm giấy tờ chỉ hiện khi server trả `unmet` có `document_check_block`. Không có giờ, phụ thu, thu tiền. Xong thì hiện bước tiếp: "Ghi chỉ số nhận phòng" (S12) và "Phiếu tháng nhận phòng" (S16). Ngăn đơn có chip "Nhận phòng bù dd/mm" từ `checkinBackdatedOn`. Hộp chỉ số nhận phòng: đơn nhận phòng bù cho chọn ngày từ ngày đến − 1, luôn ghi trễ (FDL+ có lý do), FDL+ được bỏ ảnh kèm ghi chú |
+| FE-3 (12.2, A128) | Done | Chi tiết phiếu S16: nút "Đã thu ngoài Desk" chỉ theo `availableActions` có `settle_outside_desk`. Số tiền (mặc định còn phải thu), ngày khách đã trả (≤ hôm nay), lý do, mã tham chiếu (`[A-Za-z0-9 ./-]`, ≤ 64). Hộp xác nhận nói rõ không vào ca, không vào đối soát, không vào tiền mặt bàn giao, không hoàn được. 403 hiện câu "chỉ chủ cơ sở…" (SEC 12-02); `DEVICE_NOT_TRUSTED` có câu riêng. `outside_desk` chỉ là nhãn hiển thị (folio, Nhật ký tiền), không có trong ô chọn cách thu nào (SEC 12-03) |
+| FE-4 (12.3, A129 + 12.4 A101) | Done | S24: khối "Liên hệ cơ sở" (địa chỉ, hotline) – OWN sửa, MGR/FDL chỉ xem; xem trước chân phiếu một dòng. Kiểm trước khi lưu theo §12.3 và SEC 12-04 (b) (ký tự điều khiển, định hướng, độ rộng 0). Mọi chỗ hiện địa chỉ/hotline là chữ thuần do React escape, không `dangerouslySetInnerHTML` (SEC 12-04 (c)). Khóa `long_stay_cleaning_fee_by_room` trong nhóm "Dài hạn – phiếu tháng": sửa theo từng căn (trống = giá chung), giá 0–5.000.000 bội 1.000 |
+| FE-5 (12.4) | Done | Thêm phát sinh gọi `getChargeCatalog?folioId=`; chip nguồn giá "Giá dài hạn của căn" / "Giá chung" theo `priceSource` |
+| FE-6 (12.5, A130) | Done | S12 (hàng tháng) và hộp chỉ số nhận phòng: 422 `READING_OUT_OF_WINDOW` có `catchUpNeedsRole` → câu DOM §3.3; MGR/OWN có nút "Đọc bù hôm nay" (ngày khóa hôm nay, lý do + ảnh bắt buộc, không cho bỏ ảnh, gửi `catchUp: true` cho cả cuối kỳ và đầu kỳ tháng sau). Nháp phiếu có cảnh báo `READING_CATCH_UP` |
+| FE-7 | Done | Chuỗi EN/VI qua `gen_strings.py` (nhóm "R5 FB-INV-012 §12"), có `payment.method.outside_desk`. Mã lạ trong `allowedActions`/`availableActions` bị bỏ qua |
+| FE-8 | Done – chờ UXD duyệt chữ | Chỉ màu bảng 80/15/5 (biến `--brand-*`), Lora/Be Vietnam Pro/JetBrains Mono (hotline, mã tham chiếu dùng mono), không emoji. Hộp xác nhận "Đã thu ngoài Desk" dùng nút chính (Ink), không dùng nút nguy hiểm |
+| 12.6 `lock_timeout` | Không thuộc FE | Việc BE (`migrate.ts`) |
+
+Giả định: (1) `Reservation.checkinBackdatedOn` và `allowedActions[].event = 'check_in_backdated'` như §12.1.2; (2) `settleBillingPeriodOutsideDesk` gửi `If-Match` theo `BillingPeriod.version` như các thao tác ghi phiếu khác, trả `BillingPeriodPaymentResult`; (3) cảnh báo `READING_CATCH_UP` có `roomNo` và `readOn`; (4) `getPropertyContact` gọi được với OWN/MGR/FDL. BE lệch tên nào thì FE sửa khi merge.

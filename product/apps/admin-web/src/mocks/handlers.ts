@@ -16,6 +16,7 @@ import { createOpsMock } from './ops';
 import { createReservationMock } from './reservations';
 import { createStatementsMock, statementParamErrors } from './statements';
 import { createStayMock } from './stay';
+import { createGoLiveMock } from './golive';
 import { matchStep, randomBase32 } from './totp';
 import { createWebRequestMock } from './webreq';
 import {
@@ -189,6 +190,12 @@ const statements = createStatementsMock({
   receiving: () => db.receiving,
 });
 
+// FB-INV-012 §12.3 (0.3.15-draft): property contact on S24 until BE ships.
+const goLive = createGoLiveMock({
+  guard: (request, allowed) => guard(request, allowed),
+  problem: (status, code, extra) => problem(status, code, extra),
+});
+
 // Sprint 4 FE-B (EP01 – H03/H24): KPI, arrivals/departures, "Cần chú ý" computed from the mocks above.
 const dashboard = createDashboardMock({
   guard: (request, allowed) => guard(request, allowed),
@@ -213,6 +220,7 @@ export const mockControl = {
     dashboard.reset();
     webRequests.reset();
     statements.reset();
+    goLive.reset();
     persist();
   },
   failNext(
@@ -256,6 +264,10 @@ export const mockControl = {
   /** R3 S1 website booking requests (S35) and the `public_booking_requests_enabled` switch. */
   get webRequests() {
     return webRequests.state;
+  },
+  /** FB-INV-012 §12.3 property contact for tests. */
+  get goLive() {
+    return goLive;
   },
   /** FB-INV-012 monthly statements (stays, readings, statements) for tests. */
   get statements() {
@@ -667,6 +679,7 @@ export const handlers = [
   // EP01 first: its `GET …/attention` (full BR-907 list, incl. the stay item) wins over the S3 one in stay.ts.
   ...webRequests.handlers,
   ...statements.handlers,
+  ...goLive.handlers,
   ...dashboard.handlers,
   ...ops.handlers,
   ...stay.handlers,

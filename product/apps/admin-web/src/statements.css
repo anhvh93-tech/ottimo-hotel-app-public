@@ -440,3 +440,14 @@
     font-size: 10.5pt;
   }
 }
+
+/* FB-INV-012 §12.3 – the property contact footer preview on S24 (plain text, one line). */
+.pc-preview {
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--brand-oak);
+  background: var(--brand-ivory);
+  color: var(--brand-stone);
+  font-family: var(--sans);
+  font-size: 0.85rem;
+}
