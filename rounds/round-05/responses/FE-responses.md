@@ -238,3 +238,16 @@ Ghi chú:
 2. **Câu chữ mới** (UXD duyệt lại khi rảnh, không chặn): `meters.group_closing`, `meters.group_opening`, `meters.below_inline`, `meters.checkin_*`, `meters.below_*`, `meters.late*`, `meters.photo_pick`, `meters.photo_change`, `stmt.warning.OPENING_BELOW_PREVIOUS_CLOSING`, `stmt.warning.READING_LATE`, `stmt.warning.unknown`, `stmt.paper_switched`. Tất cả trong `design/tools/gen_strings.py`, EN + VI, không emoji.
 3. **Kiểm sau sửa:** admin-web vitest 1126 xanh (2 bỏ qua = test schema trên spec của `main`), `tsc`, ESLint, Prettier toàn repo sạch; i18n, ui, guest-web, mobile, booking-web xanh. Spec Playwright có điều kiện vẫn để ngoài PR (CI không cho ca UI bị bỏ qua).
 4. **Không có ESC mới.** Không dữ liệu khách thật: test và mock dùng tên mẫu, `@example.test`, số tài khoản thử. Ảnh 6 và 7 dòng có thêm dịch vụ giả qua lớp bọc `fetch` ở phía trình duyệt (chỉ để kiểm bố cục; payload QR là của server, không đổi).
+
+### Lượt 2 – trả lời UXD và ARC (18/11, commit `42f81840`, `0ca19cc8`)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-UXD-FE-189-12 (Minor) | Done | Cột Đơn giá cách cột SL 6pt. Để vừa 132 mm trên A5, tiêu đề cột A5 nhỏ một bậc (EN 7,65pt, VI vẫn ≥ 7pt). Trước đây bảng A5 tràn phải khoảng 15 px; nay vừa khít. Đo lại: 6 dòng 193 mm → A5 1 trang |
+| FB-R5-UXD-FE-189-13 (Minor) | Done | `.stmt-qr-title .vi` dùng Be Vietnam Pro 400; dòng EN giữ Lora |
+| FB-R5-UXD-FE-189-14 (Minor) | Done | Theo bảng chữ chốt: `meters.save_anyway`, `meters.below_saved` (EN), `meters.checkin_help`, `meters.last_closing_pending`, khóa mới `meters.ask_lead_replaced` (hộp đầu kỳ thấp hơn), `stmt.warning.unknown` có `{code}`. Dòng "Đầu kỳ: 1.262": nhãn Be Vietnam Pro, chỉ số Mono |
+| FB-R5-UXD-FE-189-15 (Minor) | Done | Ngày nhận phòng điền sẵn bằng `rooms[].arrivalDate`, vẫn sửa được |
+| FB-R5-UXD-FE-189-16 (Suggestion) | Done | "Đã chuyển sang A4 để vừa một trang" hiện cả khi A4 do số dòng |
+| Bằng chứng ảnh 6/7 dòng | Done | `wrap.js` cộng vào `totals.netVnd` (trước đây cộng nhầm khóa không có `subtotalVnd`). Chụp lại `r5-print-6lines-a5` (Cộng 9.503.000 = tổng cột) và `r5-print-7lines-a4`; `r5-meters-below-dialog.png` nay có hộp thoại. Test mới: Cộng = tổng cột Thành tiền trên trang in |
+| FB-R5-ARC-FE-189-09 (Minor) | Done (theo đề xuất BE-190-12, chờ BE) | Nút "Nhập chỉ số nhận phòng" chỉ hiện khi `rooms[].openingKind === 'checkin'`. Thiếu `period_start` thì không có nút, chỉ báo thiếu đầu kỳ. Hộp: ngày trong [ngày đến, ngày đến + 1]; sau đó là ghi trễ: FD được nhắc nhờ lễ tân trưởng, nút Lưu tắt; FDL+ nhập lý do, gửi `lateReason`. Mock theo BE-190-12: cửa sổ check-in, một `checkin` mỗi đơn, `openingKind` + `arrivalDate` trong `rooms[]`. Kiểu FE để tùy chọn; test schema tạm cho qua hai trường này đến khi #190 có trong spec |
+| FB-R5-ARC-FE-189-05/06 | Open – chờ BE #190 merge | Không đổi |
