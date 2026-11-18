@@ -418,7 +418,7 @@ Phiếu tháng nhận phòng: theo G3. Phiếu tháng sau (12/2026): điện nư
 | Ghi | Qua `PaymentsService.recordInTx` (đường mới, chỉ module billing gọi được): `type = charge`, `method = outside_desk`, `status = succeeded`, `reconciliation = not_required`, `shift_id = NULL`, `billing_period_id` = phiếu. Rồi `refreshPaid` (có sẵn) → `partially_paid`/`paid` |
 | Ngoài ca và đối soát | Không vào ca, không vào đóng ca, không vào hàng đối soát chuyển khoản/VietQR, không vào tiền mặt bàn giao. CHECK DB bảo đảm (12.7) |
 | Hoàn, đảo | Không hoàn tiền trên khoản `outside_desk` (`createRefund` với nguồn là khoản này → `422 NOT_ALLOWED`). Ghi nhầm → **đảo** bằng `reversePayment` có sẵn (A34, OWN/MGR); listener đảo đã trừ `paid_vnd` và lùi trạng thái |
-| Audit, báo | Audit `billing_period.settled_outside_desk` (category `money`, thêm vào `money-actions.ts`): số tiền, ngày nhận, lý do. `staff_notification` cho mọi OWN của cơ sở mỗi lần ghi (mã phiếu, số tiền, người ghi; không tên khách) |
+| Audit, báo | Audit `billing_period.settled_outside_desk` (category `money`, thêm vào `money-actions.ts`): số tiền, ngày nhận, lý do. `staff_notification` cho mọi OWN của cơ sở mỗi lần ghi (chỉ mã phiếu + id đơn; **không số tiền, không người ghi**, theo SEC A5 – số tiền và người ghi ở audit `money`; ARC review #197 lệch 5) |
 | Phản hồi | Như `recordBillingPeriodPayment`: `{billingPeriod, payment {id, method, amountVnd, status, reconciliation}}` |
 | `availableActions` | Thêm giá trị thứ 7 `settle_outside_desk` (vai OWN/MGR, phiếu còn nợ). Client gặp giá trị lạ thì bỏ qua (5.1) |
 | Trên phiếu in | Khoản `outside_desk` tính vào "Đã thu" (`paidVnd`). Hết nợ → không QR, dấu PAID như cũ. Không in lý do |
@@ -432,7 +432,7 @@ Phiếu tháng nhận phòng: theo G3. Phiếu tháng sau (12/2026): điện nư
 | Số dư folio, bill trả phòng, `paidVnd` phiếu | Tính là đã thu (như mọi `charge` `succeeded`) |
 | Ca, đóng ca, tiền mặt bàn giao (A46a) | Không tính (đã loại vì `shift_id` null; kiểm lại các truy vấn lọc theo `method <> …`) |
 | Hàng đối soát (SM-12), `unreconciledVnd` | Không tính (`not_required`) |
-| Báo cáo thu theo phương thức | Dòng riêng "Outside Desk · Thu ngoài Desk". Không cộng vào "thu tại quầy" |
+| Báo cáo thu theo phương thức | Dòng riêng "Paid outside the app · Khách đã trả ngoài app" (UXD 196-01, sửa 18/11; khóa i18n vẫn là `payment.method.outside_desk`). Không cộng vào "thu tại quầy" |
 | Nhãn bill, lịch sử thanh toán FE | `payment.method.outside_desk` EN/VI |
 | `payments.controller.ts` `METHODS`, `R2_METHODS` | **Không thêm**: `recordPayment`, `confirmPaymentReceived`, B9/B18 gửi `outside_desk` → `422` (`method: NOT_IN_LIST`) |
 | Hoàn tiền | Như bảng trên |
@@ -548,7 +548,7 @@ Phiếu tháng nhận phòng: theo G3. Phiếu tháng sau (12/2026): điện nư
 |---|---|
 | FE-1 | Tạo đơn dài hạn nhập tay (FB-INV-010): MGR/OWN thấy ô "Guest already in house · Khách đã ở" → cho chọn ngày đến đã qua trong biên, ô lý do bắt buộc. Lưu xong mở luôn hộp nhận phòng bù |
 | FE-2 | Hộp "Backdated check-in · Nhận phòng bù" (S04/S06, nút theo `allowedActions.check_in_backdated`): ngày đến thật (mặc định = ngày đến của đơn), lý do, số thẻ, `documentBlockOverride` khi có điều kiện giấy tờ. Không có giờ, phụ thu, thu tiền. Xong → gợi ý "Record check-in meter reading" (S12, đọc trễ: FDL+ kèm lý do, cho chọn ngày trên sổ, thiếu ảnh kèm ghi chú) và "Arrival-month statement" (S16) |
-| FE-3 | Chi tiết phiếu S16: nút "Paid outside Desk · Đã thu ngoài Desk" theo `availableActions.settle_outside_desk`: số tiền (mặc định còn phải thu), ngày nhận, lý do, tham chiếu; bước xác nhận nêu rõ "không vào ca, không vào đối soát". Lịch sử thu hiện nhãn phương thức mới |
+| FE-3 | Chi tiết phiếu S16: nút "Paid outside the app · Khách đã trả ngoài app" (UXD 196-01) theo `availableActions.settle_outside_desk`: số tiền (mặc định còn phải thu), ngày nhận, lý do, tham chiếu; bước xác nhận nêu rõ "không vào ca, không vào đối soát". Lịch sử thu hiện nhãn phương thức mới |
 | FE-4 | S24 Tham số: khối "Property contact · Liên hệ cơ sở" (địa chỉ, hotline) – OWN sửa, MGR/FDL chỉ xem; xem trước chân phiếu một dòng. Khóa `long_stay_cleaning_fee_by_room` trong `paramCatalog.ts` (bảng số căn → giá; OWN/MGR sửa) |
 | FE-5 | Thêm phát sinh (A30): gọi `getChargeCatalog?folioId=` để giá dọn lẻ đúng giá dài hạn; hiện nhãn nguồn giá |
 | FE-6 | S12/tab Meters: `READING_OUT_OF_WINDOW` có `catchUpNeedsRole` → MGR/OWN thấy "Catch-up reading today", ngày khóa = hôm nay, lý do + ảnh bắt buộc; FD/FDL thấy câu DOM §3.3. Nháp phiếu: cảnh báo `READING_CATCH_UP` |
@@ -606,3 +606,19 @@ Phạm vi tối thiểu nếu thiếu giờ: **12.1, 12.2, 12.3, 12.6 bắt bu�
 - **OPS**: `deploy.sh` dừng khi migrate thoát ≠ 0 (Q25); checklist §19.6 cho 73 → 75; số đếm thêm như 12.7.
 - **QA**: chạy lại lượt hồi quy FB-INV-012 trên image mới (ứng viên v1.0.7 đổi khỏi `sha-5e98ec5aec1b`).
 - Không ESC: mọi điểm là kỹ thuật (ARC) hoặc luật vận hành nội bộ đã theo INV 18/11.
+
+### 12.14 Lệch BE đã chấp nhận (ARC review PR #197, 18/11)
+
+Chi tiết: `rounds/round-05/reviews/ARC-on-be-pr-197.md` mục 2.
+
+| # | Luật chốt |
+|---|---|
+| 1 | CHECK `payment_outside_desk_check` miễn `billing_period_id` + `note` cho dòng đảo (`reversal_of_id` có giá trị); dòng đảo vẫn `charge`, `not_required`, không ca |
+| 2 | `reference` không có cột riêng: lưu nối vào `payment.note` (`<lý do> \| ref <tham chiếu>`); chuỗi toàn số ≥ 9 chữ số → `422 reference: NOT_ALLOWED` |
+| 3 | `checkInBackdated` dời ngày đến chỉ cho đơn một đoạn; khác → `422 arrivalDate: NOT_ALLOWED` |
+| 4 | `USE_CHECK_IN` chỉ ở `checkInBackdated`; `createReservation` + `backdatedArrival` với ngày đến = T → `BACKDATE_OUT_OF_RANGE` (kèm `earliest`) |
+| 5 | Thông báo `statement_settled_outside_desk` không có số tiền, người ghi (12.2 đã sửa) |
+| 6 | `amountVnd` mặc định = còn phải thu; MGR vượt phần thuê chưa thu → 403. FE điền sẵn phần thuê cho MGR |
+| 7 | `receivedOn` > T → `422 receivedOn: DATE_IN_FUTURE` |
+| 8 | Hoàn tiền: chỉ `original_method` bị chặn khi khoản thu gần nhất là `outside_desk`; hoàn bằng `cash`/`bank_transfer` theo luồng SM-10 như cũ (tiền đã vào cơ sở trên nền tảng cũ) |
+| 9 | A130 là quyền theo trường của `recordMeterReading.catchUp` (như A127 với `createReservation`): `operationIds` rỗng, không gắn `x-rbac: [A130]` vào operation; thêm ca trường vào `rbac-cases` khi 12.5 lên |
