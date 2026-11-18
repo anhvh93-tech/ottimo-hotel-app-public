@@ -254,3 +254,112 @@ Kiểm phiếu khách hiểu được:
 - Trang in sạch, đúng tinh thần "Refined simplicity": kẻ Oak mảnh, cặp EN/VI xếp tầng, mã và chỉ số bằng Mono dễ dò. A4 và A5 cùng một bố cục.
 - S12 xử lý thay đổi INV 17/11 gọn: "Cuối kỳ trước" chỉ để đối chiếu, câu hao hụt Earth Brown giải thích rõ "không tính cho khách", sau khi lưu gộp thành một dòng đọc nhanh.
 - S16 bắt tick từng cảnh báo trước khi Phát hành, và quá hạn dùng Earth Brown thay đỏ. Đúng brand và không gây hoảng.
+
+---
+
+# Lượt 2 – 18/11/2026 (head `a34e03be`)
+
+- Đầu vào:
+  - trả lời FE trong `rounds/round-05/responses/FE-responses.md` (nhánh PR);
+  - `gh pr diff 189` bản mới;
+  - ảnh và PDF dữ liệu giả ở scratchpad: `r5-print-5lines-a5`, `r5-print-6lines-a5`, `r5-print-7lines-a4` (png + pdf), `r5-drawer-1280`, `r5-drawer-390`, `r5-meters-entry`, `r5-meters-below-dialog`, `r5-meters-saved`, `r5-today-attention`.
+- Đo PDF: 5 dòng A5 = 1 trang (420×595 pt); 6 dòng A5 = 1 trang; 7 dòng A4 = 1 trang (595×842 pt).
+
+## L2.0 Kết luận
+
+**DUYỆT (UXD).** Đã đóng 4 Major và 6 Minor. 189-11 làm được một phần; phần còn lại (tên phòng) dời sang BE. Các thẻ mới bên dưới đều Minor/Suggestion, **không chặn gộp**. Nên làm trước tag phát hành; không kịp thì dời sang đợt sau.
+
+## L2.1 Trạng thái thẻ lượt 1
+
+| Thẻ | Trạng thái | Bằng chứng |
+|---|---|---|
+| 189-01 Major | **Closed** | 5 dòng A5: các dòng 8.500.000 + 568.000 + 85.000 + 150.000 + 150.000 = **9.453.000 = Cộng**; VAT điện, nước 49.690; Làm tròn −690; Tổng 9.502.000. Cột VAT "incl. / đã gồm". Ngăn S16 cùng cách |
+| 189-02 Major | **Closed** | Có ô Rent period / Utilities & services; "Electricity · Nov 2026 / Điện tháng 11/2026"; bỏ ô Month |
+| 189-03 Major | **Closed** | A5 9pt, dòng VI ≥ 7pt; ngưỡng 6 dòng; đo chiều cao > 194 mm thì chuyển A4. PDF 6 dòng A5 1 trang, 7 dòng A4 1 trang |
+| 189-04 Major | **Closed** | 1280 và 390 px: bảng 3 cột, số tiền đủ, "Dời sang phiếu sau" ở hàng riêng |
+| 189-05 Minor | **Closed** | Chữ in khớp bảng mục 2 (đã soát từng khóa trong `strings-*.json`) |
+| 189-06 Minor | **Closed** | `due_on_receipt` khi phát hành sau hạn (đọc mã) |
+| 189-07 Minor | **Closed** | "Extra cleaning · 12 Nov", không còn "× 1" |
+| 189-08 Minor | **Closed** | Cùng danh sách, huy hiệu 8, viền Earth Brown, "Phiếu tháng quá hạn: 1 · 7.901.000 đ", link `?tab=overdue` |
+| 189-09 Minor | **Closed** | Nút DS "Chụp hoặc chọn ảnh", ảnh nhỏ + tên tệp + "Đổi ảnh" |
+| 189-10 Minor | **Closed** | Nháp: "Phiếu tháng" + chip |
+| 189-11 Suggestion | **Done một phần → Deferred** | Đã có "Scan to pay" và câu giữ nguyên nội dung chuyển khoản. Tên phòng chờ BE trả `rooms[{roomNo, roomName}]` trong `BillingPeriodPrint`. ORC ghi backlog đợt sau |
+
+Hai điểm về **bằng chứng**, không phải lỗi sản phẩm:
+- **Ảnh 6 và 7 dòng in "Cộng 9.453.000"**, không khớp cột tiền (9.503.000 và 9.553.000). Đã truy nguyên:
+  - `wrap.js` của FE chèn dòng giả và cộng thêm vào `totals.subtotalVnd`, nhưng khóa này không tồn tại; khóa đúng là `netVnd`.
+  - Mã in đọc `totals.netVnd`, mock tính `netVnd` từ các dòng, nên dữ liệu thật vẫn khớp (ảnh 5 dòng đúng).
+  - **Không dùng hai ảnh này để trình INV hay làm mẫu.** Muốn dùng thì sửa `wrap.js` (cộng vào `netVnd`) rồi chụp lại.
+  - Đề nghị thêm một test: Cộng = tổng cột Thành tiền trên trang in (khóa bất biến của 189-01).
+- **`r5-meters-below-dialog.png` giống hệt `r5-meters-entry.png`**: hộp thoại không được chụp. UXD rà hộp "đầu kỳ thấp hơn cuối kỳ trước" bằng mã và chữ (L2.3). QA chụp lại ở bước Kiểm thử.
+
+## L2.2 Thẻ mới
+
+### FB-R5-UXD-FE-189-12
+- Mức độ: Minor
+- Vị trí: trang in A5, dòng tiền thuê (`r5-print-5lines-a5.png`)
+- Vấn đề: cột "Usage / Qty" và "Unit price" sát nhau, chữ "1 8.500.000" đọc như một số. Cột số trên A5 gần như không có khoảng cách.
+- Vì sao quan trọng: khách có thể đọc nhầm số lượng thành một phần của đơn giá.
+- Đề xuất sửa: `padding-left: 6pt` cho các cột số của `.stmt-table-print` (Qty, Unit price, VAT, Amount), hoặc thu hẹp cột Description. Kiểm lại PDF 6 dòng A5 vẫn 1 trang.
+- Trạng thái: Open
+
+### FB-R5-UXD-FE-189-13
+- Mức độ: Minor
+- Vị trí: `.stmt-qr-title` (khối VietQR)
+- Vấn đề: "Scan to pay" và dòng VI "Quét mã để thanh toán" đều dùng Lora. Trong khi đó tiêu đề phiếu cho dòng VI dùng Be Vietnam Pro (`.stmt-title .vi`). Dòng VI Lora ở 7pt khó đọc dấu.
+- Vì sao quan trọng: nhất quán hệ chữ. Guideline mục 6: tiêu đề phụ dùng Be Vietnam Pro SemiBold; Lora cho tiêu đề lớn.
+- Đề xuất sửa: `.stmt-qr-title .vi { font-family: var(--sans); font-weight: 400; }`. Dòng EN giữ Lora, hoặc chuyển Be Vietnam Pro SemiBold; UXD chấp nhận cả hai.
+- Trạng thái: Open
+
+### FB-R5-UXD-FE-189-14
+- Mức độ: Minor
+- Vị trí: chữ Desk mới trong `gen_strings.py`, `MetersPage.tsx`
+- Vấn đề và chữ chốt:
+
+| Khóa | Hiện tại | Chốt VI | Chốt EN | Lý do |
+|---|---|---|---|---|
+| `meters.below_inline` | – | giữ | giữ | Rõ, đúng giọng |
+| `meters.below_title`, `meters.below_body` | – | giữ | giữ | |
+| `meters.save_anyway` | Vẫn lưu – số đã đúng | Vẫn lưu – số này đúng | Save anyway – this number is right | "đã đúng" nghe như hệ thống xác nhận |
+| `meters.below_saved` | {gap} below the last closing – the statement asks to check it. | giữ VI | {gap} below the last closing – flagged on the statement. | EN gọn, đúng nghĩa |
+| `meters.late`, `meters.late_fd`, `meters.late_reason` | – | giữ | giữ | Đúng vai: FD được nhắc nhờ lễ tân trưởng, FDL+ ghi lý do |
+| `meters.checkin_enter`, `meters.checkin_title`, `meters.checkin_date`, `meters.checkin_date_range`, `meters.checkin_saved` | – | giữ | giữ | |
+| `meters.checkin_help` | The meters when the guest checked in, with a photo… | Chỉ số đồng hồ lúc khách nhận phòng, kèm ảnh. Đây là đầu kỳ của tháng đầu tiên. | Meter readings at check-in, with a photo. This is the opening for the first month. | EN thiếu "readings"; VI thêm "Chỉ số" cho đủ nghĩa |
+| `meters.last_closing_pending` | Cuối kỳ trước: nhập cuối kỳ trước | Cuối kỳ trước: nhập ô Cuối kỳ ở trên trước | Last closing: enter the closing above first | Câu hiện tại lặp chữ, không chỉ ra ô nào |
+| `meters.ask_lead` trong hộp "đầu kỳ thấp hơn" | "Thay đồng hồ hoặc quay vòng cần lễ tân trưởng…" | khóa mới `meters.ask_lead_replaced`: Thay đồng hồ cần lễ tân trưởng. Nhờ lễ tân trưởng nhập giúp. | A replaced meter needs the front desk lead. Ask them to enter it. | Hộp này không có lựa chọn "quay vòng" |
+| `stmt.warning.unknown` | Kiểm lại phiếu này trước khi phát hành. | Có cảnh báo chưa rõ ({code}). Kiểm lại phiếu trước khi phát hành. | Unrecognised warning ({code}). Check the statement before issuing. | Có mã để báo kỹ thuật; vẫn phải tick như FE làm |
+| `stmt.paper_switched` | – | giữ | giữ | |
+
+- Ngoài chữ: dòng "Đầu kỳ: 1.262" trong nhóm Cuối kỳ đang để cả nhãn bằng Mono. Nên để nhãn Be Vietnam Pro, chỉ số bằng Mono (như "Cuối kỳ trước: 1.404" ở dưới).
+- Vì sao quan trọng: chữ Desk rõ thì lễ tân không hỏi lại. Mã cảnh báo lạ cần dấu vết để hỗ trợ.
+- Trạng thái: Open
+
+### FB-R5-UXD-FE-189-15
+- Mức độ: Minor
+- Vị trí: hộp thoại "Chỉ số nhận phòng" (`CheckinReadingDialog`, `useState('')` cho `readOn`)
+- Vấn đề:
+  - Ngày nhận phòng để trống, lễ tân phải tự chọn, trong khi đơn đã có ngày nhận phòng thật.
+  - Phần còn lại của hộp thoại đạt: Modal DS, giới hạn ngày (trong tháng chốt, không sau hôm nay), điện + nước + ảnh bắt buộc, xử lý `OPENING_BELOW_PREVIOUS_CLOSING`, Hủy/Lưu đúng thứ tự.
+- Vì sao quan trọng: bớt một thao tác và tránh chọn nhầm ngày, vì ngày này quyết định kỳ lẻ đầu tiên.
+- Đề xuất sửa: điền sẵn bằng ngày nhận phòng của đơn khi ngày đó nằm trong tháng chốt; vẫn cho sửa. Ứng viên chưa có trường này thì lấy từ đơn, hoặc nhờ BE thêm `checkInDate` vào candidate.
+- Trạng thái: Open
+
+### FB-R5-UXD-FE-189-16
+- Mức độ: Suggestion
+- Vị trí: thanh công cụ trang in
+- Vấn đề: ảnh 7 dòng mặc định A4 nhưng không hiện ghi chú. `stmt.paper_switched` chỉ hiện khi đo chiều cao tràn, không hiện khi chuyển do số dòng.
+- Vì sao quan trọng: lễ tân quen A5 sẽ thắc mắc vì sao lần này là A4.
+- Đề xuất sửa: hiện cùng ghi chú cho cả hai trường hợp.
+- Trạng thái: Open
+
+## L2.3 Rà nhanh màn mới / thay đổi
+
+- **S12 hai nhóm Cuối kỳ M / Đầu kỳ M+1:**
+  - đường kẻ đứt chia nhóm, nhãn nhóm chữ hoa nhỏ;
+  - "(xem trước)" trước khi lưu, sau khi lưu là số server;
+  - hao hụt màu Earth Brown;
+  - cảnh báo "thấp hơn" trong khung nền kem viền Oak có icon.
+  - Màu đều thuộc bảng 80/15/5. Đạt.
+- **Hộp "đầu kỳ thấp hơn cuối kỳ trước":** ba lựa chọn (Nhập sai / Thay đồng hồ (FDL+) / Vẫn lưu) và nút Quay lại. Thứ tự đúng: an toàn nhất trước. Chỉ sửa câu nhắc FD (thẻ 14).
+- **"Cần chú ý":** đạt 189-08. Huy hiệu đỏ và chip của các mục khác có từ trước, ngoài phạm vi PR.
+- **Brand trên phiếu:** không thêm màu hay font ngoài bảng, không emoji, không in hao hụt, không in liên hệ khách. Footer gộp "Printed" cùng hàng liên hệ, gọn.

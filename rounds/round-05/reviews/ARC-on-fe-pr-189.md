@@ -171,3 +171,60 @@ Các trường FE "thêm" (`excludedLines`, `replacesCode`, `readByInitials`, `o
 1. Nút hiện theo `availableActions` của server, không tự suy quyền. FD không thấy lựa chọn thay đồng hồ, quay vòng, và thấy câu chuyển cho lễ tân trưởng. Đúng hợp đồng mục 4 và 6.
 2. Ghi lại rõ ở đầu `statements.ts` rằng đây là kiểu tạm chờ client sinh, kèm lý do theo INV 17/11. Dễ thay khi BE merge.
 3. Màu quá hạn chỉ dùng bảng 80/15/5 (Earth Brown, không thêm đỏ), đúng hợp đồng 6.1 và brand.
+
+---
+
+## Lượt 2 – 18/11/2026 (FE head `a34e03be`, đối chiếu BE `f522aa60`)
+
+- Đầu vào:
+  - `rounds/round-05/responses/FE-responses.md` (nhánh PR);
+  - `git show a34e03be:` các file `app/statements.ts`, `pages/longstay/MetersPage.tsx`, `MeterCheckinDialog.tsx`, `__tests__/fb012-mock-schema.test.ts`;
+  - OpenAPI nhánh BE `f522aa60` và hợp đồng mục 11.
+- Không checkout trong thư mục chung.
+
+### Kết luận lượt 2: **APPROVE CÓ ĐIỀU KIỆN**
+
+- Phần khớp hợp đồng đã đạt: thẻ 01, 02, 03, 04, 07, 08 đóng.
+- **Điều kiện merge:**
+  1. BE #190 merge trước;
+  2. FE làm xong **05** (kiểu sinh từ `@ottimo/api-client`) và **06** (bỏ ép kiểu `meter`);
+  3. sau khi merge `origin/main`, test `fb012-mock-schema` phải **chạy thật**, không bị bỏ qua (`skipIf(!ready)`), và xanh;
+  4. CI đủ bước xanh.
+- Job `format · lint · audit · test · build` trên `a34e03be` đỏ ở bước "Dependency audit", **cùng nguyên nhân với BE** (advisory picomatch `GHSA-fc5q-39xc-vjpf`, xem BE-190-10). Không do PR này gây ra, nhưng test FE chưa chạy trên CI ở head này.
+- Thẻ mới FE-189-09 (Minor) phụ thuộc thẻ BE mới BE-190-12. Không chặn merge FE nếu BE-190-12 chưa xong, xem dưới.
+
+### Kiểm từng thẻ
+
+| Thẻ | Kết quả | Bằng chứng (a34e03be) |
+|---|---|---|
+| 01 | **Closed** | `ReadingKind` có `period_start`. `MeterInput` chỉ còn `value`, `exception` (đúng `MeterValueInput`). `MeterReading` có `previousClosing`, `gap`, `consumption` ở cấp lần đọc. S12 theo `candidate.rooms[]`:<br>- **Closing M** = `period_end`, `periodMonth=M`;<br>- **Opening M+1** = `period_start`, `periodMonth=M+1`, ô bắt buộc không điền sẵn, tham chiếu = số cuối đã lưu hoặc đang gõ;<br>- hiện khi `nextOpening ≠ not_needed`;<br>- 2 lần tải ảnh, 2 POST, 2 key.<br>Đầu kỳ M nhận `period_start` M hoặc `checkin`/`room_change_in` trong M (khớp `openingFor`) |
+| 02 | **Closed** | Cuối < đầu → hộp BR-LS-12 (FD chỉ "Nhập sai"). Đầu < cuối trước → hộp 3 lựa chọn, kể cả khi server trả 422 `OPENING_BELOW_PREVIOUS_CLOSING` (đọc `previousValue`). "Vẫn lưu" gửi `acknowledgeLowerThanPrevious: true`; `renewKey()` sau mọi 4xx. Đọc trễ: FD bị khóa nút Lưu và được nhắc lễ tân trưởng, FDL+ gửi `lateReason` ≥ 3 ký tự. Cảnh báo `OPENING_BELOW_PREVIOUS_CLOSING`, `READING_LATE` có trong danh sách phải xác nhận |
+| 03 | **Closed** | Ghi thu `{billingPeriod, payment}`; hủy phiếu `BillingPeriod` phẳng + `canReplace`; ứng viên `draftId`, `rooms[]`, `reservationCode`, `kind`, `not_needed`; `BillingPeriodSummary` có `reservationId`, `kind`. `fb012-mock-schema.test.ts` duyệt `$ref` của spec và bắt trường thiếu / sai kiểu / không khai báo. Có ca tự kiểm bộ kiểm (checker). FE báo 2/2 xanh với spec `f522aa60`; ARC đọc code test, chưa tự chạy |
+| 04 | **Closed** | `excludedLines` bắt buộc, `replacesCode` đọc từ BE. "Đưa lại" vẫn gửi `excludedFolioLineIds` |
+| 05 | Open (điều kiện merge, chờ BE merge) | Kế hoạch đúng: merge `origin/main`, không rebase, rồi dùng `ResponseOf`/`BodyOf` |
+| 06 | Open (chờ BE merge) | Cùng đợt với 05 |
+| 07 | **Closed** | `code: string` + trường mở, `KNOWN_WARNINGS` có 6 mã, mã lạ → `stmt.warning.unknown` và vẫn phải xác nhận |
+| 08 | **Closed** | `parseMeter` cắt theo chuỗi (điện số nguyên, nước 1 số lẻ). Hiệu số vẫn `Math.round(x * 10) / 10`. Số trước khi lưu ghi "(xem trước)", sau khi lưu hiện `consumption` của server |
+
+**Hộp "Enter check-in reading" (mới, ghi chú 1 của FE):**
+- Luồng đúng hợp đồng 11.1–11.2:
+  - một POST `kind=checkin`;
+  - thấp hơn số cuối của căn → cảnh báo hai bước;
+  - ảnh tải lên cho lần gửi bị 422 được dùng lại. Đúng: ảnh chỉ gắn sau khi INSERT thành công, giao dịch bị 422 thì chưa gắn.
+- Có một lỗ ở **điều kiện hiện nút**: nút hiện khi hàng tháng M chưa có cả đầu kỳ lẫn cuối kỳ (`!openM && !closeM`). Đơn ở từ trước tháng M mà quên `period_start` M cũng rơi vào trường hợp này. Lễ tân có thể bấm "Enter check-in reading" và ghi một lần `checkin` giữa tháng, BE hiện nhận (xem BE-190-12). Kết quả: phần dùng từ ngày 01 tới ngày đó thành `gap`, không tính khách, và đi vòng qua luật đọc trễ.
+
+### Thẻ mới
+
+### FB-R5-ARC-FE-189-09
+- Mức độ: Minor (làm sau khi BE-190-12 có `openingKind`)
+- Vị trí: `MetersPage.tsx`, điều kiện hiện nút `meters.checkin_enter` (`!openM && !closeM`); `MeterCheckinDialog.tsx` (khoảng ngày `min = 01/M`).
+- Vấn đề: nút nhập chỉ số nhận phòng hiện cả với đơn **không** nhận phòng trong tháng M. Mock chặn "một `checkin` mỗi đơn", còn BE chưa chặn, nên mock và server đang khác nhau.
+- Vì sao quan trọng: lễ tân có thể vô tình dời đầu kỳ vào giữa tháng, và khách không trả phần điện nước nửa đầu tháng.
+- Đề xuất sửa:
+  - Chỉ hiện nút khi `room.openingKind === 'checkin'` (trường BE thêm ở BE-190-12).
+  - Với `openingKind === 'period_start'` mà còn thiếu: hiện ô "Opening M" theo luật đọc trễ (FDL+ kèm lý do), hoặc câu "Ask the front desk lead" như ô cuối kỳ.
+  - Ngày mặc định của hộp = `arrivalDate` (BE trả trong `rooms[]` hoặc ứng viên).
+  - Mock theo đúng luật BE sau khi BE sửa.
+- Trạng thái: Open
+
+Thẻ chéo cho BE: **FB-R5-ARC-BE-190-12** ghi trong `ARC-on-be-pr-190.md` (phần "Lượt 2 – bổ sung").
