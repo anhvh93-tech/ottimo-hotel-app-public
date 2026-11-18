@@ -175,8 +175,8 @@ jobs:
     # No API stack needed: independent of build-test and docker-build.
     name: landing LP-v1 · Playwright (axe, CSP, budgets)
     runs-on: ubuntu-24.04
-    # 25 (was 15): OS deps alone may take up to 12 min when the apt mirror stalls (infra/ci/playwright-deps.sh).
-    timeout-minutes: 25
+    # 35 (was 15): OS deps alone may take up to 18 min when the apt mirror is slow (infra/ci/playwright-deps.sh).
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: product
@@ -206,9 +206,10 @@ jobs:
           pnpm --filter @ottimo/landing-web build:booking-live-test
       - name: Playwright version
         id: pw
-        # image = runner image (ImageOS-ImageVersion): the .deb cache of the OS deps is only valid for one image.
+        # Runner image (ImageOS / ImageVersion) for the .deb cache key of the OS deps.
         run: |
-          echo "image=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "image_os=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "image_ver=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
           echo "version=$(pnpm --filter @ottimo/tests exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: pw-cache
@@ -220,27 +221,25 @@ jobs:
       - name: Install Playwright Chromium
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @ottimo/tests exec playwright install chromium
-      # OS libraries (apt): .deb cache per runner image, then the mirror (4 min), then archive.ubuntu.com (6 min).
-      # 26/10 and 18/11 the runner's Azure Ubuntu mirror stalled for 17–26 min; the step cap keeps it from eating
-      # the E2E time (infra/ci/playwright-deps.sh). A failure here fails the job – no test is skipped.
+      # OS libraries (apt): .deb cache, then the mirror (8 min), then archive.ubuntu.com (8 min, resumes what step 1
+      # fetched). 26/10 and 18/11 the Azure Ubuntu mirror stalled for 17–26 min; a cold install is ~105 MB / 181
+      # packages. The step cap keeps it from eating the E2E time (infra/ci/playwright-deps.sh). A failure here fails
+      # the job – no test is skipped. One cache for every job: chromium + webkit deps (superset), saved only by
+      # docker-build on main (FB-R5-SEC-OPS-192-02); exact image first, else (restore-keys) the newest cache of the
+      # same OS + Playwright version from any image – every .deb is checked against the apt index before dpkg -i.
       - name: Restore Playwright OS deps cache (.deb)
         id: pw-apt
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/pw-apt
-          key: pw-apt-${{ steps.pw.outputs.image }}-${{ steps.pw.outputs.version }}-chromium
+          key: pw-apt-${{ steps.pw.outputs.image_os }}-${{ steps.pw.outputs.version }}-${{ steps.pw.outputs.image_ver }}
+          restore-keys: pw-apt-${{ steps.pw.outputs.image_os }}-${{ steps.pw.outputs.version }}-
       - name: Install Playwright OS dependencies
         id: pw-deps
-        timeout-minutes: 12
+        timeout-minutes: 18
         env:
           PW_APT_CACHE_DIR: ${{ runner.temp }}/pw-apt
         run: infra/ci/playwright-deps.sh chromium
-      - name: Save Playwright OS deps cache (.deb)
-        if: steps.pw-apt.outputs.cache-hit != 'true' && steps.pw-deps.outputs.saved == 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/pw-apt
-          key: pw-apt-${{ steps.pw.outputs.image }}-${{ steps.pw.outputs.version }}-chromium
       - name: Landing E2E (pnpm test:e2e:landing)
         run: pnpm --filter @ottimo/tests test:e2e:landing
       - name: Upload landing Playwright report (on failure)
@@ -460,8 +459,8 @@ jobs:
     name: docker images build · E2E smoke${{ (github.event_name == 'schedule' || inputs.t9 == true) && ' · T9 nightly' || '' }}
     runs-on: ubuntu-24.04
     # 14.5–16.3 min on 17–18/10 (E2E ≈ 12.5 min); 17–19 min on 17–18/11 (E2E 10–14 min). 18/11: apt stalls of 17 and
-    # 26 min cancelled the job at 30. Now: OS deps capped at 12 min (own step timeout + .deb cache), job cap 45 =
-    # worst case deps 12 + images/stack 5 + E2E ~15 with room for suite growth. Not sharded: projects share one
+    # 26 min cancelled the job at 30. Now: OS deps capped at 18 min (own step timeout + .deb cache), job cap 45 =
+    # worst case deps 18 + images/stack 5 + E2E ~15 with room for suite growth. Not sharded: projects share one
     # compose stack and run in a fixed order (limits → rbac-logout → serial → clock, see e2e/playwright.config.ts).
     timeout-minutes: 45
     needs: build-test
@@ -555,9 +554,10 @@ jobs:
       - name: Playwright version
         id: pw
         working-directory: product
-        # image = runner image (ImageOS-ImageVersion): the .deb cache of the OS deps is only valid for one image.
+        # Runner image (ImageOS / ImageVersion) for the .deb cache key of the OS deps.
         run: |
-          echo "image=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "image_os=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "image_ver=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
           echo "version=$(pnpm --filter @ottimo/tests exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: pw-cache
@@ -570,28 +570,34 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         working-directory: product
         run: pnpm --filter @ottimo/tests exec playwright install chromium webkit
-      # OS libraries (apt): .deb cache per runner image, then the mirror (4 min), then archive.ubuntu.com (6 min).
-      # 26/10 and 18/11 the runner's Azure Ubuntu mirror stalled for 17–26 min; the step cap keeps it from eating
-      # the E2E time (infra/ci/playwright-deps.sh). A failure here fails the job – no test is skipped.
+      # OS libraries (apt): .deb cache, then the mirror (8 min), then archive.ubuntu.com (8 min, resumes what step 1
+      # fetched). 26/10 and 18/11 the Azure Ubuntu mirror stalled for 17–26 min; a cold install is ~105 MB / 181
+      # packages. The step cap keeps it from eating the E2E time (infra/ci/playwright-deps.sh). A failure here fails
+      # the job – no test is skipped. One cache for every job: chromium + webkit deps (superset), saved only by
+      # docker-build on main (FB-R5-SEC-OPS-192-02); exact image first, else (restore-keys) the newest cache of the
+      # same OS + Playwright version from any image – every .deb is checked against the apt index before dpkg -i.
       - name: Restore Playwright OS deps cache (.deb)
         id: pw-apt
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/pw-apt
-          key: pw-apt-${{ steps.pw.outputs.image }}-${{ steps.pw.outputs.version }}-chromium-webkit
+          key: pw-apt-${{ steps.pw.outputs.image_os }}-${{ steps.pw.outputs.version }}-${{ steps.pw.outputs.image_ver }}
+          restore-keys: pw-apt-${{ steps.pw.outputs.image_os }}-${{ steps.pw.outputs.version }}-
       - name: Install Playwright OS dependencies
         id: pw-deps
-        timeout-minutes: 12
+        timeout-minutes: 18
         working-directory: product
         env:
           PW_APT_CACHE_DIR: ${{ runner.temp }}/pw-apt
         run: infra/ci/playwright-deps.sh chromium webkit
+      # Main only (SEC 192-02): PRs restore main's cache and never write one. saved=true only after a successful
+      # install, so a failed or partial install is never cached.
       - name: Save Playwright OS deps cache (.deb)
-        if: steps.pw-apt.outputs.cache-hit != 'true' && steps.pw-deps.outputs.saved == 'true'
+        if: github.ref == 'refs/heads/main' && steps.pw-apt.outputs.cache-hit != 'true' && steps.pw-deps.outputs.saved == 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/pw-apt
-          key: pw-apt-${{ steps.pw.outputs.image }}-${{ steps.pw.outputs.version }}-chromium-webkit
+          key: pw-apt-${{ steps.pw.outputs.image_os }}-${{ steps.pw.outputs.version }}-${{ steps.pw.outputs.image_ver }}
       # Random per-run passwords (DB roles, QA_SEED_PASSWORD) – masked, never a repo secret.
       - name: Create throwaway product/.env
         run: bash product/infra/ci/make-ci-env.sh product/.env.example product/.env
