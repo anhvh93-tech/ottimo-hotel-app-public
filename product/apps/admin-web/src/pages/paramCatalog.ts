@@ -66,6 +66,10 @@ const KNOWN: Record<string, ParamMeta> = {
   foc_alert_pct_of_room_revenue: { group: 'money', unit: 'pct' },
   short_stay_commission_pct: { group: 'money', unit: 'none' },
   vat_rate: { group: 'money', unit: 'pct' },
+  // FB-INV-012 (contract §3): monthly statements of long stays – OWN edits (editableBy), MGR/FDL read.
+  utility_unit_price: { group: 'money', unit: 'none' },
+  utility_vat_rate: { group: 'money', unit: 'none' },
+  monthly_statement_rules: { group: 'money', unit: 'none' },
   trusted_device_days: { group: 'security', unit: 'days' },
   trusted_device_mobile_days: { group: 'security', unit: 'days' },
   c3_stepup_minutes: { group: 'security', unit: 'minutes' },

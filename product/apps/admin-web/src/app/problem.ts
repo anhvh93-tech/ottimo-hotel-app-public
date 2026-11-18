@@ -72,6 +72,16 @@ function argsFor(error: ApiError, locale: 'vi' | 'en' = 'vi'): Args {
   if (typeof guest === 'string') args.guest = guest;
   const eta = p.etaTime ?? p.eta;
   if (typeof eta === 'string') args.eta = eta;
+  // FB-INV-012 READING_OUT_OF_WINDOW (BE-190-03/12): `{date}` = end of the window; `{days}` = late-entry days the
+  // server still allows (`lateUntil` − `windowTo`, the `lateMaxDays` parameter) – never a number typed in the copy.
+  if (p.code === 'READING_OUT_OF_WINDOW' && typeof p.windowTo === 'string') {
+    args.date = formatLocalDate(p.windowTo);
+    if (typeof p.lateUntil === 'string')
+      args.days = Math.round(
+        (Date.parse(`${p.lateUntil}T00:00:00Z`) - Date.parse(`${p.windowTo}T00:00:00Z`)) /
+          86_400_000,
+      );
+  }
   return args;
 }
 
@@ -94,6 +104,10 @@ export function problemView(t: T, error: unknown, locale: 'vi' | 'en' = 'vi'): P
   // DS 6.21: the server wrote nothing – never "Máy chủ đang gặp sự cố", no reference on first sight.
   if (code === 'SERVICE_UNAVAILABLE' || code === 'CONCURRENT_UPDATE') {
     return { text: t(`error.${code}`, args) };
+  }
+  // Past the late-entry limit too (no `lateUntil`): nobody can record it late, so no "ask the lead".
+  if (code === 'READING_OUT_OF_WINDOW' && args.days === undefined) {
+    return { text: t('error.READING_OUT_OF_WINDOW_PAST_LATE', args) };
   }
   if (code === 'PARAM_OUT_OF_RANGE' && args.allowed === undefined) {
     return { text: t('error.PARAM_OUT_OF_RANGE_MINMAX', args) };

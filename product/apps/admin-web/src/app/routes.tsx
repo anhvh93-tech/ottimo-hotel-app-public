@@ -65,6 +65,17 @@ const WebRequestsPage = lazy(() =>
   import('../pages/webreq/WebRequestsPage').then((m) => ({ default: m.WebRequestsPage })),
 );
 
+// FB-INV-012 (R5): long-stay monthly statements (S16), meter readings (S12) and the printed statement.
+const StatementsPage = lazy(() =>
+  import('../pages/longstay/StatementsPage').then((m) => ({ default: m.StatementsPage })),
+);
+const MetersPage = lazy(() =>
+  import('../pages/longstay/MetersPage').then((m) => ({ default: m.MetersPage })),
+);
+const StatementPrintPage = lazy(() =>
+  import('../pages/longstay/StatementPrintPage').then((m) => ({ default: m.StatementPrintPage })),
+);
+
 function Splash() {
   const { t } = useI18n();
   return (
@@ -156,6 +167,8 @@ const PAGES: Record<string, () => ReactNode> = {
   registration: () => <RegistrationPage />,
   approvals: () => <ApprovalsPage />,
   moneylog: () => <MoneyPage />,
+  statements: () => <StatementsPage />,
+  meters: () => <MetersPage />,
 };
 
 /** What a C3 screen shows on a device the owner has not granted, when it has a non-C3 view (else DeviceBlocked). */
@@ -175,6 +188,19 @@ export function AppRoutes() {
       <Route path="/change-password" element={<ChangePasswordPage />} />
       <Route path="/select-property" element={<SelectPropertyPage />} />
       <Route path="/enroll-2fa" element={<Enroll2faPage />} />
+      {/* FB-INV-012 §6.6: the printed statement has no Desk chrome (only the sheet + paper/print bar). */}
+      <Route
+        path="/print/statements/:id"
+        element={
+          <RequireAuth>
+            <Screen item={NAV.find((n) => n.id === 'statements')!}>
+              <Suspense fallback={<Splash />}>
+                <StatementPrintPage />
+              </Suspense>
+            </Screen>
+          </RequireAuth>
+        }
+      />
       <Route
         element={
           <RequireAuth>

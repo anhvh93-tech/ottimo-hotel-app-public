@@ -103,6 +103,18 @@ export function useAttentionLines(items: AttentionItem[] | undefined): Attention
   });
 }
 
+/** A "Cần chú ý" row that is not a dashboard attention item (no resolve / debt actions). */
+export interface ExtraAttentionLine {
+  key: string;
+  text: string;
+  sub?: string;
+  icon: AttentionLine['icon'];
+  tone: AttentionLine['tone'];
+  /** Extra class on the row (brand tone of the source, e.g. `stmt-attn`). */
+  toneClass?: string;
+  to?: string;
+}
+
 /**
  * "Cần chú ý" (US-012, BR-907): critical → warning → info (server order), one line per kind (AC4), each
  * opens the screen that handles it; `event` items have "Đã xử lý" / "Đã báo kênh" (resolveAttentionEvent).
@@ -116,19 +128,25 @@ export function AttentionBlock({
   compact,
   emptyTitleKey,
   emptyBodyKey,
+  extra = [],
 }: {
   state: ResourceState<AttentionItem[]>;
   onReload: () => void;
   compact?: boolean;
   emptyTitleKey: string;
   emptyBodyKey?: string;
+  /** Rows from another source shown in the same list after the server's (FB-INV-012 statements, UXD-189-08). */
+  extra?: ExtraAttentionLine[];
 }) {
   const { t } = useI18n();
   const { online } = useOnline();
   // UXD FE-S4-27: on a phone H03 uses the H24 row too (DS 6.20) – a "Mở" button beside the text overflowed 390 px.
   const narrow = useNarrow();
   const rowLinks = compact || narrow;
-  const lines = useAttentionLines(state.data);
+  const base = useAttentionLines(state.data);
+  const lines: Array<AttentionLine | ExtraAttentionLine> | undefined = base
+    ? [...base, ...extra]
+    : undefined;
   const { fresh, announce } = useNewKeys(lines?.map((l) => l.key));
   const [closing, setClosing] = useState<AttentionLine | null>(null);
   // ARC 16.26: "Thu công nợ" on a `checkout_debt` line of one booking (FD+).
@@ -168,6 +186,7 @@ export function AttentionBlock({
       <ul className="list-none stack">
         {lines.map((l) => {
           const isNew = fresh.has(l.key);
+          const full = 'item' in l ? l : null;
           const chips = (
             <>
               {isNew ? (
@@ -175,14 +194,14 @@ export function AttentionBlock({
                   {t('ov.new')}
                 </Chip>
               ) : null}
-              {l.ownerOnly ? <Chip icon="shield">{t('ov.owner_only')}</Chip> : null}
+              {full?.ownerOnly ? <Chip icon="shield">{t('ov.owner_only')}</Chip> : null}
             </>
           );
           const text = (
             <div className="grow">
               <div className="li-t">{l.text}</div>
               {l.sub ? <div className="li-s">{l.sub}</div> : null}
-              {isNew || l.ownerOnly ? <div className="row wrap mt-4">{chips}</div> : null}
+              {isNew || full?.ownerOnly ? <div className="row wrap mt-4">{chips}</div> : null}
             </div>
           );
           const ic = (
@@ -190,17 +209,17 @@ export function AttentionBlock({
               <Icon name={l.icon} />
             </span>
           );
-          const cls = `task ${l.tone}${isNew ? ' is-new' : ''}`;
-          const resolve = l.resolveLabel ? (
-            <Button size="sm" disabled={!online} onClick={() => setClosing(l)}>
-              {t(l.resolveLabel)}
+          const cls = `task ${l.tone}${'toneClass' in l && l.toneClass ? ` ${l.toneClass}` : ''}${isNew ? ' is-new' : ''}`;
+          const resolve = full?.resolveLabel ? (
+            <Button size="sm" disabled={!online} onClick={() => setClosing(full)}>
+              {t(full.resolveLabel)}
             </Button>
-          ) : l.collectDebtId && fdPlus ? (
+          ) : full?.collectDebtId && fdPlus ? (
             <>
               <Button
                 size="sm"
                 disabled={!online}
-                onClick={() => setCollecting(l.collectDebtId ?? null)}
+                onClick={() => setCollecting(full.collectDebtId ?? null)}
               >
                 {t('debt.collect')}
               </Button>
@@ -209,7 +228,7 @@ export function AttentionBlock({
                   size="sm"
                   variant="ghost"
                   disabled={!online}
-                  onClick={() => setWritingOff(l.collectDebtId ?? null)}
+                  onClick={() => setWritingOff(full.collectDebtId ?? null)}
                 >
                   {t('debt.write_off')}
                 </Button>
@@ -232,7 +251,7 @@ export function AttentionBlock({
               {text}
               {l.to ? (
                 <Link className="btn sm" to={l.to}>
-                  {t(l.openLabel ?? 'today.open')}
+                  {t(full?.openLabel ?? 'today.open')}
                 </Link>
               ) : null}
               {resolve}

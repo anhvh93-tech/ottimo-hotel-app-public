@@ -103,6 +103,30 @@ export const NAV: NavItem[] = [
     ready: true,
   },
   {
+    // FB-INV-012 (contract D8, §6.1): S16 "Hợp đồng dài hạn, kỳ thu" – monthly statements of long stays.
+    id: 'statements',
+    path: '/long-stay/statements',
+    icon: 'bill',
+    label: 'nav.statements',
+    screen: 'S16',
+    section: 'ops',
+    // SAL/CTV hold S16 for contracts (rbac §3) but the billing operations are FD+ only (contract §4, A121).
+    roles: DESK,
+    ready: true,
+  },
+  {
+    // FB-INV-012 (contract D8, §6.2): S12 "Chốt công tơ điện nước". MT holds S12 in the matrix but is not
+    // opened this round (MT must not see guest names – SEC D18, contract §4).
+    id: 'meters',
+    path: '/long-stay/meters',
+    icon: 'scan',
+    label: 'nav.meters',
+    screen: 'S12',
+    section: 'ops',
+    roles: DESK,
+    ready: true,
+  },
+  {
     id: 'housekeeping',
     path: '/housekeeping',
     icon: 'broom',

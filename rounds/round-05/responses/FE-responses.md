@@ -191,3 +191,81 @@ Ghi chú:
 - Không có ESC mới. Chữ, chỗ hiện do UXD chốt; FE không viết lại câu nào.
 - Không có dữ liệu khách thật: test và mock chỉ dùng dữ liệu mẫu ("Phạm Huy", số thẻ thử công khai). Không chụp ảnh mới.
 - FB-R5-UXD-FE-146-01 thuộc PR #146, không phải của FE-A2.
+
+
+## FE – PR #189 (FB-INV-012: phiếu thanh toán tháng S16, chốt công tơ S12, trang in A5/A4)
+
+- Round 5, bước Phản hồi & sửa · 18/11/2026.
+- Review đã nhận trên `279ee4a6`:
+  - ARC `rounds/round-05/reviews/ARC-on-fe-pr-189.md`
+  - UXD `rounds/round-05/reviews/UXD-on-fe-pr-189.md` (mục 2 = chữ in chốt EN + VI)
+- Bản sửa trên nhánh `r5-fb012-fe-statements`, từ `e1ea6e3e` đến head **`2e9639ef`**, các commit nhỏ, không rebase, không force-push.
+- Đối chiếu OpenAPI nhánh BE `r5-fb012-be-statements` @ `f522aa60` (0.3.14-draft). BE #190 chưa merge, nên kiểu vẫn gõ tay (thẻ ARC-05, ARC-06 chờ).
+- Ảnh và PDF mới (dữ liệu mock, không có khách thật): thư mục scratchpad `fb012fe/`, tên tệp `r5-*`.
+
+### Trả lời ARC
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-FE-189-01 (Major) | Done (xem ghi chú 1) | Đầu kỳ là lần đọc riêng. S12 tháng M có hai nhóm ô cho mỗi đồng hồ: **Closing M** (`period_end`, đầu kỳ M chỉ đọc, tiêu thụ xem trước) và **Opening M+1** (`period_start`, ô bắt buộc, không điền sẵn, "Cuối kỳ trước" = số cuối đang gõ hoặc đã lưu, hao hụt xem trước). Lưu = 2 lần tải ảnh + 2 POST, mỗi lần một `Idempotency-Key`. Hàng theo `candidate.rooms[]`. Lịch sử đọc `previousClosing`, `gap` trên lần đọc đầu kỳ và `consumption` trên lần đọc cuối kỳ. Sau khi lưu chỉ hiện số server trả về. Tháng nhận phòng: S12 nhận `checkin`/`room_change_in` làm đầu kỳ |
+| FB-R5-ARC-FE-189-02 (Major) | Done | Cuối kỳ < đầu kỳ: giữ hộp BR-LS-12 (FD chỉ "Nhập sai", Thay đồng hồ / Quay vòng cho FDL+). Đầu kỳ < cuối kỳ trước: client thấy trước hoặc server trả 422 `OPENING_BELOW_PREVIOUS_CLOSING` → hộp 3 lựa chọn (Nhập sai / Thay đồng hồ FDL+ / Vẫn lưu). "Vẫn lưu" gửi lại với `acknowledgeLowerThanPrevious: true` và key mới (`renewKey()` sau mọi 4xx). Phiếu nháp hiện cảnh báo `OPENING_BELOW_PREVIOUS_CLOSING` trong danh sách phải xác nhận. Ghi trễ (BE-190-03): FD thấy "nhờ lễ tân trưởng", nút Lưu tắt; FDL+ nhập lý do (≥ 3 ký tự) gửi `lateReason`; nháp có cảnh báo `READING_LATE` |
+| FB-R5-ARC-FE-189-03 (Major) | Done | Ghi thu đọc `{billingPeriod, payment}`; hủy đọc `BillingPeriod` phẳng + `canReplace`; ứng viên dùng `draftId`, `rooms[]`, `reservationCode`, `kind`, `readingStatus` có `not_needed`; `BillingPeriodSummary` có `reservationId`, `kind`. Mock viết lại theo OpenAPI. Test mới `fb012-mock-schema.test.ts` kiểm mọi phản hồi mock (lần đọc, ứng viên, danh sách, phiếu, in, ghi thu, nháp, hủy) theo schema: trường thiếu, sai kiểu, trường không khai báo đều đỏ. Chạy với spec nhánh BE: 2/2 xanh. Trên `main` (chưa có schema billing) test tự bỏ qua, sẽ chạy thật khi #190 merge |
+| FB-R5-ARC-FE-189-04 (Minor) | Done | `excludedLines` bắt buộc (`[]` khi đã phát hành), `replacesCode` đọc từ BE. Nút "Đưa lại" vẫn gửi `excludedFolioLineIds` |
+| FB-R5-ARC-FE-189-05 (Minor, điều kiện merge) | Open – chờ BE #190 merge | Khi #190 vào `main`: merge `origin/main` vào nhánh (không rebase), thay interface bằng `ResponseOf`/`BodyOf` của `@ottimo/api-client`, chuyển hàm gọi vào `endpoints.ts`, giữ phần tiện ích trong `statements.ts`. Hiện kiểu gõ tay đã khớp từng trường với OpenAPI `f522aa60` (test schema ở thẻ 03 chứng minh phía mock) |
+| FB-R5-ARC-FE-189-06 (Minor) | Open – chờ BE #190 merge | Bỏ `'meter' as AttachmentPurpose` sau khi sinh lại client, cùng đợt với thẻ 05 |
+| FB-R5-ARC-FE-189-07 (Minor) | Done | Bỏ `PRICE_CHANGED_SINCE_DRAFT`; thêm `OPENING_BELOW_PREVIOUS_CLOSING`, `READING_LATE`. `StatementWarning.code` là `string` + trường mở. Mã lạ hiện câu chung `stmt.warning.unknown` và vẫn phải xác nhận trước khi phát hành |
+| FB-R5-ARC-FE-189-08 (Suggestion) | Done | `parseMeter` cắt theo chuỗi: điện lấy số nguyên, nước 1 số lẻ (38,67 → 38,6), không qua số thực. Hiệu số vẫn `Math.round(x * 10) / 10`. Số trước khi lưu ghi "(xem trước)"; sau khi lưu hiện `consumption` của server |
+
+### Trả lời UXD
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-UXD-FE-189-01 (Major) | Done | Điện, nước in thành tiền chưa VAT; một dòng "VAT on electricity and water / VAT điện, nước"; cột VAT ghi "incl. / đã gồm" cho tiền thuê và dịch vụ. Cột tiền cộng đúng Subtotal. Ví dụ DOM: 568.000 + 85.000, Cộng 9.453.000, VAT 49.690, Làm tròn −690, Tổng 9.502.000. Ngăn S16 cùng cách |
+| FB-R5-UXD-FE-189-02 (Major) | Done | Phiếu in có "Rent period / Kỳ thuê" và "Utilities & services / Điện nước, dịch vụ", bỏ ô "Tháng". Dòng điện, nước ghi tháng ("Electricity · Nov 2026 / Điện tháng 11/2026"), lấy `labelParams.month` hoặc `periodMonth` |
+| FB-R5-UXD-FE-189-03 (Major) | Done | A5 9pt, dòng VI `max(7pt, 0.8em)`. Ngưỡng 6 dòng in (không tính Làm tròn), từ 7 dòng mặc định A4. Chặn tràn: bản A5 dựng ẩn được đo; cao hơn 194 mm thì mặc định A4 và thanh công cụ báo "Đã chuyển sang A4 để vừa một trang". Bố cục A5 gọn lại để 6 dòng vừa một trang: ô thông tin một hàng, nội dung dòng không xuống hàng, khối QR hai cột, dòng "Printed" cùng hàng liên hệ. Đo thật (Chromium): 5 dòng 185 mm, 6 dòng 194 mm → A5 1 trang; 7 dòng → A4 1 trang. PDF: `r5-print-6lines-a5.pdf`, `r5-print-7lines-a4.pdf` |
+| FB-R5-UXD-FE-189-04 (Major) | Done | "Dời sang phiếu sau" ở hàng riêng dưới dòng, vùng chạm 44 px. Bảng ngăn còn 3 cột (Nội dung, VAT, Thành tiền); SL × đơn giá và chỉ số công tơ nằm dưới nội dung. Cột tiền `nowrap`, rộng tối thiểu 6,5rem, `overflow-x` giữ làm lưới an toàn. Đã kiểm 1280 px và 390 px: `r5-drawer-1280.png`, `r5-drawer-390.png` |
+| FB-R5-UXD-FE-189-05 (Minor) | Done | Dùng nguyên bảng chữ mục 2 (EN + VI): "Đã thanh toán / Còn phải thanh toán", "Vui lòng thanh toán đến hết ngày {date}.", "Cộng", tiêu đề cột, câu VAT, liên hệ, dấu "Đã thanh toán" |
+| FB-R5-UXD-FE-189-06 (Minor) | Done | `issuedAt` sau `dueDate` thì in "Payment due on receipt. / Vui lòng thanh toán khi nhận phiếu." Desk giữ cách tính quá hạn |
+| FB-R5-UXD-FE-189-07 (Minor) | Done | Dòng dịch vụ là `{service} · {date}`, bỏ "× 1" (in và ngăn S16) |
+| FB-R5-UXD-FE-189-08 (Minor) | Done | Dòng phiếu tháng vào cùng danh sách "Cần chú ý", cùng component dòng (icon trong vòng tròn, viền Oak khi đến hạn, Earth Brown khi quá hạn), cộng vào số đếm. Link `?tab=overdue` (hoặc `?tab=issued` khi chỉ đến hạn hôm nay). Chữ "Phiếu tháng quá hạn: {n} · {amount} đ". Ảnh `r5-today-attention.png` |
+| FB-R5-UXD-FE-189-09 (Minor) | Done | Ẩn input file, nút DS có icon máy ảnh "Chụp hoặc chọn ảnh"; sau khi chọn hiện ảnh nhỏ, tên tệp, "Đổi ảnh". Ảnh `r5-meters-entry.png` |
+| FB-R5-UXD-FE-189-10 (Minor) | Done | Nháp: tiêu đề "Phiếu tháng" + chip "Nháp"; đã phát hành: "Phiếu tháng TT-…" |
+| FB-R5-UXD-FE-189-11 (Suggestion) | Done một phần | Đã thêm "Scan to pay / Quét mã để thanh toán" và "Please keep this reference unchanged. / Vui lòng giữ nguyên nội dung này."; số tài khoản giữ 4 số cuối. Tên phòng ("The Mist · 203") **chưa làm**: `BillingPeriodPrint` của BE không có tên phòng. Đề xuất BE thêm `roomNames` (hoặc `rooms[{roomNo, roomName}]`) ở đợt sau; FE làm ngay khi có |
+
+### Ghi chú
+
+1. **Lần đọc `checkin` khi nhận phòng giữa tháng (`753429ec`, theo yêu cầu Điều phối viên).** Hàng S12 thiếu đầu kỳ có nút "Nhập chỉ số nhận phòng". Hộp nhập gồm ngày nhận phòng (trong tháng chốt, không sau hôm nay), điện, nước, ảnh; lưu một POST `kind=checkin`. Thấp hơn cuối kỳ trước của căn → cùng hộp cảnh báo hai bước (Nhập sai / Thay đồng hồ FDL+ / Vẫn lưu gửi `acknowledgeLowerThanPrevious` với key mới); ảnh đã tải được dùng lại cho lần gửi sau. Mock kiểm `readOn` không trước ngày đến, không sau hôm nay (`DATE_INVALID`), một lần `checkin` mỗi đơn. Không còn đề xuất backlog.
+2. **Câu chữ mới** (UXD duyệt lại khi rảnh, không chặn): `meters.group_closing`, `meters.group_opening`, `meters.below_inline`, `meters.checkin_*`, `meters.below_*`, `meters.late*`, `meters.photo_pick`, `meters.photo_change`, `stmt.warning.OPENING_BELOW_PREVIOUS_CLOSING`, `stmt.warning.READING_LATE`, `stmt.warning.unknown`, `stmt.paper_switched`. Tất cả trong `design/tools/gen_strings.py`, EN + VI, không emoji.
+3. **Kiểm sau sửa:** admin-web vitest 1126 xanh (2 bỏ qua = test schema trên spec của `main`), `tsc`, ESLint, Prettier toàn repo sạch; i18n, ui, guest-web, mobile, booking-web xanh. Spec Playwright có điều kiện vẫn để ngoài PR (CI không cho ca UI bị bỏ qua).
+4. **Không có ESC mới.** Không dữ liệu khách thật: test và mock dùng tên mẫu, `@example.test`, số tài khoản thử. Ảnh 6 và 7 dòng có thêm dịch vụ giả qua lớp bọc `fetch` ở phía trình duyệt (chỉ để kiểm bố cục; payload QR là của server, không đổi).
+
+### Lượt 2 – trả lời UXD và ARC (18/11, commit `42f81840`, `0ca19cc8`)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-UXD-FE-189-12 (Minor) | Done | Cột Đơn giá cách cột SL 6pt. Để vừa 132 mm trên A5, tiêu đề cột A5 nhỏ một bậc (EN 7,65pt, VI vẫn ≥ 7pt). Trước đây bảng A5 tràn phải khoảng 15 px; nay vừa khít. Đo lại: 6 dòng 193 mm → A5 1 trang |
+| FB-R5-UXD-FE-189-13 (Minor) | Done | `.stmt-qr-title .vi` dùng Be Vietnam Pro 400; dòng EN giữ Lora |
+| FB-R5-UXD-FE-189-14 (Minor) | Done | Theo bảng chữ chốt: `meters.save_anyway`, `meters.below_saved` (EN), `meters.checkin_help`, `meters.last_closing_pending`, khóa mới `meters.ask_lead_replaced` (hộp đầu kỳ thấp hơn), `stmt.warning.unknown` có `{code}`. Dòng "Đầu kỳ: 1.262": nhãn Be Vietnam Pro, chỉ số Mono |
+| FB-R5-UXD-FE-189-15 (Minor) | Done | Ngày nhận phòng điền sẵn bằng `rooms[].arrivalDate`, vẫn sửa được |
+| FB-R5-UXD-FE-189-16 (Suggestion) | Done | "Đã chuyển sang A4 để vừa một trang" hiện cả khi A4 do số dòng |
+| Bằng chứng ảnh 6/7 dòng | Done | `wrap.js` cộng vào `totals.netVnd` (trước đây cộng nhầm khóa không có `subtotalVnd`). Chụp lại `r5-print-6lines-a5` (Cộng 9.503.000 = tổng cột) và `r5-print-7lines-a4`; `r5-meters-below-dialog.png` nay có hộp thoại. Test mới: Cộng = tổng cột Thành tiền trên trang in |
+| FB-R5-ARC-FE-189-09 (Minor) | Done (theo đề xuất BE-190-12, chờ BE) | Nút "Nhập chỉ số nhận phòng" chỉ hiện khi `rooms[].openingKind === 'checkin'`. Thiếu `period_start` thì không có nút, chỉ báo thiếu đầu kỳ. Hộp: ngày trong [ngày đến, ngày đến + 1]; sau đó là ghi trễ: FD được nhắc nhờ lễ tân trưởng, nút Lưu tắt; FDL+ nhập lý do, gửi `lateReason`. Mock theo BE-190-12: cửa sổ check-in, một `checkin` mỗi đơn, `openingKind` + `arrivalDate` trong `rooms[]`. Kiểu FE để tùy chọn; test schema tạm cho qua hai trường này đến khi #190 có trong spec |
+| FB-R5-ARC-FE-189-05/06 | Open – chờ BE #190 merge | Không đổi |
+
+### Lượt 3 – khớp BE-190-12 tại `da40f1c7` (18/11, commit `88f48ee3`)
+
+- `rooms[]`: dùng `openingKind` (`checkin` / `room_change_in` / `period_start`) và `segmentFrom` (bắt buộc), bỏ `arrivalDate`. Nút "Nhập chỉ số nhận phòng" vẫn chỉ hiện khi `openingKind === 'checkin'`; ngày điền sẵn bằng `segmentFrom`.
+- Cửa sổ không còn cứng "+1 ngày" phía FE: hộp gửi theo ngày đọc đã chọn, server quyết. 422 `READING_OUT_OF_WINDOW` có `lateUntil` → FD được nhắc nhờ lễ tân trưởng (nút Lưu tắt), FDL+ nhập lý do rồi gửi lại với `lateReason`. Không có `lateUntil` → báo lỗi chung. 409 `READING_EXISTS` → báo lỗi, không lưu. Mock theo đúng BE: cổng trên `readOn`, cửa sổ [segmentFrom, segmentFrom + `daysAfter`], extras `windowFrom`/`windowTo`/`lateUntil`/`lateNeedsRole`.
+- Phiếu in: `BillingPeriodPrint.roomNames` → "The Ivory · 302" (tên Lora, số Mono); tên null thì chỉ số căn (UXD-189-11).
+- Test schema: bỏ hết các khoản cho qua tạm; mock khớp spec `da40f1c7` 2/2. Test mới: ghi trễ theo phản hồi server, 409 `READING_EXISTS`, tên căn trên phiếu. admin-web vitest 1132 xanh, `tsc`, ESLint sạch.
+- FB-R5-ARC-FE-189-05/06: vẫn chờ BE #190 merge.
+
+### Lượt 4 – sau khi BE #190 merge (18/11)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-FE-189-05 (điều kiện merge) | Done | Đã merge `origin/main` (không rebase). Mọi kiểu của phiếu tháng và chỉ số lấy từ `@ottimo/api-client` sinh từ OpenAPI (`types.ts`: `MeterReading`, `BodyOf<'recordMeterReading'>`, `ResponseOf<'listBillingPeriods'>`, `ResponseOf<'getBillingPeriodPrint'>`…). 12 hàm gọi chuyển vào `endpoints.ts` (`api.listMeterReadings`, `api.getBillingPeriod`…), có test riêng. `app/statements.ts` chỉ còn tên rút gọn và tiện ích (`monthOf`, `shiftMonth`, `parseMeter`, `meterUsage`, `statusTone`). Bỏ `apiClient` thô. Việc chuyển kiểu lộ ra một lệch thật: `listBillingPeriods` trả `{data, page}`, FE và mock đang đọc `items`. Đã sửa cả hai, và test schema nay kiểm cả vỏ phản hồi theo `paths`, không chỉ từng phần tử |
+| FB-R5-ARC-FE-189-06 | Done | `AttachmentPurpose` trong `api-client` lấy thẳng từ enum của `uploadAttachment` (có `meter`), không còn union gõ tay. FE gọi `api.uploadAttachment(…, 'meter', …)` không ép kiểu |
+| Test schema mock | Done | Bỏ `skipIf`; chạy trên spec của nhánh (đã có #190), xanh |
+| UXD: `error.READING_OUT_OF_WINDOW` | Done | Câu dùng `{date}` và `{days}`; `{days}` = `lateUntil − windowTo` từ phản hồi server (tham số `lateMaxDays`), không gõ số. Hết cả hạn ghi trễ (không có `lateUntil`) thì dùng câu mới `error.READING_OUT_OF_WINDOW_PAST_LATE`, không nhắc lễ tân trưởng. Chờ UXD duyệt câu chữ |
+| E2E Playwright FB-012 | Done – chờ CI | `tests/e2e/ui-clock/fb012-monthly-statement.r5.spec.ts` (project desk-clock, đồng hồ giả, ngày ảo riêng). Dựng bằng API một đơn dài hạn nhập tay nhận phòng giữa tháng M và tài khoản nhận VietQR thử. Desk: chỉ số nhận phòng → ngày cuối M chốt cuối kỳ + đầu kỳ M+1 → ngày 01 M+1 tạo nháp, xác nhận cảnh báo, phát hành, in A5 và A4 (mỗi khổ 1 trang PDF, ảnh đính kèm), payload QR = còn nợ + mã phiếu, thu VietQR → Đã thu. Bản nháp cũ (17/11) viết theo giao diện trước review nên viết lại. Chạy xanh 3 lần trên stack compose cục bộ dùng một lần (đã gỡ); kết quả CI ghi ở báo cáo |
