@@ -1,5 +1,71 @@
 # QA – Kiểm trên staging: FB-INV-012 phiếu thanh toán tháng khách dài hạn
 
+## L2. Lượt 2 – kiểm lại bản sửa (18/11, 17:40–18:05)
+
+- Bản kiểm: Desk staging sau CI `44278151592` (`main` @ `5e98ec5a` = BE #194 + FE #195), job `deploy staging` xanh.
+- Đầu vào: `bug-list.md` (BUG-R5-008…013), `responses/BE-responses.md` (QA staging 18/11), `responses/FE-responses.md` (Lượt 5, 6), `reviews/ARC-on-be-pr-194.md`, `reviews/UXD-on-fe-pr-195.md`.
+
+### L2.0 Kết luận: **ĐẠT** phần bản sửa – đóng cả 6 lỗi, không có lỗi mới
+
+- **Kiểm lại lỗi:** BUG-R5-008, 009 (P2) và 010, 011, 012, 013 (P3) đều **Đạt → Đóng**. Chi tiết và bằng chứng ở mục "Ghi chú test lại" của từng lỗi trong `bug-list.md`.
+- **Hồi quy:** 18 ca, **17 đạt, 0 trượt, 1 chưa chạy**. Ca chưa chạy là ghi trễ dương theo ngày nhập (L2.1 R3).
+- **Lỗi FB-INV-012 còn mở: 0.** Lỗi Round 5 còn mở ngoài phần này không đổi: BUG-R5-002, BUG-R5-007 (P2).
+- **Bốn ca cửa sổ chốt công tơ vẫn "Chưa chạy"** (1.9, 1.14, 2.3, 3.6), không làm giả. Chạy ngày 30/11–01/12 với OTM-00408/00409.
+- **Kết luận lượt 1 đổi thành ĐẠT CÓ ĐIỀU KIỆN, còn 3 điều kiện:**
+  1. Chạy 4 ca cửa sổ (VAT điện nước trên staging).
+  2. Kiểm địa chỉ, hotline cơ sở trên production.
+  3. DOM/OWN kiểm giá dọn thêm.
+
+  Điều kiện 1 và 2 của lượt 1 (BUG-R5-009, BUG-R5-008) đã xong.
+- Không có ESC mới. Cách chạy như mục 1 (API script + Playwright, `qa.*`, không in bí mật). Lượt này không cần máy quầy (không nhận phòng).
+
+### L2.1 Kết quả
+
+| # | Ca | Kết quả | Bằng chứng ngắn |
+|---|---|---|---|
+| R1 | BUG-R5-008: ghi lùi ngày đọc | **Đạt** | OTM-00385, nhập 18/11:<br>- FD `readOn` 05/11, 06/11 → 422 `READING_OUT_OF_WINDOW` (không `lateUntil`);<br>- FDL có lý do, `readOn` 05/11, 16/11 → 422 (ngày nhập quá `lateUntil` 16/11);<br>- `readOn` 19/11 → `DATE_INVALID`.<br>Không ghi gì |
+| R2 | Hồi quy: nhập trong cửa sổ | **Đạt** | OTM-00408 (đến 18/11), FD nhập hôm nay `readOn` 18/11 → 201, `late=false` (sau khi hủy lần đọc cũ, cùng số 1.250 / 38,6) |
+| R3 | Ghi trễ dương theo **ngày nhập**: nhập trong (`windowTo`, `lateUntil`] → FD 422 kèm `lateUntil`, FDL+ có lý do 201 `late` | **Chưa chạy** | Hôm nay không có đơn đang ở nào nằm trong khoảng này (OTM-00408/409 có cửa sổ tới 19/11). Có trong test BE #194. Chạy ở lượt 30/11–01/12 (ví dụ nhập đầu kỳ ngày 02/12) |
+| R4 | Desk: câu khi quá cả hạn ghi trễ | **Đạt** | Hộp "Chỉ số nhận phòng · căn 203", ngày điền sẵn 05/11 → "Đã quá hạn ghi trễ cho ngày đọc này (hạn chốt 06/11/2026). Vui lòng báo quản lý để xử lý." (chữ UXD chốt) |
+| R5 | BUG-R5-009: tháng mặc định, câu giữa tháng | **Đạt** | Mặc định 11/2026. "Nhập cuối kỳ từ ngày 30/11/2026." một lần trên đầu bảng; mỗi hàng có chip "Chưa tới kỳ chốt"; 203 có nút "Nhập chỉ số nhận phòng" |
+| R6 | Hàng thiếu đầu kỳ của căn mở kỳ bằng `period_start` | **Đạt** | Tháng 12/2026:<br>- 103, 402 có một dòng "Chưa có đầu kỳ 12/2026. Nhập ở tháng 11/2026." + nút "Mở tháng 11/2026", bấm thì về 11/2026;<br>- 203 (chưa có chỉ số nhận phòng) nằm ở khối "Chỉ số nhận phòng cần nhập – 11/2026" |
+| R7 | Câu trống tháng không có căn | **Đạt** | 10/2026: "Tháng 10/2026 không có căn dài hạn nào cần chốt", vẫn hiện khối chỉ số nhận phòng của tháng hiện tại |
+| R8 | BUG-R5-010: `unreconciledVnd` | **Đạt** | TT-2611-103-R1 → 2.900.000; TT-2611-402 → 1.000.000 |
+| R9 | BUG-R5-011: xem trước A5 | **Đạt** | Bảng kết thúc ở x = 888 px, khớp lề nội dung (lượt 1: khoảng 928) |
+| R10 | In A5/A4 phiếu thật | **Đạt** | TT-2611-402, TT-2611-203-R1: PDF A5 1 trang (420 × 595 pt), A4 1 trang. Brand như lượt 1 (cùng viền `#FBF9F4`, ghi chú 9.8) |
+| R11 | Cảnh báo tràn A4 (UXD 195-01) | **Đạt** | Ca giả phía trình duyệt (Playwright chặn phản hồi `print` và chèn 9 dòng nhãn dài, không ghi lên server):<br>- tự sang A4, "Đã chuyển sang A4 để vừa một trang" + "Phiếu dài hơn một trang – kiểm lại trước khi in";<br>- đầu cột một hàng; không cắt chữ (PDF 4 trang, đúng thiết kế "báo, không cắt") |
+| R12 | Nhãn dòng dự phòng (UXD 195-02) | **Đạt** | Ca giả: dòng `service` có `labelKey` lạ → in "Service · 12 Nov / Dịch vụ · 12/11". Có `labelParams.description` → in chữ đó. Không có khóa thô `bill.line.*` trên tờ |
+| R13 | BUG-R5-012: nhóm và chữ tóm tắt tham số | **Đạt** | Nhóm "Dài hạn – phiếu tháng", 3 dòng đọc thành câu (chữ UXD 195-04, "8%" không cách). Không còn JSON trên màn |
+| R14 | Hộp sửa tham số theo ô | **Đạt** | Ô VAT: chọn 0/5/8/10%. Ô quy tắc: có "Từ … đến …". Giá −5 → chặn tại ô, không gửi. Giá 4.200 hiệu lực 01/03/2027 → `PUT` đúng dạng, bảng hiện lịch "từ 01/03". QA đã hủy lịch (204) |
+| R15 | BUG-R5-013: kỳ null ở phiếu tháng nhận phòng (API) | **Đạt** | Nháp, phát hành TT-2611-203-R1 và `print`: `utilityPeriod` / `servicePeriod` null. Nháp 12/2026 của OTM-00408 vẫn 01–30/11 |
+| R16 | BUG-R5-013: trang in | **Đạt** | TT-2611-203-R1 chỉ có "Kỳ thuê 05 – 30 Nov 2026". TT-2611-402 (phát hành trước bản sửa) giữ kỳ 10/2026 đã lưu: đúng "phiếu đã phát hành không đổi" |
+| R17 | Hồi quy QR | **Đạt** | TT-2611-402: ảnh QR giải mã = payload server; số tiền 3.890.000, nội dung TT2611402 |
+| R18 | Hồi quy quá hạn | **Đạt** | TT-2611-203-R1 `escalate`. "Hôm nay": "Phiếu tháng quá hạn: 1 · 8.242.000 đ" |
+
+### L2.2 Dữ liệu và dọn dẹp
+
+- QA đã hủy những gì ghi thêm lên staging trong lượt này:
+  - TT-2611-203-R1 (FDL, có lý do): folio OTM-00385 về 0;
+  - nháp 12/2026 của OTM-00408;
+  - lịch giá 01/03/2027.
+- OTM-00408 có lần đọc nhận phòng mới (cùng số), lần cũ đã hủy.
+- Thử nhập trên Desk cho căn 203 bị 422, chỉ để lại một ảnh đồng hồ chưa gắn lần đọc. J16 tự xóa sau `attachment_unbound_days`.
+- Ghi chú vận hành cho DOM/ARC: OTM-00385 không còn cách ghi chỉ số nhận phòng (quá `lateUntil`, cả MGR/OWN cũng 422). Đơn này là dữ liệu drill. Ngoài thực tế, một căn bị lỡ quá 10 ngày thì chỉ còn chờ đầu kỳ tháng sau. Đây là đúng hợp đồng 11.2, nhưng chưa có đường cho quản lý xử lý như câu Desk gợi ý.
+
+### L2.3 Ảnh (scratchpad, không commit; có tên rút gọn khách giả)
+
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/meters-default.png`
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/meters-dec.png`
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/checkin-pastlate-dialog.png`
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/402-screen.png`
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/203R1-screen.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/203R1-default.pdf`
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/402-fake-unknown-screen.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/402-fake-long-screen.png`
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/params-statement.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/params-vat-dialog.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots2/params-rules-dialog.png`
+
+---
+
+# Lượt 1 (18/11, 14:45–15:05)
+
 - Tác giả: QA | Round 5 – bước **Kiểm thử** | 18/11/2026, 14:45–15:05 giờ VN.
 - Bản kiểm: Desk staging sau CI `44256601452` (`main` @ `f871ab1e` = BE #190 + FE #189), job `deploy staging` xanh. API billing trả 200 trên staging, nên bản mới đã lên.
 - Đầu vào: `04-investor-feedback/FB-INV-012.md`, `rounds/round-05/fb-inv-012/DOM-rules.md` (BR-LS-01…16), `rounds/round-05/fb-inv-012/contract.md` (mục 11, 18/11), decision-log 17–18/11, `responses/BE-responses.md` (#190), `responses/FE-responses.md` (#189).
@@ -163,5 +229,5 @@ Phiếu kiểm: TT-2611-402 (còn nợ, có QR, có điều chỉnh + làm tròn
 
 ## 10. Việc còn lại
 
-- **QA:** chạy lại 1.9, 1.14, 2.3, 3.6 ngày 30/11–01/12 trên staging (với OTM-00408/00409), hoặc sớm hơn nếu OPS bật `-test` image trên staging. Kiểm lại BUG-R5-008…013 khi có bản sửa.
+- **QA:** chạy lại 1.9, 1.14, 2.3, 3.6 ngày 30/11–01/12 trên staging (với OTM-00408/00409), hoặc sớm hơn nếu OPS bật `-test` image trên staging. Kiểm lại BUG-R5-008…013: xong ở L2.
 - **OPS (BE-190-07):** chạy 0099 trên bản sao dữ liệu staging. QA không làm (không SSH/SQL).

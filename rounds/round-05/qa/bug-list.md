@@ -18,6 +18,9 @@
 - 18/11 (QA, FB-INV-012 phiếu tháng dài hạn trên Desk staging `f871ab1e`, `rounds/round-05/qa/fb-inv-012-staging.md`):
   - 43 ca: 33 đạt, 6 trượt, 4 chưa chạy (cần đồng hồ giả; staging chạy giờ thật).
   - **Mới:** BUG-R5-008, BUG-R5-009 (P2); BUG-R5-010, BUG-R5-011, BUG-R5-012, BUG-R5-013 (P3). Không có P0/P1.
+- 18/11 lượt 2 (QA, Desk staging sau CI `44278151592`, `main` @ `5e98ec5a` = BE #194 + FE #195, `fb-inv-012-staging.md` mục L2):
+  - **Đóng** BUG-R5-008…013 (QA tự kiểm lại trên staging, có bằng chứng ở từng lỗi).
+  - Hồi quy 18 ca: 17 đạt, 0 trượt, 1 chưa chạy. Không có lỗi mới.
 
 ## 1. Tổng hợp
 
@@ -25,9 +28,9 @@
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 2 | 0 | 0 | 2 (BUG-R5-003, BUG-R5-004) |
-| P2 | 6 | 4 (BUG-R5-002, BUG-R5-007, BUG-R5-008, BUG-R5-009) | 1 (BUG-R5-006) | 1 (BUG-R5-001) |
-| P3 | 5 | 4 (BUG-R5-010…013) | 1 (BUG-R5-005) | 0 |
-| **Tổng** | **13** | **8** | **2** | **3** |
+| P2 | 6 | 2 (BUG-R5-002, BUG-R5-007) | 1 (BUG-R5-006) | 3 (BUG-R5-001, BUG-R5-008, BUG-R5-009) |
+| P3 | 5 | 0 | 1 (BUG-R5-005) | 4 (BUG-R5-010…013) |
+| **Tổng** | **13** | **2** | **2** | **9** |
 
 ## 2. Bảng lỗi
 
@@ -40,12 +43,12 @@
 | BUG-R5-005 | P3 | Web khách, tab Yêu cầu: khách gõ một chuỗi giống số thẻ vào lời nhắn. Máy chủ chặn đúng (422, mã cấp trên `CARD_NUMBER_DETECTED`), nhưng trang hiện câu "Hệ thống đang gặp sự cố…" thay cho câu "Vui lòng không ghi số thẻ thanh toán." | FE (FE-B, đã sửa ở PR #107) | Đã sửa, chờ xác nhận trên staging v1.0.5 |
 | BUG-R5-006 | P2 | `executeRefund` (chi hoàn chuyển khoản): luật số thẻ V-09 thử Luhn trên mọi cửa sổ 13–19 chữ số, nên chặn nhầm (422 `CARD_NUMBER_DETECTED`) mã chuyển khoản có phần số dài từ 13 chữ số. Ô này bắt buộc, nên MGR/OWN không ghi được lệnh chi. Mã toàn số 16 chữ số bị chặn khoảng 65 % | BE `r5-v09-reference` + FE `r5-fe-bankref` (SEC đã chọn luật, UXD đã có câu) | Đã sửa, chờ QA (máy chủ đạt 16/11; còn câu Desk) |
 | BUG-R5-007 | P2 | Desk, màn Tham số: lưu `min_stay` hay `damage_catalog` sai dạng thì máy chủ trả 422 đúng, nhưng Desk hiện nguyên chữ "Giá trị phải từ {min} đến {max}." (không có số, không nói dạng đúng). Release notes v1.0.5 đang hứa "nói rõ dạng đúng" | FE (V5-21, PR #166) + PO (release notes) | Mới |
-| BUG-R5-008 | P2 | FB-INV-012: lễ tân (FD) nhập chỉ số với **ngày đọc lùi về trong cửa sổ** (ví dụ nhập ngày 18/11, ngày đọc 05/11) thì server lưu như đọc đúng hạn (`late=false`), không cần lễ tân trưởng, không lý do. Luật "đọc trễ: FDL+ có lý do" (hợp đồng 11.2) bị lách | BE (+ ARC chốt cửa sổ tính theo ngày nhập hay ngày đọc; FE hộp nhập) | Mới |
-| BUG-R5-009 | P2 | FB-INV-012, Desk "Chốt công tơ" (S12): giữa tháng, "Tháng chốt" mặc định là tháng trước, nên màn báo "Không có căn dài hạn nào đang ở" và không có nút "Nhập chỉ số nhận phòng". Lễ tân nhận khách dài hạn giữa tháng dễ bỏ lỡ chỉ số nhận phòng (cửa sổ chỉ ngày đến + 1) | FE (+ UXD câu trống) | Mới |
-| BUG-R5-010 | P3 | FB-INV-012: phản hồi phiếu tháng không có `totals.unreconciledVnd` dù có khoản VietQR `pending` (OpenAPI 0.3.14-draft và BE-190-08 có trường này) | BE | Mới |
-| BUG-R5-011 | P3 | FB-INV-012, trang in phiếu tháng: xem trước khổ A5 trên màn hình, bảng dòng lấn ra ngoài lề nội dung tờ khoảng 40 px. Bản in PDF đúng | FE | Mới |
-| BUG-R5-012 | P3 | FB-INV-012, Desk màn Tham số (S24): 3 khóa phiếu tháng hiện giá trị dạng JSON thô, nằm trong nhóm "FOC, hoa hồng, phí kênh" | FE + UXD | Mới |
-| BUG-R5-013 | P3 | FB-INV-012: phiếu tháng nhận phòng (khách đến giữa tháng M) in kỳ "Điện nước, dịch vụ" là cả tháng M−1, tháng khách chưa ở | BE (kỳ) / FE (in) – DOM/UXD chốt cách hiện | Mới |
+| BUG-R5-008 | P2 | FB-INV-012: lễ tân (FD) nhập chỉ số với **ngày đọc lùi về trong cửa sổ** (ví dụ nhập ngày 18/11, ngày đọc 05/11) thì server lưu như đọc đúng hạn (`late=false`), không cần lễ tân trưởng, không lý do. Luật "đọc trễ: FDL+ có lý do" (hợp đồng 11.2) bị lách | BE (+ ARC chốt cửa sổ tính theo ngày nhập hay ngày đọc; FE hộp nhập) | Đóng 18/11 (staging `5e98ec5a`, BE #194) |
+| BUG-R5-009 | P2 | FB-INV-012, Desk "Chốt công tơ" (S12): giữa tháng, "Tháng chốt" mặc định là tháng trước, nên màn báo "Không có căn dài hạn nào đang ở" và không có nút "Nhập chỉ số nhận phòng". Lễ tân nhận khách dài hạn giữa tháng dễ bỏ lỡ chỉ số nhận phòng (cửa sổ chỉ ngày đến + 1) | FE (+ UXD câu trống) | Đóng 18/11 (staging `5e98ec5a`, FE #195) |
+| BUG-R5-010 | P3 | FB-INV-012: phản hồi phiếu tháng không có `totals.unreconciledVnd` dù có khoản VietQR `pending` (OpenAPI 0.3.14-draft và BE-190-08 có trường này) | BE | Đóng 18/11 (staging `5e98ec5a`, BE #194) |
+| BUG-R5-011 | P3 | FB-INV-012, trang in phiếu tháng: xem trước khổ A5 trên màn hình, bảng dòng lấn ra ngoài lề nội dung tờ khoảng 40 px. Bản in PDF đúng | FE | Đóng 18/11 (staging `5e98ec5a`, FE #195) |
+| BUG-R5-012 | P3 | FB-INV-012, Desk màn Tham số (S24): 3 khóa phiếu tháng hiện giá trị dạng JSON thô, nằm trong nhóm "FOC, hoa hồng, phí kênh" | FE + UXD | Đóng 18/11 (staging `5e98ec5a`, FE #195) |
+| BUG-R5-013 | P3 | FB-INV-012: phiếu tháng nhận phòng (khách đến giữa tháng M) in kỳ "Điện nước, dịch vụ" là cả tháng M−1, tháng khách chưa ở | BE (kỳ) / FE (in) – DOM/UXD chốt cách hiện | Đóng 18/11 (staging `5e98ec5a`, BE #194 + FE #195) |
 
 ## 3. Chi tiết
 
@@ -765,7 +768,7 @@
 
 ### BUG-R5-008 – Chỉ số đồng hồ: ghi lùi ngày đọc thì lách được luật "đọc trễ cần lễ tân trưởng và lý do"
 
-- **Mức:** P2. Trạng thái: **Mới**.
+- **Mức:** P2. Trạng thái: **Đóng 18/11**.
   - Kiểm soát INV/ARC chốt 17–18/11 (hợp đồng 11.2: đọc sau cửa sổ chỉ FDL+, bắt buộc `lateReason`, cảnh báo `READING_LATE` trên nháp) chỉ xét **ngày đọc do người nhập khai**, không xét ngày nhập thật.
   - FD nhập trễ bao nhiêu ngày cũng được, miễn khai ngày đọc nằm trong cửa sổ. Phiếu không có cảnh báo, OWN không thấy là nhập trễ.
   - Áp cho mọi loại lần đọc có cửa sổ: `checkin`, `room_change_*`, `period_start`, `period_end`.
@@ -783,11 +786,18 @@
   - Hoặc ARC chốt cách khác (ví dụ `readOn` không được sớm hơn hôm nay quá `daysAfter`).
 - **Bằng chứng:** QA script `stg012/m2.mjs` (scratchpad): các bước c, d, e, g; requestId 422 ở bước c: `065781a9-7210-475e-b39d-54bb568dc143`.
 - **Ca kiểm lại:** (a) nhập hôm nay, `readOn` trong cửa sổ đã qua → FD 422 / FDL có lý do 201 `late=true`; (b) nhập trong cửa sổ, `readOn` trong cửa sổ → FD 201; (c) `period_end` nhập ngày 05 tháng sau với `readOn` ngày cuối tháng → như (a); (d) hộp nhập trên Desk báo đúng câu ghi trễ.
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 18/11 lượt 2 (staging `5e98ec5a`, BE #194) – **Đạt → Đóng.**
+  - Cùng đơn OTM-00385 (không còn lần đọc nhận phòng sống), nhập ngày 18/11.
+  - FD với `readOn` 05/11 và 06/11 (trong cửa sổ cũ) → 422 `READING_OUT_OF_WINDOW`, không có `lateUntil`. Requestid `6adba831-9b0f-462c-9c8a-7b567cdf26f3`.
+  - FDL **có lý do**, `readOn` 05/11 và 16/11 → cùng 422, vì ngày nhập đã qua `lateUntil` 16/11.
+  - `readOn` 19/11 → 422 `DATE_INVALID`. Không lần đọc nào được ghi.
+  - Hồi quy: FD nhập trong cửa sổ, `readOn` = hôm nay (OTM-00408, nhập lại sau khi hủy) → 201, `late=false`.
+  - Desk hiện đúng câu "Đã quá hạn ghi trễ cho ngày đọc này (hạn chốt 06/11/2026). Vui lòng báo quản lý để xử lý."
+  - Chưa kiểm được ca dương "nhập trong (windowTo, lateUntil] → FDL+ có lý do 201 `late`": trên staging không có đơn nào đang ở trong khoảng đó. Ca này có trong test BE của #194. Chạy lại ở lượt 30/11–01/12.
 
 ### BUG-R5-009 – Desk "Chốt công tơ": giữa tháng báo không có căn dài hạn, ẩn nút nhập chỉ số nhận phòng
 
-- **Mức:** P2. Trạng thái: **Mới**.
+- **Mức:** P2. Trạng thái: **Đóng 18/11**.
   - Hôm nay có 3 căn dài hạn đang ở, nhưng màn báo trống.
   - Đây là chỗ duy nhất có nút "Nhập chỉ số nhận phòng". Cửa sổ của lần đọc này chỉ ngày đến + 1 (sau đó phải nhờ lễ tân trưởng ghi trễ, hoặc lỡ luôn).
   - Không xếp P1: có đường vòng là đổi "Tháng chốt" sang tháng hiện tại.
@@ -805,11 +815,15 @@
   - Câu trống không được nói "không có căn dài hạn" khi có.
 - **Bằng chứng:** `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots/meters-0.png` (mặc định 10/2026, trống), `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots/meters-nov.png` (11/2026). Ảnh có tên rút gọn khách giả, không commit.
 - **Ca kiểm lại:** ngày 02–29 tháng M: thấy căn có `openingKind=checkin` cần nhập; ngày cuối tháng và ngày 01: mặc định tháng chốt như hiện tại; không có đơn dài hạn: câu trống cũ.
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 18/11 lượt 2 (staging `5e98ec5a`, FE #195) – **Đạt → Đóng.**
+  - Mở "Chốt công tơ" ngày 18/11 → mặc định **11/2026**, hiện 3 căn. Đầu bảng có "Nhập cuối kỳ từ ngày 30/11/2026."; mỗi hàng có chip "Chưa tới kỳ chốt" thay ô nhập. Căn 203 có nút "Nhập chỉ số nhận phòng".
+  - Xem 12/2026: khối "Chỉ số nhận phòng cần nhập – 11/2026" (203). Căn 103, 402 mở kỳ bằng `period_start` có **một dòng** "Chưa có đầu kỳ 12/2026. Nhập ở tháng 11/2026." kèm nút "Mở tháng 11/2026". Bấm nút → tháng 11/2026.
+  - Xem 10/2026: "Tháng 10/2026 không có căn dài hạn nào cần chốt", vẫn có khối chỉ số nhận phòng của tháng hiện tại.
+  - Ảnh (scratchpad): `stg012/shots2/meters-default.png`, `meters-dec.png`.
 
 ### BUG-R5-010 – Phiếu tháng: thiếu `totals.unreconciledVnd` trong phản hồi
 
-- **Mức:** P3. Trạng thái: **Mới**.
+- **Mức:** P3. Trạng thái: **Đóng 18/11**.
   - Desk hiện chưa đọc trường này, nên chưa sai gì trên màn hình.
   - Nhưng hợp đồng (11.3) và OpenAPI 0.3.14-draft có trường này; BE-190-08 ghi Done. Lễ tân và OWN cần biết phần đã "thu" qua VietQR mà ngân hàng chưa xác nhận.
 - **Vai chịu trách nhiệm:** BE (có thể bộ tuần tự hóa phản hồi bỏ thuộc tính khai bằng `allOf` trong `BillingPeriodTotals`).
@@ -821,35 +835,52 @@
 - **Kết quả mong đợi:** `unreconciledVnd` = 2.900.000 (TT-2611-103-R1) và 1.000.000 (TT-2611-402). Code `statements.service.ts` dòng ~1034 có tính trường này.
 - **Bằng chứng:** script `stg012/st4.mjs`, `st5.mjs` (scratchpad).
 - **Ca kiểm lại:** không có khoản pending → 0; có pending → đúng tổng; đảo khoản pending → trừ lại; `disputed` → vẫn tính.
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 18/11 lượt 2 (staging `5e98ec5a`, BE #194) – **Đạt → Đóng.** `GET` phiếu TT-2611-103-R1 → `unreconciledVnd` 2.900.000; TT-2611-402 → 1.000.000; `disputed: false`. Danh sách phiếu không đổi hình dạng.
 
 ### BUG-R5-011 – Trang in phiếu tháng: xem trước A5 trên màn hình, bảng dòng lấn lề phải
 
-- **Mức:** P3. Trạng thái: **Mới**. Chỉ ở bản xem trên màn hình; PDF A5/A4 in đúng một trang, không lấn.
+- **Mức:** P3. Trạng thái: **Đóng 18/11**. Chỉ ở bản xem trên màn hình; PDF A5/A4 in đúng một trang, không lấn.
 - **Vai chịu trách nhiệm:** FE (`StatementPrintPage.tsx`, `print.css`).
 - **Môi trường:** Desk staging sau CI `44256601452` (`main` @ `f871ab1e`, BE #190 + FE #189), 18/11/2026 14:45–15:05. `qa.fd`, Chromium 1280 × 900, `/print/statements/{id}` của TT-2611-402.
 - **Các bước tái hiện:** mở trang in (A5 mặc định), xem trên màn hình.
 - **Kết quả thực tế:** đầu trang, tổng và khối QR canh lề phải ở khoảng x = 888 px. Bảng dòng (cột "Amount / Thành tiền", "4.901.000", "−10.500") kéo tới khoảng x = 928 px, lấn ra ngoài lề nội dung tờ.
 - **Kết quả mong đợi:** bảng nằm trong lề nội dung như bản in.
 - **Bằng chứng:** `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots/print-Bnov-screen.png` (màn hình), `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots/print-Bnov-A5.pdf.png` (PDF đúng). Ảnh có tên khách giả, không commit.
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 18/11 lượt 2 (staging `5e98ec5a`, FE #195) – **Đạt → Đóng.**
+  - TT-2611-402 xem A5 ở 1280 px: bảng dòng kết thúc ở x = 888 px, đúng lề nội dung (lượt 1: khoảng 928).
+  - PDF A5 và A4 mỗi khổ 1 trang (TT-2611-402, TT-2611-203-R1).
+  - Thêm ca giả phía trình duyệt (chặn phản hồi `print`, không ghi gì lên server): 10 dòng nhãn dài 3 hàng → tự sang A4, thanh công cụ báo "Đã chuyển sang A4 để vừa một trang" và "Phiếu dài hơn một trang – kiểm lại trước khi in" (UXD 195-01). Không cắt chữ.
+  - Ảnh: `stg012/shots2/402-fake-unknown-screen.png`, `402-fake-long-screen.png`.
 
 ### BUG-R5-012 – Màn Tham số: 3 khóa phiếu tháng hiện JSON thô, sai nhóm
 
-- **Mức:** P3. Trạng thái: **Mới**.
+- **Mức:** P3. Trạng thái: **Đóng 18/11**.
   - Server kiểm biên đúng (422 `PARAM_OUT_OF_RANGE`), nên không lưu được giá trị sai.
   - Nhưng OWN phải đọc và sửa JSON (`{"waterVndPerM3":25000,"electricityVndPerKwh":4000}`, `monthly_statement_rules` dài). Ba khóa lại nằm ở nhóm "FOC, hoa hồng, phí kênh", khó tìm khi kế toán trả lời về VAT.
 - **Vai chịu trách nhiệm:** FE (`paramCatalog.ts`: `group: 'money', unit: 'none'`) + UXD (cách hiện: "Điện 4.000 đ/kWh · Nước 25.000 đ/m³ (chưa VAT)", "VAT điện 8 % · nước 5 %").
 - **Môi trường:** Desk staging sau CI `44256601452` (`main` @ `f871ab1e`, BE #190 + FE #189), 18/11/2026 14:45–15:05. `qa.owner`, `/settings/parameters`.
 - **Kết quả mong đợi:** giá trị đọc được như các tham số khác; nhóm riêng "Phiếu tháng dài hạn" hoặc nhóm tiền phù hợp.
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 18/11 lượt 2 (staging `5e98ec5a`, FE #195) – **Đạt → Đóng.**
+  - Nhóm mới "Dài hạn – phiếu tháng" có 3 khóa. Giá trị đọc thành câu, không còn JSON:
+    - "Điện 4.000 đ/kWh · Nước 25.000 đ/m³";
+    - "VAT điện 8% · nước 5%";
+    - "tiền thuê thu trước · hạn thanh toán ngày 5 · làm tròn xuống 1.000 đ · tháng lẻ thu khi nhận phòng · chốt công tơ 0 ngày trước – 1 ngày sau cuối tháng, ghi trễ tối đa 10 ngày".
+  - Hộp sửa theo từng ô:
+    - VAT: chọn 0/5/8/10%;
+    - quy tắc: ô chọn và ô số có "Từ … đến …".
+  - Giá −5 → không gửi lệnh, dưới ô hiện "Từ 1 đến 20.000".
+  - Giá 4.200, hiệu lực 01/03/2027 → `PUT` đúng dạng `{electricityVndPerKwh:4200, waterVndPerM3:25000}`, bảng hiện lịch "từ 01/03". QA đã hủy lịch (204).
 
 ### BUG-R5-013 – Phiếu tháng nhận phòng in kỳ "Điện nước, dịch vụ" của tháng trước ngày đến
 
-- **Mức:** P3. Trạng thái: **Mới**. Không sai tiền (không có dòng nào trong kỳ đó), chỉ làm khách thắc mắc.
+- **Mức:** P3. Trạng thái: **Đóng 18/11**. Không sai tiền (không có dòng nào trong kỳ đó), chỉ làm khách thắc mắc.
 - **Vai chịu trách nhiệm:** DOM/UXD chốt cách hiện. Sau đó BE (`utilityPeriod` / `servicePeriod` cắt theo ngày đến, hoặc null) hoặc FE (ẩn ô khi không có dòng điện nước, dịch vụ).
 - **Môi trường:** Desk staging sau CI `44256601452` (`main` @ `f871ab1e`, BE #190 + FE #189), 18/11/2026 14:45–15:05. TT-2611-402, TT-2611-103-R1 (khách đến 18/11).
 - **Kết quả thực tế:** ô "Utilities & services / Điện nước, dịch vụ" in "01 – 31 Oct 2026 · 01/10 – 31/10/2026". API `utilityPeriod` và `servicePeriod` = 01–31/10.
 - **Kết quả mong đợi:** phiếu tháng nhận phòng không in kỳ trước ngày đến (ẩn ô, hoặc ghi "—"). Phiếu các tháng sau giữ như hiện tại.
 - **Bằng chứng:** `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots/print-Bnov-A5.pdf.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots/print-Anov2-A5.pdf.png` (tên khách giả, không commit).
-- **Ghi chú test lại:** chưa có.
+- **Ghi chú test lại:** 18/11 lượt 2 (staging `5e98ec5a`, BE #194 + FE #195) – **Đạt → Đóng.**
+  - Phiếu tháng nhận phòng mới của OTM-00385 (11/2026): `utilityPeriod` / `servicePeriod` = null ở nháp, sau phát hành (TT-2611-203-R1) và ở `print`. Trang in chỉ có "Kỳ thuê 05 – 30 Nov 2026", không còn ô "Điện nước, dịch vụ".
+  - Hồi quy: nháp 12/2026 của OTM-00408 vẫn có kỳ 01–30/11.
+  - Phiếu phát hành **trước** bản sửa (TT-2611-402) vẫn in 10/2026, vì kỳ đã lưu lúc phát hành. Đúng thiết kế "phiếu đã phát hành không đổi".
+  - QA đã hủy TT-2611-203-R1 (folio OTM-00385 về 0).
