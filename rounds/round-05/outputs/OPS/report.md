@@ -566,3 +566,98 @@ Phương án nhẹ hơn, không cần khóa `age`, không đụng dữ liệu pr
 3. Trước khi deploy production v1.0.7: sao lưu thủ công, chạy lại kiểm `long_tx`, deploy giờ vắng; sau deploy `journalctl -t ottimo-deploy` phải có `migrations: 74 applied / 74`.
 
 Không commit (theo giao việc).
+
+## 19. Chạy thử 0099 trên bản sao staging (phương án A) – 18/11 18:00–18:06: ĐẠT
+
+Căn cứ: INV chọn phương án A (18.5 mục 1) trong chat ngày 18/11; giao việc ORC Round 5, bước Kiểm thử. Làm bước 3–6 của 18.4 theo `restore-drill.sh` và `b2-runbook.md` 2.5. Khôi phục **trên Mac**, không trên VPS đã tạo bản sao. Không đụng DB hay dữ liệu production. Không in khóa, `.env`, mật khẩu. Trong mục này chỉ có số đếm, không có số tiền: tổng folio chỉ ghi "khớp / khác".
+
+### 19.1 Bản sao lưu và đầu vào
+
+| Mục | Giá trị |
+|---|---|
+| Bản sao lưu | Staging `20261117T203350Z` = **03:33:50 ngày 18/11** (giờ VN), tức lượt timer 03:30. Chụp **trước** 0099: staging lên `sha-f871ab1eaa1b` (74 migration) lúc 14:46. Bản khôi phục có 73 migration, đúng như mong đợi |
+| Bộ tệp | `db-`, `blobs-`, `counts-`, `purge-journal-`, `privacy-notice-` (đều `.age`) + `.sha256`. Lấy qua SSH quản trị (`sudo tar` đọc `/var/backups/ottimo`), vì khóa kéo `ottimo_backup_pull` chỉ mở thư mục production. Lưu vào thư mục 0700 trên Mac. 5/5 checksum khớp |
+| Khóa `age` staging | Tệp khóa staging có sẵn trên Mac từ R2 (`staging-readiness.md` mục 3, ngoài repo, 0600). Gắn **chỉ đọc** vào container chạy một lần. Không in, không chép, không chuyển. So khóa công khai (`age-keygen -y`) với `recipients.txt` staging trên máy chủ: **KHOP**. Phương án A **không cần INV thao tác** |
+| Image khôi phục (73 migration) | `ottimo-api:sha-f8791cf83b63` (v1.0.6 production), digest `sha256:ed0e50ab…ae1d`, trùng 17.3 |
+| Image migrate (74 migration) | `ottimo-api:sha-5e98ec5aec1b`, digest `sha256:f622fb02…6ed9`. Đây là image staging đang chạy từ 17:40, ứng viên cho v1.0.7. File 0099 ở `5e98ec5a` **giống hệt** ở `f871ab1e` (`git diff` rỗng trên thư mục migrations) |
+| Cách chạy | Runner `ottimo-drill-runner:local` (`b2-runbook.md` 2.5), `restore-drill.sh --stamp 20261117T203350Z --keep`, rồi một script một lần trong thư mục tạm của phiên (ngoài repo). Script làm bước 4–6 trong cùng container: tệp giải mã và mật khẩu ngẫu nhiên của DB tạm chỉ nằm trong tmpfs. Mạng `--internal`, không mở cổng |
+
+Lần chạy 18:02 dừng ngay ở bước khởi động postgres: tôi gắn repo vào runner ở đường dẫn khác với trên Mac, nên Docker không tìm thấy `02-roles.sh`. Lỗi nằm ở cách gọi, không ở script hay bản sao lưu. Đã dọn sạch (0 container, volume, mạng). Lần 18:04 gắn `$P:$P` đúng như runbook. Lần đó đếm nội dung bảng bị lỗi script (chỉ đếm 1 bảng), nên chạy lại lúc 18:04:43 trên cùng bản sao lưu. Số liệu dưới đây lấy từ **lần 18:04:43**.
+
+### 19.2 Bước 3 – Khôi phục (biên bản `restore-drill.sh`)
+
+| Kiểm | Kết quả |
+|---|---|
+| Kết quả | **ĐẠT – `/health` ok**. Số đếm sau khôi phục so với `counts-20261117T203350Z`: **khớp 100 %** |
+| Thời gian khôi phục | 6 giây (giải mã, DB, tệp, khởi động api) |
+| Tệp blob | 21 |
+| `privacy-notice.log` | có trong bộ (46 dòng), version `2026-11-04`, `2026-11-16` khớp DB |
+| `purge_journal` (tệp riêng) | 87 dòng |
+
+### 19.3 Bước 4 – Số đếm trước + chạy 0099 một lần
+
+Số đếm trước (`backup-counts.sql`, bỏ 2 dòng tổng tiền): migrations **73**, properties 1, users 31, reservations 407, guests 483, folios 407, folio_lines 2061, payments 518, data_keys_live 152, purge_journal 87. Có 125 bảng `public`, 200 dòng `config_parameter_def`. Giao dịch mở > 1 phút: 0.
+
+3 folio mẫu là 3 folio nhiều dòng nhất (54, 44, 44 dòng; hòa thì xếp theo id). Mỗi folio ghi tổng dòng folio và tổng thanh toán. Số tiền chỉ nằm trong tmpfs của container, không ghi ra.
+
+Trước khi migrate, api cũ đã dừng: lúc đó chỉ còn migrator chạm DB. Migrate bằng `node dist/db/migrate-cli.js` của image `sha-5e98ec5aec1b`, vai `ottimo_migrator` của DB tạm (giống service `migrate` trong `docker-compose.prod.yml`). Postgres tạm bật `log_min_duration_statement = 0` và `log_lock_waits = on`.
+
+| Đo | Kết quả |
+|---|---|
+| Migrator | `{"level":"info","msg":"migrations applied"}`, exit 0 |
+| Thời gian toàn bộ | **721 ms**, gồm khởi động container, Node chạy giả lập amd64 trên Mac arm64, và SQL. Lần 18:04 đo được 706 ms |
+| Thời gian SQL (log postgres) | 65 câu lệnh, **tổng 25,7 ms**, câu dài nhất 3,2 ms. Lần 18:04: 21,9 ms và 3,1 ms |
+| Log postgres trong lúc migrate | ERROR 0 · FATAL 0 · PANIC 0 · WARNING 0 · chờ khóa 0 |
+
+### 19.4 Bước 5 – Số đếm sau và kiểm schema
+
+| Kiểm | Kết quả |
+|---|---|
+| Migration | **74** (trước 73) |
+| `backup-counts.sql` (mọi dòng trừ `migrations`, **kể cả 2 tổng tiền**) | **khớp** |
+| Tổng 3 folio mẫu (dòng folio + thanh toán) | folio 1 **khớp** · folio 2 **khớp** · folio 3 **khớp** |
+| Nội dung 125 bảng có trước 0099 (md5 toàn bộ dòng mỗi bảng) | 124 bảng **giống hệt**. 1 bảng đổi là `config_parameter_def`: 200 → 203 dòng = 3 khóa mới, đúng thiết kế |
+| Bảng mới | `billing_period`, `billing_period_line`, `meter_reading`: đủ 3, **0 / 0 / 0 dòng**, chủ sở hữu `ottimo_owner` 3/3 |
+| `payment_billing_period_fk` | có, **`convalidated = true`**. FK chưa kiểm trong toàn DB: 0 |
+| 3 khóa danh mục (`utility_unit_price`, `utility_vat_rate`, `monthly_statement_rules`) | **3/3** |
+| RLS bật + FORCE trên 3 bảng mới | 3/3 |
+| 7 chỉ mục mới | 7/7 |
+| `payment` có `billing_period_id` | 0 |
+| Thêm: api `sha-5e98ec5aec1b` trên DB vừa migrate | `/health` **ok** |
+
+### 19.5 Bước 6 – Dọn dẹp
+
+- Container, volume và mạng `ottimo-restore-20261117t203350z*`: còn 0 / 0 / 0. Script tự đếm, rồi kiểm lại bằng `docker ps -a`, `docker volume ls`, `docker network ls` trên Mac.
+- Tệp giải mã và mật khẩu ngẫu nhiên của DB tạm nằm trong tmpfs, mất khi container dừng.
+- Đã xóa bản sao mã hóa trên Mac (`~/.ottimo/backups/ottimo-staging-drill-…`). Đã xóa biên bản của lần chạy lỗi script.
+- Biên bản lần 18:04:43 giữ lại ở `~/.ottimo/drills/drill-0099-staging-20261118-run2.txt` (0600, ngoài repo). Tệp có 2 tổng tiền của dữ liệu thử staging, giống biên bản R3/R4.
+- Tệp khóa `age` staging trên Mac **không đổi**: không tạo, không xóa. Theo `staging-readiness.md` mục 3, đây là chỗ cất khóa đó.
+- Hai image api đã kéo về Docker trên Mac: không chứa bí mật, giữ lại.
+- Máy chủ: không ghi gì. Chỉ đọc danh sách bản sao lưu, `recipients.txt` và trạng thái container. Hai stack vẫn healthy: staging `sha-5e98ec5aec1b`, production v1.0.6 chạy 27 giờ. Không có lượt deploy mới.
+
+### 19.6 Kết luận và việc trước khi deploy production
+
+**ĐẠT.** Trên dữ liệu staging (518 thanh toán, 2061 dòng folio):
+- 0099 chạy sạch: dưới 30 ms SQL, không lỗi, không chờ khóa;
+- không đổi dòng nào đã có, ngoài 3 khóa danh mục mới;
+- tổng 3 folio mẫu khớp;
+- image mới chạy được trên DB đã migrate.
+
+Phần còn lại của thẻ `FB-R5-ARC-BE-190-07` (kiểm trên bản sao dữ liệu) coi như đã trả lời. Về phía OPS, 0099 **không chặn** phát hành production. Phát hành vẫn chờ cổng QC và ORC duyệt Release.
+
+Danh sách kiểm trước khi deploy production v1.0.7 (thay 18.5 mục 3):
+1. Tag Release trên commit có 0099 giống hệt `f871ab1e`/`5e98ec5a`. Lấy digest từ artifact `image-digests` của CI, đối chiếu khi `resolve`.
+2. **Giờ vắng**: tránh giờ nhận/trả phòng và giờ lễ tân ghi thu. Báo lễ tân trước vài phút: Desk gián đoạn khoảng 4 giây lúc đổi container (`b2-runbook.md` 8.2).
+3. **Sao lưu thủ công** ngay trước tag: `systemctl start ottimo-backup@ottimo-prod.service`. Đạt khi có `OK: … encrypted files` và `backup.last_ok` mới. Ghi lại mã giờ để quay lui.
+4. **Kiểm `long_tx`** bằng `SQLRO` ngay trước khi duyệt deploy: giao dịch mở > 1 phút phải bằng 0. Khác 0 thì hoãn: migrator chưa có `lock_timeout` (18.3).
+5. Ghi số đếm production trước (`SQLRO`, chỉ số): migrations 73, `payment`, `folio_line`, `folio`, `reservation`, `config_parameter_def`.
+6. Sau deploy:
+   - `journalctl -t ottimo-deploy` có `migrations: 74 applied / 74 in the image journal` và `OK: <tag> is live`.
+   - `SQLRO`: 3 bảng mới có 0 dòng; `payment_billing_period_fk` có `convalidated = true`; có 3 khóa danh mục. Số đếm ở mục 5 không đổi, riêng `config_parameter_def` +3.
+   - Log postgres production quanh giờ deploy: 0 ERROR/FATAL. Chỉ có 3 WARNING quen thuộc của `02-roles.sh`, xem 18.1.
+   - `ops-check`. Desk 200, api/web healthy, worker chạy.
+7. Quay lui nếu cần: `rollback.sh sha-f8791cf83b63`. Lần chạy thử này **không** kiểm api cũ trên DB 74: chỉ kiểm api cũ trên DB 73 và api mới trên DB 74. Quay lui dựa vào luật "expand first": 0099 chỉ thêm, bản cũ không đọc bảng hay khóa mới (18.3). Khôi phục DB từ bản ở mục 3 chỉ dùng khi hỏng dữ liệu.
+
+Thẻ đề xuất, giữ như cũ (Minor, không chặn v1.0.7): BE/ARC thêm `SET lock_timeout` cho migrator (18.3).
+
+Không commit (theo giao việc, ORC commit).
