@@ -67,6 +67,8 @@ export const MONEY_AUDIT_ACTIONS = [
   // OpenAPI 0.3.13 bổ sung 1f (SEC ARC-20; V5-48, SEC S8): FD+ closes a `deposit_after_cancel` attention item with
   // "Không thấy tiền" – after = { kind, afterClosure }, no free text; stays in the money log and afterClosureOnly.
   'attention_event.resolved',
+  // FB-INV-012 §12.2 (A128): a statement paid outside Desk (amount, day received; the reason is the audit reason).
+  'billing_period.settled_outside_desk',
 ] as const;
 
 export type MoneyAuditAction = (typeof MONEY_AUDIT_ACTIONS)[number];

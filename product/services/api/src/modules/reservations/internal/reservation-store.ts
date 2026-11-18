@@ -84,6 +84,8 @@ export interface ReservationRow {
   room_disclosed_to_guest: boolean;
   // 0059 (BR-424, BR-429 (c) – S4-05): origin room of the OTA difference; NULL = never moved (first room).
   origin_room_id: string | null;
+  // 0100 (FB-INV-012 §12.1.2): business day of a backdated check-in (A127); null = normal check-in / not checked in.
+  checkin_backdated_on: LocalDate | null;
   created_at: Date;
   created_by: string | null;
   updated_at: Date;
@@ -104,6 +106,7 @@ export const RESERVATION_COLUMNS = `r.id, r.organization_id, r.property_id, r.co
   r.checkin_room_status_before, r.early_departure_notice_at, r.party_version, r.created_at, r.created_by,
   r.updated_at, r.version, r.deposit_shortfall_vnd, r.deposit_shortfall_accepted_at, r.deposit_shortfall_reason,
   r.room_disclosed_to_guest, r.origin_room_id, r.booked_departure_date::text AS booked_departure_date,
+  r.checkin_backdated_on::text AS checkin_backdated_on,
   (SELECT su.display_name FROM app_user su WHERE su.id = r.deposit_shortfall_accepted_by)
     AS deposit_shortfall_accepted_by_name`;
 

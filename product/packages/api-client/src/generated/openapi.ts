@@ -716,6 +716,35 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/properties/{propertyId}/contact': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Địa chỉ và hotline công khai của cơ sở – chân phiếu tháng (FB-INV-012 §12.3)
+     * @description **0.3.15**. Đọc `property.address`, `property.phone_public`. `Cache-Control: no-store`. Vai xem S24 (OWN, MGR, FDL).
+     */
+    get: operations['getPropertyContact'];
+    /**
+     * Sửa địa chỉ và hotline công khai của cơ sở – chỉ OWN (FB-INV-012 §12.3, A129)
+     * @description **0.3.15**. Cả hai khóa bắt buộc; `null` = xóa. `addressLine` bỏ khoảng trắng đầu/cuối, 5–200 ký tự, một dòng, không ký tự điều khiển, bidi, zero-width;
+     *     `hotline` khớp `^\+?[0-9][0-9 .-]{7,19}$`, lưu đã chuẩn hóa (bỏ dấu cách/chấm/gạch, giữ `+`). Sai → 422 `VALIDATION_FAILED` (không lặp lại giá trị đã gửi).
+     *     Không `If-Match` (như Wi-Fi). Audit `config` `property.contact_changed` (trước/sau – thông tin công khai). Không SSE.
+     *     Tác động: chân phiếu in (`getBillingPeriodPrint`), trang công khai (`phonePublic`), miễn trừ hotline của `SENSITIVE_DATA_DETECTED` (đọc lại mỗi lần kiểm).
+     */
+    put: operations['setPropertyContact'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/properties/{propertyId}/parameters': {
     parameters: {
       query?: never;
@@ -1540,6 +1569,36 @@ export interface paths {
      *       bằng `createVietQr purpose=check_in` + `confirmPaymentReceived` (folio tạm có `creditVnd`). Desk thu tiền mặt/chuyển khoản tay/POS ở lần gọi (a) – cùng giao dịch với B9 như S-1.
      */
     post: operations['checkIn'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['parameters']['ReservationId'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Nhận phòng bù (B9) – khách dài hạn đã ở trước khi có Desk (FB-INV-012 §12.1.2, A127)
+     * @description **0.3.15**. Chỉ đơn dài hạn nhập tay `confirmed` (`manualLongStay`). Thứ tự kiểm: thiết bị → quyền → `If-Match` → `confirmed` (khác → 409 `INVALID_TRANSITION`)
+     *     → dài hạn nhập tay (422 `NOT_LONG_STAY`) → biên ngày đến (422 `arrivalDate`: `USE_CHECK_IN` khi = T, `BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED`, kèm `earliest`)
+     *     → ngày đi > T (422 `departureDate: DATE_IN_PAST`) → `conflictState` (409 `RESERVATION_UNASSIGNED`) → điều kiện BR-402 **không có** `room_ready`; căn có lượt khác → `unmet`
+     *     `room_occupied` (409 `CHECKIN_CONDITIONS_NOT_MET`) → dữ liệu trường.
+     *     `arrivalDate` khác ngày đến của đơn → dời ngày đến trong cùng giao dịch (đơn một đoạn; khác → 422 `arrivalDate: NOT_ALLOWED`; đêm thêm không trống → 409 `ROOM_UNAVAILABLE`),
+     *     `bookedArrivalDate`, tiền thuê tháng, ngày hết HĐ giữ nguyên. Không giờ nhận phòng, phụ thu, B9a, `payment`, `houseRulesSent`, nhánh 202 – gửi các trường đó → 422 `<field>: NOT_ALLOWED`.
+     *     `actualCheckinAt` = giờ bấm thật; `checkinBackdatedOn` = T. Không ghi dòng folio, không thu tiền. Audit `reservation.checked_in` (`after.backdated`) và
+     *     `reservation.checked_in_backdated`; `staff_notification` `backdated_stay` cho mọi OWN.
+     */
+    post: operations['checkInBackdated'];
     delete?: never;
     options?: never;
     head?: never;
@@ -5748,6 +5807,35 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ghi "đã thu ngoài Desk" cho phiếu tháng – OWN/MGR (FB-INV-012 §12.2, A128)
+     * @description **0.3.15**. Một khoản `charge` `outside_desk` (`succeeded`, `reconciliation = not_required`, không ca, không vào đối soát, không hoàn được – đảo bằng `reversePayment`, A34).
+     *     Chỉ phiếu `issued`/`partially_paid` còn nợ (khác → 409 `INVALID_TRANSITION`). `amountVnd` tùy chọn, mặc định = còn phải thu; > còn phải thu → 422 `AMOUNT_OVER_BALANCE`
+     *     (`balanceVnd`); ≤ 0 → 422. `receivedOn` ≤ T (lưu 12:00 giờ cơ sở). `reason` 3–300 (lọc số thẻ/giấy tờ) vào ghi chú khoản thu; `reference` tùy chọn ≤ 64 `[A-Za-z0-9 ./-]`,
+     *     không nhận số thẻ (422 `CARD_NUMBER_DETECTED`) hay chuỗi toàn số ≥ 9 chữ số (422 `reference: NOT_ALLOWED`).
+     *     **SEC 12-02**: MGR chỉ khi **cả ba**: (a) phiếu tháng nhận phòng (kỳ thuê chứa ngày đến) của đơn có `checkinBackdatedOn`; (b) số tiền ≤ phần dòng `rent` chưa thu;
+     *     (c) `receivedOn` ≤ `checkinBackdatedOn`. Khác → 403 `FORBIDDEN_ACTION` ("owner only") + một `access.denied`. OWN theo các luật trên.
+     *     Audit `money` `billing_period.settled_outside_desk`; `staff_notification` `statement_settled_outside_desk` cho mọi OWN (refType `reservation`, refCode = mã phiếu).
+     */
+    post: operations['settleBillingPeriodOutsideDesk'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print': {
     parameters: {
       query?: never;
@@ -6238,8 +6326,25 @@ export interface components {
       | 'transport_tour'
       | 'late_checkout'
       | 'other';
-    /** @enum {string} */
+    /**
+     * @description **Chỉ ở phản hồi và tham số lọc** (0.3.15, SEC 12-03). `outside_desk` = thu ngoài Desk – chỉ server ghi qua `settleBillingPeriodOutsideDesk`; thân lệnh dùng `PaymentMethodInput`
+     *     (gửi `outside_desk` → 422 `method: NOT_IN_LIST`).
+     * @enum {string}
+     */
     PaymentMethod:
+      | 'vietqr'
+      | 'bank_transfer'
+      | 'cash'
+      | 'card_pos'
+      | 'vnpay'
+      | 'momo'
+      | 'ota_collect'
+      | 'outside_desk';
+    /**
+     * @description **0.3.15 (SEC 12-03)** – phương thức nhận ở thân lệnh: `PaymentMethod` trừ `outside_desk`
+     * @enum {string}
+     */
+    PaymentMethodInput:
       'vietqr' | 'bank_transfer' | 'cash' | 'card_pos' | 'vnpay' | 'momo' | 'ota_collect';
     /** @enum {string} */
     PaymentType: 'charge' | 'deposit' | 'security_deposit' | 'refund' | 'deposit_deduction';
@@ -6482,6 +6587,24 @@ export interface components {
       requiresOtaRef?: boolean;
       isActive: boolean;
       commissionRatePct?: components['schemas']['Percent'];
+    };
+    /**
+     * @description **0.3.15 (FB-INV-012 §12.1.2)** – thân `checkInBackdated`. Không nhận các trường giờ/phụ thu/B9a/thu tiền của `checkIn`
+     *     (`checkinTime`, `checkinTimeNote`, `applyEarlySurcharge`, `expectedSurchargeVnd`, `houseRulesSent`, `doorAccessHandedOver`, `addPriorNight`, `priorNightRateVnd`,
+     *     `roomNotReadyOverride`, `requestFocForSurcharge`, `payment`) → 422 `<field>: NOT_ALLOWED`.
+     */
+    CheckInBackdatedInput: {
+      arrivalDate: components['schemas']['LocalDate'];
+      reason: string;
+      cardsIssued: number;
+      documentBlockOverride?: {
+        reason: string;
+      };
+    };
+    /** @description **0.3.15 (FB-INV-012 §12.3)** – địa chỉ một dòng và hotline công khai của cơ sở (`property.address`, `property.phone_public`) */
+    PropertyContact: {
+      addressLine: string | null;
+      hotline: string | null;
     };
     /** @description **0.3.13 (V5-58)** – Wi-Fi một mạng chung của cơ sở (BR-012 (7)); cùng nguồn `GuestStay.wifi` */
     PropertyWifi: {
@@ -6933,6 +7056,8 @@ export interface components {
       etaTime?: components['schemas']['LocalTime'];
       agreedCheckoutTime?: components['schemas']['LocalTime'];
       actualCheckinAt?: components['schemas']['Instant'];
+      /** @description **0.3.15 (FB-INV-012 §12.1.2)**: ngày nghiệp vụ của `checkInBackdated` (không có lý do); null = nhận phòng thường */
+      readonly checkinBackdatedOn?: components['schemas']['LocalDate'] | null;
       actualCheckoutAt?: components['schemas']['Instant'];
       hold?: {
         hours?: number;
@@ -7085,6 +7210,7 @@ export interface components {
        * @description Hành động máy trạng thái người gọi làm được lúc này (vai × trạng thái × giờ server). **0.3.12 (BUG-R3-042)**: giữ chỗ đã quá `holdExpiresAt` – `confirm-deposit` (B4)
        *     chỉ có với FD+ (OWN/MGR/FDL/FD) **và** `depositPaidVnd > 0`; SAL và giữ chỗ chưa nhận đồng nào không có. Client ẩn/hiện nút theo danh sách này, không tự so giờ.
        *     **0.3.13**: `check_out` có từ 00:00 ngày lịch = ngày đi (cửa sổ sau nửa đêm – V5-10, BUG-R4-036); với OWN/MGR còn có khi lượt đã quá ngày đi (`overdue = true` – V5-15).
+       *     **0.3.15**: `check_in_backdated` (B9, action `check-in-backdated`, `requiresTrustedDevice`) – OWN/MGR, đơn `confirmed` dài hạn nhập tay, ngày đến < T, không xung đột.
        */
       allowedActions: components['schemas']['AllowedAction'][];
       /**
@@ -7170,6 +7296,14 @@ export interface components {
       initialPayment?: components['schemas']['PaymentCreate'];
       internalNote?: string;
       manualLongStay?: components['schemas']['ManualLongStayInput'];
+      /**
+       * @description **0.3.15 (FB-INV-012 §12.1.1, A127)**: khách dài hạn đã ở trước khi có Desk – cho phép `arrivalDate` đã qua trong biên [T − 45, T − 1] (tháng trước chỉ khi chỉ số cuối tháng
+       *     đó còn ghi trễ được). Chỉ kèm `manualLongStay` (khác → 422 `backdatedArrival: NOT_ALLOWED`); chỉ OWN/MGR (khác → 403). Kèm `closerUserId` khác null → 422
+       *     `closerUserId: NOT_ALLOWED` (SEC 12-01). Đơn tạo ra `confirmed`; nhận phòng bằng `checkInBackdated`.
+       */
+      backdatedArrival?: {
+        reason: string;
+      };
     };
     /**
      * @description **US-017 AC5a – tạm cho R2 (R-C, plan R2 P-R2-3; bỏ khi US-081/US-086 AC3 xong ở R3).** Có thuộc tính này → server tạo
@@ -8177,7 +8311,7 @@ export interface components {
     /** @description `type=refund` không nhận ở đây (422 `NOT_IN_LIST`, `field` = `type`) – hoàn chỉ qua `executeRefund` (0.3.6, A-33) */
     PaymentCreate: {
       type: components['schemas']['PaymentType'];
-      method: components['schemas']['PaymentMethod'];
+      method: components['schemas']['PaymentMethodInput'];
       amountVnd: components['schemas']['MoneyVnd'];
       receivedAt?: components['schemas']['Instant'];
       /** @description Mã chuẩn chi máy POS (R-PAY-04) – không nhập số thẻ */
@@ -8524,6 +8658,7 @@ export interface components {
        *     `reservation.room_change_repriced`, `reservation.closer_changed`, `commission.projected`, `commission.earned`, `commission.voided`,
        *     `channel_fee.recorded`, `channel_fee.updated`, `overbooking.relocation_cost`, `approval.requested`, `approval.self_applied`, `approval.approved`,
        *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `approval.applied_capped`, `config.changed` (chỉ khóa `payment_receiving_account`).
+       *     **0.3.15 (FB-INV-012 §12.2)**: `billing_period.settled_outside_desk` – `after` = {paymentId, method, amountVnd, receivedOn, balanceVnd}; lý do ở `reason`.
        *     **0.3.12 (P4-12, ARC plan v1.0.4 quyết định 6.3, SEC-on-plan-v1.0.4 mục 1)**: `refund.destination_carried` – nơi nhận được chép sang yêu cầu hoàn thay thế; `entityType = approval_request`, chỉ mã yêu cầu cũ và mới, không số tài khoản.
        *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`. **ARC 16.31**: nghĩa của mã lý do theo **điều kiện** – công nợ đang mở lúc duyệt < số đã duyệt – không khẳng định nguyên nhân; ở R2 (sau BUG-R2-207, điều kiện OPS của BUG-R2-210) nguyên nhân duy nhất còn lại là khoản thu trong lúc chờ (khoản thu trả công nợ trước – BR-525 G-6). Đường mới làm giảm công nợ đang mở phải thêm mã lý do riêng; Desk gặp mã lạ hiện câu chung.
        *     **0.3.13 bổ sung 1f (SEC ARC-20; V5-48, SEC S8)**: `attention_event.resolved` – hiện **chỉ** ghi khi FD+ đóng mục "Cần chú ý" `deposit_after_cancel` bằng "Không thấy tiền";
@@ -9484,7 +9619,9 @@ export interface components {
     StaffNotification: {
       id: components['schemas']['Uuid'];
       /**
-       * @description **0.3.12 (BUG-R3-041, WA-04, DOM A.5 xác nhận 04/11)** – J1 đi qua `events.notify` (hộp thư + SSE `notification.created`); refType `reservation`, refCode = mã đơn; chỉ loại + mã + id,
+       * @description **0.3.15 (FB-INV-012 §12.1, §12.2)**: `backdated_stay` – đơn nhập bù / nhận phòng bù (mọi OWN; refType `reservation`, refCode = mã đơn);
+       *     `statement_settled_outside_desk` – mỗi lần ghi "đã thu ngoài Desk" (mọi OWN; refType `reservation`, refCode = mã phiếu). Không tên khách, không số tiền.
+       *     **0.3.12 (BUG-R3-041, WA-04, DOM A.5 xác nhận 04/11)** – J1 đi qua `events.notify` (hộp thư + SSE `notification.created`); refType `reservation`, refCode = mã đơn; chỉ loại + mã + id,
        *     không tên/SĐT/số tiền (SEC A5). Người nhận là tài khoản **đang hoạt động** có vai chưa thu hồi tại cơ sở; mỗi người **một** dòng mỗi sự kiện. Không bao giờ HK, MT, kế toán.
        *     `hold_overdue_with_deposit` – lượt J1 đầu tiên thấy giữ chỗ **đã nhận > 0 đ** quá `holdExpiresAt` (không tự hủy): người tạo + người chốt của đơn và mọi FD, FDL, **MGR** (0.3.12 thêm MGR);
        *     chống trùng theo (đơn, `holdExpiresAt`) – gia hạn giữ chỗ rồi lại quá hạn thì báo lần nữa. `hold_overdue_cap` – đơn vẫn `hold` (có cọc) lúc ≥ ngày đến + `hold_latest_time_on_arrival`:
@@ -9557,7 +9694,9 @@ export interface components {
         | 'late_fee_post_review'
         | 'foc_stay_total_exceeded'
         | 'hold_overdue_with_deposit'
-        | 'hold_overdue_cap';
+        | 'hold_overdue_cap'
+        | 'backdated_stay'
+        | 'statement_settled_outside_desk';
       /** @enum {string} */
       refType?:
         | 'reservation'
@@ -10388,8 +10527,15 @@ export interface components {
         reason?: string;
       } | null;
       note?: string | null;
+      /** @description **0.3.15**: `settle_outside_desk` – OWN/MGR, phiếu còn nợ (phạm vi MGR kiểm lúc ghi – SEC 12-02). Giá trị lạ → client bỏ qua */
       availableActions: (
-        'update' | 'prior_adjustment' | 'issue' | 'void' | 'record_payment' | 'print'
+        | 'update'
+        | 'prior_adjustment'
+        | 'issue'
+        | 'void'
+        | 'record_payment'
+        | 'print'
+        | 'settle_outside_desk'
       )[];
       ratesSnapshot?: {
         [key: string]: unknown;
@@ -10432,6 +10578,14 @@ export interface components {
       receivedAt?: components['schemas']['Instant'] | null;
       note?: string | null;
       bankReference?: string | null;
+    };
+    /** @description **0.3.15 (FB-INV-012 §12.2)** – thân `settleBillingPeriodOutsideDesk`; không có `method` (server ghi `outside_desk`) */
+    BillingPeriodOutsideDeskCreate: {
+      /** @description Mặc định = còn phải thu */
+      amountVnd?: components['schemas']['MoneyVnd'] | null;
+      receivedOn: components['schemas']['LocalDate'];
+      reason: string;
+      reference?: string | null;
     };
     BillingPeriodPaymentResult: {
       billingPeriod: components['schemas']['BillingPeriod'];
@@ -12053,6 +12207,67 @@ export interface operations {
       422: components['responses']['ValidationFailed'];
     };
   };
+  getPropertyContact: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PropertyContact'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+    };
+  };
+  setPropertyContact: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "addressLine": "1 Example Street",
+         *       "Ward 1": null,
+         *       "Da Lat": null,
+         *       "hotline": "+84 900 000 000"
+         *     }
+         */
+        'application/json': components['schemas']['PropertyContact'];
+      };
+    };
+    responses: {
+      /** @description Đã lưu (giá trị đã chuẩn hóa) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PropertyContact'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
   listParameters: {
     parameters: {
       query?: {
@@ -13413,6 +13628,59 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  checkInBackdated: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
+        'If-Match'?: components['parameters']['IfMatch'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['parameters']['ReservationId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "arrivalDate": "2026-11-01",
+         *       "reason": "Khách ở từ trước khi có Desk – HĐ giấy",
+         *       "cardsIssued": 2
+         *     }
+         */
+        'application/json': components['schemas']['CheckInBackdatedInput'];
+      };
+    };
+    responses: {
+      /** @description Đã nhận phòng bù */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Reservation'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
       428: components['responses']['PreconditionRequired'];
@@ -20783,6 +21051,59 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
+    };
+  };
+  settleBillingPeriodOutsideDesk: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
+        'If-Match'?: components['parameters']['IfMatch'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        billingPeriodId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "amountVnd": 8500000,
+         *       "receivedOn": "2026-11-03",
+         *       "reason": "Tiền thuê 11/2026 đã trả trên nền tảng cũ",
+         *       "reference": null
+         *     }
+         */
+        'application/json': components['schemas']['BillingPeriodOutsideDeskCreate'];
+      };
+    };
+    responses: {
+      /** @description Đã ghi khoản thu ngoài Desk */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillingPeriodPaymentResult'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
       428: components['responses']['PreconditionRequired'];
     };

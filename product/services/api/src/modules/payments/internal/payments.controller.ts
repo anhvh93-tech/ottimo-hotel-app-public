@@ -41,7 +41,18 @@ const ROLES = [
   'housekeeping',
   'maintenance',
 ] as const;
-const METHODS = ['vietqr', 'bank_transfer', 'cash', 'card_pos', 'vnpay', 'momo', 'ota_collect'];
+// listPayments `method` filter (a read): `PaymentMethod` incl. `outside_desk` (FB-INV-012 §12.2, response-only enum).
+// No request body takes it – `checkPaymentShape` (R2_METHODS) refuses it (SEC FB-R5-SEC-ARC-12-03).
+const METHODS = [
+  'vietqr',
+  'bank_transfer',
+  'cash',
+  'card_pos',
+  'vnpay',
+  'momo',
+  'ota_collect',
+  'outside_desk',
+];
 const STATUSES = ['pending', 'succeeded', 'failed', 'expired', 'reversed'];
 
 export const paymentCreateSchema = z.object({

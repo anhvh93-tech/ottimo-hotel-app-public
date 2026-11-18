@@ -7,7 +7,7 @@ import {
   type RoomSuggestion,
   type DirectSource,
   type GuestSummary,
-  type PaymentMethod,
+  type PaymentMethodInput,
   type QuoteCalculation,
   type Reservation,
   type ReservationCreate,
@@ -68,7 +68,7 @@ interface Props {
 
 /** Draft key scoped to the signed-in user (FB-R2-SEC-FE-05, like the guest form). */
 const draftKey = (userId: string | undefined) => `booking.new.${userId ?? 'anon'}`;
-const METHODS: Array<{ value: PaymentMethod; key: string }> = [
+const METHODS: Array<{ value: PaymentMethodInput; key: string }> = [
   { value: 'vietqr', key: 'pay.vietqr' },
   { value: 'bank_transfer', key: 'pay.bank_transfer' },
   { value: 'cash', key: 'pay.cash' },
@@ -107,7 +107,7 @@ interface Form {
    * (room, dates, guests changed → new deposit); after that it is never overwritten – a mismatch warning shows.
    */
   depositEdited?: boolean;
-  depositMethod: PaymentMethod;
+  depositMethod: PaymentMethodInput;
   /** ARC 16.23 (S4-13 B): the bank transaction reference goes with the payment – no receipt photo at B2. */
   depositNote: string;
   internalNote: string;
@@ -1671,7 +1671,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                     {...p}
                     className="input"
                     value={form.depositMethod}
-                    onChange={(e) => set({ depositMethod: e.target.value as PaymentMethod })}
+                    onChange={(e) => set({ depositMethod: e.target.value as PaymentMethodInput })}
                   >
                     {METHODS.map((m) => (
                       <option key={m.value} value={m.value}>

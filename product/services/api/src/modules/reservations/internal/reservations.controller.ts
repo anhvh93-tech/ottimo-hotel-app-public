@@ -23,6 +23,7 @@ import { Fields, asBody, pathId } from './inputs';
 import { RackService } from './rack.service';
 import { loadReservation } from './reservation-store';
 import {
+  BACKDATED_ARRIVAL_NEEDS_MGR,
   CLOSER_CHANGE_AFTER_CHECKIN,
   CLOSER_CHANGE_BEFORE_CHECKIN,
   ReservationsService,
@@ -208,15 +209,22 @@ export class ReservationsController {
     // US-155 (SEC FB-R3-SEC-US155-01): a booking for a website request keeps only its id in the idempotency
     // store; a replay reads the booking again for the caller.
     const web = body.websiteBookingRequestId !== undefined;
-    let result = await this.uow.run(req, async (tx) => {
-      const ctx = await this.ctx(tx, req);
-      const { row } = await this.reservations.create(tx, ctx, body);
-      return {
-        status: 201,
-        body: await this.reservations.dtoOf(tx, ctx, row),
-        ...(web ? { storeBody: false } : {}),
-      };
-    });
+    let result = await this.uow
+      .run(req, async (tx) => {
+        const ctx = await this.ctx(tx, req);
+        const { row } = await this.reservations.create(tx, ctx, body);
+        return {
+          status: 201,
+          body: await this.reservations.dtoOf(tx, ctx, row),
+          ...(web ? { storeBody: false } : {}),
+        };
+      })
+      .catch(async (err: unknown) => {
+        await recordUseCaseDenial(this.audit, req, err, 'createReservation', [
+          BACKDATED_ARRIVAL_NEEDS_MGR,
+        ]);
+        throw err;
+      });
     const stored = result.body as Record<string, unknown> | null;
     if (result.replayed && web && stored && Object.keys(stored).length === 1) {
       const id = stored.id as string;

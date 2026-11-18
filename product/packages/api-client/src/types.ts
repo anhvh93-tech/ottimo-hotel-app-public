@@ -50,6 +50,8 @@ export type CancellationQuote = Schemas['CancellationQuote'];
 export type CancelReasonCode = Schemas['CancelReasonCode'];
 export type PaymentCreate = Schemas['PaymentCreate'];
 export type PaymentMethod = Schemas['PaymentMethod'];
+/** OpenAPI 0.3.15 (SEC 12-03): the method a request body may send – `PaymentMethod` without `outside_desk`. */
+export type PaymentMethodInput = Schemas['PaymentMethodInput'];
 export type ApprovalRequest = Schemas['ApprovalRequest'];
 export type QuoteInput = Schemas['QuoteInput'];
 export type QuoteCalculation = Schemas['QuoteCalculation'];

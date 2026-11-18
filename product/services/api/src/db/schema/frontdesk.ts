@@ -243,6 +243,10 @@ export const STAFF_NOTIFICATION_KINDS = [
   // (creator, closer, FD/FDL/MGR) and, from 12:00 of the arrival day, MGR/OWN (BR-303 trần).
   'hold_overdue_with_deposit',
   'hold_overdue_cap',
+  // 0100 (FB-INV-012 §12.1 / §12.2): every OWN is told of a backdated long stay (A127) and of each outside-Desk
+  // receipt of a monthly statement (A128) – refType `reservation`, refCode = booking code / statement code only.
+  'backdated_stay',
+  'statement_settled_outside_desk',
 ] as const;
 export type StaffNotificationKind = (typeof STAFF_NOTIFICATION_KINDS)[number];
 
@@ -287,7 +291,7 @@ export const staffNotification = pgTable(
     }),
     check(
       'staff_notification_kind_check',
-      sql`${t.kind} IN ('hold_expired', 'hold_expiring', 'deposit_notice', 'deposit_after_cancel', 'guest_request_new', 'guest_request_overdue', 'work_order_overdue', 'approval_requested', 'approval_decided', 'registration_due', 'checkout_call_needed', 'security_alert', 'account_security_change', 'online_checkin_completed', 'payment_disputed', 'deposit_shortfall_accepted', 'receiving_account_changed', 'refund_ready', 'work_order_new', 'work_order_high_new', 'work_order_block_requested', 'hk_task_urgent', 'room_awaiting_inspection', 'hk_task_cancelled', 'approval_cancelled', 'no_show_marked', 'no_show_restored', 'debt_recorded', 'foc_stay_total_exceeded', 'website_request_new', 'website_request_cap_reached', 'website_request_overdue', 'website_request_linked_hold', 'public_booking_toggled', 'late_fee_post_review', 'hold_overdue_with_deposit', 'hold_overdue_cap')`,
+      sql`${t.kind} IN ('hold_expired', 'hold_expiring', 'deposit_notice', 'deposit_after_cancel', 'guest_request_new', 'guest_request_overdue', 'work_order_overdue', 'approval_requested', 'approval_decided', 'registration_due', 'checkout_call_needed', 'security_alert', 'account_security_change', 'online_checkin_completed', 'payment_disputed', 'deposit_shortfall_accepted', 'receiving_account_changed', 'refund_ready', 'work_order_new', 'work_order_high_new', 'work_order_block_requested', 'hk_task_urgent', 'room_awaiting_inspection', 'hk_task_cancelled', 'approval_cancelled', 'no_show_marked', 'no_show_restored', 'debt_recorded', 'foc_stay_total_exceeded', 'website_request_new', 'website_request_cap_reached', 'website_request_overdue', 'website_request_linked_hold', 'public_booking_toggled', 'late_fee_post_review', 'hold_overdue_with_deposit', 'hold_overdue_cap', 'backdated_stay', 'statement_settled_outside_desk')`,
     ),
     check(
       'staff_notification_ref_type_check',

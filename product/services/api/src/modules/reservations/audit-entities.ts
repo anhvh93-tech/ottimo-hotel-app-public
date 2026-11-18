@@ -8,6 +8,11 @@ import { defineAuditEntity } from '../audit/public/audit-fields';
 
 // Audit allowlists (SR-AUD-03): booking state/money facts only – no guest C2/C3 values.
 defineAuditEntity('reservation', [
+  // FB-INV-012 §12.1 (A127): backdated arrival / check-in – dates and flags only, the reason is the audit reason.
+  'backdatedArrival',
+  'backdated',
+  'checkinBackdatedOn',
+  'previousArrivalDate',
   'status',
   'roomNo',
   'arrivalDate',

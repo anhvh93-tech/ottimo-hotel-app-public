@@ -32,7 +32,9 @@ import { Operation } from '../../../shared/http/operation';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { MeterReadingsService } from './meter-readings.service';
-import { StatementsService } from './statements.service';
+import { AuditService } from '../../audit/public/audit.service';
+import { recordUseCaseDenial } from '../../audit/public/use-case-denial';
+import { OUTSIDE_DESK_OWNER_ONLY, StatementsService } from './statements.service';
 import { type BillingActor, UUID } from './stay';
 
 interface Reply {
@@ -47,6 +49,7 @@ export class BillingController {
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
     @Inject(MeterReadingsService) private readonly meters: MeterReadingsService,
     @Inject(StatementsService) private readonly statements: StatementsService,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   private principal(req: GuardedRequest) {
@@ -252,6 +255,31 @@ export class BillingController {
   ) {
     if (!UUID.test(id)) throw problem('NOT_FOUND');
     return this.write(req, reply, 201, (tx, a) => this.statements.recordPayment(tx, a, id, body));
+  }
+
+  /**
+   * FB-INV-012 §12.2 (A128): "đã thu ngoài Desk" – x-roles OWN/MGR + trusted device from the spec (SEC 12-02); a
+   * manager outside the go-live scope → 403 + exactly one access.denied (written after the rollback).
+   */
+  @Post('billing-periods/:billingPeriodId/settle-outside-desk')
+  @Operation('settleBillingPeriodOutsideDesk')
+  async settleOutsideDesk(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('billingPeriodId') id: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(id)) throw problem('NOT_FOUND');
+    try {
+      return await this.write(req, reply, 201, (tx, a) =>
+        this.statements.settleOutsideDesk(tx, a, id, body, req.ottimoAuth?.ifMatchVersion),
+      );
+    } catch (err) {
+      await recordUseCaseDenial(this.audit, req, err, 'settleBillingPeriodOutsideDesk', [
+        OUTSIDE_DESK_OWNER_ONLY,
+      ]);
+      throw err;
+    }
   }
 
   @Get('billing-periods/:billingPeriodId/print')

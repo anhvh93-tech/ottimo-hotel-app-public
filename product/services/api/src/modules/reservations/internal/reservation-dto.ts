@@ -177,6 +177,8 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
         }
       : {}),
     ...(row.actual_checkin_at ? { actualCheckinAt: d.iso(row.actual_checkin_at) } : {}),
+    // FB-INV-012 §12.1.2: staff only, no reason (the reason stays in the audit).
+    checkinBackdatedOn: row.checkin_backdated_on ?? null,
     ...(row.actual_checkout_at ? { actualCheckoutAt: d.iso(row.actual_checkout_at) } : {}),
     ...(row.hold_expires_at
       ? {

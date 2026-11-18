@@ -624,6 +624,7 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `total_room_vnd` | bigint NOT NULL default 0 | **0.3.5** (migration 0013) – tiền phòng snapshot (sau lịch giá, giảm số đêm) – cơ sở cọc BR-305; CHECK ≥ 0 | C2 | BR-305 |
 | `reschedule_count` | smallint NOT NULL default 0 | **0.3.5** (migration 0013) – số lần dời ngày B8 (≤ `reschedule_max_times`) | | BR-309 |
 | `actual_checkin_at`, `actual_checkout_at` | timestamptz | | C2 | |
+| `checkin_backdated_on`, `checkin_backdated_reason` | date null, text null | **0.3.15** (migration 0100, FB-INV-012 §12.1.2) – ngày nghiệp vụ của `checkInBackdated` và lý do (3–300). CHECK `reservation_checkin_backdated_pair_check`: cùng null hoặc cùng có. `actual_checkin_at` vẫn là giờ bấm thật | C2 (lý do) | A127 |
 | `cards_issued` | smallint null | **0.3.3** – số thẻ phòng phát lúc B9; CHECK `0 ≤ cards_issued ≤ 2` (giả định BA "2/đơn" – chờ DOM E05-06 a; nới biên = migration mới thay CHECK) | | BR-511 |
 | `door_access_handed_over_at`, `door_access_handed_over_by` | timestamptz null, uuid null | **0.3.3** (đề nghị UXD) – ô tick "đã giao mã/thẻ" R2; **không** lưu mã cửa; chờ PO quyết bắt buộc hay không | | US-025 AC3 |
 | `house_rules_sent_at`, `house_rules_sent_by` | timestamptz null, uuid null | **0.3.3** – lễ tân xác nhận đã gửi/giao nội quy lúc B9 (`checkIn.houseRulesSent`) – điều kiện thu phí phạt | | BR-511 |
@@ -785,7 +786,7 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 | `code` | | `PT-xxxxxx` (mục 10) – dùng làm `paymentId` gửi cổng (INT 3.2) |
 | `folio_id`, `reservation_id`, `billing_period_id` | | |
 | `type` | | `charge\|deposit\|security_deposit\|refund\|deposit_deduction` (DATA) |
-| `method` | | `vietqr\|bank_transfer\|cash\|card_pos\|vnpay\|momo\|ota_collect` |
+| `method` | | `vietqr\|bank_transfer\|cash\|card_pos\|vnpay\|momo\|ota_collect\|outside_desk`. **0.3.15** (migration 0100, FB-INV-012 §12.2): `outside_desk` = thu ngoài Desk, chỉ `settleBillingPeriodOutsideDesk` ghi; CHECK `payment_outside_desk_check`: `type = charge`, `reconciliation = not_required`, `shift_id` null, và (`billing_period_id` + `note` có) hoặc là dòng đảo (`reversal_of_id`) |
 | `method_detail` | | null hoặc `qr\|atm\|intl_card\|wallet` – kênh con do cổng báo (INT-responses mục 4, ARC-INT-11) |
 | `reconciliation` | | `not_required\|pending\|reconciled\|disputed` (thuộc tính, không phải trạng thái – SM-12, BR-527). Chuyển khoản/VietQR ghi tay → `pending`; tiền mặt, IPN đã xác thực, "đã thu qua OTA" → `not_required` |
 | `reconciled_at`, `reconciled_by`, `reconciliation_note` | | MGR+ tick theo sao kê; R3 bank feed tự khớp |
@@ -1681,6 +1682,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 18/11/2026 | 5 – FB-INV-012 gói sửa trước ra mắt (Sản xuất, OpenAPI 0.3.15-draft, migration 0100 – chỉ thêm) | `reservation.checkin_backdated_on`, `checkin_backdated_reason` (+ CHECK cặp); `payment.method` thêm `outside_desk` (+ CHECK `payment_outside_desk_check`); `meter_reading.catch_up` (+ CHECK, dùng ở PR đọc bù BR-LS-17); `staff_notification.kind` thêm `backdated_stay`, `statement_settled_outside_desk`; `config_parameter_def` thêm `long_stay_cleaning_fee_by_room` (OWN/MGR, mặc định `{}`) | BE |
 | 07/11/2026 | 5 – v1.0.5 (Review PR #120, V5-58; hợp đồng 0.3.13 bổ sung 1f) | 4.14 `rate_limit_counter`: thêm khóa `wifi_pw_cmp:<user_id>` (SR-RL-15 – cửa sổ cố định 24 giờ từ 00:00 UTC, giao dịch riêng commit trước phép so và trước 422, không đụng khóa đăng nhập); một hàm UPSERT `bumpRateLimitCounter` ở `shared/` cho mọi module; ghi rõ job dọn `public_site.cleanup` xóa mọi khóa hết hạn. Không migration | ARC |
 | 04/11/2026 | 4 – v1.0.3 (Phản hồi & sửa, FB-R4-SEC-ARC-PR31-04) | 4.16 + mục 12: chốt chặn 7 ngày là job `email_change.purge` (`BUILTIN_JOBS`, daily, `catchUp: always`, ghi `purge_journal` `email_change_7d`) – sửa chữ "J16" ở dòng bản sao lưu cho khớp mã (BE G-BE-2) | ARC |
 | 04/11/2026 | 4 – v1.0.3 (Review, SEC EM-10) | Mục 12 thêm 2 dòng còn giữ email: `idempotency_key.response_body` của `setMyEmail` (TTL 48 giờ, trần 720 giờ) và bản sao lưu (≤ 35 ngày) | ARC |

@@ -10,7 +10,7 @@
  * arrival month carries the partial rent), no 200.000 service fee line, VAT 8 % electricity / 5 % water on unit prices
  * before VAT (4.000 đ/kWh, 25.000 đ/m³). Opening readings are typed each period (meter-readings.service.ts).
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import type { Tx } from '../../../db/database';
 import { assertVersion } from '../../../shared/http/precondition';
@@ -33,7 +33,14 @@ import {
   STATEMENT_ROUNDING_CHARGE_CODE,
   WATER_CHARGE_CODE,
 } from '../../folio/public/statement-codes';
-import { PaymentService } from '../../payments/public/payment.service';
+import { EventsService } from '../../events/public/events.service';
+import {
+  OUTSIDE_DESK_METHOD,
+  OUTSIDE_DESK_SOURCE,
+  PaymentService,
+} from '../../payments/public/payment.service';
+import { assertNotCardNumberReference } from '../../../shared/validation';
+import { atLocal, toZonedIso } from '../../../shared/time';
 import { divideRoundVnd } from '../../platform/public/money';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { type PropertyNow, PropertyContextService } from '../../platform/public/property-context';
@@ -81,6 +88,7 @@ import {
   UUID,
   freeText,
   isFdlPlus,
+  isLocalDate,
   isUniqueViolation,
   loadLongStay,
   obj,
@@ -192,6 +200,11 @@ const BP_COLUMNS = `b.id, b.folio_id, b.reservation_id, b.code, b.statement_mont
   b.vat_vnd::text, b.rounding_vnd::text, b.total_vnd::text, b.paid_vnd::text, b.issued_at, b.issued_by, b.paid_at,
   b.voided_at, b.void_reason, b.version`;
 
+/** §12.2 `reference`: ≤ 64 of `[A-Za-z0-9 ./-]` (filtered like `bankReference`). */
+const OUTSIDE_DESK_REFERENCE = /^[A-Za-z0-9 ./-]{1,64}$/;
+/** auditReason of the manager's refusal outside the go-live scope (SEC FB-R5-SEC-ARC-12-02). */
+export const OUTSIDE_DESK_OWNER_ONLY = 'OUTSIDE_DESK_OWNER_ONLY';
+
 const LIVE_ISSUED: readonly Status[] = ['issued', 'partially_paid', 'paid'];
 const n = (v: string | null): number => (v === null ? 0 : Number(v));
 const monthLabel = (m: LocalDate): string => m.slice(0, 7);
@@ -213,6 +226,7 @@ export class StatementsService {
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
     @Inject(MeterReadingsService) private readonly meters: MeterReadingsService,
+    @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
   // ───────────────────────── parameters ─────────────────────────
@@ -910,14 +924,25 @@ export class StatementsService {
 
   private actions(row: BpRow, actor: BillingActor): string[] {
     const fdl = isFdlPlus(actor.roles);
+    // §12.2: OWN/MGR (a manager's scope is checked at write – SEC 12-02).
+    const mgr = actor.roles.includes('owner') || actor.roles.includes('manager');
     const balance = n(row.total_vnd) - n(row.paid_vnd);
     switch (row.status) {
       case 'draft':
         return ['update', ...(fdl ? ['prior_adjustment'] : []), 'issue', 'void'];
       case 'issued':
-        return [...(balance > 0 ? ['record_payment'] : []), 'print', ...(fdl ? ['void'] : [])];
+        return [
+          ...(balance > 0 ? ['record_payment'] : []),
+          ...(balance > 0 && mgr ? ['settle_outside_desk'] : []),
+          'print',
+          ...(fdl ? ['void'] : []),
+        ];
       case 'partially_paid':
-        return [...(balance > 0 ? ['record_payment'] : []), 'print'];
+        return [
+          ...(balance > 0 ? ['record_payment'] : []),
+          ...(balance > 0 && mgr ? ['settle_outside_desk'] : []),
+          'print',
+        ];
       case 'paid':
         return ['print'];
       default:
@@ -1915,6 +1940,185 @@ export class StatementsService {
         reconciliation: payment.reconciliation,
       },
     };
+  }
+
+  /**
+   * FB-INV-012 §12.2 (A128, ARC G4) – "đã thu ngoài Desk": the statement (or part of it) was paid before Desk, on the
+   * old platform. One `charge` receipt `outside_desk` (no shift, no reconciliation, not refundable), then `refreshPaid`.
+   * Order: body shape → lock (booking → folio → statement) → status → balance → role scope (SEC FB-R5-SEC-ARC-12-02).
+   * - OWN: any `issued`/`partially_paid` statement, any amount ≤ balance, any `receivedOn` ≤ T.
+   * - MGR: only the go-live case – (a) the check-in statement of a backdated stay (`checkin_backdated_on` set, the rent
+   *   period holds the arrival), (b) amount ≤ the unpaid part of its `rent` lines, (c) `receivedOn` ≤ the backdated
+   *   check-in day. Otherwise 403 FORBIDDEN_ACTION "owner only" + one access.denied (controller, auditReason).
+   */
+  async settleOutsideDesk(
+    tx: Tx,
+    actor: BillingActor,
+    id: string,
+    raw: unknown,
+    ifMatch?: number,
+  ): Promise<{ billingPeriod: Record<string, unknown>; payment: Record<string, unknown> }> {
+    const body = obj(raw);
+    const allowedKeys = ['amountVnd', 'receivedOn', 'reason', 'reference'];
+    const extra = Object.keys(body).find((k) => !allowedKeys.includes(k));
+    if (extra)
+      throw problem('VALIDATION_FAILED', { errors: [{ field: extra, code: 'NOT_ALLOWED' }] });
+    const amountRaw = body.amountVnd;
+    if (
+      amountRaw !== undefined &&
+      amountRaw !== null &&
+      (!Number.isSafeInteger(amountRaw) || (amountRaw as number) <= 0)
+    ) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'amountVnd', code: 'VALIDATION_FAILED' }],
+      });
+    }
+    const receivedOn = body.receivedOn;
+    if (!isLocalDate(receivedOn)) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [
+          { field: 'receivedOn', code: receivedOn === undefined ? 'REQUIRED' : 'DATE_INVALID' },
+        ],
+      });
+    }
+    const reason = freeText('reason', body.reason, { required: true }) as string;
+    let reference: string | null = null;
+    if (body.reference !== undefined && body.reference !== null) {
+      const r = typeof body.reference === 'string' ? body.reference.trim() : null;
+      if (r === null || !OUTSIDE_DESK_REFERENCE.test(r)) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'reference', code: 'VALIDATION_FAILED' }],
+        });
+      }
+      assertNotCardNumberReference('reference', r.replace(/ /g, '-'));
+      // Only digits (9+, separators aside) is how an account number looks – the field never takes one (§12.2).
+      if (/^[0-9]{9,}$/.test(r.replace(/[ ./-]/g, ''))) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'reference', code: 'NOT_ALLOWED' }],
+        });
+      }
+      reference = r;
+    }
+
+    const pc = await this.property.now(tx);
+    if (receivedOn > pc.today) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'receivedOn', code: 'DATE_IN_FUTURE' }],
+      });
+    }
+    const { stay, row } = await this.lockStatement(tx, id);
+    if (ifMatch !== undefined) assertVersion(row.version, ifMatch);
+    if (row.status !== 'issued' && row.status !== 'partially_paid') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: row.status } });
+    }
+    const paid = await this.paidVnd(tx, row.id);
+    const balance = n(row.total_vnd) - paid;
+    if (balance <= 0) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: row.status } });
+    }
+    const amount = amountRaw === undefined || amountRaw === null ? balance : (amountRaw as number);
+    if (amount > balance) {
+      throw problem('AMOUNT_OVER_BALANCE', { extras: { balanceVnd: Math.max(0, balance) } });
+    }
+    if (!actor.roles.includes('owner')) {
+      await this.assertManagerGoLiveScope(tx, row, stay, amount, paid, receivedOn);
+    }
+
+    const payment = await this.payments.recordInTx(
+      tx,
+      actor,
+      row.folio_id,
+      {
+        type: 'charge',
+        method: OUTSIDE_DESK_METHOD,
+        amountVnd: amount,
+        receivedAt: toZonedIso(atLocal(receivedOn, '12:00', pc.timezone), pc.timezone),
+        note: reference ? `${reason} | ref ${reference}` : reason,
+      },
+      {
+        reservationId: stay.id,
+        reservationCode: stay.code,
+        outstandingCapVnd: balance,
+        billingPeriodId: row.id,
+        source: OUTSIDE_DESK_SOURCE,
+      },
+    );
+    await this.refreshPaid(tx, row.id);
+    await this.audit.record(tx, {
+      category: 'money',
+      action: 'billing_period.settled_outside_desk',
+      entityType: 'billing_period',
+      entityId: row.id,
+      ...(row.code ? { entityCode: row.code } : {}),
+      before: { status: row.status, paidVnd: paid },
+      after: {
+        paymentId: payment.id,
+        method: OUTSIDE_DESK_METHOD,
+        amountVnd: amount,
+        receivedOn,
+        balanceVnd: balance - amount,
+      },
+      reason,
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
+    await this.events?.notify(
+      tx,
+      {
+        kind: 'statement_settled_outside_desk',
+        roles: ['owner'],
+        refType: 'reservation',
+        refId: stay.id,
+        refCode: row.code ?? stay.code,
+      },
+      pc.now,
+    );
+    const next = (await this.row(tx, id)) as BpRow;
+    return {
+      billingPeriod: await this.view(tx, actor, next, pc),
+      payment: {
+        id: payment.id,
+        method: payment.method,
+        amountVnd: payment.amount_vnd,
+        status: payment.status,
+        reconciliation: payment.reconciliation,
+      },
+    };
+  }
+
+  /** SEC FB-R5-SEC-ARC-12-02: the three conditions under which a manager may settle outside Desk. */
+  private async assertManagerGoLiveScope(
+    tx: Tx,
+    row: BpRow,
+    stay: LongStay,
+    amount: number,
+    paid: number,
+    receivedOn: LocalDate,
+  ): Promise<void> {
+    const denied = () =>
+      problem('FORBIDDEN_ACTION', {
+        detail: 'owner only',
+        auditReason: OUTSIDE_DESK_OWNER_ONLY,
+      });
+    const { rows } = await tx.query<{ backdated_on: string | null; arrival: string }>(
+      `SELECT checkin_backdated_on::text AS backdated_on, arrival_date::text AS arrival
+         FROM reservation WHERE id = $1`,
+      [stay.id],
+    );
+    const r = rows[0];
+    if (!r || r.backdated_on === null) throw denied();
+    // (a) the statement whose rent period holds the arrival (the check-in statement).
+    const from = row.rent_period_from ?? row.statement_month;
+    const to = row.rent_period_to ?? addDays(addMonths(row.statement_month, 1), -1);
+    if (r.arrival < from || r.arrival > to) throw denied();
+    // (b) only the unpaid part of its rent lines.
+    const { rows: rent } = await tx.query<{ s: string | null }>(
+      `SELECT sum(amount_vnd)::text AS s FROM billing_period_line
+        WHERE billing_period_id = $1 AND active AND kind = 'rent'`,
+      [row.id],
+    );
+    if (amount > n(rent[0]?.s ?? null) - paid) throw denied();
+    // (c) received before Desk.
+    if (receivedOn > r.backdated_on) throw denied();
   }
 
   async print(tx: Tx, actor: BillingActor, id: string): Promise<Record<string, unknown>> {

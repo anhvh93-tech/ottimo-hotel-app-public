@@ -6,7 +6,7 @@ import {
   type MovePreview,
   type MoveReasonCode,
   type Payment,
-  type PaymentMethod,
+  type PaymentMethodInput,
   type Reservation,
   type ReservationStatus,
   type Room,
@@ -508,7 +508,7 @@ function receivedDeposits(payments: Payment[] | undefined): Payment[] {
   );
 }
 
-const METHODS: Array<{ value: PaymentMethod; key: string }> = [
+const METHODS: Array<{ value: PaymentMethodInput; key: string }> = [
   { value: 'vietqr', key: 'pay.vietqr' },
   { value: 'bank_transfer', key: 'pay.bank_transfer' },
   { value: 'cash', key: 'pay.cash' },
@@ -544,7 +544,7 @@ export function DepositDialog(props: DialogBase) {
   const paidBefore = r.depositPaidVnd ?? 0;
   const missing = Math.max(0, need - paidBefore);
   const [amount, setAmount] = useState(missing ? vnd(missing) : '');
-  const [method, setMethod] = useState<PaymentMethod>('vietqr');
+  const [method, setMethod] = useState<PaymentMethodInput>('vietqr');
   const [posCode, setPosCode] = useState('');
   const [touched, setTouched] = useState(false);
   const value = parseVnd(amount) ?? 0;
@@ -818,7 +818,7 @@ export function DepositDialog(props: DialogBase) {
               {...p}
               className="input"
               value={method}
-              onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+              onChange={(e) => setMethod(e.target.value as PaymentMethodInput)}
             >
               {METHODS.map((m) => (
                 <option key={m.value} value={m.value}>

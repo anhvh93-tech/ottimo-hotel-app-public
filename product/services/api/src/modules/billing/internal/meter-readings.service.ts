@@ -410,7 +410,11 @@ export class MeterReadingsService {
       throw problem('INVALID_TRANSITION', { extras: { currentState: stay.status } });
     }
     const pc = await this.property.now(tx);
-    if (day > pc.today || day < stay.arrival || day > stay.departure) {
+    // FB-INV-012 §12.1.3: the check-in reading of a backdated check-in may carry the day on the paper log, down to the
+    // evening before the arrival.
+    const backdatedCheckin = k === 'checkin' && !!stay.checkinBackdatedOn;
+    const earliestDay = backdatedCheckin ? addDays(stay.arrival, -1) : stay.arrival;
+    if (day > pc.today || day < earliestDay || day > stay.departure) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'readOn', code: 'DATE_INVALID' }] });
     }
     const rules = readRules(await this.params.get(tx, STATEMENT_RULES_KEY, pc.today));
@@ -435,6 +439,22 @@ export class MeterReadingsService {
       if (reason === null) throw problem('READING_OUT_OF_WINDOW', out);
       return reason;
     };
+    // FB-INV-012 §12.1.3: the check-in reading of a backdated check-in is always a late reading – FDL+ with a reason,
+    // `readOn` in [arrival − 1, T], typed until `checkin_backdated_on` + daysAfter + lateMaxDays.
+    const backdatedGate = (backdatedOn: LocalDate): string => {
+      const lateUntil = addDays(backdatedOn, rules.readingWindow.daysAfter + lateMaxDaysOf(rules));
+      const out = {
+        extras: {
+          windowFrom: earliestDay,
+          windowTo: pc.today,
+          ...(pc.today <= lateUntil ? { lateUntil, lateNeedsRole: 'front_desk_lead' } : {}),
+        },
+      };
+      if (pc.today > lateUntil || !fdl) throw problem('READING_OUT_OF_WINDOW', out);
+      const reason = freeText('lateReason', body.lateReason);
+      if (reason === null) throw problem('READING_OUT_OF_WINDOW', out);
+      return reason;
+    };
     let anchor: LocalDate | null = null;
     if (periodMonth) {
       lateReason = gate(windowOf(k as 'period_start' | 'period_end', periodMonth, rules));
@@ -450,7 +470,22 @@ export class MeterReadingsService {
       if (anchor === null) {
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_ALLOWED' }] });
       }
-      lateReason = gate({ from: anchor, to: addDays(anchor, rules.readingWindow.daysAfter) });
+      lateReason = backdatedCheckin
+        ? backdatedGate(stay.checkinBackdatedOn as LocalDate)
+        : gate({ from: anchor, to: addDays(anchor, rules.readingWindow.daysAfter) });
+    }
+    if (backdatedCheckin) {
+      // SEC FB-R5-SEC-ARC-12-06: never before the latest live reading of the room (another stay's closing included).
+      const { rows: last } = await tx.query<{ d: string | null }>(
+        `SELECT max(read_on)::text AS d FROM meter_reading WHERE room_id = $1 AND voided_at IS NULL`,
+        [room.roomId],
+      );
+      const latest = last[0]?.d ?? null;
+      if (latest !== null && day < latest) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'readOn', code: 'DATE_INVALID' }],
+        });
+      }
     }
     if (photoId !== undefined && photoId !== null && photoId !== '') {
       await this.attachments.assertUsable(tx, actor, String(photoId), 'meter', {

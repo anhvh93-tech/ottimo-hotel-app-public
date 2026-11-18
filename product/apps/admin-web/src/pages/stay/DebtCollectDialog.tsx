@@ -1,7 +1,7 @@
 import {
   isApiError,
   type FolioLine,
-  type PaymentMethod,
+  type PaymentMethodInput,
   type Reservation,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
@@ -78,7 +78,7 @@ export function DebtCollectDialog({
         { propertyId, folioId: r.folioId },
         {
           type: 'charge',
-          method: method as PaymentMethod,
+          method: method as PaymentMethodInput,
           amountVnd: value,
           note: note.trim() || undefined,
           posAuthCode: method === 'card_pos' ? pos.trim() : undefined,

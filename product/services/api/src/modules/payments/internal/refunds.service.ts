@@ -843,6 +843,12 @@ export class RefundsService {
         [folio.id, fixed],
       );
       method = orig[0]?.method ?? 'cash';
+      // FB-INV-012 §12.2: money received outside Desk is never paid back by Desk (a wrong entry is reversed, A34).
+      if (method === 'outside_desk') {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'refundMethod', code: 'NOT_ALLOWED' }],
+        });
+      }
       // ARC-BE-S3-26 / SEC-BE-45: cash (or money the OTA holds) is never paid out by this operation – cash goes
       // through executeCashRefund with the guest's signed receipt (A47a).
       if (method === 'cash' || method === 'ota_collect') {
