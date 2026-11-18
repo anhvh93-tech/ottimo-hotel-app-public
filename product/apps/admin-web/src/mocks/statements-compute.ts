@@ -64,6 +64,7 @@ const flat = (
   vatVnd: 0,
   amountVnd,
   folioLineId: null,
+  periodMonth: null,
   ...extra,
 });
 
@@ -79,6 +80,7 @@ export function compute(st: MockState, p: StoredPeriod, rates: Rates) {
     flat('rent', 'bill.line.monthly_rent', stay.monthlyRentVnd, {
       labelParams: { from: rentPeriod.from, to: rentPeriod.to },
       unit: 'month',
+      periodMonth: rentMonth,
     }),
   ];
   const warnings: StatementWarning[] = [];
@@ -121,6 +123,7 @@ export function compute(st: MockState, p: StoredPeriod, rates: Rates) {
         vatVnd: v,
         amountVnd: net + v,
         folioLineId: null,
+        periodMonth: u,
       });
       const threshold = type === 'electricity' ? 300 : 10;
       if (qty > threshold)
@@ -168,6 +171,7 @@ export function compute(st: MockState, p: StoredPeriod, rates: Rates) {
     const line = flat('service', s.labelKey, s.amountVnd, {
       serviceDate: s.serviceDate,
       folioLineId: s.id,
+      periodMonth: s.serviceDate.slice(0, 7),
     });
     (p.excludedFolioLineIds.includes(s.id) ? excludedLines : lines).push(line);
   }

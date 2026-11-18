@@ -88,6 +88,9 @@ export function lineText(locale: Locale, line: StatementLine): string {
     else if (typeof v === 'string' && /^\d{4}-\d{2}$/.test(v)) params[k] = shortMonth(locale, v);
     else if (typeof v === 'string' || typeof v === 'number') params[k] = v;
   }
+  // Utility lines name their month (UXD-189-02): `labelParams.month`, else the line's `periodMonth`.
+  if (params.month === undefined && line.periodMonth && /^\d{4}-\d{2}$/.test(line.periodMonth))
+    params.month = shortMonth(locale, line.periodMonth);
   // The prior-period reason is internal text: never on the line label the guest reads.
   delete params.reason;
   let label = translate(locale, line.labelKey, params);

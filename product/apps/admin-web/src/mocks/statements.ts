@@ -249,8 +249,21 @@ export function createStatementsMock(c: Ctx) {
         .filter((a) => a.effectiveFrom <= today())
         .at(-1);
       const balance = v.totals.balanceVnd;
+      // OpenAPI `BillingPeriodPrint`: only the sheet's fields (SEC BE-190-03).
       const out: BillingPeriodPrint = {
-        ...v,
+        id: v.id,
+        code: v.code ?? null,
+        status: v.status,
+        kind: v.kind,
+        month: v.month,
+        roomNos: v.roomNos,
+        rentPeriod: v.rentPeriod,
+        utilityPeriod: v.utilityPeriod,
+        servicePeriod: v.servicePeriod,
+        dueDate: v.dueDate,
+        issuedAt: v.issuedAt,
+        lines: v.lines,
+        totals: v.totals,
         // OpenAPI 0.3.14: the property has no public e-mail column yet – always null.
         property: {
           displayName: 'OTTIMO Boutique Stay',

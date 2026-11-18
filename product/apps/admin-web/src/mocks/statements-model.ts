@@ -274,6 +274,8 @@ export function readingView(st: MockState, x: StoredReading, issued: Set<string>
     note: x.note,
     readByRole: x.readByRole,
     readByInitials: x.readByInitials,
+    late: !!x.lateReason,
+    lateReason: x.lateReason,
     voided: !!x.voidedAt,
     voidedAt: x.voidedAt,
     voidReason: x.voidReason,

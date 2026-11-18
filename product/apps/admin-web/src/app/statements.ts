@@ -80,6 +80,9 @@ export interface MeterReading {
   note?: string | null;
   readByRole?: string;
   readByInitials?: string | null;
+  /** Recorded after the window by FDL+ (BE-190-03). */
+  late?: boolean;
+  lateReason?: string | null;
   voided: boolean;
   voidedAt?: string | null;
   voidReason?: string | null;
@@ -150,6 +153,8 @@ export interface StatementLine {
   vatVnd: number;
   amountVnd: number;
   folioLineId?: string | null;
+  /** `YYYY-MM` of the line: rent → rent period, utilities → utility period, service → its day; null otherwise. */
+  periodMonth?: string | null;
 }
 
 export const KNOWN_WARNINGS = [
@@ -260,8 +265,24 @@ export interface BillingPeriodSummary {
   alertLevel?: AlertLevel | null;
 }
 
-/** OpenAPI `BillingPeriodPrint`. */
-export interface BillingPeriodPrint extends BillingPeriod {
+/** OpenAPI `BillingPeriodPrint` – ONLY the sheet's fields (SEC BE-190-03: no notes, reasons, folio, actions). */
+export interface BillingPeriodPrint
+  extends Pick<
+    BillingPeriod,
+    | 'id'
+    | 'status'
+    | 'kind'
+    | 'month'
+    | 'roomNos'
+    | 'rentPeriod'
+    | 'utilityPeriod'
+    | 'servicePeriod'
+    | 'dueDate'
+    | 'issuedAt'
+    | 'lines'
+    | 'totals'
+  > {
+  code: string | null;
   property: {
     displayName?: string | null;
     addressLine?: string | null;
