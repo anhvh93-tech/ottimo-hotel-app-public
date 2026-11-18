@@ -259,3 +259,13 @@ Ghi chú:
 - Phiếu in: `BillingPeriodPrint.roomNames` → "The Ivory · 302" (tên Lora, số Mono); tên null thì chỉ số căn (UXD-189-11).
 - Test schema: bỏ hết các khoản cho qua tạm; mock khớp spec `da40f1c7` 2/2. Test mới: ghi trễ theo phản hồi server, 409 `READING_EXISTS`, tên căn trên phiếu. admin-web vitest 1132 xanh, `tsc`, ESLint sạch.
 - FB-R5-ARC-FE-189-05/06: vẫn chờ BE #190 merge.
+
+### Lượt 4 – sau khi BE #190 merge (18/11)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R5-ARC-FE-189-05 (điều kiện merge) | Done | Đã merge `origin/main` (không rebase). Mọi kiểu của phiếu tháng và chỉ số lấy từ `@ottimo/api-client` sinh từ OpenAPI (`types.ts`: `MeterReading`, `BodyOf<'recordMeterReading'>`, `ResponseOf<'listBillingPeriods'>`, `ResponseOf<'getBillingPeriodPrint'>`…). 12 hàm gọi chuyển vào `endpoints.ts` (`api.listMeterReadings`, `api.getBillingPeriod`…), có test riêng. `app/statements.ts` chỉ còn tên rút gọn và tiện ích (`monthOf`, `shiftMonth`, `parseMeter`, `meterUsage`, `statusTone`). Bỏ `apiClient` thô. Việc chuyển kiểu lộ ra một lệch thật: `listBillingPeriods` trả `{data, page}`, FE và mock đang đọc `items`. Đã sửa cả hai, và test schema nay kiểm cả vỏ phản hồi theo `paths`, không chỉ từng phần tử |
+| FB-R5-ARC-FE-189-06 | Done | `AttachmentPurpose` trong `api-client` lấy thẳng từ enum của `uploadAttachment` (có `meter`), không còn union gõ tay. FE gọi `api.uploadAttachment(…, 'meter', …)` không ép kiểu |
+| Test schema mock | Done | Bỏ `skipIf`; chạy trên spec của nhánh (đã có #190), xanh |
+| UXD: `error.READING_OUT_OF_WINDOW` | Done | Câu dùng `{date}` và `{days}`; `{days}` = `lateUntil − windowTo` từ phản hồi server (tham số `lateMaxDays`), không gõ số. Hết cả hạn ghi trễ (không có `lateUntil`) thì dùng câu mới `error.READING_OUT_OF_WINDOW_PAST_LATE`, không nhắc lễ tân trưởng. Chờ UXD duyệt câu chữ |
+| E2E Playwright FB-012 | Done – chờ CI | `tests/e2e/ui-clock/fb012-monthly-statement.r5.spec.ts` (project desk-clock, đồng hồ giả, ngày ảo riêng). Dựng bằng API một đơn dài hạn nhập tay nhận phòng giữa tháng M và tài khoản nhận VietQR thử. Desk: chỉ số nhận phòng → ngày cuối M chốt cuối kỳ + đầu kỳ M+1 → ngày 01 M+1 tạo nháp, xác nhận cảnh báo, phát hành, in A5 và A4 (mỗi khổ 1 trang PDF, ảnh đính kèm), payload QR = còn nợ + mã phiếu, thu VietQR → Đã thu. Bản nháp cũ (17/11) viết theo giao diện trước review nên viết lại. Chạy xanh 3 lần trên stack compose cục bộ dùng một lần (đã gỡ); kết quả CI ghi ở báo cáo |
