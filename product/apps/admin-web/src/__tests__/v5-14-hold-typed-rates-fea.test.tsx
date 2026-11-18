@@ -161,7 +161,8 @@ describe('V5-14 – "Giữ chỗ" keeps the rates the desk typed', () => {
     ).toBe(true);
   });
 
-  it('PR75-02 loop gone: a typed box emptied again blocks the hold with "Nhập giá mỗi đêm" – no quote sent', async () => {
+  // V5-22 (FB-R4-UXD-FE-PR70-03): Trực tiếp / CTV with empty nights → "Gõ giá cho các đêm còn trống."
+  it('PR75-02 loop gone: a typed box emptied again blocks the hold with "Gõ giá cho các đêm còn trống" – no quote sent', async () => {
     pinDaytime();
     const sent = posts();
     const { user } = renderApp('/rack', 'qa.fd');
@@ -169,12 +170,12 @@ describe('V5-14 – "Giữ chỗ" keeps the rates the desk typed', () => {
     await typeRate(user, dlg, tomorrow(), '880000');
     await typeRate(user, dlg, tomorrow(), '');
     await user.click(holdButton(dlg));
-    expect(await within(dlg).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
+    expect(await within(dlg).findByText(tv('booking.error.rate_missing'))).toBeInTheDocument();
     expect(sent.some((s) => /\/quotes$/.test(s.path))).toBe(false);
     expect(sent.some((s) => s.path.endsWith('/actions/create-hold'))).toBe(false);
   });
 
-  it('no 0 for a night whose calendar rate is not back yet: one night typed, the other box empty → neither the preview nor the hold sends the nights, "Nhập giá mỗi đêm"', async () => {
+  it('no 0 for a night whose calendar rate is not back yet: one night typed, the other box empty → neither the preview nor the hold sends the nights, "Gõ giá cho các đêm còn trống"', async () => {
     pinDaytime();
     const sent = posts();
     server.use(http.post(/\/quotes\/calculate$/, () => new Promise<Response>(() => undefined)));
@@ -183,7 +184,7 @@ describe('V5-14 – "Giữ chỗ" keeps the rates the desk typed', () => {
     expect(rateBox(dlg, addDays(tomorrow(), 1)).value).toBe('');
     await typeRate(user, dlg, tomorrow(), '880000');
     await user.click(holdButton(dlg));
-    expect(await within(dlg).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
+    expect(await within(dlg).findByText(tv('booking.error.rate_missing'))).toBeInTheDocument();
     expect(sent.some((s) => /\/quotes$/.test(s.path))).toBe(false);
     expect(sent.some((s) => s.path.endsWith('/actions/create-hold'))).toBe(false);
     expect(sent.some((s) => 'nightlyRates' in s.body)).toBe(false);

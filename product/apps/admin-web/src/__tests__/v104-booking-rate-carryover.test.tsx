@@ -683,7 +683,8 @@ describe('FB-R4-ARC-FE-PR82-01/03 – OTA and Nội bộ: every night typed, or 
   });
 
   // FB-R4-ARC-FE-PR82-03: the OTA half of the rule had no test (dropping OTA from the condition kept every test green)
-  it('OTA, 2 nights, only night 1 typed → "Nhập giá mỗi đêm" and nothing sent; both typed → sent as typed', async () => {
+  // V5-22 (FB-R4-UXD-FE-PR70-03): the OTA sentence says the two ways – every night, or none (OTA calendar)
+  it('OTA, 2 nights, only night 1 typed → "Gõ giá cho mọi đêm, hoặc để trống hết…" and nothing sent; both typed → sent as typed', async () => {
     pinDaytime();
     const sent = createBodies();
     const d1 = todayLocal();
@@ -703,8 +704,15 @@ describe('FB-R4-ARC-FE-PR82-01/03 – OTA and Nội bộ: every night typed, or 
     // without the rule: no rates sent, the server priced every night from the OTA calendar and 880000 was lost
     await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
     const field = rateField(dlg);
-    expect(await within(field).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
+    expect(
+      await within(field).findByText(tv('booking.error.rate_partial_ota')),
+    ).toBeInTheDocument();
+    expect(within(field).queryByText(tv('booking.error.rate_empty'))).toBeNull();
     expect(within(field).queryByText(tv('booking.error.rate_empty_internal'))).toBeNull();
+    // the empty night is the one marked and read with the sentence; the typed one is not
+    expect(rateBox(dlg, d2)).toHaveAttribute('aria-invalid', 'true');
+    expect(rateBox(dlg, d2)).toHaveAccessibleDescription(tv('booking.error.rate_partial_ota'));
+    expect(rateBox(dlg, d1)).not.toHaveAttribute('aria-invalid');
     expect(screen.queryByText(/^Đã tạo đơn OTM-0\d+$/)).toBeNull();
     expect(sent).toHaveLength(0);
     await user.type(rateBox(dlg, d2), '860000');

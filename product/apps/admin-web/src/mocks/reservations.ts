@@ -1333,6 +1333,9 @@ export function createReservationMock(ctx: Ctx) {
       // US-155 (server `5820a97`, BUG-R3-019): a direct booking needs a source unless it comes from a website request.
       if (ch?.channelGroup === 'direct' && !body.directSource && !webReq)
         errors.push({ field: 'directSource', code: 'REQUIRED' });
+      // V5-22 (server `rate-out-of-range.ts`, #103): a Trực tiếp / CTV night outside the BR-105 floor–ceiling is a
+      // top-level 422 RATE_OUT_OF_RANGE with `dates[]` and the `min`/`max` of the first of them, after the field checks.
+      const outOfRange: string[] = [];
       (body.nightlyRates ?? []).forEach((n, i) => {
         if (!(n.amountVnd > 0))
           errors.push({ field: `nightlyRates[${i}].amountVnd`, code: 'AMOUNT_NOT_POSITIVE' });
@@ -1343,8 +1346,7 @@ export function createReservationMock(ctx: Ctx) {
                 field: `nightlyRates[${i}].amountVnd`,
                 code: 'RATE_OUT_OF_RANGE_WARNING',
               });
-          } else if (ch?.channelGroup !== 'internal')
-            errors.push({ field: `nightlyRates[${i}].amountVnd`, code: 'RATE_OUT_OF_RANGE' });
+          } else if (ch?.channelGroup !== 'internal') outOfRange.push(n.date);
         }
       });
       // BR-113: arrival on Fri/Sat needs ≥ 2 nights (direct/agent; FDL+ may override with a reason).
@@ -1389,6 +1391,13 @@ export function createReservationMock(ctx: Ctx) {
             : {}),
         });
       }
+      if (outOfRange.length)
+        return problem(422, 'RATE_OUT_OF_RANGE', {
+          errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
+          dates: outOfRange.sort(),
+          min: 300_000,
+          max: 3_000_000,
+        });
       const occ = body.adults + (body.children6to11 ?? 0);
       if (r && occ > (r.maxOccupancy ?? 9) && ch?.channelGroup !== 'ota')
         return problem(422, 'CAPACITY_EXCEEDED', {

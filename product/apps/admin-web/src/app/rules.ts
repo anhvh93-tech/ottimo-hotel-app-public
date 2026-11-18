@@ -29,8 +29,10 @@ export interface RuleParams {
 }
 
 export const RULE_DEFAULTS: RuleParams = {
-  longStayFromNights: 28,
-  longStayCompareFromNights: 15,
+  // V5-20 (copy-v1.0.5 mục 1.1, tariff 01/11): the team's proposed levels – only until the rules are read, but
+  // they would show in `{n}` of the long-stay sentences meanwhile.
+  longStayFromNights: 30,
+  longStayCompareFromNights: 30,
   holdHoursOptions: [12, 24, 48],
   holdHoursDefault: 24,
   holdExtensionMaxHours: 24,

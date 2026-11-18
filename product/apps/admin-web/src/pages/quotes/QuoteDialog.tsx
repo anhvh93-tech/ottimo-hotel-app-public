@@ -8,7 +8,7 @@ import {
   type Reservation,
   type WebsiteBookingRequest,
 } from '@ottimo/api-client';
-import { useI18n } from '@ottimo/i18n';
+import { pluralForm, useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../app/api';
@@ -60,7 +60,6 @@ export interface QuotePrefill {
 }
 
 type Step = 'quote' | 'send' | 'hold';
-const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
 
 /**
  * H12 quote → send → hold (US-080, 083, 084). All amounts come from the server (`calculateQuote`,
@@ -76,7 +75,7 @@ export function QuoteDialog({
   onClose: () => void;
   onOpenReservation: (id: string) => void;
 }) {
-  const { t, vnd, dateTime } = useI18n();
+  const { t, vnd, dateTime, locale } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const rules = useRules(propertyId, roles);
@@ -338,20 +337,17 @@ export function QuoteDialog({
     }
   };
 
-  const rates = calc?.nightlyRates ?? [];
-  const groups = [false, true]
-    .map((we) => {
-      const list = rates.filter((r) => weekend(r.date) === we);
-      return list.length
-        ? {
-            we,
-            n: list.length,
-            rate: list[0]!.amountVnd,
-            sum: list.reduce((s, x) => s + x.amountVnd, 0),
-          }
-        : null;
-    })
-    .filter((g): g is NonNullable<typeof g> => !!g);
+  // V5-20 (copy-v1.0.5 mục 1.4, FB-R4-UXD-FE-PR82-02): the nights grouped by amount, not by weekday – one line per
+  // price, in the order of each group's first night, so "{n} đêm × {rate}" always equals the line's total whatever
+  // the weekend, special-date or length-of-stay parameters are.
+  const groups: Array<{ rate: number; n: number; sum: number }> = [];
+  for (const x of [...(calc?.nightlyRates ?? [])].sort((a, b) => a.date.localeCompare(b.date))) {
+    const g = groups.find((y) => y.rate === x.amountVnd);
+    if (g) {
+      g.n += 1;
+      g.sum += x.amountVnd;
+    } else groups.push({ rate: x.amountVnd, n: 1, sum: x.amountVnd });
+  }
   // 0.3.5 A-14: amounts split by the server (no client subtraction).
   const extraFee = calc?.extraPersonFeeVnd ?? 0;
   const extra =
@@ -390,7 +386,12 @@ export function QuoteDialog({
           {t('error.QUOTE_EXPIRED')}
         </Alert>
       ) : (
-        <Alert tone="bad">{rsvErrorText(t, error, { roomNo: room?.roomNo })}</Alert>
+        <Alert tone="bad">
+          {rsvErrorText(t, error, {
+            roomNo: room?.roomNo,
+            longStayFromNights: rules.longStayFromNights,
+          })}
+        </Alert>
       )
     ) : null);
 
@@ -581,7 +582,12 @@ export function QuoteDialog({
             ) : null}
           </div>
           {calcError ? (
-            <Alert tone="bad">{rsvErrorText(t, calcError, { roomNo: room?.roomNo })}</Alert>
+            <Alert tone="bad">
+              {rsvErrorText(t, calcError, {
+                roomNo: room?.roomNo,
+                longStayFromNights: rules.longStayFromNights,
+              })}
+            </Alert>
           ) : null}
           {calc?.availability?.available === false ? (
             <Alert tone="bad" title={t('sale.conflict')}>
@@ -602,9 +608,9 @@ export function QuoteDialog({
               <table className="sum">
                 <tbody>
                   {groups.map((g) => (
-                    <tr key={String(g.we)}>
+                    <tr key={g.rate}>
                       <td>
-                        {t(g.we ? 'sale.nights_weekend' : 'sale.nights_weekday', {
+                        {t(`sale.nights_at_rate_${pluralForm(locale, g.n)}`, {
                           n: g.n,
                           rate: vnd(g.rate),
                         })}
