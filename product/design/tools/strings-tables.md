@@ -4136,16 +4136,16 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `room_change.ready_unfiltered` | Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì. | You can only move to a room that is VI · Inspected, ready or VC · Cleaned, awaiting inspection. The list may still include rooms not yet cleaned – choosing one shows a message and nothing is saved. | ⟨chừa chỗ⟩ | V5-50: chỉ khi listRoomStatuses lỗi – danh sách Đổi phòng chưa lọc được trạng thái buồng; máy chủ vẫn chặn 409 ROOM_NOT_READY (BR-803). Nguyên văn câu v1.0.0 của room_change.ready_only (UXD thẻ 17) |
 | `room_change.no_rooms_not_ready` | Chưa có căn nào sẵn sàng. Còn trống từ {from} đến {to} nhưng chưa dọn xong: căn {rooms}. Nhờ buồng phòng dọn trước một căn rồi mở lại hộp này. Không chờ được thì hỏi quản lý. | No room is ready yet. Free from {from} to {to} but not yet cleaned: {rooms}. Ask housekeeping to clean one first, then open this form again. If that can't wait, ask a manager. | ⟨chừa chỗ⟩ | v1.0.5 V5-50 (FB-R5-UXD-FE-PR98-01; UXD-on-fe-prs-98-102-107; copy-v1.0.5 9.7). Khung warn thay room_change.no_rooms khi danh sách đã lọc rỗng và có căn trống (available, khác căn đang ở) đang VD hoặc CL. {rooms} = các số căn đó, tăng dần, nối ', '; {from}, {to} như no_rooms. Không có căn VD/CL → no_rooms. Danh sách chưa lọc (ready_unfiltered) → không dùng |
 
-#### R5 FB-INV-012 – FE: phiếu thanh toán tháng (S16), chốt công tơ (S12), trang in A5/A4. FE nháp 17/11 – chờ UXD/CPY duyệt
+#### R5 FB-INV-012 – FE: phiếu thanh toán tháng (S16), chốt công tơ (S12), trang in A5/A4. chữ in theo UXD-on-fe-pr-189 §2 (18/11)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
 | `nav.statements` | Phiếu tháng dài hạn | Monthly statements | ⟨chừa chỗ⟩ | Menu S16 (contract D8) |
 | `nav.meters` | Chốt công tơ | Meter readings | ⟨chừa chỗ⟩ | Menu S12 (contract D8) |
 | `meters.title` | Chốt công tơ điện nước | Meter readings | ⟨chừa chỗ⟩ | S12 tiêu đề |
-| `meters.subtitle` | Kỳ điện nước {month} | Utilities for {month} | ⟨chừa chỗ⟩ | {month} = tháng chốt (tháng M−1 của phiếu) |
+| `meters.subtitle` | Chốt kỳ điện nước {month} | Closing utilities for {month} | ⟨chừa chỗ⟩ | {month} = tháng chốt |
 | `meters.month` | Tháng chốt | Reading month | ⟨chừa chỗ⟩ |  |
-| `meters.help` | Nhập chỉ số đầu kỳ và cuối kỳ của từng đồng hồ, kèm ảnh mặt đồng hồ. Số cuối kỳ trước chỉ để đối chiếu. | Enter the opening and closing reading of each meter, with a photo of the meter face. The last closing reading is for reference only. | ⟨chừa chỗ⟩ | INV 17/11: đầu kỳ nhập tay mỗi kỳ |
+| `meters.help` | Cuối tháng: nhập cuối kỳ của tháng này và đầu kỳ của tháng sau cho từng đồng hồ, kèm ảnh. Số cuối kỳ trước chỉ để đối chiếu. | At month end, enter this month's closing and next month's opening for each meter, with a photo. The last closing is for reference only. | ⟨chừa chỗ⟩ | INV 17/11 + ARC-FE-189-01: 2 lần đọc |
 | `meters.load_error` | Chưa tải được danh sách căn dài hạn | Couldn't load the long-stay rooms | ⟨chừa chỗ⟩ |  |
 | `meters.empty` | Không có căn dài hạn nào đang ở | No long-stay room is in house | ⟨chừa chỗ⟩ |  |
 | `meters.empty_body` | Khi có khách dài hạn nhận phòng, căn sẽ hiện ở đây để chốt chỉ số. | Rooms appear here once a long-stay guest checks in. | ⟨chừa chỗ⟩ |  |
@@ -4159,8 +4159,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `meters.no_last_closing` | Chưa có chỉ số kỳ trước | No earlier reading | ⟨chừa chỗ⟩ |  |
 | `meters.gap` | Cao hơn cuối kỳ trước {gap} – hao hụt khi trống phòng (tham quan, dọn phòng), không tính cho khách. | {gap} above the last closing – vacancy use (viewings, housekeeping), not billed to the guest. | ⟨chừa chỗ⟩ | INV 17/11: đầu kỳ > cuối kỳ trước |
 | `meters.gap_saved` | Hao hụt khi trống: {gap} (không tính khách) | Vacancy use: {gap} (not billed) | ⟨chừa chỗ⟩ |  |
-| `meters.opening_below_last` | Đầu kỳ thấp hơn cuối kỳ trước ({value}). Kiểm lại số đã nhập hoặc đồng hồ đã được thay. | Opening is below the last closing ({value}). Check for a wrong entry or a replaced meter. | ⟨chừa chỗ⟩ | INV 17/11: đầu kỳ < cuối kỳ trước |
-| `meters.usage` | Tiêu thụ tính tiền: {usage} | Billed usage: {usage} | ⟨chừa chỗ⟩ | = cuối − đầu |
+| `meters.usage` | Tiêu thụ tính tiền: {usage} | Billed usage: {usage} | ⟨chừa chỗ⟩ | Số server trả về sau khi lưu |
 | `meters.photo` | Ảnh mặt đồng hồ | Meter photo | ⟨chừa chỗ⟩ |  |
 | `meters.photo_help` | Chỉ chụp mặt đồng hồ, không chụp người hay giấy tờ. | Photograph the meter face only – no people, no documents. | ⟨chừa chỗ⟩ | BR-LS-13, SEC 9.3 |
 | `meters.photo_required` | Cần ảnh đồng hồ, hoặc lễ tân trưởng cho phép bỏ qua. | A meter photo is needed, or a front desk lead can waive it. | ⟨chừa chỗ⟩ |  |
@@ -4170,11 +4169,11 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `meters.note` | Ghi chú | Note | ⟨chừa chỗ⟩ |  |
 | `meters.missing` | Chưa chốt | Not recorded | ⟨chừa chỗ⟩ |  |
 | `meters.recorded` | Đã chốt · {initials} | Recorded · {initials} | ⟨chừa chỗ⟩ |  |
-| `meters.save` | Lưu chỉ số | Save readings | ⟨chừa chỗ⟩ |  |
+| `meters.save` | Lưu chỉ số | Save readings | ⟨chừa chỗ⟩ | 2 lần đọc: cuối kỳ + đầu kỳ tháng sau |
 | `meters.saved` | Đã lưu chỉ số căn {room}. | Readings for room {room} saved. | ⟨chừa chỗ⟩ |  |
 | `meters.history` | Lịch sử | History | ⟨chừa chỗ⟩ |  |
 | `meters.history_title` | Lịch sử chỉ số căn {room} | Readings of room {room} | ⟨chừa chỗ⟩ |  |
-| `meters.lower_title` | Chỉ số {meter} cuối kỳ thấp hơn đầu kỳ | {meter} closing is below opening | ⟨chừa chỗ⟩ | BR-LS-12 |
+| `meters.lower_title` | {meter}: cuối kỳ thấp hơn đầu kỳ | {meter}: closing below opening | ⟨chừa chỗ⟩ | BR-LS-12 |
 | `meters.lower_body` | Cuối kỳ {closing} thấp hơn đầu kỳ {opening}. Chọn lý do: | Closing {closing} is below opening {opening}. Choose a reason: | ⟨chừa chỗ⟩ |  |
 | `meters.wrong_entry` | Nhập sai – sửa lại số | Wrong entry – fix the number | ⟨chừa chỗ⟩ |  |
 | `meters.fix_entry` | Sửa lại chỉ số cuối kỳ. | Fix the closing reading. | ⟨chừa chỗ⟩ |  |
@@ -4238,7 +4237,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stmt.alert.overdue_days` | Quá hạn {days} ngày | Overdue {days} days | ⟨chừa chỗ⟩ | BR-LS-02 từ ngày 06 |
 | `stmt.drawer_title` | Phiếu tháng | Statement | ⟨chừa chỗ⟩ |  |
 | `stmt.rent_period` | Kỳ thuê | Rent period | ⟨chừa chỗ⟩ |  |
-| `stmt.utility_period` | Kỳ điện nước, dịch vụ | Utilities and services | ⟨chừa chỗ⟩ |  |
+| `stmt.utility_period` | Kỳ điện nước, dịch vụ | Utilities & services | ⟨chừa chỗ⟩ |  |
 | `stmt.due` | Hạn thanh toán | Due | ⟨chừa chỗ⟩ | Hết ngày 05 |
 | `stmt.replaces` | Thay phiếu | Replaces | ⟨chừa chỗ⟩ | BR-LS-16 |
 | `stmt.voided_reason` | Đã hủy: {reason} | Voided: {reason} | ⟨chừa chỗ⟩ |  |
@@ -4251,7 +4250,6 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stmt.warning.RENT_ALREADY_POSTED` | Căn {room}: tiền thuê kỳ này đã ghi folio. Phiếu dùng dòng đã có. | Room {room}: rent for this period is already on the folio. The statement uses that line. | ⟨chừa chỗ⟩ |  |
 | `stmt.warning.SERVICE_LINE_ON_OTHER_STATEMENT` | Căn {room}: có dòng dịch vụ đã nằm trên phiếu khác, không đưa vào phiếu này. | Room {room}: a service line is already on another statement and is left out. | ⟨chừa chỗ⟩ |  |
 | `stmt.warning.PHOTO_WAIVED` | Căn {room}: chỉ số không có ảnh đồng hồ. | Room {room}: the reading has no meter photo. | ⟨chừa chỗ⟩ |  |
-| `stmt.warning.PRICE_CHANGED_SINCE_DRAFT` | Đơn giá hoặc VAT đã đổi từ lúc lập nháp. Kiểm lại số tiền. | A price or VAT rate changed since the draft. Check the amounts. | ⟨chừa chỗ⟩ |  |
 | `stmt.meter.electricity` | Điện | Electricity | ⟨chừa chỗ⟩ |  |
 | `stmt.meter.water` | Nước | Water | ⟨chừa chỗ⟩ |  |
 | `stmt.col_desc` | Nội dung | Description | ⟨chừa chỗ⟩ |  |
@@ -4262,8 +4260,8 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stmt.move_next` | Dời sang phiếu sau | Move to next statement | ⟨chừa chỗ⟩ | BR-LS-14 |
 | `stmt.moved_title` | Dời sang phiếu sau | Moved to the next statement | ⟨chừa chỗ⟩ |  |
 | `stmt.bring_back` | Đưa lại vào phiếu | Bring back | ⟨chừa chỗ⟩ |  |
-| `stmt.subtotal` | Tạm tính (chưa VAT) | Subtotal (before VAT) | ⟨chừa chỗ⟩ |  |
-| `stmt.vat_total` | Thuế GTGT | VAT | ⟨chừa chỗ⟩ |  |
+| `stmt.subtotal` | Cộng | Subtotal | ⟨chừa chỗ⟩ | UXD-189-01: = tổng cột Thành tiền |
+| `stmt.vat_total` | VAT điện, nước | VAT on electricity and water | ⟨chừa chỗ⟩ | UXD-189-01 |
 | `stmt.rounding` | Làm tròn | Rounding | ⟨chừa chỗ⟩ | BR-LS-09 |
 | `stmt.total` | Tổng cộng | Total | ⟨chừa chỗ⟩ |  |
 | `stmt.paid` | Đã thu | Paid | ⟨chừa chỗ⟩ |  |
@@ -4298,49 +4296,80 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stmt.attention_overdue` | {n} phiếu tháng quá hạn | {n} monthly statements overdue | ⟨chừa chỗ⟩ | H03 Cần chú ý |
 | `stmt.print.title` | Phiếu thanh toán tháng | Monthly statement | ⟨chừa chỗ⟩ | Lora |
 | `stmt.print.guest` | Khách | Guest | ⟨chừa chỗ⟩ |  |
-| `stmt.print.room` | Căn | Room | ⟨chừa chỗ⟩ |  |
-| `stmt.print.month` | Tháng | Month | ⟨chừa chỗ⟩ |  |
+| `stmt.print.room` | Phòng | Room | ⟨chừa chỗ⟩ | UXD-189-05 |
 | `stmt.print.issued` | Ngày phát hành | Issued | ⟨chừa chỗ⟩ |  |
 | `stmt.print.col_desc` | Nội dung | Description | ⟨chừa chỗ⟩ |  |
-| `stmt.print.col_reading` | Chỉ số đầu → cuối | Reading | ⟨chừa chỗ⟩ | Không in phần hao hụt khi trống (INV 17/11) |
-| `stmt.print.col_qty` | Số lượng | Qty | ⟨chừa chỗ⟩ |  |
+| `stmt.print.col_reading` | Đầu kỳ → Cuối kỳ | Opening → Closing | ⟨chừa chỗ⟩ | Không in hao hụt khi trống (INV 17/11) |
+| `stmt.print.col_qty` | Tiêu thụ / SL | Usage / Qty | ⟨chừa chỗ⟩ |  |
 | `stmt.print.col_unit_price` | Đơn giá | Unit price | ⟨chừa chỗ⟩ |  |
 | `stmt.print.col_amount` | Thành tiền | Amount | ⟨chừa chỗ⟩ |  |
-| `stmt.print.subtotal` | Tạm tính | Subtotal | ⟨chừa chỗ⟩ |  |
-| `stmt.print.vat` | Thuế GTGT | VAT | ⟨chừa chỗ⟩ |  |
+| `stmt.print.subtotal` | Cộng | Subtotal | ⟨chừa chỗ⟩ | UXD-189-01 |
+| `stmt.print.vat` | VAT điện, nước | VAT on electricity and water | ⟨chừa chỗ⟩ | UXD-189-01 |
 | `stmt.print.rounding` | Làm tròn | Rounding | ⟨chừa chỗ⟩ | BR-LS-09 |
 | `stmt.print.total` | Tổng cộng | Total | ⟨chừa chỗ⟩ |  |
-| `stmt.print.paid` | Đã thu | Paid | ⟨chừa chỗ⟩ |  |
-| `stmt.print.balance` | Còn phải thu | Balance due | ⟨chừa chỗ⟩ |  |
-| `stmt.print.pay_by` | Vui lòng thanh toán trước hết ngày {date}. | Please pay by {date}. | ⟨chừa chỗ⟩ | Hạn hết ngày 05 (BR-LS-01) |
+| `stmt.print.paid` | Đã thanh toán | Paid | ⟨chừa chỗ⟩ | UXD-189-05 |
+| `stmt.print.balance` | Còn phải thanh toán | Balance due | ⟨chừa chỗ⟩ | UXD-189-05 |
+| `stmt.print.pay_by` | Vui lòng thanh toán đến hết ngày {date}. | Please pay by {date}. | ⟨chừa chỗ⟩ | Hạn hết ngày 05 (BR-LS-01) |
 | `stmt.print.qr_amount` | Số tiền | Amount | ⟨chừa chỗ⟩ |  |
 | `stmt.print.qr_content` | Nội dung chuyển khoản | Transfer reference | ⟨chừa chỗ⟩ |  |
-| `stmt.print.qr_bank` | Ngân hàng | Bank | ⟨chừa chỗ⟩ |  |
+| `stmt.print.qr_bank` | Tài khoản nhận | Account | ⟨chừa chỗ⟩ | Ngân hàng · chủ TK · 4 số cuối |
 | `stmt.print.qr_label` | Mã VietQR thanh toán {amount} đồng, nội dung {ref} | VietQR code to pay {amount} VND, reference {ref} | ⟨chừa chỗ⟩ | aria-label |
-| `stmt.print.vat_note` | Tiền thuê và dịch vụ đã gồm VAT. Điện, nước tính VAT riêng. | Rent and services include VAT. Electricity and water show VAT separately. | ⟨chừa chỗ⟩ |  |
-| `stmt.print.contact` | Liên hệ | Contact | ⟨chừa chỗ⟩ |  |
+| `stmt.print.vat_note` | Tiền thuê và dịch vụ đã gồm VAT. Điện, nước cộng VAT theo mức ghi trên phiếu. | Rent and services include VAT. VAT on electricity and water is added at the rates shown. | ⟨chừa chỗ⟩ | UXD-189-01 |
+| `stmt.print.contact` | Cần hỗ trợ, vui lòng liên hệ | Questions? Contact us | ⟨chừa chỗ⟩ |  |
 | `stmt.print.printed` | In ngày {date} · {by} | Printed {date} · {by} | ⟨chừa chỗ⟩ | Chữ cái đầu nhân viên |
-| `stmt.print.paid_stamp` | Đã thu đủ | Paid | ⟨chừa chỗ⟩ | Earth Brown |
+| `stmt.print.paid_stamp` | Đã thanh toán | Paid | ⟨chừa chỗ⟩ | Earth Brown |
 | `stmt.print.void_stamp` | Đã hủy | Void | ⟨chừa chỗ⟩ | Stone Grey |
-| `bill.line.monthly_rent` | Tiền thuê {from} – {to} | Rent {from} – {to} | ⟨chừa chỗ⟩ | contract §2.4 |
-| `bill.line.electricity` | Điện | Electricity | ⟨chừa chỗ⟩ | contract §2.4 |
-| `bill.line.water` | Nước | Water | ⟨chừa chỗ⟩ | contract §2.4 |
+| `bill.line.monthly_rent` | Tiền thuê {from} – {to} | Rent · {from} – {to} | ⟨chừa chỗ⟩ | contract §2.4 |
+| `bill.line.electricity` | Điện tháng {month} | Electricity · {month} | ⟨chừa chỗ⟩ | UXD-189-02; EN Oct 2026, VI 10/2026 |
+| `bill.line.water` | Nước tháng {month} | Water · {month} | ⟨chừa chỗ⟩ | UXD-189-02 |
 | `bill.line.statement_rounding` | Làm tròn | Rounding | ⟨chừa chỗ⟩ | contract §2.4 |
-| `bill.line.statement_prior_adjustment` | Điều chỉnh kỳ trước | Prior period adjustment | ⟨chừa chỗ⟩ | contract §2.4; lý do không in cho khách |
+| `bill.line.statement_prior_adjustment` | Điều chỉnh phiếu trước | Adjustment to previous statement | ⟨chừa chỗ⟩ | Lý do không in cho khách |
 | `params.k.utility_unit_price` | Đơn giá điện, nước (chưa VAT) | Electricity and water unit price (before VAT) | ⟨chừa chỗ⟩ | contract §3 |
 | `params.k.utility_vat_rate` | % VAT điện, nước | Electricity and water VAT % | ⟨chừa chỗ⟩ | contract §3 |
 | `params.k.monthly_statement_rules` | Quy tắc phiếu tháng dài hạn | Monthly statement rules | ⟨chừa chỗ⟩ | contract §3 |
 | `error.METER_LOWER_THAN_PREVIOUS` | Chỉ số cuối kỳ thấp hơn đầu kỳ. Chọn lý do trước khi lưu. | The closing reading is below the opening. Choose a reason before saving. | ⟨chừa chỗ⟩ |  |
 | `error.READING_EXISTS` | Căn này đã có chỉ số cho kỳ này. Hủy lần đọc cũ nếu cần nhập lại. | This room already has a reading for this period. Void it first to enter again. | ⟨chừa chỗ⟩ |  |
-| `error.READING_OUT_OF_WINDOW` | Chỉ chốt được từ ngày cuối tháng đến hết ngày 01. | Readings can be recorded from the last day of the month to the end of day 01. | ⟨chừa chỗ⟩ | BR-LS-10 |
+| `error.READING_OUT_OF_WINDOW` | Đã hết hạn chốt chỉ số. Lễ tân trưởng ghi trễ kèm lý do (tối đa 10 ngày). | The reading window has closed. A front desk lead can record it late with a reason (up to 10 days). | ⟨chừa chỗ⟩ | BR-LS-10, BE-190-03 |
 | `error.READING_ON_ISSUED_STATEMENT` | Chỉ số đã dùng trên phiếu đã phát hành. Hủy phiếu trước. | This reading is on an issued statement. Void the statement first. | ⟨chừa chỗ⟩ |  |
 | `error.STATEMENT_EXISTS` | Tháng này đã có phiếu. | This month already has a statement. | ⟨chừa chỗ⟩ |  |
-| `error.METER_READING_MISSING` | Chưa chốt chỉ số cuối kỳ. Nhập chỉ số trước khi phát hành. | The closing readings are missing. Enter them before issuing. | ⟨chừa chỗ⟩ |  |
+| `error.METER_READING_MISSING` | Chưa đủ chỉ số đầu kỳ và cuối kỳ. Nhập chỉ số trước khi phát hành. | Opening or closing readings are missing. Enter them before issuing. | ⟨chừa chỗ⟩ |  |
 | `error.WARNINGS_NOT_ACKNOWLEDGED` | Có cảnh báo mới. Kiểm lại rồi phát hành. | There are new warnings. Check them, then issue. | ⟨chừa chỗ⟩ |  |
 | `error.AMOUNT_NOT_POSITIVE` | Tổng phiếu phải lớn hơn 0. | The total must be above zero. | ⟨chừa chỗ⟩ |  |
 | `error.STATEMENT_HAS_PAYMENTS` | Phiếu đã có khoản thu nên không hủy được. Ghi chênh lệch vào phiếu sau. | This statement has payments and can't be voided. Put the difference on the next statement. | ⟨chừa chỗ⟩ | BR-LS-16 |
 | `error.AMOUNT_OVER_BALANCE` | Số tiền lớn hơn còn phải thu. | The amount is above the balance due. | ⟨chừa chỗ⟩ |  |
 | `error.NOT_LONG_STAY` | Đơn này không phải lưu trú dài hạn. | This booking is not a long stay. | ⟨chừa chỗ⟩ |  |
+| `meters.group_closing` | Cuối kỳ {month} | Closing {month} | ⟨chừa chỗ⟩ | ARC-FE-189-01: period_end tháng M |
+| `meters.group_opening` | Đầu kỳ {month} | Opening {month} | ⟨chừa chỗ⟩ | ARC-FE-189-01: period_start tháng M+1 |
+| `meters.opening_of` | Đầu kỳ: {value} | Opening: {value} | ⟨chừa chỗ⟩ | Chỉ đọc, từ lần đọc đầu kỳ |
+| `meters.opening_missing` | Chưa có chỉ số đầu kỳ của tháng này. | No opening reading for this month. | ⟨chừa chỗ⟩ |  |
+| `meters.last_closing_pending` | Cuối kỳ trước: nhập cuối kỳ trước | Last closing: enter the closing first | ⟨chừa chỗ⟩ |  |
+| `meters.usage_preview` | Tiêu thụ (xem trước): {usage} | Usage (preview): {usage} | ⟨chừa chỗ⟩ | ARC-FE-189-08 |
+| `meters.below_saved` | Thấp hơn cuối kỳ trước {gap} – phiếu sẽ hỏi kiểm lại. | {gap} below the last closing – the statement asks to check it. | ⟨chừa chỗ⟩ | BE-190-01 |
+| `meters.below_title` | {meter}: đầu kỳ thấp hơn cuối kỳ trước | {meter}: opening below the last closing | ⟨chừa chỗ⟩ | BE-190-01 |
+| `meters.below_body` | Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Chọn cách xử lý: | Opening {opening} is below the last closing {previous}. Choose what to do: | ⟨chừa chỗ⟩ |  |
+| `meters.save_anyway` | Vẫn lưu – số đã đúng | Save anyway – the number is right | ⟨chừa chỗ⟩ | Mọi vai FD+ |
+| `meters.fix_opening` | Sửa lại chỉ số đầu kỳ. | Fix the opening reading. | ⟨chừa chỗ⟩ |  |
+| `meters.late` | Đã hết hạn chốt ({date}). Ghi trễ cần lý do. | The reading window closed on {date}. A late reading needs a reason. | ⟨chừa chỗ⟩ | BE-190-03, FDL+ |
+| `meters.late_fd` | Đã hết hạn chốt ({date}). Nhờ lễ tân trưởng ghi trễ kèm lý do. | The reading window closed on {date}. Ask the front desk lead to record it late. | ⟨chừa chỗ⟩ | FD |
+| `meters.late_reason` | Lý do ghi trễ | Reason for late reading | ⟨chừa chỗ⟩ |  |
+| `meters.not_needed` | Không cần | Not needed | ⟨chừa chỗ⟩ |  |
+| `meters.kind.period_start` | Đầu kỳ | Period start | ⟨chừa chỗ⟩ |  |
+| `meters.photo_pick` | Chụp hoặc chọn ảnh | Take or choose a photo | ⟨chừa chỗ⟩ | UXD-189-09 |
+| `meters.photo_change` | Đổi ảnh | Change photo | ⟨chừa chỗ⟩ | UXD-189-09 |
+| `stmt.vat_incl` | đã gồm | incl. | ⟨chừa chỗ⟩ | UXD-189-01: thuê, dịch vụ |
+| `stmt.warning.OPENING_BELOW_PREVIOUS_CLOSING` | Căn {room}: {meter} đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Kiểm lại trước khi phát hành. | Room {room}: {meter} opening {opening} is below the last closing {previous}. Check before issuing. | ⟨chừa chỗ⟩ | BE-190-01 |
+| `stmt.warning.READING_LATE` | Căn {room}: có chỉ số ghi trễ, sau hạn chốt. | Room {room}: a reading was recorded after the window. | ⟨chừa chỗ⟩ | BE-190-03 |
+| `stmt.warning.unknown` | Kiểm lại phiếu này trước khi phát hành. | Check this statement before issuing. | ⟨chừa chỗ⟩ | ARC-FE-189-07: mã lạ |
+| `stmt.attention_overdue_amount` | Phiếu tháng quá hạn: {n} · {amount} đ | Overdue statements: {n} · {amount} VND | ⟨chừa chỗ⟩ | UXD-189-08 |
+| `stmt.paper_switched` | Đã chuyển sang A4 để vừa một trang | Switched to A4 to fit one page | ⟨chừa chỗ⟩ | UXD-189-03 |
+| `stmt.print.rent_period` | Kỳ thuê | Rent period | ⟨chừa chỗ⟩ | UXD-189-02 |
+| `stmt.print.utility_period` | Điện nước, dịch vụ | Utilities & services | ⟨chừa chỗ⟩ | UXD-189-02 |
+| `stmt.print.col_vat` | VAT | VAT | ⟨chừa chỗ⟩ |  |
+| `stmt.print.vat_incl` | đã gồm | incl. | ⟨chừa chỗ⟩ | UXD-189-01 |
+| `stmt.print.due_on_receipt` | Vui lòng thanh toán khi nhận phiếu. | Payment due on receipt. | ⟨chừa chỗ⟩ | UXD-189-06: phát hành sau hạn |
+| `stmt.print.qr_title` | Quét mã để thanh toán | Scan to pay | ⟨chừa chỗ⟩ | UXD-189-11 |
+| `stmt.print.qr_keep_ref` | Vui lòng giữ nguyên nội dung này. | Please keep this reference unchanged. | ⟨chừa chỗ⟩ | UXD-189-11 |
+| `error.OPENING_BELOW_PREVIOUS_CLOSING` | Đầu kỳ thấp hơn cuối kỳ trước. Chọn cách xử lý trước khi lưu. | The opening is below the last closing. Choose what to do before saving. | ⟨chừa chỗ⟩ | BE-190-01 |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
