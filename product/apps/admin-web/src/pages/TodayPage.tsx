@@ -22,7 +22,7 @@ import type { ResourceState } from '../hooks/useResource';
 import { NAV, isVisible } from '../session/nav';
 import { usePropertyId, useSession } from '../session/SessionProvider';
 import { AttentionBlock, SkeletonRows, formatPct } from './dashboard/parts';
-import { StatementsAttention } from './longstay/StatementsAttention';
+import { useStatementAttention } from './longstay/StatementsAttention';
 import { GuestRequestsCard } from './ops/GuestRequests';
 import { useDashboard } from './dashboard/useDashboard';
 
@@ -73,7 +73,10 @@ export function TodayPage() {
     deviceTrusted: session.deviceTrusted,
   });
   const board = d.board!;
-  const attnCount = d.attention.data?.length;
+  // FB-INV-012 (UXD-189-08): monthly statements due / overdue are rows of the same list and of the same count.
+  const stmtLines = useStatementAttention();
+  const attnCount =
+    d.attention.data === undefined ? undefined : d.attention.data.length + stmtLines.length;
   const nothing =
     board.data &&
     d.attention.data &&
@@ -81,6 +84,7 @@ export function TodayPage() {
     !board.data.departures.length &&
     !board.data.holdsArrivingToday.length &&
     !d.attention.data.length &&
+    !stmtLines.length &&
     !(d.requests?.data ?? []).some((r) =>
       ['new', 'acknowledged', 'in_progress'].includes(r.status),
     );
@@ -129,8 +133,8 @@ export function TodayPage() {
                 state={d.attention}
                 onReload={d.reload.attention}
                 emptyTitleKey="today.attention_empty"
+                extra={stmtLines}
               />
-              <StatementsAttention />
             </section>
             <div className="stack">
               <Board state={board} onRetry={d.reload.board} />

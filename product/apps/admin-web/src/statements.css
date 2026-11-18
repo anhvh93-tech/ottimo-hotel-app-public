@@ -28,6 +28,46 @@
 .meter-gap {
   color: var(--brand-earth);
 }
+.meter-group + .meter-group {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--brand-sage);
+}
+.meter-photo img {
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--brand-sage);
+}
+/* UXD-189-04: money columns never wrap or shrink; the move button sits on its own row under its line. */
+.stmt-lines {
+  min-width: 34rem;
+}
+.stmt-lines .stmt-amt {
+  min-width: 7.5rem;
+}
+.stmt-lines tr.stmt-has-move td {
+  border-bottom: 0;
+}
+.stmt-lines tr.stmt-move-row td {
+  padding-top: 0;
+}
+.stmt-lines tr.stmt-move-row .btn {
+  min-height: 44px;
+}
+/* UXD-189-08: the statement rows of "Cần chú ý" – Oak when due, Earth Brown when overdue (no extra red). */
+.task.stmt-attn {
+  border-left: 4px solid var(--brand-oak);
+}
+.task.stmt-attn .ic {
+  background: var(--brand-cream);
+  color: var(--brand-oak);
+}
+.task.stmt-attn.stmt-attn-late {
+  border-left-color: var(--brand-earth);
+}
+.task.stmt-attn.stmt-attn-late .ic {
+  color: var(--brand-earth);
+}
 
 /* ---------- print page on screen ---------- */
 .stmt-print-page {
@@ -63,11 +103,24 @@
   padding: 14mm 16mm;
 }
 
+/* The A5 copy the height guard measures (UXD-189-03): laid out, never seen. */
+.stmt-measure {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.stmt-measure .stmt-sheet {
+  box-sizing: border-box;
+  width: 132mm;
+}
+
 /* ---------- the sheet ---------- */
 .stmt-sheet {
   font-family: var(--sans);
   color: var(--brand-ink);
-  font-size: 8pt;
+  font-size: 9pt;
   line-height: 1.35;
 }
 .stmt-sheet.stmt-a4 {
@@ -82,7 +135,7 @@
   flex-direction: column;
 }
 .stmt-sheet .bi .vi {
-  font-size: 0.82em;
+  font-size: max(7pt, 0.8em);
   color: var(--brand-stone);
 }
 .stmt-sheet .r {
@@ -149,7 +202,7 @@
 }
 .stmt-table-print th {
   font-weight: 500;
-  font-size: 0.85em;
+  font-size: 1em;
   color: var(--brand-stone);
   text-align: left;
   border-bottom: 1px solid var(--brand-stone);
@@ -244,6 +297,14 @@
 .stmt-qr dd {
   margin: 0;
 }
+.stmt-qr-title {
+  font-family: var(--serif);
+  font-weight: 600;
+}
+.stmt-keep-ref {
+  color: var(--brand-stone);
+  font-size: 0.9em;
+}
 .stmt-qr-amt {
   font-weight: 600;
   font-size: 1.15em;
@@ -285,7 +346,7 @@
     page: stmt-a4;
   }
   .print-root .stmt-sheet {
-    font-size: 8pt;
+    font-size: 9pt;
     break-after: avoid;
   }
   .print-root .stmt-sheet.stmt-a4 {

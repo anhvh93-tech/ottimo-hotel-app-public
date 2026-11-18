@@ -2,6 +2,7 @@ import { isApiError } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { useBusinessDay } from '../../app/businessDay';
 import { problemView } from '../../app/problem';
@@ -39,7 +40,12 @@ export function StatementsPage() {
   const propertyId = usePropertyId();
   const today = useBusinessDay();
   const [month, setMonth] = useState(() => monthOf(today));
-  const [tab, setTab] = useState<Tab>('draft');
+  // UXD-189-08: "Cần chú ý" opens `?tab=overdue` (or `?tab=issued` when only due today).
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const q = params.get('tab');
+    return q && q in TAB_QUERY ? (q as Tab) : 'draft';
+  });
   const [openId, setOpenId] = useState<string | null>(null);
   const ids = useId();
   const candidates = useResource(
@@ -180,10 +186,10 @@ function SummaryRow({ s, onOpen }: { s: BillingPeriodSummary; onOpen: () => void
         </button>
       </td>
       <td>
-        {s.roomNos.join(', ')} · {s.guestDisplayName}
+        {s.roomNos.join(', ')} · {s.guestDisplayName ?? ''}
       </td>
       <td>{monthText(locale, s.month)}</td>
-      <td className="r num">{num(s.totalVnd)}</td>
+      <td className="r num">{s.totalVnd == null ? '' : num(s.totalVnd)}</td>
       <td className="r num">{num(s.balanceVnd)}</td>
       <td>{dayText(locale, s.dueDate)}</td>
       <td>
@@ -233,7 +239,7 @@ function CandidateRow({
   return (
     <li className="row wrap stmt-candidate">
       <span className="grow">
-        <b>{c.roomNos.join(', ')}</b> · {c.guestDisplayName}
+        <b>{c.roomNos.join(', ')}</b> · {c.guestDisplayName ?? ''}
       </span>
       {c.readingStatus === 'missing' ? (
         <>
@@ -249,8 +255,8 @@ function CandidateRow({
           {t(c.readingStatus === 'exception' ? 'stmt.reading_exception' : 'stmt.reading_recorded')}
         </Chip>
       )}
-      {c.draftBillingPeriodId ? (
-        <Button size="sm" onClick={() => onOpen(c.draftBillingPeriodId!)}>
+      {c.draftId ? (
+        <Button size="sm" onClick={() => onOpen(c.draftId!)}>
           {t('stmt.open_draft')}
         </Button>
       ) : (

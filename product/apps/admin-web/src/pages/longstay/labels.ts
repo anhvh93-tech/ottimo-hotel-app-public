@@ -97,6 +97,13 @@ export function lineText(locale: Locale, line: StatementLine): string {
     : label;
 }
 
+/**
+ * Amount column of a line (UXD-189-01): electricity and water net of VAT – their VAT is one total line – so the
+ * column adds up to the Subtotal; rent and services at their VAT-inclusive price.
+ */
+export const lineAmount = (l: StatementLine) =>
+  l.kind === 'electricity' || l.kind === 'water' ? l.netVnd : l.amountVnd;
+
 /** Utility and service period as one range: EN "01 – 31 Oct 2026", VI "01/10 – 31/10/2026" (UXD-189-02). */
 export function rangeText(locale: Locale, p: { from: string; to: string }): string {
   const same = p.from.slice(0, 7) === p.to.slice(0, 7);

@@ -18,6 +18,7 @@ import { useResource } from '../../hooks/useResource';
 import { usePropertyId } from '../../session/SessionProvider';
 import {
   dayText,
+  lineAmount,
   lineText,
   meterNum,
   monthText,
@@ -408,10 +409,6 @@ export function StatementDrawer({
     </Modal>
   );
 }
-
-/** Amount column of a line, as on the printed sheet: utilities net of VAT (VAT is its own total line). */
-export const lineAmount = (l: StatementLine) =>
-  l.kind === 'electricity' || l.kind === 'water' ? l.netVnd : l.amountVnd;
 
 /**
  * One line + (draft, service) its "Move to next statement" on a row of its own under it, so the description never

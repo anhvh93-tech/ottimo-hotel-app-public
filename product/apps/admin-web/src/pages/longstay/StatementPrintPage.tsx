@@ -1,17 +1,25 @@
 import { isLocaleLoaded, loadLocale, translate, useI18n, type Args } from '@ottimo/i18n';
 import { Button, QrCode, Seg } from '@ottimo/ui';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { statementsApi, type BillingPeriodPrint, type StatementLine } from '../../app/statements';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId } from '../../session/SessionProvider';
-import { dayText, lineText, meterNum, monthText, num, signedNum } from './labels';
+import { dayText, lineAmount, lineText, meterNum, num, rangeText, signedNum } from './labels';
 
-/** Lines above this count print on A4 by default (contract §6.6 "dòng dài thì A5 tự sang A4" – UXD to confirm). */
-export const A5_MAX_LINES = 9;
+/**
+ * UXD-189-03: A5 when the printed lines (rounding not counted) are ≤ 6 – rent + electricity + water + up to 3
+ * services or adjustments; from 7 lines A4. A height guard switches to A4 as well when the A5 sheet overflows.
+ */
+export const A5_MAX_LINES = 6;
+/** Printable height of A5 portrait with the 8 mm margins of `@page stmt-a5` (210 − 16 mm). */
+export const A5_PRINT_HEIGHT_MM = 194;
 export type PaperSize = 'a5' | 'a4';
+
+export const printedLines = (s: { lines: StatementLine[] }) =>
+  s.lines.filter((l) => l.kind !== 'rounding').length;
 
 /** EN lead line + smaller VI line under it (contract §6.6) – always both, whatever the Desk language. */
 function Bi({ k, args, as: Tag = 'span' }: { k: string; args?: Args; as?: 'span' | 'div' }) {
@@ -78,14 +86,27 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
           </dt>
           <dd>{s.roomNos.join(', ')}</dd>
         </div>
-        <div>
-          <dt>
-            <Bi k="stmt.print.month" />
-          </dt>
-          <dd>
-            <BiText en={monthText('en', s.month)} vi={monthText('vi', s.month)} />
-          </dd>
-        </div>
+        {/* UXD-189-02: rent of M in advance, utilities and services of M−1 – both printed, no "Month". */}
+        {s.rentPeriod ? (
+          <div>
+            <dt>
+              <Bi k="stmt.print.rent_period" />
+            </dt>
+            <dd>
+              <BiText en={rangeText('en', s.rentPeriod)} vi={rangeText('vi', s.rentPeriod)} />
+            </dd>
+          </div>
+        ) : null}
+        {s.utilityPeriod ? (
+          <div>
+            <dt>
+              <Bi k="stmt.print.utility_period" />
+            </dt>
+            <dd>
+              <BiText en={rangeText('en', s.utilityPeriod)} vi={rangeText('vi', s.utilityPeriod)} />
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt>
             <Bi k="stmt.print.issued" />
@@ -115,7 +136,7 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
               <Bi k="stmt.print.col_unit_price" />
             </th>
             <th scope="col" className="r">
-              VAT
+              <Bi k="stmt.print.col_vat" />
             </th>
             <th scope="col" className="r">
               <Bi k="stmt.print.col_amount" />
@@ -144,8 +165,20 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
                     {flat ? '' : `${meterNum(l.quantity, l.unit)} ${unitText(l)}`.trim()}
                   </td>
                   <td className="r">{flat ? '' : num(l.unitPriceNetVnd)}</td>
-                  <td className="r">{l.vatRatePct === null ? '' : `${l.vatRatePct}%`}</td>
-                  <td className="r">{signedNum(l.amountVnd)}</td>
+                  {/* UXD-189-01: utilities net + rate (VAT is one total line); rent, services "incl.". */}
+                  <td className="r">
+                    {l.vatRatePct != null ? (
+                      `${l.vatRatePct}%`
+                    ) : flat ? (
+                      ''
+                    ) : (
+                      <BiText
+                        en={translate('en', 'stmt.print.vat_incl')}
+                        vi={translate('vi', 'stmt.print.vat_incl')}
+                      />
+                    )}
+                  </td>
+                  <td className="r">{signedNum(lineAmount(l))}</td>
                 </tr>
               );
             })}
@@ -205,10 +238,15 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
 
       {!voided && due && s.totals.balanceVnd > 0 ? (
         <p className="stmt-due">
-          <BiText
-            en={translate('en', 'stmt.print.pay_by', { date: dayText('en', due) })}
-            vi={translate('vi', 'stmt.print.pay_by', { date: dayText('vi', due) })}
-          />
+          {/* UXD-189-06: issued after the due day → "due on receipt", never a date already past. */}
+          {(s.issuedAt ?? '').slice(0, 10) > due ? (
+            <Bi k="stmt.print.due_on_receipt" />
+          ) : (
+            <BiText
+              en={translate('en', 'stmt.print.pay_by', { date: dayText('en', due) })}
+              vi={translate('vi', 'stmt.print.pay_by', { date: dayText('vi', due) })}
+            />
+          )}
         </p>
       ) : null}
 
@@ -223,6 +261,9 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
             })}
           />
           <dl>
+            <div className="stmt-qr-title">
+              <Bi k="stmt.print.qr_title" />
+            </div>
             <div>
               <dt>
                 <Bi k="stmt.print.qr_amount" />
@@ -234,13 +275,17 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
                 <Bi k="stmt.print.qr_content" />
               </dt>
               <dd className="mono">{s.vietqr.transferContent}</dd>
+              <dd className="stmt-keep-ref">
+                <Bi k="stmt.print.qr_keep_ref" />
+              </dd>
             </div>
             <div>
               <dt>
                 <Bi k="stmt.print.qr_bank" />
               </dt>
               <dd>
-                {s.vietqr.bankShortName} · {s.vietqr.accountHolder} ·{' '}
+                {s.vietqr.bankShortName ? `${s.vietqr.bankShortName} · ` : ''}
+                {s.vietqr.accountHolder} ·{' '}
                 <span className="mono">{s.vietqr.accountNoMasked}</span>
               </dd>
             </div>
@@ -252,14 +297,21 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
         <p>
           <Bi k="stmt.print.vat_note" />
         </p>
-        <p>
-          <Bi k="stmt.print.contact" /> <span className="nowrap">{s.property.hotline}</span> ·{' '}
-          <span className="nowrap">{s.property.email}</span>
-        </p>
+        {s.property.hotline || s.property.email ? (
+          <p>
+            <Bi k="stmt.print.contact" />{' '}
+            {[s.property.hotline, s.property.email].filter(Boolean).map((x, i) => (
+              <span key={i} className="nowrap">
+                {i ? ' · ' : ''}
+                {x}
+              </span>
+            ))}
+          </p>
+        ) : null}
         <p className="stmt-printed">
           {translate('en', 'stmt.print.printed', {
             date: dayText('en', s.printedAt.slice(0, 10)),
-            by: s.printedByInitials,
+            by: s.printedByInitials ?? '',
           })}
         </p>
       </footer>
@@ -295,7 +347,18 @@ export function StatementPrintPage() {
   }, [enReady]);
   const s = res.state.data;
   const [size, setSize] = useState<PaperSize | null>(null);
-  const paper: PaperSize = size ?? (s && s.lines.length > A5_MAX_LINES ? 'a4' : 'a5');
+  const [overflow, setOverflow] = useState(false);
+  const auto: PaperSize = s && (printedLines(s) > A5_MAX_LINES || overflow) ? 'a4' : 'a5';
+  const paper: PaperSize = size ?? auto;
+  const measure = useRef<HTMLDivElement>(null);
+  // Height guard (UXD-189-03): the A5 sheet laid out off screen; taller than the A5 print area → A4 by default.
+  useLayoutEffect(() => {
+    const el = measure.current?.querySelector<HTMLElement>('.stmt-sheet');
+    if (!el || !s || !enReady) return;
+    const mm = el.scrollHeight / (96 / 25.4);
+    setOverflow(mm > A5_PRINT_HEIGHT_MM);
+  }, [s, enReady]);
+  const switched = !size && auto === 'a4' && !!s && printedLines(s) <= A5_MAX_LINES;
 
   let body: ReactNode;
   if (res.state.status === 'error')
@@ -306,6 +369,9 @@ export function StatementPrintPage() {
       <>
         <div className="stmt-preview" data-paper={paper}>
           <StatementSheet s={s} size={paper} />
+        </div>
+        <div className="stmt-measure" ref={measure} aria-hidden="true">
+          <StatementSheet s={s} size="a5" />
         </div>
         {createPortal(
           <div className={`print-root stmt-paper-${paper}`} aria-hidden="true">
@@ -337,6 +403,11 @@ export function StatementPrintPage() {
         <Button variant="pri" icon="printer" disabled={!s} onClick={() => window.print()}>
           {t('stmt.print')}
         </Button>
+        {switched ? (
+          <span className="li-s" role="status">
+            {t('stmt.paper_switched')}
+          </span>
+        ) : null}
       </div>
       {body}
     </div>
