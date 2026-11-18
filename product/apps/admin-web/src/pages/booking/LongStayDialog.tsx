@@ -6,7 +6,7 @@ import {
   type Reservation,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field, Modal } from '@ottimo/ui';
+import { Alert, Button, Checkbox, Chip, Field, Modal } from '@ottimo/ui';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
@@ -28,6 +28,8 @@ import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { monoArgs } from '../../app/mono';
 import { ContactMatches, guestPrefillOf, type WebRequestLink } from '../webreq/ContactMatches';
 import { LONG_STAY_SOURCES } from './directSources';
+import { backdateArrivalError, backdateBounds, isOwnerOrManager } from '../../app/goLive';
+import { BackdatedCheckInDialog } from '../stay/BackdatedCheckInDialog';
 
 export interface LongStayPrefill {
   roomId?: string;
@@ -51,6 +53,9 @@ interface Form {
   deposit: string;
   contractRef: string;
   note: string;
+  /** FB-INV-012 §12.1.1 (A127, FE-1): the guest is already in the room – arrival in the past, with a reason. */
+  inHouse?: boolean;
+  backdateReason?: string;
 }
 
 /** Draft key scoped to the signed-in user (FB-R2-SEC-FE-05). */
@@ -72,9 +77,11 @@ export function LongStayDialog({
   onCreated: (r: Reservation) => void;
   onShortStay: () => void;
 }) {
-  const { t, vnd } = useI18n();
+  const { t, vnd, date } = useI18n();
   const propertyId = usePropertyId();
-  const { roles, me } = useSession();
+  const { roles, me, deviceTrusted } = useSession();
+  // OWN/MGR only (A127); the server checks the role and the device by field (SEC 12-07).
+  const canBackdate = isOwnerOrManager(roles);
   const DRAFT_KEY = draftKey(me?.id);
   const rules = useRules(propertyId, roles);
   const catalog = useCatalog(propertyId);
@@ -115,6 +122,10 @@ export function LongStayDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestError, setRequestError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  /** Saved as a backdated booking – its backdated check-in opens before `onCreated` (FE-1). */
+  const [backdated, setBackdated] = useState<Reservation | null>(null);
+  const inHouse = canBackdate && !!form.inHouse;
+  const bounds = backdateBounds(today);
   const idem = useRef<{ body: string; key: string } | null>(null);
   const write = useWrite();
   const set = (patch: Partial<Form>) => {
@@ -143,7 +154,15 @@ export function LongStayDialog({
     const e: Record<string, string> = {};
     if (!form.roomId) e.roomId = t('common.required');
     if (!form.arrivalDate) e.arrivalDate = t('common.required');
-    else if (form.arrivalDate < today) e.arrivalDate = t('booking.error.past_date');
+    else if (inHouse) {
+      if (form.arrivalDate < bounds.earliest || form.arrivalDate > bounds.latest)
+        e.arrivalDate = t('bd.date_range', {
+          from: dayMonth(bounds.earliest),
+          to: dayMonth(bounds.latest),
+        });
+    } else if (form.arrivalDate < today) e.arrivalDate = t('booking.error.past_date');
+    if (inHouse && (form.backdateReason ?? '').trim().length < 3)
+      e['backdatedArrival.reason'] = t('stmt.reason_required');
     if (nights <= 0)
       e.departureDate = fieldErrorText(t, { field: 'departureDate', code: 'DATE_ORDER' });
     else if (belowThreshold)
@@ -200,6 +219,8 @@ export function LongStayDialog({
           note: form.note.trim() || undefined,
         },
         websiteBookingRequestId: prefill?.webRequest?.id,
+        // §12.1.1: never with a closer (SEC 12-01 – this form has no closer field).
+        ...(inHouse ? { backdatedArrival: { reason: (form.backdateReason ?? '').trim() } } : {}),
       };
       const sig = JSON.stringify(body);
       if (idem.current?.body !== sig) idem.current = { body: sig, key: newIdempotencyKey() };
@@ -209,7 +230,8 @@ export function LongStayDialog({
       removeDraft(DRAFT_KEY);
       notifyChanged();
       toast(t('booking.toast.created', { code: res.data.code }));
-      onCreated(res.data);
+      if (inHouse) setBackdated(res.data);
+      else onCreated(res.data);
     } catch (err) {
       if (isRetryable(err)) return;
       if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
@@ -221,6 +243,8 @@ export function LongStayDialog({
               ? t('lsm.below_threshold', { n: nights, min: rules.longStayFromNights })
               : fieldErrorText(t, fe);
         }
+        const early = backdateArrivalError(t, date, err);
+        if (early) out.arrivalDate = early;
         setErrors(out);
       } else if (isApiError(err) && err.code === 'CAPACITY_EXCEEDED') {
         setErrors({ occ: rsvErrorText(t, err, { roomNo: room?.roomNo }) });
@@ -231,6 +255,15 @@ export function LongStayDialog({
       setBusy(false);
     }
   }
+
+  if (backdated)
+    return (
+      <BackdatedCheckInDialog
+        reservation={backdated}
+        onClose={() => onCreated(backdated)}
+        onDone={(r) => onCreated(r)}
+      />
+    );
 
   return (
     <Modal
@@ -285,8 +318,52 @@ export function LongStayDialog({
           <Alert tone="bad">
             {isApiError(requestError) && requestError.status === 409
               ? rsvErrorText(t, requestError, { roomNo: room?.roomNo, canSeeGuest: true })
-              : problemView(t, requestError).text}
+              : // #197 SEC 12-07: "Guest already in house" off an approved device → 403 DEVICE_NOT_TRUSTED.
+                inHouse && isApiError(requestError) && requestError.code === 'DEVICE_NOT_TRUSTED'
+                ? t('bd.need_device')
+                : problemView(t, requestError).text}
           </Alert>
+        ) : null}
+        {canBackdate && !prefill?.webRequest ? (
+          <div className="stack mb-12">
+            <Checkbox
+              checked={inHouse}
+              disabled={!deviceTrusted}
+              onChange={(on) =>
+                set(
+                  on
+                    ? {
+                        inHouse: true,
+                        arrivalDate: form.arrivalDate < today ? form.arrivalDate : bounds.latest,
+                      }
+                    : { inHouse: false, arrivalDate: today },
+                )
+              }
+            >
+              {t('bd.in_house_toggle')}
+            </Checkbox>
+            <p className="li-s">{t(deviceTrusted ? 'bd.in_house_help' : 'bd.need_device')}</p>
+            {/* UXD-196-04: the "1st of the month" hint sits with the toggle, not in the narrow date column. */}
+            {inHouse ? <p className="li-s">{t('bd.first_of_month')}</p> : null}
+            {inHouse ? (
+              <Field
+                label={t('bd.reason')}
+                required
+                error={errors['backdatedArrival.reason']}
+                help={t('bd.reason_help')}
+              >
+                {(p) => (
+                  <input
+                    {...p}
+                    className="input"
+                    maxLength={300}
+                    value={form.backdateReason ?? ''}
+                    onChange={(e) => set({ backdateReason: e.target.value })}
+                  />
+                )}
+              </Field>
+            ) : null}
+          </div>
         ) : null}
         <div className="g-3">
           <Field label={t('booking.field.room')} required error={errors.roomId}>
@@ -311,7 +388,8 @@ export function LongStayDialog({
                 {...p}
                 className="input"
                 type="date"
-                min={today}
+                min={inHouse ? bounds.earliest : today}
+                max={inHouse ? bounds.latest : undefined}
                 value={form.arrivalDate}
                 onChange={(e) => set({ arrivalDate: e.target.value })}
               />

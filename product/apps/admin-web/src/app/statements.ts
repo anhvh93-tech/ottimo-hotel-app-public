@@ -62,6 +62,8 @@ export const KNOWN_WARNINGS = [
   'PHOTO_WAIVED',
   'OPENING_BELOW_PREVIOUS_CLOSING',
   'READING_LATE',
+  // FB-INV-012 §12.5 (BR-LS-17): a catch-up reading on the draft – replaces READING_LATE for that reading.
+  'READING_CATCH_UP',
 ] as const;
 export type KnownWarningCode = (typeof KNOWN_WARNINGS)[number];
 
@@ -76,6 +78,8 @@ export type StatementWarning = BillingWarning & {
   threshold?: number;
   opening?: number;
   previousClosing?: number;
+  /** READING_CATCH_UP: the day of the catch-up reading. */
+  readOn?: string;
 };
 
 /** `YYYY-MM` of a `YYYY-MM-DD` day. */

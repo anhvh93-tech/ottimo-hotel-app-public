@@ -415,6 +415,82 @@ export function createStatementsMock(c: Ctx) {
       idem.set(key, out);
       return json(out, 201);
     }),
+    // FB-INV-012 §12.2 (A128): "Paid outside Desk" – a payment `outside_desk`, off shift and reconciliation.
+    // MGR: only up to the unpaid rent here (SEC 12-02 narrows it further on the server: backdated arrival-month
+    // statement, received no later than the backdated day) – else 403 "owner only".
+    http.post(`${prop}/billing-periods/:id/settle-outside-desk`, async ({ request, params }) => {
+      const g = ctx.guard(request, ['owner', 'manager']);
+      if (g instanceof Response) return g;
+      const key = request.headers.get('idempotency-key');
+      if (!key) return ctx.problem(428, 'PRECONDITION_REQUIRED');
+      if (idem.has(key)) return json(idem.get(key), 201);
+      const p = st.periods.find((o) => o.id === params.id);
+      if (!p) return ctx.problem(404, 'NOT_FOUND');
+      const ifMatch = request.headers.get('if-match');
+      if (!ifMatch) return ctx.problem(428, 'PRECONDITION_REQUIRED');
+      if (ifMatch.replace(/"/g, '') !== String(p.version))
+        return ctx.problem(412, 'VERSION_CONFLICT');
+      if (p.status !== 'issued' && p.status !== 'partially_paid')
+        return ctx.problem(409, 'INVALID_TRANSITION');
+      const b = (await request.json()) as {
+        amountVnd?: number;
+        receivedOn?: string;
+        reason?: string;
+        reference?: string | null;
+      };
+      const balance = p.snapshot!.totals.totalVnd - p.paidVnd;
+      const amount = b.amountVnd ?? balance;
+      const errors: Array<{ field: string; code: string }> = [];
+      if (!Number.isInteger(amount) || amount <= 0)
+        errors.push({ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' });
+      if (!b.receivedOn || b.receivedOn > today())
+        errors.push({ field: 'receivedOn', code: 'DATE_INVALID' });
+      const reason = String(b.reason ?? '').trim();
+      if (reason.length < 3 || reason.length > 300)
+        errors.push({ field: 'reason', code: 'REQUIRED' });
+      if (b.reference && !/^[A-Za-z0-9 ./-]{1,64}$/.test(b.reference))
+        errors.push({ field: 'reference', code: 'VALIDATION_FAILED' });
+      if (errors.length) return validation(errors);
+      if (amount > balance)
+        return ctx.problem(422, 'AMOUNT_OVER_BALANCE', {
+          max: balance,
+          errors: [{ field: 'amountVnd', code: 'AMOUNT_OVER_BALANCE' }],
+        });
+      if (!g.roles.includes('owner')) {
+        // SEC 12-02 (a)–(c) + SEC 197-02: arrival-month statement of a backdated check-in, rent only, received on
+        // or before that check-in, no reversed payment and no real payment received after it.
+        const on = p.backdatedCheckinOn;
+        const rent = p
+          .snapshot!.lines.filter((l) => l.kind === 'rent')
+          .reduce((sum, l) => sum + l.amountVnd, 0);
+        const blocked =
+          !on ||
+          amount > rent - p.paidVnd ||
+          b.receivedOn! > on ||
+          p.payments.some(
+            (x) => x.reversed || (x.method !== 'outside_desk' && (x.receivedOn ?? '') > on),
+          );
+        if (blocked) return ctx.problem(403, 'FORBIDDEN_ACTION', { detail: 'owner only' });
+      }
+      st.seq += 1;
+      const payment = {
+        id: uid(88_000 + st.seq),
+        method: 'outside_desk' as const,
+        amountVnd: amount,
+        reconciliation: 'not_required',
+      };
+      p.payments.push(payment);
+      p.paidVnd += amount;
+      p.status = p.paidVnd >= p.snapshot!.totals.totalVnd ? 'paid' : 'partially_paid';
+      if (p.status === 'paid') p.paidAt = new Date().toISOString();
+      p.version += 1;
+      const out = {
+        billingPeriod: viewOf(p, g.roles),
+        payment: { ...payment, status: 'succeeded' },
+      };
+      idem.set(key, out);
+      return json(out, 201);
+    }),
   ];
 
   return {

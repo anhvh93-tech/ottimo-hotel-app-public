@@ -12,7 +12,10 @@ import {
 } from '../../app/statements';
 import { useToast } from '../../app/toast';
 import { useWrite } from '../../app/useWrite';
-import { usePropertyId } from '../../session/SessionProvider';
+import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { backdatedOn, goLiveDeferred, isOwnerOrManager } from '../../app/goLive';
+import { addDays } from '../../app/reservations';
+import { useResource } from '../../hooks/useResource';
 import { BelowDialog, TYPES } from './MeterDialogs';
 import { dayText } from './labels';
 
@@ -51,13 +54,33 @@ export function MeterCheckinDialog({
   const propertyId = usePropertyId();
   const toast = useToast();
   const ids = useId();
-  const minDay = segmentFrom > `${month}-01` ? segmentFrom : `${month}-01`;
+  const { roles } = useSession();
+  const manager = isOwnerOrManager(roles);
+  // FB-INV-012 §12.1.3: a backdated check-in takes its reading from the paper log – from the day before arrival,
+  // always late (FDL+ with a reason), photo may be waived with a note (BR-LS-13).
+  const rsv = useResource(
+    async () => (await api.getReservation({ propertyId, reservationId })).data,
+    [propertyId, reservationId],
+  );
+  const backdated = !!backdatedOn(rsv.state.data);
+  const monthStart = `${month}-01`;
+  const minDay = backdated
+    ? addDays(segmentFrom, -1)
+    : segmentFrom > monthStart
+      ? segmentFrom
+      : monthStart;
   const maxDay = today;
   const [readOn, setReadOn] = useState(() =>
     segmentFrom >= minDay && segmentFrom <= maxDay ? segmentFrom : '',
   );
   /** From 422 READING_OUT_OF_WINDOW with `lateUntil`: the reading is late, FDL+ may save it with a reason. */
   const [late, setLate] = useState<{ windowTo: string } | null>(null);
+  /** §12.5: past `lateUntil` (422 with `catchUpNeedsRole`) – OWN/MGR read again today. */
+  const [pastLate, setPastLate] = useState<string | null>(null);
+  const [catchUp, setCatchUp] = useState(false);
+  const [waived, setWaived] = useState(false);
+  const [note, setNote] = useState('');
+  const needsReason = !!late || backdated || catchUp;
   const [lateReason, setLateReason] = useState('');
   const [values, setValues] = useState<Record<MeterType, string>>({ electricity: '', water: '' });
   const [ex, setEx] = useState<Record<MeterType, MeterException | null>>({
@@ -92,14 +115,16 @@ export function MeterCheckinDialog({
       if (v === null) errs[type] = t('common.required');
       else parsed[type] = v;
     }
-    if (!photo) errs.photo = t('meters.photo_required');
-    if (late && lateReason.trim().length < 3) errs.late = t('meters.void_reason_required');
+    const photoWaived = waived && backdated && lead && !catchUp;
+    if (!photo && !photoWaived) errs.photo = t('meters.photo_required');
+    if (photoWaived && note.trim().length < 3) errs.note = t('meters.void_reason_required');
+    if (needsReason && lateReason.trim().length < 3) errs.late = t('meters.void_reason_required');
     setErrors(errs);
     if (Object.keys(errs).length) return;
     try {
       // One file binds to one record: a photo uploaded for a refused POST is reused for the next try.
-      let id = photoId;
-      if (!id) {
+      let id = photoWaived ? null : photoId;
+      if (!id && !photoWaived) {
         id = (
           await up.run((key) =>
             api.uploadAttachment(
@@ -119,17 +144,27 @@ export function MeterCheckinDialog({
         readOn,
         electricity: { value: parsed.electricity, exception: ex.electricity },
         water: { value: parsed.water, exception: ex.water },
-        photoAttachmentId: id,
-        photoWaived: false,
-        note: null,
+        ...(id ? { photoAttachmentId: id, photoWaived: false } : { photoWaived: true }),
+        note: photoWaived ? note.trim() : null,
         acknowledgeLowerThanPrevious: ack,
-        ...(late ? { lateReason: lateReason.trim() } : {}),
+        ...(needsReason ? { lateReason: lateReason.trim() } : {}),
       };
+      if (catchUp) Object.assign(body, { catchUp: true });
       await rec.run((key) => api.recordMeterReading({ propertyId, reservationId }, body, key));
       toast(t('meters.checkin_saved', { room: roomNo }));
       onSaved();
     } catch (err) {
       if (isApiError(err) && err.status >= 400 && err.status < 500) rec.renewKey();
+      if (
+        isApiError(err) &&
+        err.code === 'READING_OUT_OF_WINDOW' &&
+        goLiveDeferred.catchUp &&
+        err.problem.catchUpNeedsRole &&
+        !catchUp
+      ) {
+        setPastLate(String(err.problem.lateUntil ?? err.problem.windowTo ?? ''));
+        return;
+      }
       if (isApiError(err) && err.code === 'READING_OUT_OF_WINDOW' && err.problem.lateUntil) {
         setLate({ windowTo: String(err.problem.windowTo ?? '') });
         if (lead) setErrors((e) => ({ ...e, late: t('meters.void_reason_required') }));
@@ -155,7 +190,13 @@ export function MeterCheckinDialog({
         footer={
           <>
             <Button onClick={onClose}>{t('common.cancel')}</Button>
-            <Button variant="pri" disabled={busy || (!!late && !lead)} onClick={() => void save()}>
+            <Button
+              variant="pri"
+              disabled={
+                busy || ((!!late || backdated) && !lead && !catchUp) || (!!pastLate && !catchUp)
+              }
+              onClick={() => void save()}
+            >
               {t('meters.save')}
             </Button>
           </>
@@ -164,13 +205,41 @@ export function MeterCheckinDialog({
         <div className="stack">
           <p className="li-s">{t('meters.checkin_help')}</p>
           {banner ? <Alert tone="bad">{banner}</Alert> : null}
-          {late ? (
+          {backdated ? <Alert tone="info">{t('meters.backdated_help')}</Alert> : null}
+          {pastLate ? (
+            <Alert
+              tone="warn"
+              actions={
+                manager && !catchUp ? (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setCatchUp(true);
+                      setWaived(false);
+                      setReadOn(today);
+                    }}
+                  >
+                    {t('meters.catch_up_action')}
+                  </Button>
+                ) : undefined
+              }
+            >
+              {t('meters.past_late', { date: dayText(locale, pastLate.slice(0, 10)) })}
+            </Alert>
+          ) : late && !catchUp ? (
             <Alert tone="warn">
               {t(lead ? 'meters.late' : 'meters.late_fd', { date: dayText(locale, late.windowTo) })}
             </Alert>
+          ) : backdated && !lead ? (
+            <Alert tone="warn">{t('meters.backdated_fd')}</Alert>
           ) : null}
-          {late && lead ? (
-            <Field label={t('meters.late_reason')} required error={errors.late}>
+          {(needsReason && lead && !pastLate) || catchUp ? (
+            <Field
+              label={t(catchUp ? 'meters.catch_up_reason' : 'meters.late_reason')}
+              required
+              error={errors.late}
+              help={catchUp ? t('meters.catch_up_on', { date: dayText(locale, today) }) : undefined}
+            >
               {(p) => (
                 <input
                   {...p}
@@ -188,12 +257,14 @@ export function MeterCheckinDialog({
                 {...p}
                 className="input"
                 type="date"
-                min={minDay}
+                min={catchUp ? today : minDay}
                 max={maxDay}
+                disabled={catchUp}
                 value={readOn}
                 onChange={(e) => {
                   setReadOn(e.target.value);
                   setLate(null);
+                  setPastLate(null);
                 }}
               />
             )}
@@ -222,7 +293,7 @@ export function MeterCheckinDialog({
           ))}
           <Field
             label={t('meters.photo')}
-            required
+            required={!(waived && backdated && lead && !catchUp)}
             error={errors.photo}
             help={t('meters.photo_help')}
           >
@@ -254,6 +325,29 @@ export function MeterCheckinDialog({
               </div>
             )}
           </Field>
+          {backdated && lead && !catchUp ? (
+            <label className="row">
+              <input
+                type="checkbox"
+                checked={waived}
+                onChange={(e) => setWaived(e.target.checked)}
+              />{' '}
+              {t('meters.photo_waive')}
+            </label>
+          ) : null}
+          {waived && backdated && lead && !catchUp ? (
+            <Field label={t('meters.note')} required error={errors.note}>
+              {(p) => (
+                <input
+                  {...p}
+                  className="input"
+                  maxLength={300}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              )}
+            </Field>
+          ) : null}
         </div>
       </Modal>
       {below ? (

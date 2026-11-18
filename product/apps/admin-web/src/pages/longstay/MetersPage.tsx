@@ -26,6 +26,7 @@ import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { MeterCheckinDialog } from './MeterCheckinDialog';
+import { goLiveDeferred, isOwnerOrManager } from '../../app/goLive';
 import { BelowDialog, HistoryDialog, LowerDialog, TYPES, UNIT } from './MeterDialogs';
 import { dayText, meterNum, monthText } from './labels';
 
@@ -275,6 +276,10 @@ function MeterRow({
   const session = useSession();
   const toast = useToast();
   const lead = isLead(session.roles);
+  // FB-INV-012 §12.5 (A130, FE-6): past the late-entry deadline only OWN/MGR take a catch-up reading, dated today.
+  const manager = isOwnerOrManager(session.roles);
+  const [pastLate, setPastLate] = useState<string | null>(null);
+  const [catchUp, setCatchUp] = useState(false);
   const { candidate, room, readings } = row;
   const next = shiftMonth(month, 1);
   const openM = latest(
@@ -337,31 +342,37 @@ function MeterRow({
     closeM ? closeM[type].value : parseMeter(draft[type].closing, type);
 
   const busy = closeW.busy || openW.busy || upC.busy || upO.busy;
-  const blockedLate = late && !lead;
+  const blockedLate = (late && !lead) || (!!pastLate && !catchUp);
+  const needsReason = late || catchUp;
 
   const body = (
     kind: 'period_end' | 'period_start',
     values: Record<MeterType, number>,
     photoAttachmentId: string | null,
-  ): RecordMeterReadingBody => ({
-    roomId: room.roomId,
-    kind,
-    periodMonth: kind === 'period_end' ? month : next,
-    readOn: today,
-    electricity: {
-      value: values.electricity,
-      exception: kind === 'period_end' ? draft.electricity.closingEx : draft.electricity.openingEx,
-    },
-    water: {
-      value: values.water,
-      exception: kind === 'period_end' ? draft.water.closingEx : draft.water.openingEx,
-    },
-    // Both flags have a schema default; the generated body type lists them, so they are always sent.
-    ...(photoAttachmentId ? { photoAttachmentId, photoWaived: false } : { photoWaived: true }),
-    note: note.trim() || null,
-    acknowledgeLowerThanPrevious: kind === 'period_start' && ack,
-    ...(late ? { lateReason: lateReason.trim() } : {}),
-  });
+  ): RecordMeterReadingBody => {
+    const b: RecordMeterReadingBody = {
+      roomId: room.roomId,
+      kind,
+      periodMonth: kind === 'period_end' ? month : next,
+      readOn: today,
+      electricity: {
+        value: values.electricity,
+        exception:
+          kind === 'period_end' ? draft.electricity.closingEx : draft.electricity.openingEx,
+      },
+      water: {
+        value: values.water,
+        exception: kind === 'period_end' ? draft.water.closingEx : draft.water.openingEx,
+      },
+      // Both flags have a schema default; the generated body type lists them, so they are always sent.
+      ...(photoAttachmentId ? { photoAttachmentId, photoWaived: false } : { photoWaived: true }),
+      note: note.trim() || null,
+      acknowledgeLowerThanPrevious: kind === 'period_start' && ack,
+      ...(needsReason ? { lateReason: lateReason.trim() } : {}),
+    };
+    // §12.5 `catchUp` (0.3.15) – both readings of the row (closing M and opening M+1, same day, gap 0).
+    return catchUp ? Object.assign(b, { catchUp: true }) : b;
+  };
 
   const save = async (opts: { ack?: boolean } = {}) => {
     setBanner(null);
@@ -380,9 +391,9 @@ function MeterRow({
         else opening[type] = o;
       }
     }
-    if (!photo && !waived) errs.photo = t('meters.photo_required');
-    if (waived && note.trim().length < 3) errs.note = t('meters.void_reason_required');
-    if (late && lateReason.trim().length < 3) errs.late = t('meters.void_reason_required');
+    if (!photo && (!waived || catchUp)) errs.photo = t('meters.photo_required');
+    if (waived && !catchUp && note.trim().length < 3) errs.note = t('meters.void_reason_required');
+    if (needsReason && lateReason.trim().length < 3) errs.late = t('meters.void_reason_required');
     setErrors(errs);
     if (Object.keys(errs).length) return;
     // BR-LS-12: closing below the opening of M is never saved as typed – ask why first.
@@ -446,6 +457,16 @@ function MeterRow({
       if (isApiError(err) && err.status >= 400 && err.status < 500) {
         closeW.renewKey();
         openW.renewKey();
+      }
+      if (
+        isApiError(err) &&
+        err.code === 'READING_OUT_OF_WINDOW' &&
+        goLiveDeferred.catchUp &&
+        err.problem.catchUpNeedsRole &&
+        !catchUp
+      ) {
+        setPastLate(String(err.problem.lateUntil ?? err.problem.windowTo ?? ''));
+        return;
       }
       if (isApiError(err) && err.code === 'METER_LOWER_THAN_PREVIOUS') {
         setLower((err.problem.meter as MeterType | undefined) ?? 'electricity');
@@ -715,7 +736,7 @@ function MeterRow({
                 </div>
               )}
             </Field>
-            {lead ? (
+            {lead && !catchUp ? (
               <label className="row">
                 <input
                   type="checkbox"
@@ -755,7 +776,46 @@ function MeterRow({
             <Chip tone="neutral" icon={null}>
               {t('meters.missing')}
             </Chip>
-            {late ? (
+            {pastLate ? (
+              <Alert
+                tone="warn"
+                actions={
+                  manager && !catchUp ? (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setCatchUp(true);
+                        setWaived(false);
+                      }}
+                    >
+                      {t('meters.catch_up_action')}
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {t('meters.past_late', {
+                  date: pastLate ? dayText(locale, pastLate.slice(0, 10)) : '',
+                })}
+              </Alert>
+            ) : null}
+            {catchUp ? (
+              <Field
+                label={t('meters.catch_up_reason')}
+                required
+                error={errors.late}
+                help={t('meters.catch_up_on', { date: dayText(locale, today) })}
+              >
+                {(p) => (
+                  <input
+                    {...p}
+                    className="input"
+                    value={lateReason}
+                    maxLength={300}
+                    onChange={(e) => setLateReason(e.target.value)}
+                  />
+                )}
+              </Field>
+            ) : late && !pastLate ? (
               lead ? (
                 <Field
                   label={t('meters.late_reason')}

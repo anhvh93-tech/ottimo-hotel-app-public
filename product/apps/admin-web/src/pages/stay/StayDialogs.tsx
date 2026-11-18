@@ -15,7 +15,7 @@ import {
   type RoomStatusEntry,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Checkbox, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
+import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { addDays, currentSegment, dayMonth, suggestionsOf } from '../../app/reservations';
@@ -42,6 +42,7 @@ import {
 } from './common';
 import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
 import { unclaimedSlots } from '../registration/partyDocs';
+import { goLiveDeferred } from '../../app/goLive';
 import {
   SurchargeFocFields,
   focHeadroom,
@@ -714,10 +715,17 @@ export function AddChargeDialog({
   const propertyId = usePropertyId();
   const toast = useToast();
   const catalog = useResource(
-    async () => (await api.getChargeCatalog({ propertyId })).data.data,
-    [propertyId],
+    // FB-INV-012 §12.4 (FE-5): with the folio, the ad-hoc cleaning item carries the long-stay room price.
+    async () =>
+      (
+        await api.getChargeCatalog(
+          { propertyId },
+          goLiveDeferred.cleaningByRoom ? (r.folioId ?? undefined) : undefined,
+        )
+      ).data.data,
+    [propertyId, r.folioId],
   );
-  const items: ChargeCatalogItem[] = catalog.state.data ?? [];
+  const items: Array<ChargeCatalogItem & { priceSource?: string }> = catalog.state.data ?? [];
   const [code, setCode] = useState('');
   const item =
     items.find((x) => x.code === (code || preset)) ?? items.find((x) => x.category === preset);
@@ -809,6 +817,15 @@ export function AddChargeDialog({
             amount: money(item.defaultUnitPriceVnd),
             rule: item.ruleRef ?? item.name,
           })}
+          {goLiveDeferred.cleaningByRoom &&
+          (item.priceSource === 'long_stay_room' || item.priceSource === 'default') ? (
+            <>
+              {' '}
+              <Chip tone={item.priceSource === 'long_stay_room' ? 'long' : 'neutral'} icon={null}>
+                {t(`charge.price_source.${item.priceSource}`)}
+              </Chip>
+            </>
+          ) : null}
         </p>
       ) : null}
       <div className="g-2">

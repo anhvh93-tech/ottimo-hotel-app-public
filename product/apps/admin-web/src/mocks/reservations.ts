@@ -86,6 +86,8 @@ export const nightsBetween = (from: string, to: string) =>
 const overlaps = (a1: string, a2: string, b1: string, b2: string) => a1 < b2 && b1 < a2;
 
 export interface MockReservation extends Reservation {
+  /** FB-INV-012 §12.1.2 (0.3.15): the business day of the backdated check-in. */
+  checkinBackdatedOn?: string | null;
   /** Sprint 3 mock: guest nationality on the booking (drives VN/foreigner registration). */
   nationality?: string;
   createdBy?: string;
@@ -884,6 +886,9 @@ export function createReservationMock(ctx: Ctx) {
       } else {
         if (fd && r.arrivalDate === today())
           add('check_in', 'B9', 'check-in', { requiresTrustedDevice: true });
+        // FB-INV-012 §12.1.2 (A127): a manual long stay whose arrival has passed – OWN/MGR only.
+        if (has(roles, OWN_MGR) && r.manualLongStay && r.arrivalDate < bizToday())
+          add('check_in_backdated', 'B9', 'check-in-backdated', { requiresTrustedDevice: true });
         if (fd) add('move', 'B7', 'move');
         if (has(roles, OWN_MGR)) add('postpone', 'B8', 'move');
         if (fd || (roles.includes('sales_staff') && own && r.channelCode === 'direct'))
@@ -1298,11 +1303,38 @@ export function createReservationMock(ctx: Ctx) {
       const ch = channelById(body.channelId);
       const r = roomById(body.roomId);
       const errors: Array<{ field: string; code: string }> = [];
+      let backdateEarliest: string | null = null;
       if (!ch) errors.push({ field: 'channelId', code: 'NOT_IN_LIST' });
       if (!body.bookerGuestId) errors.push({ field: 'bookerGuestId', code: 'REQUIRED' });
       if (!body.adults || body.adults < 1) errors.push({ field: 'adults', code: 'REQUIRED' });
+      // FB-INV-012 §12.1.1 (A127): `backdatedArrival` – OWN/MGR on a trusted device (SEC 12-07), manual long stay,
+      // arrival in [T − 45, T − 1], departure after T, never with a closer (SEC 12-01).
+      const backdated = (body as { backdatedArrival?: { reason?: string } }).backdatedArrival;
+      if (backdated) {
+        if (!has(g.roles, OWN_MGR)) return problem(403, 'FORBIDDEN_ACTION');
+        const u = g.user as { deviceTrusted?: boolean };
+        if (!(
+          u.deviceTrusted === true ||
+          (g.roles.includes('owner') &&
+            (ctx.db() as { currentDeviceTrusted?: boolean }).currentDeviceTrusted)
+        ))
+          return problem(403, 'DEVICE_NOT_TRUSTED');
+        if (!body.manualLongStay) errors.push({ field: 'backdatedArrival', code: 'NOT_ALLOWED' });
+        if ((body as { closerUserId?: string | null }).closerUserId)
+          errors.push({ field: 'closerUserId', code: 'NOT_ALLOWED' });
+        const reason = String(backdated.reason ?? '').trim();
+        if (reason.length < 3 || reason.length > 300)
+          errors.push({ field: 'backdatedArrival.reason', code: 'REQUIRED' });
+      }
       if (!body.arrivalDate) errors.push({ field: 'arrivalDate', code: 'REQUIRED' });
-      else if (body.arrivalDate < bizToday())
+      else if (backdated) {
+        if (body.arrivalDate < addDays(bizToday(), -45) || body.arrivalDate >= bizToday()) {
+          errors.push({ field: 'arrivalDate', code: 'BACKDATE_OUT_OF_RANGE' });
+          backdateEarliest = addDays(bizToday(), -45);
+        }
+        if (body.departureDate && body.departureDate <= bizToday())
+          errors.push({ field: 'departureDate', code: 'DATE_IN_PAST' });
+      } else if (body.arrivalDate < bizToday())
         errors.push({ field: 'arrivalDate', code: 'DATE_IN_PAST' });
       if (!body.departureDate || body.departureDate <= body.arrivalDate)
         errors.push({ field: 'departureDate', code: 'DATE_ORDER' });
@@ -1368,6 +1400,7 @@ export function createReservationMock(ctx: Ctx) {
         const minStay = errors.some((e) => e.code === 'MIN_STAY_NOT_MET');
         return problem(422, 'VALIDATION_FAILED', {
           errors,
+          ...(backdateEarliest ? { earliest: backdateEarliest } : {}),
           ...(minStay
             ? {
                 minStayNights: 2,

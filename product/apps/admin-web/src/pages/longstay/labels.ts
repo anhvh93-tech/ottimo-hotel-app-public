@@ -163,5 +163,6 @@ export function warningText(t: T, w: StatementWarning): string {
     threshold: n(w.threshold),
     opening: n(w.opening),
     previous: n(w.previousClosing),
+    date: typeof w.readOn === 'string' ? w.readOn.split('-').reverse().slice(0, 2).join('/') : '',
   });
 }

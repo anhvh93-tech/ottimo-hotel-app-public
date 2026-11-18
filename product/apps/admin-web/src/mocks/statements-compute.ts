@@ -247,13 +247,19 @@ export function alertOf(p: StoredPeriod, dueDate: string | null | undefined, tod
 
 export function actionsOf(p: StoredPeriod, roles: Role[]): StatementAction[] {
   const lead = has(roles, LEADS);
+  // FB-INV-012 §12.2 (A128, 0.3.15 final #197): OWN on any statement still owed; MGR only on the arrival-month
+  // statement of a backdated check-in (ARC 197-02). The rest of SEC 12-02 is checked when recording.
+  const outside: StatementAction[] =
+    roles.includes('owner') || (roles.includes('manager') && !!p.backdatedCheckinOn)
+      ? ['settle_outside_desk']
+      : [];
   switch (p.status) {
     case 'draft':
       return ['update', 'issue', 'void', ...(lead ? (['prior_adjustment'] as const) : [])];
     case 'issued':
-      return ['print', 'record_payment', ...(lead ? (['void'] as const) : [])];
+      return ['print', 'record_payment', ...(lead ? (['void'] as const) : []), ...outside];
     case 'partially_paid':
-      return ['print', 'record_payment'];
+      return ['print', 'record_payment', ...outside];
     case 'paid':
       return ['print'];
     default:

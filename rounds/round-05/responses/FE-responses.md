@@ -289,3 +289,79 @@ Ghi chú:
 | FB-R5-UXD-FE-195-03 | Done | (a) Căn mở kỳ bằng `period_start` thiếu đầu kỳ: một dòng cho cả hàng "Chưa có đầu kỳ {month}. Nhập ở tháng {prev}." kèm nút mở tháng trước. Căn nhận phòng giữa tháng giữ cảnh báo theo công tơ vì có nút nhập ngay. (b) "Nhập cuối kỳ từ ngày …" một lần trên đầu bảng, hàng chỉ giữ chip |
 | FB-R5-UXD-FE-195-04 | Done | Chuỗi tóm tắt riêng `params.stmt.sum_*`, chữ thường đầu cụm |
 | FB-R5-UXD-FE-195-05 | Done | Ô mã quy tắc không xuống dòng |
+
+## Go-live fix FB-INV-012 v1.0.7 (contract §12, 18/11, nhánh `r5-fb012-golive-fe`)
+
+Làm trên mock MSW theo hình dạng §12 (OpenAPI `0.3.15-draft`). Kiểu mới tạm viết tay trong `packages/api-client/src/golive.ts`; khi PR BE `r5-fb012-golive-be` lên main, FE merge `origin/main` (không rebase) và trỏ các alias sang kiểu sinh từ OpenAPI. Không sửa `screens.ts`, không sửa ma trận RBAC.
+
+| Việc | Trạng thái | Ghi chú |
+|---|---|---|
+| FE-1 (12.1.1, A127) | Done | H10 "Đơn dài hạn nhập tay": OWN/MGR thấy ô "Khách đã ở". Bật lên thì ngày vào trong [hôm nay − 45, hôm qua], ô "Lý do nhập bù" bắt buộc, gửi `backdatedArrival.reason`. Thiết bị chưa cấp quyền thì ô bị khóa và nói lý do (SEC 12-07). Form không có ô người chốt, không gửi `closerUserId` (SEC 12-01). Lưu xong mở luôn hộp nhận phòng bù. Mã lỗi `BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED` có câu riêng |
+| FE-2 (12.1.2–12.1.3) | Done | Nút "Nhận phòng bù" ở S04 (ngăn đơn) và S06 (trang nhận phòng) chỉ theo `allowedActions` có `check_in_backdated`. Hộp: ngày đến thật (mặc định ngày đến của đơn, báo khi dời ngày), lý do, số thẻ; ô bỏ qua kiểm giấy tờ chỉ hiện khi server trả `unmet` có `document_check_block`. Không có giờ, phụ thu, thu tiền. Xong thì hiện bước tiếp: "Ghi chỉ số nhận phòng" (S12) và "Phiếu tháng nhận phòng" (S16). Ngăn đơn có chip "Nhận phòng bù dd/mm" từ `checkinBackdatedOn`. Hộp chỉ số nhận phòng: đơn nhận phòng bù cho chọn ngày từ ngày đến − 1, luôn ghi trễ (FDL+ có lý do), FDL+ được bỏ ảnh kèm ghi chú |
+| FE-3 (12.2, A128) | Done | Chi tiết phiếu S16: nút "Đã thu ngoài Desk" chỉ theo `availableActions` có `settle_outside_desk`. Số tiền (mặc định còn phải thu), ngày khách đã trả (≤ hôm nay), lý do, mã tham chiếu (`[A-Za-z0-9 ./-]`, ≤ 64). Hộp xác nhận nói rõ không vào ca, không vào đối soát, không vào tiền mặt bàn giao, không hoàn được. 403 hiện câu "chỉ chủ cơ sở…" (SEC 12-02); `DEVICE_NOT_TRUSTED` có câu riêng. `outside_desk` chỉ là nhãn hiển thị (folio, Nhật ký tiền), không có trong ô chọn cách thu nào (SEC 12-03) |
+| FE-4 (12.3, A129 + 12.4 A101) | Done | S24: khối "Liên hệ cơ sở" (địa chỉ, hotline) – OWN sửa, MGR/FDL chỉ xem; xem trước chân phiếu một dòng. Kiểm trước khi lưu theo §12.3 và SEC 12-04 (b) (ký tự điều khiển, định hướng, độ rộng 0). Mọi chỗ hiện địa chỉ/hotline là chữ thuần do React escape, không `dangerouslySetInnerHTML` (SEC 12-04 (c)). Khóa `long_stay_cleaning_fee_by_room` trong nhóm "Dài hạn – phiếu tháng": sửa theo từng căn (trống = giá chung), giá 0–5.000.000 bội 1.000 |
+| FE-5 (12.4) | Done | Thêm phát sinh gọi `getChargeCatalog?folioId=`; chip nguồn giá "Giá dài hạn của căn" / "Giá chung" theo `priceSource` |
+| FE-6 (12.5, A130) | Done | S12 (hàng tháng) và hộp chỉ số nhận phòng: 422 `READING_OUT_OF_WINDOW` có `catchUpNeedsRole` → câu DOM §3.3; MGR/OWN có nút "Đọc bù hôm nay" (ngày khóa hôm nay, lý do + ảnh bắt buộc, không cho bỏ ảnh, gửi `catchUp: true` cho cả cuối kỳ và đầu kỳ tháng sau). Nháp phiếu có cảnh báo `READING_CATCH_UP` |
+| FE-7 | Done | Chuỗi EN/VI qua `gen_strings.py` (nhóm "R5 FB-INV-012 §12"), có `payment.method.outside_desk`. Mã lạ trong `allowedActions`/`availableActions` bị bỏ qua |
+| FE-8 | Done – chờ UXD duyệt chữ | Chỉ màu bảng 80/15/5 (biến `--brand-*`), Lora/Be Vietnam Pro/JetBrains Mono (hotline, mã tham chiếu dùng mono), không emoji. Hộp xác nhận "Đã thu ngoài Desk" dùng nút chính (Ink), không dùng nút nguy hiểm |
+| 12.6 `lock_timeout` | Không thuộc FE | Việc BE (`migrate.ts`) |
+
+Giả định: (1) `Reservation.checkinBackdatedOn` và `allowedActions[].event = 'check_in_backdated'` như §12.1.2; (2) `settleBillingPeriodOutsideDesk` gửi `If-Match` theo `BillingPeriod.version` như các thao tác ghi phiếu khác, trả `BillingPeriodPaymentResult`; (3) cảnh báo `READING_CATCH_UP` có `roomNo` và `readOn`; (4) `getPropertyContact` gọi được với OWN/MGR/FDL. BE lệch tên nào thì FE sửa khi merge.
+
+### Lượt 2 – trả lời UXD review PR #196 (`reviews/UXD-on-fe-pr-196.md`, 18/11)
+
+Nhánh đã nhận merge `main` do ORC chạy `gh pr update-branch` (gồm sửa trình kiểm BR). Không rebase, không force-push. Kiểu tạm trong `api-client/src/golive.ts` giữ nguyên, chờ PR BE.
+
+| Thẻ | Trạng thái | Cách sửa |
+|---|---|---|
+| FB-R5-UXD-FE-196-01 (Major) | Fixed | Đủ 9 khóa đúng bảng của UXD (EN/VI): "Paid outside the app / Khách đã trả ngoài app", nói rõ "lúc này không thu tiền", trỏ sang Ghi đã thu, "Đảo giao dịch" do quản lý hoặc chủ đầu tư làm. Tên khóa `od.*`, `payment.method.outside_desk` và enum API giữ nguyên. Câu ví dụ nhãn ở contract §12.2 là việc của ARC |
+| FB-R5-UXD-FE-196-02 | Fixed | `pc.help`, `od.owner_only` dùng "chủ đầu tư"; ngày thống nhất "Date the guest paid / Ngày khách đã trả" (`od.received_on`, `od.date_future`) |
+| FB-R5-UXD-FE-196-03 | Fixed | `bd.in_house_toggle` VI "Khách đang ở từ trước"; `bd.in_house_help`, `bd.reason_help`, `bd.first_of_month`, `bd.checkin_body` theo bảng UXD |
+| FB-R5-UXD-FE-196-04 | Fixed | `LongStayDialog.tsx` dùng `Checkbox` của `@ottimo/ui`; `bd.first_of_month` chuyển lên khối của ô bật/tắt (chỉ hiện khi bật), ô Ngày vào không còn help riêng nên hàng Căn / Ngày vào / Ngày ra thẳng |
+| FB-R5-UXD-FE-196-05 | Fixed | Khóa mới `meters.backdated_fd`, dùng cho FD ở đơn nhận phòng bù, không truyền ngày (`MeterCheckinDialog.tsx`) |
+| FB-R5-UXD-FE-196-06 | Fixed | `params.lscf.help` có `{price}` = `adhoc_cleaning_fee` hiệu lực (ParamsPage truyền vào; chưa có giá thì dùng `params.lscf.help_noprice`); ô trống có placeholder = giá chung; lịch sử dùng `params.lscf.empty_short`; "dọn lẻ" đổi thành "dọn thêm". Nhãn quy tắc lấy `brRef` từ API: mock đổi "H3" → `BR-LS-07`. **BE cần đặt `br_ref` của khóa `long_stay_cleaning_fee_by_room` là `BR-LS-07`** (hoặc mã DOM gán) trong migration catalogue |
+| FB-R5-UXD-FE-196-07 | Fixed | Giữ `danger={false}`: đã kiểm nút xác nhận có class `btn pri` (Ink). Ô số tiền của cả "Ghi đã thu" và "Khách đã trả ngoài app" dùng `VndInput`: nhóm nghìn khi mở và khi rời ô, hậu tố "đ"/"VND" (`input-affix`). Ảnh chụp lại VI + EN (OWN) và VI (MGR) ở scratchpad của FE, dữ liệu giả, không vào repo |
+| FB-R5-UXD-FE-196-08 | Fixed | MGR: số tiền mặc định = tiền thuê trên phiếu trừ phần đã thu (không quá còn phải thu), help `od.manager_cap` dưới ô. Server vẫn quyết (403 `od.owner_only` nếu vượt). OWN mặc định vẫn là toàn bộ còn phải thu |
+
+Ghi chú cho UXD: nhãn ô số tiền (`stmt.pay_amount` = "Số tiền (đ)") đã có đơn vị, nay thêm hậu tố "đ" nên đơn vị hiện hai lần. Nếu muốn bỏ "(đ)" khỏi nhãn thì đó là chuỗi chung, UXD quyết.
+
+Kiểm: admin-web 106 file / 1160 test đạt (thêm test bảng giá dọn và mặc định MGR; test S16 cũ đổi sang số có dấu chấm), api-client 39, i18n 22, `validate-fixtures` 0 lỗi; typecheck, ESLint, Prettier sạch.
+
+### Lượt 3 – khớp BE PR #197 (`r5-fb012-golive-be` @ `a1bd464f`, chưa merge, 18/11)
+
+Đối chiếu `openapi.yaml` 0.3.15-draft của #197 với kiểu tạm `packages/api-client/src/golive.ts` và `endpoints.ts`:
+
+| Mục | FE tạm | #197 | Xử lý |
+|---|---|---|---|
+| `checkInBackdated` đường dẫn, `If-Match`, idempotency, 200 `Reservation` | như spec | như spec | Khớp |
+| `CheckInBackdatedInput.cardsIssued` | tùy chọn, FE kiểm 0–9 | **bắt buộc, 0–2** | **Lệch**: FE luôn gửi, nay kiểm 0–2 (`bd.cards_range`) |
+| `CheckInBackdatedInput.documentBlockOverride.reason` | không giới hạn | 3–500 | Khớp (FE kiểm ≥ 3) |
+| `BillingPeriodOutsideDeskCreate.amountVnd` | `number?` | `MoneyVnd \| null`, tùy chọn | Tương thích (FE luôn gửi số) |
+| `reference` | `string \| null`, `^[A-Za-z0-9 ./-]{1,64}$` | như vậy + dãy ≥ 9 chữ số → 422 `NOT_ALLOWED` | FE kiểm trước (`od.reference_long_number`); 422 trên `reference` (cả `CARD_NUMBER_DETECTED`) hiện dưới ô |
+| settle: 201 `BillingPeriodPaymentResult`, `If-Match`, idempotency | như spec | như spec | Khớp |
+| `PropertyContact` {addressLine, hotline} null được; GET OWN/MGR/FDL, PUT OWN, không `If-Match` | như spec | như spec | Khớp |
+| `Reservation.checkinBackdatedOn`, action `check_in_backdated`, `availableActions` `settle_outside_desk`, method `outside_desk` | như spec | như spec | Khớp |
+| `PaymentMethodInput` (SEC 12-03) | FE không gửi `outside_desk` ở thân nào | enum mới cho thân lệnh | Khớp; #197 sửa 5 file admin-web, merge thử `git merge-tree` không xung đột |
+| `StaffNotification.kind` `backdated_stay`, `statement_settled_outside_desk` | – | mới | Admin-web không hiển thị theo kind này; không cần sửa |
+| 12.4 `getChargeCatalog?folioId`, `priceSource`, bảng `long_stay_cleaning_fee_by_room` | đã làm | **hoãn** | **Ẩn ở v1.0.7**: cờ `goLiveDeferred.cleaningByRoom = false` (`app/goLive.ts`): không gửi `folioId`, không chip nguồn giá, khóa không hiện ở S24 |
+| 12.5 `catchUp` | đã làm | **hoãn** | **Ẩn ở v1.0.7**: `goLiveDeferred.catchUp = false`: bỏ qua `catchUpNeedsRole`, không bao giờ gửi `catchUp` (luồng ghi trễ cũ giữ nguyên) |
+| Lệch 3: dời ngày đến chỉ đơn một đoạn | cho chọn ngày | 422 `arrivalDate: NOT_ALLOWED` | Đơn nhiều đoạn: khóa ô ngày, giải thích `bd.arrival_fixed`; 422 cũng hiện câu này |
+| Lệch 4: `USE_CHECK_IN` chỉ ở `checkInBackdated` | `field_error.use_check_in` | như vậy | Khớp (hiện dưới ô ngày của hộp nhận phòng bù) |
+| Lệch 7: mặc định số tiền = còn phải thu, MGR vượt phần thuê → 403 | – | như vậy | FE mặc định phần thuê chưa thu cho MGR (UXD-196-08) |
+
+Mã 12.4/12.5 giữ lại sau cờ cho PR tiếp theo (bật cờ khi BE thêm API). Đổi sang kiểu sinh từ OpenAPI sau khi #197 merge (FE merge `origin/main`, không rebase). Chuỗi mới: `bd.arrival_fixed`, `bd.cards_range`, `od.reference_long_number` (UXD duyệt).
+
+### Lượt 4 – sau khi BE #197 merge (`main` @ `099fd1fc`, 18/11)
+
+- Đã merge `origin/main` vào nhánh, không rebase. `api-client/src/golive.ts` nay là bí danh của kiểu sinh từ OpenAPI 0.3.15: `CheckInBackdatedInput`, `BillingPeriodOutsideDeskCreate`, `PropertyContact`, `ReservationCreate.backdatedArrival`. Bỏ các ép kiểu tạm (`checkinBackdatedOn`, `check_in_backdated`, `settle_outside_desk`). Chỉ còn `ChargePriceSource` viết tay, vì 12.4 chưa có trong spec và mã đó vẫn nằm sau cờ `goLiveDeferred`.
+- **SEC 12-07:** `backdatedArrival` ngoài máy được cấp quyền trả 403 `DEVICE_NOT_TRUSTED`. Form dài hạn hiện `bd.need_device`, giống câu thiết bị của "ngoài app". Ô bật/tắt vốn đã khóa khi máy chưa được cấp quyền.
+- **ARC 197-02:** MGR chỉ thấy `settle_outside_desk` trên phiếu tháng nhận phòng của đơn nhận phòng bù. FE vẫn theo `availableActions`. Mock làm giống server, thêm trường mock `backdatedCheckinOn` trên phiếu.
+- **SEC 197-02:** MGR bị 403 khi phiếu có khoản thu đã bị đảo, hoặc có khoản thu thật nhận sau ngày nhận phòng bù. Lỗi hiện là `od.owner_only`. Mock kiểm đủ (a)–(c) và hai điều kiện này.
+- **ARC 197-05:** `BACKDATE_OUT_OF_RANGE` và `PREVIOUS_MONTH_CLOSED` có `earliest`. FE nói rõ ngày đó qua `backdateArrivalError` (`app/goLive.ts`) ở cả form dài hạn và hộp nhận phòng bù. Hai chuỗi mới: `field_error.backdate_out_of_range_from`, `field_error.previous_month_closed_from`. Mock trả kèm `earliest`.
+- **Các mã khác của 0.3.15:**
+  - `USE_CHECK_IN`: dùng `field_error.use_check_in`, đã có.
+  - `DATE_IN_FUTURE` của `receivedOn`: FE chặn trước bằng `od.date_future`.
+  - `CARD_NUMBER_DETECTED` / `NOT_ALLOWED` của `reference`: hiện dưới ô.
+  - `cardsIssued`: 0–2, mock cũng theo 0–2.
+- **Kiểm:** admin-web 106 file / 1163 test, api-client 39, `validate-fixtures` 0 lỗi; typecheck, ESLint và Prettier sạch.
+- **Việc cho UXD:** câu `od.owner_only` chưa nói tới trường hợp khoản thu bị đảo hoặc khoản thu thật nhận sau ngày nhận phòng bù. Đề nghị UXD xem có thêm ý này không. FE chưa sửa câu đã được duyệt.

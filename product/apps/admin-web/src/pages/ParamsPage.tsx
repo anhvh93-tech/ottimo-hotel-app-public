@@ -13,6 +13,9 @@ import { NAV, isVisible } from '../session/nav';
 import { usePropertyId, useSession } from '../session/SessionProvider';
 import { ParamDialog, formatParamValue } from './ParamDialog';
 import { ReceivingAccountSection } from './ReceivingAccount';
+import { PropertyContactSection } from './PropertyContact';
+import { goLiveDeferred } from '../app/goLive';
+import { LSCF_KEY } from './cleaningFeeParams';
 import {
   GROUP_LABEL,
   GROUP_ORDER,
@@ -65,7 +68,12 @@ export function ParamsPage() {
     (g) => g === 'occupancy' || params.some((p) => paramMeta(p.key).group === g),
   );
   const current = groups.includes(active) ? active : (groups[0] ?? 'booking');
-  const rows = params.filter((p) => paramMeta(p.key).group === current);
+  const rows = params.filter(
+    (p) =>
+      paramMeta(p.key).group === current &&
+      // §12.4 deferred by BE #197: the key exists but nothing reads it yet – not offered in v1.0.7.
+      (goLiveDeferred.cleaningByRoom || p.key !== LSCF_KEY),
+  );
   const canEditAny = session.roles.some((r) => r === 'owner' || r === 'manager');
   const roomsItem = NAV.find((n) => n.id === 'rooms')!;
   const canRooms = isVisible(roomsItem, {
@@ -95,6 +103,10 @@ export function ParamsPage() {
         ) : null}
         {/* R3-Q51 (SEC Q51-1): owner only – other roles never mount it (the API answers 403 too). */}
         {session.roles.includes('owner') ? <ReceivingAccountSection /> : null}
+        {/* FB-INV-012 §12.3 (FE-4): OWN edits, MGR/FDL read (S24 viewers). */}
+        {session.roles.some((r) => r === 'owner' || r === 'manager' || r === 'front_desk_lead') ? (
+          <PropertyContactSection />
+        ) : null}
         {state.status === 'error' && !state.data ? (
           <ErrorBlock titleKey="params.error_title" error={state.error} onRetry={reload} />
         ) : state.status === 'loading' && !state.data ? (
@@ -234,6 +246,10 @@ export function ParamsPage() {
         <ParamDialog
           param={editing}
           options={params.find((p) => p.key === 'hold_hours_options')?.value}
+          standardCleaningPrice={(() => {
+            const v = params.find((p) => p.key === 'adhoc_cleaning_fee')?.value;
+            return typeof v === 'number' ? v : null;
+          })()}
           onClose={() => setEditing(null)}
           onChanged={reload}
           onSaved={() => {
