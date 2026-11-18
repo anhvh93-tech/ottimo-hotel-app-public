@@ -3947,7 +3947,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       props: {
         roomId: { s: { k: 'ref', name: 'Uuid' } },
         kind: { s: { k: 'ref', name: 'MeterReadingKind' } },
-        periodMonth: { s: { k: 'object', props: {}, open: false } },
+        periodMonth: { s: { k: 'ref', name: 'YearMonthText' } },
         readOn: { s: { k: 'ref', name: 'LocalDate' } },
         electricity: { s: { k: 'ref', name: 'MeterValueInput' } },
         water: { s: { k: 'ref', name: 'MeterValueInput' } },
@@ -4162,7 +4162,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         totalVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         paidVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         balanceVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
-        unreconciledVnd: { s: { k: 'object', props: {}, open: false } },
+        unreconciledVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         disputed: { s: { k: 'scalar' } },
       },
       open: false,

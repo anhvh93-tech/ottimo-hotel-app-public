@@ -220,6 +220,11 @@ function shapeOf(spec, schema, depth = 0) {
     const own = schema.properties
       ? [objectView(spec, { ...schema, allOf: undefined }, depth + 1)]
       : [];
+    // `allOf: [{ $ref: Scalar }]` + description (a non-object wrapper, e.g. MoneyVnd): the wrapped shape itself –
+    // merging object views alone made it an empty closed object, and the serializer dropped the value (BUG-R5-010).
+    if (own.length === 0 && parts.every((x) => x === null)) {
+      return schema.allOf.length === 1 ? shapeOf(spec, schema.allOf[0], depth + 1) : { k: 'any' };
+    }
     const merged = mergeObjects([...parts, ...own].filter(Boolean));
     // allOf is closed unless every part is open.
     return merged;

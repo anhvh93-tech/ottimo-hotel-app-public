@@ -356,6 +356,9 @@ info:
     [ngày đổi căn, + `daysAfter`]; trễ hơn thì như đọc trễ (FDL+, `lateReason`, tới `lateMaxDays`); ngoài → 422 `READING_OUT_OF_WINDOW`; loại không khớp căn
     → 422 `kind` `NOT_ALLOWED`. Một `checkin` còn hiệu lực mỗi (đơn, căn) – chỉ mục `meter_reading_checkin_live_key`; một lần đọc đổi căn mỗi lần đổi → 409
     `READING_EXISTS`. `rooms[]` thêm `openingKind`, `segmentFrom`; `BillingPeriodPrint` thêm `roomNames` (UXD FE-189-11).
+    **Sửa sau QA staging 18/11 (chỉ sửa hành vi, không đổi hình dạng)**: đọc trễ xét theo ngày nhập, không chỉ `readOn` (BUG-R5-008);
+    `totals.unreconciledVnd` và `BillingPeriodLine.periodMonth` nay có trong phản hồi – bộ sinh `openapi-schemas.ts` trước đó biến `allOf` bọc kiểu
+    vô hướng thành object rỗng nên serializer bỏ trường (BUG-R5-010); `utilityPeriod`/`servicePeriod` null ở phiếu tháng nhận phòng (BUG-R5-013).
 
     ## Thay đổi phiên bản 0.3.13-draft (R5 v1.0.5 – Gói 0; ARC 06/11; chi tiết `rounds/round-05/outputs/ARC/contract-0.3.13.md`)
     Nền: 0.3.12-draft (`main` @ `4a36180a`). Chủ yếu **thêm**: trường chỉ đọc, trường tùy chọn ở thân lệnh, tham số lọc, trường mở rộng của Problem, luật trên operation đã có, và hai operation mới (Wi-Fi).
@@ -10567,6 +10570,8 @@ paths:
         - Cuối kỳ < đầu kỳ cùng kỳ, không có `exception` → 422 `METER_LOWER_THAN_PREVIOUS` (`meter`, `previousValue`, `previousReadingId`, `previousKind`).
         - Đầu kỳ < cuối kỳ trước của căn, không có `exception` → **cảnh báo hai bước** (ARC BE-190-01): 422 `OPENING_BELOW_PREVIOUS_CLOSING` (cùng các trường);
           gửi lại với `acknowledgeLowerThanPrevious: true` thì lưu với mọi vai FD+, `gap` âm, audit `acknowledgedLower`; nháp phiếu có cảnh báo cùng mã.
+        - **Trễ tính theo ngày nhập** (BUG-R5-008): `readOn` trong cửa sổ nhưng nhập (ngày nghiệp vụ của cơ sở lúc gửi) sau `windowTo` vẫn là đọc trễ;
+          `readOn` sau hôm nay → `VALIDATION_FAILED` `readOn` `DATE_INVALID`.
         - Đọc trễ (ARC BE-190-03): sau cửa sổ tới `readingWindow.lateMaxDays` ngày (mặc định 10) – OWN/MGR/FDL gửi `lateReason` (3–300) thì lưu (audit
           `meter_reading.late`, cảnh báo nháp `READING_LATE`); FD hoặc thiếu lý do → 422 `READING_OUT_OF_WINDOW` kèm `lateUntil`, `lateNeedsRole`.
           `exception` (`replaced` / `rollover`) hoặc `photoWaived=true` → chỉ OWN/MGR/FDL (FD → 403 `FORBIDDEN_ACTION`, A89 đơn giản hóa).
@@ -15882,8 +15887,8 @@ components:
         roomNos: { type: array, items: { type: string } }
         guestDisplayName: { type: [string, 'null'] }
         rentPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
-        utilityPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
-        servicePeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
+        utilityPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }], description: 'null khi kỳ kết thúc trước ngày đến (phiếu tháng nhận phòng – BUG-R5-013)' }
+        servicePeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }], description: 'null khi kỳ kết thúc trước ngày đến (BUG-R5-013)' }
         dueDate: { oneOf: [{ $ref: '#/components/schemas/LocalDate' }, { type: 'null' }] }
         overdueDays: { type: integer, minimum: 0 }
         alertLevel: { oneOf: [{ $ref: '#/components/schemas/BillingAlertLevel' }, { type: 'null' }] }
