@@ -3,6 +3,7 @@
 - Tác giả: ARC | Round 5 – Sản xuất | Đầu vào: `04-investor-feedback/FB-INV-012.md`, `rounds/round-05/fb-inv-012/DOM-rules.md` (BR-LS-01…16, bản 17/11), `erd.md` 4.11 (`billing_period`, `meter_reading` thiết kế R3, chưa có bảng), schema `folio.ts`, `payments.service.ts` (`createVietQr`, `qr_purpose = billing_period` đang bị chặn), `0098_fx_rates_fb_inv_011.sql` (mẫu tham số json + hook).
 - Tên gọi: **Monthly statement / Phiếu thanh toán tháng**. Không gọi "Phiếu thanh toán" để khỏi nhầm với bill trả phòng hiện có (`BillDialog`, `getBill`).
 - Mọi điểm DOM còn mở (kỳ trả trước/sau, % VAT, kỳ lẻ, làm tròn, hạn) là **tham số OWN có ngày hiệu lực**, không gõ cứng. DOM đổi luật thì đổi giá trị, không phải đổi mã.
+- **Sửa đổi 18/11** (sau INV bổ sung 17/11 và review PR #190, #189): xem **mục 11**. Mục 11 thắng mọi chỗ khác trong file nếu lệch. Các dòng đã lỗi thời có ghi chú *(thay bởi mục 11)*.
 
 ## 1. Quyết định kiến trúc (ARC tự quyết, ORC ghi decision-log)
 
@@ -27,7 +28,7 @@ Số file theo thứ tự merge (ghi chú ở 0098): PR merge sau lấy số k�
 |---|---|---|
 | `id`, `organization_id`, `property_id` | uuid | FK property như mọi bảng |
 | `reservation_id`, `room_id` | uuid not null | FK (`property_id`, …). Đổi căn giữa kỳ → mỗi căn một chuỗi chỉ số |
-| `kind` | text | `checkin`, `period_end`, `room_change_out`, `room_change_in`, `checkout` |
+| `kind` | text | `checkin`, `period_start`, `period_end`, `room_change_out`, `room_change_in`, `checkout` *(thêm `period_start` – mục 11.1)* |
 | `period_month` | date null | Ngày 01 của tháng mà lần đọc **đóng** (chỉ `period_end`). Đọc ngày 01/12 vẫn đóng tháng 11 (BR-LS-10) |
 | `read_on` | date not null | Ngày kinh doanh lúc đọc |
 | `electricity_value` | numeric(10,0) | kWh nguyên (BR-LS-11) |
@@ -41,7 +42,7 @@ Số file theo thứ tự merge (ghi chú ở 0098): PR merge sau lấy số k�
 
 - UK một phần (`reservation_id`, `room_id`, `kind`, `period_month`) WHERE `voided_at IS NULL` (`kind ≠ period_end` dùng `read_on` thay `period_month`; BE chọn biểu thức chỉ mục, ghi trong migration).
 - CHECK: `kind = 'period_end'` ⇔ `period_month IS NOT NULL`; giá trị ≥ 0.
-- Chỉ số đầu kỳ **không lưu, không cho gõ**: là lần đọc còn hiệu lực ngay trước đó của cùng (`reservation_id`, `room_id`).
+- ~~Chỉ số đầu kỳ không lưu, không cho gõ~~ *(thay bởi mục 11.1: đầu kỳ là lần đọc lễ tân nhập mỗi kỳ, số cuối kỳ trước chỉ để so)*.
 
 ### 2.2 `billing_period` – phiếu
 
@@ -128,7 +129,7 @@ Tất cả dưới `/v1/properties/{propertyId}`. Chuẩn lỗi, ETag, Idempoten
 | Method, path | operationId | Ghi chú |
 |---|---|---|
 | `GET /reservations/{reservationId}/meter-readings` | `listMeterReadings` | Mọi lần đọc (kể cả đã hủy, đánh dấu), kèm `consumption` so với lần trước |
-| `POST /reservations/{reservationId}/meter-readings` | `recordMeterReading` | Idempotency-Key. Body bên dưới. `period_end` ngoài cửa sổ `readingWindow` → `422 READING_OUT_OF_WINDOW`. Cuối < đầu mà không có `exception` → `422 METER_LOWER_THAN_PREVIOUS` (kèm `previousValue`). Trùng (UK) → `409 READING_EXISTS` |
+| `POST /reservations/{reservationId}/meter-readings` | `recordMeterReading` | Idempotency-Key. Body bên dưới. `period_end` ngoài cửa sổ `readingWindow` → `422 READING_OUT_OF_WINDOW`. Cuối < đầu mà không có `exception` → `422 METER_LOWER_THAN_PREVIOUS` (kèm `previousValue`). Trùng (UK) → `409 READING_EXISTS`. *Đầu kỳ < cuối kỳ trước và đọc trễ: mục 11.2* |
 | `POST /meter-readings/{readingId}/void` | `voidMeterReading` | `{reason}`. Lần đọc đang dùng trên phiếu đã phát hành → `409 READING_ON_ISSUED_STATEMENT` |
 | `GET /billing-periods/candidates?month=2026-12` | `listBillingCandidates` | Đơn dài hạn đang ở, chưa có phiếu sống của tháng: phòng, tên hiển thị, `readingStatus` (`missing`/`recorded`/`exception`), có phiếu nháp chưa |
 | `POST /reservations/{reservationId}/billing-periods` | `createBillingPeriod` | `{month, kind}` → 201 `BillingPeriod` nháp (đã tính). Đã có phiếu sống → `409 STATEMENT_EXISTS` (kèm `billingPeriodId`) |
@@ -175,8 +176,8 @@ Tất cả dưới `/v1/properties/{propertyId}`. Chuẩn lỗi, ETag, Idempoten
   "ratesSnapshot": null, "replacesId": null, "issuedAt": null, "paidAt": null, "voidedAt": null }
 ```
 
-- `warnings[].code`: `METER_ANOMALY`, `RENT_ALREADY_POSTED`, `SERVICE_LINE_ON_OTHER_STATEMENT` (bỏ khỏi phiếu, chỉ báo), `PHOTO_WAIVED`, `PRICE_CHANGED_SINCE_DRAFT`.
-- `availableActions` server tính theo vai + trạng thái. FE chỉ hiện nút có trong danh sách (không tự suy quyền).
+- `warnings[].code`: `METER_ANOMALY`, `RENT_ALREADY_POSTED`, `SERVICE_LINE_ON_OTHER_STATEMENT` (bỏ khỏi phiếu, chỉ báo), `PHOTO_WAIVED`, `OPENING_BELOW_PREVIOUS_CLOSING`, `READING_LATE` *(bỏ `PRICE_CHANGED_SINCE_DRAFT`, thêm 2 mã – mục 11.3)*. Client phải xử lý mã lạ bằng câu chung và vẫn bắt xác nhận.
+- `availableActions` ∈ `update`, `prior_adjustment`, `issue`, `void`, `record_payment`, `print` (6 giá trị); server tính theo vai + trạng thái. FE chỉ hiện nút có trong danh sách (không tự suy quyền).
 - `guestDisplayName`: tên rút gọn như danh sách Hôm nay. Không trả SĐT, email, quốc tịch, giấy tờ.
 - Số tiền: VND nguyên. VAT tính theo dòng, làm tròn đồng. Tổng làm tròn **xuống** theo `totalRoundingVnd`, phần lẻ thành dòng `rounding` (BR-LS-09).
 
@@ -255,3 +256,71 @@ Tất cả dưới `/v1/properties/{propertyId}`. Chuẩn lỗi, ETag, Idempoten
 | 6 | "Dịch vụ chưa thu" (BR-LS-14): folio không phân bổ tiền theo dòng, nên ARC hiểu là dòng chưa nằm trên phiếu sống nào và không phải FOC. Dòng đã thu ngay tại quầy thì lễ tân tự dời | Như mô tả | DOM |
 | 7 | A89 làm đơn giản: FDL+ lưu thẳng ngoại lệ đồng hồ, không qua hộp duyệt | Như mục 4 | DOM + BA |
 | 8 | Mã phiếu `TT-<yymm>-<số căn>[-R<n>]` có số căn: chấp nhận được (không phải dữ liệu cá nhân) | Như mô tả | DOM |
+
+## 11. Sửa đổi 18/11 (INV bổ sung 17/11 + review PR BE #190, FE #189)
+
+Tác giả: ARC. Đã có trên PR BE #190 (head `f522aa60`, OpenAPI vẫn `0.3.14-draft`, mọi thay đổi chỉ thêm). Review: `rounds/round-05/reviews/ARC-on-be-pr-190.md` (lượt 1 + lượt 2) và `ARC-on-fe-pr-189.md` (mục 1, bảng chốt tên trường).
+
+### 11.1 Chỉ số đầu kỳ – lễ tân nhập mỗi kỳ (INV 17/11, thay mục 2.1 dòng "không lưu, không cho gõ")
+
+- **Đầu kỳ là một lần đọc riêng**, có ngày, ảnh, người nhập riêng:
+  - `checkin`: tháng nhận phòng;
+  - `period_start` (`period_month` = tháng **mở**, đọc trong cửa sổ cuối tháng trước → hết ngày 01);
+  - `room_change_in`: căn mới khi đổi căn.
+
+  `period_start` của tháng nhận phòng → `422 VALIDATION_FAILED` (`periodMonth: NOT_ALLOWED`).
+- **Số cuối kỳ trước** của **căn** (mọi đơn, kể cả khách trước) chỉ để so: cột `previous_reading_id`, API `previousClosing`.
+- **Hao hụt:** `gap = đầu kỳ − cuối kỳ trước` lưu ở `electricity_gap`, `water_gap`, **không tính cho khách**, cho OWN xem. API trả `gap` trên lần đọc đầu kỳ.
+- **Tiêu thụ tính tiền** = cuối kỳ − đầu kỳ **của cùng kỳ**. API trả `consumption` trên lần đọc cuối kỳ.
+- **Thiếu** đầu kỳ hoặc cuối kỳ → phát hành `422 METER_READING_MISSING` (`missingReadings[].kind` ∈ `opening`, `period_end`, `room_change_out`).
+- Bảng cuối tháng (S12): mỗi căn nhập **Closing M** (`period_end`) và **Opening M+1** (`period_start`) = 2 POST.
+  - Ô đầu kỳ bắt buộc, không điền sẵn.
+  - Một ảnh chỉ gắn được một lần đọc, nên FE tải ảnh hai lần.
+- Đầu kỳ đọc trễ (11.2) thì phần dùng từ ngày 01 tới ngày đọc nằm trong `gap`, không tính khách. Đây là cách INV chọn, DOM ghi vào business-rules.
+
+### 11.2 Kiểm tra lúc ghi chỉ số
+
+| Tình huống | Xử lý | Vai |
+|---|---|---|
+| **Cuối kỳ < đầu kỳ** cùng kỳ, không `exception` | `422 METER_LOWER_THAN_PREVIOUS` – chặn (BR-LS-12, số này thành tiền). Ngoại lệ thay đồng hồ / quay vòng → lưu | Ngoại lệ: FDL+ (FD → `403 FORBIDDEN_ACTION`) |
+| **Đầu kỳ < cuối kỳ trước**, không `exception` | **Cảnh báo hai bước**: gửi lần đầu → `422 OPENING_BELOW_PREVIOUS_CLOSING` (`meter`, `previousValue`, `previousReadingId`, `previousKind`). Gửi lại cùng body + `acknowledgeLowerThanPrevious: true` (Idempotency-Key mới) → lưu, `gap` âm, audit `acknowledgedLower`. Nháp phiếu dùng lần đọc này có cảnh báo `OPENING_BELOW_PREVIOUS_CLOSING`, phát hành phải `acknowledgeWarnings` | FD+ |
+| Đầu kỳ < cuối kỳ trước do thay đồng hồ trong khoảng trống | Gửi `exception` → lưu, không cảnh báo | FDL+ |
+| **Đọc sau cửa sổ** `period_start`/`period_end`, trong `readingWindow.lateMaxDays` (mặc định 10, 0–31) | Có `lateReason` (3–300) → lưu (`late_reason`, `late_approved_by`, audit `meter_reading.late`, cảnh báo nháp `READING_LATE`). FD hoặc thiếu lý do → `422 READING_OUT_OF_WINDOW` kèm `windowFrom`, `windowTo`, `lateUntil`, `lateNeedsRole` | FDL+ |
+| Quá `lateMaxDays` | `422 READING_OUT_OF_WINDOW` (không có `lateUntil`) | – |
+
+Tham số `monthly_statement_rules` thêm `readingWindow.lateMaxDays` (mục 3).
+
+### 11.3 Thay đổi API (chỉ thêm, trừ một mã cảnh báo bị bỏ)
+
+| Chỗ | Thay đổi |
+|---|---|
+| `MeterReadingCreate` | thêm `acknowledgeLowerThanPrevious`, `lateReason` |
+| `MeterReading` | thêm `previousClosing {readingId, readOn, electricity, water}`, `gap {electricity, water}`, `consumption {fromReadingId, electricity, water}`, `late`, `lateReason`, `readByInitials` (chữ cái đầu, không họ tên), `onIssuedStatement` |
+| `listBillingCandidates` phần tử | thêm `reservationCode`, `kind`, `draftId`, `rooms[{roomId, roomNo, opening, closing, nextOpening}]` (`missing`/`recorded`/`exception`/`not_needed`; `nextOpening` không có `exception`). `readingStatus` gồm cả đầu kỳ, có `not_needed`. Có đơn `checked_out` còn trong `daysAfter` cần phiếu `final` |
+| `BillingPeriod` | thêm `reservationCode`, `missingReadings[]`, `excludedLines[]` (nháp, không cộng tổng), `excludedFolioLineIds`, `priorAdjustment`, `note`, `replacesCode`, `voidReason`; dòng có `periodMonth` |
+| `BillingPeriodTotals` | thêm `unreconciledVnd`, `disputed` (khoản thu VietQR `pending`/`disputed`; trạng thái phiếu không đổi) |
+| `createBillingPeriod` | `kind` tùy chọn, server tự suy |
+| `recordBillingPeriodPayment` | trả `{billingPeriod, payment {id, method, amountVnd, status, reconciliation}}` |
+| `voidBillingPeriod` | trả `BillingPeriod` phẳng + `canReplace` (`BillingPeriodVoided`) |
+| `getBillingPeriodPrint` | allowlist riêng (`BillingPeriodPrint`): không ghi chú, lý do, folio, giá chụp, thao tác (SEC BE-190-03). `property.email` = null (chưa có cột) |
+| Cảnh báo | **bỏ `PRICE_CHANGED_SINCE_DRAFT`**: nháp không lưu số, giá và VAT đọc lại lúc phát hành. Thêm `OPENING_BELOW_PREVIOUS_CLOSING`, `READING_LATE` |
+| Mã lỗi mới | `OPENING_BELOW_PREVIOUS_CLOSING` (422). `READING_OUT_OF_WINDOW` thêm trường |
+
+### 11.4 Dữ liệu và quyền
+
+- Migration `0099` (sửa tại chỗ trước khi merge, chưa chạy ở môi trường nào):
+  - `meter_reading` thêm `previous_reading_id`, `electricity_gap`, `water_gap`, `late_reason`, `late_approved_by` (CHECK đi cặp);
+  - FK `payment_billing_period_fk (property_id, billing_period_id) → billing_period`.
+
+  Sau merge, mọi sửa đổi là migration mới.
+- Quyền:
+  - 3 API chỉ số dùng **A123** (OWN/MGR/FDL/FD) thay A88. A88 có MT, đợt này chưa mở cho MT; khi mở thì gộp.
+  - A89 làm đơn giản như mục 4.
+- `PaymentsModule` dừng lúc khởi động nếu thiếu listener của `BillingModule`. Mọi app có PaymentsModule phải nạp BillingModule.
+- Ảnh đồng hồ: `purpose=meter` đã mở upload. Mốc lưu giữ đặt lúc trả phòng (`setMeterRetentionAnchor`), xóa theo `attachment_ops_retention_months` (SEC BE-190-01).
+
+### 11.5 Còn mở
+
+- Trước production: chạy 0099 trên bản sao staging (BE-190-07).
+- Trước merge: CI đủ bước xanh, hiện đỏ ở `pnpm audit`, không do PR (BE-190-10).
+- DOM: ghi vào `business-rules.md` các điểm của 11.1 (đầu kỳ nhập mỗi kỳ, hao hụt không tính khách, đọc trễ thì hao hụt gồm phần đầu tháng) và 11.2.

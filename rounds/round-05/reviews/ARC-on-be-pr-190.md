@@ -187,3 +187,71 @@
    - `previousClosing` lấy theo **căn**, không theo đơn, nên `gap` bắt được hao hụt giữa hai khách;
    - tiêu thụ tính tiền chỉ là `cuối − đầu` cùng kỳ;
    - đổi số kỳ, VAT, hạn chỉ là đổi tham số (test `arrears`, hạn ngày 10, VAT 10 % từ 2027).
+
+---
+
+## Lượt 2 – 18/11/2026 (head `f522aa60`)
+
+- Đầu vào:
+  - `rounds/round-05/responses/BE-responses.md` (trên nhánh PR);
+  - `git diff 6f3f653f f522aa60`: migration 0099, `meter-readings.service.ts`, `statements.service.ts`, `payments.module.ts`, `payment.service.ts`, `attachment.service.ts`, `schema/folio.ts`, OpenAPI.
+- Đọc qua `git show` / `git diff` trên ref, không checkout trong thư mục chung.
+
+### Kết luận lượt 2: **APPROVE CÓ ĐIỀU KIỆN**
+
+- **Về code:** ARC duyệt. Cả 6 thẻ cần sửa trong PR (01–06, 08) đã đóng.
+- **Điều kiện merge:** CI job `format · lint · audit · test · build` phải xanh trên head cuối.
+  - Ở `f522aa60` job này **đỏ ở bước `pnpm audit --audit-level=high`**, do advisory mới `GHSA-fc5q-39xc-vjpf` (picomatch ReDoS, `<=4.0.7`, chưa có bản vá).
+  - Lỗi không do PR này gây ra (PR không đổi phụ thuộc), nhưng các bước sau bị bỏ qua: **chưa có test nào chạy trên `f522aa60`** (format, lint, drizzle, migrate, Vitest, build).
+  - Thẻ mới BE-190-10.
+- **Điều kiện trước production:** thẻ 07 (giữ nguyên).
+
+### Kiểm từng thẻ
+
+| Thẻ | Kết quả ARC | Bằng chứng |
+|---|---|---|
+| 01 | **Closed** | `record()`: chỉ lần đọc đầu kỳ (`isOpening(k)`) mới vào nhánh cảnh báo `OPENING_BELOW_PREVIOUS_CLOSING`; cờ `acknowledgeLowerThanPrevious` → lưu, `gap` âm, audit `acknowledgedLower`. Cuối kỳ < đầu kỳ vẫn 422 `METER_LOWER_THAN_PREVIOUS`. `compute()` thêm cảnh báo cùng mã khi `gap < 0` và không có `exception`. Phát hành phải `acknowledgeWarnings`. OpenAPI có cờ, mã lỗi, mô tả. Test 1.390 < 1.392 có đủ hai bước và FD lưu được |
+| 02 | **Closed** | `candidates()`:<br>- `rooms[{roomId, roomNo, opening, closing, nextOpening}]`;<br>- `closing` lấy theo `compute().missing`, nên danh sách và lúc phát hành dùng cùng một kiểm tra;<br>- `readingStatus` tổng hợp gồm cả đầu kỳ;<br>- có đơn `checked_out` với `departure_date >= today − daysAfter`, khớp `billable()`.<br>Thiếu test riêng cho đơn đã trả phòng: Minor BE-190-11 |
+| 03 | **Closed** | Đọc trễ:<br>- `lateMaxDays` (mặc định 10, hook kiểm 0–31);<br>- FDL+ kèm `lateReason` qua `freeText`; FD hoặc thiếu lý do → 422 kèm `lateUntil`, `lateNeedsRole`;<br>- cột `late_reason`, `late_approved_by` có CHECK đi cặp; audit `meter_reading.late`; cảnh báo nháp `READING_LATE`.<br>Có test (FD / FDL không lý do / FDL có lý do / `lateMaxDays: 40` → 422) |
+| 04 | **Closed** | `excludedLines` (nháp, không cộng tổng; dòng dời không còn sinh cảnh báo `SERVICE_LINE_ON_OTHER_STATEMENT`), `replacesCode`, `readByInitials` (chữ cái đầu, không trả họ tên), `onIssuedStatement` (cùng điều kiện với `voidMeterReading`). Đúng tên FE đã dùng |
+| 05 | **Closed** | `payment_billing_period_fk (property_id, billing_period_id) → billing_period (property_id, id)` trong 0099 và `schema/folio.ts`. Thêm thẳng, không qua `NOT VALID`: chấp nhận được, vì mọi dòng cũ null và bảng `payment` nhỏ. MATCH SIMPLE nên dòng null bỏ qua |
+| 06 | **Closed** | `PaymentsModule.onApplicationBootstrap` dừng app nếu chưa nối listener. Phần ghi `architecture.md` mục cổng module là **việc của ARC**; ARC tự làm cùng lần cập nhật hợp đồng, không phải thẻ BE |
+| 07 | **Open** (trước production) | Không đổi: OPS/QA chạy 0099 trên bản sao staging. Lưu ý: 0099 đã thêm `ALTER TABLE payment ADD CONSTRAINT`, nên lần chạy thử này càng cần |
+| 08 | **Closed** | `totals.unreconciledVnd` (khoản thu `pending`/`disputed` chưa đảo), `totals.disputed`. Máy trạng thái phiếu giữ nguyên |
+| 09 | Dời (đồng ý) | Nay `candidates()` cũng gọi `compute()` cho mỗi đơn, nên số truy vấn của trang S16 tăng thêm khoảng gấp đôi. Với 10 căn vẫn trong ngân sách p95. Gộp vào việc tối ưu khi có cơ sở thứ hai |
+
+**Sửa migration 0099 tại chỗ:** chấp nhận. 0099 chưa có trên `main` (`origin/main` có 73 dòng journal, tới 0098), chưa chạy ở staging hay production. Journal `idx 73` và snapshot đã cập nhật cùng commit. Sau khi merge thì 0099 khóa lại, sửa nữa phải là 0100.
+
+**Phát hiện thêm của BE:** `PURPOSES_ACCEPTED_NOW` thiếu `meter`, nên trước bản sửa không ai tải được ảnh đồng hồ.
+- Đồng ý cách sửa và cách đặt mốc lưu giữ (`setMeterRetentionAnchor` lúc trả phòng, chỉ dời về sau).
+- MT tải được ảnh `meter` mà không ghi được lần đọc. Ảnh như vậy không bao giờ được gắn vào lần đọc nào, nên J16 xóa sau `attachment_unbound_days`. Chấp nhận, SEC đã có thẻ riêng.
+
+### Thẻ mới
+
+### FB-R5-ARC-BE-190-10
+- Mức độ: Major (điều kiện merge, **không phải lỗi code của PR**)
+- Vị trí: CI `format · lint · audit · test · build`, run 44214734614 / job 134501607257, bước 8 "Dependency audit".
+- Vấn đề: `pnpm audit --audit-level=high` báo 2 lỗi high. Một là `picomatch` `GHSA-fc5q-39xc-vjpf`, chưa có bản vá ("Patched versions <0.0.0"). Job dừng ở bước 8, nên bước 10–17 (format, lint, typecheck, drizzle, migrate, Vitest, build) **không chạy**. Báo cáo BE ghi các test xanh, nhưng CI chưa xác nhận điều đó trên `f522aa60`. Nhiều khả năng `main` cũng đỏ cùng lý do khi CI chạy lại.
+- Vì sao quan trọng: không có tín hiệu test thật cho phần sửa tiền (cảnh báo hai bước, đọc trễ, FK mới trên `payment`).
+- Đề xuất sửa:
+  1. OPS mở PR riêng vào `main`:
+     - nếu picomatch đã có bản vá: nâng phụ thuộc hoặc thêm `pnpm.overrides`;
+     - nếu chưa: thêm `GHSA-fc5q-39xc-vjpf` vào `pnpm.auditConfig.ignoreGhsas`, ghi chú ngày hết hạn (gợi ý 30 ngày), lý do (ReDoS ở công cụ build/test, không chạy trên đường xử lý yêu cầu; OPS xác nhận bằng `pnpm why picomatch`), kèm decision-log;
+     - xử lý luôn advisory high còn lại cùng cách.
+  2. BE merge `origin/main` vào nhánh, CI chạy đủ và xanh trên head mới. Không cần ARC review lại nếu diff chỉ là phần merge.
+- Trạng thái: Open
+
+### FB-R5-ARC-BE-190-11
+- Mức độ: Minor
+- Vị trí: `test/integration/fb-inv-012-statements.test.ts`; `candidates()` nhánh `checked_out`.
+- Vấn đề: BE tự nêu: chưa có test cho đơn đã trả phòng còn trong cửa sổ, cần phiếu `final`, xuất hiện trong danh sách ứng viên (và biến mất sau `daysAfter`).
+- Đề xuất sửa: thêm một ca vào luồng 20/11 → 20/02 có sẵn:
+  - ngày 20/02 sau khi trả phòng: ứng viên tháng 02 có đơn với `kind: final`;
+  - ngày 22/02 (quá `daysAfter = 1`): không còn đơn đó.
+
+  Làm được trong lần push gỡ CI (thẻ 10).
+- Trạng thái: Open
+
+### Việc của ARC sau lượt này
+- Đã cập nhật `rounds/round-05/fb-inv-012/contract.md` (mục "Sửa đổi 18/11"): đầu kỳ nhập mỗi kỳ, cảnh báo hai bước, đọc trễ, bỏ `PRICE_CHANGED_SINCE_DRAFT`, `availableActions` 6 giá trị, các trường thêm, `rooms[]`, hình dạng ghi thu và hủy phiếu, FK.
+- Còn lại: ghi cổng listener billing ↔ payments vào `product/docs/architecture.md` (mục cổng module) ở lần ARC sửa kiến trúc kế tiếp.

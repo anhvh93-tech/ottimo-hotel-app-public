@@ -130,3 +130,58 @@ Merge vào main được nếu tính năng chưa mở trên production cho tới
 - Quyền DB tối thiểu theo cột: dòng phiếu chỉ đổi được `active`, lần đọc chỉ hủy được, không sửa giá trị. Đây là mẫu nên giữ cho các bảng tiền sau này.
 - Mọi chữ tự do qua một bộ lọc chung (số thẻ và số giấy tờ). Allowlist audit chỉ có số và trạng thái.
 - Có test RBAC đủ 8 vai, test RLS cơ sở khác, test UK chống một dòng folio nằm trên hai phiếu.
+
+---
+
+## Lượt 2 – head `f522aa60` (18/11/2026)
+
+Đã đọc: `git diff abcafa10 f522aa60` (đọc bằng `git show`, không checkout) và `rounds/round-05/responses/BE-responses.md` trên nhánh PR.
+
+**Kết luận lượt 2: APPROVE (ĐẠT).** 2 thẻ Major đã đóng. Các thẻ Minor 03, 04 và Suggestion 06 cũng đã đóng. Thẻ 05 dời, SEC đồng ý. Còn 2 thẻ Minor mới (07, 08), dời sang việc sau được, không chặn merge và không chặn production.
+
+### Xác minh từng thẻ
+
+| Thẻ | Trạng thái SEC | Bằng chứng |
+|---|---|---|
+| 190-01 (Major) | **Closed** | `AttachmentService.setMeterRetentionAnchor` đặt mốc cho mọi ảnh `meter` còn sống: ảnh có `reservation_id` của đơn, hoặc ảnh gắn với `meter_reading` của đơn (kể cả lần đọc đã hủy). Mốc chỉ dời về sau, chạy dưới RLS. Hàm được gọi ở đầu `RegistrationService.onCheckedOut`, trước nhánh `if (!reg) return`, nên đơn không có hồ sơ khai báo vẫn có mốc. `anchorMissing` của J16 đã đếm `meter`. `purgeDue` vốn đã xóa `meter` theo `attachment_ops_retention_months`. Test tích hợp: trước trả phòng ảnh không có mốc, sau trả phòng mốc = giờ trả phòng. |
+| 190-02 (Major) | **Closed** | Thêm `billing_period.updated` khi khoản điều chỉnh, lý do hoặc danh sách dòng bị loại thay đổi. `before`/`after` = `{priorAdjustmentVnd, excludedFolioLineCount}`. Lý do đi vào trường `reason`. Người thực hiện là actor của audit. `issued` có thêm 2 trường này; allowlist đã cập nhật. Có test 4 dòng nhật ký. |
+| 190-03 (Minor) | **Closed** | `print()` trả allowlist tường minh: mã, tháng, kỳ, hạn, căn, dòng (không `folioLineId`), tổng, cơ sở, `guest.fullName`, VietQR, giờ in, chữ viết tắt. Không còn `note`, `reason`, `ratesSnapshot`, `folioId`, `availableActions`. Có schema `BillingPeriodPrint` riêng và test `not.toMatch`. |
+| 190-04 (Minor) | **Closed** | Test dùng tài khoản giả (`0000000000`, tên `OTTIMO TEST`, BIN công khai 970436). Khẳng định: nội dung chuyển khoản chỉ có mã phiếu, không tên khách; phần chữ chỉ hiện 4 số cuối; số đầy đủ chỉ nằm trong `payload`; số tiền QR = số dư; số dư 0 → `vietqr: null`. Không có số tài khoản thật. |
+| 190-05 (Suggestion) | Deferred – đồng ý | Chờ `attachment` có unique `(property_id, id)`. RLS và `assertUsable` vẫn che chắn. |
+| 190-06 (Suggestion) | **Closed** | `void()` kiểm `isFdlPlus` trước `STATEMENT_HAS_PAYMENTS`, có test FD → 403. |
+
+### Các điểm mới BE nêu
+
+1. **Mở upload `purpose=meter`.** Đây là điều kiện để 190-01 có nghĩa: trước đây upload bị từ chối nên không ảnh nào gắn được. SEC chấp nhận, vì:
+   - quyền upload là FD+ và MT;
+   - `READ_OWN_ROLES.meter = []` và `READ_ALL_ROLES.meter = FD_PLUS`, nên MT upload được nhưng không xem lại ảnh và không ghi được lần đọc (A123 không có MT, SEC D18);
+   - upload kèm `reservationId` đi qua `assertReservationVisible`;
+   - ảnh không gắn bị J16 xóa theo bước "unbound".
+2. **Đơn hủy/no-show có ảnh.** Lần đọc chỉ ghi được khi đơn `in_house` hoặc `checked_out`, và đơn `in_house` không hủy được, nên ảnh đã gắn chỉ còn kẹt ở đường hoàn tác nhận phòng rồi hủy. Ảnh chưa gắn thì J16 xóa. Trường hợp còn sót được `anchorMissing` báo sau 12 tháng kể từ lúc upload. Chấp nhận, kèm thẻ 08 để có đường đặt mốc rõ ràng.
+3. **Chưa có test J16 xóa ảnh `meter` ở mốc + 12 tháng.** Nhánh xóa dùng chung cho mọi loại ảnh và đã có test với loại khác; `meter` đã nằm trong điều kiện SQL. Rủi ro thấp, ghi thẻ 07.
+4. **VietQR test dùng `0000000000`.** Đúng yêu cầu: dữ liệu giả, không phải số thật.
+
+### Ghi nhận thêm trong lượt sửa (không cần thẻ)
+
+- Danh sách lần đọc trả `readByInitials`, không trả họ tên đầy đủ của nhân viên. Đạt.
+- `lateReason` qua `freeText`, nên đã lọc số thẻ và số giấy tờ. Đọc trễ chỉ FDL+ được ghi, và nhật ký có cờ `late`.
+- `acknowledgeLowerThanPrevious`: mọi vai lễ tân ghi được, nhật ký có `acknowledgedLower`. Đây là quyết định nghiệp vụ của ARC/DOM, không phải vấn đề bảo mật.
+- Migration 0099 nay có `ALTER TABLE payment ADD CONSTRAINT payment_billing_period_fk`. Như vậy migration không còn "chỉ thêm bảng mới": nó chạm bảng `payment` có sẵn. Thay đổi chỉ là ràng buộc, không đổi dữ liệu, nhưng lúc validate sẽ khóa và quét bảng `payment`. Cần nêu khi OPS chạy trên bản sao staging (tiêu chí 8.11), không phải lỗi bảo mật.
+
+### Thẻ mới
+
+### FB-R5-SEC-BE-190-07
+- Mức độ: Minor
+- Vị trí: `test/integration/` (J16 `purgeDue`).
+- Vấn đề: chưa có test đầu-cuối cho chuỗi: ảnh `meter` có mốc lúc trả phòng → dev clock tới mốc + `attachment_ops_retention_months` → J16 xóa blob và đặt `purged_at`.
+- Vì sao quan trọng: đây là bằng chứng thời hạn lưu chạy thật cho loại ảnh mới. Nếu sau này ai đó sửa danh sách purpose trong SQL, sẽ không có gì báo.
+- Đề xuất sửa: thêm 1 test dùng dev clock. Làm trong round sau được.
+- Trạng thái: Open
+
+### FB-R5-SEC-BE-190-08
+- Mức độ: Minor
+- Vị trí: `registration.service.ts` `onReservationVoided` và luồng hoàn tác nhận phòng.
+- Vấn đề: ảnh `meter` đã gắn (lần đọc `checkin`) của một đơn bị hoàn tác nhận phòng rồi hủy hoặc no-show sẽ không bao giờ có mốc. Hiện chỉ có cảnh báo `anchorMissing`.
+- Vì sao quan trọng: đây là đường hiếm, nhưng ảnh sẽ nằm lại vô thời hạn cho tới khi có người xử lý tay.
+- Đề xuất sửa: gọi thêm `setMeterRetentionAnchor(tx, reservationId, now)` trong `onReservationVoided`, cùng chỗ đang đặt mốc cho `penalty_evidence`. Thêm 1 test.
+- Trạng thái: Open
