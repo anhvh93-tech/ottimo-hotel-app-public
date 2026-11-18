@@ -359,7 +359,8 @@ export function StatementPrintPage() {
     const mm = el.scrollHeight / (96 / 25.4);
     setOverflow(mm > A5_PRINT_HEIGHT_MM);
   }, [s, enReady]);
-  const switched = !size && auto === 'a4' && !!s && printedLines(s) <= A5_MAX_LINES;
+  // UXD-189-16: say so whether the line count or the height guard picked A4.
+  const switched = !size && auto === 'a4' && !!s;
 
   let body: ReactNode;
   if (res.state.status === 'error')

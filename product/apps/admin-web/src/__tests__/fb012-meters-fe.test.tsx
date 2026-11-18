@@ -6,7 +6,15 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { todayLocal } from '../app/dates';
-import { meterUsage, monthOf, parseMeter, readingMonthOn, shiftMonth } from '../app/statements';
+import { addDays } from '../app/reservations';
+import {
+  lastDayOf,
+  meterUsage,
+  monthOf,
+  parseMeter,
+  readingMonthOn,
+  shiftMonth,
+} from '../app/statements';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { renderApp, tv } from '../test/render';
@@ -285,15 +293,15 @@ describe('FB-INV-012 S12 late reading (BE-190-03)', () => {
 });
 
 /**
- * Room 203 as a stay that came in on day 10 of the reading month P with no reading yet. With `previousClosing`, the
+ * Room 203 as a stay that came in during the reading month P (on `arrival`) with no reading yet. With `previousClosing`, the
  * room's last closing (an earlier stay's checkout on day 05) is left on record.
  */
-function midMonthArrival(previousClosing?: number) {
+function midMonthArrival(arrival: string, previousClosing?: number) {
   const st = mockControl.statements;
   const stay = st.stays.find((s) => s.roomNo === '203')!;
   const keep = st.readings.filter((r) => r.reservationId !== stay.reservationId);
   st.readings.splice(0, st.readings.length, ...keep);
-  stay.arrivalDate = `${st.P}-10`;
+  stay.arrivalDate = arrival;
   if (previousClosing !== undefined) {
     const model = keep[0]!;
     st.seq += 1;
@@ -332,45 +340,70 @@ function fillCheckin(dlg: HTMLElement, day: string, kwh: string, m3: string) {
     target: { files: [new File(['x'], 'meter.jpg', { type: 'image/jpeg' })] },
   });
 }
-const checkinOf203 = () =>
+
+const savedCheckin = () =>
   mockControl.statements.readings.find(
     (r) => r.roomNo === '203' && r.kind === 'checkin' && !r.voidedAt,
   );
+/** Arrival 5 days before the end of P: on day 01 of M the check-in reading is late, within lateMaxDays (10). */
+const lateArrival = (P: string) => addDays(lastDayOf(P), -5);
+const viDay = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
-describe('FB-INV-012 S12 check-in reading for a mid-month arrival (INV 17/11, ARC-FE-189-01)', () => {
-  it('"missing opening" row → Enter check-in reading → saved as kind=checkin; the row then shows the opening', async () => {
+describe('FB-INV-012 S12 check-in reading (INV 17/11; ARC-FE-189-01/09, BE-190-12; UXD-189-15)', () => {
+  it('in the window: date prefilled with the arrival, kept within arrival … +1 day; saved as kind=checkin', async () => {
     pinDay(windowDay());
-    midMonthArrival();
+    const { P } = mockControl.statements;
+    midMonthArrival(lastDayOf(P));
     renderApp('/long-stay/meters', 'qa.fd');
     const dlg = await openCheckin();
+    const date = dlg.querySelector<HTMLInputElement>('input[type=date]')!;
+    expect(date).toHaveValue(lastDayOf(P));
     // Required: date, both meters, photo.
+    fireEvent.change(date, { target: { value: '' } });
     fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
     expect(within(dlg).getAllByText(tv('common.required')).length).toBe(3);
     expect(within(dlg).getByText(tv('meters.photo_required'))).toBeVisible();
-    // A day outside the reading month is refused on the desk.
-    const { P } = mockControl.statements;
-    fillCheckin(dlg, `${shiftMonth(P, -1)}-28`, '1300', '36.07');
+    // Before the arrival: refused on the desk.
+    fillCheckin(dlg, `${P}-20`, '1300', '36.07');
     fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
     expect(within(dlg).getByText(tv('meters.checkin_date_range'))).toBeVisible();
-    fillCheckin(dlg, `${P}-10`, '1300', '36.07');
+    fillCheckin(dlg, lastDayOf(P), '1300', '36.07');
     fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
-    await waitFor(() => expect(checkinOf203()).toBeDefined());
-    const r = checkinOf203()!;
-    expect(r).toMatchObject({ readOn: `${P}-10`, periodMonth: null, acknowledgedLower: false });
-    expect(r.electricity.value).toBe(1300);
-    expect(r.water.value).toBe(36);
-    expect(r.photoAttachmentId).toBeTruthy();
+    await waitFor(() => expect(savedCheckin()).toBeDefined());
+    expect(savedCheckin()).toMatchObject({
+      readOn: lastDayOf(P),
+      periodMonth: null,
+      acknowledgedLower: false,
+      lateReason: null,
+    });
+    expect(savedCheckin()!.water.value).toBe(36);
     await waitFor(async () =>
       expect((await row203()).textContent).toContain(tv('meters.opening_of', { value: '1.300' })),
     );
-    expect(
-      within(await row203()).queryByRole('button', { name: tv('meters.checkin_enter') }),
-    ).toBeNull();
+    const row = await row203();
+    expect(within(row).queryByRole('button', { name: tv('meters.checkin_enter') })).toBeNull();
+    // UXD-189-14: the label is not Mono, only the figure.
+    const fig = within(row).getAllByText('1.300')[0]!;
+    expect(fig).toHaveClass('mono');
+    expect(fig.parentElement!.closest('.mono')).toBeNull();
   });
 
-  it('below the room\'s last closing: 422 → same warning; "Save anyway" resends with the flag and a new key', async () => {
+  it('late (after arrival + 1 day): FD is asked to call the lead, Save disabled', async () => {
     pinDay(windowDay());
-    midMonthArrival(1320);
+    const { P } = mockControl.statements;
+    midMonthArrival(lateArrival(P));
+    renderApp('/long-stay/meters', 'qa.fd');
+    const dlg = await openCheckin();
+    expect(dlg.textContent).toContain(
+      tv('meters.late_fd', { date: viDay(addDays(lateArrival(P), 1)) }),
+    );
+    expect(within(dlg).getByRole('button', { name: tv('meters.save') })).toBeDisabled();
+  });
+
+  it('late FDL + below the room\'s last closing: reason required; 422 → "Save anyway" with the flag and a new key', async () => {
+    pinDay(windowDay());
+    const { P } = mockControl.statements;
+    midMonthArrival(lateArrival(P), 1320);
     const sent: Array<{ ack: unknown; key: string | null }> = [];
     server.use(
       http.post('*/reservations/:reservationId/meter-readings', async ({ request }) => {
@@ -382,24 +415,57 @@ describe('FB-INV-012 S12 check-in reading for a mid-month arrival (INV 17/11, AR
         return undefined;
       }),
     );
-    renderApp('/long-stay/meters', 'qa.fd');
+    renderApp('/long-stay/meters', 'qa.fdl');
     const dlg = await openCheckin();
-    fillCheckin(dlg, `${mockControl.statements.P}-10`, '1300', '36');
+    expect(dlg.querySelector('input[type=date]')).toHaveValue(lateArrival(P));
+    fillCheckin(dlg, lateArrival(P), '1300', '36');
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
+    expect(within(dlg).getByText(tv('meters.void_reason_required'))).toBeVisible();
+    fireEvent.change(within(dlg).getByLabelText(new RegExp(`^${esc(tv('meters.late_reason'))}`)), {
+      target: { value: 'Quên chụp lúc nhận phòng' },
+    });
     fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
     const warn = await screen.findByRole('alertdialog');
     expect(warn.textContent).toContain(
       tv('meters.below_body', { opening: '1.300', previous: '1.320' }),
     );
-    // FD: Meter replaced is for the lead.
-    expect(
-      within(warn).getByRole('button', { name: tv('meters.exception.replaced') }),
-    ).toBeDisabled();
     fireEvent.click(within(warn).getByRole('button', { name: tv('meters.save_anyway') }));
-    await waitFor(() => expect(checkinOf203()).toBeDefined());
-    expect(checkinOf203()!.acknowledgedLower).toBe(true);
+    await waitFor(() => expect(savedCheckin()).toBeDefined());
+    expect(savedCheckin()).toMatchObject({
+      acknowledgedLower: true,
+      lateReason: 'Quên chụp lúc nhận phòng',
+    });
     expect(sent).toHaveLength(2);
     expect(sent[0]!.ack).toBeUndefined();
     expect(sent[1]!.ack).toBe(true);
     expect(sent[1]!.key).not.toBe(sent[0]!.key);
+  });
+
+  it('FD in the lower-opening dialog is told the replaced meter needs the lead (UXD-189-14)', async () => {
+    pinDay(windowDay());
+    const { P } = mockControl.statements;
+    midMonthArrival(lastDayOf(P), 1320);
+    renderApp('/long-stay/meters', 'qa.fd');
+    const dlg = await openCheckin();
+    fillCheckin(dlg, lastDayOf(P), '1300', '36');
+    fireEvent.click(within(dlg).getByRole('button', { name: tv('meters.save') }));
+    const warn = await screen.findByRole('alertdialog');
+    expect(within(warn).getByText(tv('meters.ask_lead_replaced'))).toBeVisible();
+    expect(
+      within(warn).getByRole('button', { name: tv('meters.exception.replaced') }),
+    ).toBeDisabled();
+  });
+
+  it('a stay opened by period_start that lacks it gets no check-in button (ARC-FE-189-09)', async () => {
+    pinDay(windowDay());
+    const st = mockControl.statements;
+    const drop = st.readings.findIndex(
+      (r) => r.roomNo === '203' && r.kind === 'period_start' && r.periodMonth === st.P,
+    );
+    st.readings.splice(drop, 1);
+    renderApp('/long-stay/meters', 'qa.fdl');
+    const row = await row203();
+    expect(row.textContent).toContain(tv('meters.opening_missing'));
+    expect(within(row).queryByRole('button', { name: tv('meters.checkin_enter') })).toBeNull();
   });
 });

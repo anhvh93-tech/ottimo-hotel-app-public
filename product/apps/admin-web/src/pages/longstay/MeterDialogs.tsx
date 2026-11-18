@@ -203,7 +203,7 @@ export function BelowDialog({
             {t('meters.exception.replaced')}
           </Button>
           <Button onClick={onSaveAnyway}>{t('meters.save_anyway')}</Button>
-          {!lead ? <Alert tone="info">{t('meters.ask_lead')}</Alert> : null}
+          {!lead ? <Alert tone="info">{t('meters.ask_lead_replaced')}</Alert> : null}
         </div>
       ) : (
         <ExceptionForm

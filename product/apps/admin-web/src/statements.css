@@ -217,6 +217,11 @@
 .stmt-table-print th.r {
   text-align: right;
 }
+/* UXD-189-12: numeric columns keep 6pt apart, so "1  8.500.000" never reads as one number. */
+.stmt-table-print th.r,
+.stmt-table-print td.r {
+  padding-left: 6pt;
+}
 .stmt-table-print th .bi {
   align-items: inherit;
 }
@@ -305,6 +310,11 @@
 .stmt-qr-title {
   font-family: var(--serif);
   font-weight: 600;
+}
+/* UXD-189-13: the VI line in Be Vietnam Pro, as under the sheet title. */
+.stmt-qr-title .vi {
+  font-family: var(--sans);
+  font-weight: 400;
 }
 .stmt-keep-ref {
   color: var(--brand-stone);

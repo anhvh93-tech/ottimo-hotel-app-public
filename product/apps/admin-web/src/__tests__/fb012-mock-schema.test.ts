@@ -29,6 +29,7 @@ const PENDING: Record<string, string[]> = {
   BillingPeriod: ['excludedLines', 'replacesCode'],
   MeterReading: ['readByInitials', 'onIssuedStatement'],
   candidate: ['rooms'],
+  rooms: ['openingKind', 'arrivalDate'],
 };
 
 function resolve(s: Schema): Schema {

@@ -12,21 +12,26 @@ import {
   type RecordMeterReadingBody,
 } from '../../app/statements';
 import { useToast } from '../../app/toast';
+import { addDays } from '../../app/reservations';
 import { useWrite } from '../../app/useWrite';
 import { usePropertyId } from '../../session/SessionProvider';
 import { BelowDialog, TYPES } from './MeterDialogs';
+import { dayText } from './labels';
 
 /**
  * S12 – the check-in reading of a stay that came in during month M and has no opening yet (INV 17/11: the opening is
  * always entered; ARC-FE-189-01: the first opening is the `checkin` reading, not a `period_start`). Date, both meters
  * and a photo; one POST. Below the room's last closing → the same two-step warning as the monthly opening
  * (422 `OPENING_BELOW_PREVIOUS_CLOSING` → Wrong entry / Meter replaced (FDL+) / Save anyway with a new key).
+ * The date is prefilled with the arrival day (UXD-189-15) and kept within arrival … arrival + 1 day (BE-190-12); after
+ * that the reading is late: FD asks the lead, FDL+ records it with a reason (as the monthly window, BE-190-03).
  */
 export function MeterCheckinDialog({
   reservationId,
   roomId,
   roomNo,
   month,
+  arrivalDate,
   today,
   lead,
   onClose,
@@ -36,17 +41,24 @@ export function MeterCheckinDialog({
   roomId: string;
   roomNo: string;
   month: string;
+  arrivalDate?: string | null;
   today: string;
   lead: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const ids = useId();
-  const maxDay = today < lastDayOf(month) ? today : lastDayOf(month);
-  const [readOn, setReadOn] = useState('');
+  const windowEnd = arrivalDate ? addDays(arrivalDate, 1) : null;
+  const minDay = arrivalDate && arrivalDate > `${month}-01` ? arrivalDate : `${month}-01`;
+  const maxDay = [today, lastDayOf(month), windowEnd ?? today].sort()[0]!;
+  const late = !!windowEnd && today > windowEnd;
+  const [readOn, setReadOn] = useState(() =>
+    arrivalDate && arrivalDate >= minDay && arrivalDate <= maxDay ? arrivalDate : '',
+  );
+  const [lateReason, setLateReason] = useState('');
   const [values, setValues] = useState<Record<MeterType, string>>({ electricity: '', water: '' });
   const [ex, setEx] = useState<Record<MeterType, MeterException | null>>({
     electricity: null,
@@ -74,14 +86,14 @@ export function MeterCheckinDialog({
     const errs: Record<string, string> = {};
     const parsed = {} as Record<MeterType, number>;
     if (!readOn) errs.readOn = t('common.required');
-    else if (readOn < `${month}-01` || readOn > maxDay)
-      errs.readOn = t('meters.checkin_date_range');
+    else if (readOn < minDay || readOn > maxDay) errs.readOn = t('meters.checkin_date_range');
     for (const type of TYPES) {
       const v = parseMeter(values[type], type);
       if (v === null) errs[type] = t('common.required');
       else parsed[type] = v;
     }
     if (!photo) errs.photo = t('meters.photo_required');
+    if (late && lateReason.trim().length < 3) errs.late = t('meters.void_reason_required');
     setErrors(errs);
     if (Object.keys(errs).length) return;
     try {
@@ -104,6 +116,7 @@ export function MeterCheckinDialog({
         photoAttachmentId: id,
         note: null,
         ...(ack ? { acknowledgeLowerThanPrevious: true } : {}),
+        ...(late ? { lateReason: lateReason.trim() } : {}),
       };
       await rec.run((key) =>
         statementsApi.recordMeterReading(propertyId, reservationId, body, key),
@@ -132,7 +145,7 @@ export function MeterCheckinDialog({
         footer={
           <>
             <Button onClick={onClose}>{t('common.cancel')}</Button>
-            <Button variant="pri" disabled={busy} onClick={() => void save()}>
+            <Button variant="pri" disabled={busy || (late && !lead)} onClick={() => void save()}>
               {t('meters.save')}
             </Button>
           </>
@@ -141,13 +154,31 @@ export function MeterCheckinDialog({
         <div className="stack">
           <p className="li-s">{t('meters.checkin_help')}</p>
           {banner ? <Alert tone="bad">{banner}</Alert> : null}
+          {late ? (
+            <Alert tone="warn">
+              {t(lead ? 'meters.late' : 'meters.late_fd', { date: dayText(locale, windowEnd) })}
+            </Alert>
+          ) : null}
+          {late && lead ? (
+            <Field label={t('meters.late_reason')} required error={errors.late}>
+              {(p) => (
+                <input
+                  {...p}
+                  className="input"
+                  maxLength={300}
+                  value={lateReason}
+                  onChange={(e) => setLateReason(e.target.value)}
+                />
+              )}
+            </Field>
+          ) : null}
           <Field label={t('meters.checkin_date')} required error={errors.readOn}>
             {(p) => (
               <input
                 {...p}
                 className="input"
                 type="date"
-                min={`${month}-01`}
+                min={minDay}
                 max={maxDay}
                 value={readOn}
                 onChange={(e) => setReadOn(e.target.value)}

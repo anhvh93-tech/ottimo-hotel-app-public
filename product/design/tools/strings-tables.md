@@ -4342,19 +4342,20 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `meters.group_opening` | Đầu kỳ {month} | Opening {month} | ⟨chừa chỗ⟩ | ARC-FE-189-01: period_start tháng M+1 |
 | `meters.opening_of` | Đầu kỳ: {value} | Opening: {value} | ⟨chừa chỗ⟩ | Chỉ đọc, từ lần đọc đầu kỳ |
 | `meters.opening_missing` | Chưa có chỉ số đầu kỳ của tháng này. | No opening reading for this month. | ⟨chừa chỗ⟩ |  |
-| `meters.last_closing_pending` | Cuối kỳ trước: nhập cuối kỳ trước | Last closing: enter the closing first | ⟨chừa chỗ⟩ |  |
+| `meters.last_closing_pending` | Cuối kỳ trước: nhập ô Cuối kỳ ở trên trước | Last closing: enter the closing above first | ⟨chừa chỗ⟩ | UXD-189-14 |
 | `meters.usage_preview` | Tiêu thụ (xem trước): {usage} | Usage (preview): {usage} | ⟨chừa chỗ⟩ | ARC-FE-189-08 |
-| `meters.below_saved` | Thấp hơn cuối kỳ trước {gap} – phiếu sẽ hỏi kiểm lại. | {gap} below the last closing – the statement asks to check it. | ⟨chừa chỗ⟩ | BE-190-01 |
+| `meters.below_saved` | Thấp hơn cuối kỳ trước {gap} – phiếu sẽ hỏi kiểm lại. | {gap} below the last closing – flagged on the statement. | ⟨chừa chỗ⟩ | BE-190-01, UXD-189-14 |
 | `meters.below_title` | {meter}: đầu kỳ thấp hơn cuối kỳ trước | {meter}: opening below the last closing | ⟨chừa chỗ⟩ | BE-190-01 |
 | `meters.below_body` | Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Chọn cách xử lý: | Opening {opening} is below the last closing {previous}. Choose what to do: | ⟨chừa chỗ⟩ |  |
 | `meters.below_inline` | Đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Khi lưu sẽ hỏi kiểm lại. | Opening {opening} is below the last closing {previous}. Saving will ask you to check it. | ⟨chừa chỗ⟩ | S12 cảnh báo tại ô, trước khi lưu |
 | `meters.checkin_enter` | Nhập chỉ số nhận phòng | Enter check-in reading | ⟨chừa chỗ⟩ | S12, hàng thiếu đầu kỳ (khách nhận phòng trong tháng) |
 | `meters.checkin_title` | Chỉ số nhận phòng · căn {room} | Check-in reading · room {room} | ⟨chừa chỗ⟩ |  |
-| `meters.checkin_help` | Số trên đồng hồ lúc khách nhận phòng, kèm ảnh. Đây là đầu kỳ của tháng đầu tiên. | The meters when the guest checked in, with a photo. This is the opening of the first month. | ⟨chừa chỗ⟩ |  |
+| `meters.checkin_help` | Chỉ số đồng hồ lúc khách nhận phòng, kèm ảnh. Đây là đầu kỳ của tháng đầu tiên. | Meter readings at check-in, with a photo. This is the opening for the first month. | ⟨chừa chỗ⟩ | UXD-189-14 |
 | `meters.checkin_date` | Ngày nhận phòng | Check-in date | ⟨chừa chỗ⟩ |  |
 | `meters.checkin_date_range` | Chọn một ngày trong tháng chốt, không sau hôm nay. | Pick a day in the reading month, not after today. | ⟨chừa chỗ⟩ |  |
 | `meters.checkin_saved` | Đã lưu chỉ số nhận phòng căn {room}. | Check-in reading saved for room {room}. | ⟨chừa chỗ⟩ |  |
-| `meters.save_anyway` | Vẫn lưu – số đã đúng | Save anyway – the number is right | ⟨chừa chỗ⟩ | Mọi vai FD+ |
+| `meters.save_anyway` | Vẫn lưu – số này đúng | Save anyway – this number is right | ⟨chừa chỗ⟩ | Mọi vai FD+, UXD-189-14 |
+| `meters.ask_lead_replaced` | Thay đồng hồ cần lễ tân trưởng. Nhờ lễ tân trưởng nhập giúp. | A replaced meter needs the front desk lead. Ask them to enter it. | ⟨chừa chỗ⟩ | Hộp đầu kỳ thấp hơn cuối kỳ trước, FD (UXD-189-14) |
 | `meters.fix_opening` | Sửa lại chỉ số đầu kỳ. | Fix the opening reading. | ⟨chừa chỗ⟩ |  |
 | `meters.late` | Đã hết hạn chốt ({date}). Ghi trễ cần lý do. | The reading window closed on {date}. A late reading needs a reason. | ⟨chừa chỗ⟩ | BE-190-03, FDL+ |
 | `meters.late_fd` | Đã hết hạn chốt ({date}). Nhờ lễ tân trưởng ghi trễ kèm lý do. | The reading window closed on {date}. Ask the front desk lead to record it late. | ⟨chừa chỗ⟩ | FD |
@@ -4366,7 +4367,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stmt.vat_incl` | đã gồm | incl. | ⟨chừa chỗ⟩ | UXD-189-01: thuê, dịch vụ |
 | `stmt.warning.OPENING_BELOW_PREVIOUS_CLOSING` | Căn {room}: {meter} đầu kỳ {opening} thấp hơn cuối kỳ trước {previous}. Kiểm lại trước khi phát hành. | Room {room}: {meter} opening {opening} is below the last closing {previous}. Check before issuing. | ⟨chừa chỗ⟩ | BE-190-01 |
 | `stmt.warning.READING_LATE` | Căn {room}: có chỉ số ghi trễ, sau hạn chốt. | Room {room}: a reading was recorded after the window. | ⟨chừa chỗ⟩ | BE-190-03 |
-| `stmt.warning.unknown` | Kiểm lại phiếu này trước khi phát hành. | Check this statement before issuing. | ⟨chừa chỗ⟩ | ARC-FE-189-07: mã lạ |
+| `stmt.warning.unknown` | Có cảnh báo chưa rõ ({code}). Kiểm lại phiếu trước khi phát hành. | Unrecognised warning ({code}). Check the statement before issuing. | ⟨chừa chỗ⟩ | ARC-FE-189-07: mã lạ; UXD-189-14 |
 | `stmt.attention_overdue_amount` | Phiếu tháng quá hạn: {n} · {amount} đ | Overdue statements: {n} · {amount} VND | ⟨chừa chỗ⟩ | UXD-189-08 |
 | `stmt.paper_switched` | Đã chuyển sang A4 để vừa một trang | Switched to A4 to fit one page | ⟨chừa chỗ⟩ | UXD-189-03 |
 | `stmt.print.rent_period` | Kỳ thuê | Rent period | ⟨chừa chỗ⟩ | UXD-189-02 |

@@ -133,7 +133,8 @@ export function statusText(t: T, p: Pick<BillingPeriod, 'status' | 'alertLevel' 
 
 /** Staff text of a draft warning; a code the desk does not know yet reads generically (ARC-FE-189-07). */
 export function warningText(t: T, w: StatementWarning): string {
-  if (!(KNOWN_WARNINGS as readonly string[]).includes(w.code)) return t('stmt.warning.unknown');
+  if (!(KNOWN_WARNINGS as readonly string[]).includes(w.code))
+    return t('stmt.warning.unknown', { code: w.code });
   const unit = w.meter === 'water' ? 'm3' : 'kwh';
   const n = (x: unknown) => (typeof x === 'number' ? meterNum(x, unit) : '');
   return t(`stmt.warning.${w.code}`, {

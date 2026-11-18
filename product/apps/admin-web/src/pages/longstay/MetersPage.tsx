@@ -358,8 +358,9 @@ function MeterRow({
           </div>
         ) : null}
         {history$}
-        {/* No opening for M: a stay that came in during M needs its check-in reading (INV 17/11, ARC-FE-189-01). */}
-        {!openM && !closeM ? (
+        {/* No opening for M of a stay that came in during M: its check-in reading (INV 17/11, ARC-FE-189-01/09 –
+            only when the server says the month opens with `checkin`). */}
+        {!openM && room.openingKind === 'checkin' ? (
           <div>
             <Button size="sm" icon="camera" onClick={() => setCheckin(true)}>
               {t('meters.checkin_enter')}
@@ -372,6 +373,7 @@ function MeterRow({
             roomId={room.roomId}
             roomNo={room.roomNo}
             month={month}
+            arrivalDate={room.arrivalDate}
             today={today}
             lead={lead}
             onClose={() => setCheckin(false)}
@@ -421,8 +423,20 @@ function MeterRow({
               ) : (
                 <>
                   {o !== null ? (
-                    <p className="li-s mono">
-                      {t('meters.opening_of', { value: meterNum(o, unit) })}
+                    <p className="li-s">
+                      {/* Label in Be Vietnam Pro, the figure in Mono (UXD-189-14). */}
+                      {t('meters.opening_of', { value: '\u0000' })
+                        .split('\u0000')
+                        .map((part, i) =>
+                          i ? (
+                            <span key={i}>
+                              <span className="mono">{meterNum(o, unit)}</span>
+                              {part}
+                            </span>
+                          ) : (
+                            <span key={i}>{part}</span>
+                          ),
+                        )}
                     </p>
                   ) : (
                     <Alert tone="warn">{t('meters.opening_missing')}</Alert>

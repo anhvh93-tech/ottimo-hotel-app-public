@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { mockControl } from '../mocks/handlers';
 import { parseEmv } from '../mocks/statements';
+import { warningText } from '../pages/longstay/labels';
 import { pinDaytime } from '../test/clock';
 import { renderApp, tv } from '../test/render';
 
@@ -210,6 +211,8 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
       snap.lines.push({ ...svc, labelParams: { n: i }, amountVnd: 0 });
     renderApp(`/print/statements/${p.id}`, 'qa.fd');
     await waitFor(() => expect(root()).toHaveClass('stmt-paper-a4'));
+    // UXD-189-16: the toolbar says why, also when the line count chose A4.
+    expect(screen.getByText(tv('stmt.paper_switched'))).toHaveAttribute('role', 'status');
   });
 
   it('statements.css uses only the 80/15/5 brand palette and the three brand fonts', () => {
@@ -309,6 +312,30 @@ describe('FB-INV-012 print sheet (A5/A4, brand, VietQR, no personal data)', () =
     // The receiving account shows its last 4 digits only.
     expect(text).toMatch(/•••• \d{4}/);
     expect(text).not.toMatch(/\d{8,}/);
+  });
+
+  it('Subtotal = sum of the Amount column on the sheet (UXD-189-01 invariant)', async () => {
+    const p = await issuedSheet();
+    renderApp(`/print/statements/${p.id}`, 'qa.fd');
+    const s = await sheet();
+    const n = (x: string) =>
+      Number(
+        x
+          .replace(/\./g, '')
+          .replace('−', '-')
+          .replace(/[^\d-]/g, ''),
+      );
+    const rows = [...s.querySelectorAll('table.stmt-table-print tbody tr')];
+    expect(rows.length).toBeGreaterThan(2);
+    const amounts = rows.map((tr) => n(tr.querySelector('td:last-child')!.textContent ?? ''));
+    const sub = s.querySelector('table.stmt-totals tr td')!;
+    expect(n(sub.textContent ?? '')).toBe(amounts.reduce((a, b) => a + b, 0));
+  });
+
+  it('a warning code the desk does not know reads generically, with its code (ARC-FE-189-07, UXD-189-14)', () => {
+    expect(warningText((k, a) => translate('en', k, a), { code: 'NEW_RULE_X' })).toBe(
+      'Unrecognised warning (NEW_RULE_X). Check the statement before issuing.',
+    );
   });
 
   it('issued after the due day → "Payment due on receipt", never a date already past (UXD-189-06)', async () => {

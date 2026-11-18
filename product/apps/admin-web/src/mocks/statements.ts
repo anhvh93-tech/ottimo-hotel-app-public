@@ -169,6 +169,9 @@ export function createStatementsMock(c: Ctx) {
                 opening,
                 closing,
                 nextOpening: next ? 'recorded' : 'missing',
+                // BE-190-12: the check-in month opens with the check-in reading.
+                openingKind: monthOf(s.arrivalDate) === u ? 'checkin' : 'period_start',
+                arrivalDate: s.arrivalDate,
               },
             ],
             guestDisplayName: s.guestDisplayName,

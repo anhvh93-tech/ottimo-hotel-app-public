@@ -6,6 +6,7 @@
 import type { Role } from '@ottimo/api-client';
 import { http } from 'msw';
 import { daysBetween } from '../app/dates';
+import { addDays } from '../app/reservations';
 import { isOpeningKind, monthOf, shiftMonth, type RecordMeterReadingBody } from '../app/statements';
 import { LEADS, has, issuedReadingIds } from './statements-compute';
 import {
@@ -103,8 +104,23 @@ export function meterHandlers(
       if (b.kind === 'checkin' && checkin) return ctx.problem(409, 'READING_EXISTS');
       if (b.kind === 'period_start' && checkin && monthOf(checkin.readOn) === b.periodMonth)
         return validation([{ field: 'periodMonth', code: 'NOT_ALLOWED' }]);
-      // End-of-month window (BR-LS-10): period_end of M and period_start of M+1 share it.
       let lateReason: string | null = null;
+      // BE-190-12: the check-in reading is read from arrival to arrival + daysAfter; recorded later only by FDL+
+      // with a reason, up to lateMaxDays (as BE-190-03).
+      if (b.kind === 'checkin') {
+        const w = window();
+        const win = { from: stay.arrivalDate, to: addDays(stay.arrivalDate, w.daysAfter) };
+        if (b.readOn > win.to) return ctx.problem(422, 'READING_OUT_OF_WINDOW', { window: win });
+        const day = today();
+        if (day > win.to) {
+          const reason = String(b.lateReason ?? '').trim();
+          const lateAllowed = lead && daysBetween(win.to, day) <= w.lateMaxDays;
+          if (!lateAllowed || reason.length < 3 || reason.length > 300)
+            return ctx.problem(422, 'READING_OUT_OF_WINDOW', { window: win, lateAllowed });
+          lateReason = reason;
+        }
+      }
+      // End-of-month window (BR-LS-10): period_end of M and period_start of M+1 share it.
       if (monthly) {
         const closes = b.kind === 'period_end' ? b.periodMonth! : shiftMonth(b.periodMonth!, -1);
         const w = window();

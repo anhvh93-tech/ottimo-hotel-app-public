@@ -117,6 +117,13 @@ export interface CandidateRoom {
   opening: ReadingStatus;
   closing: ReadingStatus;
   nextOpening: 'missing' | 'recorded' | 'not_needed';
+  /**
+   * BE-190-12 (being added in #190): which reading opens the utility month for this room – the desk offers "Enter
+   * check-in reading" only for `checkin`. Optional until the field is in the spec.
+   */
+  openingKind?: 'checkin' | 'room_change_in' | 'period_start';
+  /** BE-190-12: arrival day of the stay (prefills the check-in reading date, UXD-189-15). */
+  arrivalDate?: string | null;
 }
 
 /** One item of OpenAPI `BillingCandidateList`. */
