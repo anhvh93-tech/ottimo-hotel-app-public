@@ -135,12 +135,9 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
     expect((await get('fd2')).statusCode).toBe(404);
     expect((await get('mgr')).statusCode).toBe(200);
     expect((await upload('hk', 'refund_proof')).statusCode).toBe(403);
-    // SEC BE-38 (2): a purpose no module binds yet (meter readings – R3) is refused until it exists; work
-    // orders and inspections bind their photos since Sprint 4 (housekeeping module).
-    expect((await upload('mt', 'meter')).json()).toMatchObject({
-      code: 'VALIDATION_FAILED',
-      errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }],
-    });
+    // SEC BE-38 (2): a purpose is accepted once a module binds it – work orders and inspections since Sprint 4,
+    // meter readings since R5 (FB-INV-012, recordMeterReading binds the photo; checkout anchors it).
+    expect((await upload('fd', 'meter')).statusCode).toBe(201);
     expect((await upload('mt', 'work_order')).statusCode).toBe(201);
     expect((await upload('hk', 'inspection')).statusCode).toBe(201);
   });

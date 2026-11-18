@@ -22,3 +22,5 @@ export * from './guest-requests';
 export * from './housekeeping';
 // R3 Sprint 1 (BE-D): public-site – website booking requests (erd 4.14, migration 0086).
 export * from './public-site';
+// R5 FB-INV-012 (BE): monthly statement of a long stay – meter_reading, billing_period, billing_period_line (0099).
+export * from './billing';

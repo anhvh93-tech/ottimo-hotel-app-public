@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk API
-  version: 0.3.13-draft
+  version: 0.3.14-draft
   summary: Hợp đồng API bản nháp cho các story Must Round 2 (R1 Pha B – ARC)
   description: |
     Bản nháp hợp đồng API (contract-first, ADR-001). Nguồn sự thật cho kiểu dữ liệu dùng chung
@@ -195,6 +195,18 @@ info:
     | REFUND_SOURCE_NOT_RECONCILED | 409 | `executeRefund`/`executeCashRefund`: phần thừa định chi sinh từ khoản thu chưa đối soát (chuyển khoản/VietQR `pending`/`disputed`) – chỉ chi khi khoản tạo ra nó đã đối soát hoặc là tiền mặt/POS (BR-522 v0.3.4, DOM S3-16 a). Kèm `paymentIds[]`, `unreconciledVnd` (0.3.6 bổ sung 2 (BA v0.3, ARC 17/10), E15-05) |
     | CHECKLIST_OUTDATED | 409 | `recordInspection`: `checklistVersion` khác phiên bản hiện hành (OWN/MGR vừa sửa danh mục hoặc mục động BR-812 vừa đổi) – kèm `currentVersion`; PWA tải lại checklist rồi kiểm lại (0.3.7, B-02/BA E07-02) |
     | ONLINE_CHECKIN_CLOSED | 409 | App khách ghi check-in online khi đã đóng (`onlineCheckinAvailable=false`: lễ tân đã nhập giấy tờ, đơn `in_house` hoặc không còn `confirmed`) (0.3.3, E06-06) |
+    | NOT_LONG_STAY | 422 | **0.3.14 (FB-INV-012)** – chỉ số điện nước / phiếu tháng trên đơn không phải dài hạn có tiền thuê (`stay_type=long`, `manual_long_stay.monthly_rent_vnd`) |
+    | READING_OUT_OF_WINDOW | 422 | **0.3.14** – `recordMeterReading` ngoài cửa sổ (`checkin`/`room_change_*`: ngày sự kiện + `daysAfter` – ARC BE-190-12; `period_*`: `monthly_statement_rules.readingWindow`, BR-LS-10) – kèm `windowFrom`, `windowTo`; còn trong hạn đọc trễ (`lateMaxDays`) thì thêm `lateUntil`, `lateNeedsRole` (FDL+ gửi `lateReason` – ARC BE-190-03) |
+    | METER_LOWER_THAN_PREVIOUS | 422 | **0.3.14** – chỉ số cuối kỳ < đầu kỳ cùng kỳ mà không có `exception` (BR-LS-12) – kèm `meter`, `previousValue`, `previousReadingId`, `previousKind` |
+    | OPENING_BELOW_PREVIOUS_CLOSING | 422 | **0.3.14 (review ARC BE-190-01)** – `recordMeterReading` đầu kỳ < cuối kỳ trước của căn, không `exception`, chưa gửi `acknowledgeLowerThanPrevious: true` – cảnh báo hai bước, gửi lại với cờ thì lưu (FD+) – kèm `meter`, `previousValue`, `previousReadingId`, `previousKind` |
+    | READING_EXISTS | 409 | **0.3.14** – đã có lần đọc còn hiệu lực cùng đơn, căn, loại, tháng (`period_*`) / ngày (loại khác) |
+    | READING_ON_ISSUED_STATEMENT | 409 | **0.3.14** – `voidMeterReading`: lần đọc nằm trên phiếu đã phát hành – kèm `statementCode` |
+    | STATEMENT_EXISTS | 409 | **0.3.14** – `createBillingPeriod`: đã có phiếu sống cùng đơn, tháng, loại – kèm `billingPeriodId` |
+    | METER_READING_MISSING | 422 | **0.3.14** – `issueBillingPeriod`: thiếu chỉ số đầu kỳ / cuối kỳ / đổi căn của kỳ điện nước – kèm `missingReadings[]` |
+    | WARNINGS_NOT_ACKNOWLEDGED | 422 | **0.3.14** – `issueBillingPeriod`: phiếu có cảnh báo mà `acknowledgeWarnings` không `true` – kèm `warnings[]` |
+    | AMOUNT_NOT_POSITIVE | 422 | **0.3.14** – `issueBillingPeriod`: tổng phiếu ≤ 0 |
+    | STATEMENT_HAS_PAYMENTS | 409 | **0.3.14** – `voidBillingPeriod`: phiếu đã có khoản thu – dùng "Điều chỉnh kỳ trước" (BR-LS-16) – kèm `paidVnd` |
+    | AMOUNT_OVER_BALANCE | 422 | **0.3.14** – `recordBillingPeriodPayment`: số tiền vượt còn phải thu của phiếu – kèm `balanceVnd` |
 
     ## Trường mở rộng của Problem theo code (0.3.5)
     Tên cố định; client chỉ đọc các trường này (không đọc `detail`).
@@ -225,6 +237,15 @@ info:
     | INVALID_TRANSITION – `confirmPaymentReceived`, `createVietQr` trên đơn đã đóng (0.3.13 bổ sung 1, V5-48) | `reservationStatus` (`cancelled` \| `no_show`) |
     | DUPLICATE_BANK_REFERENCE (0.3.13 bổ sung 1) | `duplicateReservationCode` (chỉ mã đơn; **chỉ khi người gọi có vai FD+**, vai khác nhận 409 không có trường này – bổ sung 1f, SEC ARC-21) |
     | PARAM_OUT_OF_RANGE | `min`, `max`, `allowed[]` |
+    | READING_OUT_OF_WINDOW | `windowFrom`, `windowTo`; `lateUntil`, `lateNeedsRole` khi còn đọc trễ được (0.3.14) |
+    | METER_LOWER_THAN_PREVIOUS | `meter`, `previousValue`, `previousReadingId`, `previousKind` (0.3.14) |
+    | OPENING_BELOW_PREVIOUS_CLOSING | `meter`, `previousValue`, `previousReadingId`, `previousKind` (0.3.14, ARC BE-190-01) |
+    | READING_ON_ISSUED_STATEMENT | `statementCode` (0.3.14) |
+    | STATEMENT_EXISTS | `billingPeriodId` (0.3.14) |
+    | METER_READING_MISSING | `missingReadings[]` (0.3.14) |
+    | WARNINGS_NOT_ACKNOWLEDGED | `warnings[]` (0.3.14) |
+    | STATEMENT_HAS_PAYMENTS | `paidVnd` (0.3.14) |
+    | AMOUNT_OVER_BALANCE | `balanceVnd` (0.3.14) |
     | 422 có `HOLD_LIMIT_REACHED` | `max` |
     | 422 có `MIN_STAY_NOT_MET` | `minStayNights`, `suggestions[]` với `orphanNight=true` (BR-113 a) |
     | 422 có `RATE_OUT_OF_RANGE(_WARNING)` | `dates[]`; **0.3.13 (V5-22)**: `min`, `max` – sàn và trần (VND) của đêm đầu tiên trong `dates[]` | Mọi nơi trả mã này (gồm `createReservation` bản `_WARNING` của OTA, B13 `extendStay`, báo giá V5-14). B13 trả thêm `date` (số ít, cho client cũ). 403 khác **không** có trường mở rộng.
@@ -309,6 +330,32 @@ info:
     | REQUEST_TYPE_NOT_AVAILABLE | Loại yêu cầu không dùng được lúc này (`available=false` ở `listGuestRequestOptions`; loại có phí khi đơn chưa `in_house`; đã có 3 yêu cầu có phí đang mở) (B-14/B-16) – 0.3.6 | `createGuestRequest` |
     | PERFORMED_AT_OUT_OF_RANGE | `performedAt` ngoài [giờ server − 24 giờ, giờ server + 5 phút] (SR-PWA-05) hoặc trước mốc `since` của trạng thái hiện tại – lệnh từ hàng đợi offline quá cũ; PWA đưa mục vào "Không áp dụng được" (0.3.7, B-02/BA E07-02) | `transitionRoomStatus`, `transitionHkTask`, `recordInspection`, `recordMinibarCheck` |
     | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
+
+    ## Thay đổi phiên bản 0.3.14-draft (R5 FB-INV-012 – phiếu thanh toán tháng khách dài hạn; hợp đồng `rounds/round-05/fb-inv-012/contract.md`, ARC 17/11)
+    Nền: 0.3.13-draft. **Chỉ thêm** (migration 0099, chỉ thêm bảng `meter_reading`, `billing_period`, `billing_period_line` và 3 khóa tham số). Tag mới `billing`, 12 operation:
+    `listMeterReadings`, `recordMeterReading`, `voidMeterReading` (A123 – tách khỏi A88 vì MT chưa mở; ngoại lệ đồng hồ / miễn ảnh FDL+ – A89 đơn giản hóa), `listBillingCandidates`, `createBillingPeriod`,
+    `listBillingPeriods`, `getBillingPeriod`, `updateBillingPeriod`, `issueBillingPeriod`, `voidBillingPeriod`, `getBillingPeriodPrint` (A121; điều chỉnh kỳ trước và hủy phiếu
+    đã phát hành A122), `recordBillingPeriodPayment` (A58). Mã lỗi mới: `NOT_LONG_STAY`, `READING_OUT_OF_WINDOW`, `METER_LOWER_THAN_PREVIOUS`, `READING_EXISTS`,
+    `READING_ON_ISSUED_STATEMENT`, `STATEMENT_EXISTS`, `METER_READING_MISSING`, `WARNINGS_NOT_ACKNOWLEDGED`, `AMOUNT_NOT_POSITIVE`, `STATEMENT_HAS_PAYMENTS`, `AMOUNT_OVER_BALANCE`.
+    Tham số OWN mới (`setParameter`, có ngày hiệu lực): `utility_unit_price` `{electricityVndPerKwh 1–20.000, waterVndPerM3 1–200.000}` (chưa VAT; mặc định 4.000 / 25.000 – INV 17/11),
+    `utility_vat_rate` `{electricity, water}` ∈ {0, 5, 8, 10} (mặc định 8 / 5; 10 % điện từ 01/01/2027 do OWN lên lịch), `monthly_statement_rules` (`rentTiming` advance|arrears,
+    `dueDay` 1–28, `totalRoundingVnd` ∈ {1, 100, 1000}, `partialFirstMonthRent` at_checkin|first_statement – mặc định `at_checkin` (INV 17/11), `readingWindow` 0–7 ngày) –
+    ngoài biên → 422 `PARAM_OUT_OF_RANGE` (`min`, `max`/`allowed[]`), sai dạng → `VALIDATION_FAILED`; MGR/FDL → 403.
+    **Lệch hợp đồng theo INV 17/11 (bổ sung)**: chỉ số **đầu kỳ do lễ tân nhập mỗi kỳ** (`MeterReadingKind` thêm `period_start`); số cuối kỳ trước chỉ để so (`previousClosing`),
+    phần chênh `gap` không tính tiền. Không có dòng phí dịch vụ 200.000/tháng. Folio: dòng `room` `charge_code=monthly_rent` (không đêm) bị loại khỏi giới hạn giảm theo đêm;
+    dòng phiếu (thuê, điện, nước, làm tròn, điều chỉnh kỳ trước) không FOC/sửa tay được (409 `INVALID_TRANSITION`, `currentState=statement_line`) – hủy phiếu hoặc điều chỉnh kỳ sau.
+    BE sinh lại `openapi-meta.ts`, `openapi-schemas.ts`; api-client sinh lại `generated/openapi.ts` (cùng PR).
+    **Sửa sau review 18/11 (PR #190, chỉ thêm)**: đầu kỳ < cuối kỳ trước là **cảnh báo hai bước** – 422 `OPENING_BELOW_PREVIOUS_CLOSING`, gửi lại
+    `acknowledgeLowerThanPrevious: true` thì lưu (FD+), `gap` âm, nháp có cảnh báo cùng mã; cuối kỳ < đầu kỳ vẫn 422 `METER_LOWER_THAN_PREVIOUS`. Đọc trễ:
+    FDL+ gửi `lateReason` tới `readingWindow.lateMaxDays` (0–31, mặc định 10) sau cửa sổ, cảnh báo `READING_LATE`. `MeterReading` thêm `late`, `lateReason`,
+    `readByInitials`, `onIssuedStatement`; `BillingPeriod` thêm `excludedLines`, `replacesCode`; `BillingPeriodTotals` thêm `unreconciledVnd`, `disputed`;
+    `BillingPeriodLine` thêm `periodMonth`; ứng viên thêm `rooms[]` (đầu kỳ, cuối kỳ, đầu kỳ tháng kế) và đơn đã trả phòng cần phiếu `final`;
+    `getBillingPeriodPrint` trả **danh sách trường cho giấy** (`BillingPeriodPrint`, không ghi chú, lý do, folio, giá chụp). FK `payment_billing_period_fk`.
+    `uploadAttachment` nhận `purpose=meter` (trước đó 422 `NOT_IN_LIST` vì chưa có bản ghi gắn ảnh); ảnh đồng hồ có mốc lưu giữ lúc trả phòng (SEC BE-190-01).
+    **Lượt 2 (ARC BE-190-12)**: `checkin` chỉ trong [ngày đến, ngày đến + `daysAfter`] và cho căn nhận lúc đến; `room_change_in`/`room_change_out` trong
+    [ngày đổi căn, + `daysAfter`]; trễ hơn thì như đọc trễ (FDL+, `lateReason`, tới `lateMaxDays`); ngoài → 422 `READING_OUT_OF_WINDOW`; loại không khớp căn
+    → 422 `kind` `NOT_ALLOWED`. Một `checkin` còn hiệu lực mỗi (đơn, căn) – chỉ mục `meter_reading_checkin_live_key`; một lần đọc đổi căn mỗi lần đổi → 409
+    `READING_EXISTS`. `rooms[]` thêm `openingKind`, `segmentFrom`; `BillingPeriodPrint` thêm `roomNames` (UXD FE-189-11).
 
     ## Thay đổi phiên bản 0.3.13-draft (R5 v1.0.5 – Gói 0; ARC 06/11; chi tiết `rounds/round-05/outputs/ARC/contract-0.3.13.md`)
     Nền: 0.3.12-draft (`main` @ `4a36180a`). Chủ yếu **thêm**: trường chỉ đọc, trường tùy chọn ở thân lệnh, tham số lọc, trường mở rộng của Problem, luật trên operation đã có, và hai operation mới (Wi-Fi).
@@ -865,6 +912,8 @@ tags:
     description: Nhóm đơn / đoàn nhiều căn SM-16 (US-140 – hợp đồng R2, cài đặt R3)
   - name: shifts
     description: Ca làm việc, đóng ca, bàn giao SM-17 (US-124 – hợp đồng R2, cài đặt R3)
+  - name: billing
+    description: Chỉ số điện nước và phiếu thanh toán tháng khách dài hạn (FB-INV-012) – 0.3.14
 paths:
   /health:
     get:
@@ -10470,6 +10519,467 @@ paths:
         '202': { description: Channel manager – đã nhận }
         '413': { description: Body vượt 64 KB }
 
+  /v1/properties/{propertyId}/reservations/{reservationId}/meter-readings:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: reservationId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    get:
+      tags: [billing]
+      operationId: listMeterReadings
+      summary: Lịch sử chỉ số điện nước của đơn dài hạn (FB-INV-012, BR-LS-10…12) – FD+
+      description: |
+        **0.3.14 (FB-INV-012)**. Mọi lần đọc của đơn (kể cả đã hủy – `voided=true`), theo `readOn` tăng dần. Lần đọc **đầu kỳ** (`checkin`, `period_start`,
+        `room_change_in`) kèm `previousClosing` (chỉ số cuối gần nhất của căn, mọi đơn – chỉ để so) và `gap` = đầu kỳ − cuối kỳ trước (hao hụt khoảng trống:
+        tham quan, dọn phòng – **không tính cho khách**, INV 17/11). Lần đọc **cuối kỳ** (`period_end`, `room_change_out`, `checkout`) kèm `consumption` so với
+        lần đầu kỳ của cùng kỳ (số tính tiền). Đơn không phải dài hạn có tiền thuê → 422 `NOT_LONG_STAY`. `Cache-Control: no-store`.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A123]
+      x-round: R5
+      x-stories: [US-064]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/MeterReading' } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+    post:
+      tags: [billing]
+      operationId: recordMeterReading
+      summary: Ghi một lần đọc cả hai đồng hồ của một căn (FB-INV-012) – FD+; ngoại lệ / miễn ảnh FDL+
+      description: |
+        **0.3.14 (FB-INV-012; INV 17/11 bổ sung)**. Chỉ số **đầu kỳ do lễ tân nhập, bắt buộc** mỗi kỳ (`checkin` lúc nhận phòng, `period_start` với `periodMonth` =
+        tháng mở, `room_change_in` khi đổi căn) – lệch hợp đồng 2.1 ("đầu kỳ không lưu") theo INV. Chỉ số cuối kỳ: `period_end` (`periodMonth` = tháng đóng; đọc
+        ngày 01 vẫn đóng tháng trước – BR-LS-10), `room_change_out`, `checkout`. Giá trị: điện kWh nguyên, nước m³ một số lẻ – **bỏ phần lẻ** (BR-LS-11).
+        - Cửa sổ `period_end` P: [ngày cuối P − `readingWindow.daysBeforeMonthEnd`, ngày cuối P + `daysAfter`]; `period_start` P dùng cửa sổ của `period_end` P−1;
+          ngoài → 422 `READING_OUT_OF_WINDOW` (`windowFrom`, `windowTo`). `readOn` > hôm nay, trước ngày đến hoặc sau ngày đi → `VALIDATION_FAILED` `readOn` `DATE_INVALID`.
+          `period_start` của tháng nhận phòng → `periodMonth` `NOT_ALLOWED` (đầu kỳ đầu tiên là lần đọc `checkin`).
+        - Cuối kỳ < đầu kỳ cùng kỳ, không có `exception` → 422 `METER_LOWER_THAN_PREVIOUS` (`meter`, `previousValue`, `previousReadingId`, `previousKind`).
+        - Đầu kỳ < cuối kỳ trước của căn, không có `exception` → **cảnh báo hai bước** (ARC BE-190-01): 422 `OPENING_BELOW_PREVIOUS_CLOSING` (cùng các trường);
+          gửi lại với `acknowledgeLowerThanPrevious: true` thì lưu với mọi vai FD+, `gap` âm, audit `acknowledgedLower`; nháp phiếu có cảnh báo cùng mã.
+        - Đọc trễ (ARC BE-190-03): sau cửa sổ tới `readingWindow.lateMaxDays` ngày (mặc định 10) – OWN/MGR/FDL gửi `lateReason` (3–300) thì lưu (audit
+          `meter_reading.late`, cảnh báo nháp `READING_LATE`); FD hoặc thiếu lý do → 422 `READING_OUT_OF_WINDOW` kèm `lateUntil`, `lateNeedsRole`.
+          `exception` (`replaced` / `rollover`) hoặc `photoWaived=true` → chỉ OWN/MGR/FDL (FD → 403 `FORBIDDEN_ACTION`, A89 đơn giản hóa).
+        - Đầu kỳ > cuối kỳ trước → lưu `gap` (không tính tiền, OWN xem). Ảnh `photoAttachmentId` (attachment `purpose=meter`) bắt buộc trừ khi `photoWaived` (kèm `note`).
+        - `checkin` / `room_change_*` (ARC BE-190-12): `readOn` ∈ [ngày sự kiện, + `readingWindow.daysAfter`] – ngày sự kiện là ngày đến (`checkin`, chỉ căn
+          nhận lúc đến) hoặc ngày đổi căn (`room_change_in` căn mới, `room_change_out` căn cũ); trễ hơn như đọc trễ ở trên; ngoài → 422 `READING_OUT_OF_WINDOW`;
+          căn không có sự kiện đó → 422 `VALIDATION_FAILED` `kind` `NOT_ALLOWED`. Một `checkin` còn hiệu lực mỗi (đơn, căn), một lần đọc đổi căn mỗi lần đổi.
+        - Trùng lần đọc còn hiệu lực (đơn, căn, loại, tháng/ngày) → 409 `READING_EXISTS`. Đơn không `in_house` → 409 `INVALID_TRANSITION` (đơn `checked_out`: chỉ lần đọc cuối kỳ).
+        `note` 3–300 ký tự, lọc số thẻ/giấy tờ. Audit `meter_reading.recorded` (+ `meter_reading.exception`).
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A123]
+      x-round: R5
+      x-stories: [US-064]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MeterReadingCreate' }
+            examples:
+              periodEnd:
+                value:
+                  roomId: 0192a1b0-0000-7000-8000-0000000c0203
+                  kind: period_end
+                  periodMonth: '2026-11'
+                  readOn: '2026-11-30'
+                  electricity: { value: 1392 }
+                  water: { value: 38.6 }
+                  photoAttachmentId: 0192a1b0-0000-7000-8000-0000000a0001
+      responses:
+        '201':
+          description: Đã ghi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeterReading' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/meter-readings/{readingId}/void:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: readingId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [billing]
+      operationId: voidMeterReading
+      summary: Hủy lần đọc nhập sai (FB-INV-012) – FD+
+      description: |
+        **0.3.14**. "Nhập sai" = hủy rồi nhập lại, không sửa đè. `reason` 3–300. Lần đọc đang nằm trên phiếu đã phát hành → 409 `READING_ON_ISSUED_STATEMENT`
+        (`statementCode`); đã hủy → 409 `INVALID_TRANSITION`. Phiếu nháp dùng lần đọc này tính lại khi đọc. Audit `meter_reading.voided`.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A123]
+      x-round: R5
+      x-stories: [US-064]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingReason' }
+      responses:
+        '200':
+          description: Đã hủy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeterReading' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/billing-periods/candidates:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    get:
+      tags: [billing]
+      operationId: listBillingCandidates
+      summary: Đơn dài hạn đang ở cần lập phiếu tháng (FB-INV-012, khối "Ready to bill") – FD+
+      description: |
+        **0.3.14**. Đơn `stay_type=long` có tiền thuê, `in_house`, chưa có phiếu đã phát hành của tháng `month`, và tháng đó lập được phiếu theo
+        `monthly_statement_rules` (`kind` = `regular` / `final`). `readingStatus` của chỉ số cuối kỳ điện nước: `missing`, `recorded`, `exception` (ngoại lệ hoặc
+        miễn ảnh), `not_needed` (kỳ điện nước trước ngày đến). `draftId` = phiếu nháp đang có.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A121]
+      x-round: R5
+      x-stories: [US-065, US-088]
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/YearMonthText' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingCandidateList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/properties/{propertyId}/reservations/{reservationId}/billing-periods:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: reservationId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [billing]
+      operationId: createBillingPeriod
+      summary: Tạo phiếu thanh toán tháng nháp (FB-INV-012) – FD+
+      description: |
+        **0.3.14**. `{month, kind?}` → 201 `BillingPeriod` nháp đã tính (tính lại mỗi lần đọc). `kind` vắng = server chọn. Tháng lập được: `advance` – từ tháng nhận
+        phòng (`partialFirstMonthRent=at_checkin`, INV 17/11: phần lẻ thu lúc nhận phòng) hoặc tháng sau (`first_statement`) tới tháng của đêm cuối; tháng đó là
+        `final` nếu đơn kết thúc giữa tháng (BR-LS-04). `arrears` – từ tháng sau tháng nhận phòng tới tháng của đêm cuối (+1 nếu đêm cuối là ngày cuối tháng).
+        Ngoài → `VALIDATION_FAILED` `month` `NOT_ALLOWED`; `kind` khác loại đúng → `kind` `NOT_ALLOWED` (`allowed[]`). Đã có phiếu sống cùng tháng → 409
+        `STATEMENT_EXISTS` (`billingPeriodId`). Phiếu đã phát hành bị hủy cùng tháng → phiếu mới có `replacesId`, mã `-R<n>` lúc phát hành.
+        Đơn không phải dài hạn → 422 `NOT_LONG_STAY`; không `in_house` → 409 `INVALID_TRANSITION` (phiếu `final`: tới hết `readingWindow.daysAfter` sau ngày đi).
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A121]
+      x-round: R5
+      x-stories: [US-065, US-088]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingPeriodCreate' }
+      responses:
+        '201':
+          description: Phiếu nháp
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPeriod' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/billing-periods:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    get:
+      tags: [billing]
+      operationId: listBillingPeriods
+      summary: Danh sách phiếu thanh toán tháng (S16, "Cần chú ý") – FD+
+      description: |
+        **0.3.14**. Sắp theo tháng giảm dần. `overdue=true`: phiếu `issued`/`partially_paid` còn nợ, `dueDate` ≤ hôm nay. `alertLevel` suy ra khi đọc (BR-LS-02):
+        ngày đến hạn `due_today`, từ hôm sau `overdue`, sau `rent_overdue_alert_days` ngày `alert`, sau `rent_overdue_escalate_days` ngày `escalate`. Phiếu nháp:
+        `totalVnd` null. `guestDisplayName` tên rút gọn – không SĐT, email, giấy tờ.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A121]
+      x-round: R5
+      x-stories: [US-065, US-088]
+      parameters:
+        - name: status
+          in: query
+          style: form
+          explode: false
+          schema: { type: array, items: { $ref: '#/components/schemas/MonthlyStatementStatus' } }
+        - name: month
+          in: query
+          schema: { $ref: '#/components/schemas/YearMonthText' }
+        - name: overdue
+          in: query
+          schema: { type: boolean }
+        - name: roomId
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/BillingPeriodSummary' } }
+                  page: { $ref: '#/components/schemas/PageInfo' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/properties/{propertyId}/billing-periods/{billingPeriodId}:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: billingPeriodId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    get:
+      tags: [billing]
+      operationId: getBillingPeriod
+      summary: Chi tiết phiếu (nháp = xem trước tính lại khi đọc; đã phát hành = bản chụp) – FD+
+      description: |
+        **0.3.14**. ETag. Nháp: `lines`, `totals`, `warnings`, `missingReadings` tính lại theo chỉ số, tham số, dòng folio hiện có. Đã phát hành: bản chụp lúc phát hành.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A121]
+      x-round: R5
+      x-stories: [US-065]
+      responses:
+        '200':
+          description: OK
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPeriod' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+    patch:
+      tags: [billing]
+      operationId: updateBillingPeriod
+      summary: Sửa phiếu nháp – dời dòng dịch vụ (FD+), điều chỉnh kỳ trước (FDL+), ghi chú
+      description: |
+        **0.3.14**. Chỉ phiếu `draft` (khác → 409 `INVALID_TRANSITION`). `If-Match`. `excludedFolioLineIds` thay cả danh sách – id không phải dòng dịch vụ của kỳ dịch vụ
+        trên folio của đơn → `excludedFolioLineIds[i]` `NOT_IN_LIST` (BR-LS-14). `priorAdjustment` (BR-LS-16, A122: OWN/MGR/FDL, FD → 403): `{amountVnd ≠ 0, reason 3–300}`,
+        `null` = bỏ; ghi folio `adjustment` nhóm `other` lúc phát hành. `note` 3–300.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A121, A122]
+      x-round: R5
+      x-stories: [US-065]
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingPeriodPatch' }
+      responses:
+        '200':
+          description: Phiếu nháp sau khi sửa
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPeriod' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/billing-periods/{billingPeriodId}/issue:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: billingPeriodId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [billing]
+      operationId: issueBillingPeriod
+      summary: Phát hành phiếu – ghi dòng folio, chụp dòng, cấp mã (FB-INV-012) – FD+
+      description: |
+        **0.3.14**. `If-Match` + `Idempotency-Key`. Một giao dịch: khóa đơn `KEY SHARE` → folio `FOR UPDATE` → phiếu → tính → ghi folio (thuê `room`/`monthly_rent`,
+        điện nước `utilities`/`electricity`·`water` đơn giá đã gồm VAT, làm tròn và điều chỉnh kỳ trước `adjustment`) → chụp `billing_period_line` → `issued`, mã
+        `TT-<yymm>-<số căn>[-R<n>]`. Thiếu chỉ số → 422 `METER_READING_MISSING` (`missingReadings[]`); có cảnh báo mà `acknowledgeWarnings` không `true` → 422
+        `WARNINGS_NOT_ACKNOWLEDGED` (`warnings[]`); tổng ≤ 0 → 422 `AMOUNT_NOT_POSITIVE`; folio `settled`/`closed` → 409 `FOLIO_LOCKED`. Không chốt folio.
+        Đơn giá điện nước theo ngày cuối kỳ điện nước; % VAT theo ngày phát hành (BR-LS-07/08) – ghi vào `ratesSnapshot`.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A121]
+      x-round: R5
+      x-stories: [US-065]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingPeriodIssue' }
+      responses:
+        '200':
+          description: Phiếu đã phát hành
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPeriod' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/billing-periods/{billingPeriodId}/void:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: billingPeriodId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [billing]
+      operationId: voidBillingPeriod
+      summary: Hủy phiếu – nháp (FD+) hoặc đã phát hành chưa thu (FDL+)
+      description: |
+        **0.3.14**. `reason` 3–300. Đã có khoản thu `succeeded` (hoặc `partially_paid`/`paid`) → 409 `STATEMENT_HAS_PAYMENTS` (`paidVnd`) – dùng "Điều chỉnh kỳ trước"
+        (BR-LS-16). Đã phát hành: đảo các dòng folio phiếu tự ghi (`reversal_of_id`), dòng tham chiếu `active=false`, cùng giao dịch; FD → 403 (A122).
+        `canReplace` = phiếu đã phát hành và tháng còn lập được → FE mở `createBillingPeriod` cùng tháng (server điền `replacesId`). `If-Match` tùy chọn.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A121, A122]
+      x-round: R5
+      x-stories: [US-065]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingReason' }
+      responses:
+        '200':
+          description: Phiếu đã hủy
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPeriodVoided' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/billing-periods/{billingPeriodId}/payments:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: billingPeriodId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [billing]
+      operationId: recordBillingPeriodPayment
+      summary: Ghi thu cho phiếu (tiền mặt / VietQR) – FD+
+      description: |
+        **0.3.14**. Đường ghi thu của `PaymentService` (`type=charge`, `billing_period_id`). `vietqr` → `reconciliation=pending` (SM-12, không tự đối soát); `cash` theo luật
+        ca hiện có. Phiếu không `issued`/`partially_paid` → 409 `INVALID_TRANSITION`; `amountVnd` > còn phải thu → 422 `AMOUNT_OVER_BALANCE` (`balanceVnd`).
+        Cập nhật `paidVnd`, `status` → `partially_paid` / `paid` (+ `paidAt`) cùng giao dịch; đảo khoản thu (A34) trừ lại và lùi trạng thái. `bankReference` theo luật `PaymentCreate`.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A58]
+      x-round: R5
+      x-stories: [US-065, US-088]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingPeriodPaymentCreate' }
+      responses:
+        '201':
+          description: Đã ghi thu
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPeriodPaymentResult' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: billingPeriodId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    get:
+      tags: [billing]
+      operationId: getBillingPeriodPrint
+      summary: Dữ liệu trang in phiếu tháng (A5/A4, VietQR) – FD+
+      description: |
+        **0.3.14**. Chỉ phiếu đã phát hành (`draft`/`void` → 409 `INVALID_TRANSITION`). `BillingPeriod` + `property`, `guest.fullName` (chỉ họ tên), `vietqr`
+        (payload EMVCo dựng từ tài khoản nhận tiền hiệu lực hôm nay, số tiền = `balanceVnd`, nội dung = mã phiếu bỏ `-`; hết nợ hoặc chưa cấu hình tài khoản → `null`),
+        `accountNoMasked` 4 số cuối. `printedByInitials` chữ cái đầu. Ghi audit `billing_period.printed`. Không SĐT, email khách, quốc tịch, giấy tờ.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A121]
+      x-round: R5
+      x-stories: [US-065]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPeriodPrint' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
 components:
   securitySchemes:
     staffSession:
@@ -15124,3 +15634,377 @@ components:
             KRW: { type: number, exclusiveMinimum: 0 }
             CNY: { type: number, exclusiveMinimum: 0 }
             RUB: { type: number, exclusiveMinimum: 0 }
+    # ── phiếu thanh toán tháng khách dài hạn (0.3.14, FB-INV-012) ──
+    YearMonthText:
+      type: string
+      pattern: '^\d{4}-(0[1-9]|1[0-2])(-01)?$'
+      description: Tháng `YYYY-MM` (nhận cả `YYYY-MM-01`)
+    MeterException:
+      type: object
+      description: 'Ngoại lệ đồng hồ (BR-LS-12): `replaced` – tiêu thụ = (cuối cũ − đầu) + (cuối − đầu mới); `rollover` – (tối đa + 1 − đầu) + cuối'
+      required: [type]
+      properties:
+        type: { type: string, enum: [replaced, rollover] }
+        oldFinal: { type: number, minimum: 0 }
+        newStart: { type: number, minimum: 0 }
+        replacedOn: { $ref: '#/components/schemas/LocalDate' }
+        maxValue: { type: number, minimum: 0 }
+    MeterValueInput:
+      type: object
+      required: [value]
+      properties:
+        value: { type: number, minimum: 0, description: 'Điện kWh, nước m³ – phần lẻ bị bỏ (BR-LS-11)' }
+        exception:
+          oneOf: [{ $ref: '#/components/schemas/MeterException' }, { type: 'null' }]
+    MeterReadingKind:
+      type: string
+      enum: [checkin, period_start, period_end, room_change_out, room_change_in, checkout]
+      description: 'Đầu kỳ: `checkin`, `period_start`, `room_change_in` (INV 17/11 – lễ tân nhập mỗi kỳ). Cuối kỳ: `period_end`, `room_change_out`, `checkout`'
+    MeterReadingCreate:
+      type: object
+      required: [roomId, kind, readOn, electricity, water]
+      properties:
+        roomId: { $ref: '#/components/schemas/Uuid' }
+        kind: { $ref: '#/components/schemas/MeterReadingKind' }
+        periodMonth:
+          allOf: [{ $ref: '#/components/schemas/YearMonthText' }]
+          description: 'Bắt buộc với `period_start` (tháng mở) và `period_end` (tháng đóng); loại khác → `NOT_ALLOWED`'
+        readOn: { $ref: '#/components/schemas/LocalDate' }
+        electricity: { $ref: '#/components/schemas/MeterValueInput' }
+        water: { $ref: '#/components/schemas/MeterValueInput' }
+        photoAttachmentId: { $ref: '#/components/schemas/Uuid' }
+        photoWaived: { type: boolean, default: false, description: 'FDL+; kèm `note`' }
+        note: { type: [string, 'null'], minLength: 3, maxLength: 300 }
+        acknowledgeLowerThanPrevious:
+          type: boolean
+          default: false
+          description: 'Đầu kỳ < cuối kỳ trước: gửi lại với `true` sau 422 `OPENING_BELOW_PREVIOUS_CLOSING` (FD+)'
+        lateReason:
+          type: [string, 'null']
+          minLength: 3
+          maxLength: 300
+          description: 'Đọc sau cửa sổ (tới `lateMaxDays`) – chỉ FDL+; trong cửa sổ thì bỏ qua'
+    MeterValue:
+      type: object
+      required: [value]
+      properties:
+        value: { type: number }
+        exception:
+          oneOf: [{ $ref: '#/components/schemas/MeterException' }, { type: 'null' }]
+    MeterPair:
+      type: object
+      properties:
+        electricity: { type: [number, 'null'] }
+        water: { type: [number, 'null'] }
+    MeterReading:
+      type: object
+      required: [id, reservationId, roomId, roomNo, kind, readOn, electricity, water, voided, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        reservationId: { $ref: '#/components/schemas/Uuid' }
+        roomId: { $ref: '#/components/schemas/Uuid' }
+        roomNo: { type: string }
+        kind: { $ref: '#/components/schemas/MeterReadingKind' }
+        periodMonth: { type: [string, 'null'], description: '`YYYY-MM`' }
+        readOn: { $ref: '#/components/schemas/LocalDate' }
+        electricity: { $ref: '#/components/schemas/MeterValue' }
+        water: { $ref: '#/components/schemas/MeterValue' }
+        previousClosing:
+          type: [object, 'null']
+          description: 'Lần đầu kỳ: chỉ số cuối gần nhất của căn (mọi đơn) – chỉ để so (INV 17/11)'
+          properties:
+            readingId: { $ref: '#/components/schemas/Uuid' }
+            readOn: { $ref: '#/components/schemas/LocalDate' }
+            electricity: { type: number }
+            water: { type: number }
+        gap:
+          description: 'Lần đầu kỳ: đầu kỳ − cuối kỳ trước = hao hụt khoảng trống, không tính cho khách (INV 17/11)'
+          oneOf: [{ $ref: '#/components/schemas/MeterPair' }, { type: 'null' }]
+        consumption:
+          type: [object, 'null']
+          description: 'Lần cuối kỳ: tiêu thụ so với đầu kỳ cùng kỳ (số tính tiền)'
+          properties:
+            fromReadingId: { $ref: '#/components/schemas/Uuid' }
+            electricity: { type: [number, 'null'] }
+            water: { type: [number, 'null'] }
+        photoAttachmentId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+        photoWaived: { type: boolean }
+        exceptionApproved: { type: boolean }
+        note: { type: [string, 'null'] }
+        late: { type: boolean, description: 'Ghi sau cửa sổ (FDL+, ARC BE-190-03)' }
+        lateReason: { type: [string, 'null'] }
+        readByRole: { type: string }
+        readByInitials: { type: [string, 'null'], description: 'Chữ cái đầu của người nhập (không trả họ tên)' }
+        onIssuedStatement: { type: boolean, description: 'Lần đọc nằm trên phiếu đã phát hành – hủy sẽ 409 `READING_ON_ISSUED_STATEMENT`' }
+        voided: { type: boolean }
+        voidedAt: { type: [string, 'null'], format: date-time }
+        voidReason: { type: [string, 'null'] }
+        createdAt: { $ref: '#/components/schemas/Instant' }
+        version: { type: integer }
+    BillingReason:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 300 }
+    MonthlyStatementStatus:
+      type: string
+      enum: [draft, issued, partially_paid, paid, void]
+    BillingAlertLevel:
+      type: string
+      enum: [due_today, overdue, alert, escalate]
+    BillingCandidateList:
+      type: object
+      required: [month, items]
+      properties:
+        month: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            required: [reservationId, reservationCode, roomNos, kind, readingStatus]
+            properties:
+              reservationId: { $ref: '#/components/schemas/Uuid' }
+              reservationCode: { type: string }
+              roomNos: { type: array, items: { type: string } }
+              rooms:
+                type: array
+                description: 'ARC BE-190-02: từng căn của kỳ điện nước trên phiếu; `missing` khớp kiểm tra lúc phát hành'
+                items:
+                  type: object
+                  required: [roomId, roomNo, opening, closing, nextOpening, openingKind, segmentFrom]
+                  properties:
+                    roomId: { $ref: '#/components/schemas/Uuid' }
+                    roomNo: { type: string }
+                    opening: { type: string, enum: [missing, recorded, exception, not_needed] }
+                    closing: { type: string, enum: [missing, recorded, exception, not_needed] }
+                    nextOpening: { type: string, enum: [missing, recorded, not_needed], description: '`period_start` của tháng kế (cùng bảng cuối tháng)' }
+                    openingKind: { type: string, enum: [checkin, room_change_in, period_start], description: 'ARC BE-190-12: loại lần đọc đầu kỳ của căn trong kỳ này' }
+                    segmentFrom: { type: string, format: date, description: 'Ngày bắt đầu ở căn (ngày đến với `checkin`, ngày đổi căn với `room_change_in`)' }
+              guestDisplayName: { type: [string, 'null'] }
+              kind: { type: string, enum: [regular, final] }
+              readingStatus: { type: string, enum: [missing, recorded, exception, not_needed], description: 'Tổng hợp: `missing` khi đầu kỳ hoặc cuối kỳ của căn nào thiếu' }
+              draftId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+    BillingPeriodCreate:
+      type: object
+      required: [month]
+      properties:
+        month: { $ref: '#/components/schemas/YearMonthText' }
+        kind: { type: string, enum: [regular, final] }
+    BillingPeriodPatch:
+      type: object
+      properties:
+        excludedFolioLineIds: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/Uuid' } }
+        priorAdjustment:
+          type: [object, 'null']
+          required: [amountVnd, reason]
+          properties:
+            amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+            reason: { type: string, minLength: 3, maxLength: 300 }
+        note: { type: [string, 'null'], minLength: 3, maxLength: 300 }
+    BillingPeriodIssue:
+      type: object
+      properties:
+        acknowledgeWarnings: { type: boolean, default: false }
+    DateRange:
+      type: object
+      required: [from, to]
+      properties:
+        from: { $ref: '#/components/schemas/LocalDate' }
+        to: { $ref: '#/components/schemas/LocalDate' }
+    BillingPeriodLine:
+      type: object
+      required: [kind, labelKey, quantity, unit, unitPriceNetVnd, netVnd, vatVnd, amountVnd]
+      properties:
+        kind: { type: string, enum: [rent, electricity, water, service, rounding, prior_adjustment] }
+        labelKey: { type: string }
+        labelParams: { type: [object, 'null'], additionalProperties: true }
+        quantity: { type: number }
+        unit: { type: string, enum: [month, day, kwh, m3, item] }
+        unitPriceNetVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        vatRatePct: { type: [number, 'null'], description: 'null = giá đã gồm VAT (thuê, dịch vụ)' }
+        netVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        vatVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        folioLineId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }], description: 'Nháp: dòng folio đã có (dịch vụ) hoặc null (ghi lúc phát hành)' }
+        roomNo: { type: [string, 'null'] }
+        meter:
+          type: [object, 'null']
+          properties:
+            from: { type: number }
+            to: { type: number }
+            exception:
+              oneOf: [{ $ref: '#/components/schemas/MeterException' }, { type: 'null' }]
+        serviceDate: { oneOf: [{ $ref: '#/components/schemas/LocalDate' }, { type: 'null' }] }
+        periodMonth:
+          type: [string, 'null']
+          description: '`YYYY-MM` của dòng: thuê – kỳ thuê; điện, nước – kỳ điện nước; dịch vụ – ngày dịch vụ; null với làm tròn, điều chỉnh (UXD FE-189-02)'
+    BillingWarning:
+      type: object
+      required: [code]
+      additionalProperties: true
+      description: '`METER_ANOMALY` (`roomNo`, `meter`, `consumption`, `threshold`), `RENT_ALREADY_POSTED` (`from`, `to`), `SERVICE_LINE_ON_OTHER_STATEMENT` (`folioLineId`, `statementCode`), `PHOTO_WAIVED` (`roomNo`, `readingId`), `OPENING_BELOW_PREVIOUS_CLOSING` (`roomNo`, `meter`, `opening`, `previousClosing`, `readingId`), `READING_LATE` (`roomNo`, `readingId`, `kind`)'
+      properties:
+        code: { type: string }
+    MissingMeterReading:
+      type: object
+      required: [roomId, roomNo, kind, periodMonth]
+      properties:
+        roomId: { $ref: '#/components/schemas/Uuid' }
+        roomNo: { type: string }
+        kind: { type: string, enum: [opening, period_end, room_change_out] }
+        periodMonth: { type: string }
+    BillingPeriodTotals:
+      type: object
+      required: [netVnd, vatVnd, roundingVnd, totalVnd, paidVnd, balanceVnd]
+      properties:
+        netVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        vatVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        roundingVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        totalVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        paidVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        balanceVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        unreconciledVnd:
+          allOf: [{ $ref: '#/components/schemas/MoneyVnd' }]
+          description: 'Đã thu nhưng ngân hàng chưa xác nhận (`reconciliation` pending / disputed) – ARC BE-190-08'
+        disputed: { type: boolean, description: 'Có khoản thu đang tranh chấp đối soát' }
+    BillingPeriod:
+      type: object
+      required: [id, status, kind, month, reservationId, folioId, roomNos, lines, totals, warnings, availableActions, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        code: { type: [string, 'null'], description: 'Cấp lúc phát hành: `TT-<yymm>-<số căn>[-R<n>]`' }
+        status: { $ref: '#/components/schemas/MonthlyStatementStatus' }
+        kind: { type: string, enum: [regular, final] }
+        month: { type: string, description: '`YYYY-MM`' }
+        reservationId: { $ref: '#/components/schemas/Uuid' }
+        reservationCode: { type: string }
+        folioId: { $ref: '#/components/schemas/Uuid' }
+        roomNos: { type: array, items: { type: string } }
+        guestDisplayName: { type: [string, 'null'] }
+        rentPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
+        utilityPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
+        servicePeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
+        dueDate: { oneOf: [{ $ref: '#/components/schemas/LocalDate' }, { type: 'null' }] }
+        overdueDays: { type: integer, minimum: 0 }
+        alertLevel: { oneOf: [{ $ref: '#/components/schemas/BillingAlertLevel' }, { type: 'null' }] }
+        lines: { type: array, items: { $ref: '#/components/schemas/BillingPeriodLine' } }
+        totals: { $ref: '#/components/schemas/BillingPeriodTotals' }
+        warnings: { type: array, items: { $ref: '#/components/schemas/BillingWarning' } }
+        missingReadings: { type: array, items: { $ref: '#/components/schemas/MissingMeterReading' } }
+        excludedFolioLineIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        excludedLines:
+          type: array
+          description: 'Nháp: dòng dịch vụ đã dời (BR-LS-14) – hiện để "đưa lại", không cộng vào tổng; đã phát hành → []'
+          items: { $ref: '#/components/schemas/BillingPeriodLine' }
+        priorAdjustment:
+          type: [object, 'null']
+          properties:
+            amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+            reason: { type: string }
+        note: { type: [string, 'null'] }
+        availableActions:
+          type: array
+          items: { type: string, enum: [update, prior_adjustment, issue, void, record_payment, print] }
+        ratesSnapshot: { type: [object, 'null'], additionalProperties: true }
+        replacesId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+        replacesCode: { type: [string, 'null'], description: 'Mã phiếu bị thay' }
+        issuedAt: { type: [string, 'null'], format: date-time }
+        paidAt: { type: [string, 'null'], format: date-time }
+        voidedAt: { type: [string, 'null'], format: date-time }
+        voidReason: { type: [string, 'null'] }
+        version: { type: integer }
+    BillingPeriodVoided:
+      allOf:
+        - $ref: '#/components/schemas/BillingPeriod'
+        - type: object
+          required: [canReplace]
+          properties:
+            canReplace: { type: boolean }
+    BillingPeriodSummary:
+      type: object
+      required: [id, reservationId, roomNos, month, kind, balanceVnd, status, overdueDays]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        code: { type: [string, 'null'] }
+        reservationId: { $ref: '#/components/schemas/Uuid' }
+        roomNos: { type: array, items: { type: string } }
+        guestDisplayName: { type: [string, 'null'] }
+        month: { type: string }
+        kind: { type: string, enum: [regular, final] }
+        totalVnd: { oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }] }
+        balanceVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        dueDate: { oneOf: [{ $ref: '#/components/schemas/LocalDate' }, { type: 'null' }] }
+        status: { $ref: '#/components/schemas/MonthlyStatementStatus' }
+        overdueDays: { type: integer, minimum: 0 }
+        alertLevel: { oneOf: [{ $ref: '#/components/schemas/BillingAlertLevel' }, { type: 'null' }] }
+    BillingPeriodPaymentCreate:
+      type: object
+      required: [method, amountVnd]
+      properties:
+        method: { type: string, enum: [cash, vietqr] }
+        amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        receivedAt: { oneOf: [{ $ref: '#/components/schemas/Instant' }, { type: 'null' }] }
+        note: { type: [string, 'null'], maxLength: 500 }
+        bankReference: { type: [string, 'null'], maxLength: 40 }
+    BillingPeriodPaymentResult:
+      type: object
+      required: [billingPeriod, payment]
+      properties:
+        billingPeriod: { $ref: '#/components/schemas/BillingPeriod' }
+        payment:
+          type: object
+          required: [id, method, amountVnd, status, reconciliation]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            method: { type: string }
+            amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+            status: { type: string }
+            reconciliation: { type: string }
+    BillingPeriodPrint:
+      description: |
+        Dữ liệu cho tờ phiếu (contract 6.6; SEC BE-190-03) – **chỉ** các trường dưới đây: không ghi chú, lý do, folio, giá chụp, thao tác.
+        Dòng điện, nước có `netVnd` (chưa VAT) và `vatVnd` riêng; in cột tiền theo `netVnd`, Subtotal = `totals.netVnd`, một dòng VAT = `totals.vatVnd`,
+        làm tròn, tổng (UXD FE-189-01). Mỗi dòng có `periodMonth` (UXD FE-189-02).
+      allOf:
+        - type: object
+          required: [id, code, status, kind, month, roomNos, lines, totals]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            code: { type: [string, 'null'] }
+            status: { $ref: '#/components/schemas/MonthlyStatementStatus' }
+            kind: { type: string, enum: [regular, final] }
+            month: { type: string }
+            roomNos: { type: array, items: { type: string } }
+            roomNames: { type: array, items: { type: [string, 'null'] }, description: 'UXD FE-189-11: tên phòng cho khách (The Mist…), cùng thứ tự `roomNos`; null khi chưa đặt tên' }
+            rentPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
+            utilityPeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
+            servicePeriod: { oneOf: [{ $ref: '#/components/schemas/DateRange' }, { type: 'null' }] }
+            dueDate: { oneOf: [{ $ref: '#/components/schemas/LocalDate' }, { type: 'null' }] }
+            issuedAt: { type: [string, 'null'], format: date-time }
+            lines: { type: array, items: { $ref: '#/components/schemas/BillingPeriodLine' } }
+            totals: { $ref: '#/components/schemas/BillingPeriodTotals' }
+        - type: object
+          required: [property, guest, printedAt]
+          properties:
+            property:
+              type: object
+              properties:
+                displayName: { type: [string, 'null'] }
+                addressLine: { type: [string, 'null'] }
+                hotline: { type: [string, 'null'] }
+                email: { type: [string, 'null'], description: 'Chưa có cột email công khai của cơ sở – luôn null (0.3.14)' }
+            guest:
+              type: object
+              properties:
+                fullName: { type: [string, 'null'], description: 'Chỉ họ tên đầy đủ (contract 5.2)' }
+            vietqr:
+              type: [object, 'null']
+              properties:
+                payload: { type: string, description: 'Chuỗi EMVCo – client vẽ QR' }
+                bankShortName: { type: [string, 'null'] }
+                accountHolder: { type: string }
+                accountNoMasked: { type: string, description: '4 số cuối' }
+                amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+                transferContent: { type: string }
+            printedAt: { $ref: '#/components/schemas/Instant' }
+            printedByInitials: { type: [string, 'null'] }

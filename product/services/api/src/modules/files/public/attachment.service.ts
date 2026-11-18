@@ -75,9 +75,9 @@ const READ_OWN_ROLES: Record<AttachmentPurpose, readonly string[]> = {
 
 /**
  * Purposes whose owning flow exists (money rows of BE-B, penalty evidence of the checkout; Sprint 4: work
- * orders and inspections of the housekeeping module bind their photos). Meter readings land in R3: until
- * their record exists an upload could never be bound, so it is refused (SEC FB-R2-SEC-BE-38 option 2) – 422
- * NOT_IN_LIST. An upload never bound is removed by J16 (step 3).
+ * orders and inspections of the housekeeping module bind their photos; R5 FB-INV-012: meter readings bind
+ * `meter` photos and the checkout anchors them – SEC BE-190-01). A purpose without its record is refused (SEC
+ * FB-R2-SEC-BE-38 option 2) – 422 NOT_IN_LIST. An upload never bound is removed by J16 (step 3).
  */
 export const PURPOSES_ACCEPTED_NOW: readonly AttachmentPurpose[] = [
   'deposit_receipt',
@@ -85,6 +85,7 @@ export const PURPOSES_ACCEPTED_NOW: readonly AttachmentPurpose[] = [
   'refund_proof',
   'work_order',
   'inspection',
+  'meter',
 ];
 
 /** Booking states after which no checkout will anchor a new file (SEC BE-65 b1). */
@@ -310,6 +311,24 @@ export class AttachmentService {
   }
 
   /**
+   * FB-INV-012 (SEC FB-R5-SEC-BE-190-01): meter photos of a long stay are kept `attachment_ops_retention_months`
+   * from the end of the stay. Anchors every live `meter` file bound to a reading of the booking – voided readings
+   * included (kept for a complaint) – and any `meter` upload of the booking. Only moves an anchor later. Idempotent.
+   */
+  async setMeterRetentionAnchor(tx: Tx, reservationId: string, at: Date): Promise<number> {
+    const r = await tx.query(
+      `UPDATE attachment SET retention_anchor_at = $2
+        WHERE purpose = 'meter' AND purged_at IS NULL
+          AND (retention_anchor_at IS NULL OR retention_anchor_at < $2)
+          AND (reservation_id = $1
+               OR (bound_ref_type = 'meter_reading'
+                   AND bound_ref_id IN (SELECT id FROM meter_reading WHERE reservation_id = $1)))`,
+      [reservationId, at],
+    );
+    return r.rowCount ?? 0;
+  }
+
+  /**
    * SEC BE-65 (ARC s4 E.1 a1): retention anchor of EVERY live file bound to one record – a work order closed
    * (`complete`/`cancel` → the closing time) or reopened (`null` → no anchor until it closes again). Overwrites
    * (not "only later" like `setRetentionAnchor`): a reopen must clear it. Scoped to one record, never to a
@@ -367,7 +386,7 @@ export class AttachmentService {
     const missing = await tx.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM attachment
         WHERE purged_at IS NULL AND bound_ref_id IS NOT NULL AND retention_anchor_at IS NULL
-          AND purpose IN ('work_order', 'inspection', 'penalty_evidence')
+          AND purpose IN ('work_order', 'inspection', 'penalty_evidence', 'meter')
           AND uploaded_at + make_interval(months => $2) <= $1`,
       [now, months],
     );

@@ -24,6 +24,7 @@ import { GuestPortalModule } from './guest-portal/guest-portal.module';
 import { RegistrationModule } from './registration/registration.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { PublicSiteModule } from './public-site/public-site.module';
+import { BillingModule } from './billing/billing.module';
 
 export function featureModules(
   identity: IdentityOptions,
@@ -59,6 +60,8 @@ export function featureModules(
     ReportingModule,
     // R3 Sprint 1 (BE-D): public-site – website booking requests + Desk queue S35 (US-155, R3-Q06).
     PublicSiteModule.register({ env: runtimeEnv }),
+    // R5 FB-INV-012 (BE): billing – meter readings + monthly statements of long stays.
+    BillingModule,
   ];
 }
 

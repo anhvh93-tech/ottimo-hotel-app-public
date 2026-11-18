@@ -10,6 +10,7 @@
  * api's and that this file imports every `modules/<m>/audit-entities.ts`. Test-only entities
  * (test-support/audit-entities.ts) are not listed here.
  */
+import './modules/billing/audit-entities';
 import './modules/events/audit-entities';
 import './modules/files/audit-entities';
 import './modules/folio/audit-entities';

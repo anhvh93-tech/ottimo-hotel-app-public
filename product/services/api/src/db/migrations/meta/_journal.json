@@ -512,6 +512,13 @@
       "when": 1792782183681,
       "tag": "0098_fx_rates_fb_inv_011",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1792782185681,
+      "tag": "0099_monthly_statement_fb_inv_012",
+      "breakpoints": true
     }
   ]
 }

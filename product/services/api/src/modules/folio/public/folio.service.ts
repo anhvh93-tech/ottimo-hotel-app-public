@@ -52,6 +52,7 @@ import { StayNightAllocationService } from '../../reservations/public/stay-night
 import { allocate } from './allocate';
 import { shortStayCommissionRate } from './commission-rate';
 import { lineLabel } from './line-labels';
+import { MONTHLY_RENT_CHARGE_CODE } from './statement-codes';
 import { folioLocked, lockReasonOfStatus } from './folio-locked';
 import {
   type ReductionRequest,
@@ -193,6 +194,15 @@ export interface FolioLineInput {
   evidenceAttachmentIds?: readonly string[] | null;
   /** Params of the printable label (line-labels.ts – DOM BE-21), e.g. {time: '13:00', pct: 30}. */
   labelParams?: Record<string, string | number> | null;
+  /** FB-INV-012 (monthly statement): VAT % of a price before VAT (utilities); null = price including VAT. */
+  vatRatePct?: number | null;
+  /** FB-INV-012: reference price of a `room` line without a night (monthly rent = its unit price). */
+  limitRefVnd?: number | null;
+  /** FB-INV-012: group an `adjustment` line corrects (rounding, prior-period adjustment). */
+  adjustsGroup?: RevenueGroup | null;
+  /** FB-INV-012: rent period of a monthly rent line. */
+  periodFrom?: LocalDate | null;
+  periodTo?: LocalDate | null;
 }
 
 /** Who posts (null = system job) + display code for the money audit. */
@@ -647,10 +657,11 @@ class LineIndex {
     return l.line_state === 'posted' && !l.reversal_of_id && !this.reversed.has(l.id);
   }
 
-  /** The live line of a category on a date (latest posted). */
+  /** The live line of a category on a date (latest posted). A monthly rent line is never a night (FB-INV-012). */
   liveOn(category: string, date: string): FolioLineRow | null {
     let found: FolioLineRow | null = null;
     for (const l of this.all) {
+      if (l.charge_code === MONTHLY_RENT_CHARGE_CODE) continue;
       if (l.category === category && l.service_date === date && this.isLive(l)) found = l;
     }
     return found;
@@ -998,6 +1009,11 @@ export class FolioService implements FolioStaySync {
         evidenceAttachmentIds: l.evidenceAttachmentIds ?? null,
         postCheckout: folio.postCheckout,
         labelParams: l.labelParams ?? null,
+        ...(l.vatRatePct !== undefined ? { vatRatePct: l.vatRatePct } : {}),
+        ...(l.limitRefVnd !== undefined ? { limitRefVnd: l.limitRefVnd } : {}),
+        ...(l.adjustsGroup !== undefined ? { adjustsGroup: l.adjustsGroup } : {}),
+        ...(l.periodFrom !== undefined ? { periodFrom: l.periodFrom } : {}),
+        ...(l.periodTo !== undefined ? { periodTo: l.periodTo } : {}),
       });
       ids.push(id);
       await this.audit.recordMoney(tx, {
@@ -1272,6 +1288,8 @@ export class FolioService implements FolioStaySync {
         `SELECT max(${protectedPrice}) AS basis FROM folio_line l
           WHERE l.folio_id = $1 AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
             AND (l.category = 'room' OR l.charge_code = 'late_fee_as_night')
+            -- FB-INV-012: a monthly rent line is not a night (its basis is the long stay's converted night).
+            AND l.charge_code IS DISTINCT FROM '${MONTHLY_RENT_CHARGE_CODE}'
             AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
         [folioId],
       );
@@ -1293,7 +1311,9 @@ export class FolioService implements FolioStaySync {
     );
     const line = rows[0];
     if (!line) return null;
-    if (line.category === 'room') return Number(line.price);
+    if (line.category === 'room' && line.charge_code !== MONTHLY_RENT_CHARGE_CODE) {
+      return Number(line.price);
+    }
     // BUG-R2-148 (BR-416-06, DOM 18/10): the late fee charged as one night IS the night of the departure day.
     if (line.charge_code === 'late_fee_as_night') return Number(line.price);
     // ARC 16.21 (Minor): a long stay's night is its monthly rent ÷ long_stay_daily_divisor (BR-102/BR-413).
@@ -1303,6 +1323,7 @@ export class FolioService implements FolioStaySync {
       `SELECT ${protectedPrice} AS price, l.service_date::text AS service_date FROM folio_line l
         WHERE l.folio_id = $1 AND l.category = 'room' AND l.line_state = 'posted'
           AND l.reversal_of_id IS NULL AND l.service_date IS NOT NULL
+          AND l.charge_code IS DISTINCT FROM '${MONTHLY_RENT_CHARGE_CODE}'
           AND ($2::uuid IS NULL OR l.reservation_id = $2)
           AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)
         ORDER BY l.service_date, l.posted_at`,
@@ -4195,6 +4216,11 @@ export class FolioService implements FolioStaySync {
        * else the line's own price (a system line).
        */
       limitRefVnd?: number | null;
+      /** FB-INV-012: group an `adjustment` line corrects (CHECK folio_line_adjusts_group_check); null otherwise. */
+      adjustsGroup?: RevenueGroup | null;
+      /** FB-INV-012: period a monthly rent line covers (`period_from` / `period_to`, inclusive). */
+      periodFrom?: LocalDate | null;
+      periodTo?: LocalDate | null;
     },
   ): Promise<string> {
     if (!Number.isSafeInteger(l.amountVnd) || !Number.isSafeInteger(l.unitPriceVnd)) {
@@ -4205,12 +4231,14 @@ export class FolioService implements FolioStaySync {
       `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category,
          revenue_group, description, quantity, unit_price_vnd, amount_vnd, vat_rate_pct, service_date,
          stay_night_id, line_state, related_line_id, source, posted_at, posted_by, created_at, charge_code, note,
-         reason, evidence_attachment_ids, post_checkout, label_params, limit_ref_vnd)
+         reason, evidence_attachment_ids, post_checkout, label_params, limit_ref_vnd, adjusts_group, period_from,
+         period_to)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18, $20, $21,
          $22, $23, $24, $25,
          CASE WHEN $6 = 'room' OR $20::text = 'late_fee_as_night' THEN COALESCE($26::bigint,
            (SELECT r.limit_ref_vnd FROM folio_line r WHERE r.id = $16 AND r.category = $6),
-           CASE WHEN $20::text = 'late_fee_as_night' THEN abs($11::bigint) ELSE abs($10::bigint) END) END)`,
+           CASE WHEN $20::text = 'late_fee_as_night' THEN abs($11::bigint) ELSE abs($10::bigint) END) END,
+         $27, $28, $29)`,
       [
         id,
         tx.ctx.organizationId,
@@ -4238,6 +4266,9 @@ export class FolioService implements FolioStaySync {
         l.postCheckout ?? false,
         l.labelParams ? JSON.stringify(l.labelParams) : null,
         l.limitRefVnd ?? null,
+        l.adjustsGroup ?? null,
+        l.periodFrom ?? null,
+        l.periodTo ?? null,
       ],
     );
     await this.touch(tx, l.folioId);
