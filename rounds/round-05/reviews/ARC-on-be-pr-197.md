@@ -14,7 +14,9 @@
 
 ## 0. Kết luận
 
-**ĐẠT CÓ ĐIỀU KIỆN.** Gộp được khi xong **thẻ 197-01** (Major: thêm 1 test tích hợp cho đường đảo và hoàn tiền của khoản `outside_desk`). Thẻ này chỉ thêm test, không đổi mã. 6 Minor, 2 Suggestion, không chặn v1.0.7. Không ESC.
+**Cập nhật 18/11 (recheck `099fd1fc`): DUYỆT gộp, không còn Major mở – xem mục 10.**
+
+**ĐẠT CÓ ĐIỀU KIỆN** (lượt đầu, `a1bd464f`). Gộp được khi xong **thẻ 197-01** (Major: thêm 1 test tích hợp cho đường đảo và hoàn tiền của khoản `outside_desk`). Thẻ này chỉ thêm test, không đổi mã. 6 Minor, 2 Suggestion, không chặn v1.0.7. Không ESC.
 
 Kiến trúc đúng hợp đồng:
 - `checkInBackdated` là đường riêng. `checkIn` không đổi một dòng (G1).
@@ -122,7 +124,7 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
   1. MGR ghi ngoài Desk một phần phiếu 11 → `partially_paid`;
   2. MGR `reversePayment` khoản đó → 200, dòng đảo `method = outside_desk`, `reversal_of_id` có giá trị, `shift_id` null; phiếu lùi về `issued`, `paidVnd` = 0;
   3. tạo tình huống có số dư âm (hoặc dùng mẫu sẵn của `refunds` test) với khoản thu gần nhất là `outside_desk`, gọi `createRefund` `original_method` → 422 `refundMethod: NOT_ALLOWED`.
-- Trạng thái: Open
+- Trạng thái: Closed (recheck `099fd1fc`): ca tích hợp mới chứng minh đảo → phiếu về `issued`, `paidVnd` 0, dòng đảo `outside_desk` âm, không ca; `executeRefund` `original_method` → 422 `refundMethod: NOT_ALLOWED`. Đổi thứ tự trong `refunds.service.ts` chấp nhận (mục 10)
 
 ### FB-R5-ARC-BE-197-02
 - Mức độ: Minor
@@ -130,7 +132,7 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
 - Vấn đề: MGR thấy `settle_outside_desk` trên **mọi** phiếu còn nợ, kể cả phiếu 12 trở đi và đơn không nhận phòng bù. Bấm vào thì 403, kèm một `access.denied` vào nhật ký bảo mật của OWN. FE chỉ ẩn/hiện theo `availableActions` (5.1).
 - Vì sao quan trọng: nút hiện ra rồi bị từ chối là lỗi trải nghiệm. Thêm vào đó, các `access.denied` sinh ra do UI (không phải do cố vượt quyền) làm nhiễu đúng tín hiệu SEC 12-02 muốn OWN theo dõi.
 - Đề xuất sửa: với MGR (không OWN), chỉ thêm `settle_outside_desk` khi đủ điều kiện (a): đơn có `checkin_backdated_on` và kỳ thuê chứa ngày đến. `view()` đã có `stay`, nên chỉ thêm một cột vào `loadLongStay` (đã có `checkinBackdatedOn`). (b) và (c) vẫn kiểm lúc ghi. Có thể làm cùng PR 12.4/12.5.
-- Trạng thái: Open
+- Trạng thái: Closed (recheck `099fd1fc`): `actions()` dùng chung `holdsBackdatedArrival` với lúc ghi; test MGR thấy ở phiếu 11, không thấy ở phiếu 12
 
 ### FB-R5-ARC-BE-197-03
 - Mức độ: Minor
@@ -138,7 +140,7 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
 - Vấn đề: sau 0100, OWN/MGR gọi `setParameter` với khóa này được, với **mọi** JSON, vì chưa có hook kiểm (BE-8 dời). Chưa có mã nào đọc khóa. FE #196 đã ẩn khối sửa (`goLiveDeferred.cleaningByRoom = false`), nên chỉ gọi API thẳng mới ghi được.
 - Vì sao quan trọng: go-live-guide 5.3 dặn lễ tân bỏ dòng phần chênh "khi đã đặt bảng giá". Nếu có người đặt được bảng trước khi BE-8 lên, lễ tân có thể bỏ dòng chênh trong khi giá thật chưa đổi, nên thu thiếu. Giá trị sai dạng ghi trước khi có hook cũng làm `cleaningFeeFor` sau này phải xử lý.
 - Đề xuất sửa: PR 12.4 thêm hook kiểm trước tiên. Tới lúc đó, DOM ghi rõ trong go-live-guide 5.3: "chỉ bỏ dòng phần chênh sau khi bản có giá dọn theo căn lên production". ORC báo DOM. Không cần sửa PR này.
-- Trạng thái: Open
+- Trạng thái: Ghi nhận – mở tới PR 12.4 (hook đi đầu); DOM ghi cảnh báo go-live-guide 5.3
 
 ### FB-R5-ARC-BE-197-04
 - Mức độ: Minor
@@ -146,7 +148,7 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
 - Vấn đề: (a) đã được ghi là dời. (d) (`x-requires-trusted-device: true` + `staff_notification` cho các OWN khác khi đổi hotline) không có trong PR và cũng không được nhắc trong BE responses.
 - Vì sao quan trọng: hotline in trên phiếu và trang công khai. Đổi hotline là đường lừa khách gọi số giả. SEC đã nêu.
 - Đề xuất sửa: ghi (d) vào BE responses là "dời, hạn 31/12" cùng (a), hoặc làm luôn trong PR 12.4/12.5. (d) chỉ là một dòng spec, một lần gọi `notify`, thêm một `kind` (cần nới CHECK `staff_notification_kind_check` ở migration sau, nên gom vào migration kế tiếp có sẵn).
-- Trạng thái: Open
+- Trạng thái: Dời, hạn 31/12 (BE responses đã ghi (a)+(d))
 
 ### FB-R5-ARC-BE-197-05
 - Mức độ: Minor
@@ -157,7 +159,7 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
   3. `createReservation` với ngày đến = T trả `BACKDATE_OUT_OF_RANGE` nhưng **không có** `earliest`, trong khi spec ghi "kèm `earliest`".
 - Vì sao quan trọng: FE và QA đọc bảng mã để dịch lỗi. Mã lạ sẽ hiện thành câu chung.
 - Đề xuất sửa: thêm 4 dòng vào bảng mã. Ghi `DATE_IN_FUTURE` vào mô tả settle. Ở `reservations.service.ts`, khi đổi `USE_CHECK_IN` thành `BACKDATE_OUT_OF_RANGE`, trả kèm `earliest = T − 45`. Làm cùng PR sau cũng được.
-- Trạng thái: Open
+- Trạng thái: Closed (recheck `099fd1fc`): bảng mã OpenAPI thêm 4 mã; `DATE_IN_FUTURE` ở mô tả settle; ngày đến = T trả kèm `earliest` (có test). `room_occupied` ở mô tả `checkInBackdated` là đủ (không phải mã trường)
 
 ### FB-R5-ARC-BE-197-06
 - Mức độ: Minor
@@ -165,7 +167,7 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
 - Vấn đề: lần 403 này ghi `auditReason: CLOSER_CHANGE_AFTER_CHECKIN`, kể cả khi đơn còn `confirmed` (tạo bằng `backdatedArrival`, chưa nhận phòng bù). Nhật ký `access.denied` sẽ ghi "đổi sau nhận phòng" cho một đơn chưa nhận phòng.
 - Vì sao quan trọng: SEC 12-07 muốn OWN lọc nhanh được "nhập bù / ngoài Desk" hằng tháng. Lý do ghi sai làm bộ lọc trượt.
 - Đề xuất sửa: thêm hằng số `CLOSER_CHANGE_BACKDATED_STAY` và đưa vào danh sách `recordUseCaseDenial` của controller. Thêm một assert vào test SEC 12-01 (2).
-- Trạng thái: Open
+- Trạng thái: Closed (recheck `099fd1fc`): `CLOSER_CHANGE_BACKDATED_STAY`, có trong danh sách `recordUseCaseDenial`, test kiểm `access.denied.reason`
 
 ### FB-R5-ARC-BE-197-07
 - Mức độ: Minor
@@ -173,19 +175,19 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
 - Vấn đề: test chỉ phủ trường hợp dời ngày đến sớm hơn và thành công (03/11 → 01/11). Còn thiếu hai ca: (i) căn có lượt khác trên các đêm thêm → 409 `ROOM_UNAVAILABLE`, không ghi gì; (ii) dời muộn hơn (trả đêm). Contract Q4/Q5 có hai ca này.
 - Vì sao quan trọng: đổi tồn phòng quá khứ là chỗ dễ đặt trùng. Đây là đường duy nhất trong gói ghi đè lên đêm đã qua.
 - Đề xuất sửa: thêm 2 ca vào PR sau. QA phủ Q4/Q5 trên staging trước khi tag.
-- Trạng thái: Open
+- Trạng thái: Closed (recheck `099fd1fc`): Q4 → 409 `ROOM_UNAVAILABLE`, không ghi gì; Q5 dời muộn → đêm thừa `void` (`date_change`), occupancy từ ngày mới
 
 ### FB-R5-ARC-BE-197-S1
 - Mức độ: Suggestion
 - Vị trí: CHECK `payment_outside_desk_check`.
 - Vấn đề / đề xuất: miễn trừ cho dòng đảo có thể hẹp hơn: `reversal_of_id IS NOT NULL AND amount_vnd < 0`. Khi đó không đường nào khác mượn được `reversal_of_id` để tạo khoản `outside_desk` dương không có phiếu. Hôm nay chỉ `reverse()` đặt `reversal_of_id`, nên không gấp. Nếu làm thì gom vào migration kế tiếp (DROP + ADD trong cùng giao dịch, quét ít dòng).
-- Trạng thái: Open
+- Trạng thái: Closed (recheck `099fd1fc`): CHECK siết `reversal_of_id IS NOT NULL AND amount_vnd < 0`, sửa thẳng trong 0100 (chấp nhận – mục 10); test đổi dòng đảo thành dương → lỗi CHECK
 
 ### FB-R5-ARC-BE-197-S2
 - Mức độ: Suggestion
 - Vị trí: 5 file `admin-web` trong PR (`PaymentMethodInput`); FE PR #196.
 - Vấn đề / đề xuất: gộp #197 trước, rồi #196 rebase lên main. #196 có đụng `PaymentPanel` / `DebtCollectDialog` thì giữ `PaymentMethodInput`. CI #196 sau rebase phải xanh trước khi gộp. ORC theo thứ tự này.
-- Trạng thái: Open
+- Trạng thái: Ghi nhận – việc của ORC (thứ tự gộp #197 rồi #196)
 
 ## 8. Ghi chú thêm (không thành thẻ)
 
@@ -197,3 +199,17 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
 - Đường `outside_desk` có 3 lớp độc lập: enum tách ở spec, `source` nội bộ (thiếu thì ném lỗi lập trình), CHECK DB. Test duyệt mọi `requestBody` theo `$ref`, nên một thân lệnh mới sau này mà lỡ dùng `PaymentMethod` sẽ đỏ ngay.
 - `checkInBackdated` tách hẳn khỏi `checkIn` nhưng dùng lại `evaluate`, `syncLeaseNights`, hook B9. BE còn rà listener B9 để chắc không có tác dụng phụ. Đúng G1.
 - `migrate.ts` kiểm `MIGRATION_LOCK_TIMEOUT` trước khi kết nối. Lỗi 55P03 nêu tên migration đang chờ. Test Q25 chứng minh không file nào được ghi.
+
+## 10. Kiểm lại (recheck) – head `099fd1fc`, 18/11
+
+- Đọc: `git diff a1bd464f 099fd1fc` (mã, migration, OpenAPI, test) và mục "PR #197 – Phản hồi & sửa" của `BE-responses.md`. CI của `099fd1fc`: mọi job xanh (contract `--strict`, Redocly, test có PostgreSQL thật, E2E smoke, gitleaks).
+- **Kết luận: DUYỆT gộp.** Không còn Major mở. Thẻ đóng: 197-01, 02, 05, 06, 07, S1. Còn mở (Minor/Suggestion, không chặn): 197-03 (tới PR 12.4), 197-04 (31/12), S2 (ORC).
+- **Sửa thẳng migration 0100 (chưa tạo 0101): chấp nhận.** Đã kiểm:
+  - `origin/main` @ `7a906d86` có journal 74 mục (idx 0–73), mục cuối là 0099, nên 0100 chưa vào `main`;
+  - job `deploy staging` của `ci.yml` chỉ chạy khi `push` lên `refs/heads/main`; `release.yml` chỉ nhận tag trỏ commit của `main`. Vậy 0100 chưa từng chạy trên staging hay production, và luật "migration đã áp thì không sửa" không bị phạm;
+  - schema `folio.ts`, SQL và `0100_snapshot.json` đổi cùng nhau; CHECK mới hẹp hơn bản cũ nhưng mọi dòng hợp lệ (dòng đảo luôn âm) vẫn qua.
+  - Điều kiện: DB cục bộ hoặc DB thử của QA/OPS đã chạy 0100 bản cũ sẽ **không** tự cập nhật (drizzle không chạy lại file đã ghi). Phải tạo lại DB, hoặc chạy tay DROP/ADD `payment_outside_desk_check` như BE đã làm. Từ khi #197 gộp vào `main`, 0100 coi như đã đóng băng: mọi sửa sau đi vào migration mới.
+- **Đổi thứ tự kiểm trong `refunds.service.ts`: chấp nhận.** Phần xác định phương thức gốc là một câu đọc, chỉ được dời lên trước kiểm số dư. Lỗi duy nhất mới được ném sớm hơn là `outside_desk` → 422. Chặn `cash`/`ota_collect` và nhánh 409 thiếu chuyển khoản vẫn nằm sau kiểm số dư như cũ, nên các đường hoàn khác giữ nguyên thứ tự lỗi. Test hoàn S3 và chi hoàn vẫn xanh.
+- Ghi nhận thêm (không thành thẻ):
+  - `assertManagerGoLiveScope` chặn MGR khi phiếu có khoản `reversed` hoặc khoản thu thật nhận sau `checkin_backdated_on`. Cách này đúng hướng SEC 197-02 và không đổi luật OWN;
+  - kiểm thiết bị tin cậy của `backdatedArrival` (SEC 12-07) chạy ở controller, trước khi kiểm thân lệnh. Đã thống nhất với kiểm thiết bị cấp operation.

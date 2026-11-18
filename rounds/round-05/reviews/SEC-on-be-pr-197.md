@@ -5,7 +5,30 @@
 - Đọc: `gh pr diff 197`, trọng tâm `payment.service.ts` (`recordInTxWithDue`, `recordOutsideDesk`, `recordManual`), `statements.service.ts` (`settleOutsideDesk`, `assertManagerGoLiveScope`), `checkin.service.ts` (`checkInBackdated`, `moveArrival`), `reservations.service.ts` (`parseBackdatedArrival`, đổi người chốt), `property-contact.controller.ts`, `meter-readings.service.ts`, `registration.service.ts`, migration 0100, `openapi.yaml` / `openapi-meta.ts`, `test/fb-inv-012-golive-units.test.ts`, `test/integration/fb-inv-012-golive.test.ts`, mục "Go-live fix" trong `BE-responses.md`.
 - Không ghi số tiền hoa hồng, tỷ lệ thưởng vào tài liệu này. PR cũng không có số nào như vậy (đã rà dòng thêm).
 
-## Kết luận
+## Kiểm lại sau sửa (recheck, head `099fd1fc`, CI xanh) – 18/11/2026
+
+**Kết luận mới: Đạt. Đồng ý gộp. Không còn Major mở.**
+
+| Thẻ | Kết quả |
+|---|---|
+| 197-01 (Major) | **Closed.** `reference` qua thêm luật văn bản tự do. `recordOutsideDesk` gọi `assertNoCardNumber('note', note)` trên chuỗi đã ghép, nên mọi đường ghi `outside_desk` đều có lớp kiểm thứ hai. Test: 422 `CARD_NUMBER_DETECTED`, lỗi không nhắc lại giá trị, không ghi thêm dòng `payment` |
+| 197-02 (Minor) | **Closed.** Một câu SQL chặn cả khoản `reversed` lẫn khoản thu thật sau ngày nhập bù. Chỉ có test cho nhánh đảo (xem ghi chú ở thẻ) |
+| 197-04 (Minor) | **Closed.** CHECK đòi `amount_vnd < 0` cho dòng đảo. Đã có test cho đường đảo A34 và cho việc chặn hoàn tiền |
+| 12-07 (Minor, thẻ trên contract) | **Closed.** `createReservation` có `backdatedArrival` và người gọi MGR+ → `AuthGuard.requireTrustedDevice`. Nếu không qua: 403 `DEVICE_NOT_TRUSTED` + một `access.denied` (`trusted_device`). Kiểm vai FD/FDL vẫn đứng trước. Test ở dòng 225 |
+| 197-03, 197-05, 12-04 (a)(c)(d) | Vẫn Open, dời có hạn (xem từng thẻ) |
+
+Kiểm thêm:
+- **`AuthGuard.requireTrustedDevice`:** chỉ là tách hàm. `checkTrustedDevice` (cấp operation) gọi lại chính hàm này, logic giữ nguyên:
+  - phiên PWA không bao giờ được coi là thiết bị tin cậy;
+  - Origin phải là admin-web;
+  - token ≥ 32 ký tự, đúng tổ chức và cơ sở, chưa thu hồi, chưa hết hạn;
+  - `recordDenied` ghi ngoài giao dịch, nên không bị rollback.
+  
+  Controller gọi hàm này trước `uow.run`. Điều kiện kích hoạt (`backdatedArrival` khác `undefined`/`null`) khớp đúng điều kiện `parseBackdatedArrival` coi là có trường này. Vì vậy không có giá trị nào service nhận là "có backdatedArrival" mà lại không qua kiểm thiết bị. Lần gọi lặp (replay) cũng bị kiểm, tức là chặt hơn, không lỏng hơn. **Không có đường bỏ qua.**
+- **Đổi thứ tự trong `refunds.service.ts` (`executeRefund`):** phần xác định phương thức gốc là một câu `SELECT` chỉ đọc, giờ chạy sau mọi kiểm trạng thái, tự hoàn, A32, folio đóng, `paidAt`, và trước kiểm số tiền. Thay đổi này chỉ thêm một lần từ chối sớm (`outside_desk` → 422). Giá trị `method` dùng cho phần sau không đổi. Chặn tiền mặt/OTA vẫn nằm sau kiểm số tiền như cũ. Có `serverFixedDestination` thì câu truy vấn chỉ lấy `bank_transfer`/`vietqr`, nên không bao giờ chọn `outside_desk`. Mã 422 trả sớm chỉ cho người có quyền chi hoàn biết khoản thu gần nhất là `outside_desk`, mà họ vốn đã xem được danh sách khoản thu. **Không mở đường mới.**
+- **Ngoại lệ trong `v09-reference-card-units.test.ts`:** chỉ áp cho đúng một chuỗi `assertNoCardNumber('reference', r)` và chỉ trong `billing/internal/statements.service.ts`. Mọi file khác, và mọi lời gọi khác trong file này, vẫn bị test kiến trúc bắt. Ngoại lệ có lý do: `reference` ở đây được lưu trong `payment.note` (văn bản tự do), không phải cột mã ngân hàng, nên phải qua cả hai luật. **Chấp nhận.**
+
+## Kết luận (lần review đầu, head `a1bd464f`)
 
 **Đạt có điều kiện.** Ba thẻ Major 12-01/02/03 và hai thẻ Minor 12-06/08 đã làm đúng và có test. Có **1 Major mới (197-01)**, phải sửa trước khi gộp: tham chiếu nối vào `payment.note` mà không qua luật thẻ của ô ghi chú. Sửa một dòng và thêm một test. 4 thẻ Minor không chặn v1.0.7.
 
@@ -59,7 +82,7 @@
   2. Trong `recordOutsideDesk`, gọi `assertNoCardNumber('note', note)` một lần nữa, như `recordManual` đang kiểm lại `bankReference`.
   3. Test: `reference: 'FT 4111 1111 1111 1111'` → 422 `CARD_NUMBER_DETECTED`; không có dòng `payment` nào được ghi.
 - Ghi chú: với ô này, thỉnh thoảng chặn nhầm một mã ngân hàng là chấp nhận được, vì cả đợt ra mắt chỉ khoảng 6 khoản. Người nhập bỏ bớt ký tự là xong.
-- Trạng thái: Open
+- Trạng thái: **Closed** (recheck 099fd1fc): có `assertNoCardNumber('reference', r)` trong `settleOutsideDesk`, `recordOutsideDesk` kiểm lại `note` đã ghép. Có test `FT 4111 1111 1111 1111` → 422 `CARD_NUMBER_DETECTED`
 
 ### FB-R5-SEC-BE-197-02
 - Mức độ: Minor
@@ -67,14 +90,14 @@
 - Vấn đề: điều kiện (b) dùng `paid` hiện tại của phiếu. MGR có thể đảo một khoản thu thật trên phiếu tháng nhận phòng. Ví dụ tiền mặt thu tại quầy sau ngày nhập bù: đảo khoản đó thì `paid` giảm. Sau đó MGR ghi lại cùng số tiền là "ngoài Desk" với `receivedOn` = ngày nhập bù. Phiếu vẫn hiện "đã thu", còn tiền mặt thì không còn trong quầy. Đảo khoản thu không báo OWN. Chỉ thông báo settle là có.
 - Vì sao quan trọng: đây vẫn là kiểu "xóa nợ không cần tiền" mà thẻ 12-02 muốn chặn. Ở đây nó đi vòng qua thao tác đảo.
 - Đề xuất sửa: trong `assertManagerGoLiveScope`, MGR nhận 403 "owner only" khi phiếu đã có bất kỳ khoản thu nào có `status = 'reversed'`, hoặc có khoản thu khác `outside_desk` mà `received_at` sau `checkin_backdated_on`. Thêm 1 test: MGR đảo khoản tiền mặt rồi settle → 403. Nên làm luôn trong PR này nếu kịp. Nếu không, hạn 29/11, cùng BE-8.
-- Trạng thái: Open
+- Trạng thái: **Closed** (recheck 099fd1fc): `assertManagerGoLiveScope` từ chối khi phiếu có khoản thu `reversed`, hoặc có khoản thu khác `outside_desk` nhận sau `checkin_backdated_on` (so theo giờ cơ sở). Có test cho nhánh đảo. Nhánh "khoản thu thật sau ngày nhập bù" dùng chung câu SQL nhưng chưa có test riêng. Không chặn, nên thêm khi làm PR 12.4/12.5
 
 ### FB-R5-SEC-BE-197-03
 - Mức độ: Minor
 - Vị trí: `checkin.service.ts` `checkInBackdated`.
 - Vấn đề: chặn người chốt của 12-01 (1) chỉ nằm ở `createReservation.backdatedArrival`. Đơn dài hạn nhập tay tạo theo cách thường, có ngày đến là hôm nay và có `closerUserId` (có thể chính là MGR), vẫn nhận phòng bù được ở ngày sau. Khi đó `moveArrival` kéo ngày đến lùi tối đa 45 ngày, và người chốt vẫn giữ nguyên. Hôm nay chưa sinh tiền, vì `syncCommission` chỉ chạy cho đơn ngắn ngày. Đến khi PR-M thêm `long_stay_commission`, đơn này sẽ có hoa hồng trên tiền thuê đã quyết toán ngoài Desk.
 - Đề xuất sửa: thêm vào `checkInBackdated`: `closer_user_id IS NOT NULL` mà người gọi không phải OWN → 422 `closerUserId: NOT_ALLOWED`. OWN thì vẫn qua được, vì OWN quyết định hoa hồng. Hoặc ARC ghi vào hợp đồng PR-M: `long_stay_commission` bỏ qua phần tiền thuê trước `checkin_backdated_on`. Hạn: trước khi PR-M gộp. Gộp chung điều kiện với 12-05.
-- Trạng thái: Open
+- Trạng thái: Open – dời có hạn: trước khi PR-M gộp. BE chọn cách 1: `checkInBackdated` trả 422 `closerUserId: NOT_ALLOWED` khi người gọi không phải OWN
 
 ### FB-R5-SEC-BE-197-04
 - Mức độ: Minor
@@ -84,19 +107,19 @@
   1. Siết miễn trừ thành `("reversal_of_id" IS NOT NULL AND "amount_vnd" < 0)`. Sửa trong 0100 khi PR chưa gộp. Nếu đã gộp thì sửa ở migration sau.
   2. Thêm test: OWN/MGR đảo khoản `outside_desk` → thành công, phiếu lùi trạng thái (`paid` → `partially_paid`/`issued`). Hoàn tiền khi khoản thu gần nhất là `outside_desk` → 422 `refundMethod: NOT_ALLOWED`.
 - Hạn: 29/11.
-- Trạng thái: Open
+- Trạng thái: **Closed** (recheck 099fd1fc): CHECK siết thành `(reversal_of_id IS NOT NULL AND amount_vnd < 0) OR (billing_period_id IS NOT NULL AND note IS NOT NULL)`, sửa thẳng trong 0100 (chưa lên staging hay main). Có test: đảo khoản `outside_desk` thì phiếu về `issued`; dòng đảo có số tiền dương thì CHECK chặn; hoàn tiền thì 422 `refundMethod: NOT_ALLOWED`
 
 ### FB-R5-SEC-BE-197-05
 - Mức độ: Minor
 - Vị trí: `statements.service.ts` khối `reference`.
 - Vấn đề: luật "chỉ toàn số ≥ 9 chữ số" chỉ áp khi cả chuỗi là số. Số tài khoản có chữ đứng trước, ví dụ `TK 0123456789`, vẫn lọt vào `note`. Rủi ro thấp, vì chỉ OWN/MGR nhập. Nhưng số tài khoản của khách là dữ liệu cá nhân, và ô này không dùng cho mục đích đó.
 - Đề xuất sửa: UXD/FE ghi rõ gợi ý dưới ô: "Mã giao dịch nền tảng cũ, không nhập số tài khoản/số thẻ". BE có thể chặn thêm khi có tiền tố `TK`/`STK`/`ACC` + ≥ 9 chữ số. Hạn 31/12.
-- Trạng thái: Open
+- Trạng thái: Open – dời, hạn 31/12
 
 ## Thẻ cũ còn mở (giữ nguyên, không chặn)
 - 12-04 (a), (c), (d): hạn 31/12. Riêng (c) là việc của FE.
 - 12-05: điều kiện cho PR-M.
-- 12-07: hạn 31/12. BE/ARC cần trả lời thẻ này trong responses.
+- 12-07: đã đóng ở recheck 099fd1fc.
 - 12-09: round sau.
 - 190-07: hạn 31/12.
 
