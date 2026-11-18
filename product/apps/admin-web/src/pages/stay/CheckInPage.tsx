@@ -3,7 +3,7 @@ import {
   type CheckInBody,
   type CheckInCondition,
   type FocRequestInput,
-  type PaymentMethod,
+  type PaymentMethodInput,
   type Registration,
   type Reservation,
 } from '@ottimo/api-client';
@@ -417,7 +417,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
         payInline && payCheck.ok
           ? {
               type: 'charge',
-              method: pay.method as PaymentMethod,
+              method: pay.method as PaymentMethodInput,
               amountVnd: payCheck.amountVnd,
               note: pay.method === 'bank_transfer' ? pay.note.trim() || undefined : undefined,
               posAuthCode: pay.method === 'card_pos' ? pay.pos.trim() : undefined,

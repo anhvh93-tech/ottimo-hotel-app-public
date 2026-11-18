@@ -38,6 +38,8 @@ const ALLOWED: Array<[number, number]> = [
   [40, 49],
   [50, 54],
   [55, 99],
+  // ARC contract FB-INV-012 §12 G8: the shared sequence continues past 0099 (0100 go-live fix, 0101 FB-INV-013).
+  [100, 999],
 ];
 
 const prefixOf = (tag: string) => Number(tag.slice(0, 4));
@@ -67,7 +69,7 @@ describe('migrations journal (s3-contract 4.2)', () => {
       const n = prefixOf(e.tag);
       expect(
         ALLOWED.some(([lo, hi]) => n >= lo && n <= hi),
-        `${e.tag}: prefix outside 0000–0099 – ask ARC`,
+        `${e.tag}: prefix outside 0000–0999 – ask ARC`,
       ).toBe(true);
       expect(seen.has(n), `${e.tag}: duplicate prefix`).toBe(false);
       seen.add(n);

@@ -40,6 +40,8 @@ export interface LongStay {
   monthlyRentVnd: number;
   guestFullName: string | null;
   segments: Segment[];
+  /** FB-INV-012 §12.1.2: business day of a backdated check-in (`checkInBackdated`), null otherwise. */
+  checkinBackdatedOn?: LocalDate | null;
 }
 
 export async function loadLongStay(
@@ -58,8 +60,10 @@ export async function loadLongStay(
     departure_date: string;
     rent: string | null;
     full_name: string | null;
+    checkin_backdated_on: string | null;
   }>(
     `SELECT r.id, r.code, r.status, r.stay_type, r.folio_id, r.arrival_date::text, r.departure_date::text,
+            r.checkin_backdated_on::text AS checkin_backdated_on,
             r.manual_long_stay->>'monthly_rent_vnd' AS rent, g.full_name
        FROM reservation r LEFT JOIN guest g ON g.id = r.booker_guest_id
       WHERE r.id = $1${opts.lock ? ' FOR KEY SHARE OF r' : ''}`,
@@ -92,6 +96,7 @@ export async function loadLongStay(
     lastNight: addDays(r.departure_date, -1),
     monthlyRentVnd: rent,
     guestFullName: r.full_name,
+    checkinBackdatedOn: r.checkin_backdated_on,
     segments: seg.rows.map((s) => ({
       roomId: s.room_id,
       roomNo: s.room_no,

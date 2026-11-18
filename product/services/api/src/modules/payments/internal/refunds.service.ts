@@ -810,6 +810,28 @@ export class RefundsService {
     ) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'paidAt', code: 'DATE_INVALID' }] });
     }
+    // Method actually used (original_method → the method of the latest receipt of the folio).
+    let method: string = row.refund_method === 'cash' ? 'cash' : 'bank_transfer';
+    if (row.refund_method === 'original_method') {
+      // 5B-1 (SEC S3): a destination fixed by the server goes back to a transfer / VietQR receipt of the folio – the
+      // account the money came from – never to an earlier cash or OTA receipt (no transfer at all → 409 below).
+      const fixed = serverFixedDestination(row);
+      const { rows: orig } = await tx.query<{ method: string }>(
+        `SELECT method FROM payment WHERE folio_id = $1 AND status = 'succeeded' AND reversal_of_id IS NULL
+            AND type <> 'refund' AND type <> 'security_deposit'
+            AND (NOT $2::boolean OR method IN ('bank_transfer', 'vietqr'))
+          ORDER BY received_at DESC NULLS LAST, id DESC LIMIT 1`,
+        [folio.id, fixed],
+      );
+      method = orig[0]?.method ?? 'cash';
+      // FB-INV-012 §12.2: money received outside Desk is never paid back by Desk (a wrong entry is reversed, A34) –
+      // whatever the amount, so before the balance checks (ARC-BE-197-01).
+      if (method === 'outside_desk') {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'refundMethod', code: 'NOT_ALLOWED' }],
+        });
+      }
+    }
     // DOM BE-14 b/c, ARC 13: never more than the overpayment that exists NOW, and only the part backed by
     // settled money (reconciled transfers, cash, POS – a disputed receipt counts for what arrived).
     const balance = await this.folios.balance(tx, folio.id);
@@ -829,20 +851,7 @@ export class RefundsService {
         },
       });
     }
-    // Method actually used (original_method → the method of the latest receipt of the folio).
-    let method: string = row.refund_method === 'cash' ? 'cash' : 'bank_transfer';
     if (row.refund_method === 'original_method') {
-      // 5B-1 (SEC S3): a destination fixed by the server goes back to a transfer / VietQR receipt of the folio – the
-      // account the money came from – never to an earlier cash or OTA receipt (no transfer at all → 409 below).
-      const fixed = serverFixedDestination(row);
-      const { rows: orig } = await tx.query<{ method: string }>(
-        `SELECT method FROM payment WHERE folio_id = $1 AND status = 'succeeded' AND reversal_of_id IS NULL
-            AND type <> 'refund' AND type <> 'security_deposit'
-            AND (NOT $2::boolean OR method IN ('bank_transfer', 'vietqr'))
-          ORDER BY received_at DESC NULLS LAST, id DESC LIMIT 1`,
-        [folio.id, fixed],
-      );
-      method = orig[0]?.method ?? 'cash';
       // ARC-BE-S3-26 / SEC-BE-45: cash (or money the OTA holds) is never paid out by this operation – cash goes
       // through executeCashRefund with the guest's signed receipt (A47a).
       if (method === 'cash' || method === 'ota_collect') {

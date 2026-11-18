@@ -155,9 +155,17 @@ describe('every bank reference goes through the reference rule (architecture)', 
         const p = join(dir, name);
         return statSync(p).isDirectory() ? files(p) : p.endsWith('.ts') ? [p] : [];
       });
+    // SEC-BE-197-01: the settle-outside-Desk `reference` is not a bank code column – it is stored inside
+    // `payment.note` (free text), so it takes BOTH rules (statements.service.ts) – the one allowed exception.
+    const freeTextReference = /assertNoCardNumber\('reference', r\)/g;
     const bad = files(root).filter((f) =>
       /(containsCardNumber|looksLikeCard\w*|assertNoCardNumber)\([^)]*[Rr]eference/.test(
-        readFileSync(f, 'utf8'),
+        readFileSync(f, 'utf8').replace(
+          f.endsWith(join('billing', 'internal', 'statements.service.ts'))
+            ? freeTextReference
+            : /$^/,
+          '',
+        ),
       ),
     );
     expect(bad.map((f) => relative(root, f))).toEqual([]);

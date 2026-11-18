@@ -170,6 +170,10 @@ export const reservation = pgTable(
     // (the room before it; a conflict booking: its assigned room, or the requested room when upgraded). NULL =
     // never moved – the first room of the booking is its origin.
     originRoomId: uuid('origin_room_id'),
+    // 0100 (FB-INV-012 contract §12.1.2, A127): backdated check-in of a long stay already in house before Desk – the
+    // business day the check-in was entered and why. actual_checkin_at stays the real click time.
+    checkinBackdatedOn: date('checkin_backdated_on', { mode: 'string' }),
+    checkinBackdatedReason: text('checkin_backdated_reason'),
     ...auditColumns(),
   },
   (t) => [
@@ -267,6 +271,10 @@ export const reservation = pgTable(
     check(
       'reservation_debt_recorded_check',
       sql`${t.debtRecordedVnd} >= 0 AND (${t.debtOpenedAt} IS NULL OR ${t.checkoutMode} = 'debt')`,
+    ),
+    check(
+      'reservation_checkin_backdated_pair_check',
+      sql`(${t.checkinBackdatedOn} IS NULL AND ${t.checkinBackdatedReason} IS NULL) OR (${t.checkinBackdatedOn} IS NOT NULL AND char_length(${t.checkinBackdatedReason}) BETWEEN 3 AND 300)`,
     ),
     check(
       'reservation_room_status_before_check',

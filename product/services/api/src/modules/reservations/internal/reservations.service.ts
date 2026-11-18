@@ -7,6 +7,13 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { LeadsService } from '../../sales/public/leads.service';
 import { inSequence } from '../../../shared/sequence';
+import {
+  MONTHLY_STATEMENT_RULES_KEY,
+  BACKDATE_MAX_DAYS,
+  backdateBounds,
+  backdateRulesOf,
+} from '../../../shared/backdate';
+import { looksLikeIdNumber } from '../../../shared/sensitive-number';
 import { v7 as uuidv7 } from 'uuid';
 import type { Tx } from '../../../db/database';
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
@@ -219,6 +226,10 @@ const MANUAL_LONG_STAY_MAX_DAYS = 731;
  * (contract 0.3.13 bổ sung 1h, BR-903 (3)) – the controller writes it as the ONE `access.denied.reason`.
  */
 export const CLOSER_CHANGE_AFTER_CHECKIN = 'CLOSER_CHANGE_AFTER_CHECKIN';
+/** FB-INV-012 §12.1.1: FDL/FD sending `backdatedArrival` – one access.denied (controller, after the rollback). */
+export const BACKDATED_ARRIVAL_NEEDS_MGR = 'BACKDATED_ARRIVAL_NEEDS_MGR';
+/** SEC FB-R5-SEC-ARC-12-01 (2) / ARC-BE-197-06: closer change on a backdated long stay by someone other than OWN. */
+export const CLOSER_CHANGE_BACKDATED_STAY = 'CLOSER_CHANGE_BACKDATED_STAY';
 /** The same for the 403 "closer change after confirmation, before check-in, below MGR" (SEC FB-R5-SEC-ARC-1H-03). */
 export const CLOSER_CHANGE_BEFORE_CHECKIN = 'CLOSER_CHANGE_BEFORE_CHECKIN';
 
@@ -474,6 +485,7 @@ export class ReservationsService {
       restoreWithinRules,
       rescheduleCount: row.reschedule_count,
       rescheduleMaxTimes: ctx.params.rescheduleMaxTimes,
+      manualLongStay: row.stay_type === 'long' && row.external_contract && !!row.manual_long_stay,
       ...(stayDepartureDate ? { stayDepartureDate } : {}),
     });
     // US-022: booker + active party members (people recorded on the booking – counted by frontdesk).
@@ -585,6 +597,8 @@ export class ReservationsService {
     const nightlyRates = this.parseNightlyRates(f, body.nightlyRates);
     const initialPayment = this.parseInitialPayment(f, body.initialPayment);
     const manual = this.parseManualLongStay(f, body);
+    // FB-INV-012 contract §12.1.1 (A127): a long stay already in house before Desk – arrival in the past, MGR/OWN only.
+    const backdated = this.parseBackdatedArrival(f, body, !!manual, closerUserId);
     if (
       otaChannelFeeVnd !== undefined &&
       otaRoomAmountVnd !== undefined &&
@@ -593,6 +607,13 @@ export class ReservationsService {
       f.add('otaChannelFeeVnd', 'AMOUNT_INVALID');
     }
     f.done();
+    if (backdated && !hasAny(ctx.actor.roles, MGR_PLUS)) {
+      // Field-level role check (x-roles of createReservation unchanged): FDL/FD → 403 + access.denied (controller).
+      throw problem('FORBIDDEN_ACTION', {
+        detail: 'backdatedArrival needs MGR+ (A127)',
+        auditReason: BACKDATED_ARRIVAL_NEEDS_MGR,
+      });
+    }
 
     const [channel, room, guest] = await inSequence([
       () => this.channel(tx, channelId as string),
@@ -618,7 +639,29 @@ export class ReservationsService {
     };
 
     // Field rules depending on the channel (EP02 3.2, 4).
-    if (from < ctx.today) f.add('arrivalDate', 'DATE_IN_PAST');
+    if (backdated) {
+      // §12.1: arrival in [T − 45, T − 1], not in a month whose closing reading can no longer be typed; still in house.
+      const issue = backdateBounds(
+        ctx.today,
+        from,
+        backdateRulesOf(await this.params.get(tx, MONTHLY_STATEMENT_RULES_KEY, ctx.today)),
+      );
+      if (issue) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [
+            {
+              field: 'arrivalDate',
+              code: issue.code === 'USE_CHECK_IN' ? 'BACKDATE_OUT_OF_RANGE' : issue.code,
+            },
+          ],
+          // ARC-BE-197-05: arrival = T is out of the backdate range too – answer its earliest (T − 45) as well.
+          extras: {
+            earliest: 'earliest' in issue ? issue.earliest : addDays(ctx.today, -BACKDATE_MAX_DAYS),
+          },
+        });
+      }
+      if (to <= ctx.today) f.add('departureDate', 'DATE_IN_PAST');
+    } else if (from < ctx.today) f.add('arrivalDate', 'DATE_IN_PAST');
     if (to <= from) f.add('departureDate', 'DATE_ORDER');
     const nights = nightsOf(from, to);
     const p = ctx.params;
@@ -784,6 +827,8 @@ export class ReservationsService {
           manualLongStay: true,
           cancelPolicy: p.cancelPolicy,
           bookingRateSource: 'calendar',
+          // §12.1.1 / SEC FB-R5-SEC-ARC-12-01 (2): the booking was entered backdated – a closer change is OWN only.
+          ...(backdated ? { backdatedArrival: true } : {}),
         };
     await tx.query(
       `INSERT INTO reservation (id, organization_id, property_id, code, status, stay_type, channel_id, payment_model,
@@ -953,9 +998,14 @@ export class ReservationsService {
         channelCode: ch.code,
         conflictState: conflict ? 'open' : 'none',
         externalContract: !!manual,
+        ...(backdated ? { backdatedArrival: true } : {}),
       },
-      ...(minStayOverrideReason || capacityAck
-        ? { reason: [minStayOverrideReason, capacityAck].filter(Boolean).join(' | ') }
+      ...(minStayOverrideReason || capacityAck || backdated
+        ? {
+            reason: [minStayOverrideReason, capacityAck, backdated?.reason]
+              .filter(Boolean)
+              .join(' | '),
+          }
         : {}),
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
@@ -987,6 +1037,20 @@ export class ReservationsService {
       );
     // A7-01 (ARC 16.21): a manual long stay gets its lease nights (KPIs – never folio lines).
     if (manual) await this.syncLeaseNights(tx, ctx, id);
+    if (backdated) {
+      // §12.1.1: every OWN is told (booking code + room only; the reason stays in the audit).
+      await this.events?.notify(
+        tx,
+        {
+          kind: 'backdated_stay',
+          roles: ['owner'],
+          refType: 'reservation',
+          refId: id,
+          refCode: code,
+        },
+        ctx.now,
+      );
+    }
     await this.hooks.emit(
       tx,
       this.event('created', row, null, conflict ? 'B7b' : 'B2', assignedRoomId),
@@ -1400,6 +1464,17 @@ export class ReservationsService {
     // access.denied (the controller, after the rollback), never the reason the caller typed. SEC FB-R5-SEC-BE-154-03:
     // also before the room / door flags below, so a flag sent with it neither answers 409 first (no denial) nor writes
     // and runs its hook before the 403 rolls it back.
+    // SEC FB-R5-SEC-ARC-12-01 (2): on a backdated long stay (created with backdatedArrival or checked in backdated) only
+    // the owner changes the closer – the commission of a stay already paid outside Desk is OWN's decision.
+    const backdatedStay =
+      row.checkin_backdated_on !== null ||
+      (row.pricing_snapshot as { backdatedArrival?: unknown } | null)?.backdatedArrival === true;
+    if (closerChange && backdatedStay && !hasAny(ctx.actor.roles, ['owner'])) {
+      throw problem('FORBIDDEN_ACTION', {
+        detail: 'closer change on a backdated stay needs OWN',
+        auditReason: CLOSER_CHANGE_BACKDATED_STAY,
+      });
+    }
     if (closerChange && row.status !== 'hold') {
       if (checkedIn) {
         if (!hasAny(ctx.actor.roles, ['owner'])) {
@@ -2040,6 +2115,38 @@ export class ReservationsService {
       ...(note ? { note } : {}),
       ...(reference.value ? { bankReference: reference.value } : {}),
     };
+  }
+
+  /**
+   * FB-INV-012 §12.1.1: `backdatedArrival: { reason }` (3–300, card / ID numbers refused like internal_note) – only with
+   * `manualLongStay` (else `backdatedArrival: NOT_ALLOWED`). SEC FB-R5-SEC-ARC-12-01 (1): never with a closer – a
+   * backdated stay creates no commission row (`closerUserId: NOT_ALLOWED`).
+   */
+  private parseBackdatedArrival(
+    f: Fields,
+    body: Record<string, unknown>,
+    manual: boolean,
+    closerUserId: string | undefined,
+  ): { reason: string } | null {
+    const raw = body.backdatedArrival;
+    if (raw === undefined || raw === null) return null;
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+      f.add('backdatedArrival', 'VALIDATION_FAILED');
+      return null;
+    }
+    if (!manual) {
+      f.add('backdatedArrival', 'NOT_ALLOWED');
+      return null;
+    }
+    const bf = new Fields(raw as Record<string, unknown>);
+    const reason = bf.text('reason', 300, { required: true, min: 3 });
+    for (const e of bf.errors) f.add(`backdatedArrival.${e.field}`, e.code);
+    if (reason && looksLikeIdNumber(reason)) f.add('backdatedArrival.reason', 'ID_NUMBER_DETECTED');
+    for (const k of Object.keys(raw)) {
+      if (k !== 'reason') f.add(`backdatedArrival.${k}`, 'NOT_ALLOWED');
+    }
+    if (closerUserId) f.add('closerUserId', 'NOT_ALLOWED');
+    return reason ? { reason } : null;
   }
 
   private parseManualLongStay(f: Fields, body: Record<string, unknown>) {

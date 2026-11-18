@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk API
-  version: 0.3.14-draft
+  version: 0.3.15-draft
   summary: Hợp đồng API bản nháp cho các story Must Round 2 (R1 Pha B – ARC)
   description: |
     Bản nháp hợp đồng API (contract-first, ADR-001). Nguồn sự thật cho kiểu dữ liệu dùng chung
@@ -330,6 +330,33 @@ info:
     | REQUEST_TYPE_NOT_AVAILABLE | Loại yêu cầu không dùng được lúc này (`available=false` ở `listGuestRequestOptions`; loại có phí khi đơn chưa `in_house`; đã có 3 yêu cầu có phí đang mở) (B-14/B-16) – 0.3.6 | `createGuestRequest` |
     | PERFORMED_AT_OUT_OF_RANGE | `performedAt` ngoài [giờ server − 24 giờ, giờ server + 5 phút] (SR-PWA-05) hoặc trước mốc `since` của trạng thái hiện tại – lệnh từ hàng đợi offline quá cũ; PWA đưa mục vào "Không áp dụng được" (0.3.7, B-02/BA E07-02) | `transitionRoomStatus`, `transitionHkTask`, `recordInspection`, `recordMinibarCheck` |
     | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
+    | BACKDATE_OUT_OF_RANGE | **0.3.15** – ngày đến đã qua ngoài biên [T − 45, T − 1] (kể cả ngày đến = T khi gửi `backdatedArrival`); `Problem` kèm `earliest` (= T − 45) | `createReservation.arrivalDate` (`backdatedArrival`), `checkInBackdated.arrivalDate` |
+    | PREVIOUS_MONTH_CLOSED | **0.3.15** – ngày đến ở tháng trước mà chỉ số cuối tháng đó không còn ghi trễ được; `Problem` kèm `earliest` (= ngày 1 tháng này) | `createReservation.arrivalDate` (`backdatedArrival`), `checkInBackdated.arrivalDate` |
+    | USE_CHECK_IN | **0.3.15** – ngày đến = T: dùng nhận phòng thường (`checkIn`) | `checkInBackdated.arrivalDate` |
+    | DATE_IN_FUTURE | **0.3.15** – ngày nhận tiền sau ngày nghiệp vụ T | `settleBillingPeriodOutsideDesk.receivedOn` |
+
+    ## Thay đổi phiên bản 0.3.15-draft (R5 FB-INV-012 gói sửa trước ra mắt v1.0.7; hợp đồng `rounds/round-05/fb-inv-012/contract.md` §12, ARC 18/11; SEC `rounds/round-05/reviews/SEC-on-arc-contract-12.md`)
+    Nền: 0.3.14-draft. **Chỉ thêm** (operation, trường tùy chọn, giá trị enum ở phản hồi). Migration `0100_go_live_fix_fb_inv_012` (chỉ thêm).
+    - `createReservation`: thân thêm `backdatedArrival {reason}` (A127 – OWN/MGR, kèm `manualLongStay`; FDL/FD → 403 theo trường). Biên ngày đến đã qua: [T − 45, T − 1], tháng trước chỉ khi
+      chỉ số cuối tháng đó còn ghi trễ được → 422 `arrivalDate` `BACKDATE_OUT_OF_RANGE` / `PREVIOUS_MONTH_CLOSED` (+ `earliest`). **SEC 12-01**: kèm `closerUserId` khác null → 422
+      `closerUserId: NOT_ALLOWED` (đơn nhập bù không sinh `commission`); đổi người chốt trên đơn nhập bù chỉ OWN (MGR → 403).
+    - `checkInBackdated` (mới, A127, thiết bị tin cậy): nhận phòng bù đơn dài hạn nhập tay có ngày đến đã qua. `Reservation.checkinBackdatedOn`; `allowedActions` thêm `check_in_backdated`.
+    - `settleBillingPeriodOutsideDesk` (mới, A128, thiết bị tin cậy – SEC 12-02): khoản `outside_desk`. MGR chỉ trong phạm vi ra mắt (phiếu tháng nhận phòng của đơn nhận phòng bù,
+      ≤ phần thuê chưa thu, `receivedOn` ≤ ngày nhận phòng bù) – khác → 403 "owner only" + `access.denied`. `BillingPeriod.availableActions` thêm `settle_outside_desk`.
+    - **SEC 12-03 – tách enum**: `PaymentMethod` (có `outside_desk`) **chỉ ở phản hồi** và tham số lọc; `PaymentMethodInput` (không có) cho `PaymentCreate` và mọi thân lệnh có `method`.
+      Gửi `outside_desk` ở bất kỳ thân lệnh nào → 422 `method: NOT_IN_LIST`.
+    - `getPropertyContact`, `setPropertyContact`, `PropertyContact` (mới, S24 / A129 – OWN sửa).
+    - Đọc chỉ số `checkin` của đơn nhận phòng bù: `readOn` ∈ [ngày đến − 1, T], luôn đọc trễ (FDL+, `lateReason`), nhập tới ngày nhận phòng bù + `daysAfter` + `lateMaxDays`;
+      `readOn` không trước lần đọc còn hiệu lực gần nhất của căn → 422 `readOn: DATE_INVALID` (SEC 12-06). Không đổi hình dạng.
+    - `StaffNotification.kind` thêm `backdated_stay`, `statement_settled_outside_desk`. Tập `money` thêm `billing_period.settled_outside_desk`.
+    - **Chưa có ở bản này** (PR sau, phần DB đã có trong 0100): `catchUp` (12.5, BR-LS-17), `getChargeCatalog?folioId` + `priceSource` (12.4) – khóa `long_stay_cleaning_fee_by_room` đã có
+      trong danh mục tham số (A101, mặc định `{}`), chưa có hook kiểm và hàm chọn giá.
+    - **Review PR #197 (SEC/ARC, 18/11)**: `backdatedArrival` cần thêm **thiết bị tin cậy** ở tầng trường (SEC 12-07: OWN/MGR ngoài thiết bị → 403 `DEVICE_NOT_TRUSTED`);
+      ngày đến = T cũng trả `BACKDATE_OUT_OF_RANGE` **kèm** `earliest` (ARC 197-05); `reference` của settle qua luật văn bản tự do (422 `CARD_NUMBER_DETECTED`, SEC 197-01);
+      MGR không settle phiếu đã có khoản thu bị đảo hoặc có khoản thu thật nhận sau ngày nhận phòng bù (SEC 197-02); `settle_outside_desk` trong `availableActions` của MGR chỉ
+      khi đủ điều kiện (a) (ARC 197-02); `executeRefund` `original_method` về khoản `outside_desk` → 422 `refundMethod: NOT_ALLOWED` **trước** kiểm số tiền. Bảng mã trường thêm
+      `BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED`, `USE_CHECK_IN`, `DATE_IN_FUTURE`. CHECK `payment_outside_desk_check`: dòng đảo chỉ được miễn khi số tiền âm (SEC 197-04).
+    BE sinh lại `openapi-meta.ts`, `openapi-schemas.ts`; api-client sinh lại `generated/openapi.ts` (cùng PR).
 
     ## Thay đổi phiên bản 0.3.14-draft (R5 FB-INV-012 – phiếu thanh toán tháng khách dài hạn; hợp đồng `rounds/round-05/fb-inv-012/contract.md`, ARC 17/11)
     Nền: 0.3.13-draft. **Chỉ thêm** (migration 0099, chỉ thêm bảng `meter_reading`, `billing_period`, `billing_period_line` và 3 khóa tham số). Tag mới `billing`, 12 operation:
@@ -2082,6 +2109,55 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/properties/{propertyId}/contact:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    get:
+      tags: [platform]
+      operationId: getPropertyContact
+      summary: Địa chỉ và hotline công khai của cơ sở – chân phiếu tháng (FB-INV-012 §12.3)
+      description: |
+        **0.3.15**. Đọc `property.address`, `property.phone_public`. `Cache-Control: no-store`. Vai xem S24 (OWN, MGR, FDL).
+      x-roles: [owner, manager, front_desk_lead]
+      x-rbac: [S24]
+      x-round: R5
+      x-stories: [US-065]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PropertyContact' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [platform]
+      operationId: setPropertyContact
+      summary: Sửa địa chỉ và hotline công khai của cơ sở – chỉ OWN (FB-INV-012 §12.3, A129)
+      description: |
+        **0.3.15**. Cả hai khóa bắt buộc; `null` = xóa. `addressLine` bỏ khoảng trắng đầu/cuối, 5–200 ký tự, một dòng, không ký tự điều khiển, bidi, zero-width;
+        `hotline` khớp `^\+?[0-9][0-9 .-]{7,19}$`, lưu đã chuẩn hóa (bỏ dấu cách/chấm/gạch, giữ `+`). Sai → 422 `VALIDATION_FAILED` (không lặp lại giá trị đã gửi).
+        Không `If-Match` (như Wi-Fi). Audit `config` `property.contact_changed` (trước/sau – thông tin công khai). Không SSE.
+        Tác động: chân phiếu in (`getBillingPeriodPrint`), trang công khai (`phonePublic`), miễn trừ hotline của `SENSITIVE_DATA_DETECTED` (đọc lại mỗi lần kiểm).
+      x-roles: [owner]
+      x-rbac: [A129]
+      x-round: R5
+      x-stories: [US-065]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PropertyContact' }
+            example: { addressLine: 1 Example Street, Ward 1, Da Lat, hotline: '+84 900 000 000' }
+      responses:
+        '200':
+          description: Đã lưu (giá trị đã chuẩn hóa)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PropertyContact' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/parameters:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -3651,6 +3727,53 @@ paths:
                     code: ROOM_UNAVAILABLE
                     conflicts: [{ roomNo: '201', nights: ['2026-10-18'], kind: reservation }]
                     suggestions: [{ roomId: 0192a1b0-0000-7000-8000-0000000c0202, roomNo: '202', roomGroupCode: L12, upgrade: false }]
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/reservations/{reservationId}/actions/check-in-backdated:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [reservations]
+      operationId: checkInBackdated
+      summary: Nhận phòng bù (B9) – khách dài hạn đã ở trước khi có Desk (FB-INV-012 §12.1.2, A127)
+      description: |
+        **0.3.15**. Chỉ đơn dài hạn nhập tay `confirmed` (`manualLongStay`). Thứ tự kiểm: thiết bị → quyền → `If-Match` → `confirmed` (khác → 409 `INVALID_TRANSITION`)
+        → dài hạn nhập tay (422 `NOT_LONG_STAY`) → biên ngày đến (422 `arrivalDate`: `USE_CHECK_IN` khi = T, `BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED`, kèm `earliest`)
+        → ngày đi > T (422 `departureDate: DATE_IN_PAST`) → `conflictState` (409 `RESERVATION_UNASSIGNED`) → điều kiện BR-402 **không có** `room_ready`; căn có lượt khác → `unmet`
+        `room_occupied` (409 `CHECKIN_CONDITIONS_NOT_MET`) → dữ liệu trường.
+        `arrivalDate` khác ngày đến của đơn → dời ngày đến trong cùng giao dịch (đơn một đoạn; khác → 422 `arrivalDate: NOT_ALLOWED`; đêm thêm không trống → 409 `ROOM_UNAVAILABLE`),
+        `bookedArrivalDate`, tiền thuê tháng, ngày hết HĐ giữ nguyên. Không giờ nhận phòng, phụ thu, B9a, `payment`, `houseRulesSent`, nhánh 202 – gửi các trường đó → 422 `<field>: NOT_ALLOWED`.
+        `actualCheckinAt` = giờ bấm thật; `checkinBackdatedOn` = T. Không ghi dòng folio, không thu tiền. Audit `reservation.checked_in` (`after.backdated`) và
+        `reservation.checked_in_backdated`; `staff_notification` `backdated_stay` cho mọi OWN.
+      x-roles: [owner, manager]
+      x-rbac: [A127, S06]
+      x-requires-trusted-device: true
+      x-round: R5
+      x-transition: [B9]
+      x-stories: [US-025]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckInBackdatedInput' }
+            example: { arrivalDate: '2026-11-01', reason: Khách ở từ trước khi có Desk – HĐ giấy, cardsIssued: 2 }
+      responses:
+        '200':
+          description: Đã nhận phòng bù
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/VersionConflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
@@ -10955,6 +11078,55 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/billing-periods/{billingPeriodId}/settle-outside-desk:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: billingPeriodId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [billing]
+      operationId: settleBillingPeriodOutsideDesk
+      summary: Ghi "đã thu ngoài Desk" cho phiếu tháng – OWN/MGR (FB-INV-012 §12.2, A128)
+      description: |
+        **0.3.15**. Một khoản `charge` `outside_desk` (`succeeded`, `reconciliation = not_required`, không ca, không vào đối soát, không hoàn được – đảo bằng `reversePayment`, A34).
+        Chỉ phiếu `issued`/`partially_paid` còn nợ (khác → 409 `INVALID_TRANSITION`). `amountVnd` tùy chọn, mặc định = còn phải thu; > còn phải thu → 422 `AMOUNT_OVER_BALANCE`
+        (`balanceVnd`); ≤ 0 → 422. `receivedOn` ≤ T (lưu 12:00 giờ cơ sở). `reason` 3–300 (lọc số thẻ/giấy tờ) vào ghi chú khoản thu; `reference` tùy chọn ≤ 64 `[A-Za-z0-9 ./-]`,
+        không nhận số thẻ (422 `CARD_NUMBER_DETECTED` – luật mã ngân hàng **và** luật văn bản tự do V-09, SEC 197-01, ví dụ `FT 4111 1111 1111 1111`) hay chuỗi toàn số ≥ 9 chữ
+        số (422 `reference: NOT_ALLOWED`). `receivedOn` > T → 422 `receivedOn: DATE_IN_FUTURE`; sai dạng → `DATE_INVALID`; thiếu → `REQUIRED`.
+        **SEC 12-02**: MGR chỉ khi **cả ba**: (a) phiếu tháng nhận phòng (kỳ thuê chứa ngày đến) của đơn có `checkinBackdatedOn`; (b) số tiền ≤ phần dòng `rent` chưa thu;
+        (c) `receivedOn` ≤ `checkinBackdatedOn`; và (SEC 197-02) phiếu **chưa** có khoản thu nào `reversed`, **chưa** có khoản thu khác `outside_desk` nhận sau
+        `checkinBackdatedOn`. Khác → 403 `FORBIDDEN_ACTION` ("owner only") + một `access.denied`. OWN theo các luật trên. `availableActions` của MGR chỉ có
+        `settle_outside_desk` khi đủ (a) (ARC 197-02); (b), (c) và SEC 197-02 kiểm lúc ghi.
+        Audit `money` `billing_period.settled_outside_desk`; `staff_notification` `statement_settled_outside_desk` cho mọi OWN (refType `reservation`, refCode = mã phiếu).
+      x-roles: [owner, manager]
+      x-rbac: [A128]
+      x-requires-trusted-device: true
+      x-round: R5
+      x-stories: [US-065]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingPeriodOutsideDeskCreate' }
+            example: { amountVnd: 8500000, receivedOn: '2026-11-03', reason: Tiền thuê 11/2026 đã trả trên nền tảng cũ, reference: null }
+      responses:
+        '201':
+          description: Đã ghi khoản thu ngoài Desk
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPeriodPaymentResult' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
   /v1/properties/{propertyId}/billing-periods/{billingPeriodId}/print:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -11667,7 +11839,16 @@ components:
         `extra_guest_kit_collect` (thu hồi – đơn đổi/giảm người/hủy sau khi đã chuẩn bị; thu hồi lúc trả phòng là một dòng trong `checkout_clean`);
         `extra_guest_kit_transfer` (chuyển bộ sang căn mới khi đổi phòng đang ở B14). Sinh/hủy/chuyển trong **cùng giao dịch** với chuyển trạng thái đơn.
     GuestRequestType: { type: string, enum: [extra_cleaning, amenities, report_issue, transport_tour, late_checkout, other] }
-    PaymentMethod: { type: string, enum: [vietqr, bank_transfer, cash, card_pos, vnpay, momo, ota_collect] }
+    PaymentMethod:
+      type: string
+      enum: [vietqr, bank_transfer, cash, card_pos, vnpay, momo, ota_collect, outside_desk]
+      description: |
+        **Chỉ ở phản hồi và tham số lọc** (0.3.15, SEC 12-03). `outside_desk` = thu ngoài Desk – chỉ server ghi qua `settleBillingPeriodOutsideDesk`; thân lệnh dùng `PaymentMethodInput`
+        (gửi `outside_desk` → 422 `method: NOT_IN_LIST`).
+    PaymentMethodInput:
+      type: string
+      enum: [vietqr, bank_transfer, cash, card_pos, vnpay, momo, ota_collect]
+      description: '**0.3.15 (SEC 12-03)** – phương thức nhận ở thân lệnh: `PaymentMethod` trừ `outside_desk`'
     PaymentType: { type: string, enum: [charge, deposit, security_deposit, refund, deposit_deduction] }
     FolioLineCategory:
       type: string
@@ -11898,6 +12079,30 @@ components:
         commissionRatePct:
           $ref: '#/components/schemas/Percent'
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
+    CheckInBackdatedInput:
+      type: object
+      required: [arrivalDate, reason, cardsIssued]
+      description: |
+        **0.3.15 (FB-INV-012 §12.1.2)** – thân `checkInBackdated`. Không nhận các trường giờ/phụ thu/B9a/thu tiền của `checkIn`
+        (`checkinTime`, `checkinTimeNote`, `applyEarlySurcharge`, `expectedSurchargeVnd`, `houseRulesSent`, `doorAccessHandedOver`, `addPriorNight`, `priorNightRateVnd`,
+        `roomNotReadyOverride`, `requestFocForSurcharge`, `payment`) → 422 `<field>: NOT_ALLOWED`.
+      properties:
+        arrivalDate: { $ref: '#/components/schemas/LocalDate' }
+        reason: { type: string, minLength: 3, maxLength: 300 }
+        cardsIssued: { type: integer, minimum: 0, maximum: 2 }
+        documentBlockOverride:
+          type: object
+          required: [reason]
+          properties:
+            reason: { type: string, minLength: 3, maxLength: 500 }
+    PropertyContact:
+      type: object
+      required: [addressLine, hotline]
+      additionalProperties: false
+      description: '**0.3.15 (FB-INV-012 §12.3)** – địa chỉ một dòng và hotline công khai của cơ sở (`property.address`, `property.phone_public`)'
+      properties:
+        addressLine: { type: [string, 'null'], minLength: 5, maxLength: 200 }
+        hotline: { type: [string, 'null'], pattern: '^\+?[0-9][0-9 .-]{7,19}$' }
     PropertyWifi:
       type: object
       required: [configured]
@@ -12341,6 +12546,10 @@ components:
         etaTime: { $ref: '#/components/schemas/LocalTime' }
         agreedCheckoutTime: { $ref: '#/components/schemas/LocalTime' }
         actualCheckinAt: { $ref: '#/components/schemas/Instant' }
+        checkinBackdatedOn:
+          oneOf: [{ $ref: '#/components/schemas/LocalDate' }, { type: 'null' }]
+          readOnly: true
+          description: '**0.3.15 (FB-INV-012 §12.1.2)**: ngày nghiệp vụ của `checkInBackdated` (không có lý do); null = nhận phòng thường'
         actualCheckoutAt: { $ref: '#/components/schemas/Instant' }
         hold:
           type: object
@@ -12522,6 +12731,7 @@ components:
             Hành động máy trạng thái người gọi làm được lúc này (vai × trạng thái × giờ server). **0.3.12 (BUG-R3-042)**: giữ chỗ đã quá `holdExpiresAt` – `confirm-deposit` (B4)
             chỉ có với FD+ (OWN/MGR/FDL/FD) **và** `depositPaidVnd > 0`; SAL và giữ chỗ chưa nhận đồng nào không có. Client ẩn/hiện nút theo danh sách này, không tự so giờ.
             **0.3.13**: `check_out` có từ 00:00 ngày lịch = ngày đi (cửa sổ sau nửa đêm – V5-10, BUG-R4-036); với OWN/MGR còn có khi lượt đã quá ngày đi (`overdue = true` – V5-15).
+            **0.3.15**: `check_in_backdated` (B9, action `check-in-backdated`, `requiresTrustedDevice`) – OWN/MGR, đơn `confirmed` dài hạn nhập tay, ngày đến < T, không xung đột.
         availableOperations:
           type: array
           description: |
@@ -12612,6 +12822,18 @@ components:
             đơn – SAL/CTV dùng `createDepositNotice` (ảnh của đơn); FD+ ghi khoản bằng `recordPayment` kèm `attachmentId` thay cho `initialPayment`.
         internalNote: { type: string, maxLength: 1000, x-rbac-field: D12c }
         manualLongStay: { $ref: '#/components/schemas/ManualLongStayInput' }
+        backdatedArrival:
+          type: object
+          required: [reason]
+          additionalProperties: false
+          description: |
+            **0.3.15 (FB-INV-012 §12.1.1, A127)**: khách dài hạn đã ở trước khi có Desk – cho phép `arrivalDate` đã qua trong biên [T − 45, T − 1] (tháng trước chỉ khi chỉ số cuối tháng
+            đó còn ghi trễ được). Chỉ kèm `manualLongStay` (khác → 422 `backdatedArrival: NOT_ALLOWED`); chỉ OWN/MGR (khác → 403). Kèm `closerUserId` khác null → 422
+            `closerUserId: NOT_ALLOWED` (SEC 12-01). Đơn tạo ra `confirmed`; nhận phòng bằng `checkInBackdated`.
+            **SEC 12-07**: OWN/MGR gửi trường này phải ở **thiết bị tin cậy** (kiểm ở tầng trường, operation không bắt buộc thiết bị) – khác → 403 `DEVICE_NOT_TRUSTED`.
+            Ngoài biên (kể cả ngày đến = T) → 422 `arrivalDate: BACKDATE_OUT_OF_RANGE` kèm `earliest`.
+          properties:
+            reason: { type: string, minLength: 3, maxLength: 300 }
     ManualLongStayInput:
       type: object
       required: [monthlyRentVnd]
@@ -13636,7 +13858,7 @@ components:
       description: '`type=refund` không nhận ở đây (422 `NOT_IN_LIST`, `field` = `type`) – hoàn chỉ qua `executeRefund` (0.3.6, A-33)'
       properties:
         type: { $ref: '#/components/schemas/PaymentType' }
-        method: { $ref: '#/components/schemas/PaymentMethod' }
+        method: { $ref: '#/components/schemas/PaymentMethodInput' }
         amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
         receivedAt: { $ref: '#/components/schemas/Instant' }
         posAuthCode: { type: string, maxLength: 12, description: 'Mã chuẩn chi máy POS (R-PAY-04) – không nhập số thẻ', x-rbac-field: D14 }
@@ -14017,6 +14239,7 @@ components:
             `reservation.room_change_repriced`, `reservation.closer_changed`, `commission.projected`, `commission.earned`, `commission.voided`,
             `channel_fee.recorded`, `channel_fee.updated`, `overbooking.relocation_cost`, `approval.requested`, `approval.self_applied`, `approval.approved`,
             `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `approval.applied_capped`, `config.changed` (chỉ khóa `payment_receiving_account`).
+            **0.3.15 (FB-INV-012 §12.2)**: `billing_period.settled_outside_desk` – `after` = {paymentId, method, amountVnd, receivedOn, balanceVnd}; lý do ở `reason`.
             **0.3.12 (P4-12, ARC plan v1.0.4 quyết định 6.3, SEC-on-plan-v1.0.4 mục 1)**: `refund.destination_carried` – nơi nhận được chép sang yêu cầu hoàn thay thế; `entityType = approval_request`, chỉ mã yêu cầu cũ và mới, không số tài khoản.
             **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`. **ARC 16.31**: nghĩa của mã lý do theo **điều kiện** – công nợ đang mở lúc duyệt < số đã duyệt – không khẳng định nguyên nhân; ở R2 (sau BUG-R2-207, điều kiện OPS của BUG-R2-210) nguyên nhân duy nhất còn lại là khoản thu trong lúc chờ (khoản thu trả công nợ trước – BR-525 G-6). Đường mới làm giảm công nợ đang mở phải thêm mã lý do riêng; Desk gặp mã lạ hiện câu chung.
             **0.3.13 bổ sung 1f (SEC ARC-20; V5-48, SEC S8)**: `attention_event.resolved` – hiện **chỉ** ghi khi FD+ đóng mục "Cần chú ý" `deposit_after_cancel` bằng "Không thấy tiền";
@@ -15029,8 +15252,10 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         kind:
           type: string
-          enum: [hold_expired, hold_expiring, deposit_notice, deposit_after_cancel, guest_request_new, guest_request_overdue, work_order_overdue, approval_requested, approval_decided, registration_due, checkout_call_needed, security_alert, account_security_change, online_checkin_completed, payment_disputed, deposit_shortfall_accepted, receiving_account_changed, refund_ready, work_order_new, work_order_high_new, work_order_block_requested, hk_task_urgent, room_awaiting_inspection, hk_task_cancelled, approval_cancelled, no_show_marked, no_show_restored, website_request_new, website_request_cap_reached, website_request_overdue, website_request_linked_hold, public_booking_toggled, debt_recorded, manager_confirmation_requested, manager_confirmation_decided, manager_confirmation_expired, late_fee_post_review, foc_stay_total_exceeded, hold_overdue_with_deposit, hold_overdue_cap]
+          enum: [hold_expired, hold_expiring, deposit_notice, deposit_after_cancel, guest_request_new, guest_request_overdue, work_order_overdue, approval_requested, approval_decided, registration_due, checkout_call_needed, security_alert, account_security_change, online_checkin_completed, payment_disputed, deposit_shortfall_accepted, receiving_account_changed, refund_ready, work_order_new, work_order_high_new, work_order_block_requested, hk_task_urgent, room_awaiting_inspection, hk_task_cancelled, approval_cancelled, no_show_marked, no_show_restored, website_request_new, website_request_cap_reached, website_request_overdue, website_request_linked_hold, public_booking_toggled, debt_recorded, manager_confirmation_requested, manager_confirmation_decided, manager_confirmation_expired, late_fee_post_review, foc_stay_total_exceeded, hold_overdue_with_deposit, hold_overdue_cap, backdated_stay, statement_settled_outside_desk]
           description: |
+            **0.3.15 (FB-INV-012 §12.1, §12.2)**: `backdated_stay` – đơn nhập bù / nhận phòng bù (mọi OWN; refType `reservation`, refCode = mã đơn);
+            `statement_settled_outside_desk` – mỗi lần ghi "đã thu ngoài Desk" (mọi OWN; refType `reservation`, refCode = mã phiếu). Không tên khách, không số tiền.
             **0.3.12 (BUG-R3-041, WA-04, DOM A.5 xác nhận 04/11)** – J1 đi qua `events.notify` (hộp thư + SSE `notification.created`); refType `reservation`, refCode = mã đơn; chỉ loại + mã + id,
             không tên/SĐT/số tiền (SEC A5). Người nhận là tài khoản **đang hoạt động** có vai chưa thu hồi tại cơ sở; mỗi người **một** dòng mỗi sự kiện. Không bao giờ HK, MT, kế toán.
             `hold_overdue_with_deposit` – lượt J1 đầu tiên thấy giữ chỗ **đã nhận > 0 đ** quá `holdExpiresAt` (không tự hủy): người tạo + người chốt của đơn và mọi FD, FDL, **MGR** (0.3.12 thêm MGR);
@@ -15909,7 +16134,8 @@ components:
         note: { type: [string, 'null'] }
         availableActions:
           type: array
-          items: { type: string, enum: [update, prior_adjustment, issue, void, record_payment, print] }
+          items: { type: string, enum: [update, prior_adjustment, issue, void, record_payment, print, settle_outside_desk] }
+          description: '**0.3.15**: `settle_outside_desk` – OWN/MGR, phiếu còn nợ (phạm vi MGR kiểm lúc ghi – SEC 12-02). Giá trị lạ → client bỏ qua'
         ratesSnapshot: { type: [object, 'null'], additionalProperties: true }
         replacesId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
         replacesCode: { type: [string, 'null'], description: 'Mã phiếu bị thay' }
@@ -15951,6 +16177,16 @@ components:
         receivedAt: { oneOf: [{ $ref: '#/components/schemas/Instant' }, { type: 'null' }] }
         note: { type: [string, 'null'], maxLength: 500 }
         bankReference: { type: [string, 'null'], maxLength: 40 }
+    BillingPeriodOutsideDeskCreate:
+      type: object
+      required: [receivedOn, reason]
+      additionalProperties: false
+      description: '**0.3.15 (FB-INV-012 §12.2)** – thân `settleBillingPeriodOutsideDesk`; không có `method` (server ghi `outside_desk`)'
+      properties:
+        amountVnd: { oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }], description: 'Mặc định = còn phải thu' }
+        receivedOn: { $ref: '#/components/schemas/LocalDate' }
+        reason: { type: string, minLength: 3, maxLength: 300 }
+        reference: { type: [string, 'null'], maxLength: 64, pattern: '^[A-Za-z0-9 ./-]{1,64}$' }
     BillingPeriodPaymentResult:
       type: object
       required: [billingPeriod, payment]

@@ -70,6 +70,9 @@ export const PAYMENT_METHODS = [
   'vnpay',
   'momo',
   'ota_collect',
+  // 0100 (FB-INV-012 §12.2, G4): money received outside Desk for a monthly statement – written ONLY by
+  // settleBillingPeriodOutsideDesk (PaymentService.recordOutsideDesk); never a request body value (SEC 12-03).
+  'outside_desk',
 ] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
@@ -330,7 +333,13 @@ export const payment = pgTable(
     ),
     check(
       'payment_method_check',
-      sql`${t.method} IN ('vietqr', 'bank_transfer', 'cash', 'card_pos', 'vnpay', 'momo', 'ota_collect')`,
+      sql`${t.method} IN ('vietqr', 'bank_transfer', 'cash', 'card_pos', 'vnpay', 'momo', 'ota_collect', 'outside_desk')`,
+    ),
+    // 0100 (§12.2 / §12.7): an outside-Desk receipt is a statement charge, never in a shift nor in the transfer
+    // reconciliation queue, always with its reason; its reversal row (A34, reversal_of_id) carries no statement/note.
+    check(
+      'payment_outside_desk_check',
+      sql`${t.method} <> 'outside_desk' OR (${t.type} = 'charge' AND ${t.reconciliation} = 'not_required' AND ${t.shiftId} IS NULL AND ((${t.reversalOfId} IS NOT NULL AND ${t.amountVnd} < 0) OR (${t.billingPeriodId} IS NOT NULL AND ${t.note} IS NOT NULL)))`,
     ),
     check(
       'payment_method_detail_check',

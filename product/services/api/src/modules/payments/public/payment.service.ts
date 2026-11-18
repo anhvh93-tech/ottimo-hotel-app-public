@@ -141,6 +141,11 @@ export interface PaymentActor {
   requestId?: string;
 }
 
+/** FB-INV-012 §12.2: the method of a receipt received outside Desk (response-only – never in a request body). */
+export const OUTSIDE_DESK_METHOD = 'outside_desk' as const;
+/** The internal source that alone may write it (SEC FB-R5-SEC-ARC-12-03 (2)). */
+export const OUTSIDE_DESK_SOURCE = 'settle_outside_desk' as const;
+
 export const DESK_ROLES: readonly string[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 export const MANAGER_ROLES: readonly string[] = ['owner', 'manager'];
 
@@ -306,7 +311,8 @@ export class PaymentService {
       await this.assertBankReferenceFree(tx, bankReference, role);
     }
     const code = await this.docNumbers.allocate(tx, 'payment');
-    const fromSales = role === 'sales_staff' || role === 'collaborator';
+    const fromSales =
+      (role === 'sales_staff' || role === 'collaborator') && p.method !== OUTSIDE_DESK_METHOD;
     const reconciliation = fromSales
       ? 'pending'
       : (p.reconciliation ?? reconciliationFor(p.method));
@@ -442,6 +448,13 @@ export class PaymentService {
        * `outstandingCapVnd`). The receipt carries `billing_period_id`.
        */
       billingPeriodId?: string;
+      /**
+       * FB-INV-012 §12.2 / SEC FB-R5-SEC-ARC-12-03 (2): `outside_desk` is accepted ONLY with this internal source, set
+       * by the billing module's settleBillingPeriodOutsideDesk. Any other caller sending `outside_desk` (or this source
+       * with another method) is a programming error (thrown → 500, logged) – a request body never reaches it because
+       * `checkPaymentShape` refuses the method (422 NOT_IN_LIST) before.
+       */
+      source?: typeof OUTSIDE_DESK_SOURCE;
     },
   ): Promise<PaymentRowLite> {
     return (await this.recordInTxWithDue(tx, actor, folioId, raw, ctx)).row;
@@ -477,6 +490,11 @@ export class PaymentService {
     raw: PaymentCreateInput,
     ctx: Parameters<PaymentService['recordInTx']>[4],
   ): Promise<{ row: PaymentRowLite; dueBeforeVnd: number }> {
+    // Only the internal source reaches the outside-Desk path; `outside_desk` without it goes the normal way and is
+    // refused there by `checkPaymentShape` (422 method NOT_IN_LIST – SEC 12-03, Q13).
+    if (ctx.source !== undefined) {
+      return this.recordOutsideDesk(tx, actor, folioId, raw, ctx);
+    }
     const folios = this.need(this.folios, 'FolioService');
     const params = this.need(this.params, 'ParameterService');
     const f = (name: string) => `${ctx.fieldPrefix ?? ''}${name}`;
@@ -607,6 +625,66 @@ export class PaymentService {
     if (row.reconciliation === 'not_required') {
       await anchorPaymentAttachment(this.attachments, tx, row, now);
     }
+    return { row, dueBeforeVnd: owed };
+  }
+
+  /**
+   * FB-INV-012 §12.2 (ARC G4): "đã thu ngoài Desk" – one `charge` receipt `outside_desk` of a monthly statement:
+   * `succeeded`, `reconciliation = not_required`, no shift, the reason as `note`, received at the day given (the billing
+   * module passes 12:00 of the property). Only through the internal source (SEC 12-03); the billing module checked the
+   * role, the statement status and its balance (`outstandingCapVnd`). DB CHECK `payment_outside_desk_check` (0100).
+   */
+  private async recordOutsideDesk(
+    tx: Tx,
+    actor: PaymentActor,
+    folioId: string,
+    raw: PaymentCreateInput,
+    ctx: Parameters<PaymentService['recordInTx']>[4],
+  ): Promise<{ row: PaymentRowLite; dueBeforeVnd: number }> {
+    if (
+      raw.method !== OUTSIDE_DESK_METHOD ||
+      ctx.source !== OUTSIDE_DESK_SOURCE ||
+      !ctx.billingPeriodId ||
+      raw.type !== 'charge' ||
+      ctx.outstandingCapVnd === undefined
+    ) {
+      throw new Error(
+        'outside_desk receipts are written only by settleBillingPeriodOutsideDesk (SEC FB-R5-SEC-ARC-12-03)',
+      );
+    }
+    const folios = this.need(this.folios, 'FolioService');
+    const folio = await folios.lockForPosting(tx, folioId, { allowPostCheckout: true });
+    if (!folio) throw problem('NOT_FOUND');
+    if (folio.status === 'closed') throw folioLocked('closed');
+    const owed = ctx.outstandingCapVnd;
+    if (!Number.isSafeInteger(raw.amountVnd) || raw.amountVnd <= 0 || raw.amountVnd > owed) {
+      throw new RangeError(
+        'outside_desk amount must be within the statement balance (checked by billing)',
+      );
+    }
+    const receivedAt = parseInstant('receivedAt', raw.receivedAt);
+    const note =
+      typeof raw.note === 'string' && raw.note.trim().length >= 3 ? raw.note.trim() : null;
+    if (!receivedAt || !note) throw new Error('outside_desk needs receivedAt and a reason');
+    // SEC-BE-197-01: re-check the composed note (reason | ref …) – payment.note never holds a card number.
+    assertNoCardNumber('note', note);
+    const recorded = await this.recordManual(tx, {
+      folioId: folio.id,
+      reservationId: ctx.reservationId,
+      reservationCode: ctx.reservationCode,
+      type: 'charge',
+      method: OUTSIDE_DESK_METHOD,
+      amountVnd: raw.amountVnd,
+      receivedAt,
+      posAuthCode: null,
+      note,
+      recordedBy: actor.userId,
+      reconciliation: 'not_required',
+      recordedByRole: primaryRole(actor.roles),
+      billingPeriodId: ctx.billingPeriodId,
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
+    const row = (await this.row(tx, recorded.id)) as PaymentRowLite;
     return { row, dueBeforeVnd: owed };
   }
 
