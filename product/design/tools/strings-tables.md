@@ -295,6 +295,7 @@
 | `bill.night_line` | Tiền phòng đêm {date} | Room, night of {date} | ⟨chừa chỗ⟩ |  |
 | `bill.foc_line` | Miễn phí · {reason} | Complimentary · {reason} | ⟨chừa chỗ⟩ | HR-13: không in chữ FOC cho khách |
 | `bill.total` | Tổng cộng | Total | ⟨chừa chỗ⟩ |  |
+| `bill.total_estimate` | Tổng cộng (dự tính) | Total (estimate) | ⟨chừa chỗ⟩ | v1.0.5 – V5-12 (UXD copy-v1.0.5 v2.8 9.19, FB-R5-UXD-FE-169-01). Nhãn thẻ đầu bước Bill khi bảng folio có ít nhất một dòng chưa ghi (đêm thêm, co.late_row_*, co.late_fee_row). Không có: bill.total. Phiếu in, bản xem trước giữ bill.total |
 | `bill.deposit` | Đã cọc / đã thu | Deposit / paid | ⟨chừa chỗ⟩ |  |
 | `bill.balance` | Còn phải thu | Balance due | ⟨chừa chỗ⟩ |  |
 | `bill.vat_note` | Giá đã gồm thuế GTGT | Prices include VAT | ⟨chừa chỗ⟩ |  |
