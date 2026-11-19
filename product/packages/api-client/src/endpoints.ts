@@ -1,12 +1,7 @@
 // One function per OpenAPI operation used by the web apps. Request/response types come from the
 // generated contract, so a contract change breaks the build here instead of at runtime.
 import type { ApiClient } from './client';
-import type {
-  CheckInBackdatedBody,
-  ChargePriceSource,
-  PropertyContact,
-  SettleOutsideDeskBody,
-} from './golive';
+import type { CheckInBackdatedBody, PropertyContact, SettleOutsideDeskBody } from './golive';
 import type {
   ApprovalRequest,
   BillingCandidateList,
@@ -757,11 +752,10 @@ export function createEndpoints(api: ApiClient) {
      * `priceSource`; without it, as before.
      */
     getChargeCatalog: ({ propertyId }: P, folioId?: string) =>
-      r<{ data: Array<ChargeCatalogItem & { priceSource?: ChargePriceSource }> }>(
-        'GET',
-        '/v1/properties/{propertyId}/charge-catalog',
-        { path: { propertyId }, query: folioId ? { folioId } : undefined },
-      ),
+      r<{ data: ChargeCatalogItem[] }>('GET', '/v1/properties/{propertyId}/charge-catalog', {
+        path: { propertyId },
+        query: folioId ? { folioId } : undefined,
+      }),
     addFolioLine: ({ propertyId, folioId }: F, body: FolioLineCreate, idem: string) =>
       r<Folio>('POST', `${FOL}/lines`, {
         path: { propertyId, folioId },

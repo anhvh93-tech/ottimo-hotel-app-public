@@ -428,3 +428,5 @@ Kiểm: admin-web 106 file / 1165 test, guest-web 10 file / 101 test; typecheck,
 | `params.lscf.price_invalid` | Done | Bỏ ghi chú "CHỜ UXD DUYỆT" ở cột ghi chú; chữ giữ nguyên bản UXD duyệt |
 
 Chưa merge main theo chỉ đạo ORC (BE #200 còn chờ ARC/SEC). `ChargePriceSource` vẫn viết tay cho tới khi #200 merge.
+
+Cập nhật 19/11 sau khi BE #200 merge: đã merge origin/main (không rebase); `ChargePriceSource` = `NonNullable<Schemas['ChargeCatalogItem']['priceSource']>` lấy từ spec sinh tự động; `getChargeCatalog` trả `ChargeCatalogItem[]` trực tiếp, bỏ kiểu viết tay trong `StayDialogs.tsx`. Thay đổi 201-01/02 giữ nguyên.

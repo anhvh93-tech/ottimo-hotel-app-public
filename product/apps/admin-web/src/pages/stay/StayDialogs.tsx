@@ -734,7 +734,7 @@ export function AddChargeDialog({
       ).data.data,
     [propertyId, r.folioId],
   );
-  const items: Array<ChargeCatalogItem & { priceSource?: string }> = catalog.state.data ?? [];
+  const items: ChargeCatalogItem[] = catalog.state.data ?? [];
   const [code, setCode] = useState('');
   const item =
     items.find((x) => x.code === (code || preset)) ?? items.find((x) => x.category === preset);
