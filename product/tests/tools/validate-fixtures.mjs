@@ -929,7 +929,8 @@ function validateSeeds() {
   for (const p of dse.parameters) {
     if (pkeys.has(p.param)) err(W, `tham số trùng ${p.param}`);
     pkeys.add(p.param);
-    if (!/^BR-\d{3}$/.test(p.br)) err(W, `tham số ${p.param}: br '${p.br}'`);
+    // BR-LS-xx: long-stay rules of FB-INV-012 (business-rules mục BR-LS – ARC-BE-200-01).
+    if (!/^BR-(\d{3}|LS-\d{2})$/.test(p.br)) err(W, `tham số ${p.param}: br '${p.br}'`);
     if (!STATUS.test(p.status)) err(W, `tham số ${p.param}: status lạ '${p.status}'`);
     for (const inv of p.status.match(/INV-\d{3}/g) ?? [])
       if (!ESC_DECIDED.has(inv)) err(W, `tham số ${p.param}: ${inv} nhưng ESC chưa quyết`);

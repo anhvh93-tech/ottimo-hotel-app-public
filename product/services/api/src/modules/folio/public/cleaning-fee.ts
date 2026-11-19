@@ -25,7 +25,11 @@ export function roomPriceOf(table: unknown, roomNo: string | null): number | nul
   return Number.isSafeInteger(v) && (v as number) > 0 ? (v as number) : null;
 }
 
-/** Stay type of the booking and the room it holds on `onDate` (else its nearest segment before, else its first). */
+/**
+ * Stay type of the booking and the room it holds on `onDate`: the segment containing `onDate`; none (a day outside
+ * the stay) → the latest segment starting on or before `onDate`; none either (a day before the arrival) → the LAST
+ * segment (ARC-BE-200-S1). A mid-stay room change therefore prices each clean by the room of its day.
+ */
 async function stayRoomOn(
   tx: Tx,
   reservationId: string,

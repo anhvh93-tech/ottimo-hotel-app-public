@@ -11,6 +11,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database, Tx } from '../../src/db/database';
 import { GuestRequestsService } from '../../src/modules/guest-portal/internal/guest-requests.service';
+import { GuestRequestStatusPort } from '../../src/modules/guest-portal/public/guest-request-status.port';
 import {
   GUEST_REQUEST_WORK_PORT,
   type GuestRequestTaskInput,
@@ -140,9 +141,11 @@ describe.skipIf(!HAS_DB)(
     beforeAll(async () => {
       db = appDatabase(6);
       t = await createTenant(db, {
+        properties: 2, // property B: SEC-BE-200-02
         users: { own: ['owner'], mgr: ['manager'], fdl: ['front_desk_lead'], fd: ['front_desk'] },
       });
       ids = await seedBooking(db, t);
+      idsB = await seedBooking(db, t, 1);
       // Q19 starts from an empty table (the DS-E seed carries the INV mapping from 01/10).
       await setParam(db, t, KEY, {}, '2026-10-02');
       fa = await startFeatureApp(db, { guestOrigins: [GUEST_TEST_ORIGIN] });
@@ -182,6 +185,7 @@ describe.skipIf(!HAS_DB)(
     });
 
     let before: string; // a request sent at the old price
+    let idsB: BookingIds;
 
     it('Q19: empty table → a long stay pays adhoc_cleaning_fee (catalogue default, folio line, guest app)', async () => {
       expect(await cleaningItem(stays.studio!.folioId)).toMatchObject({
@@ -235,6 +239,19 @@ describe.skipIf(!HAS_DB)(
         '402': 200_000,
       });
       expect(saved.statusCode, saved.body).toBe(200);
+      // SEC-BE-200-03 (a): one config.changed by the manager, before = the empty table, after = the new one.
+      const audits = await q<{ actor_user_id: string; before: Json; after: Json; reason: string }>(
+        `SELECT actor_user_id, before, after, reason FROM audit_event
+          WHERE action = 'config.changed' AND entity_id = $1`,
+        [KEY],
+      );
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        actor_user_id: t.users.mgr!.id,
+        before: { value: {} },
+        after: { value: expect.objectContaining({ '202': 150_000, '301': 200_000 }) },
+        reason: 'Long-stay cleaning price by room class',
+      });
 
       expect(await cleaningItem(stays.studio!.folioId)).toMatchObject({
         defaultUnitPriceVnd: 150_000,
@@ -287,6 +304,78 @@ describe.skipIf(!HAS_DB)(
       });
       expect(after.statusCode, after.body).toBe(201);
       expect(after.json().feeVnd).toBe(200_000);
+
+      // SEC-BE-200-03 (b): the old request, completed now, is charged its snapshotted price, not the new one.
+      await db.withContext(t.ctx(), (tx) =>
+        fa.app
+          .get(GuestRequestStatusPort)
+          .onLinkedWorkDone(tx, before, new Date(T0.getTime() + 3_600_000)),
+      );
+      const charged = await q<{ a: string; folio_id: string }>(
+        `SELECT l.amount_vnd::text AS a, l.folio_id FROM guest_request g JOIN folio_line l ON l.id = g.fee_folio_line_id
+          WHERE g.id = $1`,
+        [before],
+      );
+      expect(charged.map((x) => [Number(x.a), x.folio_id])).toEqual([
+        [ADHOC, stays.studio!.folioId],
+      ]);
+    });
+
+    it("SEC-BE-200-02: a folio of another property, from this property's session → 404, no price", async () => {
+      const b = await seedStay(db, t, idsB, {
+        status: 'in_house',
+        roomNo: '202',
+        stayType: 'long',
+        departure: '2026-12-15',
+        propertyIndex: 1,
+      });
+      const [fb] = (
+        await db.withContext(t.ctx(1), (tx) =>
+          tx.query<{ folio_id: string }>(`SELECT folio_id FROM reservation WHERE id = $1`, [
+            b.reservationId,
+          ]),
+        )
+      ).rows;
+      const r = await c.fd!.get(url(`/charge-catalog?folioId=${fb!.folio_id}`));
+      expect(r.statusCode).toBe(404);
+      expect(r.body).not.toContain('priceSource');
+      expect(r.body).not.toContain('defaultUnitPriceVnd');
+    });
+
+    it('ARC-BE-200-S1: mid-stay room change Studio 101 → Premium 402 – each clean priced by the room of its day', async () => {
+      const s = await seedStay(db, t, ids, {
+        status: 'in_house',
+        roomNo: '101',
+        stayType: 'long',
+        departure: '2026-12-15',
+      });
+      await setStayStatus(db, t, s.reservationId, 'in_house', {
+        actualCheckinAt: new Date('2026-10-15T08:00:00+07:00'),
+      });
+      // Room change on 20/10: [15/10, 20/10) in 101, [20/10, 15/12) in 402.
+      await q(`UPDATE reservation_segment SET to_date = '2026-10-20' WHERE reservation_id = $1`, [
+        s.reservationId,
+      ]);
+      await q(
+        `INSERT INTO reservation_segment (id, organization_id, property_id, reservation_id, room_id, from_date,
+           to_date, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, '2026-10-20', '2026-12-15', $6, $6)`,
+        [uuidv7(), t.organizationId, t.propertyIds[0], s.reservationId, ids.rooms['402'], T0],
+      );
+      const [f] = await q<{ folio_id: string }>(`SELECT folio_id FROM reservation WHERE id = $1`, [
+        s.reservationId,
+      ]);
+      const priced = async (serviceDate: string) => {
+        const r = await c.fd!.send('POST', url(`/folios/${f!.folio_id}/lines`), {
+          chargeCode: 'adhoc_cleaning_fee',
+          quantity: 1,
+          serviceDate,
+        });
+        expect(r.statusCode, r.body).toBe(201);
+        return lineAmount(f!.folio_id);
+      };
+      expect(await priced('2026-10-16')).toBe(150_000); // Studio 101
+      expect(await priced('2026-10-25')).toBe(200_000); // Premium 402
     });
 
     it('a room missing from the table → adhoc_cleaning_fee (default)', async () => {
