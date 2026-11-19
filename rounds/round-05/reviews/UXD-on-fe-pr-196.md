@@ -113,7 +113,7 @@
 - Đề xuất sửa:
   - Dùng `<Checkbox checked={inHouse} disabled={!deviceTrusted} label={t('bd.in_house_toggle')} … />`.
   - Chuyển `bd.first_of_month` lên khối help của ô bật/tắt, ngay dưới `bd.in_house_help` và chỉ hiện khi `inHouse`. Ô Ngày vào không còn help riêng.
-- Trạng thái: Closed – theo FE Lượt 2 (dùng `Checkbox`, chuyển câu "ngày 01" lên khối ô bật/tắt). UXD chưa xem ảnh mới, QA kiểm khi chụp v1.0.7
+- Trạng thái: Closed – theo FE Lượt 2 và 5b (PR #198): ô là `Checkbox` của `@ottimo/ui`, tức C6 của DS (input gốc, `accent-color` Ink). Ảnh lần 1 trông giống ô của trình duyệt chính vì C6 được làm như vậy. Vẽ lại C6 là việc DS riêng, ngoài v1.0.7
 
 ### FB-R5-UXD-FE-196-05
 - Mức độ: Minor
