@@ -1,5 +1,68 @@
 # QA – Kiểm trên staging: FB-INV-012 phiếu thanh toán tháng khách dài hạn
 
+## L5. Giá dọn thêm khách dài hạn theo căn – contract §12.4 (19/11, 21:55–22:12)
+
+- Bản kiểm: Desk staging sau CI `44544747375` (`main` @ `8b570d41` = BE #200 + FE #201).
+- Giá chủ đầu tư: Studio 150.000 (101, 102, 103, 201, 202, 203); Premium (302, 402) và Signature (301, 401) 200.000. Giá chung `adhoc_cleaning_fee` 100.000.
+- Cách chạy như L4: API script và Playwright, tài khoản `qa.*`, khách giả KH-0486. QA OWN cấp thiết bị tin cậy "QA STG API 2026-11-19" đầu lượt, thu hồi lúc 22:11.
+- Dữ liệu: OTM-00408 (103), OTM-00409 (402), OTM-00412 (202), OTM-00385 (203) là các lượt dài hạn đang ở. OTM-00416 (ngắn ngày, 401) và OTM-00417 (dài hạn, 302) do L5 tạo, đã hủy.
+
+### L5.0 Kết luận: **ĐẠT CÓ LỖI** – §12.4 chạy đúng; 1 lỗi mới P2 (BUG-R5-017)
+
+- **12 ca: 11 đạt, 1 trượt.** Mọi ca Điều phối viên giao (Q19–Q21, Q16) đều đạt.
+- **Ca trượt:** QA tìm thêm. Trong ngày, OWN chỉ lưu được bảng giá một lần. Lần lưu thứ hai bị 422, Desk hiện "Giá trị này chưa hợp lệ – kiểm tra lại." ở ô "Hiệu lực từ" mà không nói lý do. Go-live guide 7.1 lại hướng dẫn "nhập từng căn, hiệu lực từ hôm nay". Xem BUG-R5-017.
+- Đã biết, không ghi lỗi mới:
+  - Giao diện EN còn tên tiếng Việt cho các khoản khác ngoài dọn thêm (UXD 201-02, dời round sau).
+  - Câu giá mặc định hiện mã luật cho lễ tân ("set by BR-506"), có từ trước §12.4.
+- Không có ESC mới.
+
+### L5.1 Kết quả
+
+| # | Ca | Kết quả | Bằng chứng ngắn |
+|---|---|---|---|
+| 1 | Q21: hook chặn giá sai | **Đạt** | OWN, `PUT parameters/long_stay_cleaning_fee_by_room`. `{"202":0}`, `-1000`, `150500` (không chia hết 1.000), `5001000`, `"150000"` (chuỗi) → 422 `PARAM_OUT_OF_RANGE`, `errors[].field` = `value.202`. Căn `999` → 422, `value.999: NOT_IN_LIST`, `allowed` = 10 căn + căn thử `QAT1` của staging. Mảng, số trơn → 422 `VALIDATION_FAILED`. Không lần nào ghi giá |
+| 2 | Q21: quyền | **Đạt** | FDL và FD lưu `{"202":150000}` → 403 `FORBIDDEN_ACTION`. `editableBy` = owner, manager |
+| 3 | Q19: OWN đặt bảng ở S24 | **Đạt** | Tham số → "Dài hạn – phiếu tháng" → "Giá dọn thêm khách dài hạn theo căn". Hộp có 10 ô "Căn 101…402", câu "Để trống thì căn dùng giá dọn thêm chung (100.000 đ). Khách ngắn ngày luôn dùng giá chung." Nhập 150500 → báo lỗi tại ô, không lưu. Lưu 103, 202 = 150.000 và 401, 402 = 200.000, kèm lý do → 200. Dòng bảng và lịch sử hiện đúng 4 căn |
+| 4 | Q19: folio dài hạn, căn có giá | **Đạt** | `GET charge-catalog?folioId=`: OTM-00408 (103) và OTM-00412 (202) 150.000, OTM-00409 (402) 200.000, `priceSource: long_stay_room`. Hộp "Thêm phát sinh", khoản "Dọn phòng thêm": giá 150.000 kèm chip "Giá dài hạn của căn" |
+| 5 | Q19: folio dài hạn, căn chưa có giá | **Đạt** | OTM-00385 (203, không có trong bảng): 100.000, `priceSource: default` |
+| 6 | Q19: folio ngắn ngày ở căn có giá | **Đạt** | OTM-00416 (ngắn ngày, căn 401 = 200.000 trong bảng): 100.000, chip "Giá chung" |
+| 7 | Q20: khách dài hạn gửi yêu cầu dọn trên web khách | **Đạt** | OTM-00412 (202). `request-options` `extra_cleaning`: `feeVnd` 150.000, `feeReason: long_stay_adhoc`. Gửi yêu cầu (`feeAccepted: true`) → 201, `feeVnd` 150.000. HK bắt đầu rồi xong việc dọn liên kết → folio có dòng `adhoc_cleaning` **150.000** "Dọn phòng lẻ theo yêu cầu khách (BR-506)". MGR đã hủy dòng (`voidLine`, dòng đảo −150.000) |
+| 8 | Q20: yêu cầu gửi trước khi đổi giá giữ giá cũ | **Đạt** | Yêu cầu dọn của OTM-00412 gửi lúc 22:02:08, trước khi OWN lưu bảng (22:02:53), vẫn giữ 100.000. Cùng lúc đó `request-options` đã là 150.000. Trang khách liệt kê cả hai yêu cầu: 150.000 và 100.000 |
+| 9 | Q19: giao diện EN | **Đạt** | `ottimo.locale = en`, OTM-00412: nút "Add charge", khoản "Extra cleaning", chip "Long-stay room price", không còn chữ tiếng Việt của khoản dọn. Các khoản khác còn tên tiếng Việt (UXD 201-02, đã biết) |
+| 10 | Q19: câu phí phạt chỉ ở khoản phạt | **Đạt** | Câu "Phí phạt không tính vào doanh thu phòng." chỉ hiện ở "Khử mùi thuốc lá" và "Mất/hỏng thẻ phòng" (`penalty`). Không hiện ở dọn thêm, giặt ủi, hư hỏng (khăn tắm, ly, remote), đồ ăn uống, dịch vụ khác. EN: "Fines don't count as room revenue." chỉ ở khoản phạt |
+| 11 | Thêm: lưu bảng lần hai trong ngày | **Trượt → BUG-R5-017** | OWN mở lại S24, hộp điền sẵn 4 căn đã lưu. Thêm 302 = 200.000, lưu → Desk gửi đủ 5 căn với `effectiveFrom` hôm nay → 422 `VALIDATION_FAILED` "value already effective – add a row with a later effectiveFrom". Desk chỉ hiện "Giá trị này chưa hợp lệ – kiểm tra lại." dưới "Hiệu lực từ". Bảng không đổi |
+| 12 | Q16 smoke trên OTM-00412 | **Đạt** | Nháp 12/2026 `final`, kỳ thuê 01–13/12, tiền thuê 3.689.000, như L3/L4. Đã hủy nháp |
+
+### L5.2 Dọn staging
+
+- **Bảng giá:** QA OWN thêm dòng `{}` hiệu lực từ **20/11/2026** (lý do "QA L5 tra bang gia ve rong sau kiem thu").
+  - Không trả về `{}` ngay trong hôm nay được, vì lỗi ở ca 11 (máy chủ không cho thêm dòng thứ hai cùng ngày).
+  - Hết ngày nghiệp vụ 19/11 trên staging, bảng 4 căn (103, 202: 150.000; 401, 402: 200.000) vẫn chạy; từ 20/11 là rỗng. Lịch sử S24 hiện dòng 20/11 "Chưa hiệu lực".
+  - Nếu chủ đầu tư muốn thử trên staging trước go-live: OWN đặt dòng mới từ 21/11 trở đi, hoặc sửa dòng 20/11.
+- **Yêu cầu khách:**
+  - đã từ chối (`decline`, lý do `other`): yêu cầu cũ 100.000 của OTM-00412 và 3 yêu cầu của OTM-00417;
+  - yêu cầu 150.000 của OTM-00412 đã `done`, dòng folio 150.000 đã có dòng đảo;
+  - việc dọn liên kết đã `cancelled` hoặc `done`;
+  - link khách đã thu hồi sau mỗi lần dùng.
+- **Đơn L5 tạo ra:** OTM-00416 và OTM-00417 đã hoàn tác nhận phòng rồi hủy. Căn 302 và 401 trở về **VC**.
+- **Phiếu:** nháp 12/2026 của OTM-00412 đã hủy (`void`).
+- **Thiết bị tin cậy:** đã thu hồi.
+- **Không đụng:** OTM-00408, 00409, 00412 (ngoài các dòng trên), OTM-00385.
+- **Còn lại, API không xóa được:**
+  - giấy tờ CCCD giả của OTM-00416, 00417 (khách giả KH-0486);
+  - 1 dòng folio và dòng đảo trên OTM-00412;
+  - 1 yêu cầu "other" `acknowledged` ở căn 203 tạo ngày 22/10, không phải của L5, QA để nguyên.
+- **Đang ở trên staging sau lượt này:** OTM-00385 (203), OTM-00408 (103), OTM-00409 (402), OTM-00412 (202).
+
+### L5.3 Ảnh (scratchpad, không commit)
+
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-dialog-filled.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-row-after.png` – hộp S24 đã điền và dòng bảng sau khi lưu.
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-charge-X.png` – "Thêm phát sinh" của OTM-00412, chip "Giá dài hạn của căn".
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-charge-SS.png` – OTM-00416 ngắn ngày, chip "Giá chung".
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-charge-X-pen.png` – câu phí phạt ở khoản phạt.
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-charge-OTM-00412-en.png` – giao diện EN, "Extra cleaning".
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-second-save.png` – BUG-R5-017, lần lưu thứ hai trong ngày.
+
 ## L4. Kiểm lại BUG-R5-014..016, chữ mới, dọn staging (19/11, 16:38–16:50)
 
 - Bản kiểm: Desk staging sau CI `44488395821` (`main` @ `4d47af0d` = BE #199 + FE #198), job `deploy staging` xanh.
