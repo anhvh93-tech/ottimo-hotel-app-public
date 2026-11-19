@@ -270,6 +270,7 @@ info:
     | REASON_REQUIRED | Lý do thiếu/ngắn | V-08; `markNoShow.contactAttemptNote`, `extendQuote.reason` (0.3.5); `confirmPaymentReceived.note` khi QR vượt số còn phải thu (0.3.7 bổ sung 4); `recordPayment.note` khi FD+ ghi thu **vượt** còn phải thu mà thiếu ghi chú cách xử lý phần dư (DOM G-15 – ARC 16.31, N-12: trần mềm thiếu lý do = mã này tại trường lý do, không phải `AMOUNT_EXCEEDS_BALANCE`); `updateReservation.closerChangeReason` khi OWN đổi người chốt sau nhận phòng (0.3.13 bổ sung 1h) |
     | PASSWORD_TOO_SHORT · PASSWORD_SAME_AS_USERNAME · PASSWORD_REUSED · PASSWORD_TOO_COMMON | Mật khẩu mới (`PASSWORD_TOO_COMMON`: có trong danh sách mật khẩu phổ biến SR-AUTH-02 – 0.3.4) | V-10 |
     | NOT_IN_LIST | Giá trị không có trong danh mục đang hoạt động | V-11 |
+    | ALREADY_IN_FORCE | **0.3.15 (BUG-R5-017)** – `effectiveFrom` = ngày kinh doanh hôm nay mà khóa đã có dòng hiệu lực hôm nay, và khóa không có ngoại lệ sửa trong ngày (erd 4.1). `Problem.code` vẫn là `VALIDATION_FAILED`, `detail` không đổi; client hiện câu riêng và gợi ý hiệu lực từ ngày mai | `setParameter` (`field` = `effectiveFrom`) |
     | VALUE_OUT_OF_RANGE | Số ngoài biên của trường (ví dụ `baseOccupancy` 1–10). **0.3.7**: `getArrivalsDepartures.date` ngoài ngày nghiệp vụ ±7 (B-20) | US-004, `getArrivalsDepartures` |
     | DUPLICATE | Trùng khóa duy nhất của danh mục (ví dụ `roomNo`) | US-004 |
     | NOT_EDITABLE | Trường không đổi được sau khi tạo – `updateItem.code` (mã danh mục là khóa ổn định của nhãn folio/kiểm minibar – FB-R2-ARC-BE-S3-32) – 0.3.7 bổ sung 3 | `updateItem` |
@@ -353,6 +354,9 @@ info:
       theo đơn của folio + `ChargeCatalogItem.priceSource` (`long_stay_room` | `default`); không có `folioId` → như cũ, không có `priceSource`. `addFolioLine` (`adhoc_cleaning_fee`)
       và giá yêu cầu dọn trên trang khách (`listGuestRequestOptions.feeVnd`, chụp vào yêu cầu như cũ) dùng cùng luật. `setParameter` khóa `long_stay_cleaning_fee_by_room`:
       object `{"<số căn>": VND}`, số căn có trong danh mục căn, mỗi giá 1.000–5.000.000 bội 1.000 → khác 422 `PARAM_OUT_OF_RANGE` (ARC 197-03). Khách ngắn ngày không đổi.
+    - **BUG-R5-017 (ARC phụ lục 19/11)**: `setParameter` khóa `long_stay_cleaning_fee_by_room` với `effectiveFrom` = hôm nay **lưu lại được trong ngày** (ghi đè dòng hôm nay,
+      audit `config.changed` có `before.value`, `after.sameDayOverride: true`); tiền đã ghi giữ giá cũ. Mọi khóa khác: đã có dòng hôm nay → 422 `VALIDATION_FAILED`, mã trường
+      đổi từ `VALIDATION_FAILED` thành `effectiveFrom: ALREADY_IN_FORCE` (chỉ đổi mã trường, `detail` như cũ). Không đổi schema.
     - **Chưa có ở bản này**: `catchUp` (12.5, BR-LS-17) – phần DB đã có trong 0100.
     - **Review PR #197 (SEC/ARC, 18/11)**: `backdatedArrival` cần thêm **thiết bị tin cậy** ở tầng trường (SEC 12-07: OWN/MGR ngoài thiết bị → 403 `DEVICE_NOT_TRUSTED`);
       ngày đến = T cũng trả `BACKDATE_OUT_OF_RANGE` **kèm** `earliest` (ARC 197-05); `reference` của settle qua luật văn bản tự do (422 `CARD_NUMBER_DETECTED`, SEC 197-01);
@@ -2270,8 +2274,11 @@ paths:
         **0.3.8 bổ sung 5 (ARC 24/10, BUG-R3-008) – công tắc khẩn (ngoại lệ duy nhất của "không sửa dòng đang hiệu lực", erd 4.1)**: OWN đặt `public_booking_requests_enabled = false`
         với `effectiveFrom` = ngày kinh doanh hiện tại → **có hiệu lực ngay**, kể cả khi đã có dòng của hôm nay (dòng đó bị ghi đè; audit `security` `config.changed` giữ
         `before.value`, `after.sameDayOverride: true`); hook báo `public_booking_toggled` OWN + MGR như mọi lần đổi. **Bật lại** (`true`) theo luật thường: đã có dòng hôm nay →
-        422 `VALIDATION_FAILED` (`field` = `effectiveFrom`), đặt từ ngày kinh doanh sau. Dòng **đã lên lịch** cho ngày sau **không** bị hủy theo – muốn tắt hẳn thì OWN hủy thêm bằng
+        422 `VALIDATION_FAILED` (`field` = `effectiveFrom`, mã trường `ALREADY_IN_FORCE` từ 0.3.15), đặt từ ngày kinh doanh sau. Dòng **đã lên lịch** cho ngày sau **không** bị hủy theo – muốn tắt hẳn thì OWN hủy thêm bằng
         `cancelScheduledParameter`. Danh sách khóa có ngoại lệ này do server giữ (hiện **chỉ** khóa này; `public_booking_request_pow_enabled` không thuộc); thêm khóa = đổi hợp đồng.
+        **0.3.15 (BUG-R5-017, ARC phụ lục 19/11) – ngoại lệ thứ hai**: `long_stay_cleaning_fee_by_room` với `effectiveFrom` = hôm nay ghi đè dòng hôm nay với **mọi** giá trị
+        (OWN/MGR, audit `config.changed` có `before.value`, `after.sameDayOverride: true`; bộ kiểm dạng vẫn chạy trước). Mọi khóa khác: đã có dòng hôm nay → 422 `VALIDATION_FAILED`,
+        `errors[{field: effectiveFrom, code: ALREADY_IN_FORCE}]`.
         **0.3.7 bổ sung 1 (BE-D s4 2.5 #6, S4-51 / P-S4-7)**: khóa `property_map_url` (chuỗi URL, **chỉ OWN** – MGR → 403; không phải tham số bảo mật, audit `config`) là **nguồn duy nhất**
         của `GuestStay.property.mapUrl` ("Chỉ đường" US-108; landing/bill dùng cùng khóa khi có). Mặc định danh mục = ghim INV gửi 17/10 (migration `0058`). Chỉ nhận `https` không
         user/mật khẩu/cổng, host đúng danh sách SEC E14-08 (`maps.google.com`, `www.google.com` path `/maps…`, `maps.app.goo.gl`, `maps.apple.com`, `www.openstreetmap.org`) –

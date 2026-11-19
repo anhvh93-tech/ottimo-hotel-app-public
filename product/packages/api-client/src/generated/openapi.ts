@@ -831,8 +831,11 @@ export interface paths {
      *     **0.3.8 bổ sung 5 (ARC 24/10, BUG-R3-008) – công tắc khẩn (ngoại lệ duy nhất của "không sửa dòng đang hiệu lực", erd 4.1)**: OWN đặt `public_booking_requests_enabled = false`
      *     với `effectiveFrom` = ngày kinh doanh hiện tại → **có hiệu lực ngay**, kể cả khi đã có dòng của hôm nay (dòng đó bị ghi đè; audit `security` `config.changed` giữ
      *     `before.value`, `after.sameDayOverride: true`); hook báo `public_booking_toggled` OWN + MGR như mọi lần đổi. **Bật lại** (`true`) theo luật thường: đã có dòng hôm nay →
-     *     422 `VALIDATION_FAILED` (`field` = `effectiveFrom`), đặt từ ngày kinh doanh sau. Dòng **đã lên lịch** cho ngày sau **không** bị hủy theo – muốn tắt hẳn thì OWN hủy thêm bằng
+     *     422 `VALIDATION_FAILED` (`field` = `effectiveFrom`, mã trường `ALREADY_IN_FORCE` từ 0.3.15), đặt từ ngày kinh doanh sau. Dòng **đã lên lịch** cho ngày sau **không** bị hủy theo – muốn tắt hẳn thì OWN hủy thêm bằng
      *     `cancelScheduledParameter`. Danh sách khóa có ngoại lệ này do server giữ (hiện **chỉ** khóa này; `public_booking_request_pow_enabled` không thuộc); thêm khóa = đổi hợp đồng.
+     *     **0.3.15 (BUG-R5-017, ARC phụ lục 19/11) – ngoại lệ thứ hai**: `long_stay_cleaning_fee_by_room` với `effectiveFrom` = hôm nay ghi đè dòng hôm nay với **mọi** giá trị
+     *     (OWN/MGR, audit `config.changed` có `before.value`, `after.sameDayOverride: true`; bộ kiểm dạng vẫn chạy trước). Mọi khóa khác: đã có dòng hôm nay → 422 `VALIDATION_FAILED`,
+     *     `errors[{field: effectiveFrom, code: ALREADY_IN_FORCE}]`.
      *     **0.3.7 bổ sung 1 (BE-D s4 2.5 #6, S4-51 / P-S4-7)**: khóa `property_map_url` (chuỗi URL, **chỉ OWN** – MGR → 403; không phải tham số bảo mật, audit `config`) là **nguồn duy nhất**
      *     của `GuestStay.property.mapUrl` ("Chỉ đường" US-108; landing/bill dùng cùng khóa khi có). Mặc định danh mục = ghim INV gửi 17/10 (migration `0058`). Chỉ nhận `https` không
      *     user/mật khẩu/cổng, host đúng danh sách SEC E14-08 (`maps.google.com`, `www.google.com` path `/maps…`, `maps.app.goo.gl`, `maps.apple.com`, `www.openstreetmap.org`) –

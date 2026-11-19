@@ -70,6 +70,16 @@ export const KILL_SWITCH_SAFE_VALUE: Readonly<Record<string, unknown>> = {
 };
 
 /**
+ * BUG-R5-017 (ARC-on-be-pr-200 phụ lục 19/11): keys whose row of today may be saved again the same day (any value),
+ * through the same `sameDayOverride` path (audit `before` / `after.sameDayOverride`, cache cleared). Only the long-stay
+ * cleaning price table: money already charged keeps its price (folio line `unit_price_vnd`, guest request
+ * `fee_vnd_snapshot`) and no other rule reads it. Every other key keeps erd 4.1 (422 `effectiveFrom: ALREADY_IN_FORCE`).
+ */
+export const SAME_DAY_EDITABLE_KEYS: ReadonlySet<string> = new Set([
+  'long_stay_cleaning_fee_by_room',
+]);
+
+/**
  * R4 LP-v2 (SEC SR-PE-08): business keys whose change is audited in the `security` category (value in clear) –
  * `public_show_prices` is an ordinary OWN-only key of the contract, but SEC wants its changes with the security log.
  */
@@ -277,8 +287,10 @@ export class ParametersService {
         ? { auditAs: { category: 'security' as const, mask: (v: unknown) => v } }
         : {}),
       // BUG-R3-008: a kill switch turned to its safe value today replaces today's row.
-      ...(input.key in KILL_SWITCH_SAFE_VALUE &&
-      input.value === KILL_SWITCH_SAFE_VALUE[input.key] &&
+      // BUG-R5-017: a same-day editable key saved for today replaces today's row.
+      ...(((input.key in KILL_SWITCH_SAFE_VALUE &&
+        input.value === KILL_SWITCH_SAFE_VALUE[input.key]) ||
+        SAME_DAY_EDITABLE_KEYS.has(input.key)) &&
       input.effectiveFrom === pc.today
         ? { sameDayOverride: true }
         : {}),

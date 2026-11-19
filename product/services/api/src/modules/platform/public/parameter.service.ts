@@ -292,7 +292,8 @@ export class ParameterService {
     if (!rows[0]) {
       throw problem('VALIDATION_FAILED', {
         detail: 'value already effective – add a row with a later effectiveFrom',
-        errors: [{ field: 'effectiveFrom', code: 'VALIDATION_FAILED' }],
+        // BUG-R5-017: own field code (Problem stays 422 VALIDATION_FAILED; old clients show the generic text).
+        errors: [{ field: 'effectiveFrom', code: 'ALREADY_IN_FORCE' }],
       });
     }
     const shown = input.auditAs?.mask ?? ((v: unknown) => v);
