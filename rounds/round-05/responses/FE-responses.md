@@ -365,3 +365,15 @@ Mã 12.4/12.5 giữ lại sau cờ cho PR tiếp theo (bật cờ khi BE thêm A
   - `cardsIssued`: 0–2, mock cũng theo 0–2.
 - **Kiểm:** admin-web 106 file / 1163 test, api-client 39, `validate-fixtures` 0 lỗi; typecheck, ESLint và Prettier sạch.
 - **Việc cho UXD:** câu `od.owner_only` chưa nói tới trường hợp khoản thu bị đảo hoặc khoản thu thật nhận sau ngày nhận phòng bù. Đề nghị UXD xem có thêm ý này không. FE chưa sửa câu đã được duyệt.
+
+### Lượt 5 – UXD kiểm lại #196: thẻ 196-09..11 (19/11, nhánh `r5-fb012-golive-copy`, chỉ chữ)
+
+| Thẻ | Trạng thái | Cách sửa |
+|---|---|---|
+| FB-R5-UXD-FE-196-09 | Fixed | `field_error.backdate_out_of_range_from`, `bd.arrival_fixed`, `od.reference_long_number` và `bd.need_device` (VI: "máy được cấp quyền") đổi đúng bảng UXD |
+| FB-R5-UXD-FE-196-10 | Fixed | `od.owner_only` thêm điều kiện "phiếu chưa có khoản thu bị đảo hay khoản thu sau ngày đó" và câu "Nhờ chủ đầu tư ghi." Vẫn một khóa, vì server trả cùng một 403 |
+| FB-R5-UXD-FE-196-11 | Fixed | `stmt.pay_amount` = "Amount / Số tiền". Đơn vị chỉ còn ở hậu tố của ô |
+
+Chỉ sửa `gen_strings.py` và các file sinh ra (`strings-en.json`, `strings-vi.json`, `strings-tables.md`, `strings.js`), không đụng mã. Không app nào khác (mobile, guest-web) dùng các khóa này.
+
+Kiểm: admin-web 106 file / 1163 test đạt; i18n 22 đạt; Prettier sạch.

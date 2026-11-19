@@ -4292,7 +4292,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stmt.pay_vietqr` | VietQR | VietQR | ⟨chừa chỗ⟩ |  |
 | `stmt.pay_cash` | Tiền mặt | Cash | ⟨chừa chỗ⟩ |  |
 | `stmt.pay_vietqr_help` | Chỉ ghi khi đã thấy tiền vào tài khoản. Khoản này chờ đối soát. | Record only once the money is in the account. It waits for reconciliation. | ⟨chừa chỗ⟩ | SM-12, D7 |
-| `stmt.pay_amount` | Số tiền (đ) | Amount (VND) | ⟨chừa chỗ⟩ | Mặc định = còn phải thu |
+| `stmt.pay_amount` | Số tiền | Amount | ⟨chừa chỗ⟩ | Mặc định = còn phải thu · UXD-196-11 |
 | `stmt.pay_save` | Lưu khoản thu | Save payment | ⟨chừa chỗ⟩ |  |
 | `stmt.payment_saved` | Đã ghi khoản thu. | Payment recorded. | ⟨chừa chỗ⟩ |  |
 | `stmt.amount_over_balance` | Số tiền lớn hơn còn phải thu ({max} đ). | The amount is above the balance ({max} VND). | ⟨chừa chỗ⟩ |  |
@@ -4431,7 +4431,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 |---|---|---|---|---|
 | `bd.in_house_toggle` | Khách đang ở từ trước | Guest already in house | ⟨chừa chỗ⟩ | FE-1 – ô chọn trong H10, chỉ OWN/MGR · UXD-196-03 |
 | `bd.in_house_help` | Khách đã vào ở trước khi đơn được nhập. Chọn Ngày vào là ngày đến thật, lùi tối đa 45 ngày. Đơn nhập bù không có người chốt, không tính hoa hồng. | The guest moved in before this booking was entered. Set Move-in date to the actual date, up to 45 days ago. Backdated bookings have no closer and earn no commission. | ⟨chừa chỗ⟩ | FE-1; SEC 12-01 · UXD-196-03 |
-| `bd.need_device` | Nhập bù chỉ làm được trên thiết bị đã được cấp quyền. | Backdated entry works only on an approved device. | ⟨chừa chỗ⟩ | SEC 12-07, x-requires-trusted-device |
+| `bd.need_device` | Nhập bù chỉ làm được trên máy được cấp quyền. | Backdated entry works only on an approved device. | ⟨chừa chỗ⟩ | SEC 12-07, x-requires-trusted-device · UXD-196-09 |
 | `bd.reason` | Lý do nhập bù | Reason for backdated entry | ⟨chừa chỗ⟩ | 3–300 ký tự |
 | `bd.reason_help` | Ví dụ: hợp đồng giấy ký trước khi dùng Desk. | For example: paper lease signed before we used Desk. | ⟨chừa chỗ⟩ | UXD-196-03 |
 | `bd.date_range` | Ngày đến phải từ {from} đến {to}. | Arrival must be between {from} and {to}. | ⟨chừa chỗ⟩ | {from} = hôm nay − 45, {to} = hôm qua |
@@ -4441,7 +4441,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `bd.checkin_body` | Ghi nhận khách đã ở trong căn từ ngày đến thật. Không ghi giờ nhận phòng, không phụ thu, không thu tiền. Nhật ký lưu giờ bạn bấm xác nhận. | Records that the guest has been in the room since the actual arrival date. No check-in time, surcharge or payment is taken. The log shows the time you confirm. | ⟨chừa chỗ⟩ | UXD-196-03 |
 | `bd.arrival_real` | Ngày đến thật | Actual arrival date | ⟨chừa chỗ⟩ |  |
 | `bd.arrival_moves` | Ngày đến của đơn sẽ dời từ {from} sang {to}. Tiền thuê tháng và ngày hết hợp đồng không đổi. | The booking's arrival moves from {from} to {to}. Monthly rent and contract end stay the same. | ⟨chừa chỗ⟩ | arrivalDate khác reservation.arrivalDate |
-| `bd.arrival_fixed` | Đơn có nhiều đoạn căn: giữ ngày đến của đơn. Cần đổi ngày đến thì sửa đơn trước. | This booking has more than one room segment, so the arrival date stays as booked. To change it, edit the booking first. | ⟨chừa chỗ⟩ | BE #197 lệch 3 – 422 arrivalDate NOT_ALLOWED |
+| `bd.arrival_fixed` | Đơn này có đổi căn giữa chừng nên giữ ngày đến của đơn. Cần đổi ngày đến thì sửa đơn trước. | This booking changes rooms during the stay, so the arrival date stays as booked. To change it, edit the booking first. | ⟨chừa chỗ⟩ | BE #197 lệch 3 – 422 arrivalDate NOT_ALLOWED · UXD-196-09 |
 | `bd.cards` | Số thẻ phòng đã giao | Key cards issued | ⟨chừa chỗ⟩ |  |
 | `bd.cards_range` | Nhập từ 0 đến 2 thẻ. | Enter 0 to 2 cards. | ⟨chừa chỗ⟩ | OpenAPI 0.3.15 cardsIssued 0–2 |
 | `bd.doc_override` | Lý do bỏ qua kiểm giấy tờ | Reason to skip the document check | ⟨chừa chỗ⟩ | documentBlockOverride.reason |
@@ -4453,7 +4453,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `bd.chip` | Nhận phòng bù {date} | Backdated check-in {date} | ⟨chừa chỗ⟩ | Reservation.checkinBackdatedOn |
 | `checkin.cond.room_occupied` | Căn không có lượt ở khác trong các đêm này | No other stay in the room on these nights | ⟨chừa chỗ⟩ | unmet room_occupied (12.1.2) |
 | `field_error.backdate_out_of_range` | Ngày đến chỉ được lùi tối đa 45 ngày, và phải trước hôm nay. | Arrival can go back at most 45 days, and must be before today. | ⟨chừa chỗ⟩ | BACKDATE_OUT_OF_RANGE |
-| `field_error.backdate_out_of_range_from` | Ngày đến sớm nhất là {date}, và phải trước hôm nay. | The earliest arrival is {date}, and it must be before today. | ⟨chừa chỗ⟩ | 0.3.15 BACKDATE_OUT_OF_RANGE + earliest (ARC 197-05) |
+| `field_error.backdate_out_of_range_from` | Ngày đến phải từ {date} đến hôm qua. | Arrival must be from {date} to yesterday. | ⟨chừa chỗ⟩ | 0.3.15 BACKDATE_OUT_OF_RANGE + earliest (ARC 197-05) · UXD-196-09 |
 | `field_error.previous_month_closed` | Tháng trước đã hết hạn ghi trễ chỉ số cuối kỳ. Chọn ngày 01 của tháng này. | Last month's closing readings can no longer be entered. Choose the 1st of this month. | ⟨chừa chỗ⟩ | PREVIOUS_MONTH_CLOSED |
 | `field_error.previous_month_closed_from` | Tháng trước đã hết hạn ghi trễ chỉ số cuối kỳ. Chọn ngày đến từ {date}. | Last month's closing readings can no longer be entered. Choose an arrival from {date}. | ⟨chừa chỗ⟩ | 0.3.15 PREVIOUS_MONTH_CLOSED + earliest |
 | `field_error.use_check_in` | Khách đến hôm nay: dùng Nhận phòng thường. | The guest arrives today: use the normal check-in. | ⟨chừa chỗ⟩ | USE_CHECK_IN |
@@ -4467,13 +4467,13 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `od.reference` | Mã tham chiếu | Reference | ⟨chừa chỗ⟩ | Không bắt buộc, ≤ 64 ký tự |
 | `od.reference_help` | Không bắt buộc. Chữ, số, dấu cách và . / -. Không nhập số tài khoản. | Optional. Letters, digits, spaces and . / -. No account numbers. | ⟨chừa chỗ⟩ |  |
 | `od.reference_invalid` | Chỉ dùng chữ, số, dấu cách và . / -, tối đa 64 ký tự. | Use letters, digits, spaces and . / - only, up to 64 characters. | ⟨chừa chỗ⟩ |  |
-| `od.reference_long_number` | Mã tham chiếu không được chứa dãy từ 9 chữ số trở lên (có thể là số tài khoản hay số thẻ). | The reference can't contain 9 or more numerals in a row (it may be an account or card number). | ⟨chừa chỗ⟩ | BE #197 lệch 2 – 422 reference NOT_ALLOWED / CARD_NUMBER_DETECTED |
+| `od.reference_long_number` | Mã tham chiếu không được có từ 9 chữ số liền nhau trở lên. Đó có thể là số tài khoản hoặc số thẻ. | The reference can't have 9 or more digits in a row. It may be an account or card number. | ⟨chừa chỗ⟩ | BE #197 lệch 2 – 422 reference NOT_ALLOWED / CARD_NUMBER_DETECTED · UXD-196-09 |
 | `od.date_future` | Ngày khách đã trả không được sau hôm nay. | The date the guest paid can't be after today. | ⟨chừa chỗ⟩ | UXD-196-02 |
 | `od.confirm_title` | Ghi {amount} đ là khách đã trả ngoài app? | Record {amount} VND as already paid outside the app? | ⟨chừa chỗ⟩ | UXD duyệt · UXD-196-01 |
 | `od.confirm_body` | Lúc này không thu tiền. Khoản này không vào ca, đối soát hay tiền mặt bàn giao, và không hoàn được. Ghi nhầm thì quản lý hoặc chủ đầu tư dùng Đảo giao dịch. | No money is taken now. This amount stays out of shifts, reconciliation and the cash handover, and it can't be refunded. If it's wrong, a manager or the owner uses Reverse payment. | ⟨chừa chỗ⟩ | UXD duyệt – contract FE-3 · UXD-196-01 |
 | `od.confirm` | Ghi khách đã trả ngoài app | Record as paid outside the app | ⟨chừa chỗ⟩ | UXD-196-01 |
 | `od.saved` | Đã ghi: khách đã trả ngoài app | Recorded as paid outside the app | ⟨chừa chỗ⟩ | toast · UXD-196-01 |
-| `od.owner_only` | Chỉ chủ đầu tư ghi được khoản này. Quản lý chỉ ghi được tiền thuê trên phiếu tháng nhận phòng của đơn nhận phòng bù, khách trả trước hoặc đúng ngày nhận phòng bù. | Only the owner can record this. A manager can record only the rent on the arrival-month statement of a backdated check-in, paid on or before that check-in. | ⟨chừa chỗ⟩ | 403 SEC 12-02 · UXD-196-02 |
+| `od.owner_only` | Chỉ chủ đầu tư ghi được khoản này ở đây. Quản lý chỉ ghi được tiền thuê trên phiếu tháng nhận phòng của đơn nhận phòng bù, khách trả trước hoặc đúng ngày nhận phòng bù, và phiếu chưa có khoản thu bị đảo hay khoản thu sau ngày đó. Nhờ chủ đầu tư ghi. | Only the owner can record this here. A manager can record only rent on the arrival-month statement of a backdated check-in, paid on or before that check-in, and only if the statement has no reversed payment and no payment received after that check-in. Ask the owner to record it. | ⟨chừa chỗ⟩ | 403 SEC 12-02 · UXD-196-02 · UXD-196-10 |
 | `od.manager_cap` | Quản lý: chỉ tiền thuê, tối đa {amount} đ. | Managers: rent only, up to {amount} VND. | ⟨chừa chỗ⟩ | UXD-196-08 – help ô số tiền khi MGR |
 | `od.need_device` | Ghi khoản đã trả ngoài app chỉ làm được trên máy được cấp quyền. | Recording a payment made outside the app works only on an approved device. | ⟨chừa chỗ⟩ | SEC 12-02 (1) · UXD-196-01 |
 | `pc.title` | Liên hệ cơ sở | Property contact | ⟨chừa chỗ⟩ | FE-4 khối S24 |
