@@ -1,5 +1,135 @@
 # QA – Kiểm trên staging: FB-INV-012 phiếu thanh toán tháng khách dài hạn
 
+## L3. Go-live fix v1.0.7 – contract §12 (19/11, 14:00–14:20)
+
+- Bản kiểm: Desk staging sau CI `44324784155` (`main` @ `93f48941` = BE #197 + FE #196), job `deploy staging` xanh (`sha-93f4894167f7`). OpenAPI `0.3.15-draft`.
+- Đầu vào:
+  - `fb-inv-012/contract.md` §12 (12.11 Q1–Q28, 12.14 lệch BE đã chấp nhận);
+  - `reviews/ARC-on-be-pr-197.md`, `reviews/SEC-on-be-pr-197.md`, `reviews/UXD-on-fe-pr-196.md`;
+  - `fb-inv-012/go-live-guide.md`.
+- Cách chạy như mục 1: API script + Playwright, tài khoản `qa.*`, khách giả `@example.test`. Không in mật khẩu, TOTP, cookie hay link khách.
+  - Máy quầy: QA OWN cấp một thiết bị tin cậy "QA STG API 2026-11-19" lúc 14:00 và thu hồi lúc 14:18.
+  - Không truy cập production, không SSH, không SQL.
+- Hôm nay T = 19/11. Biên ngày đến bù: [05/10, 18/11]. Tháng 10 đã quá hạn ghi trễ (11/11).
+
+### L3.0 Kết luận: **ĐẠT** – 0 P0, 0 P1, 0 P2, 3 P3 mới
+
+- **34 ca:**
+  - 21 ca Q trong phạm vi;
+  - 6 ca bổ sung ORC giao;
+  - 7 ca hoãn (Q9, Q19–Q24).
+- **Kết quả: 25 đạt, 0 trượt, 9 chưa chạy.** 9 ca chưa chạy là:
+  - 7 ca hoãn;
+  - Q7: không có căn sạch để nhận phòng thường (L3.3);
+  - Q25: không có quyền DB trên staging. Ca này CI đã phủ.
+- **Q16 đạt:** phiếu cuối không thu tháng 11 hai lần. Phiếu 11 ghi "đã thu ngoài Desk" vẫn được trừ trong phiếu cuối, và tổng tiền thuê trên Desk = tiền thuê HĐ (L3.1 Q16). Bản 3 kỳ (phiếu 12 thu thường rồi mới tới phiếu cuối) phải chờ có chỉ số cuối kỳ 11: chạy lại ngày 01/12 với OTM-00412.
+- **Lỗi mới, đều P3, không sai tiền:**
+  - BUG-R5-014: 409 dời ngày đến liệt kê cả đêm của chính đơn;
+  - BUG-R5-015: MGR vẫn thấy nút "Khách đã trả ngoài app" khi server sẽ trả 403;
+  - BUG-R5-016: hotline in trên phiếu không có dấu cách.
+- **Lỗi đã biết, kiểm lại trên staging:**
+  - SEC 197 Minor: `reference` "TK 0123456789" vẫn lọt;
+  - ARC 197-03: khóa `long_stay_cleaning_fee_by_room` vẫn sửa được qua API khi chưa có hook. QA lỡ đặt một lịch, đã hủy trước ngày hiệu lực;
+  - UXD 196-04: checkbox của trình duyệt vẫn còn.
+- **UXD:**
+  - 196-07 đạt: nút xác nhận màu Ink, ô số tiền có dấu phân cách hàng nghìn;
+  - 196-04 còn nửa: hàng Căn / Ngày vào / Ngày ra đã thẳng, nhưng checkbox vẫn là của trình duyệt.
+- **Không có ESC mới.**
+
+### L3.1 Kết quả theo contract 12.11
+
+Đơn thử:
+- **X** = OTM-00412, căn 202, MGR tạo với ngày đến 09/11 (T−10), tiền thuê HĐ 8.500.000, đi 14/12;
+- **B** = OTM-00409 (lượt 1) dùng cho ca chia phần;
+- OTM-00410 (căn 201), OTM-00411 (căn 301), OTM-00413 (căn 101): đã hủy.
+
+| # | Ca | Kết quả | Bằng chứng ngắn |
+|---|---|---|---|
+| Q1 | MGR tạo đơn dài hạn nhập tay, ngày đến T−10, có lý do | **Đạt** | 201 `confirmed`, `allowedActions` có `check_in_backdated` (`requiresTrustedDevice`). Audit `reservation.created` có `after.backdatedArrival = true` và `reason`. OWN có thông báo `backdated_stay`, chỉ có mã đơn |
+| Q2 | FDL, FD gửi `backdatedArrival`; ngày đã qua mà không gửi trường | **Đạt** | FDL, FD → 403 `FORBIDDEN_ACTION` "backdatedArrival needs MGR+ (A127)", mỗi lần có `access.denied`. MGR/FD không gửi trường → 422 `arrivalDate: DATE_IN_PAST` |
+| Q3 | Các ngày ngoài biên | **Đạt** | (1) 04/10 → `BACKDATE_OUT_OF_RANGE`, `earliest` 05/10.<br>(2) 20/10 → `PREVIOUS_MONTH_CLOSED`, `earliest` 01/11.<br>(3) Ngày đi 19/11 và 12/11 → `departureDate: DATE_IN_PAST`.<br>(4) Ngày đến = T → `BACKDATE_OUT_OF_RANGE` (lệch 4).<br>(5) Đơn ngắn ngày → `backdatedArrival: NOT_ALLOWED`. Đây là mã của 12.1.1; bảng Q3 ghi `NOT_LONG_STAY`, hai chỗ trong contract lệch nhau, ARC nên sửa một chỗ |
+| Q4 | Căn đã có lượt khác trong các đêm đã qua | **Đạt** | Căn 101, 102, 202 → 409 `ROOM_UNAVAILABLE`, có `conflicts` đúng đêm bận. Không ghi gì: số mã đơn không nhảy, đơn tạo được ngay sau đó là OTM-00410 |
+| Q5 | MGR nhận phòng bù: (a) cùng ngày đến; (b) dời sớm | **Đạt** | (a) `arrivalDate` 09/11 → 200 `in_house`, `checkinBackdatedOn` 19/11, `actualCheckinAt` = giờ bấm (14:03), buồng VD → OC, folio 0 dòng. Có 2 audit: `reservation.checked_in` (`after.backdated`) và `reservation.checked_in_backdated`.<br>(b) Hoàn tác nhận phòng (B17), rồi `arrivalDate` 08/11 → 200, ngày đến 08/11, đoạn 202 từ 08/11, `leaseEndDate` và tiền thuê không đổi. Audit có `previousArrivalDate` 09/11.<br>Dời về 05/11 (căn bận 06–07/11) → 409 `ROOM_UNAVAILABLE`, nhưng danh sách có cả đêm của chính đơn → **BUG-R5-014** |
+| Q6 | FD/FDL gọi; `arrivalDate` = T; gửi trường của `checkIn` | **Đạt** | FD, FDL → 403. T → 422 `USE_CHECK_IN`. `checkinTime`, `payment`, `houseRulesSent` → 422 `<field>: NOT_ALLOWED`. Ngày tháng trước → `PREVIOUS_MONTH_CLOSED`. Căn có lượt khác `in_house` (201, 301) → 409 `unmet: [main_guest_document, room_occupied]`, không có `room_ready` |
+| Q7 | Hồi quy `checkIn` thường | **Chưa chạy** (CI xanh) | Mọi căn sạch đều đang giữ một lượt `in_house` cũ quá ngày đi (L3.3), nên `checkIn` thường bị `room_ready` chặn. Đơn hôm nay (OTM-00413): FD/MGR chỉ thấy `check_in`, không thấy `check_in_backdated`. ARC xác nhận `checkIn` không đổi một dòng, test CI xanh |
+| Q8 | Chỉ số nhận phòng của đơn nhận phòng bù | **Đạt** | (1) FDL, `readOn` 07/11 (= ngày đến − 1), có lý do, thiếu ảnh kèm ghi chú → 201, `late=true`.<br>(2) FD có ảnh, ngày 07/11 hay 19/11 → 422 `READING_OUT_OF_WINDOW`, `lateNeedsRole: front_desk_lead`, `lateUntil` 30/11 (= 19/11 + 11).<br>(3) FD gửi `photoWaived` → 403.<br>(4) `readOn` 06/11 hay 20/11 → `DATE_INVALID`.<br>(5) Thiếu `lateReason` → 422 |
+| Q9 | Đọc bù sau hạn | **Hoãn** | Cần ngày nhập > 30/11 và code 12.5 (chưa lên). Desk không có nút "Đọc bù" (L3.2 E4) |
+| Q10 | Phiếu tháng nhận phòng của đơn nhận phòng bù | **Đạt** | Có trong danh sách lập phiếu 11/2026 (`readingStatus: not_needed`). Nháp `regular`, kỳ thuê 08–30/11, 23 × 283.000 = **6.509.000**, không có điện nước, không thiếu chỉ số. Phát hành → TT-2611-202, hạn 08/11 |
+| Q11 | MGR ghi "đã thu ngoài Desk" toàn bộ phiếu 11 | **Đạt** | 201, phiếu `paid`. Khoản `outside_desk` 6.509.000: `succeeded`, `not_required`, `shiftId` null, nhận 10/11 12:00. Không có trong hàng đối soát `pending`. Audit `money` `billing_period.settled_outside_desk` có số tiền, ngày, lý do. OWN có thông báo `statement_settled_outside_desk`, không số tiền, không người ghi (lệch 5). Không có ca đang mở nên không xem được màn đóng ca; khoản này không có ca, đúng CHECK |
+| Q12 | Các ca lỗi | **Đạt** | (1) FD, FDL → 403.<br>(2) OWN hay MGR gửi 6.510.000 → 422 `AMOUNT_OVER_BALANCE` (`balanceVnd` 6.509.000).<br>(3) Số tiền 0 → 422.<br>(4) Thiếu lý do hay lý do 2 ký tự → `reason: REASON_REQUIRED`.<br>(5) `receivedOn` 20/11 → `DATE_IN_FUTURE` (lệch 7).<br>(6) Phiếu `void` → 409 `INVALID_TRANSITION` |
+| Q13 | `method: outside_desk` ở các đường thu khác | **Đạt** (B9 chưa kết luận) | `recordBillingPeriodPayment`, `recordPayment` (folio), `createReservation.initialPayment`, `checkOut.finalPayment` → 422 `NOT_IN_LIST`. Riêng `checkIn.payment` trả 409 `CHECKIN_CONDITIONS_NOT_MET` trước (căn chưa sạch), nên chưa thấy 422. Test SEC 12-03 (duyệt mọi `requestBody`) phủ đường này trong CI |
+| Q14 | MGR đảo khoản `outside_desk` | **Đạt** (phần hoàn tiền: CI) | FDL đảo → 403. MGR → 200, khoản `reversed`, phiếu `paid` → `issued`, folio còn nợ 6.509.000. Ca hoàn tiền không dựng được: folio không có dư. Test 197-01 phủ ca này |
+| Q15 | Thu một phần ngoài Desk + VietQR phần còn lại | **Đạt** | B (TT-2611-402, còn nợ 3.890.000): OWN ghi ngoài Desk 890.000 → `partially_paid`, QR in `54` = 3.000.000, nội dung `TT2611402`. Đảo xong thì QR về 3.890.000.<br>X: VietQR 3.509.000 → `partially_paid`, QR 3.000.000. OWN ghi ngoài Desk 3.000.000 → `paid`, trang in hết QR, có dấu PAID, không in phương thức hay lý do |
+| Q16 | **Phiếu cuối không thu hai lần** | **Đạt** (bản 2 kỳ) | X: HĐ 08/11–13/12 (đi 14/12), tháng 11 đã thu ngoài Desk 6.509.000. Nháp 12/2026 là `final`, kỳ thuê 01–13/12, tiền thuê **3.689.000**. Tính tay: HĐ = 8.500.000 (08/11–07/12) + 6 × 283.000 (08–13/12) = 10.198.000. Phiếu cuối = 10.198.000 − 6.509.000 = 3.689.000. Tổng thuê trên Desk = HĐ. Nếu không trừ phiếu 11 thì phiếu cuối là 10.198.000. Bản 3 kỳ của Q16: chạy lại 01/12 |
+| Q17 | Liên hệ cơ sở | **Đạt** | (1) OWN GET 200 `no-store`; MGR, FDL GET 200; FD 403. MGR PUT → 403.<br>(2) OWN gửi địa chỉ 2 dòng, địa chỉ 3 ký tự, ký tự bidi, hotline "abc 123" hay "090", thiếu hotline → 422. Lỗi không lặp lại giá trị đã gửi.<br>(3) OWN lưu → bỏ khoảng trắng đầu/cuối, hotline chuẩn hóa "+84900000222".<br>(4) Audit `config` `property.contact_changed` có trước/sau.<br>(5) API in và trang in TT-2611-202 có địa chỉ mới ở đầu phiếu, "Cần hỗ trợ, vui lòng liên hệ +84900000222" ở chân (xem **BUG-R5-016**).<br>(6) "Trang công khai căn": `getPublicUnitPage` chưa có ở server (404, không có controller), nên không kiểm được – xem L3.4 |
+| Q18 | Miễn trừ hotline | **Đạt** | Sau khi đổi hotline từ 0900000111 sang +84900000222, FD từ chối yêu cầu khách (`replyNote`):<br>- hotline cũ → 422 `SENSITIVE_DATA_DETECTED`;<br>- số khác → 422;<br>- "+84 900 000 222" → 200. |
+| Q19 | Giá dọn dài hạn khi bảng rỗng | **Hoãn** (thấy khớp) | Trang khách của X (`request-options`): dọn thêm 100.000, `feeReason: long_stay_adhoc` = `adhoc_cleaning_fee` |
+| Q20–Q24 | 12.4 / 12.5 | **Hoãn** | Code chưa lên (§12.10 phạm vi tối thiểu) |
+| Q25 | `lock_timeout` | **Chưa chạy trên staging** (CI phủ) | QA không có quyền DB staging. `migrate-lock-timeout.test.ts` (2 ca, 1 s) xanh trong CI PR #197 (ARC mục 0) |
+| Q26 | Migration 75 | **Đạt gián tiếp** | Mọi thứ của 0100 chạy trên staging: cột `checkin_backdated_on`, CHECK `outside_desk` nhận khoản thu, 2 loại thông báo mới, khóa `long_stay_cleaning_fee_by_room`. Deploy `ok`. **Số đếm 75 và `convalidated` cần OPS xác nhận** (QA không có SQL) |
+| Q27 | RBAC 8 vai × A127–A129; `Me.screens` | **Đạt** | `GET /v1/me` của 8 vai khớp từng màn với `SCREENS_BY_ROLE` (`screens.ts` không đổi từ trước gói). hk, mt, sal, ctv: A127 tạo đơn và nhận phòng bù, A128, A129 → 403; `getPropertyContact` → 403. FD: `getPropertyContact` 403. FDL: xem 200, sửa 403. MGR: sửa liên hệ 403. A130 chưa có operation (lệch 9) |
+| Q28 | Hồi quy FB-INV-012 | **Đạt** | (1) Luồng X: chỉ số nhận phòng → nháp → phát hành → in A5/A4 (1 trang mỗi khổ) → VietQR → đã thu.<br>(2) Trang in B: QR giải mã khớp payload API. Bảng màu như lượt 2 (chỉ `fill` đen của biểu tượng SVG). Có đủ Lora, Be Vietnam Pro, JetBrains Mono, không emoji.<br>(3) Cuối kỳ 11 ngày 19/11 → 422 `READING_OUT_OF_WINDOW` 30/11–01/12.<br>(4) Phát hành phiếu 12 khi thiếu chỉ số → `METER_READING_MISSING`.<br>4 ca cửa sổ (1.9, 1.14, 2.3, 3.6) vẫn chạy ngày 30/11–01/12 |
+
+### L3.2 Ca bổ sung ORC giao
+
+| # | Ca | Kết quả | Bằng chứng ngắn |
+|---|---|---|---|
+| E1 | MGR ngoài thiết bị tin cậy | **Đạt** | Chưa có thiết bị: MGR tạo đơn có `backdatedArrival` → 403 `DEVICE_NOT_TRUSTED` + `access.denied` `trusted_device` (SEC 12-07 đã đóng). Thiếu thiết bị ở `check-in-backdated` và `settle-outside-desk` → 403 `DEVICE_NOT_TRUSTED` (thấy ở các vai không có cookie máy quầy, Q27) |
+| E2 | MGR chỉ thấy nút trên phiếu tháng nhận phòng của đơn nhận phòng bù | **Đạt** (xem BUG-R5-015) | API: TT-2611-202 (X) MGR có `settle_outside_desk`, FD/FDL không. TT-2611-402 (B, nhận phòng thường): MGR không có, OWN có. MGR gọi vào B → 403 "owner only".<br>Desk: drawer TT-2611-402 với MGR, FDL chỉ có "Ghi đã thu"; với OWN có "Khách đã trả ngoài app".<br>Phạm vi MGR (SEC-BE-197-02): MGR ghi lại sau khi đã đảo một khoản → 403 "owner only", đúng thiết kế. Nhưng phiếu vẫn báo `settle_outside_desk` cho MGR → BUG-R5-015 |
+| E3 | Số thẻ trong `reference` | **Đạt** | "4111 1111 1111 1111" → 422 `CARD_NUMBER_DETECTED` (`reference`). Số thẻ trong `reason` → 422. Toàn số 10 chữ số → `reference: NOT_ALLOWED` (lệch 2). "TK 0123456789" vẫn lọt, lưu `note` "… \| ref TK 0123456789". Đây là thẻ SEC 197 Minor đã biết, giữ hạn của SEC |
+| E4 | Giao diện 12.4/12.5 không mở được | **Đạt** | Tham số (OWN, MGR, FDL): không có khóa giá dọn theo căn, tab "Dài hạn – phiếu tháng" chỉ có 3 khóa cũ. Chốt công tơ (MGR, OWN): không có nút hay chữ "Đọc bù". API `catchUp: true` không được dùng (409 `READING_EXISTS` trước). **API `setParameter long_stay_cleaning_fee_by_room` (MGR) vẫn nhận `{"202":150000}` = ARC 197-03.** QA lỡ đặt hiệu lực 20/11, đã `cancel-scheduled` lúc 14:16, lịch sử trống, giá trị hiện tại vẫn `{}` |
+| E5 | UXD 196-04 (checkbox), 196-07 (nút Ink, dấu nghìn) | 196-07 **đạt**; 196-04 **còn nửa** | 196-07: hộp xác nhận "Ghi 3.890.000 đ là khách đã trả ngoài app?" có nút chính nền Ink #2B2B28, chữ Ivory; "Quay lại" là nút phụ. Ô số tiền điền sẵn "3.890.000". Đạt ở 1440 và 390.<br>196-04: hàng Căn / Ngày vào / Ngày ra đã thẳng; câu "ngày 01" đã lên khối giải thích. Nhưng "Khách đang ở từ trước" vẫn là `input[type=checkbox]` của trình duyệt (ô đen), không phải `Checkbox` của DS |
+| E6 | MGR đảo rồi ghi lại (SEC-BE-197-02) | **Đạt** | Sau khi MGR đảo khoản `outside_desk` trên TT-2611-202, MGR ghi lại 3.000.000 → 403 "owner only". OWN ghi được |
+
+### L3.3 Dữ liệu và dọn dẹp
+
+- **Đã hủy:** OTM-00410, OTM-00411, OTM-00413 (lý do `other`).
+- **B (OTM-00409):**
+  - khoản ngoài Desk 890.000 đã đảo, TT-2611-402 về đúng như trước (còn nợ 3.890.000);
+  - nháp 12/2026 tạo nhầm khi kiểm hồi quy đã hủy.
+- **X (OTM-00412) – giữ lại có chủ ý, như OTM-00408/00409:**
+  - trạng thái: căn 202, đang ở 08/11–14/12;
+  - TT-2611-202 `paid`: VietQR 3.509.000 `pending`, ngoài Desk 3.000.000 (OWN), một khoản ngoài Desk đã đảo;
+  - nháp 12/2026 đã hủy;
+  - dùng để chạy Q16 bản đầy đủ ngày 01/12: có cuối kỳ 11 → phát hành phiếu 12 `final` → so với HĐ;
+  - nếu ORC muốn dọn ngay: đảo 2 khoản, hủy TT-2611-202, hoàn tác nhận phòng, hủy đơn.
+- **Đã trả lại:**
+  - liên hệ cơ sở về `null`/`null` như trước khi kiểm. Lưu ý: production vẫn cần OWN nhập theo `go-live-guide.md`;
+  - lịch tham số đặt nhầm đã hủy;
+  - link khách của X đã thu hồi;
+  - thiết bị tin cậy đã thu hồi.
+- **Còn lại, không xóa được qua API:**
+  - 1 hồ sơ khách giả `@example.test` (KH-0486);
+  - 2 ảnh đồng hồ tải lên nhưng không dùng (`purpose=meter`);
+  - 1 yêu cầu khách đã từ chối trên X.
+- **Cho ORC:** staging có 6 lượt `in_house` cũ quá ngày đi, giữ các căn 101, 102, 201, 301, 302, 401:
+  - OTM-00296, 00359, 00397, 00399: từ trước;
+  - OTM-00403, 00406: tạo 16/11, không phải của lượt này.
+
+  Không căn sạch nào nhận phòng thường được, nên Q7 chưa chạy. Nên nhờ vai đã tạo trả phòng các lượt này trước lượt 30/11.
+
+### L3.4 Ghi chú cho vai liên quan (không ghi lỗi)
+
+- **ARC:**
+  - Q3 ghi `NOT_LONG_STAY` cho đơn ngắn ngày, nhưng 12.1.1 và code dùng `backdatedArrival: NOT_ALLOWED`. Nên sửa bảng Q3.
+  - §12.3 nói đổi hotline "tác động trang công khai căn (`phonePublic`)", nhưng `getPublicUnitPage` chưa có ở server. Nên ghi rõ là chưa áp dụng.
+- **ARC/BE – hoàn tác nhận phòng bù:** sau B17, đơn về `confirmed` nhưng `checkinBackdatedOn` vẫn 19/11. Nhận phòng bù lại thì đúng. Cần xác nhận đây là chủ ý: giữ dấu để SEC 12-01 vẫn chặn đổi người chốt.
+- **FE – ô "Ngày ra" khi chọn "Khách đang ở từ trước":** `min` = ngày vào, nên chọn được ngày ≤ hôm nay; server trả `DATE_IN_PAST`. Ô "Ngày vào" cho chọn từ 05/10, còn server chỉ nhận từ 01/11 và báo ngày sớm nhất. Cả hai đều có server chặn, nên chỉ nên siết `min` cho dễ dùng.
+- **UXD:**
+  - Câu xác nhận ghi "và không hoàn được". Theo lệch 8, chỉ hoàn "theo phương thức gốc" bị chặn; hoàn tiền mặt hay chuyển khoản vẫn theo SM-10. UXD xem có cần nói chính xác hơn.
+  - Folio ghi "Đã trả ngoài app", báo cáo 196-01 ghi "Khách đã trả ngoài app". Hai chữ nên thống nhất.
+- **OPS:** xác nhận số migration staging = 75 và 2 CHECK mới `convalidated` (Q26).
+
+### L3.5 Ảnh (scratchpad, không commit; có tên khách giả rút gọn)
+
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/ls-form-inhouse-qa.mgr-1440.png`, `…/shots3/ls-form-inhouse-qa.mgr-390.png` – form có "Khách đang ở từ trước" (196-04).
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/od-confirm-qa.owner-1440.png`, `…/shots3/od-confirm-qa.owner-390.png` – hộp xác nhận (196-07).
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/od-form-qa.owner-1440.png` – form "Khách đã trả ngoài app", số tiền có dấu nghìn.
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/stmt-TT-2611-402-qa.mgr-1440.png` – MGR không có nút trên phiếu nhận phòng thường.
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/contact-qa.owner.png`, `…/shots3/contact-qa.mgr.png` – khối "Liên hệ cơ sở" (OWN sửa, MGR chỉ xem).
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots/print-Xnov-screen.png`, `…/shots/print-Xnov-A5.pdf` – trang in TT-2611-202 (địa chỉ, hotline, PAID).
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/res-X-folio2-qa.mgr.png` – chip "Nhận phòng bù 19/11", folio "Đã trả ngoài app". Ảnh có tên khách trên staging, không commit.
+
 ## L2. Lượt 2 – kiểm lại bản sửa (18/11, 17:40–18:05)
 
 - Bản kiểm: Desk staging sau CI `44278151592` (`main` @ `5e98ec5a` = BE #194 + FE #195), job `deploy staging` xanh.
