@@ -137,3 +137,22 @@ Rủi ro còn lại (chấp nhận, ghi nhận): khách mở danh sách yêu c�
 **QA:** kiểm lại BUG-R5-017 trên staging theo BE-3 (1) và (3), cùng FE-1.
 
 Không ESC: đây là quyết định kỹ thuật thuộc ARC, không đổi giá hay quyền của INV.
+
+### D. PR #203 (BE, `r5-bug-r5-017-be`, head `3956c861`) – ARC review 19/11
+
+**DUYỆT** gộp khi CI xanh hết. Lúc review: contract `--strict`, Redocly, confidential paths và gitleaks đã xanh; test, shellcheck, landing đang chạy. Không có thẻ.
+
+- **BE-1 – đạt.** `SAME_DAY_EDITABLE_KEYS` chỉ có `long_stay_cleaning_fee_by_room`. Điều kiện là `((công tắc khẩn về giá trị an toàn) || SAME_DAY_EDITABLE_KEYS.has(key)) && effectiveFrom === today`. Ngoặc đúng, nên dòng tương lai và mọi khóa khác không đổi. `ParameterService.set()` không đổi cách ghi. Bộ kiểm dạng của 197-03 vẫn chạy trước khi ghi đè (test 2b).
+- **BE-2 – đạt, chỉ đổi mã.**
+  - Thay đổi duy nhất là mã trường `VALIDATION_FAILED` → `ALREADY_IN_FORCE` trong `set()`. `Problem.code` vẫn là 422 `VALIDATION_FAILED`, `detail` giữ nguyên. Không đổi schema.
+  - Mã mới có trong bảng mã trường, changelog 0.3.15 và mô tả `setParameter`. File sinh đã cập nhật; CI contract xanh.
+  - Đã grep: không test và không client nào (admin-web, mock, infra) dựa vào mã cũ. `ParametersService.setParameter` là đường gọi `set()` duy nhất.
+- **BE-3 – đạt.** Test tích hợp trên PostgreSQL thật, qua HTTP:
+  - OWN lưu 2 lần trong ngày, cả hai 200. Chỉ còn một dòng hôm nay, đã bị ghi đè.
+  - Audit lần 2 có `before` = bảng lần 1 và `sameDayOverride`.
+  - Dòng folio ghi giữa hai lần giữ 120.000; lần dọn sau tính 150.000.
+  - MGR ghi đè được, đúng A101.
+  - Khóa khác lưu lần 2 → 422 `ALREADY_IN_FORCE`, giá trị không đổi.
+  - Test công tắc khẩn (`public-site-r3-bed`, `v104-notice-allowlist`) chạy trong CI.
+- **BE-4 – đạt.** `erd.md` 4.1 liệt kê hai ngoại lệ và ghi rõ: thêm khóa vào danh sách = đổi hợp đồng.
+- Còn lại (không phải việc của #203): FE-1..3 và câu UXD; go-live-guide 7.1 (PO/OPS); QA kiểm lại BUG-R5-017 trên staging.
