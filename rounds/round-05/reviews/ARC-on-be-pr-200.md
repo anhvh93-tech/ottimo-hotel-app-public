@@ -77,3 +77,63 @@
 - Hook được làm trước tiên. Hàm chọn giá đặt trong module folio, dùng chung cho ba nơi, nên không có chỗ thứ hai tự tính giá.
 - Giá INV không có trong mã: chỉ nằm ở seed dev và do OWN nhập trên Desk.
 - FE kiểm cùng khoảng giá với server, và câu lỗi nói rõ cách dùng giá chung.
+
+---
+
+## Phụ lục 19/11: BUG-R5-017, sửa bảng giá dọn trong ngày
+
+### A. Hiện trạng (đọc trên `origin/main`)
+
+- `ParameterService.set()` (`platform/public/parameter.service.ts` ~225–315) ghi bằng `INSERT … ON CONFLICT (property_id, key, effective_from) DO UPDATE … WHERE effective_from > today OR $sameDayOverride`.
+  - Dòng **tương lai**: ghi đè thoải mái.
+  - Dòng **hôm nay**: chỉ ghi đè được khi có cờ `sameDayOverride`; không có cờ thì trả 422 `VALIDATION_FAILED` "value already effective", lỗi gắn vào `effectiveFrom` dưới mã chung. Đây là luật erd 4.1: "giá trị đang có hiệu lực thì không sửa".
+- Cờ `sameDayOverride` hiện chỉ do `ParametersService.setParameter` đặt, qua danh sách trắng `KILL_SWITCH_SAFE_VALUE` (BUG-R3-008). Danh sách gồm `public_booking_requests_enabled = false` và `public_show_prices = false`. Audit `config.changed` ghi `before.value`, `after.value`, `after.sameDayOverride: true`. `pg_notify('config_changed')` xóa cache.
+- **Có khóa dựa vào việc chặn ghi đè trong ngày:**
+  - bật lại công tắc khẩn (`true`) phải chờ sang ngày mới (test `public-site-r3-bed`, `v104-notice-allowlist`);
+  - `payment_receiving_account` buộc hiệu lực từ ngày mai (kiểm riêng);
+  - các khóa giá và luật (`min_stay`, `damage_catalog`, giá theo đêm…) được giữ nguyên trong ngày để báo giá và đơn tạo trong ngày nhất quán với nhau.
+  
+  Vì vậy **không** mở ghi đè trong ngày cho mọi tham số.
+
+### B. Quyết định ARC
+
+**Chọn (a), nhưng chỉ cho một khóa:** cho phép ghi đè dòng hôm nay của `long_stay_cleaning_fee_by_room`, bằng cơ chế `sameDayOverride` có sẵn, có audit trước/sau. Mọi khóa khác giữ luật hiện tại. Thêm phần FE của (b) cho mọi khóa: câu báo rõ ràng và nút "hiệu lực từ ngày mai".
+
+Lý do:
+- **Rủi ro thấp.** Ghi đè chỉ đổi những lần đọc *sau* thời điểm đó. Tiền đã ghi trước đó không đổi:
+  - dòng folio `adhoc_cleaning_fee` lưu `unit_price_vnd` ngay lúc ghi;
+  - yêu cầu dọn của khách chụp `fee_vnd_snapshot`.
+  
+  Không bảng nào khác đọc khóa này. Mã đã có sẵn (cờ + audit + xóa cache), nên chỉ phải thêm một tên khóa vào danh sách.
+- **Đúng nhu cầu go-live.** Bảng có 10 căn, OWN nhập tay. Gõ nhầm hay quên một căn mà phải chờ tới ngày mai thì lễ tân phải giữ dòng phần chênh thêm một ngày (go-live-guide 5.3), dễ thu sai.
+- **(b) đơn thuần không đủ.** Hướng dẫn "nhập cả 10 căn trong một lần lưu" không tránh được lỗi gõ nhầm. Nó chỉ dời lỗi sang hôm sau.
+- Không ghi đè cho mọi tham số, vì các luật ở mục A sẽ mất tác dụng.
+
+Rủi ro còn lại (chấp nhận, ghi nhận): khách mở danh sách yêu cầu dọn, thấy giá cũ, OWN sửa giá, rồi khách gửi. Khi đó `fee_vnd_snapshot` lấy giá mới, vì `feeAccepted` chỉ là cờ true/false, không kèm số tiền. Rủi ro này đã có với mọi lần đổi giá; lần này nó chỉ xảy ra trong vài phút OWN sửa bảng lúc go-live. Hướng xử lý: OWN nhập bảng trước khi mở trang khách cho khách dài hạn. Round sau cân nhắc thêm `feeAcceptedVnd`: số tiền khách đã đồng ý, server so với giá hiện tại, lệch thì trả 409.
+
+### C. Việc cho từng vai
+
+**BE (PR nhỏ, trước tag v1.0.7)**
+
+| # | Việc |
+|---|---|
+| BE-1 | `parameters.service.ts`: thêm danh sách `SAME_DAY_EDITABLE_KEYS = new Set(['long_stay_cleaning_fee_by_room'])` cạnh `KILL_SWITCH_SAFE_VALUE`. Đặt `sameDayOverride: true` khi `input.key` thuộc danh sách **và** `effectiveFrom === today`. Không đổi `ParameterService.set()`. Hook kiểm của 197-03 vẫn chạy trước, như mọi lần lưu |
+| BE-2 | Khi dòng hôm nay đã có và khóa không thuộc danh sách: đổi mã trường từ `VALIDATION_FAILED` thành `effectiveFrom: ALREADY_IN_FORCE`. Vẫn là `422 VALIDATION_FAILED`, `detail` giữ nguyên. Chỉ thêm, nên client cũ vẫn hiện câu chung như hiện nay. Ghi mã vào bảng mã trường và vào mô tả `setParameter` trong OpenAPI 0.3.15 (sinh lại meta/api-client nếu có đổi) |
+| BE-3 | Test tích hợp: (1) OWN lưu bảng hôm nay 2 lần → 200 cả hai; giá trị đang có là bảng lần 2; audit lần 2 có `before` = bảng lần 1 và `sameDayOverride: true`; dòng folio ghi giữa hai lần giữ giá cũ. (2) MGR ghi đè trong ngày cũng được (theo A101). (3) Khóa khác (ví dụ `adhoc_cleaning_fee`) lưu lần 2 trong ngày → 422 `effectiveFrom: ALREADY_IN_FORCE`. (4) Test công tắc khẩn hiện có vẫn xanh |
+| BE-4 | `erd.md` mục 4.1: thêm ngoại lệ thứ hai "`long_stay_cleaning_fee_by_room` – sửa trong ngày, audit `sameDayOverride`" |
+
+**FE (#201 hoặc PR theo sau, trước tag)**
+
+| # | Việc |
+|---|---|
+| FE-1 | S24, mọi khóa: lỗi `effectiveFrom: ALREADY_IN_FORCE` hiện câu rõ nghĩa (UXD duyệt, EN dẫn – VI hỗ trợ). Gợi ý: "A value is already in force today. Choose a later date. · Đã có giá trị hiệu lực hôm nay. Chọn ngày sau." Kèm nút "Effective tomorrow · Hiệu lực từ ngày mai" điền sẵn T+1 |
+| FE-2 | Bảng giá dọn theo căn: lưu lại trong ngày được. Sau khi lưu, hiện "Saved – in force now · Đã lưu – áp dụng ngay". Không dùng màu đỏ hay câu cảnh báo |
+| FE-3 | Test: lưu 2 lần trong ngày với bảng giá dọn → thành công; khóa khác → câu mới cùng nút ngày mai |
+
+**PO/OPS (go-live-guide 7.1) và UXD**
+- Go-live-guide 7.1: "OWN nhập cả 10 căn, hiệu lực từ hôm nay. Sửa lại trong ngày được; mỗi lần sửa đều được ghi lại. Bỏ dòng phần chênh sau khi đã kiểm giá trên một dòng thử." Không còn câu "chờ ngày mai".
+- UXD duyệt câu của FE-1 và FE-2.
+
+**QA:** kiểm lại BUG-R5-017 trên staging theo BE-3 (1) và (3), cùng FE-1.
+
+Không ESC: đây là quyết định kỹ thuật thuộc ARC, không đổi giá hay quyền của INV.
