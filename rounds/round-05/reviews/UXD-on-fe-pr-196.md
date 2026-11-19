@@ -61,7 +61,7 @@
   - Ghi chú khóa `od.*`: khóa vẫn tên `outside_desk` vì khớp enum API. Chỉ đổi chữ hiển thị.
   - ARC sửa câu ví dụ nhãn "Outside Desk · Thu ngoài Desk" ở contract §12.2 (bảng "Phương thức mới…", dòng báo cáo) thành "Paid outside the app · Đã trả ngoài app". BE không phát chữ hiển thị nên không phải sửa.
   - Test `fb012-golive-fe.test.tsx` dùng `tv('od.*')` nên tự theo chuỗi mới.
-- Trạng thái: Open
+- Trạng thái: Closed – UXD kiểm lại 19/11 trên main `93f48941`: 9 khóa đúng bảng (`gen_strings.py`). Còn việc của ARC: câu nhãn ví dụ ở contract §12.2
 
 ### FB-R5-UXD-FE-196-02
 - Mức độ: Minor
@@ -79,7 +79,7 @@
 | `od.received_on` | Date the guest paid | Ngày khách đã trả |
 | `od.date_future` | The date the guest paid can't be after today. | Ngày khách đã trả không được sau hôm nay. |
 | `od.owner_only` | Only the owner can record this. A manager can record only the rent on the arrival-month statement of a backdated check-in, paid on or before that check-in. | Chỉ chủ đầu tư ghi được khoản này. Quản lý chỉ ghi được tiền thuê trên phiếu tháng nhận phòng của đơn nhận phòng bù, khách trả trước hoặc đúng ngày nhận phòng bù. |
-- Trạng thái: Open
+- Trạng thái: Closed – UXD kiểm lại 19/11: `pc.help`, `od.received_on`, `od.date_future`, `od.owner_only` đúng bảng. `od.owner_only` được mở rộng ở thẻ 196-10
 
 ### FB-R5-UXD-FE-196-03
 - Mức độ: Minor
@@ -101,7 +101,7 @@
 | `bd.first_of_month` | Moved in before the 1st of the month now being billed? Choose the 1st and write the real lease start in the note. | Khách ở từ trước ngày 01 của tháng đang lập phiếu: chọn ngày 01, ghi ngày bắt đầu hợp đồng thật vào ghi chú. |
 | `bd.checkin_body` | Records that the guest has been in the room since the actual arrival date. No check-in time, surcharge or payment is taken. The log shows the time you confirm. | Ghi nhận khách đã ở trong căn từ ngày đến thật. Không ghi giờ nhận phòng, không phụ thu, không thu tiền. Nhật ký lưu giờ bạn bấm xác nhận. |
 | `bd.arrival_real` | Actual arrival date *(giữ)* | Ngày đến thật *(giữ)* |
-- Trạng thái: Open
+- Trạng thái: Closed – UXD kiểm lại 19/11: các khóa `bd.*` đúng bảng
 
 ### FB-R5-UXD-FE-196-04
 - Mức độ: Minor
@@ -113,7 +113,7 @@
 - Đề xuất sửa:
   - Dùng `<Checkbox checked={inHouse} disabled={!deviceTrusted} label={t('bd.in_house_toggle')} … />`.
   - Chuyển `bd.first_of_month` lên khối help của ô bật/tắt, ngay dưới `bd.in_house_help` và chỉ hiện khi `inHouse`. Ô Ngày vào không còn help riêng.
-- Trạng thái: Open
+- Trạng thái: Closed – theo FE Lượt 2 (dùng `Checkbox`, chuyển câu "ngày 01" lên khối ô bật/tắt). UXD chưa xem ảnh mới, QA kiểm khi chụp v1.0.7
 
 ### FB-R5-UXD-FE-196-05
 - Mức độ: Minor
@@ -125,7 +125,7 @@
 | Khóa mới | EN | VI |
 |---|---|---|
 | `meters.backdated_fd` | Backdated check-in: the reading from the paper log is always late. Ask the front desk lead to record it, with a reason. | Nhận phòng bù: chỉ số theo sổ giấy luôn là ghi trễ. Nhờ lễ tân trưởng ghi, kèm lý do. |
-- Trạng thái: Open
+- Trạng thái: Closed – UXD kiểm lại 19/11: có `meters.backdated_fd`, không truyền ngày
 
 ### FB-R5-UXD-FE-196-06
 - Mức độ: Minor
@@ -149,7 +149,7 @@
   - Ô trống có `placeholder` = giá chung, màu chữ muted.
   - Ô lịch sử dùng `formatLscf` với `empty_short`.
   - Nhãn quy tắc: dùng mã BR do DOM gán cho H3. Nếu DOM chưa gán thì dùng BR-LS-07 như contract §12.4 dẫn. Không hiện "H3".
-- Trạng thái: Open
+- Trạng thái: Closed – UXD kiểm lại 19/11: chuỗi đúng, có thêm `params.lscf.help_noprice`. Ghi chú: 12.4 đang ẩn ở v1.0.7 (`goLiveDeferred.cleaningByRoom = false`). BE cần đặt `br_ref` = `BR-LS-07` khi bật lại
 
 ### FB-R5-UXD-FE-196-07
 - Mức độ: Minor
@@ -162,7 +162,7 @@
   - Giữ `danger={false}`.
   - Sau khi sửa 196-01, chụp lại ảnh 05/06 (VI và EN) và đính vào PR.
   - Ô số tiền dùng cùng cách hiển thị tiền như ô "Ghi đã thu" hiện có: nhóm nghìn khi rời ô (blur), kèm hậu tố "đ" (`input-affix`). Nếu ô "Ghi đã thu" chưa làm vậy, ghi Deferred và thêm vào backlog DS cho cả hai ô.
-- Trạng thái: Open
+- Trạng thái: Closed – theo FE Lượt 2: nút có class `btn pri`; `VndInput` có nhóm nghìn và hậu tố đ/VND. Phần nhãn thừa "(đ)" xử lý ở thẻ 196-11
 
 ### FB-R5-UXD-FE-196-08
 - Mức độ: Suggestion
@@ -174,9 +174,65 @@
   - Với MGR, mặc định = tiền thuê trên phiếu trừ phần đã thu.
   - Hiện một dòng help dưới ô số tiền. EN "Managers: rent only, up to {amount} VND." VI "Quản lý: chỉ tiền thuê, tối đa {amount} đ." (khóa mới `od.manager_cap`).
   - Server vẫn là bên quyết định. Đây chỉ là gợi ý để tránh vòng lỗi.
-- Trạng thái: Open
+- Trạng thái: Closed – UXD kiểm lại 19/11: có `od.manager_cap`; FE mặc định phần tiền thuê chưa thu cho MGR
 
 ---
+
+## Kiểm lại lượt 2 (19/11, main `93f48941`, nguồn: `gen_strings.py`)
+
+Kết luận: **8 thẻ cũ đều đóng.** Có 3 thẻ Minor mới, đều chỉ sửa chuỗi. Không chặn tag v1.0.7, nhưng nên gộp vào bản tag.
+
+Chuỗi mới FE thêm sau review lần 1:
+
+| Khóa | Kết luận |
+|---|---|
+| `field_error.previous_month_closed_from` | Đạt, giữ nguyên |
+| `bd.cards_range` | Đạt, giữ nguyên |
+| `field_error.backdate_out_of_range_from` | Sửa (thẻ 196-09): câu "and it must be before today" thừa; viết theo mẫu của `bd.date_range` |
+| `bd.arrival_fixed` | Sửa (thẻ 196-09): "room segment / đoạn căn" là thuật ngữ nội bộ, lễ tân không dùng |
+| `od.reference_long_number` | Sửa (thẻ 196-09): EN "numerals" không tự nhiên; VI dài |
+| `bd.need_device` | Sửa VI (thẻ 196-09): theo `od.need_device` và các chuỗi thiết bị khác ("máy được cấp quyền") |
+
+### FB-R5-UXD-FE-196-09
+- Mức độ: Minor
+- Vị trí: `gen_strings.py`, các khóa ở bảng dưới (đã có trên main).
+- Vấn đề: xem bảng "Kiểm lại lượt 2" ở trên.
+- Vì sao quan trọng: lễ tân đọc câu lỗi ngay lúc đang nhập. Câu phải dùng chữ của nghiệp vụ, không dùng chữ của mô hình dữ liệu, và gọi thiết bị thống nhất một tên.
+- Đề xuất sửa:
+
+| Khóa | EN | VI |
+|---|---|---|
+| `field_error.backdate_out_of_range_from` | Arrival must be from {date} to yesterday. | Ngày đến phải từ {date} đến hôm qua. |
+| `bd.arrival_fixed` | This booking changes rooms during the stay, so the arrival date stays as booked. To change it, edit the booking first. | Đơn này có đổi căn giữa chừng nên giữ ngày đến của đơn. Cần đổi ngày đến thì sửa đơn trước. |
+| `od.reference_long_number` | The reference can't have 9 or more digits in a row. It may be an account or card number. | Mã tham chiếu không được có từ 9 chữ số liền nhau trở lên. Đó có thể là số tài khoản hoặc số thẻ. |
+| `bd.need_device` | Backdated entry works only on an approved device. *(giữ)* | Nhập bù chỉ làm được trên máy được cấp quyền. |
+- Trạng thái: Open
+
+### FB-R5-UXD-FE-196-10
+- Mức độ: Minor
+- Vị trí: `od.owner_only`. Câu này hiện khi MGR bị 403 (SEC 12-02, SEC 197-02).
+- Vấn đề: câu đã duyệt chưa nói tới hai trường hợp 403 mới của MGR: phiếu có khoản thu đã bị đảo, hoặc phiếu có khoản thu thật nhận sau ngày nhận phòng bù. Trong hai trường hợp này, MGR đã làm đúng điều câu cũ nêu (tiền thuê, phiếu tháng nhận phòng, ngày trả hợp lệ) mà vẫn bị chặn. Câu cũ cũng không nói phải làm gì tiếp.
+- Quyết định UXD: **có**, thêm hai trường hợp này vào câu. Gộp chúng thành một điều kiện ngắn, và kết câu bằng việc cần làm tiếp. Không tách thành khóa riêng, vì server trả cùng một 403, không phân biệt lý do.
+- Đề xuất sửa:
+
+| Khóa | EN | VI |
+|---|---|---|
+| `od.owner_only` | Only the owner can record this here. A manager can record only rent on the arrival-month statement of a backdated check-in, paid on or before that check-in, and only if the statement has no reversed payment and no payment received after that check-in. Ask the owner to record it. | Chỉ chủ đầu tư ghi được khoản này ở đây. Quản lý chỉ ghi được tiền thuê trên phiếu tháng nhận phòng của đơn nhận phòng bù, khách trả trước hoặc đúng ngày nhận phòng bù, và phiếu chưa có khoản thu bị đảo hay khoản thu sau ngày đó. Nhờ chủ đầu tư ghi. |
+- Trạng thái: Open
+
+### FB-R5-UXD-FE-196-11
+- Mức độ: Minor
+- Vị trí: `stmt.pay_amount`. Nhãn ô số tiền của cả "Ghi đã thu" và "Khách đã trả ngoài app" (`StatementDrawer.tsx`).
+- Vấn đề: ô số tiền nay có hậu tố đ/VND (`VndInput`), nên nhãn "Số tiền (đ)" / "Amount (VND)" nói đơn vị hai lần.
+- Quyết định UXD: **bỏ phần đơn vị trong ngoặc ở nhãn.**
+  - Test `fb012-statements-fe.test.tsx` tìm nhãn theo regex bắt đầu bằng chuỗi nên vẫn chạy.
+  - Test `fb012-golive-fe.test.tsx` dùng `label('stmt.pay_amount')` nên tự theo chuỗi mới.
+- Đề xuất sửa:
+
+| Khóa | EN | VI |
+|---|---|---|
+| `stmt.pay_amount` | Amount | Số tiền |
+- Trạng thái: Open
 
 ## Điểm làm tốt – nên giữ
 - Mọi nút mới (Nhận phòng bù, Khách đã trả ngoài app, Đọc bù hôm nay) chỉ hiện theo `allowedActions` / `availableActions` / `catchUpNeedsRole`. Form dài hạn không có ô người chốt (SEC 12-01). `outside_desk` không xuất hiện trong ô chọn cách thu nào (SEC 12-03).
