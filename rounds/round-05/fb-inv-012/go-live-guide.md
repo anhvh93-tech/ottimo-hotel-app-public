@@ -68,7 +68,7 @@ Làm xong trước **30/11**. Nếu để sang tháng 12, Desk chỉ nhận ngà
 
 ### 7.1 Giá dọn thêm theo căn (OWN)
 
-Studio (City và Garden) **150.000**, Premium và Signature **200.000** mỗi lượt (BR-LS-07). OWN mở Tham số → `long_stay_cleaning_fee_by_room`, nhập từng căn, hiệu lực từ hôm nay:
+Studio (City và Garden) **150.000**, Premium và Signature **200.000** mỗi lượt (BR-LS-07). OWN mở Tham số → `long_stay_cleaning_fee_by_room`, nhập **đủ cả 10 căn**, hiệu lực từ hôm nay. Làm xong **trước khi khách dài hạn dùng trang yêu cầu dọn**. Khách gửi yêu cầu đúng lúc OWN đang sửa có thể bị chụp giá chưa đúng.
 
 | Căn | Hạng | Giá / lượt |
 |---|---|---|
@@ -79,9 +79,11 @@ Studio (City và Garden) **150.000**, Premium và Signature **200.000** mỗi l�
 
 Ví dụ (số giả): khách dài hạn căn 302 gọi dọn 2 lần trong tháng 12 → phiếu 01/2027 có 2 × 200.000 = 400.000.
 
+- Gõ nhầm thì **sửa lại trong ngày** được, áp dụng ngay, không phải chờ ngày mai. Mỗi lần lưu đều được ghi nhật ký (ai, lúc nào, trước/sau). Dòng đã ghi trước lúc sửa giữ giá cũ.
 - Không đổi `adhoc_cleaning_fee` (100.000, giá khách ngắn ngày).
-- **Tới khi OWN nhập xong**, Desk vẫn ghi 100.000 cho căn chưa có giá, kể cả lượt khách gửi yêu cầu dọn trong app. Lễ tân giữ dòng 100.000 và ghi thêm dòng "Dọn phòng thêm – phần chênh dài hạn" **+50.000** (Studio) hoặc **+100.000** (Premium, Signature) trong cùng ngày. Nhập xong thì bỏ dòng phần chênh.
-- Yêu cầu khách gửi trước lúc OWN nhập giữ giá 100.000 đã chụp, nên vẫn cần dòng phần chênh.
+- **Dòng phần chênh:** tới khi kiểm xong giá, Desk vẫn có thể ghi 100.000, kể cả lượt khách gửi yêu cầu dọn trong app. Lễ tân giữ dòng 100.000 và ghi thêm dòng "Dọn phòng thêm – phần chênh dài hạn" **+50.000** (Studio) hoặc **+100.000** (Premium, Signature) trong cùng ngày.
+- **Bỏ dòng phần chênh chỉ sau một lần thử đúng giá.** FDL mở **Thêm dòng phát sinh** trên folio một khách dài hạn hạng Studio và một khách hạng Premium hoặc Signature, chọn "Dọn phòng lẻ", xem giá hiện 150.000 / 200.000, rồi đóng không lưu. Lỡ lưu thì đảo dòng có lý do. Chưa đúng thì báo OWN sửa bảng và thử lại.
+- Yêu cầu khách gửi trước lúc bảng đúng giữ giá đã chụp (100.000), nên vẫn cần dòng phần chênh.
 - Trước khi phát hành phiếu, FDL kiểm mỗi lượt dọn = 150.000 / 200.000.
 
 ## 8. Đơn ngắn ngày "đã xác nhận" đã qua ngày đến (production có 1 đơn)
