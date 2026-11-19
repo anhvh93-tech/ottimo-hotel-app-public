@@ -418,3 +418,13 @@ Chuỗi đổi, **chờ UXD duyệt**: `params.lscf.price_invalid` = "Giá từ 
 Để UXD xem (có từ trước, không thuộc PR này): ở "Thêm phát sinh", câu `stay.charge_default` với mục dọn phòng in "…Phí phạt không tính vào doanh thu phòng." (`ruleRef` của mục). Câu này lạc nghĩa với phí dọn.
 
 Kiểm: admin-web 106 file / 1165 test, guest-web 10 file / 101 test; typecheck, ESLint, Prettier sạch. `git merge-tree` với `r5-fb012-cleaning-fee` không xung đột.
+
+## PR #201 – trả lời UXD (FB-R5-UXD-FE-201-01/02, 19/11)
+
+| Thẻ | Trạng thái | Đã làm |
+|---|---|---|
+| FB-R5-UXD-FE-201-01 | Fixed | Tách 3 khóa đúng nguyên văn: `stay.charge_default` ("Default price {amount}, set by {rule}." / "Giá mặc định {amount}, theo {rule}.") chỉ khi có `ruleRef`; `stay.charge_default_noref` ("Default price {amount}." / "Giá mặc định {amount}.") khi không có; `stay.charge_fine_note` chỉ thêm khi `item.category === 'penalty'`. `{rule}` chỉ nhận `item.ruleRef`, không còn lấy `item.name`. Chip nguồn giá giữ vị trí ngay sau câu giá, câu phạt đứng sau chip (khoản phạt không có chip). Test: dọn thêm không có câu phạt và không có ", theo …"; SMOKING có câu phạt |
+| FB-R5-UXD-FE-201-02 | Fixed | Thêm `chargeName()` trong `StayDialogs.tsx`: dùng `charge.name.<code>` nếu có khóa, không thì `name` server trả. Áp cho ô chọn khoản và toast "đã thêm". Khóa đầu tiên `charge.name.adhoc_cleaning_fee` = "Extra cleaning / Dọn phòng thêm" (khớp `bill.line.adhoc_cleaning`). Các mã khác chờ PO đưa vào backlog |
+| `params.lscf.price_invalid` | Done | Bỏ ghi chú "CHỜ UXD DUYỆT" ở cột ghi chú; chữ giữ nguyên bản UXD duyệt |
+
+Chưa merge main theo chỉ đạo ORC (BE #200 còn chờ ARC/SEC). `ChargePriceSource` vẫn viết tay cho tới khi #200 merge.

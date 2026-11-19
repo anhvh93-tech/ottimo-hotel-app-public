@@ -1696,7 +1696,9 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `stay.change_effect_reg` | Khai báo lưu trú không phải làm lại – chỉ đổi số căn trong hồ sơ. | Registration doesn't need redoing – only the room number in the record changes. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.change_submit` | Đổi sang căn {room} | Move to room {room} | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.change_title` | Đổi phòng · Căn {room} · {guest} | Change room · Room {room} · {guest} | ⟨chừa chỗ⟩ | 15-stay.html |
-| `stay.charge_default` | Giá mặc định {amount} theo {rule}. Phí phạt không tính vào doanh thu phòng. | Default price {amount} per {rule}. Fines don't count as room revenue. | ⟨chừa chỗ⟩ | 15-stay.html |
+| `stay.charge_default` | Giá mặc định {amount}, theo {rule}. | Default price {amount}, set by {rule}. | ⟨chừa chỗ⟩ | 15-stay.html; khi có ruleRef (UXD 201-01) |
+| `stay.charge_default_noref` | Giá mặc định {amount}. | Default price {amount}. | ⟨chừa chỗ⟩ | khi không có ruleRef (UXD 201-01) |
+| `stay.charge_fine_note` | Phí phạt không tính vào doanh thu phòng. | Fines don't count as room revenue. | ⟨chừa chỗ⟩ | chỉ khi category = penalty (UXD 201-01) |
 | `stay.charge_item` | Khoản | Item | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.checkout_std` | {time} (giờ chuẩn, chưa xác nhận) | {time} (standard, not confirmed) | ⟨chừa chỗ⟩ | 15-stay.html |
 | `stay.checkout_time` | Giờ trả | Check-out time | ⟨chừa chỗ⟩ | 15-stay.html |
@@ -4496,9 +4498,10 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `params.lscf.empty` | Chưa đặt – mọi căn dùng giá dọn thêm chung | Not set – every room uses the standard price | ⟨chừa chỗ⟩ | UXD-196-06 |
 | `params.lscf.empty_short` | Chưa đặt | Not set | ⟨chừa chỗ⟩ | UXD-196-06 – ô lịch sử |
 | `params.lscf.rooms_n` | {n} căn có giá riêng | {n} rooms with their own price | ⟨chừa chỗ⟩ | Tóm tắt giá trị trong bảng tham số |
-| `params.lscf.price_invalid` | Giá từ 1.000 đến 5.000.000 đ, bội 1.000. Để trống thì dùng giá chung. | Price from 1,000 to 5,000,000 VND, in steps of 1,000. Leave it blank to use the standard price. | ⟨chừa chỗ⟩ | BE #200: 0 bị từ chối – FE nháp 19/11, CHỜ UXD DUYỆT |
+| `params.lscf.price_invalid` | Giá từ 1.000 đến 5.000.000 đ, bội 1.000. Để trống thì dùng giá chung. | Price from 1,000 to 5,000,000 VND, in steps of 1,000. Leave it blank to use the standard price. | ⟨chừa chỗ⟩ | BE #200: 0 bị từ chối; UXD duyệt #201 |
 | `charge.price_source.long_stay_room` | Giá dài hạn của căn | Long-stay room price | ⟨chừa chỗ⟩ | FE-5 priceSource |
 | `charge.price_source.default` | Giá chung | Standard price | ⟨chừa chỗ⟩ | FE-5 priceSource |
+| `charge.name.adhoc_cleaning_fee` | Dọn phòng thêm | Extra cleaning | ⟨chừa chỗ⟩ | tên khoản theo code, fallback name (UXD 201-02); khớp bill.line.adhoc_cleaning |
 | `meters.past_late` | Đã quá hạn ghi trễ cho ngày đọc này (hạn {date}). Quản lý cần đọc bù đồng hồ hôm nay. | The late-entry deadline for this reading has passed ({date}). A manager needs to take a catch-up reading today. | ⟨chừa chỗ⟩ | DOM §3.3 – FD/FDL và MGR/OWN |
 | `meters.catch_up_action` | Đọc bù hôm nay | Catch-up reading today | ⟨chừa chỗ⟩ | MGR/OWN, catchUpNeedsRole |
 | `meters.catch_up_on` | Đọc bù: ngày đọc là hôm nay ({date}). Cần lý do và ảnh. | Catch-up reading: dated today ({date}). A reason and a photo are required. | ⟨chừa chỗ⟩ |  |

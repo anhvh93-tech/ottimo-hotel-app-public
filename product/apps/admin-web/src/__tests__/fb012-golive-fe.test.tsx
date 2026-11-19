@@ -19,6 +19,8 @@ import { warningText } from '../pages/longstay/labels';
 import { formatLscf, parseLscfDraft } from '../pages/cleaningFeeParams';
 import { pinDaytime } from '../test/clock';
 import { renderApp, tv } from '../test/render';
+import { translate } from '@ottimo/i18n';
+import { chargeName } from '../pages/stay/StayDialogs';
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const label = (key: string) => new RegExp(`^${esc(tv(key))}`);
@@ -286,6 +288,48 @@ describe('FE-5 12.4 extra cleaning price by room (INV 19/11: 150.000 / 200.000 b
     const { dlg } = await openCleaning('Trần Thu Nga');
     expect(await within(dlg).findByText(tv('charge.price_source.default'))).toBeVisible();
     expect(dlg).toHaveTextContent('100.000');
+  });
+});
+
+describe('UXD 201-01/02 add-charge price sentence and item names', () => {
+  const byGuest = (name: string) => mockControl.rsv.reservations.find((r) => r.guestName === name)!;
+
+  async function openWith(code: string) {
+    const r = byGuest('Trần Thu Nga');
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');
+    const d = await screen.findByRole('dialog', { name: 'Trần Thu Nga' });
+    await user.click(within(d).getByRole('button', { name: tv('stay.add_charge') }));
+    const dlg = await screen.findByRole('dialog', { name: tv('stay.add_charge') });
+    await user.selectOptions(await within(dlg).findByLabelText(label('stay.charge_item')), code);
+    return dlg;
+  }
+
+  it('cleaning (no rule ref, not a fine): the plain price sentence, no fine note, never the item name as the rule', async () => {
+    const dlg = await openWith('adhoc_cleaning_fee');
+    await within(dlg).findByText(tv('charge.price_source.default'));
+    expect(dlg).toHaveTextContent(/Giá mặc định 100\.000\s?đ\./);
+    expect(dlg).not.toHaveTextContent(/, theo /);
+    expect(dlg).not.toHaveTextContent(tv('stay.charge_fine_note'));
+    expect(dlg).not.toHaveTextContent(/theo Dọn phòng thêm/);
+    expect(
+      within(dlg).getByRole('option', { name: tv('charge.name.adhoc_cleaning_fee') }),
+    ).toBeInTheDocument();
+  });
+
+  it('penalty: the fine note follows the price sentence', async () => {
+    const dlg = await openWith('SMOKING');
+    expect(await within(dlg).findByText(new RegExp(tv('stay.charge_fine_note')))).toBeVisible();
+  });
+
+  it('charge names: charge.name.<code> when the key exists (EN), else the server name', () => {
+    const en = (k: string) => translate('en', k);
+    expect(chargeName(en, { code: 'adhoc_cleaning_fee', name: 'Dọn phòng thêm' })).toBe(
+      'Extra cleaning',
+    );
+    expect(chargeName(en, { code: 'LAUNDRY_KG', name: 'Giặt ủi' })).toBe('Giặt ủi');
+    expect(translate('en', 'stay.charge_default', { amount: '150,000 VND', rule: 'BR-506' })).toBe(
+      'Default price 150,000 VND, set by BR-506.',
+    );
   });
 });
 
