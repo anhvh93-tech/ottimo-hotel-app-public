@@ -405,6 +405,9 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
     const taken = await backdatedCheckIn(cd.mgr!, stayB, { ...body, arrivalDate: '2026-11-03' });
     expect(taken.statusCode, taken.body).toBe(409);
     expect(taken.json().code).toBe('ROOM_UNAVAILABLE');
+    // BUG-R5-014: only the other stay is in the way – never this booking's own nights.
+    const conflictCodes = (taken.json().conflicts as Json[]).map((x) => x.reservationCode);
+    expect(conflictCodes).toEqual([occupant.json().code]);
     expect(await getRes(stayB)).toMatchObject({ status: 'confirmed', arrivalDate: '2026-11-06' });
     const [untouched] = await q<{ b: string | null }>(
       `SELECT checkin_backdated_on::text AS b FROM reservation WHERE id = $1`,
@@ -640,6 +643,11 @@ describe.skipIf(!HAS_DB)('FB-INV-012 §12 – go-live fix for long stays already
       billing_period_id: null,
     });
     expect(await bp(st.id)).toMatchObject({ status: 'issued', totals: { paidVnd: 0 } });
+    // BUG-R5-015: with a reversed payment the manager is no longer offered the action (403 below); the owner is.
+    expect(
+      (await cd.mgr!.get(url(`/billing-periods/${st.id}`))).json().availableActions,
+    ).not.toContain('settle_outside_desk');
+    expect((await bp(st.id)).availableActions).toContain('settle_outside_desk');
 
     // SEC-BE-197-04: the CHECK exempts a reversal row only with a negative amount.
     // (ottimo_owner: the app role never updates a payment amount.)
