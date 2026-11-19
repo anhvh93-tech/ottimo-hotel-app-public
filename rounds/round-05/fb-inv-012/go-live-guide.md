@@ -62,9 +62,27 @@ Làm xong trước **30/11**. Nếu để sang tháng 12, Desk chỉ nhận ngà
 |---|---|
 | 1 | **Địa chỉ và hotline**: Tham số (S24) → **Liên hệ cơ sở**, nhập địa chỉ và hotline công khai, kiểm ô "Xem trước chân phiếu". Hiện đang trống. |
 | 2 | **Tài khoản nhận VietQR**: đã có một tài khoản. Kiểm đúng tài khoản và còn hiệu lực. Đổi thì OWN tự nhập; đội không nhận số tài khoản qua chat. |
-| 3 | **Dọn thêm khách dài hạn**: 150.000 (Studio City, Studio Garden) / 200.000 (Premium, Signature) mỗi lượt. Desk vẫn tự tính **100.000** cả khi lễ tân ghi "Dọn phòng lẻ" lẫn khi khách gửi yêu cầu dọn trong app (dòng 100.000 tự vào folio lúc buồng phòng báo xong). Giữ nguyên dòng 100.000, không đảo. Cùng ngày, lễ tân ghi thêm dòng "Dọn phòng thêm – phần chênh dài hạn" **+50.000** (Studio) hoặc **+100.000** (Premium, Signature). App khách vẫn hiện giá 100.000, nên khi nhận yêu cầu, lễ tân báo khách giá dài hạn theo HĐ. Khách không đồng ý thì báo MGR. Trước khi phát hành phiếu, FDL soát: mỗi lượt dọn = 150.000 / 200.000. **Chưa đặt** khóa `long_stay_cleaning_fee_by_room` (giá dọn theo căn) dù Desk cho nhập, vì mã chưa dùng và chưa kiểm giá trị (ARC 197-03). Không nâng `adhoc_cleaning_fee`. |
+| 3 | **Giá dọn thêm khách dài hạn** – nhập ngay sau deploy (bảng dưới mục này). |
 | 4 | **Đơn giá**: điện 4.000, nước 25.000 (chưa VAT); VAT điện 8, nước 5 (chờ kế toán). |
 | 5 | **In thử A5** từ staging trên máy in quầy: chữ đọc được, không mất lề, quét được QR. Báo ORC. |
+
+### 7.1 Giá dọn thêm theo căn (OWN)
+
+Studio (City và Garden) **150.000**, Premium và Signature **200.000** mỗi lượt (BR-LS-07). OWN mở Tham số → `long_stay_cleaning_fee_by_room`, nhập từng căn, hiệu lực từ hôm nay:
+
+| Căn | Hạng | Giá / lượt |
+|---|---|---|
+| 101, 201 | Studio City | 150.000 |
+| 102, 103, 202, 203 | Studio Garden | 150.000 |
+| 302, 402 | Premium | 200.000 |
+| 301, 401 | Signature | 200.000 |
+
+Ví dụ (số giả): khách dài hạn căn 302 gọi dọn 2 lần trong tháng 12 → phiếu 01/2027 có 2 × 200.000 = 400.000.
+
+- Không đổi `adhoc_cleaning_fee` (100.000, giá khách ngắn ngày).
+- **Tới khi OWN nhập xong**, Desk vẫn ghi 100.000 cho căn chưa có giá, kể cả lượt khách gửi yêu cầu dọn trong app. Lễ tân giữ dòng 100.000 và ghi thêm dòng "Dọn phòng thêm – phần chênh dài hạn" **+50.000** (Studio) hoặc **+100.000** (Premium, Signature) trong cùng ngày. Nhập xong thì bỏ dòng phần chênh.
+- Yêu cầu khách gửi trước lúc OWN nhập giữ giá 100.000 đã chụp, nên vẫn cần dòng phần chênh.
+- Trước khi phát hành phiếu, FDL kiểm mỗi lượt dọn = 150.000 / 200.000.
 
 ## 8. Đơn ngắn ngày "đã xác nhận" đã qua ngày đến (production có 1 đơn)
 

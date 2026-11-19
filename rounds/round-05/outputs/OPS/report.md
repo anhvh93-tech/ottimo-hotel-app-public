@@ -646,6 +646,8 @@ Trước khi migrate, api cũ đã dừng: lúc đó chỉ còn migrator chạm 
 Phần còn lại của thẻ `FB-R5-ARC-BE-190-07` (kiểm trên bản sao dữ liệu) coi như đã trả lời. Về phía OPS, 0099 **không chặn** phát hành production. Phát hành vẫn chờ cổng QC và ORC duyệt Release.
 
 Danh sách kiểm trước khi deploy production v1.0.7 (thay 18.5 mục 3):
+
+> **Cập nhật 19/11:** v1.0.7 nay gồm 0099 + 0100 (main `4d47af0d`). Bản danh sách dùng khi deploy là **§21.5**; danh sách dưới đây giữ làm lịch sử.
 1. Tag Release trên commit có 0099 giống hệt `f871ab1e`/`5e98ec5a`. Lấy digest từ artifact `image-digests` của CI, đối chiếu khi `resolve`.
 2. **Giờ vắng**: tránh giờ nhận/trả phòng và giờ lễ tân ghi thu. Báo lễ tân trước vài phút: Desk gián đoạn khoảng 4 giây lúc đổi container (`b2-runbook.md` 8.2).
 3. **Sao lưu thủ công** ngay trước tag: `systemctl start ottimo-backup@ottimo-prod.service`. Đạt khi có `OK: … encrypted files` và `backup.last_ok` mới. Ghi lại mã giờ để quay lui.
@@ -713,3 +715,98 @@ Lưu ý cho DOM/ORC (điều kiện 5): 6 đơn dài hạn trên Desk ít hơn s
 
 ### 20.4 Không thay đổi gì
 Máy chủ: không ghi gì, không khởi động lại gì, không deploy. Chỉ chạy 3 phiên `SQLRO`, `docker inspect`, đọc `state/current_tag` và `state/backup.last_ok`. Không tạo tệp trong repo ngoài mục này. Không commit (theo giao việc, ORC commit).
+
+## 21. Ứng viên v1.0.7 `4d47af0d` – QC điều kiện 14, 15, 16 (19/11 17:30–17:40)
+
+Căn cứ: giao việc ORC Round 5, bước QC (`rounds/round-05/qc/fb-inv-012-qc-gate.md` điều kiện 14–16). ORC báo INV đồng ý trong chat 19/11 cho OPS vào máy chủ hôm nay, chỉ cho ba kiểm này. Không ghi gì trên production hay staging. DB chỉ đọc qua khối `SQLRO`: một phiên production, một phiên staging, cả hai phiên có hai dòng chốt `on` / `ottimo_readonly`. Mọi thứ khác chỉ là đọc: `sudo -n tar` bản sao lưu staging, `docker inspect`, `journalctl`. Không in khóa, `.env`, mật khẩu, IP, số tiền. Digest in 8 + 4 ký tự.
+
+### 21.1 Kết quả
+
+| Điều kiện | Kết quả |
+|---|---|
+| 14 – chạy thử 73 → 75 trên bản sao staging trước 0099 | **ĐẠT** (21.2) |
+| 15 – production: dòng ngoài danh sách CHECK mới của 0100 | **ĐẠT**: `staff_notification` 0/26 · `payment` 0/3 (21.3) |
+| 16 – staging: 75 migration, CHECK mới `convalidated`, `long_stay_cleaning_fee_by_room` = `{}` | **ĐẠT** (21.4) |
+
+Về phía OPS, v1.0.7 **được phát hành**, miễn là lúc deploy làm đủ §21.5.
+
+### 21.2 Điều kiện 14 – chạy thử 73 → 75 (0099 + 0100) trên bản sao staging
+
+Cách làm giống §19: khôi phục trên Mac, không trên VPS; runner `ottimo-drill-runner:local`; `restore-drill.sh --keep`; script một lần ở thư mục tạm của phiên, ngoài repo. Script là bản §19 sửa ba chỗ:
+- md5 của bảng cũ chỉ tính **các cột có trước migrate**. Lý do: 0100 thêm 2 cột NULL vào `reservation`. Tính cả cột mới thì md5 luôn đổi, dù không dòng nào bị sửa;
+- kiểm giao dịch đang mở bằng `pg_locks` (§20.2);
+- có thêm các kiểm của 0100.
+
+| Mục | Giá trị |
+|---|---|
+| Bản sao lưu | Staging `20261117T203350Z`, chụp trước 0099. Lấy bằng `sudo -n tar` qua SSH quản trị. 5/5 checksum khớp. Khóa `age` staging trên Mac: khóa công khai **KHOP** với `recipients.txt` staging |
+| Image khôi phục (73) | `ottimo-api:sha-f8791cf83b63` (v1.0.6 production) |
+| Image migrate (75) | `ottimo-api:sha-4d47af0dd6a7`, digest `sha256:d9391f1f…f412`. **Trùng** digest api staging đang chạy (21.4) |
+| Khôi phục | ĐẠT, `/health` ok, 5 giây, số đếm khớp 100 % với `counts-…`, 21 tệp blob |
+| Trước migrate | 125 bảng, 73 migration, `config_parameter_def` 200. Tiến trình khác giữ khóa (`pg_locks`): 0. Api cũ đã dừng |
+| Migrator | `migrations applied`, exit 0. Migrator của `4d47af0d` có `SET lock_timeout = '10s'` (`migrate.ts`, QC điều kiện 10) |
+| Thời gian | Toàn bộ **777 ms**, gồm khởi động container và Node giả lập amd64. SQL theo log postgres: **81 câu, tổng 24,3 ms**, câu dài nhất 2,8 ms |
+| Log postgres lúc migrate | ERROR 0 · FATAL 0 · PANIC 0 · WARNING 0 · **chờ khóa 0** |
+| Migration sau | **75** |
+| `backup-counts.sql` (mọi dòng trừ `migrations`, kể cả 2 tổng tiền) | **khớp** |
+| Tổng 3 folio mẫu (54/44/44 dòng; dòng folio + thanh toán) | 3/3 **khớp** |
+| md5 125 bảng cũ (các cột có trước) | 124 bảng **giống hệt**. Chỉ `config_parameter_def` đổi: **200 → 204 (+4)** = 3 khóa của 0099 + `long_stay_cleaning_fee_by_room` |
+| Ràng buộc | `payment_billing_period_fk`, `payment_method_check`, `payment_outside_desk_check`, `reservation_checkin_backdated_pair_check`, `staff_notification_kind_check`, `meter_reading_catch_up_check`: 6/6 `convalidated = true`. CHECK/FK chưa kiểm trong toàn DB: **0** |
+| Thêm | 4/4 khóa danh mục · `long_stay_cleaning_fee_by_room` mặc định `{}`, 0 dòng tham số · 3/3 cột mới · 0 đơn có `checkin_backdated_on` · 3 bảng mới 0/0/0 dòng, RLS + FORCE 3/3, chủ `ottimo_owner` 3/3 · 7/7 chỉ mục · 0 `payment` có `billing_period_id` |
+| Api mới trên DB 75 | `/health` **ok** |
+| Dọn dẹp | Container, volume, mạng `ottimo-restore-*`: 0 / 0 / 0. Tệp giải mã và mật khẩu DB tạm chỉ nằm trong tmpfs. Đã xóa bản sao mã hóa trên Mac. Biên bản ở `~/.ottimo/drills/drill-0100-staging-20261119.txt` (0600, ngoài repo, có 2 tổng tiền của dữ liệu thử staging, như §19). Khóa `age` staging không đổi |
+
+Giới hạn, như §19.6 mục 7: lần chạy thử này không kiểm api cũ trên DB 75. Quay lui dựa vào luật "expand first". 0100 chỉ nới CHECK (danh sách mới chứa danh sách cũ) và thêm cột NULL, thêm 1 khóa danh mục.
+
+### 21.3 Điều kiện 15 – production chỉ đọc (`SQLRO`, 17:33)
+
+| Kiểm | Kết quả |
+|---|---|
+| `staff_notification`: dòng có `kind` NULL hoặc ngoài danh sách `staff_notification_kind_check` của 0100 | **0** / 26 dòng |
+| `payment`: dòng có `method` NULL hoặc ngoài danh sách `payment_method_check` của 0100 | **0** / 3 dòng (`method` NOT NULL) |
+| Thêm: tiến trình khác giữ khóa (`pg_locks`) | 0 |
+| Thêm: migration production | 73 (chưa đổi) |
+
+Danh sách trong câu SQL chép đúng từ `0100_go_live_fix_fb_inv_012.sql` ở `4d47af0d`. `payment_outside_desk_check` chỉ áp cho `method = 'outside_desk'`. Production chưa có giá trị này (mọi dòng thuộc danh sách cũ), nên không dòng nào vi phạm. QC ghi kiểm này làm "trong ngày deploy": chạy lại câu này ở §21.5 mục 4.
+
+### 21.4 Điều kiện 16 – staging (`SQLRO`)
+
+| Kiểm | Kết quả |
+|---|---|
+| Image staging | `current_tag` = `sha-4d47af0dd6a7`, api digest `sha256:d9391f1f…f412`. Deploy 16:38:57, journal `migrations: 75 applied / 75 in the image journal`, `OK: sha-4d47af0dd6a7 is live`. api, web healthy; worker chạy; restart 0 |
+| `drizzle.__drizzle_migrations` | **75** |
+| 5 CHECK của 0100 + `payment_billing_period_fk` | 6/6 `convalidated = true`. Ràng buộc chưa kiểm trong toàn DB: 0 |
+| `long_stay_cleaning_fee_by_room` | Có trong danh mục, `default_value = {}`, `edit_roles` owner,manager. **0 dòng `config_parameter`**, nên giá trị hiệu lực là `{}` |
+| `config_parameter_def` | 204 |
+| 3 cột mới | 3/3 |
+
+### 21.5 Danh sách kiểm khi deploy production v1.0.7 (thay §19.6)
+
+1. Tag Release trên `4d47af0d` (hoặc commit có thư mục migrations giống hệt). Digest api trong artifact `image-digests` phải là `sha256:d9391f1f…f412`, đối chiếu khi `resolve`.
+2. **Giờ vắng.** Tránh 11:30–12:30 và 13:30–14:30 (trả/nhận phòng), cũng như các khung sao lưu 02:55–03:45 và 14:55–15:45. Báo lễ tân trước vài phút: Desk gián đoạn khoảng 4 giây.
+3. **Sao lưu thủ công** ngay trước tag: `systemctl start ottimo-backup@ottimo-prod.service`. Đạt khi có `OK: … encrypted files` và `backup.last_ok` mới. Ghi mã giờ để quay lui.
+4. **Ngay trước khi duyệt deploy**, trong một phiên `SQLRO`:
+   - (a) `SELECT count(DISTINCT pid) FROM pg_locks WHERE pid IS NOT NULL AND pid <> pg_backend_pid();` phải là **0**. Khác 0 thì chạy lại sau 1–2 phút; vẫn khác 0 thì hoãn. Không dùng `pg_stat_activity`: dưới `ottimo_readonly` câu đó luôn ra 0 (§20.2).
+   - (b) Hai câu đếm của 21.3 phải là **0 / 0**. Khác 0: không deploy, BE sửa migration (QC điều kiện 15).
+5. Số đếm production trước: migrations **73**, `payment`, `folio_line`, `folio`, `reservation`, `config_parameter_def` (**200**). Lúc 17:33 ngày 19/11: 73 · 3 · 38 · 11 · 11 · 200 (§20.1 mục 4b, cùng số).
+6. **Nếu migrate dừng vì `lock_timeout`.** Dấu hiệu: log migrate có `could not take a table lock within 10s (55P03 lock_not_available) – nothing was applied`, và `deploy.sh` thoát ≠ 0 trước khi thay container.
+   - Giao dịch migrate đã lùi hết: vẫn 73 migration, api/worker v1.0.6 vẫn chạy. **Không chạy lại ngay**, không nâng `MIGRATION_LOCK_TIMEOUT`.
+   - Kiểm 73 migration bằng `SQLRO`. Ghi giờ vào decision-log. Hoãn sang lượt giờ vắng kế tiếp, vẫn trước 30/11 (QC §4).
+   - Trước lượt sau, làm lại mục 3 và 4.
+7. Sau deploy:
+   - `journalctl -t ottimo-deploy` có `migrations: 75 applied / 75 in the image journal` và `OK: sha-4d47af0dd6a7 is live`.
+   - `SQLRO`:
+     - 75 migration;
+     - 6 ràng buộc ở 21.2 `convalidated = true`, ràng buộc chưa kiểm 0;
+     - 3 bảng mới 0 dòng;
+     - `config_parameter_def` **+4** (200 → 204), có 4 khóa;
+     - `long_stay_cleaning_fee_by_room`: 0 dòng `config_parameter`, tức `{}` (QC điều kiện 3a);
+     - số đếm ở mục 5 không đổi, trừ `config_parameter_def`.
+   - Log postgres production quanh giờ deploy: 0 ERROR/FATAL. Chỉ có 3 WARNING quen thuộc của `02-roles.sh` (§18.1).
+   - `ops-check`. Desk 200; api/web healthy; worker chạy.
+8. Quay lui nếu cần: `rollback.sh sha-f8791cf83b63`. DB không lùi ("expand first": 0099 và 0100 chỉ thêm và nới). Chỉ khôi phục DB từ bản ở mục 3 khi hỏng dữ liệu.
+
+Thẻ còn mở (Minor, không chặn): SEC xem việc cấp `pg_read_all_stats` cho `ottimo_readonly` (§20.2). Đến lúc đó, giữ cách `pg_locks`.
+
+### 21.6 Không thay đổi gì trên máy chủ
+Chỉ đọc. Production vẫn `sha-f8791cf83b63`, 73 migration. Staging vẫn `sha-4d47af0dd6a7`. Không deploy, không khởi động lại. Trên Mac: kéo image `ottimo-api:sha-4d47af0dd6a7` (không chứa bí mật, giữ lại). Không commit (theo giao việc, ORC commit).
