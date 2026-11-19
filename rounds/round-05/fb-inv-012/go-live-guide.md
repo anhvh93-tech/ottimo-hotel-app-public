@@ -6,6 +6,8 @@
 
 ## 1. Việc chính
 
+**Phiếu tháng nhận phòng (tiền thuê tháng 11) BẮT BUỘC phải phát hành trên Desk, rồi ghi "Khách đã trả ngoài app" (mục 5). KHÔNG gửi phiếu này cho khách, KHÔNG thu tiền. KHÔNG được bỏ qua: bỏ qua thì phiếu cuối HĐ sẽ thu lại tháng 11.**
+
 - Tháng 11 khách đã trả **ngoài Desk**. Phiếu thu thật đầu tiên trên Desk là **phiếu 12/2026**.
 - Mỗi căn dài hạn đang có khách phải **đang ở trên Desk trước 30/11**, có **chỉ số nhận phòng** và phiếu tháng 11 ghi "Khách đã trả ngoài app".
 - MGR/OWN làm trên **máy quầy tin cậy**. Máy khác Desk sẽ chặn.
@@ -45,7 +47,7 @@ Làm xong trước **30/11**. Nếu để sang tháng 12, Desk chỉ nhận ngà
    - Khoản này không vào ca, đối soát hay tiền mặt bàn giao.
 3. Số khách trả ngoài Desk khác số trên phiếu: vẫn ghi đúng số trên phiếu. Phần chênh lệch báo OWN xử lý ngoài Desk.
 4. Ghi nhầm: MGR/OWN dùng **"Đảo giao dịch"** rồi ghi lại. Không hủy phiếu.
-5. Phiếu cuối HĐ tự trừ khoản này, nên không thu tháng 11 hai lần.
+5. Không in, không gửi phiếu này cho khách. Phiếu cuối HĐ tự trừ khoản này, nên tháng 11 không bị thu hai lần.
 
 ## 6. Chốt tháng 11 (30/11 – 01/12)
 
@@ -60,11 +62,18 @@ Làm xong trước **30/11**. Nếu để sang tháng 12, Desk chỉ nhận ngà
 |---|---|
 | 1 | **Địa chỉ và hotline**: Tham số (S24) → **Liên hệ cơ sở**, nhập địa chỉ và hotline công khai, kiểm ô "Xem trước chân phiếu". Hiện đang trống. |
 | 2 | **Tài khoản nhận VietQR**: đã có một tài khoản. Kiểm đúng tài khoản và còn hiệu lực. Đổi thì OWN tự nhập; đội không nhận số tài khoản qua chat. |
-| 3 | **Dọn thêm khách dài hạn**: 150.000 (Studio City, Studio Garden) / 200.000 (Premium, Signature) mỗi lượt. Desk vẫn ghi 100.000. Mỗi lượt, lễ tân ghi thêm dòng "Dọn phòng thêm – phần chênh dài hạn" **+50.000** hoặc **+100.000**. **Chưa đặt** khóa `long_stay_cleaning_fee_by_room` (giá dọn theo căn) dù Desk cho nhập, vì mã chưa dùng và chưa kiểm giá trị (ARC 197-03). Không nâng `adhoc_cleaning_fee`. |
+| 3 | **Dọn thêm khách dài hạn**: 150.000 (Studio City, Studio Garden) / 200.000 (Premium, Signature) mỗi lượt. Desk vẫn tự tính **100.000** cả khi lễ tân ghi "Dọn phòng lẻ" lẫn khi khách gửi yêu cầu dọn trong app (dòng 100.000 tự vào folio lúc buồng phòng báo xong). Giữ nguyên dòng 100.000, không đảo. Cùng ngày, lễ tân ghi thêm dòng "Dọn phòng thêm – phần chênh dài hạn" **+50.000** (Studio) hoặc **+100.000** (Premium, Signature). App khách vẫn hiện giá 100.000, nên khi nhận yêu cầu, lễ tân báo khách giá dài hạn theo HĐ. Khách không đồng ý thì báo MGR. Trước khi phát hành phiếu, FDL soát: mỗi lượt dọn = 150.000 / 200.000. **Chưa đặt** khóa `long_stay_cleaning_fee_by_room` (giá dọn theo căn) dù Desk cho nhập, vì mã chưa dùng và chưa kiểm giá trị (ARC 197-03). Không nâng `adhoc_cleaning_fee`. |
 | 4 | **Đơn giá**: điện 4.000, nước 25.000 (chưa VAT); VAT điện 8, nước 5 (chờ kế toán). |
 | 5 | **In thử A5** từ staging trên máy in quầy: chữ đọc được, không mất lề, quét được QR. Báo ORC. |
 
-## 8. Khi bị chặn
+## 8. Đơn ngắn ngày "đã xác nhận" đã qua ngày đến (production có 1 đơn)
+
+Làm theo luồng sẵn có, xong trước ngày deploy:
+- **Khách không đến** (gọi, nhắn không được): lễ tân đánh dấu **No-show** theo BR-311. Desk giữ cọc theo chính sách và mở bán lại căn. Không khôi phục được nữa vì đã qua ngày nghiệp vụ của đêm đến (BR-315).
+- **Khách có đến và đang ở** (quên nhận phòng trên Desk): "Nhận phòng bù" chỉ dùng cho đơn dài hạn. Không đánh no-show; báo MGR + ORC để xử lý riêng.
+- **Khách đã đến và đi rồi**: báo MGR. Không đánh no-show khi khách đã trả tiền.
+
+## 9. Khi bị chặn
 
 | Vướng | Gọi |
 |---|---|
