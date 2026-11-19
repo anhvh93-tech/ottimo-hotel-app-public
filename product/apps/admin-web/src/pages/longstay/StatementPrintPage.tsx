@@ -8,6 +8,7 @@ import type { BillingPeriodPrint, StatementLine } from '../../app/statements';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId } from '../../session/SessionProvider';
+import { formatHotline } from '../../app/goLive';
 import { dayText, lineAmount, lineText, meterNum, num, rangeText, signedNum } from './labels';
 
 /**
@@ -324,12 +325,19 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
           {s.property.hotline || s.property.email ? (
             <p>
               <Bi k="stmt.print.contact" />{' '}
-              {[s.property.hotline, s.property.email].filter(Boolean).map((x, i) => (
-                <span key={i} className="nowrap">
-                  {i ? ' · ' : ''}
-                  {x}
-                </span>
-              ))}
+              {/* BUG-R5-016: the stored hotline is one run of digits – grouped for reading. */}
+              {/* UXD-198: the hotline is set in JetBrains Mono (`.mono`), like on S24. */}
+              {[
+                s.property.hotline ? { text: formatHotline(s.property.hotline), mono: true } : null,
+                s.property.email ? { text: s.property.email, mono: false } : null,
+              ]
+                .filter((x): x is { text: string; mono: boolean } => !!x)
+                .map((x, i) => (
+                  <span key={i} className="nowrap">
+                    {i ? ' · ' : ''}
+                    {x.mono ? <span className="mono">{x.text}</span> : x.text}
+                  </span>
+                ))}
             </p>
           ) : null}
           <p className="stmt-printed">

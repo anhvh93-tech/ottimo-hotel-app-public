@@ -3,7 +3,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../app/api';
-import { contactFooter, contactIssues } from '../app/goLive';
+import { contactFooter, contactIssues, formatHotline } from '../app/goLive';
 import { problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { ErrorBlock, LoadingBlock } from '../components/states';
@@ -37,10 +37,10 @@ export function PropertyContactSection() {
   useEffect(() => {
     if (!c) return;
     setAddress(c.addressLine ?? '');
-    setHotline(c.hotline ?? '');
+    setHotline(formatHotline(c.hotline));
   }, [c]);
 
-  const dirty = !!c && (address !== (c.addressLine ?? '') || hotline !== (c.hotline ?? ''));
+  const dirty = !!c && (address !== (c.addressLine ?? '') || hotline !== formatHotline(c.hotline));
   const preview = contactFooter({ addressLine: address, hotline });
 
   const save = async () => {
@@ -115,7 +115,18 @@ export function PropertyContactSection() {
           </div>
           <div>
             <span className="label-h">{t('pc.preview')}</span>
-            <p className="pc-preview">{preview || t('pc.not_set')}</p>
+            {/* Address in the UI face, hotline in JetBrains Mono (UXD-198); both plain text (SEC 12-04 (c)). */}
+            <p className="pc-preview">
+              {preview ? (
+                <>
+                  {address.trim()}
+                  {address.trim() && hotline.trim() ? ' · ' : ''}
+                  {hotline.trim() ? <span className="mono">{formatHotline(hotline)}</span> : null}
+                </>
+              ) : (
+                t('pc.not_set')
+              )}
+            </p>
           </div>
           <div className="row">
             <Button
@@ -135,7 +146,7 @@ export function PropertyContactSection() {
           <dt>{t('pc.address')}</dt>
           <dd>{c.addressLine ?? t('pc.not_set')}</dd>
           <dt>{t('pc.hotline')}</dt>
-          <dd className="mono">{c.hotline ?? t('pc.not_set')}</dd>
+          <dd className="mono">{c.hotline ? formatHotline(c.hotline) : t('pc.not_set')}</dd>
         </dl>
       )}
     </section>

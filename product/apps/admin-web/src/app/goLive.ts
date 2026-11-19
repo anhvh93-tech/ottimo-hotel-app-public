@@ -83,6 +83,26 @@ export function contactIssues(addressLine: string, hotline: string) {
   };
 }
 
+/**
+ * BUG-R5-016: the server stores the hotline normalised ("+84900000222", kept for `SENSITIVE_DATA_DETECTED`);
+ * people read it grouped. Display only – the stored value is never changed or sent back.
+ * VN: 9 national digits → 3-3-3 ("+84 900 000 222", "0900 000 222"); 10 → 3-3-4 ("+84 263 312 3456").
+ * Anything else (other countries, short codes, text) is shown as stored.
+ */
+export function formatHotline(raw: string | null | undefined): string {
+  const s = (raw ?? '').trim();
+  const m = /^(\+84|0)(\d{9,10})$/.exec(s.replace(/[\s.-]/g, ''));
+  if (!m) return s;
+  const prefix = m[1]!;
+  const n = m[2]!;
+  const tail = [n.slice(3, 6), n.slice(6)];
+  return prefix === '+84'
+    ? ['+84', n.slice(0, 3), ...tail].join(' ')
+    : ['0' + n.slice(0, 3), ...tail].join(' ');
+}
+
 /** The one-line statement footer: address · hotline (plain text – React escapes it, SEC 12-04 (c)). */
 export const contactFooter = (c: { addressLine: string | null; hotline: string | null }) =>
-  [c.addressLine, c.hotline].filter((x): x is string => !!x && !!x.trim()).join(' · ');
+  [c.addressLine, c.hotline ? formatHotline(c.hotline) : null]
+    .filter((x): x is string => !!x && !!x.trim())
+    .join(' · ');

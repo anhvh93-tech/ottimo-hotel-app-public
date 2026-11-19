@@ -365,3 +365,38 @@ Mã 12.4/12.5 giữ lại sau cờ cho PR tiếp theo (bật cờ khi BE thêm A
   - `cardsIssued`: 0–2, mock cũng theo 0–2.
 - **Kiểm:** admin-web 106 file / 1163 test, api-client 39, `validate-fixtures` 0 lỗi; typecheck, ESLint và Prettier sạch.
 - **Việc cho UXD:** câu `od.owner_only` chưa nói tới trường hợp khoản thu bị đảo hoặc khoản thu thật nhận sau ngày nhận phòng bù. Đề nghị UXD xem có thêm ý này không. FE chưa sửa câu đã được duyệt.
+
+### Lượt 5 – UXD kiểm lại #196: thẻ 196-09..11 (19/11, nhánh `r5-fb012-golive-copy`, chỉ chữ)
+
+| Thẻ | Trạng thái | Cách sửa |
+|---|---|---|
+| FB-R5-UXD-FE-196-09 | Fixed | `field_error.backdate_out_of_range_from`, `bd.arrival_fixed`, `od.reference_long_number` và `bd.need_device` (VI: "máy được cấp quyền") đổi đúng bảng UXD |
+| FB-R5-UXD-FE-196-10 | Fixed | `od.owner_only` thêm điều kiện "phiếu chưa có khoản thu bị đảo hay khoản thu sau ngày đó" và câu "Nhờ chủ đầu tư ghi." Vẫn một khóa, vì server trả cùng một 403 |
+| FB-R5-UXD-FE-196-11 | Fixed | `stmt.pay_amount` = "Amount / Số tiền". Đơn vị chỉ còn ở hậu tố của ô |
+
+Chỉ sửa `gen_strings.py` và các file sinh ra (`strings-en.json`, `strings-vi.json`, `strings-tables.md`, `strings.js`), không đụng mã. Không app nào khác (mobile, guest-web) dùng các khóa này.
+
+Kiểm: admin-web 106 file / 1163 test đạt; i18n 22 đạt; Prettier sạch.
+
+#### Lượt 5b – lỗi QA staging và ghi chú UXD, cùng PR (19/11)
+
+| Mục | Trạng thái | Cách sửa |
+|---|---|---|
+| BUG-R5-016 (P3) hotline liền một dãy | Fixed | Thêm `formatHotline` (`app/goLive.ts`), chỉ để hiển thị. Số VN 9 chữ số sau mã nước: 3-3-3 (`+84 900 000 222`, `0900 000 222`); 10 chữ số: 3-3-4 (`+84 263 312 3456`). Dạng khác giữ như đã lưu. Dùng ở chân phiếu in (`StatementPrintPage`), phần xem trước và ô nhập/hiện ở S24. Giá trị lưu vẫn do server chuẩn hóa; vẫn là chữ thường, React tự thoát ký tự |
+| UXD 196-04 "checkbox trình duyệt" | Đã đúng DS – không đổi mã | Trên `main`, form dài hạn đã dùng `Checkbox` của `@ottimo/ui` (`LongStayDialog.tsx`). Ô này **là** checkbox DS: C6 trong `design/hifi/assets/hifi.css` (`.check input` 18px, `accent-color: var(--ink)`), giống ô "Đã báo khách" ở trả phòng sớm. Ảnh staging cho thấy đúng ô đó (nền Ink, dấu tích trắng). Nếu UXD muốn ô vẽ riêng thay vì input gốc tô màu, đó là việc đổi C6 cho mọi checkbox: UXD ra thiết kế, FE làm PR riêng |
+| QA: ngày tối thiểu của form đang ở | Fixed | Ngày vào lấy biên server [T − 45, T − 1]. Sau một 422 `PREVIOUS_MONTH_CLOSED` có `earliest`, FE dùng ngày đó làm min. Ngày ra: min = ngày vào + 1; với đơn đang ở thì min = mai, vì server trả 422 `departureDate: DATE_IN_PAST` khi ngày ra ≤ hôm nay; FE cũng kiểm trước |
+| UXD: "không hoàn được" lệch với lệch 8 | Fixed – **chờ UXD duyệt chữ** | Đổi `od.confirm_body`. EN: "No money is taken now. This amount stays out of shifts, reconciliation and the cash handover. It can't be refunded the way it was paid; any refund goes by cash or bank transfer. If it's wrong, a manager or the owner uses Reverse payment." VI: "Lúc này không thu tiền. Khoản này không vào ca, đối soát hay tiền mặt bàn giao. Không hoàn lại theo cách khách đã trả; cần hoàn thì hoàn bằng tiền mặt hoặc chuyển khoản. Ghi nhầm thì quản lý hoặc chủ đầu tư dùng Đảo giao dịch." Đây là câu FE nháp, chưa có bản UXD |
+| UXD: thống nhất tên phương thức | Fixed | `payment.method.outside_desk` VI = "Khách đã trả ngoài app", trùng `od.action`. EN giữ "Paid outside the app" |
+
+Kiểm: admin-web 106 file / 1163 test (thêm assert cho `formatHotline`, chân phiếu và min ngày ra); typecheck, ESLint, Prettier sạch.
+
+#### Lượt 5c – UXD duyệt #198, thêm FB-R5-UXD-FE-198-01 (19/11)
+
+| Thẻ | Trạng thái | Cách sửa |
+|---|---|---|
+| FB-R5-UXD-FE-198-01 (Minor) | Fixed | `od.confirm_body` đổi đúng bản UXD duyệt. EN: "…If the guest needs a refund, pay it in cash or by bank transfer…". VI: "…Khách cần hoàn tiền thì hoàn bằng tiền mặt hoặc chuyển khoản…" Câu FE nháp ở lượt 5b được thay hẳn |
+| Hotline dùng JetBrains Mono ở mọi chỗ hiện | Fixed | Ô nhập và phần hiện ở S24 vốn đã `mono`. Thêm `mono` cho hotline ở "Xem trước chân phiếu" (địa chỉ vẫn dùng chữ UI, hotline là một `span.mono` riêng, vẫn là chữ thường) và ở chân phiếu in (`StatementPrintPage`, email giữ chữ thường) |
+
+Ngoài phạm vi PR này: guest-web chỉ có nút "Gọi" (`tel:`), không in số, trừ câu `gw.req.too_many`. Câu đó chèn `{phone}` vào giữa câu nên không đặt mono riêng cho số được. Nếu UXD cần thì làm PR guest-web riêng.
+
+Kiểm: admin-web 106 file / 1163 test (test phần xem trước kiểm có `span.mono` và không phân tích HTML); typecheck, ESLint, Prettier sạch.
