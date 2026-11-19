@@ -27,8 +27,15 @@ export function formatLscf(t: T, v: unknown, short = false): string {
   return e.map(([room, n]) => `${room}: ${fmt(n)}`).join(' · ');
 }
 
+/** Prices shown grouped in thousands ("150.000"), like every VND field (UXD-196-07). */
 export const lscfDraft = (v: unknown): Record<string, string> =>
-  Object.fromEntries(entries(v).map(([room, n]) => [room, String(n)]));
+  Object.fromEntries(entries(v).map(([room, n]) => [room, fmt(n)]));
+
+/** On blur: "150000" → "150.000"; anything that is not a plain amount stays as typed (the check says why). */
+const groupDraft = (raw: string) => {
+  const s = raw.replace(/[.,\s]/g, '');
+  return /^\d+$/.test(s) ? fmt(Number(s)) : raw;
+};
 
 export function parseLscfDraft(
   t: T,
@@ -91,6 +98,10 @@ export function LscfFields({
                   placeholder={typeof standardPrice === 'number' ? fmt(standardPrice) : undefined}
                   value={draft[room] ?? ''}
                   onChange={(e) => onChange(room, e.target.value)}
+                  onBlur={() => {
+                    const v = draft[room] ?? '';
+                    if (v && groupDraft(v) !== v) onChange(room, groupDraft(v));
+                  }}
                 />
                 <span className="affix">{t('common.vnd_unit')}</span>
               </div>
