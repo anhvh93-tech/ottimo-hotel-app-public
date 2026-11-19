@@ -126,6 +126,19 @@ export function LongStayDialog({
   const [backdated, setBackdated] = useState<Reservation | null>(null);
   const inHouse = canBackdate && !!form.inHouse;
   const bounds = backdateBounds(today);
+  // QA (staging): keep the pickers inside the server bounds. `PREVIOUS_MONTH_CLOSED` depends on the reading
+  // window, so its `earliest` is learned from the 422 and then used as the arrival minimum.
+  const [serverEarliest, setServerEarliest] = useState<string | null>(null);
+  const arrivalMin = inHouse
+    ? serverEarliest && serverEarliest > bounds.earliest
+      ? serverEarliest
+      : bounds.earliest
+    : today;
+  // A backdated booking must end after today (422 departureDate DATE_IN_PAST); any booking after its arrival.
+  const departureMin = addDays(
+    inHouse && form.arrivalDate < today ? today : form.arrivalDate || today,
+    1,
+  );
   const idem = useRef<{ body: string; key: string } | null>(null);
   const write = useWrite();
   const set = (patch: Partial<Form>) => {
@@ -155,9 +168,9 @@ export function LongStayDialog({
     if (!form.roomId) e.roomId = t('common.required');
     if (!form.arrivalDate) e.arrivalDate = t('common.required');
     else if (inHouse) {
-      if (form.arrivalDate < bounds.earliest || form.arrivalDate > bounds.latest)
+      if (form.arrivalDate < arrivalMin || form.arrivalDate > bounds.latest)
         e.arrivalDate = t('bd.date_range', {
-          from: dayMonth(bounds.earliest),
+          from: dayMonth(arrivalMin),
           to: dayMonth(bounds.latest),
         });
     } else if (form.arrivalDate < today) e.arrivalDate = t('booking.error.past_date');
@@ -165,6 +178,8 @@ export function LongStayDialog({
       e['backdatedArrival.reason'] = t('stmt.reason_required');
     if (nights <= 0)
       e.departureDate = fieldErrorText(t, { field: 'departureDate', code: 'DATE_ORDER' });
+    else if (inHouse && form.departureDate <= today)
+      e.departureDate = fieldErrorText(t, { field: 'departureDate', code: 'DATE_IN_PAST' });
     else if (belowThreshold)
       e.departureDate = t('lsm.below_threshold', { n: nights, min: rules.longStayFromNights });
     if (!form.guest) e.bookerGuestId = t('common.required');
@@ -245,6 +260,8 @@ export function LongStayDialog({
         }
         const early = backdateArrivalError(t, date, err);
         if (early) out.arrivalDate = early;
+        const earliest = (err.problem as { earliest?: unknown }).earliest;
+        if (typeof earliest === 'string') setServerEarliest(earliest);
         setErrors(out);
       } else if (isApiError(err) && err.code === 'CAPACITY_EXCEEDED') {
         setErrors({ occ: rsvErrorText(t, err, { roomNo: room?.roomNo }) });
@@ -388,7 +405,7 @@ export function LongStayDialog({
                 {...p}
                 className="input"
                 type="date"
-                min={inHouse ? bounds.earliest : today}
+                min={arrivalMin}
                 max={inHouse ? bounds.latest : undefined}
                 value={form.arrivalDate}
                 onChange={(e) => set({ arrivalDate: e.target.value })}
@@ -406,7 +423,7 @@ export function LongStayDialog({
                 {...p}
                 className="input"
                 type="date"
-                min={form.arrivalDate}
+                min={departureMin}
                 value={form.departureDate}
                 onChange={(e) => set({ departureDate: e.target.value })}
               />

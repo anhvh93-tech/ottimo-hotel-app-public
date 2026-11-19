@@ -8,6 +8,7 @@ import {
   backdateArrivalError,
   backdateBounds,
   contactFooter,
+  formatHotline,
   contactIssues,
   goLiveDeferred,
 } from '../app/goLive';
@@ -115,6 +116,8 @@ describe('FE-1/FE-2 backdated long stay (A127)', () => {
     const moveIn = within(dlg).getByLabelText(label('lsm.move_in'));
     expect(moveIn).toHaveAttribute('max', addDays(T, -1));
     expect(moveIn).toHaveAttribute('min', addDays(T, -45));
+    // QA staging: a backdated booking must end after today.
+    expect(within(dlg).getByLabelText(label('lsm.move_out'))).toHaveAttribute('min', addDays(T, 1));
     expect(within(dlg).getByLabelText(label('bd.reason'))).toBeVisible();
     // No closer field on this form (SEC 12-01).
     expect(within(dlg).queryByLabelText(/người chốt/i)).toBeNull();
@@ -296,6 +299,14 @@ describe('FE-4 property contact and cleaning table', () => {
     expect(contactIssues('abc', '')).toEqual({ address: true, hotline: false });
     expect(contactIssues('1 Road‮', '+84 1234 5678').address).toBe(true);
     expect(contactFooter({ addressLine: 'A road', hotline: null })).toBe('A road');
+    // BUG-R5-016: the stored run of digits reads grouped; other shapes stay as stored.
+    expect(contactFooter({ addressLine: 'A road', hotline: '+84900000222' })).toBe(
+      'A road · +84 900 000 222',
+    );
+    expect(formatHotline('+842633123456')).toBe('+84 263 312 3456');
+    expect(formatHotline('0900000222')).toBe('0900 000 222');
+    expect(formatHotline('1900 1234')).toBe('1900 1234');
+    expect(formatHotline('+12025550123')).toBe('+12025550123');
     const t = (k: string, a?: Record<string, string | number>) => tv(k, a);
     expect(parseLscfDraft(t, { '101': '150.000', '102': '' })).toEqual({
       ok: true,

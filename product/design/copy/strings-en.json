@@ -3856,7 +3856,7 @@
   "od.reference_long_number": "The reference can't have 9 or more digits in a row. It may be an account or card number.",
   "od.date_future": "The date the guest paid can't be after today.",
   "od.confirm_title": "Record {amount} VND as already paid outside the app?",
-  "od.confirm_body": "No money is taken now. This amount stays out of shifts, reconciliation and the cash handover, and it can't be refunded. If it's wrong, a manager or the owner uses Reverse payment.",
+  "od.confirm_body": "No money is taken now. This amount stays out of shifts, reconciliation and the cash handover. It can't be refunded the way it was paid; any refund goes by cash or bank transfer. If it's wrong, a manager or the owner uses Reverse payment.",
   "od.confirm": "Record as paid outside the app",
   "od.saved": "Recorded as paid outside the app",
   "od.owner_only": "Only the owner can record this here. A manager can record only rent on the arrival-month statement of a backdated check-in, paid on or before that check-in, and only if the statement has no reversed payment and no payment received after that check-in. Ask the owner to record it.",

@@ -8,6 +8,7 @@ import type { BillingPeriodPrint, StatementLine } from '../../app/statements';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId } from '../../session/SessionProvider';
+import { formatHotline } from '../../app/goLive';
 import { dayText, lineAmount, lineText, meterNum, num, rangeText, signedNum } from './labels';
 
 /**
@@ -324,12 +325,15 @@ export function StatementSheet({ s, size }: { s: BillingPeriodPrint; size: Paper
           {s.property.hotline || s.property.email ? (
             <p>
               <Bi k="stmt.print.contact" />{' '}
-              {[s.property.hotline, s.property.email].filter(Boolean).map((x, i) => (
-                <span key={i} className="nowrap">
-                  {i ? ' · ' : ''}
-                  {x}
-                </span>
-              ))}
+              {/* BUG-R5-016: the stored hotline is one run of digits – grouped for reading. */}
+              {[s.property.hotline ? formatHotline(s.property.hotline) : null, s.property.email]
+                .filter(Boolean)
+                .map((x, i) => (
+                  <span key={i} className="nowrap">
+                    {i ? ' · ' : ''}
+                    {x}
+                  </span>
+                ))}
             </p>
           ) : null}
           <p className="stmt-printed">
