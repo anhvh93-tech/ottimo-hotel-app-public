@@ -82,7 +82,8 @@ export function LscfFields({
           ? t('params.lscf.help', { price: `${fmt(standardPrice)} ${t('common.vnd_unit')}` })
           : t('params.lscf.help_noprice')}
       </p>
-      <div className="g-3">
+      {/* Two per row: a 7-digit price plus the VND suffix must fit (EN clipped at three). */}
+      <div className="g-2">
         {all.map((room) => (
           <Field
             key={room}
