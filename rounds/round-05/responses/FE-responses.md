@@ -400,3 +400,33 @@ Kiểm: admin-web 106 file / 1163 test (thêm assert cho `formatHotline`, chân 
 Ngoài phạm vi PR này: guest-web chỉ có nút "Gọi" (`tel:`), không in số, trừ câu `gw.req.too_many`. Câu đó chèn `{phone}` vào giữa câu nên không đặt mono riêng cho số được. Nếu UXD cần thì làm PR guest-web riêng.
 
 Kiểm: admin-web 106 file / 1163 test (test phần xem trước kiểm có `span.mono` và không phân tích HTML); typecheck, ESLint, Prettier sạch.
+
+## 12.4 Giá dọn thêm khách dài hạn theo căn – FE (19/11, nhánh `r5-fb012-cleaning-fee-fe`, khớp BE PR #200)
+
+INV chốt 150.000 / 200.000 theo hạng (19/11). Phần FE:
+
+| Việc | Trạng thái | Ghi chú |
+|---|---|---|
+| Bật 12.4 | Done | `goLiveDeferred.cleaningByRoom = true`; `catchUp` vẫn tắt |
+| Thêm phát sinh (Desk) | Done | `getChargeCatalog` gửi `folioId`; mục "Dọn phòng thêm" hiện giá server trả kèm chip `priceSource` ("Giá dài hạn của căn" / "Giá chung"). Mock ghi dòng `adhoc_cleaning_fee` theo cùng luật `cleaningFeeFor` |
+| Bảng S24 "Giá dọn thêm khách dài hạn theo căn" | Done | Mỗi căn một ô, 2 ô một hàng để số 7 chữ số và hậu tố VND đủ chỗ, giá nhóm nghìn. Kiểm 1.000–5.000.000, bội 1.000, đúng hook BE #200 (0 bị từ chối, để trống thì dùng giá chung). Trợ giúp có giá chung hiệu lực; nhãn quy tắc BR-LS-07 |
+| Trang khách (guest-web) | Đã đúng – thêm test | Ô "Dọn phòng thêm" và câu phí lấy `feeVnd` server trả (`listGuestRequestOptions`, `feeReason = long_stay_adhoc`). Không có số 100.000 viết cứng trong mã hay chuỗi. Test mới: khách dài hạn thấy 150.000 đ, không thấy 100.000 |
+| `ChargePriceSource` sang kiểu sinh | Chờ #200 merge | Kiểu viết tay trùng đúng `'long_stay_room' \| 'default'` của #200. Đổi sang `Schemas['ChargeCatalogItem']['priceSource']` khi FE merge `origin/main` sau #200 |
+
+Chuỗi đổi, **chờ UXD duyệt**: `params.lscf.price_invalid` = "Giá từ 1.000 đến 5.000.000 đ, bội 1.000. Để trống thì dùng giá chung." / "Price from 1,000 to 5,000,000 VND, in steps of 1,000. Leave it blank to use the standard price."
+
+Để UXD xem (có từ trước, không thuộc PR này): ở "Thêm phát sinh", câu `stay.charge_default` với mục dọn phòng in "…Phí phạt không tính vào doanh thu phòng." (`ruleRef` của mục). Câu này lạc nghĩa với phí dọn.
+
+Kiểm: admin-web 106 file / 1165 test, guest-web 10 file / 101 test; typecheck, ESLint, Prettier sạch. `git merge-tree` với `r5-fb012-cleaning-fee` không xung đột.
+
+## PR #201 – trả lời UXD (FB-R5-UXD-FE-201-01/02, 19/11)
+
+| Thẻ | Trạng thái | Đã làm |
+|---|---|---|
+| FB-R5-UXD-FE-201-01 | Fixed | Tách 3 khóa đúng nguyên văn: `stay.charge_default` ("Default price {amount}, set by {rule}." / "Giá mặc định {amount}, theo {rule}.") chỉ khi có `ruleRef`; `stay.charge_default_noref` ("Default price {amount}." / "Giá mặc định {amount}.") khi không có; `stay.charge_fine_note` chỉ thêm khi `item.category === 'penalty'`. `{rule}` chỉ nhận `item.ruleRef`, không còn lấy `item.name`. Chip nguồn giá giữ vị trí ngay sau câu giá, câu phạt đứng sau chip (khoản phạt không có chip). Test: dọn thêm không có câu phạt và không có ", theo …"; SMOKING có câu phạt |
+| FB-R5-UXD-FE-201-02 | Fixed | Thêm `chargeName()` trong `StayDialogs.tsx`: dùng `charge.name.<code>` nếu có khóa, không thì `name` server trả. Áp cho ô chọn khoản và toast "đã thêm". Khóa đầu tiên `charge.name.adhoc_cleaning_fee` = "Extra cleaning / Dọn phòng thêm" (khớp `bill.line.adhoc_cleaning`). Các mã khác chờ PO đưa vào backlog |
+| `params.lscf.price_invalid` | Done | Bỏ ghi chú "CHỜ UXD DUYỆT" ở cột ghi chú; chữ giữ nguyên bản UXD duyệt |
+
+Chưa merge main theo chỉ đạo ORC (BE #200 còn chờ ARC/SEC). `ChargePriceSource` vẫn viết tay cho tới khi #200 merge.
+
+Cập nhật 19/11 sau khi BE #200 merge: đã merge origin/main (không rebase); `ChargePriceSource` = `NonNullable<Schemas['ChargeCatalogItem']['priceSource']>` lấy từ spec sinh tự động; `getChargeCatalog` trả `ChargeCatalogItem[]` trực tiếp, bỏ kiểu viết tay trong `StayDialogs.tsx`. Thay đổi 201-01/02 giữ nguyên.

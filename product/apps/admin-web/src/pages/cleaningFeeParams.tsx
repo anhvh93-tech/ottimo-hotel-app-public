@@ -3,12 +3,14 @@ import { Field } from '@ottimo/ui';
 /**
  * FB-INV-012 §12.4 (H3, A101): `long_stay_cleaning_fee_by_room` = `{"<room no>": VND}`, default `{}`. Edited as one
  * price per room of the catalogue (blank = the room is not in the table → the standard `adhoc_cleaning_fee`), never
- * as raw JSON. Mirrors the server hook (0–5,000,000, a multiple of 1,000, a room of the property); the server stays
+ * as raw JSON. Mirrors the server hook (1,000–5,000,000, a multiple of 1,000, a room of the property); the server stays
  * the judge (422 PARAM_OUT_OF_RANGE / VALIDATION_FAILED).
  */
 type T = (key: string, args?: Record<string, string | number>) => string;
 
 export const LSCF_KEY = 'long_stay_cleaning_fee_by_room';
+// BE #200 `LONG_STAY_CLEANING_FEE_MIN_VND` / `_MAX_VND`: 1.000–5.000.000, a multiple of 1.000 (0 is refused).
+const MIN = 1_000;
 const MAX = 5_000_000;
 const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
 
@@ -27,8 +29,15 @@ export function formatLscf(t: T, v: unknown, short = false): string {
   return e.map(([room, n]) => `${room}: ${fmt(n)}`).join(' · ');
 }
 
+/** Prices shown grouped in thousands ("150.000"), like every VND field (UXD-196-07). */
 export const lscfDraft = (v: unknown): Record<string, string> =>
-  Object.fromEntries(entries(v).map(([room, n]) => [room, String(n)]));
+  Object.fromEntries(entries(v).map(([room, n]) => [room, fmt(n)]));
+
+/** On blur: "150000" → "150.000"; anything that is not a plain amount stays as typed (the check says why). */
+const groupDraft = (raw: string) => {
+  const s = raw.replace(/[.,\s]/g, '');
+  return /^\d+$/.test(s) ? fmt(Number(s)) : raw;
+};
 
 export function parseLscfDraft(
   t: T,
@@ -40,7 +49,7 @@ export function parseLscfDraft(
     const s = raw.replace(/[.,\s]/g, '');
     if (!s) continue;
     const n = /^\d+$/.test(s) ? Number(s) : NaN;
-    if (!(n >= 0 && n <= MAX && n % 1000 === 0))
+    if (!(n >= MIN && n <= MAX && n % 1000 === 0))
       errors[`room.${room}`] = t('params.lscf.price_invalid');
     else value[room] = n;
   }
@@ -75,7 +84,8 @@ export function LscfFields({
           ? t('params.lscf.help', { price: `${fmt(standardPrice)} ${t('common.vnd_unit')}` })
           : t('params.lscf.help_noprice')}
       </p>
-      <div className="g-3">
+      {/* Two per row: a 7-digit price plus the VND suffix must fit (EN clipped at three). */}
+      <div className="g-2">
         {all.map((room) => (
           <Field
             key={room}
@@ -91,6 +101,10 @@ export function LscfFields({
                   placeholder={typeof standardPrice === 'number' ? fmt(standardPrice) : undefined}
                   value={draft[room] ?? ''}
                   onChange={(e) => onChange(room, e.target.value)}
+                  onBlur={() => {
+                    const v = draft[room] ?? '';
+                    if (v && groupDraft(v) !== v) onChange(room, groupDraft(v));
+                  }}
                 />
                 <span className="affix">{t('common.vnd_unit')}</span>
               </div>

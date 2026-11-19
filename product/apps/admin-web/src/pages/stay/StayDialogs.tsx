@@ -14,7 +14,7 @@ import {
   type Reservation,
   type RoomStatusEntry,
 } from '@ottimo/api-client';
-import { useI18n } from '@ottimo/i18n';
+import { hasKey, useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
@@ -51,6 +51,15 @@ import {
   surchargeFocMissing,
   type SurchargeFoc,
 } from './foc';
+
+/** UXD 201-02: localized charge name by code (`charge.name.<code>`), else the server `name`. */
+export function chargeName(
+  t: (key: string) => string,
+  item: Pick<ChargeCatalogItem, 'code' | 'name'>,
+): string {
+  const key = `charge.name.${item.code}`;
+  return hasKey(key) ? t(key) : item.name;
+}
 
 export interface StayDialogProps {
   reservation: Reservation;
@@ -725,7 +734,7 @@ export function AddChargeDialog({
       ).data.data,
     [propertyId, r.folioId],
   );
-  const items: Array<ChargeCatalogItem & { priceSource?: string }> = catalog.state.data ?? [];
+  const items: ChargeCatalogItem[] = catalog.state.data ?? [];
   const [code, setCode] = useState('');
   const item =
     items.find((x) => x.code === (code || preset)) ?? items.find((x) => x.category === preset);
@@ -764,7 +773,7 @@ export function AddChargeDialog({
     });
     if (out) {
       setPhoto(null);
-      toast(t('stay.toast.charge_added', { item: item.name }));
+      toast(t('stay.toast.charge_added', { item: chargeName(t, item) }));
       onDone();
     }
   };
@@ -805,7 +814,7 @@ export function AddChargeDialog({
             </option>
             {items.map((x) => (
               <option key={x.code} value={x.code}>
-                {x.name}
+                {chargeName(t, x)}
               </option>
             ))}
           </select>
@@ -813,10 +822,12 @@ export function AddChargeDialog({
       </Field>
       {item ? (
         <p className="li-s">
-          {t('stay.charge_default', {
-            amount: money(item.defaultUnitPriceVnd),
-            rule: item.ruleRef ?? item.name,
-          })}
+          {item.ruleRef
+            ? t('stay.charge_default', {
+                amount: money(item.defaultUnitPriceVnd),
+                rule: item.ruleRef,
+              })
+            : t('stay.charge_default_noref', { amount: money(item.defaultUnitPriceVnd) })}
           {goLiveDeferred.cleaningByRoom &&
           (item.priceSource === 'long_stay_room' || item.priceSource === 'default') ? (
             <>
@@ -826,6 +837,7 @@ export function AddChargeDialog({
               </Chip>
             </>
           ) : null}
+          {item.category === 'penalty' ? <> {t('stay.charge_fine_note')}</> : null}
         </p>
       ) : null}
       <div className="g-2">

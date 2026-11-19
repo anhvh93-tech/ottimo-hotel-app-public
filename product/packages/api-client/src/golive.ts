@@ -16,11 +16,8 @@ export type SettleOutsideDeskBody = Schemas['BillingPeriodOutsideDeskCreate'];
 /** §12.3 – plain text both ways (`null` = cleared). */
 export type PropertyContact = Schemas['PropertyContact'];
 
-/**
- * §12.4 – NOT in OpenAPI 0.3.15 (deferred by BE #197). Kept by hand for the parked FE code behind
- * `goLiveDeferred.cleaningByRoom`; replace with the generated type when the follow-up PR adds it.
- */
-export type ChargePriceSource = 'long_stay_room' | 'default';
+/** §12.4 (BE #200) – where the catalog price came from; only present when asked with `folioId`. */
+export type ChargePriceSource = NonNullable<Schemas['ChargeCatalogItem']['priceSource']>;
 
 /** Enum values of §12 (now in the generated unions; kept as named constants for readability). */
 export const GO_LIVE_RESERVATION_ACTION = 'check_in_backdated';
