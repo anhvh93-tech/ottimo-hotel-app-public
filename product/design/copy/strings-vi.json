@@ -3856,7 +3856,7 @@
   "od.reference_long_number": "Mã tham chiếu không được có từ 9 chữ số liền nhau trở lên. Đó có thể là số tài khoản hoặc số thẻ.",
   "od.date_future": "Ngày khách đã trả không được sau hôm nay.",
   "od.confirm_title": "Ghi {amount} đ là khách đã trả ngoài app?",
-  "od.confirm_body": "Lúc này không thu tiền. Khoản này không vào ca, đối soát hay tiền mặt bàn giao. Không hoàn lại theo cách khách đã trả; cần hoàn thì hoàn bằng tiền mặt hoặc chuyển khoản. Ghi nhầm thì quản lý hoặc chủ đầu tư dùng Đảo giao dịch.",
+  "od.confirm_body": "Lúc này không thu tiền. Khoản này không vào ca, đối soát hay tiền mặt bàn giao. Khách cần hoàn tiền thì hoàn bằng tiền mặt hoặc chuyển khoản. Ghi nhầm thì quản lý hoặc chủ đầu tư dùng Đảo giao dịch.",
   "od.confirm": "Ghi khách đã trả ngoài app",
   "od.saved": "Đã ghi: khách đã trả ngoài app",
   "od.owner_only": "Chỉ chủ đầu tư ghi được khoản này ở đây. Quản lý chỉ ghi được tiền thuê trên phiếu tháng nhận phòng của đơn nhận phòng bù, khách trả trước hoặc đúng ngày nhận phòng bù, và phiếu chưa có khoản thu bị đảo hay khoản thu sau ngày đó. Nhờ chủ đầu tư ghi.",

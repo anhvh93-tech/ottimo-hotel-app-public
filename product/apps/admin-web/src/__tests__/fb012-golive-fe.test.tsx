@@ -258,7 +258,11 @@ describe('FE-4 property contact and cleaning table', () => {
       target: { value: '<b>2 Example Road</b>, Da Lat' },
     });
     // React renders it as text – the tag is shown, never parsed (SEC 12-04 (c)).
-    expect(screen.getByText('<b>2 Example Road</b>, Da Lat · +84 000 000 111')).toBeVisible();
+    const preview = document.querySelector('.pc-preview')!;
+    expect(preview).toHaveTextContent('<b>2 Example Road</b>, Da Lat · +84 000 000 111');
+    expect(preview.querySelector('b')).toBeNull();
+    // UXD-198: the hotline is set in JetBrains Mono.
+    expect(within(preview as HTMLElement).getByText('+84 000 000 111')).toHaveClass('mono');
     fireEvent.click(screen.getByRole('button', { name: tv('common.save') }));
     await waitFor(() => expect(mockControl.goLive.contact.hotline).toBe('+84000000111'));
   });

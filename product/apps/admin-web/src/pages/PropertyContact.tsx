@@ -115,7 +115,18 @@ export function PropertyContactSection() {
           </div>
           <div>
             <span className="label-h">{t('pc.preview')}</span>
-            <p className="pc-preview">{preview || t('pc.not_set')}</p>
+            {/* Address in the UI face, hotline in JetBrains Mono (UXD-198); both plain text (SEC 12-04 (c)). */}
+            <p className="pc-preview">
+              {preview ? (
+                <>
+                  {address.trim()}
+                  {address.trim() && hotline.trim() ? ' · ' : ''}
+                  {hotline.trim() ? <span className="mono">{formatHotline(hotline)}</span> : null}
+                </>
+              ) : (
+                t('pc.not_set')
+              )}
+            </p>
           </div>
           <div className="row">
             <Button

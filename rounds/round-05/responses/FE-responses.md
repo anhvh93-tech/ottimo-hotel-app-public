@@ -389,3 +389,14 @@ Kiểm: admin-web 106 file / 1163 test đạt; i18n 22 đạt; Prettier sạch.
 | UXD: thống nhất tên phương thức | Fixed | `payment.method.outside_desk` VI = "Khách đã trả ngoài app", trùng `od.action`. EN giữ "Paid outside the app" |
 
 Kiểm: admin-web 106 file / 1163 test (thêm assert cho `formatHotline`, chân phiếu và min ngày ra); typecheck, ESLint, Prettier sạch.
+
+#### Lượt 5c – UXD duyệt #198, thêm FB-R5-UXD-FE-198-01 (19/11)
+
+| Thẻ | Trạng thái | Cách sửa |
+|---|---|---|
+| FB-R5-UXD-FE-198-01 (Minor) | Fixed | `od.confirm_body` đổi đúng bản UXD duyệt. EN: "…If the guest needs a refund, pay it in cash or by bank transfer…". VI: "…Khách cần hoàn tiền thì hoàn bằng tiền mặt hoặc chuyển khoản…" Câu FE nháp ở lượt 5b được thay hẳn |
+| Hotline dùng JetBrains Mono ở mọi chỗ hiện | Fixed | Ô nhập và phần hiện ở S24 vốn đã `mono`. Thêm `mono` cho hotline ở "Xem trước chân phiếu" (địa chỉ vẫn dùng chữ UI, hotline là một `span.mono` riêng, vẫn là chữ thường) và ở chân phiếu in (`StatementPrintPage`, email giữ chữ thường) |
+
+Ngoài phạm vi PR này: guest-web chỉ có nút "Gọi" (`tel:`), không in số, trừ câu `gw.req.too_many`. Câu đó chèn `{phone}` vào giữa câu nên không đặt mono riêng cho số được. Nếu UXD cần thì làm PR guest-web riêng.
+
+Kiểm: admin-web 106 file / 1163 test (test phần xem trước kiểm có `span.mono` và không phân tích HTML); typecheck, ESLint, Prettier sạch.
