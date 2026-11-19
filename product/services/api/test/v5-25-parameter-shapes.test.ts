@@ -360,8 +360,9 @@ describe('plan V5-25 AC2 – every value the team ships passes the new rules', (
   );
 
   it.each([...DSE.entries()].map(([k, v]) => [k, v] as const))('DS-E %s', async (key, value) => {
-    // ota_base_rate needs the room groups of the property – checked by its own tests.
-    if (key === 'ota_base_rate') return;
+    // ota_base_rate needs the room groups of the property, long_stay_cleaning_fee_by_room its rooms – checked by
+    // their own tests (fb-inv-012-cleaning-fee.test.ts for the latter).
+    if (key === 'ota_base_rate' || key === 'long_stay_cleaning_fee_by_room') return;
     const res = await save(key, value, DSE);
     expect(res, `${key}: ${JSON.stringify(res?.options)}`).toBeNull();
   });

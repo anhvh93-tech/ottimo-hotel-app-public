@@ -2328,6 +2328,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         evidenceRequired: { s: { k: 'scalar' } },
         priceEditable: { s: { k: 'scalar' } },
         ruleRef: { s: { k: 'scalar' } },
+        priceSource: { s: { k: 'scalar' } },
       },
       open: false,
     },

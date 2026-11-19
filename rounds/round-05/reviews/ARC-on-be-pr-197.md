@@ -140,7 +140,7 @@ Khác Q16 một điểm nhỏ: phiếu 12 trong test được ghi ngoài Desk, c
 - Vấn đề: sau 0100, OWN/MGR gọi `setParameter` với khóa này được, với **mọi** JSON, vì chưa có hook kiểm (BE-8 dời). Chưa có mã nào đọc khóa. FE #196 đã ẩn khối sửa (`goLiveDeferred.cleaningByRoom = false`), nên chỉ gọi API thẳng mới ghi được.
 - Vì sao quan trọng: go-live-guide 5.3 dặn lễ tân bỏ dòng phần chênh "khi đã đặt bảng giá". Nếu có người đặt được bảng trước khi BE-8 lên, lễ tân có thể bỏ dòng chênh trong khi giá thật chưa đổi, nên thu thiếu. Giá trị sai dạng ghi trước khi có hook cũng làm `cleaningFeeFor` sau này phải xử lý.
 - Đề xuất sửa: PR 12.4 thêm hook kiểm trước tiên. Tới lúc đó, DOM ghi rõ trong go-live-guide 5.3: "chỉ bỏ dòng phần chênh sau khi bản có giá dọn theo căn lên production". ORC báo DOM. Không cần sửa PR này.
-- Trạng thái: Ghi nhận – mở tới PR 12.4 (hook đi đầu); DOM ghi cảnh báo go-live-guide 5.3
+- Trạng thái: Closed (19/11, PR #200 `58935c02`): hook `parameter-rules.ts` kiểm object, số căn của cơ sở, 1.000–5.000.000 bội 1.000; test Q21. Giá đặt xong có hiệu lực ngay ở `addFolioLine`, catalog và trang khách – xem `ARC-on-be-pr-200.md`
 
 ### FB-R5-ARC-BE-197-04
 - Mức độ: Minor
