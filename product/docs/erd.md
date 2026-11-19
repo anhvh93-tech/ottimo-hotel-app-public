@@ -454,6 +454,12 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 | `reason` | text | | Bắt buộc khi sửa (US-005 AC3) |
 | | | UK (`property_id`, `key`, `effective_from`) | Không UPDATE giá trị đã có hiệu lực trong quá khứ – thêm dòng mới |
 
+**Ngoại lệ "không sửa dòng đang hiệu lực"** (dòng `effective_from` = hôm nay; server giữ danh sách, thêm khóa = đổi hợp đồng). Đi chung đường `sameDayOverride`: ghi đè dòng hôm nay, audit `config.changed` giữ `before.value` và `after.sameDayOverride: true`, xóa cache:
+1. Công tắc khẩn về giá trị an toàn (BUG-R3-008): `public_booking_requests_enabled = false`, `public_show_prices = false`. Bật lại theo luật thường.
+2. `long_stay_cleaning_fee_by_room` – sửa trong ngày với mọi giá trị, audit `sameDayOverride` (BUG-R5-017, ARC phụ lục 19/11 trong `rounds/round-05/reviews/ARC-on-be-pr-200.md`). Tiền đã ghi giữ giá cũ (`folio_line.unit_price_vnd`, `guest_request.fee_vnd_snapshot`).
+
+Khóa khác đã có dòng hôm nay → 422 `VALIDATION_FAILED`, `errors[{field: effectiveFrom, code: ALREADY_IN_FORCE}]` (OpenAPI 0.3.15).
+
 **`config_parameter_def`** – danh mục khóa (seed từ mục 9): `key` PK, `value_schema` (tên schema zod), `edit_roles` (`{owner}` hoặc `{owner,manager}`), `br_ref`, `snapshot_into` (đơn/báo giá/HĐ/không).
 
 **`doc_sequence`** – bộ đếm mã chứng từ (mục 10). Hai cột rõ ràng (BE-ARC-10): `organization_id uuid not null`, `property_id uuid null` (null = mã cấp tổ chức như `KH-`); `doc_type`, `period_key`, `prefix`, `pad_width`, `next_value bigint`. UK một phần: (`property_id`,`doc_type`,`period_key`) WHERE `property_id IS NOT NULL` và (`organization_id`,`doc_type`,`period_key`) WHERE `property_id IS NULL`. Policy RLS riêng (mục 2.3).

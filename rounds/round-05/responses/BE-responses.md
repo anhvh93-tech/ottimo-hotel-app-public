@@ -251,3 +251,15 @@ INV chốt 19/11: Studio (City, Garden) 150.000; Premium, Signature 200.000. Kh�
 
 ### Giả định
 - Không có migration; 0100 không đổi.
+
+## BUG-R5-017 (P2) – sửa bảng giá dọn trong ngày (19/11, nhánh `r5-bug-r5-017-be`, theo ARC phụ lục 19/11)
+- **BE-1:** `parameters.service.ts` thêm `SAME_DAY_EDITABLE_KEYS = {long_stay_cleaning_fee_by_room}` cạnh `KILL_SWITCH_SAFE_VALUE`. Khóa thuộc danh sách và `effectiveFrom` = hôm nay thì đặt `sameDayOverride`. `ParameterService.set()` giữ nguyên đường ghi; bộ kiểm dạng của 197-03 vẫn chạy trước.
+- **BE-2:** lỗi "đã có dòng hôm nay" đổi mã trường thành `effectiveFrom: ALREADY_IN_FORCE`. `Problem.code` vẫn là `422 VALIDATION_FAILED`, `detail` không đổi. Mã mới đã ghi vào bảng mã trường, changelog 0.3.15 và mô tả `setParameter` (công tắc khẩn). Đã sinh lại meta, schemas và api-client.
+- **BE-3:** test `bug-r5-017-same-day-cleaning-fee.test.ts`:
+  - OWN lưu 2 lần trong ngày, cả hai 200. Giá trị đang hiệu lực là bảng lần 2. Audit lần 2 có `before` = bảng lần 1 và `after.sameDayOverride`. Dòng folio ghi giữa hai lần giữ giá cũ.
+  - MGR ghi đè được.
+  - Giá sai vẫn bị 422 khi ghi đè.
+  - `adhoc_cleaning_fee` lưu lần 2 trong ngày thì 422 `ALREADY_IN_FORCE`.
+  - Test công tắc khẩn (`public-site-r3-bed`, `v104-notice-allowlist`) vẫn xanh.
+- **BE-4:** `erd.md` 4.1 thêm đoạn "Ngoại lệ không sửa dòng đang hiệu lực", gồm công tắc khẩn và khóa này.
+- Không có migration.
