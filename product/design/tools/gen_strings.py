@@ -4604,7 +4604,7 @@ g("R5 FB-INV-012 §12 – FE: nhận phòng bù (A127), đã thu ngoài Desk (A1
     ("params.lscf.empty", "Chưa đặt – mọi căn dùng giá dọn thêm chung", "Not set – every room uses the standard price", None, "UXD-196-06"),
     ("params.lscf.empty_short", "Chưa đặt", "Not set", None, "UXD-196-06 – ô lịch sử"),
     ("params.lscf.rooms_n", "{n} căn có giá riêng", "{n} rooms with their own price", None, "Tóm tắt giá trị trong bảng tham số"),
-    ("params.lscf.price_invalid", "Giá từ 0 đến 5.000.000 đ, bội 1.000.", "Price from 0 to 5,000,000 VND, in steps of 1,000.", None, ""),
+    ("params.lscf.price_invalid", "Giá từ 1.000 đến 5.000.000 đ, bội 1.000. Để trống thì dùng giá chung.", "Price from 1,000 to 5,000,000 VND, in steps of 1,000. Leave it blank to use the standard price.", None, "BE #200: 0 bị từ chối – FE nháp 19/11, CHỜ UXD DUYỆT"),
     ("charge.price_source.long_stay_room", "Giá dài hạn của căn", "Long-stay room price", None, "FE-5 priceSource"),
     ("charge.price_source.default", "Giá chung", "Standard price", None, "FE-5 priceSource"),
     ("meters.past_late", "Đã quá hạn ghi trễ cho ngày đọc này (hạn {date}). Quản lý cần đọc bù đồng hồ hôm nay.", "The late-entry deadline for this reading has passed ({date}). A manager needs to take a catch-up reading today.", None, "DOM §3.3 – FD/FDL và MGR/OWN"),

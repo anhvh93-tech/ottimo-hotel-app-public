@@ -361,6 +361,8 @@ describe('FE-4 property contact and cleaning table', () => {
       value: { '101': 150000 },
     });
     expect(parseLscfDraft(t, { '101': '150500' }).ok).toBe(false);
+    // BE #200: 0 is refused (1.000–5.000.000) – blank is how a room falls back to the standard price.
+    expect(parseLscfDraft(t, { '101': '0' }).ok).toBe(false);
     expect(formatLscf(t, {})).toBe(tv('params.lscf.empty'));
     expect(formatLscf(t, {}, true)).toBe(tv('params.lscf.empty_short'));
   });

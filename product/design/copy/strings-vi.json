@@ -3882,7 +3882,7 @@
   "params.lscf.empty": "Chưa đặt – mọi căn dùng giá dọn thêm chung",
   "params.lscf.empty_short": "Chưa đặt",
   "params.lscf.rooms_n": "{n} căn có giá riêng",
-  "params.lscf.price_invalid": "Giá từ 0 đến 5.000.000 đ, bội 1.000.",
+  "params.lscf.price_invalid": "Giá từ 1.000 đến 5.000.000 đ, bội 1.000. Để trống thì dùng giá chung.",
   "charge.price_source.long_stay_room": "Giá dài hạn của căn",
   "charge.price_source.default": "Giá chung",
   "meters.past_late": "Đã quá hạn ghi trễ cho ngày đọc này (hạn {date}). Quản lý cần đọc bù đồng hồ hôm nay.",
