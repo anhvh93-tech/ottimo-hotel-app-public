@@ -17,6 +17,21 @@ async function openRequests(token: string = MOCK_TOKENS.inHouse) {
 }
 
 describe('tab "Yêu cầu" (US-109, SM-15)', () => {
+  it('FB-INV-012 §12.4: a long-stay guest sees the price the server returns (150.000), never a fixed 100.000', async () => {
+    mockControl.reset({ cleaningFee: 150_000, cleaningFeeReason: 'long_stay_adhoc' });
+    const { user } = await openRequests();
+    await user.click(await screen.findByRole('button', { name: 'Gửi yêu cầu mới' }));
+    const tile = await screen.findByRole('button', { name: /Dọn phòng thêm/ });
+    expect(tile).toHaveTextContent('150.000 đ/lần');
+    expect(tile).not.toHaveTextContent('100.000');
+    await user.click(tile);
+    expect(
+      screen.getByText(
+        'Gói thuê dài hạn của bạn chưa gồm dọn phòng. Mỗi lần dọn có phí 150.000 đ.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('empty first, then an extra clean with the ESC-016 A fee: tick to agree, then it appears as "Đã gửi"', async () => {
     const { user } = await openRequests();
     expect(await screen.findByText('Bạn chưa gửi yêu cầu nào.')).toBeInTheDocument();

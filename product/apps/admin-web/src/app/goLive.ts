@@ -12,12 +12,12 @@ import { addDays } from './reservations';
 import type { BillingPeriod } from './statements';
 
 /**
- * Parts of §12 the BE deferred out of OpenAPI 0.3.15 / v1.0.7 (PR #197): 12.4 cleaning price by room
- * (`getChargeCatalog?folioId`, `priceSource`, editing `long_stay_cleaning_fee_by_room`) and 12.5 `catchUp`.
- * Off = the UI is unreachable and nothing is sent; the code stays for the follow-up PR, which flips these on.
- * Mutable only so tests can exercise the parked UI against the mock.
+ * Parts of §12 that BE ships after #197. 12.4 cleaning price by room (`getChargeCatalog?folioId`, `priceSource`,
+ * editing `long_stay_cleaning_fee_by_room`) is ON since INV confirmed 150.000 / 200.000 by room class (19/11, BE
+ * `r5-fb012-cleaning-fee`). 12.5 `catchUp` stays OFF: the UI is unreachable and nothing is sent.
+ * Mutable only so tests can exercise either state against the mock.
  */
-export const goLiveDeferred = { cleaningByRoom: false, catchUp: false };
+export const goLiveDeferred = { cleaningByRoom: true, catchUp: false };
 
 /** §12.1: 45 days, a constant of the server (not a parameter). */
 export const BACKDATE_MAX_DAYS = 45;

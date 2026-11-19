@@ -245,6 +245,50 @@ describe('FE-3 Paid outside Desk (A128)', () => {
   });
 });
 
+describe('FE-5 12.4 extra cleaning price by room (INV 19/11: 150.000 / 200.000 by class)', () => {
+  const setTable = (v: Record<string, number>) => {
+    const params = (mockControl.db as unknown as { params: Array<{ key: string; value: unknown }> })
+      .params;
+    params.find((x) => x.key === 'long_stay_cleaning_fee_by_room')!.value = v;
+  };
+  const byGuest = (name: string) => mockControl.rsv.reservations.find((r) => r.guestName === name)!;
+
+  async function openCleaning(guest: string) {
+    const r = byGuest(guest);
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');
+    const d = await screen.findByRole('dialog', { name: guest });
+    await user.click(within(d).getByRole('button', { name: tv('stay.add_charge') }));
+    const dlg = await screen.findByRole('dialog', { name: tv('stay.add_charge') });
+    await user.selectOptions(
+      await within(dlg).findByLabelText(label('stay.charge_item')),
+      'adhoc_cleaning_fee',
+    );
+    return { r, dlg, user };
+  }
+
+  it("long stay: the room's price from the table, marked as the long-stay room price, and posted at that price", async () => {
+    setTable({ '102': 150_000, '301': 200_000 });
+    const { r, dlg, user } = await openCleaning('Emma Laurent');
+    expect(await within(dlg).findByText(tv('charge.price_source.long_stay_room'))).toBeVisible();
+    expect(dlg).toHaveTextContent('150.000');
+    await user.click(within(dlg).getByRole('button', { name: tv('stay.add_charge_submit') }));
+    await waitFor(() =>
+      expect(
+        mockControl.stay.folios
+          .get(r.folioId!)!
+          .lines.some((l) => l.unitPriceVnd === 150_000 && l.chargeCode === 'adhoc_cleaning_fee'),
+      ).toBe(true),
+    );
+  });
+
+  it('short stay: the standard price, marked as such', async () => {
+    setTable({ '101': 150_000 });
+    const { dlg } = await openCleaning('Trần Thu Nga');
+    expect(await within(dlg).findByText(tv('charge.price_source.default'))).toBeVisible();
+    expect(dlg).toHaveTextContent('100.000');
+  });
+});
+
 describe('FE-4 property contact and cleaning table', () => {
   it('OWN edits address + hotline (plain text preview); a bad hotline is refused before saving', async () => {
     mockControl.db.currentDeviceTrusted = true;
@@ -267,18 +311,18 @@ describe('FE-4 property contact and cleaning table', () => {
     await waitFor(() => expect(mockControl.goLive.contact.hotline).toBe('+84000000111'));
   });
 
-  it('v1.0.7: the cleaning table is not offered (12.4 deferred by BE #197)', async () => {
+  it('12.4 off: the cleaning table is not offered', async () => {
+    goLiveDeferred.cleaningByRoom = false;
+    onTestFinished(() => {
+      goLiveDeferred.cleaningByRoom = true;
+    });
     renderApp('/settings/parameters', 'qa.owner');
     fireEvent.click(await screen.findByRole('tab', { name: tv('params.grp_statement') }));
     await screen.findByRole('tabpanel');
     expect(screen.queryByText(tv('params.k.long_stay_cleaning_fee_by_room'))).toBeNull();
   });
 
-  it('cleaning table (parked): help and blank rooms show the standard price; badge BR-LS-07 (UXD-196-06)', async () => {
-    goLiveDeferred.cleaningByRoom = true;
-    onTestFinished(() => {
-      goLiveDeferred.cleaningByRoom = false;
-    });
+  it('cleaning table: help and blank rooms show the standard price; badge BR-LS-07 (UXD-196-06)', async () => {
     renderApp('/settings/parameters', 'qa.owner');
     fireEvent.click(await screen.findByRole('tab', { name: tv('params.grp_statement') }));
     const name = tv('params.k.long_stay_cleaning_fee_by_room');

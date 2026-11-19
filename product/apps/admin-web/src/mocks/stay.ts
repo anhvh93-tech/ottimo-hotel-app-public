@@ -3683,9 +3683,24 @@ export function createStayMock(ctx: Ctx) {
       )
         errors.push({ field: 'evidenceAttachmentIds', code: 'EVIDENCE_REQUIRED' });
       if (errors.length) return validation(errors);
-      const unit = item?.priceEditable
-        ? Number(body.unitPriceVnd ?? item.defaultUnitPriceVnd)
-        : (item?.defaultUnitPriceVnd ?? Number(body.unitPriceVnd));
+      // §12.4 (a) `cleaningFeeFor`: a long stay's ad-hoc cleaning takes its room's price when the table has one.
+      const lscf = ((
+        ctx.db() as unknown as { params: Array<{ key: string; value: unknown }> }
+      ).params.find((p) => p.key === 'long_stay_cleaning_fee_by_room')?.value ?? {}) as Record<
+        string,
+        number
+      >;
+      const lscfRoom = roomOf(r)?.roomNo;
+      const lscfPrice =
+        item?.code === 'adhoc_cleaning_fee' && r.stayType === 'long' && lscfRoom !== undefined
+          ? lscf[lscfRoom]
+          : undefined;
+      const unit =
+        typeof lscfPrice === 'number'
+          ? lscfPrice
+          : item?.priceEditable
+            ? Number(body.unitPriceVnd ?? item.defaultUnitPriceVnd)
+            : (item?.defaultUnitPriceVnd ?? Number(body.unitPriceVnd));
       addLine(
         r,
         {
