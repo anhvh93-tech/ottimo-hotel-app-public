@@ -247,5 +247,7 @@ INV chốt 19/11: Studio (City, Garden) 150.000; Premium, Signature 200.000. Kh�
 - **ARC-BE-200-01 – Đã sửa.** Seed DS-E: `br` của `long_stay_cleaning_fee_by_room` đổi thành `BR-LS-07`. Bộ kiểm fixture (`tests/tools/validate-fixtures.mjs`) trước chỉ nhận `BR-\d{3}`. Đã mở rộng thành `BR-(\d{3}|LS-\d{2})` vì nhóm quy tắc dài hạn BR-LS-xx là hợp lệ trong business-rules. Chạy lại: 0 lỗi; cảnh báo duy nhất có từ trước (BR-209).
 - **ARC-BE-200-S1 – Đã sửa.** Sửa chú thích `stayRoomOn` cho đúng code: lấy segment chứa ngày đó, không có thì lấy segment gần nhất bắt đầu trước ngày đó, không có nữa (ngày trước khi đến) thì lấy segment **cuối**. Thêm test đổi căn giữa kỳ: khách dài hạn ở 101 (Studio) đến 20/10 rồi chuyển sang 402 (Premium). Dọn ngày 16/10 tính 150.000, dọn ngày 25/10 tính 200.000.
 
+- **ARC-BE-200-S2 – Ghi nhận (việc của ORC).** Thứ tự gộp: #200 trước, #201 sau. BE không đổi gì. Trên main trước #200, handler `getChargeCatalog` không đọc query nào nên nhiều khả năng bỏ qua `folioId` (trả giá chung, không có `priceSource`); BE chưa chạy thử trường hợp này nên vẫn theo thứ tự ARC đề xuất.
+
 ### Giả định
 - Không có migration; 0100 không đổi.
