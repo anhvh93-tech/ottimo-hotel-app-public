@@ -188,12 +188,17 @@ async function checkTimeOrder(key: string, value: unknown, other: OtherValue): P
 export const OTA_BASE_RATE_MIN_VND = 100_000;
 export const OTA_BASE_RATE_MAX_VND = 20_000_000;
 
+/** §12.4 (ARC-BE-197-03): one long-stay ad-hoc clean price – whole thousands, 1.000–5.000.000 VND. */
+export const LONG_STAY_CLEANING_FEE_MIN_VND = 1_000;
+export const LONG_STAY_CLEANING_FEE_MAX_VND = 5_000_000;
+
 export async function checkStructuredParameter(
   key: string,
   value: unknown,
   other: OtherValue,
   roomGroupCodes: () => Promise<string[]> = async () => [],
   scheduled: ScheduledValues = async () => [],
+  roomNos: () => Promise<string[]> = async () => [],
 ): Promise<void> {
   const check = (bad: ShapeIssue | null): void => {
     if (bad) fail(bad);
@@ -359,6 +364,36 @@ export async function checkStructuredParameter(
     case 'lease_terms':
       check(leaseTermsIssue(value));
       return;
+    case 'long_stay_cleaning_fee_by_room': {
+      // FB-INV-012 §12.4 (ARC-BE-197-03, BR-LS-07): {"<room no>": VND} – rooms of this property only, each price
+      // whole thousands in [1.000, 5.000.000]. `{}` = no long-stay price (everyone pays adhoc_cleaning_fee).
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'value', code: 'VALIDATION_FAILED' }],
+        });
+      }
+      const known = new Set(await roomNos());
+      for (const [room, price] of Object.entries(value as Record<string, unknown>)) {
+        if (!known.has(room)) {
+          throw problem('PARAM_OUT_OF_RANGE', {
+            errors: [{ field: `value.${room}`, code: 'NOT_IN_LIST' }],
+            extras: { allowed: [...known].sort() },
+          });
+        }
+        if (
+          !isInt(price) ||
+          price < LONG_STAY_CLEANING_FEE_MIN_VND ||
+          price > LONG_STAY_CLEANING_FEE_MAX_VND ||
+          price % 1_000 !== 0
+        ) {
+          throw problem('PARAM_OUT_OF_RANGE', {
+            errors: [{ field: `value.${room}`, code: 'PARAM_OUT_OF_RANGE' }],
+            extras: { min: LONG_STAY_CLEANING_FEE_MIN_VND, max: LONG_STAY_CLEANING_FEE_MAX_VND },
+          });
+        }
+      }
+      return;
+    }
     case 'damage_catalog':
       // V5-25 (pulled from R5-B-05; DOM rules-v1.0.5 13.4): [{code, name, priceVnd}] – what the folio and bill read.
       check(damageCatalogIssue(value));

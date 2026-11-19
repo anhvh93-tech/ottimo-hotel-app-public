@@ -196,3 +196,42 @@ Test `fb-inv-012-golive.test.ts`:
 Ghi chú cho ARC (contract §12.11 Q3): contract ghi mã `NOT_LONG_STAY` cho "đơn ngắn ngày" gửi `backdatedArrival`. Code (từ #197) trả `422 backdatedArrival: NOT_ALLOWED` khi không kèm `manualLongStay`, đúng như OpenAPI 0.3.15 (`backdatedArrival` description) và test. Đề nghị ARC sửa Q3 theo code. BE không sửa contract.
 
 Migration 0100 không đổi (đã đóng băng).
+
+## 12.4 – Giá dọn thêm theo căn cho khách dài hạn (Sản xuất 19/11, nhánh `r5-fb012-cleaning-fee`)
+
+INV chốt 19/11: Studio (City, Garden) 150.000; Premium, Signature 200.000. Khóa vẫn theo căn, OWN nhập trên production. Code không ghi cứng giá.
+
+### Việc đã làm
+- **ARC-BE-197-03 (làm đầu tiên):** hook kiểm `long_stay_cleaning_fee_by_room` trong `parameter-rules.ts`.
+  - Phải là object; khác → 422 `VALIDATION_FAILED`.
+  - Số căn phải có trong danh mục căn của cơ sở; khác → 422 `PARAM_OUT_OF_RANGE`, `value.<căn>: NOT_IN_LIST`, kèm `allowed`.
+  - Giá là số nguyên, bội 1.000, trong 1.000–5.000.000; khác → 422 `PARAM_OUT_OF_RANGE`, `value.<căn>`, kèm `min`/`max`.
+  - Ai được sửa giữ nguyên theo A101 (OWN/MGR); FDL/FD → 403.
+- **Hàm chọn giá** `cleaningFeeFor(tx, param, {reservationId, onDate})` ở `modules/folio/public/cleaning-fee.ts`.
+  - Đơn `stay_type = long` mà căn của đơn ngày `onDate` có giá trong bảng (hiệu lực ngày `onDate`) → giá đó, `source = long_stay_room`.
+  - Khác → `adhoc_cleaning_fee`, `source = default`.
+  - Giá trị lưu hỏng của một căn (không phải số nguyên dương) bị bỏ qua, dùng giá mặc định; không làm lỗi màn đọc (bài học V5-25).
+- **Dùng ở ba chỗ:**
+  - `addFolioLine` `adhoc_cleaning_fee`: theo ngày dịch vụ, không có thì hôm nay. Giá vẫn không sửa được.
+  - `getChargeCatalog?folioId=`: thêm `priceSource`. `folioId` sai dạng → 422, không có folio → 404. Không gửi `folioId` → như cũ.
+  - `listGuestRequestOptions.feeVnd`: giá này được chụp vào `fee_vnd_snapshot` lúc khách gửi và ghi folio khi việc xong. Yêu cầu đã gửi giữ giá cũ.
+  - Khách ngắn ngày không đổi.
+- **OpenAPI 0.3.15-draft:** thêm `getChargeCatalog` query `folioId`, `ChargeCatalogItem.priceSource`, changelog 12.4. Đã sinh lại `openapi-schemas.ts`/`openapi-meta.ts` và api-client. `catchUp` (12.5) vẫn ngoài phạm vi.
+- **Seed dev/e2e** (`tests/fixtures/seed/ds-e.json`): `long_stay_cleaning_fee_by_room` theo mapping INV.
+  - 101–103, 201–203 (L12 = Studio): 150.000.
+  - 301, 401 (N = Signature) và 302, 402 (NPLUS = Premium): 200.000.
+  - `production-defaults.ts` không ghi dòng (mặc định `{}`, OWN nhập).
+- **Test** `test/integration/fb-inv-012-cleaning-fee.test.ts`:
+  - Q19: bảng rỗng → giá mặc định.
+  - Q20: Studio 150.000 / Signature 200.000 qua catalog, dòng folio và trang khách; khách ngắn ngày không đổi; yêu cầu gửi trước giữ giá cũ; không có `folioId` thì như cũ.
+  - Q21: căn lạ, giá lẻ, 0, âm, > 5.000.000, sai kiểu → 422; FDL/FD → 403.
+  - Thêm: căn không có trong bảng → giá mặc định.
+
+### Lệch / giả định
+- **Biên giá 1.000–5.000.000** (contract ghi 0–5.000.000). ORC dặn "> 0"; giá 0 nghĩa là dọn miễn phí, việc đó nên làm bằng FOC. ARC xác nhận hoặc sửa contract.
+- `cleaningFeeFor` nhận hàm đọc tham số (không inject `ParameterService`), để module folio và guest-portal cùng dùng mà không thêm phụ thuộc module.
+- Căn của đơn ngày `onDate` = đoạn chứa ngày đó; ngoài khoảng ở thì lấy đoạn gần nhất trước đó, không có thì lấy đoạn đầu.
+- `getChargeCatalog?folioId` lấy đơn chính của folio, ngày = hôm nay.
+- `stay_type = long` là điều kiện "khách dài hạn" (theo contract). Đơn dài hạn không nhập tay cũng được tính.
+- Không có migration mới: 0100 đã có dòng danh mục; 0101 vẫn dành cho FB-INV-013.
+- "Phiếu tháng cộng đúng" (Q20): phiếu tháng đọc các dòng folio có sẵn, nên test chỉ kiểm số tiền của dòng folio, không phát hành phiếu.

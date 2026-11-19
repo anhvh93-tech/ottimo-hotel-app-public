@@ -967,6 +967,25 @@
       "effectiveFrom": "2026-10-01"
     },
     {
+      "param": "long_stay_cleaning_fee_by_room",
+      "value": {
+        "101": 150000,
+        "102": 150000,
+        "103": 150000,
+        "201": 150000,
+        "202": 150000,
+        "203": 150000,
+        "301": 200000,
+        "302": 200000,
+        "401": 200000,
+        "402": 200000
+      },
+      "br": "BR-506",
+      "status": "INV-TT",
+      "effectiveFrom": "2026-10-01",
+      "note": "FB-INV-012 §12.4 / BR-LS-07 (INV 19/11): Studio City/Garden (L12) 150.000, Premium (NPLUS) / Signature (N) 200.000. Production: OWN enters it on Desk."
+    },
+    {
       "param": "laundry_price_per_kg",
       "value": 30000,
       "br": "BR-507",

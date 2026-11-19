@@ -15,6 +15,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Req,
   Res,
 } from '@nestjs/common';
@@ -234,11 +235,26 @@ export class FolioController {
 
   @Get('charge-catalog')
   @Operation('getChargeCatalog')
-  async catalog(@Req() req: GuardedRequest) {
+  async catalog(@Req() req: GuardedRequest, @Query('folioId') folioId?: string) {
     const p = principal(req);
+    // §12.4: `folioId` (optional) prices the ad-hoc clean for that folio's booking (+ `priceSource`).
+    if (folioId !== undefined && !UUID.test(folioId)) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'folioId', code: 'VALIDATION_FAILED' }],
+      });
+    }
     return this.db.withContext(
       tenantOf(p),
-      async (tx) => ({ data: await this.lineService.catalog(tx) }),
+      async (tx) => {
+        if (folioId === undefined) return { data: await this.lineService.catalog(tx) };
+        const folio = await this.folios.get(tx, folioId);
+        if (!folio) throw problem('NOT_FOUND');
+        return {
+          data: await this.lineService.catalog(tx, {
+            reservationId: folio.primary_reservation_id,
+          }),
+        };
+      },
       {
         readOnly: true,
       },

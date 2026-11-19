@@ -41,7 +41,8 @@ import { looksLikeIdNumber } from '../../../shared/sensitive-number';
 import { type LocalDate, type LocalTime, atLocal, toZonedIso } from '../../../shared/time';
 import { containsCardNumber, stripControlChars } from '../../../shared/validation';
 import { EventsService, FD_PLUS, type AttentionSource } from '../../events/public/events.service';
-import { ParameterService } from '../../platform/public/parameter.service';
+import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
+import { LONG_STAY_CLEANING_FEE_KEY, cleaningFeeFor } from '../../folio/public/cleaning-fee';
 import { PropertyContextService } from '../../platform/public/property-context';
 import { guestRoomView } from '../../reservations/public/guest-room-view';
 import type { StayView } from '../../registration/public/registration.service';
@@ -177,6 +178,22 @@ export class GuestRequestsService implements OnModuleInit {
     return atLocal(c.today, rollover, c.tz);
   }
 
+  /** §12.4 `cleaningFeeFor`; `adhoc_cleaning_fee` missing still fails as before (it always has a row). */
+  private async cleaningFee(tx: Tx, reservationId: string, today: LocalDate): Promise<number> {
+    const fee = await cleaningFeeFor(
+      tx,
+      (key, day) =>
+        key === LONG_STAY_CLEANING_FEE_KEY
+          ? this.params.get<unknown>(tx, key, day).catch((e: unknown) => {
+              if (e instanceof ParameterMissingError) return null;
+              throw e;
+            })
+          : this.params.get<unknown>(tx, key, day),
+      { reservationId, onDate: today },
+    );
+    return fee.feeVnd as number;
+  }
+
   // ───────────────────────── guest side ─────────────────────────
 
   async options(tx: Tx, stay: StayView): Promise<RequestOption[]> {
@@ -186,7 +203,9 @@ export class GuestRequestsService implements OnModuleInit {
     const clean = inHouse
       ? cleaningFee({
           stayType: stay.stayType,
-          feeVnd: await this.params.get<number>(tx, 'adhoc_cleaning_fee', c.today),
+          // §12.4 (BR-LS-07): a long stay pays the price of its room class when the table has it; the price
+          // shown here is the one snapshotted on the request and charged when the work is done.
+          feeVnd: await this.cleaningFee(tx, stay.reservationId, c.today),
           // A long stay pays every ad-hoc clean (BR-506): no need to look for today's clean.
           lastFullCleanTime:
             room?.roomId && stay.stayType === 'short'

@@ -255,6 +255,11 @@ export class ParametersService {
             [pc.propertyId, other, input.effectiveFrom],
           )
         ).rows.map((r) => ({ effectiveFrom: r.effective_from, value: r.value })),
+      // §12.4 (ARC-BE-197-03): room numbers of this property (RLS: the request's property only).
+      async () =>
+        (await tx.query<{ room_no: string }>('SELECT room_no FROM room ORDER BY room_no')).rows.map(
+          (r) => r.room_no,
+        ),
     );
     await this.params.set(tx, {
       key: input.key,

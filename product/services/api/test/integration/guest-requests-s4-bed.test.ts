@@ -39,7 +39,7 @@ import {
   staff,
 } from '../helpers/registration-fixture';
 import { type BookingIds, seedBooking, touchSessions } from '../helpers/reservations-fixture';
-import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
+import { HAS_DB, type TestTenant, appDatabase, createTenant, setParam } from '../helpers/tenant';
 
 const HOTLINE = '0263 3 822 822';
 
@@ -113,6 +113,9 @@ describe.skipIf(!HAS_DB)('EP14 guest requests + stay info (BE-D Sprint 4)', () =
       },
     });
     ids = await seedBooking(db, t);
+    // FB-INV-012 §12.4: these cases are about the BR-506 fee flow at `adhoc_cleaning_fee` – no long-stay price
+    // by room (the DS-E seed carries INV's table; its own tests: fb-inv-012-cleaning-fee.test.ts).
+    await setParam(db, t, 'long_stay_cleaning_fee_by_room', {}, '2026-10-02');
     await db.withContext(t.ctx(), async (tx) => {
       // BR-012 temporary mapping (BL 4.1) + public room type; the property's public hotline and Wi-Fi.
       await tx.query(
