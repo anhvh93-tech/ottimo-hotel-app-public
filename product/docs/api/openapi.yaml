@@ -349,8 +349,11 @@ info:
     - Đọc chỉ số `checkin` của đơn nhận phòng bù: `readOn` ∈ [ngày đến − 1, T], luôn đọc trễ (FDL+, `lateReason`), nhập tới ngày nhận phòng bù + `daysAfter` + `lateMaxDays`;
       `readOn` không trước lần đọc còn hiệu lực gần nhất của căn → 422 `readOn: DATE_INVALID` (SEC 12-06). Không đổi hình dạng.
     - `StaffNotification.kind` thêm `backdated_stay`, `statement_settled_outside_desk`. Tập `money` thêm `billing_period.settled_outside_desk`.
-    - **Chưa có ở bản này** (PR sau, phần DB đã có trong 0100): `catchUp` (12.5, BR-LS-17), `getChargeCatalog?folioId` + `priceSource` (12.4) – khóa `long_stay_cleaning_fee_by_room` đã có
-      trong danh mục tham số (A101, mặc định `{}`), chưa có hook kiểm và hàm chọn giá.
+    - **12.4 (H3, BR-LS-07 – INV 19/11, vào v1.0.7)**: giá dọn thêm của khách dài hạn theo căn. `getChargeCatalog` thêm query tùy chọn `folioId` → mục `adhoc_cleaning_fee` giá
+      theo đơn của folio + `ChargeCatalogItem.priceSource` (`long_stay_room` | `default`); không có `folioId` → như cũ, không có `priceSource`. `addFolioLine` (`adhoc_cleaning_fee`)
+      và giá yêu cầu dọn trên trang khách (`listGuestRequestOptions.feeVnd`, chụp vào yêu cầu như cũ) dùng cùng luật. `setParameter` khóa `long_stay_cleaning_fee_by_room`:
+      object `{"<số căn>": VND}`, số căn có trong danh mục căn, mỗi giá 1.000–5.000.000 bội 1.000 → khác 422 `PARAM_OUT_OF_RANGE` (ARC 197-03). Khách ngắn ngày không đổi.
+    - **Chưa có ở bản này**: `catchUp` (12.5, BR-LS-17) – phần DB đã có trong 0100.
     - **Review PR #197 (SEC/ARC, 18/11)**: `backdatedArrival` cần thêm **thiết bị tin cậy** ở tầng trường (SEC 12-07: OWN/MGR ngoài thiết bị → 403 `DEVICE_NOT_TRUSTED`);
       ngày đến = T cũng trả `BACKDATE_OUT_OF_RANGE` **kèm** `earliest` (ARC 197-05); `reference` của settle qua luật văn bản tự do (422 `CARD_NUMBER_DETECTED`, SEC 197-01);
       MGR không settle phiếu đã có khoản thu bị đảo hoặc có khoản thu thật nhận sau ngày nhận phòng bù (SEC 197-02); `settle_outside_desk` trong `availableActions` của MGR chỉ
@@ -6917,8 +6920,18 @@ paths:
       tags: [folio]
       operationId: getChargeCatalog
       summary: Danh mục phát sinh có giá mặc định từ tham số (BR-506, 507, 511, 512)
+      description: |
+        **0.3.15 (FB-INV-012 §12.4, BR-LS-07)**: `folioId` (tùy chọn) → giá `adhoc_cleaning_fee` theo đơn chính của folio: đơn dài hạn (`stayType = long`) mà căn của đơn hôm nay
+        có trong `long_stay_cleaning_fee_by_room` (hiệu lực hôm nay) → giá trong bảng, `priceSource = long_stay_room`; khác → `adhoc_cleaning_fee`, `priceSource = default`.
+        Folio không có → 404; `folioId` sai dạng → 422. Không gửi `folioId` → như cũ (không có `priceSource`). `addFolioLine` dùng cùng luật với ngày dịch vụ (hoặc hôm nay).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-stories: [US-032]
+      parameters:
+        - name: folioId
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/Uuid' }
+          description: '0.3.15 (§12.4) – giá dọn lẻ theo đơn của folio này'
       responses:
         '200':
           description: OK
@@ -14012,6 +14025,10 @@ components:
           type: boolean
           description: 'false = giá theo tham số BR (phạt, hư hỏng theo bảng, dọn lẻ, giặt ủi) – FD không sửa (`PRICE_NOT_EDITABLE`); true = nhập giá (`fnb`, `service_fee`) (0.3.3, E04-03)'
         ruleRef: { type: string, example: BR-511 }
+        priceSource:
+          type: string
+          enum: [long_stay_room, default]
+          description: '**0.3.15 (§12.4)** – chỉ ở mục `adhoc_cleaning_fee` khi gọi kèm `folioId`: `long_stay_room` = giá theo căn của khách dài hạn (`long_stay_cleaning_fee_by_room`); `default` = `adhoc_cleaning_fee`'
     MinibarCheckInput:
       type: object
       required: [mode, lines, roomId, periodId]

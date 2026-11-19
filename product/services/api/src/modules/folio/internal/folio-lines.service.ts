@@ -45,6 +45,11 @@ import {
   rootLineOf,
 } from '../public/line-reduction';
 import { isStatementLine } from '../public/statement-codes';
+import {
+  ADHOC_CLEANING_FEE_KEY,
+  type CleaningFeeSource,
+  cleaningFeeFor,
+} from '../public/cleaning-fee';
 import { readDamageCatalog } from './damage-catalog-read';
 import { StayWaiverAlertService } from './stay-waiver-alert';
 
@@ -57,7 +62,13 @@ export interface ChargeCatalogItem {
   evidenceRequired: boolean;
   priceEditable: boolean;
   ruleRef?: string;
+  /** §12.4: only on `adhoc_cleaning_fee` of a catalogue read for a folio (`getChargeCatalog?folioId`). */
+  priceSource?: CleaningFeeSource;
 }
+
+/** A real calendar day (the route checks the shape only) – never cast an impossible date in SQL. */
+const isRealDay = (d: string): d is LocalDate =>
+  /^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;
 
 export interface FolioLineCreateInput {
   chargeCode?: string | undefined;
@@ -157,8 +168,15 @@ export class FolioLinesService {
     return reductionScope(root, actorUserId, { today, tz, rollover });
   }
 
-  /** getChargeCatalog (US-032): parameter-priced items + typed-in F&B / service lines. */
-  async catalog(tx: Tx): Promise<ChargeCatalogItem[]> {
+  /**
+   * getChargeCatalog (US-032): parameter-priced items + typed-in F&B / service lines. With `stay` (§12.4:
+   * `getChargeCatalog?folioId`, addFolioLine) the ad-hoc clean is priced by `cleaningFeeFor` and carries
+   * `priceSource`; without it, as before.
+   */
+  async catalog(
+    tx: Tx,
+    stay?: { reservationId: string; onDate?: LocalDate },
+  ): Promise<ChargeCatalogItem[]> {
     const { today } = await this.today(tx);
     const out: ChargeCatalogItem[] = [];
     const fixed: Array<[string, FolioLineCategory, string, string, string, boolean, string]> = [
@@ -176,7 +194,16 @@ export class FolioLinesService {
       ['key_card_fee', 'penalty', 'Mất/hỏng thẻ phòng', 'key_card_fee', 'thẻ', true, 'BR-511'],
     ];
     for (const [code, category, name, key, unit, evidence, ruleRef] of fixed) {
-      const price = await this.param<number>(tx, key, today);
+      let price = await this.param<number>(tx, key, today);
+      let priceSource: CleaningFeeSource | undefined;
+      if (stay && code === ADHOC_CLEANING_FEE_KEY) {
+        const fee = await cleaningFeeFor(tx, (k, d) => this.param<unknown>(tx, k, d), {
+          reservationId: stay.reservationId,
+          onDate: stay.onDate ?? today,
+        });
+        price = fee.feeVnd;
+        priceSource = fee.source;
+      }
       if (price === null) continue;
       out.push({
         code,
@@ -187,6 +214,7 @@ export class FolioLinesService {
         evidenceRequired: evidence,
         priceEditable: false,
         ruleRef,
+        ...(priceSource ? { priceSource } : {}),
       });
     }
     // V5-25: a broken stored table never fails the catalogue (nor addFolioLine, which reads it) – not a list → no
@@ -251,7 +279,11 @@ export class FolioLinesService {
       throw problem('INVALID_TRANSITION', { extras: { currentState: status } });
     }
     const errors: FieldError[] = [];
-    const catalog = await this.catalog(tx);
+    // §12.4: the ad-hoc clean of a long stay is priced by its room on the service day (or today).
+    const catalog = await this.catalog(tx, {
+      reservationId: stay.reservationId,
+      ...(input.serviceDate && isRealDay(input.serviceDate) ? { onDate: input.serviceDate } : {}),
+    });
     const item = input.chargeCode ? catalog.find((c) => c.code === input.chargeCode) : undefined;
     if (input.chargeCode && !item) errors.push({ field: 'chargeCode', code: 'NOT_IN_LIST' });
     let category: FolioLineCategory;

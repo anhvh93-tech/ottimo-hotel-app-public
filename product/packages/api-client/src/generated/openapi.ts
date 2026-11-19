@@ -3406,7 +3406,12 @@ export interface paths {
       };
       cookie?: never;
     };
-    /** Danh mục phát sinh có giá mặc định từ tham số (BR-506, 507, 511, 512) */
+    /**
+     * Danh mục phát sinh có giá mặc định từ tham số (BR-506, 507, 511, 512)
+     * @description **0.3.15 (FB-INV-012 §12.4, BR-LS-07)**: `folioId` (tùy chọn) → giá `adhoc_cleaning_fee` theo đơn chính của folio: đơn dài hạn (`stayType = long`) mà căn của đơn hôm nay
+     *     có trong `long_stay_cleaning_fee_by_room` (hiệu lực hôm nay) → giá trong bảng, `priceSource = long_stay_room`; khác → `adhoc_cleaning_fee`, `priceSource = default`.
+     *     Folio không có → 404; `folioId` sai dạng → 422. Không gửi `folioId` → như cũ (không có `priceSource`). `addFolioLine` dùng cùng luật với ngày dịch vụ (hoặc hôm nay).
+     */
     get: operations['getChargeCatalog'];
     put?: never;
     post?: never;
@@ -8457,6 +8462,11 @@ export interface components {
       priceEditable?: boolean;
       /** @example BR-511 */
       ruleRef?: string;
+      /**
+       * @description **0.3.15 (§12.4)** – chỉ ở mục `adhoc_cleaning_fee` khi gọi kèm `folioId`: `long_stay_room` = giá theo căn của khách dài hạn (`long_stay_cleaning_fee_by_room`); `default` = `adhoc_cleaning_fee`
+       * @enum {string}
+       */
+      priceSource?: 'long_stay_room' | 'default';
     };
     /** @description 0.3.7 bổ sung 4 (vòng sửa 5b, ARC 16.19 K11-03/K11-08): `roomId` và `periodId` **bắt buộc** với mọi vai (thiếu → 422 `REQUIRED`); bỏ nhánh "vắng = căn đang gán / không so" */
     MinibarCheckInput: {
@@ -16922,7 +16932,10 @@ export interface operations {
   };
   getChargeCatalog: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description 0.3.15 (§12.4) – giá dọn lẻ theo đơn của folio này */
+        folioId?: components['schemas']['Uuid'];
+      };
       header?: never;
       path: {
         propertyId: components['parameters']['PropertyId'];
