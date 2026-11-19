@@ -385,7 +385,7 @@ Nguyên tắc: **chỉ thêm, expand-first**. Không đổi hành vi của đư�
 | `arrivalDate` | Ngày đến thật (hoặc ngày 01 theo G2). Bắt buộc < `T`. Bằng `T` → `422` (`arrivalDate: USE_CHECK_IN`, dùng `checkIn` thường). Khác `reservation.arrival_date` → server **dời ngày đến** của đơn trong cùng giao dịch (sớm hơn: kiểm căn trống các đêm thêm, `409 ROOM_UNAVAILABLE`; muộn hơn: trả các đêm thừa), `booked_arrival_date` giữ nguyên, `syncLeaseNights` lại. Tiền thuê tháng và ngày hết HĐ **không đổi** |
 | Điều kiện BR-402 | Dùng lại `evaluate` của `checkIn`. **Bỏ** `room_ready` (khách đang ở trong căn), nhưng căn có lượt khác `in_house` hoặc phủ các đêm đó → `409 CHECKIN_CONDITIONS_NOT_MET` (`unmet: [room_occupied]`). `balance_paid`: đơn nhập tay không có dòng folio lúc nhận phòng nên đạt. `document_check_block`: như `checkIn`, MGR/OWN là FDL+ nên được `documentBlockOverride` có lý do |
 | Không có | Giờ nhận phòng, phụ thu nhận sớm, B9a, `payment`, `houseRulesSent`, nhánh 202. Gửi các trường đó → `422` (`<field>: NOT_ALLOWED`) |
-| Ghi | Khóa: đơn → căn → folio (như `checkIn`). `status = in_house`, `actual_checkin_at` = **giờ bấm thật** (không lùi), `cards_issued`, buồng → `OC`. Cột mới `checkin_backdated_on` = `T`, `checkin_backdated_reason`. Không ghi dòng folio, không thu tiền |
+| Ghi | Khóa: đơn → căn → folio (như `checkIn`). `status = in_house`, `actual_checkin_at` = **giờ bấm thật** (không lùi), `cards_issued`, buồng → `OC`. Cột mới `checkin_backdated_on` = `T`, `checkin_backdated_reason`. Không ghi dòng folio, không thu tiền. Nghĩa của cột: **đơn đã từng nhận phòng bù**. Hoàn tác nhận phòng (B17) **không** xóa cột (giữ dấu cho SEC 12-01, 12-02 và audit); nhận phòng bù lại thì ghi đè ngày và lý do (ARC review #199) |
 | Sự kiện | Cùng hook/outbox như B9 (`reservation.checked_in`, SSE) + `after.backdated = {arrivalDate, previousArrivalDate}`. Audit `reservation.checked_in_backdated` (category `state`), `staff_notification` OWN như 12.1.1 |
 | Khai báo lưu trú | Hạn khai báo tính từ `actual_checkin_at` như B9 (không lùi về ngày đến). Khách đã khai ngoài Desk: lễ tân đánh dấu theo luồng khai báo hiện có; khi FB-INV-013 lên thì dùng K14 |
 | Phản hồi | `Reservation` như `checkIn`. `Reservation` thêm `checkinBackdatedOn: LocalDate \| null` (staff, không lý do). `allowedActions` thêm `check_in_backdated` khi: vai OWN/MGR, đơn `confirmed` dài hạn nhập tay, `arrival_date` < `T`. FE chỉ hiện nút theo `allowedActions` |
@@ -447,7 +447,7 @@ Phiếu tháng nhận phòng: theo G3. Phiếu tháng sau (12/2026): điện nư
 - Thân và phản hồi `PropertyContact { addressLine: string \| null, hotline: string \| null }` ↔ `property.address`, `property.phone_public`. `Cache-Control: no-store`. Không `If-Match` (như Wi-Fi, audit giữ bản trước).
 - Kiểm: `addressLine` bỏ khoảng trắng đầu/cuối, 5–200 ký tự, một dòng, không ký tự điều khiển; `hotline` khớp `^\+?[0-9][0-9 .-]{7,19}$`, lưu dạng đã chuẩn hóa (bỏ dấu cách/chấm/gạch, giữ `+`). Sai → `422 VALIDATION_FAILED` (không lặp lại giá trị đã gửi). `null` = xóa.
 - Audit `config` `property.contact_changed` (trước/sau – đây là thông tin công khai). Không SSE.
-- Tác động: chân phiếu in (`print()` đã đọc hai cột), trang công khai căn (`phonePublic`), và **miễn trừ hotline** của bộ lọc `SENSITIVE_DATA_DETECTED` (đọc lại ở lần kiểm sau, không cache lâu hơn giao dịch). BE kiểm cả ba.
+- Tác động: chân phiếu in (`print()` đã đọc hai cột), trang công khai căn (`phonePublic` – **chưa áp dụng ở v1.0.7**: server chưa có `getPublicUnitPage`; QA staging L3.4), và **miễn trừ hotline** của bộ lọc `SENSITIVE_DATA_DETECTED` (đọc lại ở lần kiểm sau, không cache lâu hơn giao dịch). BE kiểm cả ba.
 
 ### 12.4 Giá dọn thêm theo hạng cho khách dài hạn (H3)
 
@@ -563,7 +563,7 @@ Phạm vi tối thiểu nếu thiếu giờ: **12.1, 12.2, 12.3, 12.6 bắt bu�
 |---|---|---|
 | Q1 | MGR tạo đơn dài hạn nhập tay ngày đến `T`−10, có lý do | 201 `confirmed`; audit `backdatedArrival`; OWN có thông báo |
 | Q2 | Như Q1 nhưng FDL, FD | 403. Không gửi `backdatedArrival` mà ngày đến đã qua → 422 `DATE_IN_PAST` như cũ |
-| Q3 | Ngày đến `T`−46; ngày đến tháng trước khi `T` > hạn ghi trễ cuối kỳ tháng đó; ngày đi ≤ `T`; đơn ngắn ngày | 422 đúng mã trường (`BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED`, `DATE_IN_PAST`, `NOT_LONG_STAY`) |
+| Q3 | `createReservation` + `backdatedArrival`: ngày đến `T`−46; ngày đến tháng trước khi `T` > hạn ghi trễ cuối kỳ tháng đó; ngày đi ≤ `T`; đơn ngắn ngày (không kèm `manualLongStay`) | 422 đúng mã trường (`BACKDATE_OUT_OF_RANGE`, `PREVIOUS_MONTH_CLOSED`, `departureDate: DATE_IN_PAST`, `backdatedArrival: NOT_ALLOWED`). `NOT_LONG_STAY` chỉ ở `checkInBackdated` (đơn không phải dài hạn nhập tay). Sửa 19/11 theo code, ARC review #199 |
 | Q4 | Căn đã có lượt khác trong các đêm đã qua | 409 `ROOM_UNAVAILABLE`, không ghi gì |
 | Q5 | MGR `checkInBackdated` đơn `confirmed` ngày đến 05/11 với `arrivalDate` 05/11; và với `arrivalDate` 01/11 (dời sớm) | 200 `in_house`, `checkinBackdatedOn` = `T`, `actualCheckinAt` = giờ bấm, buồng OC, không dòng folio; dời: ngày đến 01/11, lease nights khớp |
 | Q6 | FD/FDL gọi `checkInBackdated`; `arrivalDate` = `T`; gửi `payment`/`checkinTime` | 403; 422 `USE_CHECK_IN`; 422 `NOT_ALLOWED` |
