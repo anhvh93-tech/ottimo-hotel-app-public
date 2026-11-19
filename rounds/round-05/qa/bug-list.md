@@ -25,6 +25,9 @@
   - 34 ca: 25 đạt, 0 trượt, 9 chưa chạy (7 ca hoãn vì 12.4/12.5 chưa lên; Q7 không có căn sạch; Q25 cần quyền DB – CI phủ).
   - Q16 (phiếu cuối không thu tháng 11 hai lần) đạt.
   - **Mới:** BUG-R5-014, BUG-R5-015, BUG-R5-016 (P3). Không có P0/P1/P2.
+- 19/11 L4 (QA, Desk staging sau CI `44488395821`, `main` @ `4d47af0d` = BE #199 + FE #198, `fb-inv-012-staging.md` mục L4):
+  - **Đóng** BUG-R5-014, 015, 016. 11 ca: 10 đạt, 0 trượt, 1 chưa kết luận (Q13 đường B9). Không có lỗi mới.
+  - Đã trả phòng 6 lượt `in_house` cũ trên staging; Q7 đạt.
 
 ## 1. Tổng hợp
 
@@ -33,8 +36,8 @@
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 2 | 0 | 0 | 2 (BUG-R5-003, BUG-R5-004) |
 | P2 | 6 | 2 (BUG-R5-002, BUG-R5-007) | 1 (BUG-R5-006) | 3 (BUG-R5-001, BUG-R5-008, BUG-R5-009) |
-| P3 | 8 | 3 (BUG-R5-014, BUG-R5-015, BUG-R5-016) | 1 (BUG-R5-005) | 4 (BUG-R5-010…013) |
-| **Tổng** | **16** | **5** | **2** | **9** |
+| P3 | 8 | 0 | 1 (BUG-R5-005) | 7 (BUG-R5-010…016) |
+| **Tổng** | **16** | **2** | **2** | **12** |
 
 ## 2. Bảng lỗi
 
@@ -53,9 +56,9 @@
 | BUG-R5-011 | P3 | FB-INV-012, trang in phiếu tháng: xem trước khổ A5 trên màn hình, bảng dòng lấn ra ngoài lề nội dung tờ khoảng 40 px. Bản in PDF đúng | FE | Đóng 18/11 (staging `5e98ec5a`, FE #195) |
 | BUG-R5-012 | P3 | FB-INV-012, Desk màn Tham số (S24): 3 khóa phiếu tháng hiện giá trị dạng JSON thô, nằm trong nhóm "FOC, hoa hồng, phí kênh" | FE + UXD | Đóng 18/11 (staging `5e98ec5a`, FE #195) |
 | BUG-R5-013 | P3 | FB-INV-012: phiếu tháng nhận phòng (khách đến giữa tháng M) in kỳ "Điện nước, dịch vụ" là cả tháng M−1, tháng khách chưa ở | BE (kỳ) / FE (in) – DOM/UXD chốt cách hiện | Đóng 18/11 (staging `5e98ec5a`, BE #194 + FE #195) |
-| BUG-R5-014 | P3 | Go-live fix: nhận phòng bù dời ngày đến sớm hơn mà căn bận thì 409 `ROOM_UNAVAILABLE`, nhưng `conflicts` liệt kê cả các đêm của chính đơn (kèm tên khách của đơn), nên người dùng thấy "căn bận" bởi chính khách đang nhận phòng | BE | Mới |
-| BUG-R5-015 | P3 | Go-live fix: phiếu tháng nhận phòng của đơn nhận phòng bù đã có khoản thu bị đảo vẫn báo `settle_outside_desk` cho MGR (Desk hiện nút "Khách đã trả ngoài app"), nhưng server trả 403 "owner only" (SEC-BE-197-02) | BE (`availableActions` theo cùng điều kiện phạm vi MGR) | Mới |
-| BUG-R5-016 | P3 | Go-live fix: hotline in trên chân phiếu tháng (chứng từ gửi khách) và ở "Xem trước chân phiếu" là dạng đã chuẩn hóa, liền một dãy (`+84900000222`), khó đọc | FE (định dạng khi hiển thị) + UXD (chốt dạng) | Mới |
+| BUG-R5-014 | P3 | Go-live fix: nhận phòng bù dời ngày đến sớm hơn mà căn bận thì 409 `ROOM_UNAVAILABLE`, nhưng `conflicts` liệt kê cả các đêm của chính đơn (kèm tên khách của đơn), nên người dùng thấy "căn bận" bởi chính khách đang nhận phòng | BE | Đóng 19/11 (staging `4d47af0d`, BE #199 + FE #198) |
+| BUG-R5-015 | P3 | Go-live fix: phiếu tháng nhận phòng của đơn nhận phòng bù đã có khoản thu bị đảo vẫn báo `settle_outside_desk` cho MGR (Desk hiện nút "Khách đã trả ngoài app"), nhưng server trả 403 "owner only" (SEC-BE-197-02) | BE (`availableActions` theo cùng điều kiện phạm vi MGR) | Đóng 19/11 (staging `4d47af0d`, BE #199 + FE #198) |
+| BUG-R5-016 | P3 | Go-live fix: hotline in trên chân phiếu tháng (chứng từ gửi khách) và ở "Xem trước chân phiếu" là dạng đã chuẩn hóa, liền một dãy (`+84900000222`), khó đọc | FE (định dạng khi hiển thị) + UXD (chốt dạng) | Đóng 19/11 (staging `4d47af0d`, BE #199 + FE #198) |
 
 ## 3. Chi tiết
 
@@ -894,7 +897,7 @@
 
 ### BUG-R5-014 – Nhận phòng bù dời ngày đến: 409 liệt kê cả đêm của chính đơn
 
-- **Mức:** P3. Trạng thái: **Mới**. Không sai dữ liệu: 409 đúng, không ghi gì. Lỗi ở nội dung báo lỗi, làm MGR hiểu nhầm.
+- **Mức:** P3. Trạng thái: **Đóng 19/11**. Không sai dữ liệu: 409 đúng, không ghi gì. Lỗi ở nội dung báo lỗi, làm MGR hiểu nhầm.
 - **Vai chịu trách nhiệm:** BE.
 - **Môi trường:** Desk staging sau CI `44324784155` (`main` @ `93f48941`, BE #197 + FE #196), 19/11/2026 14:03. OTM-00412 (căn 202, ngày đến 09/11, `confirmed`). Căn 202 có OTM-00386 các đêm 06–07/11.
 - **Bước:**
@@ -906,10 +909,12 @@
 - **Nguyên nhân (đọc code):** `checkin.service.ts` `moveArrival` gọi `occupancy.update(...)` **không** truyền `excludeSegmentIds: [seg.id]`. Các chỗ gọi khác trong `reservations.service.ts` (dòng ~3765, ~4701) và nhánh dời của chính `checkin.service.ts` (dòng ~1306) đều truyền.
 - **Đề xuất sửa:** thêm `excludeSegmentIds: [seg.id]` vào lời gọi trong `moveArrival`. Thêm 1 ca test: dời sớm vào đêm bận thì `conflicts` không chứa mã đơn đang nhận phòng.
 - **Bằng chứng:** phản hồi 409 trong lượt chạy (script `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/cb.mjs`). Không chụp ảnh.
+- **Ghi chú test lại:** 19/11 L4 (staging `4d47af0d`, BE #199) – **Đạt → Đóng.** OTM-00415 (căn 101, đến 18/11): `checkInBackdated` với `arrivalDate` 16/11 → 409 `ROOM_UNAVAILABLE`, `conflicts` chỉ có OTM-00403 (đêm 16/11), không còn đêm của chính đơn. QA đã hủy OTM-00415.
+
 
 ### BUG-R5-015 – MGR thấy nút "Khách đã trả ngoài app" nhưng server trả 403
 
-- **Mức:** P3. Trạng thái: **Mới**. Không lách được quyền (server chặn đúng). Chỉ là nút hiện ra rồi báo lỗi.
+- **Mức:** P3. Trạng thái: **Đóng 19/11**. Không lách được quyền (server chặn đúng). Chỉ là nút hiện ra rồi báo lỗi.
 - **Vai chịu trách nhiệm:** BE (`availableActions` của `BillingPeriod`). FE không đổi: Desk đang hiện nút theo `availableActions`.
 - **Môi trường:** như BUG-R5-014. TT-2611-202 của OTM-00412 (nhận phòng bù 19/11).
 - **Bước:**
@@ -927,10 +932,12 @@
   OWN thấy như hiện nay.
 - **Đề xuất sửa:** tính `availableActions` cho MGR bằng cùng hàm điều kiện. ARC 197-02 cũng đã nêu "giảm 403 thừa". Thêm 1 ca test.
 - **Bằng chứng:** phản hồi API trong lượt chạy (`/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/bg.mjs`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/so.mjs`).
+- **Ghi chú test lại:** 19/11 L4 (staging `4d47af0d`, BE #199 + FE #198) – **Đạt → Đóng.** TT-2611-202 có khoản bị đảo, `partially_paid`: MGR `availableActions` = `record_payment, print`, drawer MGR chỉ có "Ghi đã thu"; OWN vẫn có `settle_outside_desk`; MGR gọi thẳng → 403 "owner only". Băng `od.owner_only` kiểm bằng 403 giả lập (L4.1 ca 6). QA đã ghi lại khoản của OWN, phiếu về `paid`.
+
 
 ### BUG-R5-016 – Hotline trên phiếu in liền một dãy số
 
-- **Mức:** P3. Trạng thái: **Mới**. Chữ khách đọc trên chứng từ, không sai số.
+- **Mức:** P3. Trạng thái: **Đóng 19/11**. Chữ khách đọc trên chứng từ, không sai số.
 - **Vai chịu trách nhiệm:** FE (định dạng khi hiển thị), UXD chốt dạng (ví dụ `+84 900 000 222`, hoặc giữ đúng dạng OWN gõ).
 - **Môi trường:** như BUG-R5-014.
 - **Bước:**
@@ -939,4 +946,4 @@
 - **Kết quả thực tế:** chân phiếu in "Questions? Contact us · Cần hỗ trợ, vui lòng liên hệ +84900000222". Phần xem trước cũng in liền.
 - **Kết quả mong đợi:** số hiện theo nhóm, dễ đọc, dễ gọi (UXD chốt). Giá trị lưu vẫn chuẩn hóa để bộ lọc `SENSITIVE_DATA_DETECTED` so khớp.
 - **Bằng chứng:** `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots/print-Xnov-screen.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/contact-qa.owner.png`. Địa chỉ, hotline là số thử, tên khách giả; không commit.
-
+- **Ghi chú test lại:** 19/11 L4 (staging `4d47af0d`, FE #198) – **Đạt → Đóng.** Hotline lưu `+84900000222`, hiện "+84 900 000 222" ở "Xem trước chân phiếu" (S24) và chân trang in TT-2611-202, thẻ `.mono` font JetBrains Mono. QA đã trả liên hệ cơ sở về `null`.

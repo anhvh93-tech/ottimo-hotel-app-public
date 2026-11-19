@@ -1,5 +1,56 @@
 # QA – Kiểm trên staging: FB-INV-012 phiếu thanh toán tháng khách dài hạn
 
+## L4. Kiểm lại BUG-R5-014..016, chữ mới, dọn staging (19/11, 16:38–16:50)
+
+- Bản kiểm: Desk staging sau CI `44488395821` (`main` @ `4d47af0d` = BE #199 + FE #198), job `deploy staging` xanh.
+- Cách chạy như L3: API script + Playwright, `qa.*`, khách giả. QA OWN cấp thiết bị tin cậy "QA STG API 2026-11-19" lúc 16:38, thu hồi lúc 16:44.
+
+### L4.0 Kết luận: **ĐẠT** – đóng BUG-R5-014, 015, 016; không có lỗi mới
+
+- **11 ca: 10 đạt, 0 trượt, 1 chưa kết luận.** Ca chưa kết luận là Q13 đường B9 (`checkIn.payment` với `outside_desk`): server chặn ở bước kiểm khác trước, xem L4.1.
+- **Lỗi FB-INV-012 còn mở: 0.** Lỗi Round 5 còn mở ngoài phần này không đổi: BUG-R5-002, BUG-R5-007 (P2).
+- **Dọn staging xong:** 6 lượt `in_house` cũ đã trả phòng, 6 căn sạch (VC). Q7 đã chạy và đạt.
+- UXD 196-04 (checkbox của trình duyệt) vẫn còn. Không thuộc việc lượt này, chỉ ghi lại.
+- Không có ESC mới.
+
+### L4.1 Kết quả
+
+| # | Ca | Kết quả | Bằng chứng ngắn |
+|---|---|---|---|
+| 1 | BUG-R5-014: dời ngày đến vào đêm bận | **Đạt → Đóng** | OTM-00415 (MGR tạo, căn 101, đến 18/11). `checkInBackdated` với `arrivalDate` 16/11 → 409 `ROOM_UNAVAILABLE`. `conflicts` chỉ có lượt khác: OTM-00403, đêm 16/11. Không còn đêm của chính đơn |
+| 2 | BUG-R5-015: MGR và `settle_outside_desk` sau khi có khoản bị đảo | **Đạt → Đóng** | OWN đảo khoản 3.000.000 trên TT-2611-202 → `partially_paid`, phiếu đã có 2 khoản bị đảo. MGR: `availableActions` = `record_payment, print` (không còn nút); drawer MGR chỉ có "Ghi đã thu". OWN vẫn có `settle_outside_desk`. MGR gọi thẳng → 403 "owner only" như cũ |
+| 3 | BUG-R5-016: hotline có nhóm số, JetBrains Mono | **Đạt → Đóng** | OWN lưu "+84 900 000 222" (server lưu `+84900000222`). S24 "Xem trước chân phiếu": "QA 2 Duong Thu Nghiem, Phuong 1, Da Lat · +84 900 000 222", số hotline ở thẻ `.mono` font `"JetBrains Mono"`. Ô nhập hotline cũng là JetBrains Mono. Trang in TT-2611-202: chân phiếu "+84 900 000 222", cùng thẻ `.mono` JetBrains Mono |
+| 4 | Giới hạn ngày trong form "Khách đang ở từ trước" (T = 19/11) | **Đạt** | Ngày vào: `min` 05/10 = T−45, `max` 18/11 = T−1. Ngày ra: `min` 20/11 (sau hôm nay). Lượt L3 `min` ngày ra là 18/11 |
+| 5 | `od.confirm_body` | **Đạt** | Hộp xác nhận: "Lúc này không thu tiền. Khoản này không vào ca, đối soát hay tiền mặt bàn giao. Khách cần hoàn tiền thì hoàn bằng tiền mặt hoặc chuyển khoản. Ghi nhầm thì quản lý hoặc chủ đầu tư dùng Đảo giao dịch." Khớp `strings-vi.json` và lệch 8 |
+| 6 | `od.owner_only` | **Đạt** | Không còn cách để MGR thấy nút rồi bị 403 (ca 2), nên QA giả lập 403 `FORBIDDEN_ACTION` bằng `page.route` trên trình duyệt (OWN, TT-2611-202; không gửi gì lên server). Desk hiện băng "Chỉ chủ đầu tư ghi được khoản này ở đây. Quản lý chỉ ghi được tiền thuê … Nhờ chủ đầu tư ghi." đúng `strings-vi.json`. Phiếu không đổi sau ca này |
+| 7 | `stmt.pay_amount` | **Đạt** | Nhãn "Số tiền *" ở form "Ghi đã thu" và form "Khách đã trả ngoài app" |
+| 8 | Nhãn VI trong lịch sử thu | **Đạt** | Folio OTM-00412, "Giao dịch thu": "6.509.000 đ · Khách đã trả ngoài app · 10/11/2026 12:00 · QA MGR · Đã đảo", "3.000.000 đ · Khách đã trả ngoài app … QA OWNER". Thống nhất với `payment.method.outside_desk` và báo cáo 196-01 (ghi chú UXD ở L3.4 đã xong) |
+| 9 | Q16 smoke trên OTM-00412 | **Đạt** | Nháp 12/2026 `final`, kỳ thuê 01–13/12, tiền thuê 3.689.000 = 10.198.000 − 6.509.000, như L3. Đã hủy nháp |
+| 10 | Q7: nhận phòng thường | **Đạt** | OTM-00414 (FD, dài hạn nhập tay, đến hôm nay, căn 101 VC): xem trước nhận phòng đủ 6 điều kiện, `checkIn` → 200 `in_house`, `checkinBackdatedOn` null, `allowedActions` không có `check_in_backdated`, folio 0 dòng. Sau đó MGR hoàn tác nhận phòng và hủy đơn |
+| 11 | Q13 đường B9: `checkIn.payment` `outside_desk` | **Chưa kết luận** (CI phủ) | Đơn dài hạn nhập tay không có số phải thu, nên server trả 422 `payment.amountVnd: AMOUNT_EXCEEDS_BALANCE` trước khi xét phương thức. Không ghi gì. Cần đơn ngắn ngày có tiền cọc để thấy `NOT_IN_LIST`; test SEC 12-03 phủ đường này |
+
+### L4.2 Dọn staging
+
+- **6 lượt `in_house` cũ, trả phòng bằng QA OWN:**
+  - Trước đó QA kiểm minibar trả phòng (đủ món, không dùng), vì cả 6 bị chặn `minibar_not_checked`.
+  - Giờ trả = 12:00 ngày đi của từng đơn (`checkoutAt`), kèm `overdueReason` "QA dọn dữ liệu thử staging". MGR bị 403 `requiredRole: owner` vì có đêm chưa tính tiền; dùng ngày đi thật thì không tính thêm đêm.
+  - OTM-00397 (301), OTM-00399 (401), OTM-00403 (101), OTM-00406 (102): số dư 0, trả phòng xong.
+  - OTM-00296 (302, còn nợ 2.074.000) và OTM-00359 (201, còn nợ 210.000): ghi công nợ (`debt`, hạn 30/11, lý do "QA dọn dữ liệu thử staging: nợ giả, không thu"). Hai mục này sẽ hiện trong "Cần chú ý" `checkout_debt`. Đây là tiền giả của dữ liệu thử.
+  - QA dọn xong 6 căn (`qa.hk` bắt đầu/xong dọn) → 101, 102, 201, 301, 302, 401 đều **VC**.
+- **Đơn L4 tạo ra đã hủy:** OTM-00414 (Q7, sau khi hoàn tác nhận phòng), OTM-00415 (ca 1).
+- **OTM-00412 trả về như cuối L3:** khoản OWN 3.000.000 bị đảo ở ca 2 đã được OWN ghi lại, TT-2611-202 `paid`. Nháp 12/2026 đã hủy.
+- **Liên hệ cơ sở** về `null`/`null`. Thiết bị tin cậy đã thu hồi.
+- **Không đụng** OTM-00408, 00409, 00412 (trừ ca 2 đã trả lại), OTM-00385.
+- **Còn lại, API không xóa được:** giấy tờ CCCD giả của OTM-00414, 00415 (dùng lại khách giả KH-0486) nằm trong hồ sơ lưu trú của hai đơn đã hủy; 6 lần kiểm minibar trả phòng.
+- **Đang ở trên staging sau lượt này:** OTM-00385 (203), OTM-00408 (103), OTM-00409 (402), OTM-00412 (202). 6 căn còn lại trống, sạch cho lượt 30/11–02/12.
+
+### L4.3 Ảnh (scratchpad, không commit)
+
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L4-contact-owner.png` – khối "Liên hệ cơ sở", hotline có nhóm, JetBrains Mono.
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L4-print-X.png` – trang in TT-2611-202, chân phiếu có hotline nhóm số. Tên khách giả.
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L4-confirm.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L4-owner-only.png` – hộp xác nhận và băng "Chỉ chủ đầu tư…" (403 giả lập).
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L4-ls-form-inhouse-qa.mgr-1440.png` – form "Khách đang ở từ trước".
+
 ## L3. Go-live fix v1.0.7 – contract §12 (19/11, 14:00–14:20)
 
 - Bản kiểm: Desk staging sau CI `44324784155` (`main` @ `93f48941` = BE #197 + FE #196), job `deploy staging` xanh (`sha-93f4894167f7`). OpenAPI `0.3.15-draft`.
