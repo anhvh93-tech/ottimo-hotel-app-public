@@ -1248,7 +1248,8 @@ export class CheckinService {
       { segmentId: seg.id },
       { roomId, from: arrival, to: seg.to_date },
       ctx.now,
-      { withNames: true, persons: this.s.counted(row) },
+      // BUG-R5-014: the 409 lists other stays only, never this booking's own nights.
+      { withNames: true, persons: this.s.counted(row), excludeSegmentIds: [seg.id] },
     );
     await tx.query(
       `UPDATE reservation_segment SET from_date = $2::date, updated_at = $3 WHERE id = $1`,

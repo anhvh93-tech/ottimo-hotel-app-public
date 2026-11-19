@@ -922,13 +922,33 @@ export class StatementsService {
     };
   }
 
-  private actions(row: BpRow, actor: BillingActor, stay: LongStay): string[] {
+  /**
+   * §12.2 offer of `settle_outside_desk` to a manager (not owner): condition (a) of SEC 12-02 (ARC-BE-197-02) and
+   * the payment history of SEC-BE-197-02 (BUG-R5-015) – (b) and (c) depend on the amount / date and are checked at
+   * write.
+   */
+  private async managerMayOffer(
+    tx: Tx,
+    actor: BillingActor,
+    row: BpRow,
+    stay: LongStay,
+    pc: PropertyNow,
+  ): Promise<boolean> {
+    if (!actor.roles.includes('manager') || actor.roles.includes('owner')) return false;
+    if (row.status !== 'issued' && row.status !== 'partially_paid') return false;
+    if (!this.holdsBackdatedArrival(row, stay) || !stay.checkinBackdatedOn) return false;
+    return !(await this.paymentHistoryBarsManager(
+      tx,
+      row.id,
+      stay.checkinBackdatedOn,
+      pc.timezone,
+    ));
+  }
+
+  private actions(row: BpRow, actor: BillingActor, managerOffer: boolean): string[] {
     const fdl = isFdlPlus(actor.roles);
-    // §12.2: OWN always; MGR only on the check-in statement of a backdated stay – condition (a) of
-    // SEC 12-02 (ARC-BE-197-02). (b) and (c) are checked at write.
-    const mgr =
-      actor.roles.includes('owner') ||
-      (actor.roles.includes('manager') && this.holdsBackdatedArrival(row, stay));
+    // §12.2: OWN always; MGR only when managerMayOffer (ARC-BE-197-02, BUG-R5-015).
+    const mgr = actor.roles.includes('owner') || managerOffer;
     const balance = n(row.total_vnd) - n(row.paid_vnd);
     switch (row.status) {
       case 'draft':
@@ -1076,7 +1096,11 @@ export class StatementsService {
           ? null
           : { amountVnd: Number(row.prior_adjustment_vnd), reason: row.prior_adjustment_reason },
       note: row.note,
-      availableActions: this.actions(row, actor, stay),
+      availableActions: this.actions(
+        row,
+        actor,
+        await this.managerMayOffer(tx, actor, row, stay, now),
+      ),
       ratesSnapshot: row.rates_snapshot,
       replacesId: row.replaces_id,
       replacesCode: replaced?.rows[0]?.code ?? null,
@@ -2090,6 +2114,26 @@ export class StatementsService {
     };
   }
 
+  /**
+   * SEC-BE-197-02: a reversed payment on the statement, or a real (non-outside_desk) payment received after the
+   * backdated check-in day (property time) – the statement is then the owner's to settle outside Desk.
+   */
+  private async paymentHistoryBarsManager(
+    tx: Tx,
+    billingPeriodId: string,
+    backdatedOn: LocalDate,
+    timezone: string,
+  ): Promise<boolean> {
+    const { rows } = await tx.query<{ c: string }>(
+      `SELECT count(*)::text AS c FROM payment
+        WHERE billing_period_id = $1
+          AND (status = 'reversed'
+               OR (method <> 'outside_desk' AND (received_at AT TIME ZONE $3)::date > $2::date))`,
+      [billingPeriodId, backdatedOn, timezone],
+    );
+    return n(rows[0]?.c ?? null) > 0;
+  }
+
   /** SEC 12-02 (a): the stay was checked in backdated and this statement's rent period holds its arrival. */
   private holdsBackdatedArrival(
     row: BpRow,
@@ -2130,14 +2174,7 @@ export class StatementsService {
       throw denied();
     // SEC-BE-197-02: no reversed payment on the statement, and no real payment taken after the backdated
     // check-in – otherwise a manager could reverse Desk money and re-record it as "outside Desk".
-    const { rows: hist } = await tx.query<{ c: string }>(
-      `SELECT count(*)::text AS c FROM payment
-        WHERE billing_period_id = $1
-          AND (status = 'reversed'
-               OR (method <> 'outside_desk' AND (received_at AT TIME ZONE $3)::date > $2::date))`,
-      [row.id, r.backdated_on, timezone],
-    );
-    if (n(hist[0]?.c ?? null) > 0) throw denied();
+    if (await this.paymentHistoryBarsManager(tx, row.id, r.backdated_on, timezone)) throw denied();
     // (b) only the unpaid part of its rent lines.
     const { rows: rent } = await tx.query<{ s: string | null }>(
       `SELECT sum(amount_vnd)::text AS s FROM billing_period_line

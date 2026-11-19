@@ -185,3 +185,14 @@ Test `fb-inv-012-golive.test.ts`:
 - 0100 chưa chạy ở môi trường nào ngoài CI và máy dev. Nên sửa thẳng 0100, không cần migration mới. DB thử cục bộ đã có 0100 cũ, BE tự DROP/ADD CHECK mới tay để chạy test. CI dùng DB mới.
 - Ngày nhận tiền của khoản thu thật (SEC 197-02) so theo giờ cơ sở (`received_at AT TIME ZONE` múi giờ cơ sở).
 - Field-level device check chạy trước body 422 (giống thiết bị cấp operation). MGR gửi `backdatedArrival` sai dạng ngoài thiết bị nhận 403, không phải 422.
+
+## QA staging 19/11 – BUG-R5-014, BUG-R5-015 (nhánh `r5-fb012-golive-be-fix`)
+
+| Lỗi | Trạng thái | Cách sửa | Test |
+|---|---|---|---|
+| BUG-R5-014 (P3) | **Đã sửa, chờ QA** | `checkin.service.ts` `moveArrival`: gọi `occupancy.update` kèm `excludeSegmentIds: [seg.id]`, giống các đường dời ngày / đổi căn khác. 409 `ROOM_UNAVAILABLE` chỉ còn lượt khác | `fb-inv-012-golive.test.ts` Q4: `conflicts[].reservationCode` chỉ có mã đơn đang giữ đêm 04/11, không có mã đơn đang nhận phòng |
+| BUG-R5-015 (P3) | **Đã sửa, chờ QA** | `statements.service.ts`: hàm mới `paymentHistoryBarsManager` dùng chung cho lúc ghi (`assertManagerGoLiveScope`) và `availableActions` (`managerMayOffer`). MGR chỉ thấy `settle_outside_desk` khi đủ (a) **và** phiếu chưa có khoản thu `reversed`, chưa có khoản thu thật nhận sau ngày nhận phòng bù. OWN không đổi | Ca đảo khoản (ARC-BE-197-01): sau khi đảo, MGR không thấy hành động, OWN vẫn thấy; MGR gửi vẫn 403 |
+
+Ghi chú cho ARC (contract §12.11 Q3): contract ghi mã `NOT_LONG_STAY` cho "đơn ngắn ngày" gửi `backdatedArrival`. Code (từ #197) trả `422 backdatedArrival: NOT_ALLOWED` khi không kèm `manualLongStay`, đúng như OpenAPI 0.3.15 (`backdatedArrival` description) và test. Đề nghị ARC sửa Q3 theo code. BE không sửa contract.
+
+Migration 0100 không đổi (đã đóng băng).
