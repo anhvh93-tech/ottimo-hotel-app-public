@@ -5,6 +5,7 @@ import { useId, useRef, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
 import { useBusinessDay, useBusinessDayChange } from '../app/businessDay';
 import { parseVnd } from '../app/money';
+import { addDays } from '../app/reservations';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { useOnline } from '../hooks/useOnline';
@@ -123,6 +124,8 @@ export function ParamDialog({
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<string | null>(null);
+  // BUG-R5-017 (ARC 19/11): a row is already in force today – offer tomorrow in one click.
+  const [inForce, setInForce] = useState(false);
   const [busy, setBusy] = useState(false);
   const bounds = SECURITY_BOUNDS[param.key];
   const history = useResource(
@@ -190,12 +193,18 @@ export function ParamDialog({
     if (Object.keys(errs).length || !parsed.ok) return;
     setBusy(true);
     setBanner(null);
+    setInForce(false);
     try {
       await api.setParameter(
         { propertyId, key: param.key },
         { value: parsed.value, effectiveFrom, reason: reason.trim() },
       );
-      toast(t('params.saved', { name, date: effectiveFrom.split('-').reverse().join('/') }));
+      // BUG-R5-017: the cleaning table may be saved again the same day and applies at once.
+      toast(
+        lscf && effectiveFrom === today
+          ? t('params.saved_now')
+          : t('params.saved', { name, date: effectiveFrom.split('-').reverse().join('/') }),
+      );
       onSaved();
     } catch (err) {
       if (
@@ -208,6 +217,11 @@ export function ParamDialog({
         setErrors({ value: problemView(t, err).text });
       } else if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
         setErrors(fieldErrors(t, err));
+        setInForce(
+          err.fieldErrors.some(
+            (f) => /^(body\.)?effectiveFrom$/.test(f.field) && f.code === 'ALREADY_IN_FORCE',
+          ),
+        );
       } else {
         setBanner(problemView(t, err).text);
       }
@@ -344,7 +358,10 @@ export function ParamDialog({
                 type="date"
                 min={today}
                 value={effectiveFrom}
-                onChange={(e) => setEffectiveFrom(e.target.value)}
+                onChange={(e) => {
+                  setEffectiveFrom(e.target.value);
+                  setInForce(false);
+                }}
               />
             )}
           </Field>
@@ -360,6 +377,25 @@ export function ParamDialog({
             )}
           </Field>
         </div>
+        {inForce ? (
+          <p>
+            <Button
+              size="sm"
+              icon="calendar"
+              onClick={() => {
+                setEffectiveFrom(addDays(today, 1));
+                setInForce(false);
+                setErrors((e) => {
+                  const rest = { ...e };
+                  delete rest.effectiveFrom;
+                  return rest;
+                });
+              }}
+            >
+              {t('params.effective_tomorrow')}
+            </Button>
+          </p>
+        ) : null}
         {param.key.startsWith('hold_hours') ? (
           <Alert tone="info" role="note">
             {t('params.apply_note')}
