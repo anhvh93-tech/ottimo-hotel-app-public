@@ -430,3 +430,23 @@ Kiểm: admin-web 106 file / 1165 test, guest-web 10 file / 101 test; typecheck,
 Chưa merge main theo chỉ đạo ORC (BE #200 còn chờ ARC/SEC). `ChargePriceSource` vẫn viết tay cho tới khi #200 merge.
 
 Cập nhật 19/11 sau khi BE #200 merge: đã merge origin/main (không rebase); `ChargePriceSource` = `NonNullable<Schemas['ChargeCatalogItem']['priceSource']>` lấy từ spec sinh tự động; `getChargeCatalog` trả `ChargeCatalogItem[]` trực tiếp, bỏ kiểu viết tay trong `StayDialogs.tsx`. Thay đổi 201-01/02 giữ nguyên.
+
+## BUG-R5-017 – sửa trong ngày trên S24 (FE, 19/11)
+
+Theo quyết định ARC (phụ lục 19/11 trong `rounds/round-05/reviews/ARC-on-be-pr-200.md`), nhánh `r5-bug-r5-017-fe`.
+
+| Việc | Đã làm |
+|---|---|
+| FE-1 | `ParamDialog.tsx`, mọi khóa: 422 có `effectiveFrom: ALREADY_IN_FORCE` → câu `field.ALREADY_IN_FORCE` dưới ô "Hiệu lực từ" và nút "Effective tomorrow · Hiệu lực từ ngày mai" (`params.effective_tomorrow`). Bấm nút: điền sẵn T+1 (ngày kinh doanh + 1), xóa lỗi, ẩn nút; người dùng bấm Lưu như thường. Client cũ không biết mã vẫn ra câu chung |
+| FE-2 | Bảng giá dọn theo căn lưu hiệu lực hôm nay → toast thường `params.saved_now` "Saved – in force now · Đã lưu – áp dụng ngay.", không đỏ, không cảnh báo. Lưu ngày khác vẫn dùng `params.saved` |
+| FE-3 | `bug-r5-017-same-day.test.tsx`: bảng giá dọn lưu 2 lần trong ngày đều thành công, giá trị là bảng lần 2; khóa khác lưu lần 2 → câu mới + nút, nút điền T+1 và lưu được. Mock `setParameter` theo luật ARC (`SAME_DAY_EDITABLE_KEYS`, công tắc khẩn tắt trong ngày được, khóa khác → `ALREADY_IN_FORCE`) |
+
+Chuỗi mới, đã thay đúng nguyên văn UXD 202-01 (`rounds/round-05/reviews/UXD-on-fe-pr-202.md`), bỏ ghi chú chờ duyệt:
+
+| Khóa | EN | VI |
+|---|---|---|
+| `field.ALREADY_IN_FORCE` | This setting was already changed for today. Choose tomorrow or a later date. | Tham số này đã được đổi cho hôm nay. Chọn từ ngày mai trở đi. |
+| `params.effective_tomorrow` | Use tomorrow's date | Chọn ngày mai |
+| `params.saved_now` | Saved {name}, in force now. | Đã lưu {name}, áp dụng ngay. |
+
+FB-R5-UXD-FE-202-01: Fixed. `params.saved_now` gọi bằng `t('params.saved_now', { name })`.

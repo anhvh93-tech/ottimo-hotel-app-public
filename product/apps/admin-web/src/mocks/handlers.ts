@@ -529,6 +529,10 @@ function guard(
 const isResponse = (g: Guard): g is Response => g instanceof Response;
 const base = '*/v1';
 const prop = `${base}/properties/:propertyId`;
+/** BUG-R5-017 (ARC 19/11): the only key whose row in force today may be overwritten (audit `sameDayOverride`). */
+const SAME_DAY_EDITABLE_KEYS = new Set(['long_stay_cleaning_fee_by_room']);
+/** BUG-R3-008: kill switches may be turned OFF the same day. */
+const KILL_SWITCH_KEYS = new Set(['public_booking_requests_enabled', 'public_show_prices']);
 
 function omit<T extends object>(o: T, keys: string[]): T {
   const out = { ...o } as Record<string, unknown>;
@@ -1215,6 +1219,17 @@ export const handlers = [
       errors.push({ field: 'reason', code: 'REASON_REQUIRED' });
     if (typeof cur.value === 'number' && typeof body.value !== 'number')
       errors.push({ field: 'value', code: 'VALUE_INVALID' });
+    // BUG-R5-017 (ARC 19/11): a row already in force today is overwritten only for the cleaning table
+    // (and the kill-switch safe values, BUG-R3-008); any other key → `effectiveFrom: ALREADY_IN_FORCE`.
+    const today = businessDayLocal();
+    if (
+      !errors.length &&
+      body.effectiveFrom === today &&
+      !SAME_DAY_EDITABLE_KEYS.has(cur.key) &&
+      !(KILL_SWITCH_KEYS.has(cur.key) && body.value === false) &&
+      (db.history.get(cur.key) ?? []).some((h) => h.effectiveFrom === today)
+    )
+      errors.push({ field: 'effectiveFrom', code: 'ALREADY_IN_FORCE' });
     if (errors.length) return validation(errors);
     // FB-INV-012: the billing module's setParameter hook (contract §3).
     const hook = statementParamErrors(cur.key, body.value);
@@ -1246,7 +1261,10 @@ export const handlers = [
       changedBy: g.user.displayName,
       changedAt: new Date().toISOString(),
     };
-    db.history.set(cur.key, [next, ...(db.history.get(cur.key) ?? [cur])]);
+    const earlier = (db.history.get(cur.key) ?? [cur]).filter(
+      (h) => !(SAME_DAY_EDITABLE_KEYS.has(cur.key) && h.effectiveFrom === next.effectiveFrom),
+    );
+    db.history.set(cur.key, [next, ...earlier]);
     if (next.effectiveFrom <= businessDayLocal()) Object.assign(cur, next);
     return HttpResponse.json(next);
   }),
