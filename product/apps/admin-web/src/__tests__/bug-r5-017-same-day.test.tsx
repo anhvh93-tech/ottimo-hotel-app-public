@@ -38,7 +38,7 @@ describe('BUG-R5-017 same-day saves on S24', () => {
       '150000',
     );
     await save(user, dlg, 'Go-live table');
-    expect(await screen.findByText(tv('params.saved_now'))).toBeVisible();
+    expect(await screen.findByText(tv('params.saved_now', { name }))).toBeVisible();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     dlg = await openParam(user, name);
@@ -48,7 +48,7 @@ describe('BUG-R5-017 same-day saves on S24', () => {
     );
     await save(user, dlg, 'Add room 102');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(screen.getAllByText(tv('params.saved_now')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(tv('params.saved_now', { name })).length).toBeGreaterThan(0);
     expect(screen.queryByText(tv('field.ALREADY_IN_FORCE'))).toBeNull();
     expect(lscfValue()).toEqual({ '101': 150000, '102': 200000 });
   });

@@ -441,10 +441,12 @@ Theo quyết định ARC (phụ lục 19/11 trong `rounds/round-05/reviews/ARC-o
 | FE-2 | Bảng giá dọn theo căn lưu hiệu lực hôm nay → toast thường `params.saved_now` "Saved – in force now · Đã lưu – áp dụng ngay.", không đỏ, không cảnh báo. Lưu ngày khác vẫn dùng `params.saved` |
 | FE-3 | `bug-r5-017-same-day.test.tsx`: bảng giá dọn lưu 2 lần trong ngày đều thành công, giá trị là bảng lần 2; khóa khác lưu lần 2 → câu mới + nút, nút điền T+1 và lưu được. Mock `setParameter` theo luật ARC (`SAME_DAY_EDITABLE_KEYS`, công tắc khẩn tắt trong ngày được, khóa khác → `ALREADY_IN_FORCE`) |
 
-Chuỗi mới (FE nháp, **CHỜ UXD DUYỆT**):
+Chuỗi mới, đã thay đúng nguyên văn UXD 202-01 (`rounds/round-05/reviews/UXD-on-fe-pr-202.md`), bỏ ghi chú chờ duyệt:
 
 | Khóa | EN | VI |
 |---|---|---|
-| `field.ALREADY_IN_FORCE` | A value is already in force today. Choose a later date. | Đã có giá trị hiệu lực hôm nay. Chọn ngày sau. |
-| `params.effective_tomorrow` | Effective tomorrow | Hiệu lực từ ngày mai |
-| `params.saved_now` | Saved – in force now. | Đã lưu – áp dụng ngay. |
+| `field.ALREADY_IN_FORCE` | This setting was already changed for today. Choose tomorrow or a later date. | Tham số này đã được đổi cho hôm nay. Chọn từ ngày mai trở đi. |
+| `params.effective_tomorrow` | Use tomorrow's date | Chọn ngày mai |
+| `params.saved_now` | Saved {name}, in force now. | Đã lưu {name}, áp dụng ngay. |
+
+FB-R5-UXD-FE-202-01: Fixed. `params.saved_now` gọi bằng `t('params.saved_now', { name })`.

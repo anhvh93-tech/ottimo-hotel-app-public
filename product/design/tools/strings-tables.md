@@ -4498,9 +4498,9 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `params.lscf.empty` | Chưa đặt – mọi căn dùng giá dọn thêm chung | Not set – every room uses the standard price | ⟨chừa chỗ⟩ | UXD-196-06 |
 | `params.lscf.empty_short` | Chưa đặt | Not set | ⟨chừa chỗ⟩ | UXD-196-06 – ô lịch sử |
 | `params.lscf.rooms_n` | {n} căn có giá riêng | {n} rooms with their own price | ⟨chừa chỗ⟩ | Tóm tắt giá trị trong bảng tham số |
-| `field.ALREADY_IN_FORCE` | Đã có giá trị hiệu lực hôm nay. Chọn ngày sau. | A value is already in force today. Choose a later date. | ⟨chừa chỗ⟩ | BUG-R5-017 effectiveFrom – FE nháp 19/11 theo gợi ý ARC, CHỜ UXD DUYỆT |
-| `params.effective_tomorrow` | Hiệu lực từ ngày mai | Effective tomorrow | ⟨chừa chỗ⟩ | BUG-R5-017 nút điền sẵn T+1 – CHỜ UXD DUYỆT |
-| `params.saved_now` | Đã lưu – áp dụng ngay. | Saved – in force now. | ⟨chừa chỗ⟩ | BUG-R5-017 bảng giá dọn sửa trong ngày – CHỜ UXD DUYỆT |
+| `field.ALREADY_IN_FORCE` | Tham số này đã được đổi cho hôm nay. Chọn từ ngày mai trở đi. | This setting was already changed for today. Choose tomorrow or a later date. | ⟨chừa chỗ⟩ | BUG-R5-017 effectiveFrom – UXD 202-01 |
+| `params.effective_tomorrow` | Chọn ngày mai | Use tomorrow's date | ⟨chừa chỗ⟩ | BUG-R5-017 nút điền sẵn T+1 – UXD 202-01 |
+| `params.saved_now` | Đã lưu {name}, áp dụng ngay. | Saved {name}, in force now. | ⟨chừa chỗ⟩ | BUG-R5-017 bảng giá dọn sửa trong ngày – UXD 202-01 |
 | `params.lscf.price_invalid` | Giá từ 1.000 đến 5.000.000 đ, bội 1.000. Để trống thì dùng giá chung. | Price from 1,000 to 5,000,000 VND, in steps of 1,000. Leave it blank to use the standard price. | ⟨chừa chỗ⟩ | BE #200: 0 bị từ chối; UXD duyệt #201 |
 | `charge.price_source.long_stay_room` | Giá dài hạn của căn | Long-stay room price | ⟨chừa chỗ⟩ | FE-5 priceSource |
 | `charge.price_source.default` | Giá chung | Standard price | ⟨chừa chỗ⟩ | FE-5 priceSource |

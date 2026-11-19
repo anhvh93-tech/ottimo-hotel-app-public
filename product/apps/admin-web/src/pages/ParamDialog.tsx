@@ -202,7 +202,7 @@ export function ParamDialog({
       // BUG-R5-017: the cleaning table may be saved again the same day and applies at once.
       toast(
         lscf && effectiveFrom === today
-          ? t('params.saved_now')
+          ? t('params.saved_now', { name })
           : t('params.saved', { name, date: effectiveFrom.split('-').reverse().join('/') }),
       );
       onSaved();
