@@ -1,6 +1,8 @@
 // BUG-R3-021 (QA 27/10, staging rc.3): the property has no Wi-Fi on file, so the server sends `wifi: null` on the arrival
 // day too – the page still said "Hiện ở đây vào ngày nhận phòng (27/10)" ON 27/10. From the arrival day on (property
 // time, Asia/Ho_Chi_Minh) or while in house, `null` now means "ask the front desk"; before it, the promise stays.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GuestStay } from '../app/api';
@@ -73,5 +75,24 @@ describe('BUG-R3-021 – Wi-Fi block on the arrival day without Wi-Fi on file', 
     show(stay({ wifi: { ssid: 'OTTIMO-Guest', password: 'mock-wifi-pass' } }));
     expect(screen.getByText('OTTIMO-Guest')).toHaveClass('gw-code');
     expect(screen.queryByText(translateGuest('vi', 'gw.wifi_ask_desk'))).not.toBeInTheDocument();
+  });
+
+  // UXD FB-R5-UXD-FE-136-05: a 32-character name and a password with spaces stay inside the card and keep every space.
+  it('Wi-Fi name and password wrap inside the card and keep their spaces; the booking code keeps nowrap', () => {
+    at('2026-10-27T05:00:00Z');
+    const ssid = 'OTTIMO-Guest-5G-Long-Name-32char';
+    const password = 'mock  pass word ';
+    show(stay({ wifi: { ssid, password } }));
+    for (const value of [ssid, password]) {
+      const el = screen.getByText(
+        (_, node) => node?.tagName === 'SPAN' && node.textContent === value,
+      );
+      expect(el).toHaveClass('gw-code', 'gw-wifi-value');
+    }
+    const css = readFileSync(join(__dirname, '..', 'styles.css'), 'utf8');
+    const rule = /\.gw-code\.gw-wifi-value\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(rule).toMatch(/white-space:\s*pre-wrap/);
+    expect(rule).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(/(?:^|\n)\.gw-code\s*\{([^}]*)\}/.exec(css)?.[1]).toMatch(/white-space:\s*nowrap/);
   });
 });

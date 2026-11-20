@@ -34,12 +34,13 @@ export function WifiBlock({ stay }: { stay: GuestStay }) {
         <dt>{t('guest.wifi')}</dt>
         {wifi ? (
           <dd>
-            {/* G5 (DS 11.2): network name and password in JetBrains Mono 16 px – 0/O and 1/l/I stay apart. */}
+            {/* G5 (DS 11.2): network name and password in JetBrains Mono 16 px – 0/O and 1/l/I stay apart.
+                UXD 136-05: `gw-wifi-value` wraps inside the card and keeps every space. */}
             <span className="li-s">{t('gw.wifi_name')}:</span>{' '}
-            <span className="gw-code">{wifi.ssid}</span>
+            <span className="gw-code gw-wifi-value">{wifi.ssid}</span>
             <br />
             <span className="li-s">{t('gw.wifi_pass')}:</span>{' '}
-            <span className="gw-code">{wifi.password}</span>
+            <span className="gw-code gw-wifi-value">{wifi.password}</span>
           </dd>
         ) : (
           <dd>
