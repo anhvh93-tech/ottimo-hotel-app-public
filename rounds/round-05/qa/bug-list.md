@@ -31,6 +31,9 @@
 - 19/11 L5 (QA, giá dọn thêm dài hạn theo căn – contract §12.4, Desk staging sau CI `44544747375`, `main` @ `8b570d41` = BE #200 + FE #201, `fb-inv-012-staging.md` mục L5):
   - 12 ca: 11 đạt, 1 trượt. Q19–Q21 và Q16 smoke đều đạt.
   - **Mới:** BUG-R5-017 (P2). Không có P0/P1.
+- 20/11 L6 (QA, Desk staging `main` @ `b250cd37` = BE #203 + FE #202, `fb-inv-012-staging.md` mục L6):
+  - **Đóng** BUG-R5-017. 13 ca: 13 đạt, 0 trượt. Không có lỗi mới.
+  - Bảng giá dọn dài hạn trên staging đã đủ 10 căn (150.000 / 200.000).
 
 ## 1. Tổng hợp
 
@@ -38,9 +41,9 @@
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 2 | 0 | 0 | 2 (BUG-R5-003, BUG-R5-004) |
-| P2 | 7 | 3 (BUG-R5-002, BUG-R5-007, BUG-R5-017) | 1 (BUG-R5-006) | 3 (BUG-R5-001, BUG-R5-008, BUG-R5-009) |
+| P2 | 7 | 2 (BUG-R5-002, BUG-R5-007) | 1 (BUG-R5-006) | 4 (BUG-R5-001, BUG-R5-008, BUG-R5-009, BUG-R5-017) |
 | P3 | 8 | 0 | 1 (BUG-R5-005) | 7 (BUG-R5-010…016) |
-| **Tổng** | **17** | **3** | **2** | **12** |
+| **Tổng** | **17** | **2** | **2** | **13** |
 
 ## 2. Bảng lỗi
 
@@ -62,7 +65,7 @@
 | BUG-R5-014 | P3 | Go-live fix: nhận phòng bù dời ngày đến sớm hơn mà căn bận thì 409 `ROOM_UNAVAILABLE`, nhưng `conflicts` liệt kê cả các đêm của chính đơn (kèm tên khách của đơn), nên người dùng thấy "căn bận" bởi chính khách đang nhận phòng | BE | Đóng 19/11 (staging `4d47af0d`, BE #199 + FE #198) |
 | BUG-R5-015 | P3 | Go-live fix: phiếu tháng nhận phòng của đơn nhận phòng bù đã có khoản thu bị đảo vẫn báo `settle_outside_desk` cho MGR (Desk hiện nút "Khách đã trả ngoài app"), nhưng server trả 403 "owner only" (SEC-BE-197-02) | BE (`availableActions` theo cùng điều kiện phạm vi MGR) | Đóng 19/11 (staging `4d47af0d`, BE #199 + FE #198) |
 | BUG-R5-016 | P3 | Go-live fix: hotline in trên chân phiếu tháng (chứng từ gửi khách) và ở "Xem trước chân phiếu" là dạng đã chuẩn hóa, liền một dãy (`+84900000222`), khó đọc | FE (định dạng khi hiển thị) + UXD (chốt dạng) | Đóng 19/11 (staging `4d47af0d`, BE #199 + FE #198) |
-| BUG-R5-017 | P2 | §12.4: trong một ngày OWN chỉ lưu được bảng `long_stay_cleaning_fee_by_room` một lần. Lần lưu thứ hai (thêm căn, sửa giá gõ nhầm) bị 422 "value already effective", Desk chỉ báo "Giá trị này chưa hợp lệ – kiểm tra lại." ở ô "Hiệu lực từ". Go-live guide 7.1 lại hướng dẫn "nhập từng căn, hiệu lực từ hôm nay" | PO/OPS (sửa guide 7.1) + FE (câu báo lỗi, UXD câu) + ARC (chốt có cho sửa trong ngày với bảng này không) | Mới |
+| BUG-R5-017 | P2 | §12.4: trong một ngày OWN chỉ lưu được bảng `long_stay_cleaning_fee_by_room` một lần. Lần lưu thứ hai (thêm căn, sửa giá gõ nhầm) bị 422 "value already effective", Desk chỉ báo "Giá trị này chưa hợp lệ – kiểm tra lại." ở ô "Hiệu lực từ". Go-live guide 7.1 lại hướng dẫn "nhập từng căn, hiệu lực từ hôm nay" | PO/OPS (sửa guide 7.1) + FE (câu báo lỗi, UXD câu) + ARC (chốt có cho sửa trong ngày với bảng này không) | Đóng 20/11 (staging `b250cd37`, BE #203 + FE #202) |
 
 ## 3. Chi tiết
 
@@ -954,7 +957,7 @@
 
 ### BUG-R5-017 – Bảng giá dọn dài hạn: lần lưu thứ hai trong ngày bị chặn, câu báo không nói lý do
 
-- **Mức:** P2. Trạng thái: **Mới**.
+- **Mức:** P2. Trạng thái: **Đóng 20/11**.
   - Không sai tiền ngay: phần căn chưa có giá vẫn ghi 100.000, đúng fallback.
   - Nhưng ngày go-live, OWN làm theo guide 7.1 ("nhập từng căn") thì chỉ lần lưu đầu có hiệu lực. Các căn nhập sau, hoặc một giá gõ nhầm, phải chờ tới hôm sau. Trong thời gian đó, lễ tân phải ghi dòng phần chênh hoặc khách bị tính sai.
   - Desk không nói lý do, nên OWN dễ nghĩ giá nhập sai.
@@ -975,3 +978,9 @@
   - (b) Giữ luật một dòng mỗi ngày. Khi đó Desk nói rõ lý do và gợi ý ngày mai, còn guide 7.1 dặn nhập đủ trong một lần.
 - **Bằng chứng:** `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-second-save.png`. Mã: `services/api/src/modules/platform/public/parameter.service.ts` (dòng ~289–296, `sameDayOverride` chỉ cho công tắc khẩn). Không commit ảnh.
 - **Ghi chú:** QA dọn bảng về `{}` bằng một dòng hiệu lực từ 20/11, vì cũng không trả về `{}` trong ngày được (`fb-inv-012-staging.md` L5.2).
+- **Ghi chú test lại:** 20/11 L6 (staging `b250cd37`, BE #203 + FE #202). **Đạt → Đóng.**
+  - OWN lưu bảng 3 lần trong ngày, hiệu lực hôm nay; lần nào cũng 200 và toast "Đã lưu …, áp dụng ngay." / "Saved …, in force now.". MGR cũng lưu được.
+  - Lịch sử chỉ có một dòng 20/11. Audit có `before.value` và `sameDayOverride: true`.
+  - Giá mới vào danh mục phí và web khách ngay. Yêu cầu gửi trước lúc đổi giữ 160.000 và được ghi folio đúng 160.000.
+  - Khóa khác (`weekend_uplift_pct`) lưu lần 2 → 422 `effectiveFrom: ALREADY_IN_FORCE`. Desk hiện câu mới và nút "Chọn ngày mai" / "Use tomorrow's date"; bấm nút thì ngày thành 21/11.
+  - Go-live guide 7.1 đã sửa ("nhập đủ cả 10 căn", "sửa lại trong ngày được").

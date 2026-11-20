@@ -1,5 +1,55 @@
 # QA – Kiểm trên staging: FB-INV-012 phiếu thanh toán tháng khách dài hạn
 
+## L6. Kiểm lại BUG-R5-017, nhập đủ bảng giá dọn 10 căn (20/11, 08:38–08:50)
+
+- Bản kiểm: Desk staging `main` @ `b250cd37` (BE #203 + FE #202, sửa BUG-R5-017). Ngày nghiệp vụ 20/11/2026.
+- Cách chạy như L5: API script và Playwright, tài khoản `qa.*`, khách giả KH-0486. Lượt này không cần thiết bị tin cậy, nên không cấp.
+- Trạng thái lúc bắt đầu: dòng `{}` QA lên lịch ở L5 đã có hiệu lực từ 20/11, nên bảng rỗng. Lần lưu đầu hôm nay vì vậy đã là lần ghi đè dòng của hôm nay.
+
+### L6.0 Kết luận: **ĐẠT** – đóng BUG-R5-017; bảng staging đủ 10 căn; không có lỗi mới
+
+- **13 ca: 13 đạt, 0 trượt.**
+- **Bảng staging hiện tại:** 101, 102, 103, 201, 202, 203 = 150.000; 301, 302, 401, 402 = 200.000. Hiệu lực từ 20/11, không còn dòng nào lên lịch sau đó.
+- **Ghi chú tài liệu (cho PO/OPS, không ghi lỗi):** go-live guide 7.1 bản mới ghi "**Thêm dòng phát sinh**" và "chọn 'Dọn phòng lẻ'". Desk lại hiện nút "Thêm phát sinh" và khoản "Dọn phòng thêm" ("Dọn phòng lẻ" chỉ là tên máy chủ trả về). Nên sửa guide theo đúng chữ trên màn hình.
+- **Ghi chú cho UXD:** nút "Chọn ngày mai" nằm dưới ô "Lý do", không nằm ngay dưới câu lỗi ở "Hiệu lực từ". Vẫn dùng được, xem ảnh.
+- Không có ESC mới.
+
+### L6.1 Kết quả
+
+| # | Ca | Kết quả | Bằng chứng ngắn |
+|---|---|---|---|
+| 1 | BUG-R5-017: lần lưu 1 trong ngày (S24, OWN, VI) | **Đạt** | Hộp điền sẵn "Hiệu lực từ" 20/11. Lưu 202 = 160.000 (giá thử) → `PUT` 200, ghi đè dòng `{}` của hôm nay. Toast "Đã lưu Giá dọn thêm khách dài hạn theo căn, áp dụng ngay." |
+| 2 | Giá mới áp dụng ngay (lần 1) | **Đạt** | OTM-00412 (202): `charge-catalog?folioId=` 160.000, `priceSource: long_stay_room`. Web khách `request-options` 160.000, `long_stay_adhoc`. Khách gửi yêu cầu dọn → `feeVnd` 160.000 |
+| 3 | BUG-R5-017: lần lưu 2 trong ngày, đủ 10 căn | **Đạt → Đóng** | Lưu cả 10 căn (202 về 150.000), hiệu lực hôm nay → `PUT` 200, cùng toast "… áp dụng ngay." Dòng bảng: "10 căn có giá riêng", 20/11/2026 08:39. Lịch sử chỉ có **một** dòng 20/11 (ghi đè, không thêm dòng) |
+| 4 | Nhật ký ghi đè | **Đạt** | `audit-events` `config.changed`: `before.value` `{"202":160000}` → `after` đủ 10 căn, `sameDayOverride: true`. Lần 1: `before` `{}`, `sameDayOverride: true` |
+| 5 | Giá mới áp dụng ngay (lần 2) | **Đạt** | Ngay sau lần lưu 2, `charge-catalog` cho thấy giá bảng mới, `long_stay_room`: OTM-00408 (103) 150.000, OTM-00385 (203, L5 chưa có giá) 150.000, OTM-00412 (202) 150.000, OTM-00409 (402) 200.000. Web khách: 202 → 150.000, 402 → 200.000 |
+| 6 | Yêu cầu gửi trước lúc đổi giữ giá đã chụp | **Đạt** | Yêu cầu 160.000 gửi giữa lần lưu 1 và lần lưu 2 vẫn là 160.000 sau lần lưu 2. HK bắt đầu rồi xong việc dọn liên kết → folio ghi dòng `adhoc_cleaning` **160.000**, không phải 150.000. MGR đã hủy dòng (dòng đảo −160.000) |
+| 7 | Lưu lần 3 trong ngày, EN | **Đạt** | `ottimo.locale = en`, lưu lại bảng → 200, toast "Saved Extra cleaning for long stays, by room, in force now." |
+| 8 | MGR lưu trong ngày | **Đạt** | MGR lưu lại đúng bảng 10 căn, hiệu lực hôm nay → 200 (`editableBy` có manager). FDL, FD → 403 `FORBIDDEN_ACTION` (ca 10) |
+| 9 | Khóa khác lưu 2 lần trong ngày → `ALREADY_IN_FORCE` | **Đạt** | `weekend_uplift_pct`, giữ nguyên 0 (không đổi giá). Lần 1 hôm nay → 200. Lần 2 → 422 `VALIDATION_FAILED`, `errors[{field: effectiveFrom, code: ALREADY_IN_FORCE}]`, `detail` như cũ |
+| 10 | Q21 chạy lại khi lưu được trong ngày | **Đạt** | Các giá trị sai, hiệu lực hôm nay: 0, −1000, 150500, 5001000, chuỗi → `PARAM_OUT_OF_RANGE` `value.202`; căn 999 → `NOT_IN_LIST`; mảng, số trơn → `VALIDATION_FAILED`; FDL, FD → 403. Bảng 10 căn **không đổi**: bộ kiểm vẫn chạy trước khi ghi đè |
+| 11 | UI `ALREADY_IN_FORCE` và nút ngày mai (VI, EN) | **Đạt** | S24 → "Khác" → `weekend_uplift_pct` → Sửa → Lưu. VI: dưới "Hiệu lực từ" hiện "Tham số này đã được đổi cho hôm nay. Chọn từ ngày mai trở đi." và nút "Chọn ngày mai". Bấm nút: ngày thành 21/11/2026, câu lỗi và nút ẩn. EN: "This setting was already changed for today. Choose tomorrow or a later date." và "Use tomorrow's date", bấm cũng thành 21/11. QA đóng hộp, không lưu dòng 21/11 |
+| 12 | 12.4: ngắn ngày ở căn có giá | **Đạt** | OTM-00418 (MGR tạo, kênh nội bộ, ngắn ngày 20–22/11, căn 401 = 200.000 trong bảng): `charge-catalog` 100.000, `priceSource: default`. Đã hủy đơn |
+| 13 | 12.4: hộp "Thêm phát sinh" (VI, EN), câu phí phạt | **Đạt** | OTM-00409 (402), VI: "Dọn phòng thêm", "Giá mặc định 200.000 đ", chip "Giá dài hạn của căn". Câu phí phạt chỉ hiện ở khoản phạt. EN: "Extra cleaning", "Long-stay room price", không lẫn tiếng Việt ở khoản dọn; câu "Fines don't count as room revenue." chỉ ở khoản phạt |
+
+### L6.2 Dọn staging
+
+- **Bảng giá dọn:** để lại đủ 10 căn theo giá chủ đầu tư (việc 3). Dòng `{}` lên lịch từ L5 không còn: nó đã có hiệu lực 20/11 và bị lần lưu 1 ghi đè. Không có dòng nào sau 20/11.
+- **`weekend_uplift_pct`:** có thêm một dòng 20/11 cùng giá trị 0. Giá không đổi. Không có dòng 21/11.
+- **Yêu cầu khách và folio:** yêu cầu 160.000 của OTM-00412 đã `done`; dòng 160.000 trên folio đã có dòng đảo. Link khách đã thu hồi sau mỗi lần dùng.
+- **Đơn L6 tạo ra:** OTM-00418 đã hủy (chưa nhận phòng). Căn 401 vẫn **VC**.
+- **Không đụng:** OTM-00408, 00409, 00385; OTM-00412 chỉ có các dòng trên.
+- **Còn lại, API không xóa được:** dòng 160.000 và dòng đảo trên OTM-00412.
+- **Đang ở trên staging sau lượt này:** OTM-00385 (203), OTM-00408 (103), OTM-00409 (402), OTM-00412 (202).
+
+### L6.3 Ảnh (scratchpad, không commit)
+
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L6-lscf-save1.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L6-lscf-save2.png` – lần lưu 1 và lần lưu 2 trong ngày, toast "áp dụng ngay".
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L6-lscf-save3-en.png` – toast EN.
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L6-uplift-vi-err.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L6-uplift-vi-tomorrow.png` – câu `ALREADY_IN_FORCE` và sau khi bấm "Chọn ngày mai".
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L6-uplift-en-err.png`, `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L6-uplift-en-tomorrow.png` – bản EN.
+- `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/stg012/shots3/L5-charge-L6-B.png` – "Thêm phát sinh" của OTM-00409, 200.000.
+
 ## L5. Giá dọn thêm khách dài hạn theo căn – contract §12.4 (19/11, 21:55–22:12)
 
 - Bản kiểm: Desk staging sau CI `44544747375` (`main` @ `8b570d41` = BE #200 + FE #201).
