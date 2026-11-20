@@ -12,13 +12,13 @@
 # Settings check in its own small stage: BuildKit runs it in parallel with the dependency install below, so a
 # demo/production build without a usable desk phone stops within seconds, and the phone does not invalidate the
 # pnpm install layer.
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS web-config
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS web-config
 ARG WEB_BUILD_PROFILE=dev
 ARG VITE_DESK_PHONE=""
 COPY infra/docker/check-web-build-config.sh /usr/local/lib/check-web-build-config.sh
 RUN sh /usr/local/lib/check-web-build-config.sh && touch /web-config.ok
 
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS build
 RUN npm install -g pnpm@9.15.4
 WORKDIR /repo
 COPY . .
