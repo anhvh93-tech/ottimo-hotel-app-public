@@ -1943,7 +1943,9 @@ export class CheckoutService {
     ctx: BookingContext,
     overdue: OverdueStay | null = null,
   ): CheckoutInput {
-    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone.
+    // 0.3.13 bổ sung 1i (C0313-31, option B): a card number in the bank code answers first, alone. Equivalent today
+    // (mutants M36 / ARC A15: readInput already answers it first) – kept so one rule runs on all 5 paths (ARC review
+    // #148, 2.1).
     assertBankReferenceNotCardFirst(body, 'finalPayment');
     const checkoutTime = f.time('checkoutTime');
     const sent = (k: string) => body[k] !== undefined && body[k] !== null;

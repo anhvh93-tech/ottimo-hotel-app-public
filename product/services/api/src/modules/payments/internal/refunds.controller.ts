@@ -210,8 +210,9 @@ export class RefundsController {
     rejectDryRun(body);
     const input = parseBody(transferSchema, body);
     const p = principal(req);
-    // PO 17/10 (SEC-37): an OWN who requested / approved / routed this refund pays it only inside the step-up
-    // window (re-auth at every step); the rule itself is checked again under the locks (RefundsService).
+    // PO 17/10 (SEC-37): an OWN who requested / approved / routed this refund, or is among its origin actors
+    // (FB-R5-SEC-BE-148-01), pays it only inside the step-up window (re-auth at every step); the rule itself is
+    // checked again under the locks (RefundsService).
     if (p.roles.includes('owner')) {
       const self = await this.db.withContext(
         tenantOf(p),

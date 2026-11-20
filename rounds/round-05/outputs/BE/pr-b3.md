@@ -168,3 +168,96 @@ Sửa bằng một hàm `assertBankReferenceNotCardFirst(body, at)` (`shared/val
 - M37 (bộ đọc kiểm phương thức trước số thẻ) → đỏ.
 - M34 (`createReservation`), M36 (`checkOut`) → **xanh**, là đột biến tương đương: hai đường này gom lỗi các trường rồi mới ném lỗi số thẻ của `initialPayment`/`finalPayment`, nên vốn đã báo số thẻ trước. Kiểm sớm ở đây chỉ giữ một luật chung cho cả 5 đường.
 - Chạy lại sau khi thêm ca: M11 (mã đơn cho mọi vai) nay đỏ ở 2 ca (SAL `recordPayment`, SAL `confirmDeposit`); M14, M21–M24 đỏ.
+
+## 10. PR-B3b – sửa theo review #148 (Phản hồi & sửa, ORC giao 07/11)
+
+ARC, SEC, DOM đã duyệt #148 @ `a5911138`; #148 gộp nguyên trạng. Các thẻ còn lại làm ở PR tiếp theo, trước tag v1.0.5.
+
+- Nhánh `r5-b3b`, cắt từ `a5911138`. Sau khi #148, #152, #154 lên `main`, nhánh gộp `origin/main` `dda49347` (merge `f5908503`, không rebase, không xung đột). PR nháp **#160** (`r5-b3b` → `main`); người review: SEC, ARC.
+- Mỗi thẻ một commit. SEC 148-01 và ARC 148-01 chung một commit, theo ORC.
+- Không làm (ORC dời v1.0.6):
+  - SEC 148-02: luật S3 ở mức folio, làm cùng DOM 148-03;
+  - yêu cầu thay thế "pha trộn";
+  - `executeRefund` 409 khi không còn khoản chuyển khoản.
+- DOM 148-07 (chữ `detail` của 409) không có trong danh sách ORC giao.
+
+| Thẻ | Commit | Sửa |
+|---|---|---|
+| SEC 148-01 (Minor) + ARC 148-01 (Minor) | `1699caec` | Mã: hai điều kiện ở `refunds.service.ts`. Test: ca SEC P2, ca ARC P1, P2 |
+| SEC 148-03 (Suggestion) | `a696030f` | Test: bản OWN của ca S2 |
+| ARC 148-02 (Minor) | `eea96017` | Chỉ chú thích: `AFTER_CLOSURE_SQL`, `PaymentRowLite.after_closure`, `refundRouting` |
+| ARC 148-03 (Suggestion) | `3b6093a9` | Test: các biên của "Có thể trùng" và của báo cọc đã xử lý. Sửa tên tệp ở đầu `v5-48-closed-booking-money.test.ts` |
+| ARC 148-04 (Suggestion) | `42f65f96` | Chỉ chú thích ở `recordManual`: thứ tự khóa và điều kiện để không deadlock |
+| ARC review #148 mục 2.1 (không phải thẻ) | `3162abf0` | Chỉ chú thích ở hai lời gọi kiểm sớm 1i tương đương (`createReservation`, `checkOut`) |
+
+**SEC 148-01 – OWN là người gốc thì chi theo đường "tự chi".**
+- `isOwnSelfPayout` thêm `OR $2::uuid = ANY(origin_actor_ids)`. Controller `executeTransfer` vì vậy đòi step-up (401 `REAUTH_REQUIRED`).
+- `payOut` thêm `origin_actor_ids` vào `ownSelf`, nên audit `refund.paid` có cờ `ownSelfApprovedAndPaid: true`.
+- Không đổi hợp đồng: mã 401 và cờ đã có từ PO 17/10.
+- Phạm vi: `origin_actor_ids` hiện gồm người ghi sau khi đóng (5B-1) và người làm A32. `refundRouting` đã bỏ người làm A32 là OWN (`actor_role <> 'owner'`). Vì vậy điều kiện mới chỉ chạm OWN ghi tiền sau khi đóng.
+- Test (ca P2 của SEC):
+  - OWN ghi chuyển khoản 900.000 → yêu cầu 5B-1 400.000 đứng tên OWN. MGR từ chối, MGR2 tạo lại. FD đặt `original_method`, MGR duyệt, MGR đối soát.
+  - OWN chi khi chưa step-up → 401, `refunded_vnd` = 0.
+  - Step-up rồi chi → 201, audit `refund.paid` có `{recordedByRole: 'owner', ownSelfApprovedAndPaid: true}`.
+  - Ca kiểm luôn rằng OWN không phải người tạo, người duyệt hay người đặt nơi nhận, mà chỉ là người gốc.
+
+**ARC 148-01 – hai ca P1, P2 (theo ARC mục 4.2).**
+- P1 (DOM 11.4 3b): FD ghi chuyển khoản 800.000 sau khi đóng → yêu cầu 5B-1 300.000. MGR đảo khoản thu → yêu cầu đó `cancelled`, `auto_cancel_reason = superseded`. Không có yêu cầu mới. Mục `closed_reservation_credit` đóng. Còn phải thu lại là 500.000.
+- P2:
+  - MGR ghi `card_pos` 100.000 khi đơn còn mở, rồi **đồng hồ tiến 5 phút**, rồi OTA hủy (N = 400.000).
+  - FD ghi chuyển khoản 600.000 → yêu cầu 5B-1 200.000 có `origin_actor_ids = [FD]`, không có MGR. MGR duyệt được (200).
+- Đầu tệp test có thêm câu dặn: ca nào ghi tiền rồi đóng đơn phải cho đồng hồ tiến, vì `AFTER_CLOSURE_SQL` so bằng `>=`.
+
+**SEC 148-03 – bản OWN của ca S2.** OWN ghi chuyển khoản 900.000 sau khi đóng.
+- OWN duyệt yêu cầu 5B-1 của chính mình → 403 `SELF_APPROVAL_FORBIDDEN`.
+- MGR từ chối, MGR2 tạo lại. OWN duyệt yêu cầu mới → 403 `SELF_APPROVAL_FORBIDDEN` (người gốc).
+- FD đặt nơi nhận `cash`, MGR duyệt. OWN chi tiền mặt → 403 `SELF_REFUND_FORBIDDEN`, chưa chi đồng nào. Ngoại lệ OWN chỉ áp cho chuyển khoản.
+- Phần chuyển khoản (step-up, cờ) là ca của SEC 148-01.
+- Yêu cầu tạo lại nhận được nơi nhận `cash` vì S3 chưa theo sang yêu cầu tạo lại. Đó là lỗ SEC 148-02, dời v1.0.6. Ca này chỉ dùng điều đó để kiểm chốt chi tiền mặt.
+
+**ARC 148-02 – vì sao an toàn ở v1.0.5, và sửa chú thích.**
+- Chú thích cũ của `AFTER_CLOSURE_SQL` ghi "không quyết định lúc ghi nào đọc biểu thức này". Câu đó sai: `refundRouting` (S2) đọc nó dưới L3 để đưa người ghi vào `origin_actor_ids`.
+- Chú thích mới nói đúng điều đó, và ghi hạn chế: biểu thức theo trạng thái đơn **hiện tại**.
+  - Đơn khôi phục (B12; 5B-2 `cancelled → hold`) đọc ra `false`. Yêu cầu hoàn tạo tay sau đó không còn chặn người ghi.
+  - Yêu cầu thay thế vẫn giữ người ghi, qua `carriedOrigin`.
+- Vì sao chấp nhận ở v1.0.5:
+  - FD không duyệt hoàn, nên chỉ MGR là người ghi mới có lợi gì;
+  - B12 cần MGR+;
+  - tiền chỉ chi khi khoản thu đã đối soát.
+- 5B-2 (v1.0.6) thay bằng dấu lưu lúc ghi, theo thiết kế ARC 0.3.14. Chú thích dặn không đặt thêm quyết định lúc ghi nào lên biểu thức này.
+- Không đổi mã, không thêm test: hạn chế này là hành vi đã biết, sẽ thay ở 5B-2.
+
+**ARC 148-03 – các biên.** Một ca mới, chạy theo đồng hồ của riêng nó:
+- (A7) hai khoản chuyển khoản cùng số trên **cùng** một đơn → không có cờ;
+- (A19) khoản `card_pos` và tiền mặt cùng số ở đơn khác → không đơn nào có cờ, kể cả khoản thẻ. Đối chứng: thêm một khoản chuyển khoản cùng số ở đơn thứ ba → khoản chuyển khoản có cờ;
+- (A9) đơn OTA có khoản chuyển khoản ghi **trước** khi hủy. Khoản đó vẫn có cờ ở `Payment`. Yêu cầu hoàn do lệnh hủy tự tạo (150.000) thì **không** có `possibleDuplicateCodes`;
+- (A5) khoản thu thứ hai sau khi đóng trên `hS` không ghi đè `handled_payment_id` của báo đã `handled`;
+- (A8) hai khoản cùng số cách nhau 25 giờ → không cờ. Hai khoản cùng giờ ở hai đơn khác → có cờ cho nhau.
+
+**Đột biến PR-B3b** (`mutate-b3b.py`). Mỗi đột biến chạy riêng trên `pr-b3-after-closure.test.ts`, rồi trả mã về:
+
+| # | Đột biến | Kết quả |
+|---|---|---|
+| B1 | `isOwnSelfPayout` bỏ điều kiện `origin_actor_ids` | đỏ (ca SEC 148-01) |
+| B2 | `ownSelf` bỏ điều kiện `origin_actor_ids` | đỏ (ca SEC 148-01) |
+| B3 | `payOut` chặn luôn OWN người gốc chi chuyển khoản (SEC S7, ARC A3) | đỏ |
+| B4 | `refundRouting` bỏ OWN ghi sau khi đóng (SEC S10) | đỏ (2 ca) |
+| B5 | `refundRouting` thêm mọi người ghi của folio (ARC A1) | đỏ (P2) |
+| B6 | đảo khoản không xử lý yêu cầu hoàn đi kèm | đỏ (P1) |
+| B7 | đảo khoản không đóng mục `closed_reservation_credit` | đỏ (P1) |
+| B8 | báo đã `handled` bị khoản thu sau ghi đè (ARC A5) | đỏ |
+| B9 | "Có thể trùng" tính cả cùng đơn (ARC A7) | đỏ |
+| B10 | khung 24 giờ thành 48 giờ (ARC A8) | đỏ |
+| B11 | cờ ở yêu cầu hoàn xét mọi khoản thu của folio (ARC A9) | đỏ |
+| B12 | khoản thẻ/tiền mặt cũng nhận cờ (ARC A19, vế ngoài) | đỏ |
+| B13 | khoản thẻ/tiền mặt được tính là khoản trùng (ARC A19, vế trong) | đỏ (3 ca) |
+| B14 | `approve` cho OWN người gốc duyệt | đỏ (ca SEC 148-03) |
+| B15 | `payOut` cho OWN người gốc chi tiền mặt | đỏ (ca SEC 148-03) |
+
+Kết quả: 15/15 đỏ. Các đột biến sống ở review #148 nay đều đỏ: SEC S7 và S10 (B3, B4, B14); ARC A1, A5, A7, A8, A9, A19 (B5, B8–B13).
+
+**Kết quả chạy** (trên `f5908503` = 6 commit của PR-B3b + gộp `main` `dda49347`):
+- `tsc --noEmit` (src + test) sạch. ESLint và Prettier sạch trên các tệp đã sửa.
+- `pr-b3-after-closure.test.ts`: 18/18 xanh (5 ca mới).
+- Toàn bộ API Vitest trên PostgreSQL 17 tạm, database mới: **221 tệp qua, 2 bỏ qua; 5.208 test qua, 19 bỏ qua, 1 todo**. Không ca nào đỏ hay chập chờn.
+- Đột biến: B1–B15 chạy lại trên cây đã gộp, cả 15 đỏ. M1–M37 của #148 cũng chạy lại, kết quả như ở #148: chỉ M5 (đứng riêng) và hai đột biến tương đương M34, M36 sống.
