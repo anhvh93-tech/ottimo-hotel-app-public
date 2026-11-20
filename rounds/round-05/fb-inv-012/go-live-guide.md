@@ -82,7 +82,7 @@ Ví dụ (số giả): khách dài hạn căn 302 gọi dọn 2 lần trong thá
 - Gõ nhầm thì **sửa lại trong ngày** được, áp dụng ngay, không phải chờ ngày mai. Mỗi lần lưu đều được ghi nhật ký (ai, lúc nào, trước/sau). Dòng đã ghi trước lúc sửa giữ giá cũ.
 - Không đổi `adhoc_cleaning_fee` (100.000, giá khách ngắn ngày).
 - **Dòng phần chênh:** tới khi kiểm xong giá, Desk vẫn có thể ghi 100.000, kể cả lượt khách gửi yêu cầu dọn trong app. Lễ tân giữ dòng 100.000 và ghi thêm dòng "Dọn phòng thêm – phần chênh dài hạn" **+50.000** (Studio) hoặc **+100.000** (Premium, Signature) trong cùng ngày.
-- **Bỏ dòng phần chênh chỉ sau một lần thử đúng giá.** FDL mở **Thêm dòng phát sinh** trên folio một khách dài hạn hạng Studio và một khách hạng Premium hoặc Signature, chọn "Dọn phòng lẻ", xem giá hiện 150.000 / 200.000, rồi đóng không lưu. Lỡ lưu thì đảo dòng có lý do. Chưa đúng thì báo OWN sửa bảng và thử lại.
+- **Bỏ dòng phần chênh chỉ sau một lần thử đúng giá.** FDL mở **Thêm phát sinh** trên folio một khách dài hạn hạng Studio và một khách hạng Premium hoặc Signature, chọn "Dọn phòng thêm", xem giá hiện 150.000 / 200.000, rồi đóng không lưu. Lỡ lưu thì đảo dòng có lý do. Chưa đúng thì báo OWN sửa bảng và thử lại.
 - Yêu cầu khách gửi trước lúc bảng đúng giữ giá đã chụp (100.000), nên vẫn cần dòng phần chênh.
 - Trước khi phát hành phiếu, FDL kiểm mỗi lượt dọn = 150.000 / 200.000.
 
