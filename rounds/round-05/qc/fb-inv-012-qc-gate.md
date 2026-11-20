@@ -226,3 +226,69 @@ Muộn nhất 27/11 vẫn được, nhưng chỉ còn 2 ngày để nhập các 
 - Điều kiện: 2 và 10 xong; 1, 3, 5, 6, 9, 11, 12 đổi nội dung; thêm 14, 15, 16, 17.
 - Kiểm `long_tx` chuyển sang `pg_locks`.
 - Khung giờ phát hành từ 24–27/11 thành **23–26/11**, vì phải chừa ngày nhập đơn trước 30/11.
+
+## 10. Xác nhận lại 20/11 – ứng viên mới `b250cd37`
+
+- Tác giả: QC | Round 5 – bước **QC** (rút gọn) | 20/11/2026. QC không commit.
+- Ứng viên: `main` @ `b250cd37` = `4d47af0d` + BE #200, FE #201 (12.4 giá dọn theo căn) + BE #203, FE #202 (BUG-R5-017).
+
+### 10.1 Quyết định
+
+**Cổng chuyển sang `b250cd37`: vẫn ĐẠT CÓ ĐIỀU KIỆN**, cùng khung deploy **23–26/11, giờ vắng**. Chạy thử 73 → 75 của OPS §21.2 **vẫn giữ giá trị**. Các điều kiện ở mục 4 giữ nguyên, trừ những chỗ sửa ở 10.4.
+
+### 10.2 Bằng chứng
+
+| Kiểm | Kết quả | Bằng chứng |
+|---|---|---|
+| Migration không đổi | Đạt | QC chạy lại: `git diff --quiet 4d47af0d b250cd37 -- product/services/api/src/db` → không khác (gồm `migrations/`, `migrate.ts`, `seed/`, `schema/`). `openapi-schemas.ts` là file sinh, không phải SQL |
+| Vì sao §21.2 còn giá trị | Đạt | §21.2 kiểm SQL 0099 + 0100 và migrator trên bản sao dữ liệu. Cả hai giống hệt từng byte. Phần đổi là mã ứng dụng (folio, parameters, guest-portal) và FE. Không bảng, CHECK hay khóa danh mục mới. §21.3 (production 0/26, 0/3) cũng còn giá trị vì danh sách CHECK không đổi; vẫn chạy lại trong ngày deploy (§21.5 mục 4b) |
+| Review | Đạt | `ARC-on-be-pr-200.md`: #200 **DUYỆT**, ARC-BE-197-03 **đóng** (hook đã có); mục D: #203 **DUYỆT**, không thẻ. `SEC-on-be-pr-200.md`: **Đạt**, 3 Minor, BE đã sửa cả ba (`responses/BE-responses.md` dòng 242–244). `UXD-on-fe-pr-201.md`: DUYỆT, 201-01 đã sửa (`86d622cb`), 201-02 dời. `UXD-on-fe-pr-202.md`: duyệt có điều kiện, 202-01 đã sửa (`e4b1042f`), câu mới đúng như QA L6 #11 thấy |
+| Blocker/Major mở | Không | – |
+| QA | Đạt | L5: 11/12 (Q19–Q21, Q16 smoke đạt; trượt 1 = BUG-R5-017). L6 trên staging `b250cd37`: **13/13**, BUG-R5-017 **đóng** (`qa/bug-list.md` dòng 68, 958–983). P0/P1 mở: 0. P2 mở trong phạm vi: 0 |
+| CI | Đạt | Run `44570372593` (push `b250cd37`) success; run lịch `44652148256` 20/11 success |
+| QC tự kiểm mẫu | Đạt | `parameters.service.ts` dòng 78, 293–295: `SAME_DAY_EDITABLE_KEYS` chỉ có `long_stay_cleaning_fee_by_room`, ghi đè chỉ khi `effectiveFrom === today`; hook kiểm chạy trước (QA L6 #10). `parameter.service.ts`: chỉ đổi mã trường thành `ALREADY_IN_FORCE`, vẫn 422. `goLive.ts`: `cleaningByRoom: true`, `catchUp: false` – 12.4 vào v1.0.7, 12.5 vẫn tắt |
+| Hướng dẫn | Đạt | `go-live-guide.md` 7.1 (HEAD `e1afcb65`): OWN nhập đủ 10 căn ngay sau deploy, sửa trong ngày được, giữ dòng phần chênh tới khi thử đúng giá; chữ khớp Desk ("Thêm phát sinh", "Dọn phòng thêm") theo ghi chú QA L6 |
+
+Ghi nhận, không chặn: #203 không có review SEC riêng. QC chấp nhận vì #203 không đổi RBAC (vẫn OWN/MGR theo A101), đi đúng đường `sameDayOverride` có audit mà SEC đã xem ở #200, và chỉ áp cho một khóa.
+
+### 10.3 Không còn đúng từ lượt 2
+
+- Giả định mục 8 "`goLiveDeferred.cleaningByRoom = false`": **bỏ**. 12.4 nay nằm trong v1.0.7.
+- Điều kiện 3a "không ai đặt `long_stay_cleaning_fee_by_room`": **bỏ**, vì hook đã có (ARC 197-03 đóng). Thay bằng 3a mới ở 10.4.
+- Rủi ro mục 6.3 "phải nhập tay tới khi 12.4 lên": nay chỉ còn trong khoảng từ deploy tới khi OWN nhập bảng và thử đúng giá.
+- Điều kiện 16 "staging có `{}`": đã đạt ở thời điểm 19/11. Nay staging có bảng 10 căn do QA L6 nhập, đó là đúng ý, không cần kiểm lại.
+
+### 10.4 Điều kiện còn mở
+
+**Trước deploy**
+
+1. **[Đổi] Điều kiện 1 / OPS §21.5 mục 1 và 7:** tag Release trên **`b250cd37`** (bản QA L6 đã kiểm trên staging). Commit sau đó chỉ là tài liệu; nếu tag một commit sau thì thư mục `product/services/api/src/db` phải giống hệt. Digest api `d9391f1f…f412` và chữ `OK: sha-4d47af0dd6a7 is live` ở §21.5 **không còn dùng được**: OPS lấy digest từ artifact `image-digests` của run `44570372593`, đối chiếu với digest api staging đang chạy, và sau deploy chờ `OK: sha-b250cd37… is live`. Các mục còn lại của §21.5 giữ nguyên: giờ vắng, sao lưu thủ công có `OK`, `pg_locks` = 0, hai câu đếm của §21.3 = 0/0, số đếm trước (73 · `config_parameter_def` 200). **OPS**, lúc deploy.
+2. **[Giữ] Điều kiện 5:** mục 5(c) – ORC xác nhận với INV cách hiểu "phiếu tháng 11 vẫn phát hành, ghi đã thu ngoài Desk, không gửi khách". Chưa thấy ghi nhận trong decision-log. **ORC**, trước deploy.
+3. **[Giữ]** INV duyệt bước Release production (mục 7.5).
+
+**Sau deploy**
+
+4. **[Đổi] Điều kiện 3:**
+   - (a) Ngay sau deploy OPS kiểm `long_stay_cleaning_fee_by_room` = `{}` (0 dòng `config_parameter`), như §21.5 mục 7.
+   - (b) Rồi OWN nhập đủ 10 căn theo guide 7.1, **trước khi gửi link trang khách cho khách dài hạn**. FDL thử giá trên một folio Studio và một folio Premium/Signature (150.000 / 200.000) rồi mới bỏ dòng phần chênh. Yêu cầu khách gửi trước lúc đó giữ 100.000, vẫn cần dòng phần chênh.
+   - (c) DOM sửa BR-LS-07: đã có trong `business-rules.md`, gộp cùng điều kiện 13.
+   - Người làm: **OPS, OWN, FDL**, ngày deploy.
+5. **[Giữ]** Điều kiện 4 (OWN nhập địa chỉ, hotline, in thử A5, INV xem khối VietQR) và 17 (mọi đơn dài hạn `in_house` có chỉ số nhận phòng, hạn **29/11**, chậm nhất 11/12).
+
+**Trước phiếu 12/2026 và sau phát hành:** điều kiện 6, 7, 8, 9, 11, 12, 13 giữ nguyên nội dung và hạn. Bổ sung vào danh sách backlog của điều kiện 12:
+- ARC 200-S1;
+- UXD 201-02 (tên tiếng Việt của các khoản khác trên giao diện EN);
+- ghi chú QA L6 về vị trí nút "Chọn ngày mai";
+- rủi ro ARC đã chấp nhận ở mục B phụ lục BUG-R5-017: khách mở trang yêu cầu, OWN sửa giá, khách gửi thì giá mới được chụp. Hướng round sau là `feeAcceptedVnd`.
+
+### 10.5 QC không kiểm được
+
+- Digest image của `b250cd37` (chỉ có trong artifact CI và trên staging).
+- Staging có đúng 75 migration sau lần deploy `b250cd37`. Không có migration mới nên rủi ro thấp; OPS đọc journal staging cùng lúc với mục 10.4.1.
+
+### 10.6 Giả định
+
+- Staging đang chạy image của `b250cd37`, đúng như QA L6 ghi.
+- Không có ESC mới.
+
+> **Ghi chú ORC 20/11:** điều kiện 10 (2) / 5c đã có trong `01-decisions/decision-log.md`, dòng 2026-11-19 "INV xác nhận phiếu tháng 11". Phiếu vẫn phát hành, ghi "Khách đã trả ngoài app", không gửi khách, không thu tiền. Điều kiện này đóng.
