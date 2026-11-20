@@ -9,9 +9,39 @@ Từ 01/11/2026 bản vá đi theo **đợt**: đợt nào xong trước thì l�
 - **v1.0.3** – email nhận thông báo bảo mật. Đã phát hành 04/11.
 - **v1.0.4** – giữ chỗ quá hạn, đăng nhập 2 bước trên app nhân viên, đặt lại xác thực 2 bước, ngày kết thúc HĐ khi gia hạn, giá hẹn của căn mới, thông báo xử lý dữ liệu bản 2, các lỗi tiền ở đặt phòng, nhận phòng, trả phòng. Đã phát hành 06/11 14:10.
 - **Website mới (LP-v2)** – 5 ngôn ngữ, form gửi yêu cầu, giá ước tính. Đã phát hành 06/11, cùng mã với v1.0.4 (tag `landing-v2.0.0`). Giá web bật cùng ngày.
+- **v1.0.7** – phiếu tháng cho khách dài hạn (tiền thuê, điện, nước, dịch vụ), cùng gói sửa để đưa khách dài hạn đang ở lên Desk. Đã phát hành 20/11 08:52.
 - **v1.0.5** – bản bảo trì đợt 1 (chỉ những việc đã gộp tới 16/11) + website chỉ bán thuê dài hạn, giá "From X / month" lấy từ Desk (FB-INV-010 Đợt 1). **Đã cắt bản 16/11, chờ lên production.** Việc đã hẹn mà chưa xong dời sang v1.0.6.
 
 PO chốt phạm vi v1.0.3 ngày 03/11 (`rounds/round-04/plan-v1.0.3.md`): v1.0.3 chỉ sửa thư báo bảo mật để chắc kịp hạn 09/11. Các bảng "Chưa có" bên dưới đã ghi theo số mới (cập nhật 04/11).
+
+---
+
+## v1.0.7 – Phiếu tháng cho khách dài hạn (FB-INV-012)
+
+- Trạng thái: **ĐÃ PHÁT HÀNH** 20/11/2026, lên lúc 08:52. Tag `v1.0.7` trên `main` @ `b250cd37`, image `sha-b250cd377e74`.
+- Kiểm thử: QA trên staging đạt các lượt L2–L6, không còn lỗi P0/P1. QC: ĐẠT CÓ ĐIỀU KIỆN (`rounds/round-05/qc/fb-inv-012-qc-gate.md`). Sao lưu ngay trước khi lên: 08:49.
+- Dữ liệu: thêm 2 migration (73 → 75), chỉ thêm và nới. Nếu phải quay lui về v1.0.6 thì dữ liệu không phải lùi.
+
+### Có trong bản này
+
+| Nhóm | Anh/chị và nhân viên sẽ thấy gì |
+|---|---|
+| **Phiếu tháng** | Desk lập phiếu tháng cho khách dài hạn: tiền thuê, điện, nước, dịch vụ phòng. Điện 4.000/kWh (VAT 8%), nước 25.000/m³ (VAT 5%). Mỗi kỳ, nhân viên nhập số đầu và số cuối của công tơ. Phần chênh lúc căn trống không tính cho khách. Khách trả qua VietQR hoặc tiền mặt; khoản thu ghi vào folio |
+| **Đưa khách đang ở lên Desk** | Quản lý và chủ đầu tư nhận phòng bù cho đơn dài hạn có ngày đến thật trong quá khứ (tối đa 45 ngày, trên máy tin cậy). Phiếu tháng 11 vẫn phát hành rồi ghi **"Khách đã trả ngoài app"**: không gửi khách, không thu tiền, và phiếu cuối không thu lại tháng 11 |
+| **Giá dọn thêm theo căn** | Khách dài hạn: Studio 150.000, Premium và Signature 200.000. Chủ đầu tư đặt giá trên **Tham số**. Sửa lại được ngay trong ngày, giá mới áp dụng ngay; yêu cầu khách đã gửi giữ giá cũ. Khách ngắn ngày vẫn dùng giá chung |
+| **Thông tin cơ sở** | Chủ đầu tư sửa địa chỉ và hotline ngay trên **Tham số**. Thông tin này in trên phiếu |
+
+### Việc anh/chị làm sau khi lên
+
+1. OWN nhập giá dọn thêm cho đủ 10 căn **trước khi gửi link trang khách** cho khách dài hạn. Sau đó lễ tân trưởng thử trên một folio Studio và một folio Premium/Signature (hướng dẫn ra mắt 7.1).
+2. OWN điền địa chỉ và hotline, rồi in thử một phiếu A5.
+3. Hỏi kế toán về cách ghi VAT điện, nước.
+4. Đưa hết khách dài hạn lên Desk trước 29/11 (chậm nhất 11/12).
+
+### Giới hạn đã biết
+
+- Chưa có màn **đọc bù số công tơ** (BR-LS-17). Màn này lên ở bản sau, trước 11/12.
+- BUG-R5-002 và BUG-R5-007 (P2) vẫn mở.
 
 ---
 

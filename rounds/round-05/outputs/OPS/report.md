@@ -810,3 +810,47 @@ Thẻ còn mở (Minor, không chặn): SEC xem việc cấp `pg_read_all_stats`
 
 ### 21.6 Không thay đổi gì trên máy chủ
 Chỉ đọc. Production vẫn `sha-f8791cf83b63`, 73 migration. Staging vẫn `sha-4d47af0dd6a7`. Không deploy, không khởi động lại. Trên Mac: kéo image `ottimo-api:sha-4d47af0dd6a7` (không chứa bí mật, giữ lại). Không commit (theo giao việc, ORC commit).
+
+## 22. Release v1.0.7 production 20/11 (FB-INV-012), 08:48–08:54
+
+Căn cứ: giao việc ORC Round 5, bước phát hành. INV đồng ý trong chat 20/11 khoảng 08:47 ("Bây giờ luôn", làm ngay thay vì 23–26/11). Câu đồng ý chỉ cho lần vào SSH hôm nay và lần deploy production này. QC chuyển cổng sang `b250cd37` (`rounds/round-05/qc/fb-inv-012-qc-gate.md` mục 10). Làm theo §21.5, có các chỗ sửa ở QC 10.4. DB chỉ đọc qua `SQLRO` (hai phiên production, cả hai có hai dòng chốt `on` / `ottimo_readonly`). Không SQL ghi. Không đổi giá hay tham số Desk. Không in khóa, `.env`, IP, số tiền, mã đơn. Digest in 8 + 4 ký tự.
+
+### 22.1 Kết quả từng mục của §21.5
+
+| # | Giờ | Kiểm | Kết quả |
+|---|---|---|---|
+| 1 | 08:48–08:50 | Ứng viên, digest, tag | `b250cd37` nằm trên `origin/main`. `src/db` giống hệt `4d47af0d`. CI push **44570372593** success. Artifact `image-digests`: `tag=sha-b250cd377e74`, api `sha256:b3ed7acf…c79c`, web `sha256:2ece9c67…b9bb`. **Trùng đủ 64 ký tự** với image api và web staging đang chạy (`current_tag` staging `sha-b250cd377e74`, `RepoDigests`). Tag `v1.0.7` (annotated) trên `b250cd37`, push 08:49:46. Release run **44656437190**: `resolve` success, rồi dừng ở environment `production` (id 25137151508). Gói `product/infra` phía máy chủ không đổi từ v1.0.6 (`git diff f8791cf8 b250cd37 -- product/infra` chỉ có `ci/playwright-deps.sh`), nên không cần làm mới |
+| 2 | 08:48 | Giờ vắng | Bắt đầu 08:48, xong 08:54. Ngoài mọi khung tránh |
+| 3 | 08:49:30–08:49:35 | Sao lưu thủ công `ottimo-backup@ottimo-prod.service` | `OK: 108 encrypted files in /var/backups/ottimo-prod`. `backup.last_ok` = **2026-11-20T01:49:35Z** (08:49:35 VN); trước đó là 2026-11-19T20:04:49Z. **Đây là bản để quay lui** |
+| 4 | 08:51:18 | `SQLRO` ngay trước khi duyệt | (a) `pg_locks` tiến trình khác: **0**; `pg_prepared_xacts` 0. (b) `staff_notification` ngoài danh sách 0100: **0/26**; `payment` ngoài danh sách 0100: **0/3**. Danh sách lấy đúng từ `0100_go_live_fix_fb_inv_012.sql` ở `b250cd37` |
+| 5 | 08:51:18 | Số đếm trước | migrations **73** · `payment` 3 · `folio_line` 38 · `folio` 11 · `reservation` 11 · `config_parameter_def` **200**. Trùng 19/11 |
+| – | 08:51 | Duyệt gate | OPS **không** tự duyệt. Gửi ORC run id cùng kết quả mục 3–5. ORC duyệt theo câu OK của INV |
+| 6 | – | `lock_timeout` | Không xảy ra |
+| 7 | 08:51:49–08:53:32 | Sau deploy | Xem 22.2. **ĐẠT** |
+| 8 | – | Quay lui | **Không cần** |
+
+### 22.2 Mục 7 – kiểm sau deploy
+
+| Giờ | Nguồn | Kết quả |
+|---|---|---|
+| 08:51:49 | `journalctl -t ottimo-deploy` | `deploy sha-b250cd377e74 (previous: sha-f8791cf83b63, pull=1, rollback=0)` |
+| 08:51:57 | như trên | **`migrations: 75 applied / 75 in the image journal`**. Migrate xong trong khoảng 8 giây từ đầu deploy, gồm `02-roles.sh` |
+| 08:52:24 | như trên | **`OK: sha-b250cd377e74 is live`**; `CI deploy sha-b250cd377e74 ok`. Run 44656437190 `completed/success` |
+| 08:52:35 | `docker inspect` | `current_tag` production = `sha-b250cd377e74`. api `sha256:b3ed7acf…c79c` (trùng artifact), worker cùng image api, web `sha256:2ece9c67…b9bb` (trùng artifact). api, web healthy; worker chạy; `RestartCount` 0/0/0 |
+| 08:53:01 | `SQLRO` | migrations **75** · 6/6 ràng buộc (`payment_billing_period_fk`, `payment_method_check`, `payment_outside_desk_check`, `reservation_checkin_backdated_pair_check`, `staff_notification_kind_check`, `meter_reading_catch_up_check`) `convalidated = true` · ràng buộc chưa kiểm trong toàn DB **0** · `billing_period` / `billing_period_line` / `meter_reading` 0/0/0 dòng · 4/4 khóa danh mục mới · `config_parameter_def` **204** (+4) · `long_stay_cleaning_fee_by_room` mặc định `{}`, **0 dòng `config_parameter`** (QC 3a) · `payment` 3, `folio_line` 38, `folio` 11, `reservation` 11 **không đổi** · `pg_locks` khác 0 |
+| 08:53 | Log Postgres production từ 08:50 | ERROR 0 · FATAL 0 · PANIC 0. Đúng 3 WARNING quen thuộc của `02-roles.sh` (`ottimo_app`, `ottimo_readonly`, `ottimo_requeue` … `ottimo_owner`), như §18.1 |
+| 08:53 | Log container từ lúc deploy | api 0 dòng lỗi, worker 0 dòng lỗi; worker `worker started`, các job `job done` |
+| 08:53 | `ops-check.sh` (chạy tay, user `ottimo`) | 16 dòng `ok` (containers, j16, backup 0 h, disk, mem, tls, http5xx 0, email_*, price*, db_triggers). `FAIL sshkeys` đã có từ trước: các lượt timer 07:32, 08:02, 08:32 hôm nay cũng FAIL, còn chờ W0 (§16). `FAIL journal: journal unreadable` chỉ xuất hiện khi chạy tay, vì thiếu `SupplementaryGroups` của unit (§16, dòng 413). **Không có FAIL mới do v1.0.7** |
+| 08:53 | Desk từ Mac | `https://desk.ottimo.vn/` **200** |
+
+Desk gián đoạn: container mới khởi động 08:51:59 (worker) → 08:52:11 (web). Dự kiến vài giây, như các bản trước.
+
+### 22.3 Việc còn mở
+- (a) **OWN nhập bảng giá dọn theo căn** (`long_stay_cleaning_fee_by_room`) cho đủ 10 căn trên Desk, rồi thử đúng giá (`go-live-guide.md` 7.1). Hiện tại giá trị trên production là `{}`. OPS không nhập.
+- (b) QC 10.4 "Sau deploy" và điều kiện 4: OWN nhập địa chỉ và hotline (cấu hình cơ sở), in thử A5 trước phiếu đầu tiên (§20.3). Điều kiện 5(c): ORC ghi decision-log.
+- (c) ORC ghi decision-log (tag `v1.0.7`, run 44656437190, digest 8+4, giờ, bản sao lưu 01:49:35Z), `product/docs/release-notes.md` mục v1.0.7 (PO/ORC), rồi commit.
+- (d) Đã có từ trước, không do bản này: `sshkeys` FAIL (W0) ở mọi lượt timer. Thẻ Minor `pg_read_all_stats` (§20.2) vẫn mở.
+- (e) Quay lui nếu sau này có lỗi: `rollback.sh sha-f8791cf83b63`. DB không lùi (0099 và 0100 chỉ thêm và nới). Chỉ khôi phục từ bản 2026-11-20T01:49:35Z khi dữ liệu hỏng.
+
+### 22.4 Thay đổi trên máy chủ
+Chỉ có: một lượt sao lưu thủ công và một lần deploy qua Release (`deploy-from-ci.sh`). Còn lại là đọc: `SQLRO`, `docker inspect`, `docker logs`, `journalctl`, `cat` tệp trạng thái, `ops-check` (chạy tay; tệp trạng thái của nó cập nhật như mọi lượt). Staging không đổi (`sha-b250cd377e74`). Trên Mac: artifact digest chỉ nằm trong thư mục tạm của phiên, ngoài repo. Không commit (theo giao việc, ORC commit).
